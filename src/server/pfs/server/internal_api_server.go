@@ -338,7 +338,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard)
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse)
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:
@@ -475,13 +475,15 @@ type commitWait struct {
 	//TODO don't use repo here, it's technically fine but using protobufs as map keys is fraught with peril
 	repos          []*pfsclient.Repo
 	commitType     pfsclient.CommitType
+	all            bool
 	commitInfoChan chan *pfsclient.CommitInfo
 }
 
-func newCommitWait(repos []*pfsclient.Repo, commitType pfsclient.CommitType, commitInfoChan chan *pfsclient.CommitInfo) *commitWait {
+func newCommitWait(repos []*pfsclient.Repo, commitType pfsclient.CommitType, all bool, commitInfoChan chan *pfsclient.CommitInfo) *commitWait {
 	return &commitWait{
 		repos:          repos,
 		commitType:     commitType,
+		all:            all,
 		commitInfoChan: commitInfoChan,
 	}
 }
@@ -505,7 +507,7 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfsclient.ListCommitRe
 			close(outChan)
 		}()
 	}
-	a.commitWaiters = append(a.commitWaiters, newCommitWait(request.Repo, request.CommitType, outChan))
+	a.commitWaiters = append(a.commitWaiters, newCommitWait(request.Repo, request.CommitType, request.All, outChan))
 	return nil
 }
 
@@ -519,7 +521,7 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfsclient.Commit, commitT
 	var unpulsedWaiters []*commitWait
 WaitersLoop:
 	for _, commitWaiter := range a.commitWaiters {
-		if commitWaiter.commitType == pfsclient.CommitType_COMMIT_TYPE_NONE || commitType == commitWaiter.commitType {
+		if (commitWaiter.commitType == pfsclient.CommitType_COMMIT_TYPE_NONE || commitType == commitWaiter.commitType) && (commitWaiter.all || !commitInfo.Cancelled) {
 			for _, repo := range commitWaiter.repos {
 				if repo.Name == commit.Repo.Name {
 					commitWaiter.commitInfoChan <- commitInfo

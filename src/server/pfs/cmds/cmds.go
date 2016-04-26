@@ -328,7 +328,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := pfsclient.ListFile(apiClient, args[0], args[1], path, "", shard())
+			fileInfos, err := pfsclient.ListFile(apiClient, args[0], args[1], path, "", shard(), true)
 			if err != nil {
 				return err
 			}
