@@ -403,8 +403,10 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
 	listCommitResponse, err := pachClient.ListCommit(
-		context.Background(),
+		ctx,
 		listCommitRequest,
 	)
 	require.NoError(t, err)
