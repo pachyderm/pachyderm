@@ -78,7 +78,7 @@ func testJob(t *testing.T, shards int) {
 	require.NoError(t, err)
 	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
-	require.True(t, jobInfo.Shards > 0)
+	require.True(t, jobInfo.Parallelism > 0)
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
@@ -361,6 +361,109 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	// there should only be two commits in the pipeline
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
+}
+
+func TestPipelineWithTooMuchParallelism(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	pachClient := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism.data")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	// This pipeline will fail if any pod sees empty input, since cp won't
+	// be able to find the file.
+	// We have parallelism set to 3 so that if we actually start 3 pods,
+	// which would be a buggy behavior, some jobs don't see any files
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		3,
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Reduce: true, // setting reduce to true so only one pod gets the file
+		}},
+	))
+	// Do first commit to repo
+	commit1, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit1.ID))
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	listCommitResponse, err := pachClient.ListCommit(
+		ctx,
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	require.Equal(t, false, outCommits[0].Cancelled)
+}
+
+func TestPipelineWithEmptyInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	pachClient := getPachClient(t)
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			"NEW_UUID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)",
+			"echo foo > /pfs/out/$NEW_UUID",
+		},
+		3,
+		nil,
+	))
+
+	// Manually trigger the pipeline
+	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+	require.True(t, job.ID != "")
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := pachClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	fileInfos, err := pfsclient.ListFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
 }
 
 func TestPipelineThatWritesToOneFile(t *testing.T) {
