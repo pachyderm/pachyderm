@@ -89,7 +89,6 @@ func do(appEnvObj interface{}) error {
 					Job: &ppsclient.Job{
 						ID: args[0],
 					},
-					Index:   response.Index,
 					Success: success,
 				},
 			); err != nil {
