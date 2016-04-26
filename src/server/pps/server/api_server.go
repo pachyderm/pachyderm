@@ -654,6 +654,8 @@ func (a *apiServer) AddShard(shard uint64) error {
 				}
 				a.cancelFuncsLock.Unlock()
 			} else {
+				// We only want to start a goro to run the pipeline if the
+				// pipeline has more than one inputs
 				go func() {
 					b := backoff.NewExponentialBackOff()
 					// We set MaxElapsedTime to 0 because we want the retry to
@@ -728,6 +730,11 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 		a.cancelFuncsLock.Unlock()
 		return nil
 	}
+	if len(pipelineInfo.Inputs) == 0 {
+		// this pipeline does not have inputs; there is nothing to be done
+		return nil
+	}
+
 	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
