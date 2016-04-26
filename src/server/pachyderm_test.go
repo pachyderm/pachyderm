@@ -379,7 +379,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 		"",
 		[]string{"sh"},
 		[]string{
-			"echo foo >> /pfs/out/file",
+			"dd if=/dev/zero of=/pfs/out/file bs=10 count=1",
 		},
 		3,
 		nil,
@@ -407,7 +407,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+	require.Equal(t, 30, buffer.Len())
 }
 
 func TestWorkload(t *testing.T) {
