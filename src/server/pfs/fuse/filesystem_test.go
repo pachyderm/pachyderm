@@ -416,6 +416,45 @@ func TestMountCachingViaShell(t *testing.T) {
 	})
 }
 
+func TestFileOverwrite(t *testing.T) {
+	// Corresponds to issue #303
+
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+		repoName := "foo"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
+		commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, err)
+
+		const (
+			greetingName = "greeting"
+			greeting     = "Hello, world"
+			newGreeting  = "Goodbye, world"
+			greetingPerm = 0644
+		)
+
+		outputFilePath := filepath.Join(mountpoint, repoName, commit.ID, greetingName)
+		require.NoError(t, ioutil.WriteFile(outputFilePath, []byte(greeting), greetingPerm))
+		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
+
+		// Now try to overwrite
+
+		commit, err = pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, err)
+
+		overwrite := exec.Command("echo", fmt.Sprintf("\"%v\"", newGreeting), ">", outputFilePath)
+		out, err := overwrite.Output()
+		require.NoError(t, err)
+
+		data, err := ioutil.ReadFile(outputFilePath)
+		require.NoError(t, err)
+		require.Equal(t, newGreeting, string(data))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(apiClient pfsclient.APIClient, mountpoint string),
