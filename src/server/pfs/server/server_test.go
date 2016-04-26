@@ -475,6 +475,32 @@ func TestPutFile(t *testing.T) {
 	require.Equal(t, "bar\n", buffer2.String())
 }
 
+func TestPutSameFileInParallel(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	var wg sync.WaitGroup
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", strings.NewReader("foo\n"))
+			require.NoError(t, err)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+}
+
 func TestInspectFile(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
