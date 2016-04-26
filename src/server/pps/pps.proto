@@ -16,13 +16,11 @@ message StartJobRequest {
 message StartJobResponse {
     Transform transform = 1;
 	repeated fuse.CommitMount commit_mounts = 2;
-	uint64 index = 4;
 }
 
 message FinishJobRequest {
     Job job = 1;
-	uint64 index = 2;
-    bool success = 3;
+    bool success = 2;
 }
 
 service InternalJobAPI {

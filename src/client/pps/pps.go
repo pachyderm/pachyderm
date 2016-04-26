@@ -20,7 +20,7 @@ func CreateJob(
 	image string,
 	cmd []string,
 	stdin []string,
-	shards uint64,
+	parallelism uint64,
 	inputs []*JobInput,
 	parentJobID string,
 ) (*Job, error) {
@@ -36,9 +36,9 @@ func CreateJob(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards:    shards,
-			Inputs:    inputs,
-			ParentJob: parentJob,
+			Parallelism: parallelism,
+			Inputs:      inputs,
+			ParentJob:   parentJob,
 		},
 	)
 }
@@ -66,7 +66,7 @@ func CreatePipeline(
 	image string,
 	cmd []string,
 	stdin []string,
-	shards uint64,
+	parallelism uint64,
 	inputs []*PipelineInput,
 ) error {
 	_, err := client.CreatePipeline(
@@ -78,8 +78,8 @@ func CreatePipeline(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards: shards,
-			Inputs: inputs,
+			Parallelism: parallelism,
+			Inputs:      inputs,
 		},
 	)
 	return err

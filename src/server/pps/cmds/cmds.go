@@ -43,6 +43,12 @@ The increase the throughput of a job increase the Shard paremeter.
 	if err != nil {
 		return nil, err
 	}
+
+	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec())
+	if err != nil {
+		return nil, err
+	}
+
 	var jobPath string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
@@ -312,6 +318,58 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var specPath string
+	runPipeline := &cobra.Command{
+		Use:   "run-pipeline pipeline-name [-f job.json]",
+		Short: "Run a pipeline once.",
+		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+
+			request := &ppsclient.CreateJobRequest{
+				Pipeline: &ppsclient.Pipeline{
+					Name: args[0],
+				},
+			}
+
+			var specReader io.Reader
+			if specPath == "-" {
+				specReader = os.Stdin
+				fmt.Print("Reading from stdin.\n")
+			} else if specPath != "" {
+				specFile, err := os.Open(specPath)
+				if err != nil {
+					errorAndExit("Error opening %s: %s", specPath, err.Error())
+				}
+
+				defer func() {
+					if err := specFile.Close(); err != nil {
+						errorAndExit("Error closing%s: %s", specPath, err.Error())
+					}
+				}()
+
+				specReader = specFile
+				if err := jsonpb.Unmarshal(specReader, request); err != nil {
+					errorAndExit("Error reading from stdin: %s", err.Error())
+				}
+			}
+
+			job, err := apiClient.CreateJob(
+				context.Background(),
+				request,
+			)
+			if err != nil {
+				errorAndExit("Error from RunPipeline: %s", err.Error())
+			}
+			fmt.Println(job.ID)
+			return nil
+		}),
+	}
+	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
+
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, createJob)
@@ -323,6 +381,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)
 	result = append(result, deletePipeline)
+	result = append(result, runPipeline)
 	return result, nil
 }
 
