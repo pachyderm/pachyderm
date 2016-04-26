@@ -76,7 +76,6 @@ func testJob(t *testing.T, shards int) {
 	defer cancel() //cleanup resources
 	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
-	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Parallelism > 0)
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -447,7 +446,17 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
-	require.True(t, job.ID != "")
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:         job,
+		BlockOutput: true,
+		BlockState:  true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
+	require.Equal(t, 3, int(jobInfo.Parallelism))
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
@@ -455,7 +464,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 		Block:      true,
 	}
 	listCommitResponse, err := pachClient.ListCommit(
-		context.Background(),
+		ctx,
 		listCommitRequest,
 	)
 	require.NoError(t, err)
@@ -489,20 +498,21 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	))
 
 	// Manually trigger the pipeline
-	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	_, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
 	})
-	require.True(t, job.ID != "")
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
 	listCommitResponse, err := pachClient.ListCommit(
-		context.Background(),
+		ctx,
 		listCommitRequest,
 	)
 	require.NoError(t, err)
