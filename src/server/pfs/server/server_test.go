@@ -880,7 +880,12 @@ func Test0Modulus(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
-	_, err = pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", &pfsclient.Shard{})
+	zeroModulusShard := &pfsclient.Shard{}
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", zeroModulusShard)
+	require.NoError(t, err)
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit.ID, "foo", 0, 0, "", zeroModulusShard, &buffer))
+	_, err = pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", zeroModulusShard)
 	require.NoError(t, err)
 }
 
