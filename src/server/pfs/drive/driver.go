@@ -547,6 +547,9 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, true)
 	if err != nil {
 		d.lock.RUnlock()
+		if err == pfsserver.ErrFileNotFound {
+			return nil
+		}
 		return err
 	}
 	d.lock.RUnlock()
@@ -587,10 +590,12 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
-	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
-		Delete: true,
+	cleanPath := path.Clean(file.Path)
+	if _, ok := diffInfo.Appends[cleanPath]; !ok {
+		diffInfo.Appends[cleanPath] = &pfsclient.Append{}
 	}
-
+	// Preserve the blockrefs for this commit
+	diffInfo.Appends[cleanPath].Delete = true
 	deleteFromDir(diffInfo, file)
 
 	return nil
@@ -801,9 +806,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete {
-				break
-			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
+			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -858,6 +861,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 					children[child] = true
 				}
+			}
+			if _append.Delete {
+				break
 			}
 			if fileInfo.CommitModified == nil {
 				fileInfo.CommitModified = commit
