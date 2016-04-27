@@ -82,6 +82,9 @@ docker-build: docker-build-job-shim docker-build-pachd
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
+docker-build-fruitstand:
+	docker build -t fruit_stand examples/fruit_stand
+
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
