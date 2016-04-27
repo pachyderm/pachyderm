@@ -872,6 +872,29 @@ func TestFinishCommitParentCancelled(t *testing.T) {
 	require.True(t, commit3Info.Cancelled)
 }
 
+func Test0Modulus(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
+	zeroModulusShard := &pfsclient.Shard{}
+	fileInfo, err := pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", zeroModulusShard)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit.ID, "foo", 0, 0, "", zeroModulusShard, &buffer))
+	require.Equal(t, 4, buffer.Len())
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", zeroModulusShard, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
