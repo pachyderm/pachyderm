@@ -473,6 +473,14 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	fileInfos, err := pfsclient.ListFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "", "", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
+
+	// Make sure that each job gets a different ID
+	job2, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+	require.True(t, job.ID != job2.ID)
 }
 
 func TestPipelineThatWritesToOneFile(t *testing.T) {
@@ -521,6 +529,54 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, 30, buffer.Len())
+}
+
+func TestPipelineThatWritesToOneFileWithEcho(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	pachClient := getPachClient(t)
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			"echo foo >> /pfs/out/file",
+		},
+		3,
+		nil,
+	))
+
+	// Manually trigger the pipeline
+	_, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+	listCommitResponse, err := pachClient.ListCommit(
+		ctx,
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 }
 
 func TestWorkload(t *testing.T) {

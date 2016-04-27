@@ -372,6 +372,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 }
 
 func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.Reader) (retErr error) {
+	fmt.Println("putting file %v", file)
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
