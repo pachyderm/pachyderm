@@ -27,12 +27,16 @@ func PrintPipelineHeader(w io.Writer) {
 
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	for i, input := range pipelineInfo.Inputs {
-		fmt.Fprintf(w, "%s", input.Repo.Name)
-		if i == len(pipelineInfo.Inputs)-1 {
-			fmt.Fprintf(w, "\t")
-		} else {
-			fmt.Fprintf(w, ", ")
+	if len(pipelineInfo.Inputs) == 0 {
+		fmt.Fprintf(w, "\t")
+	} else {
+		for i, input := range pipelineInfo.Inputs {
+			fmt.Fprintf(w, "%s", input.Repo.Name)
+			if i == len(pipelineInfo.Inputs)-1 {
+				fmt.Fprintf(w, "\t")
+			} else {
+				fmt.Fprintf(w, ", ")
+			}
 		}
 	}
 	if pipelineInfo.OutputRepo != nil {
