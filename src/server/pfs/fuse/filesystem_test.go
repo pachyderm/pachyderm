@@ -419,6 +419,7 @@ func TestMountCachingViaShell(t *testing.T) {
 func TestFileOverwrite(t *testing.T) {
 	// Corresponds to issue #303
 
+	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -445,9 +446,11 @@ func TestFileOverwrite(t *testing.T) {
 		commit, err = pfsclient.StartCommit(apiClient, repoName, "", "")
 		require.NoError(t, err)
 
-		overwrite := exec.Command("echo", fmt.Sprintf("\"%v\"", newGreeting), ">", outputFilePath)
-		out, err := overwrite.Output()
+		fmt.Printf("ZZZ trying to overwrite\n")
+		overwrite := exec.Command("bash", "-c", fmt.Sprintf("echo \"%v\" > %v", newGreeting, outputFilePath))
+		_, err = overwrite.Output()
 		require.NoError(t, err)
+		fmt.Printf("ZZZ done overwriting\n")
 
 		data, err := ioutil.ReadFile(outputFilePath)
 		require.NoError(t, err)
