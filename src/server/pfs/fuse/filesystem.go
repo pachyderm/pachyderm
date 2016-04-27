@@ -204,6 +204,11 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
+func (f *file) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
+	protolion.Debug(&FileRemove{&f.Node, errorToString(retErr)})
+	return pfsclient.DeleteFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, req.Name)
+}
+
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	f.lock.RLock()
 	inode, ok := f.inodes[key(file)]
