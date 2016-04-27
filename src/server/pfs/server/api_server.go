@@ -377,6 +377,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfsclient.DeleteC
 }
 
 func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr error) {
+	println("BP1")
 	var request *pfsclient.PutFileRequest
 	var err error
 	defer func(start time.Time) {
@@ -394,14 +395,17 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 			retErr = err
 		}
 	}()
+	println("BP2")
 	request, err = putFileServer.Recv()
 	if err != nil && err != io.EOF {
 		return err
 	}
+	println("BP3")
 	if err == io.EOF {
 		// tolerate people calling and immediately hanging up
 		return nil
 	}
+	println("BP4")
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to

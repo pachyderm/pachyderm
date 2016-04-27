@@ -284,7 +284,7 @@ func isConflictErr(err error) bool {
 func getJobID(req *ppsclient.CreateJobRequest) string {
 	// If the job belongs to a pipeline, and the pipeline has inputs,
 	// we want to make sure that the same
-	// job does now run twice.  We ensure that by generating the job id by
+	// job does not run twice.  We ensure that by generating the job id by
 	// hashing the pipeline name and input commits.  That way, two same jobs
 	// will have the sam job IDs, therefore won't be created in the database
 	// twice.
