@@ -111,6 +111,9 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-launch:
+	kubectl delete --ignore-not-found -f etc/kube/pachyderm.json
+
+full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
