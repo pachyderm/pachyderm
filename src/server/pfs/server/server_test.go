@@ -883,12 +883,16 @@ func Test0Modulus(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 	zeroModulusShard := &pfsclient.Shard{}
-	_, err = pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", zeroModulusShard)
+	fileInfo, err := pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", zeroModulusShard)
 	require.NoError(t, err)
+	require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit.ID, "foo", 0, 0, "", zeroModulusShard, &buffer))
-	_, err = pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", zeroModulusShard)
+	require.Equal(t, 4, buffer.Len())
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", zeroModulusShard, false)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
 }
 
 func generateRandomString(n int) string {
