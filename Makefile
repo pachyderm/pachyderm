@@ -113,6 +113,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
+clean-pps-storage:
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm-pps-storage
+
 integration-tests:
 	CGOENABLED=0 go test ./src/server -timeout 300s
 
