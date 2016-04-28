@@ -114,7 +114,8 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 clean-pps-storage:
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm-pps-storage
+	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
+	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
 	CGOENABLED=0 go test ./src/server -timeout 300s
