@@ -592,7 +592,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 
 	cleanPath := path.Clean(file.Path)
 	if _, ok := diffInfo.Appends[cleanPath]; !ok {
-		diffInfo.Appends[cleanPath] = &pfsclient.Append{}
+		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
 	// Preserve the blockrefs for this commit
 	diffInfo.Appends[cleanPath].Delete = true
@@ -828,7 +828,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
-			} else {
+			} else if len(_append.Children) > 0 {
 				// Without BlockRefs, this Append is for a directory, even if
 				// it doesn't have Children either.  This is because we sometimes
 				// have an Append just to signify that this is a directory
