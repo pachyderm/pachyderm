@@ -451,7 +451,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
@@ -517,7 +517,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 	listCommitResponse, err := pachClient.ListCommit(
 		ctx,
@@ -565,7 +565,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 	listCommitResponse, err := pachClient.ListCommit(
 		ctx,
