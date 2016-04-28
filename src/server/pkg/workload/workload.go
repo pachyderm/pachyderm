@@ -253,7 +253,7 @@ func (w *worker) reader() io.Reader {
 func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {
 	return []string{
 		fmt.Sprintf(
-			"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s",
+			"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s; true",
 			w.randString(4),
 			inputs[0],
 			inputs[1],
