@@ -153,9 +153,11 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	return localResult, nil
 }
 
-func (f *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
-	protolion.Debug(&FileRemove{&f.Node, errorToString(retErr)})
-	return pfsclient.DeleteFile(f.fs.apiClient, f.Node.File.Commit.Repo.Name, f.Node.File.Commit.ID, filepath.Join(f.Node.File.Path, req.Name))
+func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
+	}()
+	return pfsclient.DeleteFile(d.fs.apiClient, d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
 }
 
 type file struct {
