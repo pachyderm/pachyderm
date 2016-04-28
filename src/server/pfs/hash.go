@@ -28,7 +28,7 @@ func (s *Hasher) HashBlock(block *pfs.Block) uint64 {
 }
 
 func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
-	if shard == nil {
+	if shard == nil || shard.FileModulus == 0 {
 		// this lets us default to no filtering
 		return true
 	}
@@ -37,7 +37,7 @@ func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
 }
 
 func BlockInShard(shard *pfs.Shard, block *pfs.Block) bool {
-	if shard == nil {
+	if shard == nil || shard.BlockModulus == 0 {
 		// this lets us default to no filtering
 		return true
 	}
