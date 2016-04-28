@@ -91,6 +91,11 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			}
 			i := w.rand.Intn(len(w.started))
 			commit := w.started[i]
+			// before we finish a commit we add a file, this assures that there
+			// won't be any empty commits which will later crash jobs
+			if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+				return err
+			}
 			if err := pfsclient.FinishCommit(pfsClient, commit.Repo.Name, commit.ID); err != nil {
 				return err
 			}
@@ -248,7 +253,7 @@ func (w *worker) reader() io.Reader {
 func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {
 	return []string{
 		fmt.Sprintf(
-			"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s; true",
+			"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s",
 			w.randString(4),
 			inputs[0],
 			inputs[1],
