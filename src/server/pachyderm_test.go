@@ -627,7 +627,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	))
 
 	// Manually trigger the pipeline
-	_, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -656,6 +656,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
+		ParentJob: job,
 	})
 
 	listCommitRequest = &pfsclient.ListCommitRequest{
@@ -676,76 +677,61 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestPipelineThatRemovesAndAppends(t *testing.T) {
+func TestRemoveAndAppend(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
 	pachClient := getPachClient(t)
-	// create pipeline
-	pipelineName := uniqueString("pipeline")
-	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
-	require.NoError(t, ppsclient.CreatePipeline(
-		pachClient,
-		pipelineName,
-		"",
-		[]string{"sh"},
-		[]string{
-			"rm /pfs/out/file && echo foo > /pfs/out/file",
-		},
-		3,
-		nil,
-	))
 
-	// Manually trigger the pipeline
-	_, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
-		Pipeline: &ppsclient.Pipeline{
-			Name: pipelineName,
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel() //cleanup resources
+
+	job1, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: []string{"sh"},
+			Stdin: []string{
+				"echo foo > /pfs/out/file",
+			},
 		},
+		Parallelism: 3,
 	})
 
-	listCommitRequest := &pfsclient.ListCommitRequest{
-		Repo:       []*pfsclient.Repo{outRepo},
-		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
-		Block:      true,
+	inspectJobRequest1 := &ppsclient.InspectJobRequest{
+		Job:         job1,
+		BlockOutput: true,
+		BlockState:  true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
-	listCommitResponse, err := pachClient.ListCommit(
-		ctx,
-		listCommitRequest,
-	)
+	jobInfo1, err := pachClient.InspectJob(ctx, inspectJobRequest1)
 	require.NoError(t, err)
-	outCommits := listCommitResponse.CommitInfo
-	require.Equal(t, 1, len(outCommits))
+
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 
-	// Manually trigger the pipeline
-	_, err = pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
-		Pipeline: &ppsclient.Pipeline{
-			Name: pipelineName,
+	job2, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: []string{"sh"},
+			Stdin: []string{
+				"unlink /pfs/out/file && echo bar > /pfs/out/file",
+			},
 		},
+		Parallelism: 3,
+		ParentJob:   job1,
 	})
 
-	listCommitRequest = &pfsclient.ListCommitRequest{
-		Repo:       []*pfsclient.Repo{outRepo},
-		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
-		Block:      true,
-		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
+	inspectJobRequest2 := &ppsclient.InspectJobRequest{
+		Job:         job2,
+		BlockOutput: true,
+		BlockState:  true,
 	}
-	listCommitResponse, err = pachClient.ListCommit(
-		ctx,
-		listCommitRequest,
-	)
+	jobInfo2, err := pachClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)
-	outCommits = listCommitResponse.CommitInfo
-	require.Equal(t, 1, len(outCommits))
+
 	var buffer2 bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
-	require.Equal(t, "foo\nfoo\nfoo\n", buffer2.String())
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
+	require.Equal(t, "bar\nbar\nbar\n", buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {

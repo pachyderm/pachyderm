@@ -609,40 +609,39 @@ func TestDeleteFile(t *testing.T) {
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
-	// foo should not exist
+	// foo should still be here because we can't remove a file that we are adding
+	// in the same commit
 	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "foo", "", nil)
-	require.YesError(t, err)
+	require.NoError(t, err)
 
-	// Should see one file
+	// Should see two files
 	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-	require.Equal(t, fileInfos[0].File.Path, "bar")
+	require.Equal(t, 2, len(fileInfos))
 
 	// Empty commit
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
 
-	// Should still see one file
+	// Should still see two files
 	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit2.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-	require.Equal(t, fileInfos[0].File.Path, "bar")
+	require.Equal(t, 2, len(fileInfos))
 
-	// Delete the other file
+	// Delete foo
 	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit3.ID, "bar"))
+	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit3.ID, "foo"))
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
 
-	// Should see zero files
+	// Should see one files
 	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit3.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
 	// The removed file should not exist
-	_, err = pfsclient.InspectFile(pfsClient, repo, commit3.ID, "bar", "", nil)
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit3.ID, "foo", "", nil)
 	require.YesError(t, err)
 }
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -152,6 +153,11 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	return localResult, nil
 }
 
+func (f *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
+	protolion.Debug(&FileRemove{&f.Node, errorToString(retErr)})
+	return pfsclient.DeleteFile(f.fs.apiClient, f.Node.File.Commit.Repo.Name, f.Node.File.Commit.ID, filepath.Join(f.Node.File.Path, req.Name))
+}
+
 type file struct {
 	directory
 	size    int64
@@ -202,11 +208,6 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 		}
 	}
 	return nil
-}
-
-func (f *file) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
-	protolion.Debug(&FileRemove{&f.Node, errorToString(retErr)})
-	return pfsclient.DeleteFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, req.Name)
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
@@ -295,7 +296,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	// observed on osx, not on linux.
 	repeated := h.written - int(request.Offset)
 	if repeated < 0 {
-		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+		repeated = h.written
 	}
 	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
