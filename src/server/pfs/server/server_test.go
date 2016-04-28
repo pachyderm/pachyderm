@@ -872,6 +872,32 @@ func TestFinishCommitParentCancelled(t *testing.T) {
 	require.True(t, commit3Info.Cancelled)
 }
 
+func TestHandleRace(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	writer1, err := pfsclient.PutFileWriter(pfsClient, repo, commit.ID, "foo", "handle1")
+	require.NoError(t, err)
+	_, err = writer1.Write([]byte("foo"))
+	require.NoError(t, err)
+	writer2, err := pfsclient.PutFileWriter(pfsClient, repo, commit.ID, "foo", "handle2")
+	require.NoError(t, err)
+	_, err = writer2.Write([]byte("bar"))
+	require.NoError(t, err)
+	require.NoError(t, writer2.Close())
+	_, err = writer1.Write([]byte("foo"))
+	require.NoError(t, err)
+	require.NoError(t, writer1.Close())
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit.ID, "foo", 0, 0, "", nil, &buffer))
+	require.EqualOneOf(t, []interface{}{"foofoobar", "barfoofoo"}, buffer.String())
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
