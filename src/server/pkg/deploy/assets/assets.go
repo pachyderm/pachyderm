@@ -361,6 +361,7 @@ func RethinkService() *api.Service {
 			Labels: labels(rethinkName),
 		},
 		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": rethinkName,
 			},
@@ -368,16 +369,17 @@ func RethinkService() *api.Service {
 				{
 					Port:     8080,
 					Name:     "admin-port",
-					NodePort: 8081,
+					NodePort: 32080,
 				},
 				{
 					Port:     28015,
 					Name:     "driver-port",
-					NodePort: 28015,
+					NodePort: 32081,
 				},
 				{
-					Port: 29015,
-					Name: "cluster-port",
+					Port:     29015,
+					Name:     "cluster-port",
+					NodePort: 32082,
 				},
 			},
 		},
@@ -478,7 +480,8 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 			Capacity: map[api.ResourceName]resource.Quantity{
 				"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
 			},
-			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+			AccessModes:                   []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+			PersistentVolumeReclaimPolicy: api.PersistentVolumeReclaimRetain,
 		},
 	}
 
@@ -507,7 +510,7 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	return &api.PersistentVolumeClaim{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "PersistentVolume",
+			Kind:       "PersistentVolumeClaim",
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
@@ -521,7 +524,6 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 				},
 			},
 			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
-			VolumeName:  rethinkVolumeName,
 		},
 	}
 }
