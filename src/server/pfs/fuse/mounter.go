@@ -40,10 +40,6 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	// TODO: should we make the caller do this?
-	if err := os.MkdirAll(mountPoint, 0777); err != nil {
-		return err
-	}
 	name := namePrefix + m.address
 	conn, err := fuse.Mount(
 		mountPoint,
