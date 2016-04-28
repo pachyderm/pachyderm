@@ -277,6 +277,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
+	var fromCommitID string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -286,10 +287,11 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return pfsclient.GetFile(apiClient, args[0], args[1], args[2], 0, 0, "", shard(), os.Stdout)
+			return pfsclient.GetFile(apiClient, args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
+	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "from commit")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
