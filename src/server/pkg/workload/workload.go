@@ -91,6 +91,11 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			}
 			i := w.rand.Intn(len(w.started))
 			commit := w.started[i]
+			// before we finish a commit we add a file, this assures that there
+			// won't be any empty commits which will later crash jobs
+			if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+				return err
+			}
 			if err := pfsclient.FinishCommit(pfsClient, commit.Repo.Name, commit.ID); err != nil {
 				return err
 			}
