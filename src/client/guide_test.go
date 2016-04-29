@@ -81,13 +81,22 @@ func parseCommand(raw string) *Command {
 	if strings.Contains(raw, "[//]") {
 		// Options are SKIP | CHAIN_OUTPUT | CHECK_OUTPUT | custom command
 
-		re, err := regexp.Compile("\\((.*?)\\)")
+		re, err := regexp.Compile(`\[\/\/\].*?\n`)
+		fmt.Printf("regex: %v\n", re)
 		if err != nil {
 			fmt.Printf(err.Error())
 		}
-		fmt.Printf("raw (%v)\n", raw)
 		result := re.FindAllStringSubmatch(raw, -1)
-		fmt.Printf("result: %v\n", result)
+		fmt.Printf("result of find line: %v\n", result)
+		line := result[0][0]
+
+		re, err = regexp.Compile("\\((.*?)\\)")
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
+		//	fmt.Printf("raw (%v)\n", raw)
+		result = re.FindAllStringSubmatch(line, -1)
+		//		fmt.Printf("result: %v\n", result)
 		if len(result) > 0 && len(result[0]) == 2 {
 			directive := result[len(result)-1][1]
 			fmt.Printf("directive: %v\n", directive)
