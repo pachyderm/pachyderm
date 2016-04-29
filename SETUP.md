@@ -1,13 +1,14 @@
 # Setup
 
-* [Intro](#intro) 
-
 ## Intro
 
-This document is about setting up and troubleshooting Pachyderm installations.
-It's meant to cover known good configurations for a number of different platforms.
-If you don't see your platform here please open and issue letting us know and
-we'll help you find an install path and then document it here.
+Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically Pachyderm can run on any platform that Kubernetes supports.  This guide covers the following commonly used platforms:
+
+* [Local](#local-deployment)
+* [Google Cloud Platform](#google-cloud-playform)
+* [AWS](#amazon-web-services-aws)
+
+Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
 
 ## Common Prerequisites
 
@@ -121,7 +122,12 @@ $ MANIFEST=manifest make launch
 
 ## Amazon Web Services (AWS)
 
-TODO
+### Launch Kubernetes
+
+Deploying Kubernetes on AWS is still a relatively lengthy process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
+
+* https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
+* http://kubernetes.io/docs/getting-started-guides/aws/
 
 ## pachctl
 
