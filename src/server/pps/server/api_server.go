@@ -447,9 +447,28 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		Commit: jobInfo.OutputCommit,
 		Alias:  "out",
 	}
-	if parentJobInfo != nil {
-		outputCommitMount.FromCommit = parentJobInfo.OutputCommit
+
+	// We want to set the commit mount for the output commit such that
+	// its FromCommit is its direct parent.  By doing so, we ensure that
+	// the files written in previous commits are completely invisible
+	// to the job.  Files being written in the current commit will be
+	// invisible too due to the way PFS works.  Therefore, /pfs/out/
+	// will essentially be a "black box" that can only be written to,
+	// but never read from.
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
 	}
+	commitInfo, err := pfsAPIClient.InspectCommit(ctx, pfsclient.InspectCommitRequest{
+		Commit: outputCommitMount.Commit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.ParentCommit != nil {
+		outputCommitMount.FromCommit = commitInfo.ParentCommit
+	}
+
 	commitMounts = append(commitMounts, outputCommitMount)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
