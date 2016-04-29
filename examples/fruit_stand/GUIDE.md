@@ -31,6 +31,8 @@ and `pachctl` can talk to the servers.
 ```shell
 $ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
 ```
+[//]: # (ssh docker-machine -fTNL 8080:localhost:8080 -L 30650:localhost:30650)
+
 
 ### `pachctl`
 Pachyderm is controlled with a CLI, `pachctl`. To install:
@@ -75,6 +77,7 @@ can read and write data.
 # We background this process because it blocks.
 $ pachctl mount &
 ```
+[//]: # (FORK)
 
 This will mount pfs on `/pfs` you can inspect the filesystem like you would any
 other local filesystem. Try:
@@ -100,6 +103,7 @@ $ pachctl create-repo data
 $ ls /pfs
 data
 ```
+[//]: # (CHECK_OUTPUT)
 
 Now `ls` does something! `/pfs` contains a directory for every repo in the
 filesystem.
@@ -124,6 +128,7 @@ Now if we take a look back at `/pfs` things have changed:
 $ ls /pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
+[//]: # (CHAIN_OUTPUT)
 
 A new directory has been created for our commit and now we can start adding
 files. We've provided some sample data for you to use -- a list of purchases
@@ -133,6 +138,7 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 # Write sample data to pfs
 $ cat examples/fruit_stand/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
+[//]: # (cat examples/fruit_stand/set1.txt >/pfs/data/CHAINED_INPUT/sales)
 
 However, you'll notice that we can't read the file "sales" yet.
 
@@ -140,6 +146,7 @@ However, you'll notice that we can't read the file "sales" yet.
 $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
+[//]: # (SKIP)
 
 ## Finish a `Commit`
 
