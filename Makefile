@@ -82,6 +82,9 @@ docker-build: docker-build-job-shim docker-build-pachd
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
+docker-build-fruitstand:
+	docker build -t fruit_stand examples/fruit_stand
+
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
@@ -108,6 +111,9 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-launch:
+	kubectl delete --ignore-not-found -f etc/kube/pachyderm.json
+
+full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
