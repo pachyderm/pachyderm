@@ -488,6 +488,9 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	// The fact that this is a directory is signified by setting Children
+	// to non-nil
+	_append.Children = make(map[string]bool)
 	return nil
 }
 
@@ -586,10 +589,11 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
-	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
-		Delete: true,
+	cleanPath := path.Clean(file.Path)
+	if _, ok := diffInfo.Appends[cleanPath]; !ok {
+		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
-
+	diffInfo.Appends[cleanPath].Delete = true
 	deleteFromDir(diffInfo, file)
 
 	return nil
@@ -800,9 +804,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete {
-				break
-			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
+			if len(_append.BlockRefs) == 0 && len(_append.Handles) == 0 && _append.Children == nil && !_append.Delete {
+				return nil, nil, fmt.Errorf("the append for %s does not correspond to a file or a directory, and does not signify deletion; this is likely a bug", path.Clean(file.Path))
+			}
+
+			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -824,10 +830,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
-			} else {
-				// Without BlockRefs, this Append is for a directory, even if
-				// it doesn't have Children either.  This is because we sometimes
-				// have an Append just to signify that this is a directory
+			} else if _append.Children != nil {
+				// With non-nil Children, this Append is for a directory, even if
+				// Children is empty.  This is because we sometimes
+				// have an Append with an empty children just to signify that
+				// this is a directory.
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -857,6 +864,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 					children[child] = true
 				}
+			}
+			// If Delete is true, then everything before this commit is irrelevant
+			if _append.Delete {
+				break
 			}
 			if fileInfo.CommitModified == nil {
 				fileInfo.CommitModified = commit
@@ -998,7 +1009,13 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	if _append.Children == nil {
 		_append.Children = make(map[string]bool)
 	}
-	_append.Children[childPath] = false
+	// Basically, we only set the entry to false if it's not been
+	// set to true.  If it's been set to true, that means that there
+	// is a PutFile operation in this commit for this very same file,
+	// so we don't want to remove the file from the directory.
+	if !_append.Children[childPath] {
+		_append.Children[childPath] = false
+	}
 }
 
 type fileReader struct {

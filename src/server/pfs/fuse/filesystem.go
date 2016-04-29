@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -154,6 +155,13 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	return localResult, nil
 }
 
+func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
+	}()
+	return pfsclient.DeleteFile(d.fs.apiClient, d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+}
+
 type file struct {
 	directory
 	size    int64
@@ -289,7 +297,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	// observed on osx, not on linux.
 	repeated := h.written - int(request.Offset)
 	if repeated < 0 {
-		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+		repeated = h.written
 	}
 	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
