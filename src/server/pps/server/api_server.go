@@ -459,7 +459,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
-	commitInfo, err := pfsAPIClient.InspectCommit(ctx, pfsclient.InspectCommitRequest{
+	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 		Commit: outputCommitMount.Commit,
 	})
 	if err != nil {
