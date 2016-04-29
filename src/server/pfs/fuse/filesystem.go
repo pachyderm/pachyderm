@@ -297,7 +297,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	// observed on osx, not on linux.
 	repeated := h.written - int(request.Offset)
 	if repeated < 0 {
-		repeated = h.written
+		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
 	}
 	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {

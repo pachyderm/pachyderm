@@ -447,6 +447,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		Commit: jobInfo.OutputCommit,
 		Alias:  "out",
 	}
+	if parentJobInfo != nil {
+		outputCommitMount.FromCommit = parentJobInfo.OutputCommit
+	}
 	commitMounts = append(commitMounts, outputCommitMount)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
