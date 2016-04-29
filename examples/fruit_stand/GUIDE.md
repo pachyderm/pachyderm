@@ -15,6 +15,15 @@ Before we can launch a cluster you'll need the following things:
 - Kubernetes and Kubectl >= 1.2.0
 - FUSE 2.8.2 (https://osxfuse.github.io/)
 
+### Forward Ports
+Unless `docker` is running locally we'll need to forward ports so that `kubectl`
+and `pachctl` can talk to the servers.
+
+```shell
+$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+```
+[//]: # (SKIP)
+
 ### Kubernetes
 
 For development we recommend a dockerized Kubernetes deployment.
@@ -23,16 +32,6 @@ If `docker` is installed you can launch one from the root of this repo with:
 ```shell
 $ make launch-kube
 ```
-
-### Forward Ports
-Unless `docker` is running locally we'll need to forward ports so that `kubectl`
-and `pachctl` can talk to the servers.
-
-```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
-[//]: # (ssh docker-machine -fTNL 8080:localhost:8080 -L 30650:localhost:30650)
-
 
 ### `pachctl`
 Pachyderm is controlled with a CLI, `pachctl`. To install:
@@ -77,14 +76,14 @@ can read and write data.
 First we need to create the directory:
 
 ```shell
-mkdir ~/pfs
+$ mkdir ~/pfs
 ```
 
 Then we'll use pachyderm to mount:
 
 ```shell
 # We background this process because it blocks.
-$ pachctl mount &
+$ pachctl mount ~/pfs
 ```
 [//]: # (FORK)
 
@@ -109,6 +108,10 @@ making them very specific. For this demo we'll simply create a `repo` called
 
 ```shell
 $ pachctl create-repo data
+```
+Now we should see the repository on our local mount:
+
+```shell
 $ ls ~/pfs
 data
 ```
@@ -137,7 +140,6 @@ Now if we take a look back at `~/pfs` things have changed:
 $ ls ~/pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
-[//]: # (CHAIN_OUTPUT)
 
 A new directory has been created for our commit and now we can start adding
 files. We've provided some sample data for you to use -- a list of purchases
