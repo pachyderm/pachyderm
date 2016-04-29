@@ -34,7 +34,7 @@ type Command struct {
 func (c *Command) Run(input string) (string, error) {
 
 	if c.Chain {
-		c.Cmd = strings.Replace(c.Cmd, "CHAINED_INPUT", input, -1)
+		c.Cmd = strings.Replace(c.Cmd, "CHAINED_INPUT", input, 2)
 	}
 
 	if c.Fork {
@@ -85,11 +85,12 @@ func parseCommand(raw string) *Command {
 		if err != nil {
 			fmt.Printf(err.Error())
 		}
-
+		fmt.Printf("raw (%v)\n", raw)
 		result := re.FindAllStringSubmatch(raw, -1)
-
+		fmt.Printf("result: %v\n", result)
 		if len(result) > 0 && len(result[0]) == 2 {
-			directive := result[0][1]
+			directive := result[len(result)-1][1]
+			fmt.Printf("directive: %v\n", directive)
 			switch directive {
 			case "SKIP":
 				return nil
@@ -122,6 +123,7 @@ func parseCommand(raw string) *Command {
 
 func splitCommand(rawCommand string) (string, []string) {
 	tokens := strings.SplitAfterN(rawCommand, " ", 2)
+	fmt.Printf("split raw command(%v) into (%v)\n", rawCommand, tokens)
 	cmd := strings.TrimSpace(tokens[0])
 	args := strings.Split(strings.TrimSpace(tokens[1]), " ")
 	return cmd, args
@@ -148,7 +150,9 @@ func runCommands(t *testing.T, commands []Command) {
 		if err != nil {
 			t.Errorf(err.Error())
 		}
-		pipe = out
+		if out != "" {
+			pipe = out
+		}
 	}
 }
 

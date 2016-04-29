@@ -73,20 +73,29 @@ NAME      LABELS    STATUS    VOLUME    CAPACITY   ACCESSMODES   AGE
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
 can read and write data.
+
+First we need to create the directory:
+
+```shell
+mkdir ~/pfs
+```
+
+Then we'll use pachyderm to mount:
+
 ```shell
 # We background this process because it blocks.
 $ pachctl mount &
 ```
 [//]: # (FORK)
 
-This will mount pfs on `/pfs` you can inspect the filesystem like you would any
+This will mount pfs on `~/pfs` you can inspect the filesystem like you would any
 other local filesystem. Try:
 
 ```shell
-$ ls /pfs
+$ ls ~/pfs
 ```
 That probably wasn't terribly interesting, but that's ok because you shouldn't see anything
-yet. `/pfs` will contain a directory for each `repo`, but you haven't made any
+yet. `~/pfs` will contain a directory for each `repo`, but you haven't made any
 yet. Let's make one.
 
 ## Create a `Repo`
@@ -100,16 +109,16 @@ making them very specific. For this demo we'll simply create a `repo` called
 
 ```shell
 $ pachctl create-repo data
-$ ls /pfs
+$ ls ~/pfs
 data
 ```
 [//]: # (CHECK_OUTPUT)
 
-Now `ls` does something! `/pfs` contains a directory for every repo in the
+Now `ls` does something! `~/pfs` contains a directory for every repo in the
 filesystem.
 
 ## Start a `Commit`
-Now that you've created a `Repo` you should see an empty directory `/pfs/data`.
+Now that you've created a `Repo` you should see an empty directory `~/pfs/data`.
 If you try writing to it, it will fail because you can't write directly to a
 `Repo`. In Pachyderm, you write data to an explicit `commit`. Commits are
 immutable snapshots of your data which give Pachyderm its version control for
@@ -123,9 +132,9 @@ $ pachctl start-commit data
 ```
 
 This returns a brand new commit id. Yours should be different from mine.
-Now if we take a look back at `/pfs` things have changed:
+Now if we take a look back at `~/pfs` things have changed:
 ```shell
-$ ls /pfs/data
+$ ls ~/pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 [//]: # (CHAIN_OUTPUT)
@@ -136,15 +145,15 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 
 ```shell
 # Write sample data to pfs
-$ cat examples/fruit_stand/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat examples/fruit_stand/set1.txt >~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
-[//]: # (cat examples/fruit_stand/set1.txt >/pfs/data/CHAINED_INPUT/sales)
+[//]: # (cat examples/fruit_stand/set1.txt >~/pfs/data/CHAINED_INPUT/sales)
 
 However, you'll notice that we can't read the file "sales" yet.
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
-cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
+$ cat ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+cat: ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
 [//]: # (SKIP)
 
@@ -157,12 +166,17 @@ to pfs is atomic. Now let's finish the commit:
 ```shell
 $ pachctl finish-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
+[//]: # (pachctl finish-commit data CHAINED_INPUT)
+
 
 Now we can view the file:
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
+[//]: # (cat ~/pfs/data/CHAINED_INPUT/sales)
+
+
 However, we've lost the ability to write to this `commit` since finished
 commits are immutable. In Pachyderm, a `commit` is always either _write-only_
 when it's been started and files are being added, or _read-only_ after it's
@@ -241,6 +255,7 @@ Now let's create the pipeline in Pachyderm:
 ```shell
 $ pachctl create-pipeline -f examples/fruit_stand/pipeline.json
 ```
+[//]: # (SKIP)
 
 ## What Happens When You Create a Pipeline
 Creating a `pipeline` tells Pachyderm to run your code on *every* finished
@@ -255,6 +270,7 @@ $ pachctl list-job
 ID                                 OUTPUT                                  STATE
 09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
+[//]: # (SKIP)
 
 Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
 `JOB_STATE_SUCCESS` (hopefully you won't see `JOB_STATE_FAILURE`).
@@ -266,6 +282,7 @@ $ kubectl get job
 JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR                                                         SUCCESSFUL
 09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
 ```
+[//]: # (SKIP)
 
 Every `pipeline` creates a corresponding `repo` with the same
 name where it stores its output results. In our example, the "filter" transformation created a `repo` called "filter" which was the input to the "sum" transformation. The "sum" `repo` contains the final output files.
@@ -274,8 +291,10 @@ name where it stores its output results. In our example, the "filter" transforma
  We can read the output data from the "sum" `repo` in the same fashion that we read the input data:
 
 ```shell
-$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
+[//]: # (SKIP)
+
 
 ## Processing More Data
 
@@ -295,12 +314,15 @@ Let's create a new commit with our previous commit as the parent:
 $ pachctl start-commit data -p 6a7ddaf3704b4cb6ae4ec73522efe05f
 fab8c59c786842ccaf20589e15606604
 ```
+[//]: # (SKIP)
 
 Next, we need to add more data. We're going to append more purchases from set2.txt to the file "sales."
 
 ```shell
-$ cat examples/fruit_stand/set2.txt >/pfs/data/fab8c59c786842ccaf20589e15606604/sales
+$ cat examples/fruit_stand/set2.txt >~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
+[//]: # (SKIP)
+
 Finally, we'll want to finish our second commit. After it's finished, we can
 read "sales" from the latest commit to see all the puchases from `set1` and
 `set2`. We could also chose to read from the first commit to only see `set1`.
@@ -308,13 +330,17 @@ read "sales" from the latest commit to see all the puchases from `set1` and
 ```shell
 $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
+[//]: # (SKIP)
+
 Finishing this commit will also automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
 "sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold. 
 
 ```shell
-$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
+[//]: # (SKIP)
+
 One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since `grep` is a command that is completely parallelizable (i.e. it's a `map`), Pachyderm will only `grep` the new data from set2.txt. If you look back at the pipeline, you'll notice that there is a `"reduce": true` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. 
 
 ## Next Steps
