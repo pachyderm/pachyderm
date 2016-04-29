@@ -382,6 +382,11 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfsclient.D
 		go func() {
 			defer wg.Done()
 			err := a.driver.DeleteFile(request.File, shard)
+			// We are ignoring ErrFileNotFound because the file being
+			// deleted can be a directory, and directory is scattered
+			// across many DiffInfos across many shards.  Yet not all
+			// shards necessarily contain DiffInfos that contain the
+			// directory, so some of them will report FileNotFound
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:

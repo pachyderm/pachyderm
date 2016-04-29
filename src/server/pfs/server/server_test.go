@@ -605,7 +605,9 @@ func TestDeleteFile(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "bar", strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "foo"))
+	// The deletion should fail because the file did not exist before this commit,
+	// and files written in the current commit should not be visible yet.
+	require.YesError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "foo"))
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
@@ -684,8 +686,6 @@ func TestDeleteDir(t *testing.T) {
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
 	// Commit 1: Add two files into the same directory; delete the directory
-	// Deleting the directory should not have an effect on the files being written
-	// in the same commit
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
@@ -695,7 +695,8 @@ func TestDeleteDir(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "dir/bar", strings.NewReader("bar1"))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "dir"))
+	// Since the directory did not exist before this commit, this should error
+	require.YesError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "dir"))
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
