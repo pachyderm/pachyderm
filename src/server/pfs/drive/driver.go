@@ -497,7 +497,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, false)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false)
 	if err != nil {
 		return nil, err
 	}
@@ -514,14 +514,14 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, true)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false)
 	return fileInfo, err
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, true)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false)
 	if err != nil {
 		return nil, err
 	}
@@ -530,7 +530,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, false)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -546,7 +546,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RLock()
-	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, true)
+	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false)
 	if err != nil {
 		d.lock.RUnlock()
 		return err
@@ -779,13 +779,10 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 	return pfs.FileType_FILE_TYPE_NONE, nil
 }
 
-// If unsafe is set to false, then inspectFile will return an error in the
-// commit has not finished.  This is primarily used in GetFile where we want
-// to prevent GetFile from racing with PutFile.
 // If recurse is set to true, and if the file being inspected is a directory,
 // its children will have the correct sizes.  If recurse is false and the file
 // is a directory, its children will have size of 0.
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, recurse bool, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, recurse bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
@@ -799,7 +796,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
-		if !unsafe && diffInfo.Finished == nil {
+		if diffInfo.Finished == nil {
 			commit = diffInfo.ParentCommit
 			continue
 		}
@@ -855,7 +852,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 							childFileInfo, _, err := d.inspectFile(&pfs.File{
 								Commit: file.Commit,
 								Path:   child,
-							}, filterShard, shard, from, recurse, unsafe)
+							}, filterShard, shard, from, recurse)
 							if err != nil {
 								return nil, nil, err
 							}
