@@ -26,8 +26,9 @@ import (
 type filesystem struct {
 	apiClient pfsclient.APIClient
 	Filesystem
-	inodes map[string]uint64
-	lock   sync.RWMutex
+	inodes   map[string]uint64
+	lock     sync.RWMutex
+	handleID string
 }
 
 func newFilesystem(
@@ -36,13 +37,14 @@ func newFilesystem(
 	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
-		apiClient,
-		Filesystem{
+		apiClient: apiClient,
+		Filesystem: Filesystem{
 			shard,
 			commitMounts,
 		},
-		make(map[string]uint64),
-		sync.RWMutex{},
+		inodes:   make(map[string]uint64),
+		lock:     sync.RWMutex{},
+		handleID: uuid.NewWithoutDashes(),
 	}
 }
 
@@ -230,11 +232,8 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 }
 
 func (f *file) newHandle() *handle {
-	id := uuid.NewWithoutDashes()
-
 	h := &handle{
-		id: id,
-		f:  f,
+		f: f,
 	}
 
 	f.handles = append(f.handles, h)
@@ -243,7 +242,6 @@ func (f *file) newHandle() *handle {
 }
 
 type handle struct {
-	id      string
 	f       *file
 	w       io.WriteCloser
 	written int
@@ -286,7 +284,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	}()
 	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
 	if h.w == nil {
-		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
+		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient,
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.fs.handleID)
 		if err != nil {
 			return err
 		}
