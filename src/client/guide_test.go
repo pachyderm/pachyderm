@@ -28,12 +28,38 @@ type Command struct {
 	Args           []string
 	ExpectedOutput string
 	Chain          bool
+	Fork           bool
 }
 
 func (c *Command) Run(input string) (string, error) {
 
 	if c.Chain {
 		c.Cmd = strings.Replace(c.Cmd, "CHAINED_INPUT", input, -1)
+	}
+
+	if c.Fork {
+		go func() {
+			// Remove the &
+			var args []string
+			for _, arg := range c.Args {
+				if arg != "&" {
+					args = append(args, arg)
+				}
+			}
+			c.Args = args
+
+			fmt.Printf("Running [%v %v] ... \n", c.Cmd, c.Args)
+			shellCommand := exec.Command(c.Cmd, c.Args...)
+			out, err := shellCommand.CombinedOutput()
+			fmt.Printf("Output: [%v]\n", string(out))
+			if err != nil {
+				fmt.Printf("Error Forking Mounting: %v\n", err.Error())
+			}
+
+		}()
+
+		// lazy
+		return "", nil
 	}
 
 	fmt.Printf("Running [%v %v] ... \n", c.Cmd, c.Args)
@@ -73,7 +99,7 @@ func parseCommand(raw string) *Command {
 				shellString := strings.Split(raw, "```")
 				cmd.ExpectedOutput = parseExpectedOutput(shellString[0])
 			case "FORK":
-				fmt.Printf("I SHOULD FORK THIS\n")
+				cmd.Fork = true
 			default:
 				rawCommand := strings.TrimSpace(strings.TrimLeft(directive, "$"))
 				cmd.Cmd, cmd.Args = splitCommand(rawCommand)
