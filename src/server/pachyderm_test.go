@@ -697,6 +697,7 @@ func TestRemoveAndAppend(t *testing.T) {
 		},
 		Parallelism: 3,
 	})
+	require.NoError(t, err)
 
 	inspectJobRequest1 := &ppsclient.InspectJobRequest{
 		Job:         job1,
@@ -720,6 +721,7 @@ func TestRemoveAndAppend(t *testing.T) {
 		Parallelism: 3,
 		ParentJob:   job1,
 	})
+	require.NoError(t, err)
 
 	inspectJobRequest2 := &ppsclient.InspectJobRequest{
 		Job:         job2,
