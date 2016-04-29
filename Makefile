@@ -20,6 +20,7 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
+MANIFEST = etc/kube/pachyderm.json
 
 all: build
 
@@ -103,7 +104,7 @@ kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
-	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
+	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
 	# if we can call the list repo, that means that the cluster is ready to serve
 	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
@@ -118,6 +119,10 @@ full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
+
+clean-pps-storage:
+	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
+	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
 	CGOENABLED=0 go test ./src/server -timeout 300s
@@ -189,15 +194,23 @@ kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
-cluster:
+google-cluster-manifest:
+	@pach-deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+
+google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 	gcloud components update kubectl
 	gcloud compute firewall-rules create pachd --allow=tcp:30650
+	gsutil mb $(BUCKET_NAME) # for PFS
+	gcloud compute disks create --size=$(STORAGE_SIZE)GB $(STORAGE_NAME) # for PPS
 
-clean-cluster:
+
+clean-google-cluster:
 	gcloud container clusters delete $(CLUSTER_NAME)
+	gsutil -m rm -r gs://$(BUCKET_NAME)
+	gcloud compute disks delete $(STORAGE_NAME)
 
 
 .PHONY: \
