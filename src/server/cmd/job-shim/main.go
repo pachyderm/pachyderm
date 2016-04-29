@@ -12,7 +12,6 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
-	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"golang.org/x/net/context"
 )
@@ -32,7 +31,6 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			lion.SetLevel(lion.LevelDebug)
 			ppsClient, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
