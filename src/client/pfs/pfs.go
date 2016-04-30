@@ -248,6 +248,7 @@ func PutBlock(apiClient BlockAPIClient, reader io.Reader) (*BlockRefs, error) {
 // offset specifies a number of bytes that should be skipped in the beginning of the block.
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the block.
+// If size is set to 0 then all of the data will be returned.
 // NOTE: this is lower level function that's used internally and might not be
 // useful to users.
 func GetBlock(apiClient BlockAPIClient, hash string, offset uint64, size uint64) (io.Reader, error) {
@@ -334,6 +335,7 @@ func PutFile(apiClient APIClient, repoName string, commitID string, path string,
 // offset specifies a number of bytes that should be skipped in the beginning of the file.
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
 // fromCommitID lets you get only the data which was added after this Commit.
 // shard allows you to downsample the data, returning only a subset of the
 // blocks in the file. shard may be left nil in which case the entire file will be returned
