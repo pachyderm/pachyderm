@@ -290,7 +290,7 @@ func (a *internalAPIServer) GetFile(request *pfsclient.GetFileRequest, apiGetFil
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard)
+	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard, request.Unsafe)
 	if err != nil {
 		// TODO this should be done more consistently throughout
 		if err == pfsserver.ErrFileNotFound {
@@ -316,7 +316,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfsclient.
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard)
+	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.ListFileRequest) (response *pfsclient.FileInfos, retErr error) {
@@ -338,7 +338,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse)
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse, request.Unsafe)
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:

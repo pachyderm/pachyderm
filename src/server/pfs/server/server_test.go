@@ -831,6 +831,46 @@ func TestOffsetRead(t *testing.T) {
 	require.Equal(t, "", buffer.String())
 }
 
+func TestUnsafeOperations(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+	repo := "TestUnsafeOperations"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	_, err := pfsclient.StartCommit(pfsClient, repo, "", "master")
+	require.NoError(t, err)
+
+	fileData := "foo"
+	_, err = pfsclient.PutFile(pfsClient, repo, "master", "foo", strings.NewReader(fileData))
+	require.NoError(t, err)
+
+	// A safe read should not be able to see the file
+	var buffer bytes.Buffer
+	require.YesError(t, pfsclient.GetFile(pfsClient, repo, "master", "foo", 0, 0, "", nil, &buffer))
+
+	// An unsafe read should
+	var buffer2 bytes.Buffer
+	require.NoError(t, pfsclient.GetFileUnsafe(pfsClient, repo, "master", "foo", 0, 0, "", nil, &buffer2))
+	require.Equal(t, "foo", buffer2.String())
+
+	fileInfo, err := pfsclient.InspectFile(pfsClient, repo, "master", "foo", "", nil)
+	require.YesError(t, err)
+
+	fileInfo, err = pfsclient.InspectFileUnsafe(pfsClient, repo, "master", "foo", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, int(fileInfo.SizeBytes))
+
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, "master", "", "", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	fileInfos, err = pfsclient.ListFileUnsafe(pfsClient, repo, "master", "", "", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, "master"))
+}
+
 // FinishCommit should block until the parent has been finished
 func TestFinishCommit(t *testing.T) {
 	t.Parallel()
