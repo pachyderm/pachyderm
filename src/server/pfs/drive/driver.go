@@ -488,13 +488,16 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	// The fact that this is a directory is signified by setting Children
+	// to non-nil
+	_append.Children = make(map[string]bool)
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
+func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64, unsafe bool) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, false)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
 	if err != nil {
 		return nil, err
 	}
@@ -508,17 +511,17 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, true)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, true)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +530,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, false)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -543,7 +546,9 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RLock()
-	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, true)
+	// We don't want to be able to delete files that are only added in the current
+	// commit, which is why we set unsafe to false.
+	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, false)
 	if err != nil {
 		d.lock.RUnlock()
 		return err
@@ -551,7 +556,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RUnlock()
 
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		fileInfos, err := d.ListFile(file, nil, nil, shard, false)
+		fileInfos, err := d.ListFile(file, nil, nil, shard, false, false)
 		if err != nil {
 			return err
 		}
@@ -586,10 +591,11 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
-	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
-		Delete: true,
+	cleanPath := path.Clean(file.Path)
+	if _, ok := diffInfo.Appends[cleanPath]; !ok {
+		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
-
+	diffInfo.Appends[cleanPath].Delete = true
 	deleteFromDir(diffInfo, file)
 
 	return nil
@@ -775,12 +781,10 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 	return pfs.FileType_FILE_TYPE_NONE, nil
 }
 
-// If unsafe is set to false, then inspectFile will return an error in the
-// commit has not finished.  This is primarily used in GetFile where we want
-// to prevent GetFile from racing with PutFile.
 // If recurse is set to true, and if the file being inspected is a directory,
 // its children will have the correct sizes.  If recurse is false and the file
 // is a directory, its children will have size of 0.
+// If unsafe is set to true, you can inspect files in an open commit
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, recurse bool, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
@@ -800,9 +804,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete {
-				break
-			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
+			if len(_append.BlockRefs) == 0 && len(_append.Handles) == 0 && _append.Children == nil && !_append.Delete {
+				return nil, nil, fmt.Errorf("the append for %s does not correspond to a file or a directory, and does not signify deletion; this is likely a bug", path.Clean(file.Path))
+			}
+
+			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -824,10 +830,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
-			} else {
-				// Without BlockRefs, this Append is for a directory, even if
-				// it doesn't have Children either.  This is because we sometimes
-				// have an Append just to signify that this is a directory
+			} else if _append.Children != nil {
+				// With non-nil Children, this Append is for a directory, even if
+				// Children is empty.  This is because we sometimes
+				// have an Append with an empty children just to signify that
+				// this is a directory.
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -857,6 +864,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 					children[child] = true
 				}
+			}
+			// If Delete is true, then everything before this commit is irrelevant
+			if _append.Delete {
+				break
 			}
 			if fileInfo.CommitModified == nil {
 				fileInfo.CommitModified = commit
@@ -998,7 +1009,13 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	if _append.Children == nil {
 		_append.Children = make(map[string]bool)
 	}
-	_append.Children[childPath] = false
+	// Basically, we only set the entry to false if it's not been
+	// set to true.  If it's been set to true, that means that there
+	// is a PutFile operation in this commit for this very same file,
+	// so we don't want to remove the file from the directory.
+	if !_append.Children[childPath] {
+		_append.Children[childPath] = false
+	}
 }
 
 type fileReader struct {
