@@ -61,6 +61,9 @@ func CreateJob(
 	)
 }
 
+// InspectJob returns info about a specific job.
+// blockOutput will cause the call to block until the job has been assigned an output commit.
+// blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func InspectJob(client APIClient, jobID string, blockOutput bool, blockState bool) (*JobInfo, error) {
 	return client.InspectJob(
 		context.Background(),
@@ -71,6 +74,10 @@ func InspectJob(client APIClient, jobID string, blockOutput bool, blockState boo
 		})
 }
 
+// ListJob returns info about all jobs.
+// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
+// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+// The order of the inputCommits doesn't matter.
 func ListJob(client APIClient, pipelineName string, inputCommit []*pfs.Commit) ([]*JobInfo, error) {
 	jobInfos, err := client.ListJob(
 		context.Background(),
@@ -145,6 +152,7 @@ func CreatePipeline(
 	return err
 }
 
+// InspectPipeline returns info about a specific pipeline.
 func InspectPipeline(client APIClient, pipelineName string) (*PipelineInfo, error) {
 	return client.InspectPipeline(
 		context.Background(),
@@ -154,6 +162,7 @@ func InspectPipeline(client APIClient, pipelineName string) (*PipelineInfo, erro
 	)
 }
 
+// ListPipeline returns info about all pipelines.
 func ListPipeline(client APIClient) ([]*PipelineInfo, error) {
 	pipelineInfos, err := client.ListPipeline(
 		context.Background(),
