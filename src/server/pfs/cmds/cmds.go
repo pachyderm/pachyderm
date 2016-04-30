@@ -278,6 +278,7 @@ Files can be read from finished commits with get-file.`,
 	}
 
 	var fromCommitID string
+	var unsafe string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -292,6 +293,7 @@ Files can be read from finished commits with get-file.`,
 	}
 	addShardFlags(getFile)
 	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "from commit")
+	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -316,6 +318,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(inspectFile)
+	inspectFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to inspect files written in the current commit; this operation will race with concurrent writes")
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -343,6 +346,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
+	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
