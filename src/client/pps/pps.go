@@ -5,6 +5,8 @@ import (
 
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 func NewJob(jobID string) *Job {
@@ -57,6 +59,29 @@ func CreateJob(
 			ParentJob:   parentJob,
 		},
 	)
+}
+
+func InspectJob(client APIClient, jobID string, blockOutput bool, blockState bool) (*JobInfo, error) {
+	return client.InspectJob(
+		context.Background(),
+		&InspectJobRequest{
+			Job:         NewJob(jobID),
+			BlockOutput: blockOutput,
+			BlockState:  blockState,
+		})
+}
+
+func ListJob(client APIClient, pipelineName string, inputCommit []*pfs.Commit) ([]*JobInfo, error) {
+	jobInfos, err := client.ListJob(
+		context.Background(),
+		&ListJobRequest{
+			Pipeline:    NewPipeline(pipelineName),
+			InputCommit: inputCommit,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return jobInfos.JobInfo, nil
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr).
@@ -120,11 +145,28 @@ func CreatePipeline(
 	return err
 }
 
+func InspectPipeline(client APIClient, pipelineName string) (*PipelineInfo, error) {
+	return client.InspectPipeline(
+		context.Background(),
+		&InspectPipelineRequest{
+			Pipeline: NewPipeline(pipelineName),
+		},
+	)
+}
+
+func ListPipeline(client APIClient) ([]*PipelineInfo, error) {
+	pipelineInfos, err := client.ListPipeline(
+		context.Background(),
+		&ListPipelineRequest{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return pipelineInfos.PipelineInfo, nil
+}
+
 // DeletePipeline deletes a pipeline along with its output Repo.
-func DeletePipeline(
-	client APIClient,
-	name string,
-) error {
+func DeletePipeline(client APIClient, name string) error {
 	_, err := client.DeletePipeline(
 		context.Background(),
 		&DeletePipelineRequest{
