@@ -7,6 +7,13 @@ import (
 type Mounter interface {
 	// Mount mounts a repository available as a fuse filesystem at mountPoint.
 	// Mount blocks and will return once the volume is unmounted.
+	MountAndCreate(
+		mountPoint string,
+		shard *pfsclient.Shard,
+		commitMounts []*CommitMount, // nil means mount all commits
+		ready chan bool,
+	) error
+
 	Mount(
 		mountPoint string,
 		shard *pfsclient.Shard,

@@ -28,6 +28,18 @@ func newMounter(address string, apiClient pfsclient.APIClient) Mounter {
 	}
 }
 
+func (m *mounter) MountAndCreate(
+	mountPoint string,
+	shard *pfsclient.Shard,
+	commitMounts []*CommitMount,
+	ready chan bool,
+) error {
+	if err := os.MkdirAll(mountPoint, 0777); err != nil {
+		return err
+	}
+	return m.Mount(mountPoint, shard, commitMounts, ready)
+}
+
 func (m *mounter) Mount(
 	mountPoint string,
 	shard *pfsclient.Shard,
