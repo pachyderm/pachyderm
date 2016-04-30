@@ -38,6 +38,7 @@ type APIClient struct {
 	PpsAPIClient
 }
 
+// NewFromAddress constructs a new APIClient which for the server at pachAddr.
 func NewFromAddress(pachAddr string) (*APIClient, error) {
 	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
 	if err != nil {
@@ -50,7 +51,10 @@ func NewFromAddress(pachAddr string) (*APIClient, error) {
 	}, nil
 }
 
-func New() (*APIClient, error) {
+// NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
+// This should be used to access Pachyderm from within a Kubernetes cluster
+// with Pachyderm running on it.
+func NewInCluster() (*APIClient, error) {
 	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
 
 	if pachAddr == "" {
