@@ -706,6 +706,7 @@ func TestRemoveAndAppend(t *testing.T) {
 	}
 	jobInfo1, err := pachClient.InspectJob(ctx, inspectJobRequest1)
 	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo1.State)
 
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
@@ -730,6 +731,7 @@ func TestRemoveAndAppend(t *testing.T) {
 	}
 	jobInfo2, err := pachClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
