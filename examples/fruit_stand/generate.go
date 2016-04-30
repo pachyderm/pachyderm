@@ -68,12 +68,11 @@ func main() {
 				if err := pfs.FinishCommit(client, "data", "master"); err != nil {
 					return err
 				}
-				time.Sleep(5 * time.Second)
 			}
 			return nil
 		}),
 	}
-	cmd.Flags().IntVarP(&commits, "commits", "c", 1, "commits to write")
+	cmd.Flags().IntVarP(&commits, "commits", "c", 100, "commits to write")
 	cmd.Flags().IntVarP(&lines, "lines", "l", 100, "lines to write for each commit")
 	cmd.Execute()
 }

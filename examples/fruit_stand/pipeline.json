@@ -3,6 +3,7 @@
     "name": "filter"
   },
   "transform": {
+    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
         "grep apple  /pfs/data/sales >/pfs/out/apple",
@@ -10,7 +11,7 @@
         "grep orange /pfs/data/sales >/pfs/out/orange"
     ]
   },
-  "shards": "1",
+  "parallelism": "1",
   "inputs": [
     {
       "repo": {
@@ -24,6 +25,7 @@
     "name": "sum"
   },
   "transform": {
+    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
         "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
@@ -31,7 +33,7 @@
         "cut -f 2 /pfs/filter/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
     ]
   },
-  "shards": "1",
+  "parallelism": "1",
   "inputs": [
     {
       "repo": {
