@@ -278,7 +278,7 @@ Files can be read from finished commits with get-file.`,
 	}
 
 	var fromCommitID string
-	var unsafe string
+	var unsafe bool
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
