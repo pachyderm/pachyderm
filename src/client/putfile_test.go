@@ -58,4 +58,10 @@ func Example() {
 		return //handle error
 	}
 	// buffer now contains "foo\n"
+
+	// We can also see the Diff between the most recent commit and the first one:
+	buffer.Reset()
+	if err := pfs.GetFile(client, "repo", "master", "file", 0, 0, commit1.ID, nil, &buffer); err != nil {
+		return //handle error
+	}
 }
