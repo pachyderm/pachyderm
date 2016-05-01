@@ -264,6 +264,14 @@ func PutFile(apiClient APIClient, repoName string, commitID string, path string,
 }
 
 func GetFile(apiClient APIClient, repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *Shard, writer io.Writer) error {
+	return getFile(apiClient, repoName, commitID, path, offset, size, fromCommitID, shard, false, writer)
+}
+
+func GetFileUnsafe(apiClient APIClient, repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *Shard, writer io.Writer) error {
+	return getFile(apiClient, repoName, commitID, path, offset, size, fromCommitID, shard, true, writer)
+}
+
+func getFile(apiClient APIClient, repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *Shard, unsafe bool, writer io.Writer) error {
 	if size == 0 {
 		size = math.MaxInt64
 	}
@@ -275,6 +283,7 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 			OffsetBytes: offset,
 			SizeBytes:   size,
 			FromCommit:  newFromCommit(repoName, fromCommitID),
+			Unsafe:      unsafe,
 		},
 	)
 	if err != nil {
@@ -287,12 +296,21 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 }
 
 func InspectFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) (*FileInfo, error) {
+	return inspectFile(apiClient, repoName, commitID, path, fromCommitID, shard, false)
+}
+
+func InspectFileUnsafe(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) (*FileInfo, error) {
+	return inspectFile(apiClient, repoName, commitID, path, fromCommitID, shard, true)
+}
+
+func inspectFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, unsafe bool) (*FileInfo, error) {
 	fileInfo, err := apiClient.InspectFile(
 		context.Background(),
 		&InspectFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
 			FromCommit: newFromCommit(repoName, fromCommitID),
+			Unsafe:     unsafe,
 		},
 	)
 	if err != nil {
@@ -302,6 +320,14 @@ func InspectFile(apiClient APIClient, repoName string, commitID string, path str
 }
 
 func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, recurse bool) ([]*FileInfo, error) {
+	return listFile(apiClient, repoName, commitID, path, fromCommitID, shard, recurse, false)
+}
+
+func ListFileUnsafe(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, recurse bool) ([]*FileInfo, error) {
+	return listFile(apiClient, repoName, commitID, path, fromCommitID, shard, recurse, true)
+}
+
+func listFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, recurse bool, unsafe bool) ([]*FileInfo, error) {
 	fileInfos, err := apiClient.ListFile(
 		context.Background(),
 		&ListFileRequest{
@@ -309,6 +335,7 @@ func ListFile(apiClient APIClient, repoName string, commitID string, path string
 			Shard:      shard,
 			FromCommit: newFromCommit(repoName, fromCommitID),
 			Recurse:    recurse,
+			Unsafe:     unsafe,
 		},
 	)
 	if err != nil {
