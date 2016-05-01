@@ -284,7 +284,7 @@ func isConflictErr(err error) bool {
 func getJobID(req *ppsclient.CreateJobRequest) string {
 	// If the job belongs to a pipeline, and the pipeline has inputs,
 	// we want to make sure that the same
-	// job does now run twice.  We ensure that by generating the job id by
+	// job does not run twice.  We ensure that by generating the job id by
 	// hashing the pipeline name and input commits.  That way, two same jobs
 	// will have the sam job IDs, therefore won't be created in the database
 	// twice.
@@ -447,6 +447,28 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		Commit: jobInfo.OutputCommit,
 		Alias:  "out",
 	}
+
+	// We want to set the commit mount for the output commit such that
+	// its FromCommit is its direct parent.  By doing so, we ensure that
+	// the files written in previous commits are completely invisible
+	// to the job.  Files being written in the current commit will be
+	// invisible too due to the way PFS works.  Therefore, /pfs/out/
+	// will essentially be a "black box" that can only be written to,
+	// but never read from.
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+		Commit: outputCommitMount.Commit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.ParentCommit != nil {
+		outputCommitMount.FromCommit = commitInfo.ParentCommit
+	}
+
 	commitMounts = append(commitMounts, outputCommitMount)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
