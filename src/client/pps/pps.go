@@ -13,8 +13,29 @@ func NewJob(jobID string) *Job {
 	return &Job{ID: jobID}
 }
 
+type InputType int
+
+const (
+	MAP InputType = iota
+	REDUCE
+)
+
+func NewJobInput(repoName string, commitID string, inputType InputType) *JobInput {
+	return &JobInput{
+		Commit: pfs.NewCommit(repoName, commitID),
+		Reduce: inputType == REDUCE,
+	}
+}
+
 func NewPipeline(pipelineName string) *Pipeline {
 	return &Pipeline{Name: pipelineName}
+}
+
+func NewPipelineInput(repoName string, inputType InputType) *PipelineInput {
+	return &PipelineInput{
+		Repo:   pfs.NewRepo(repoName),
+		Reduce: inputType == REDUCE,
+	}
 }
 
 // CreateJob creates and runs a job in PPS.
