@@ -1,4 +1,4 @@
-package client
+package client_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-func Example() {
+func Example_pfs() {
 	var client APIClient
 	// Create a repo called "repo"
 	if err := pfs.CreateRepo(client, "repo"); err != nil {

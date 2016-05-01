@@ -41,6 +41,12 @@ func NewDiff(repoName string, commitID string, shard uint64) *Diff {
 	}
 }
 
+const (
+	NONE  = CommitType_COMMIT_TYPE_NONE
+	READ  = CommitType_COMMIT_TYPE_READ
+	WRITE = CommitType_COMMIT_TYPE_WRITE
+)
+
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
@@ -172,10 +178,12 @@ func InspectCommit(apiClient APIClient, repoName string, commitID string) (*Comm
 // nil or empty then the result will be empty.
 // fromCommitIDs lets you get info about Commits that occurred after this
 // set of commits.
+// commitType specifies the type of commit you want returned, normally READ is the most useful option
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
 // all, when set to true, will cause ListCommit to return cancelled commits as well.
-func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string, block bool, all bool) ([]*CommitInfo, error) {
+func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
+	commitType CommitType, block bool, all bool) ([]*CommitInfo, error) {
 	var repos []*Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &Repo{Name: repoName})
