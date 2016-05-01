@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 func Example_pfs() {
-	var client APIClient
+	var client client.APIClient
 	// Create a repo called "repo"
 	if err := pfs.CreateRepo(client, "repo"); err != nil {
 		return // handle error

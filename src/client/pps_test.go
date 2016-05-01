@@ -1,19 +1,19 @@
 package client_test
 
 import (
-	// "bytes"
-	// "strings"
+	"bytes"
 
-	// "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 func Example_pps() {
-	var client APIClient
+	var client client.APIClient
 
 	// we assume there's already a repo called "repo"
 	// and that it already has some data in it
-	repo := "repo"
+	// take a look at src/client/pfs_test.go for an example of how to get there.
 
 	// Create a map pipeline
 	if err := pps.CreatePipeline(
@@ -46,7 +46,7 @@ func Example_pps() {
 	}
 
 	commits, err := pfs.ListCommit( // List commits that are...
-		apiClient,
+		client,
 		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
 		nil,                // starting at the beginning of time
 		pfs.READ,           // are readable
