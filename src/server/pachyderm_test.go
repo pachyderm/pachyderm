@@ -576,7 +576,7 @@ func TestSimple(t *testing.T) {
 	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, repo, commit1.ID))
-	commitInfos, err := pfsclient.ListCommit(pachClient, []string{repo}, nil, false, false)
+	commitInfos, err := pfsclient.ListCommit(pachClient, []string{repo}, nil, pfsclient.NONE, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
