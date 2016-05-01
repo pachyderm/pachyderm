@@ -45,7 +45,16 @@ mv kubectl /usr/local/bin/
 
 - [Docker](https://docs.docker.com/engine/installation) >= 1.10
 
-### Launch Kubernetes
+### Port Forwarding
+
+Both kubectl and pachctl need a port forwarded so they can talk with their servers.  If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
+
+
+```shell
+$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+```
+
+### Deploy Kubernetes
 
 From the root of this repo you can deploy Kubernetes with:
 
@@ -55,7 +64,7 @@ $ make launch-kube
 
 This step can take a while the first time you run it, since some Docker images need to be pulled. 
 
-### Launch Pachyderm
+### Deploy Pachyderm
 
 From the root of this repo you can deploy Pachyderm on Kubernetes with:
 
@@ -97,7 +106,7 @@ $ export STORAGE_SIZE=[the size of the persistent disk that you are going to cre
 Then, simply run:
 
 ```shell
-$ make cluster
+$ make google-cluster
 ```
 
 This creates a Kubernetes cluster, a bucket, and a persistent disk.  To check that everything has been set up correctly, try:
@@ -113,7 +122,7 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Launch Pachyderm
+### Deploy Pachyderm
 
 ```shell
 $ make google-cluster-manifest > manifest
@@ -122,12 +131,52 @@ $ MANIFEST=manifest make launch
 
 ## Amazon Web Services (AWS)
 
-### Launch Kubernetes
+### Prerequisites
 
-Deploying Kubernetes on AWS is still a relatively lengthy process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
+- [AWS CLI](https://aws.amazon.com/cli/) 
+
+### Deploy Kubernetes
+
+Deploying Kubernetes on AWS is still a relatively lengthy and manual process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
 
 * https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
 * http://kubernetes.io/docs/getting-started-guides/aws/
+
+## Set up the infrstructure
+
+First of all, set three environment variables:
+
+```shell
+$ export BUCKET_NAME=[the name of the bucket where your data will be stored]
+$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create]
+$ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
+```
+
+Then, simply run:
+
+```shell
+$ make amazon-cluster
+```
+
+Record the "volume-id" in the output:
+
+```shell
+$ export STORAGE_NAME=[volume id]
+```
+
+Now you should be able to see the bucket and the EBS volume that are just created:
+
+```shell
+aws s3api list-buckets --query 'Buckets[].Name'
+aws ec2 describe-volumes --query 'Volumes[].VolumeId'
+```
+
+### Deploy Pachyderm
+
+```shell
+$ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[security token] make amazon-cluster-manifest > manifest
+$ MANIFEST=manifest make launch
+```
 
 ## pachctl
 
@@ -157,24 +206,6 @@ Make sure you add `GOPATH/bin` to your `PATH` env variable:
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
-### Port Forwarding
-
-(TODO: is this still relevant?)
-
-Both kubectl and pachctl need a port forwarded so they can talk with their servers.
-If docker is running locally you can skip this step. Otherwise do the following:
-
-```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
-
-You'll know it works if `kubectl version` runs without error:
-
-```shell
-kubectl version
-Client Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
-Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
-```
 
 ### Usage
 
