@@ -93,3 +93,8 @@ message FileWrite {
   Node file = 1;
   string error = 2;
 }
+
+message FileRemove {
+  Node file = 1;
+  string error = 2;
+}

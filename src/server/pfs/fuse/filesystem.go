@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -25,8 +26,9 @@ import (
 type filesystem struct {
 	apiClient pfsclient.APIClient
 	Filesystem
-	inodes map[string]uint64
-	lock   sync.RWMutex
+	inodes   map[string]uint64
+	lock     sync.RWMutex
+	handleID string
 }
 
 func newFilesystem(
@@ -35,13 +37,14 @@ func newFilesystem(
 	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
-		apiClient,
-		Filesystem{
+		apiClient: apiClient,
+		Filesystem: Filesystem{
 			shard,
 			commitMounts,
 		},
-		make(map[string]uint64),
-		sync.RWMutex{},
+		inodes:   make(map[string]uint64),
+		lock:     sync.RWMutex{},
+		handleID: uuid.NewWithoutDashes(),
 	}
 }
 
@@ -152,6 +155,13 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	return localResult, nil
 }
 
+func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
+	}()
+	return pfsclient.DeleteFile(d.fs.apiClient, d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+}
+
 type file struct {
 	directory
 	size    int64
@@ -163,20 +173,26 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
-	fileInfo, err := pfsclient.InspectFile(
-		f.fs.apiClient,
-		f.File.Commit.Repo.Name,
-		f.File.Commit.ID,
-		f.File.Path,
-		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-		f.Shard,
-	)
-	if err != nil && !f.local {
-		return err
-	}
-	if fileInfo != nil {
-		a.Size = fileInfo.SizeBytes
-		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+	if f.directory.Write {
+		// If the file is from an open commit, we just pretend that it's
+		// an empty file.
+		a.Size = 0
+	} else {
+		fileInfo, err := pfsclient.InspectFile(
+			f.fs.apiClient,
+			f.File.Commit.Repo.Name,
+			f.File.Commit.ID,
+			f.File.Path,
+			f.fs.getFromCommitID(f.File.Commit.Repo.Name),
+			f.Shard,
+		)
+		if err != nil && !f.local {
+			return err
+		}
+		if fileInfo != nil {
+			a.Size = fileInfo.SizeBytes
+			a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+		}
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
@@ -222,11 +238,8 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 }
 
 func (f *file) newHandle() *handle {
-	id := uuid.NewWithoutDashes()
-
 	h := &handle{
-		id: id,
-		f:  f,
+		f: f,
 	}
 
 	f.handles = append(f.handles, h)
@@ -235,7 +248,6 @@ func (f *file) newHandle() *handle {
 }
 
 type handle struct {
-	id      string
 	f       *file
 	w       io.WriteCloser
 	written int
@@ -278,7 +290,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	}()
 	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
 	if h.w == nil {
-		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
+		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient,
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.fs.handleID)
 		if err != nil {
 			return err
 		}
@@ -378,6 +391,22 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.File.Commit.ID = commitMount.Commit.ID
 	result.RepoAlias = commitMount.Alias
 	result.Shard = commitMount.Shard
+
+	commitInfo, err := pfsclient.InspectCommit(
+		d.fs.apiClient,
+		commitMount.Commit.Repo.Name,
+		commitMount.Commit.ID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
+		result.Write = false
+	} else {
+		result.Write = true
+	}
+	result.Modified = commitInfo.Finished
+
 	return result, nil
 }
 
@@ -405,22 +434,43 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 }
 
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
-	fileInfo, err := pfsclient.InspectFile(
-		d.fs.apiClient,
-		d.File.Commit.Repo.Name,
-		d.File.Commit.ID,
-		path.Join(d.File.Path, name),
-		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
-		d.Shard,
-	)
-	if err != nil {
-		return nil, fuse.ENOENT
+	var fileInfo *pfsclient.FileInfo
+	var err error
+
+	if d.Node.Write {
+		// Basically, if the directory is writable, we are looking up files
+		// from an open commit.  In this case, we want to return an empty file,
+		// because sometimes you want to remove a file but a remove operation
+		// is usually proceeded with a lookup operation, and the remove operation
+		// would not be able to proceed if the lookup failed.  Therefore, we want
+		// the lookup to not fail, so we return an empty file.
+		fileInfo = &pfsclient.FileInfo{
+			File: &pfsclient.File{
+				Path: path.Join(d.File.Path, name),
+			},
+			FileType:  pfsclient.FileType_FILE_TYPE_REGULAR,
+			SizeBytes: 0,
+		}
+	} else {
+		fileInfo, err = pfsclient.InspectFile(
+			d.fs.apiClient,
+			d.File.Commit.Repo.Name,
+			d.File.Commit.ID,
+			path.Join(d.File.Path, name),
+			d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+			d.Shard,
+		)
+		if err != nil {
+			return nil, fuse.ENOENT
+		}
 	}
+
+	// We want to inherit the metadata other than the path, which should be the
+	// path currently being looked up
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
 	case pfsclient.FileType_FILE_TYPE_REGULAR:
-		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory: *directory,
 			size:      int64(fileInfo.SizeBytes),
