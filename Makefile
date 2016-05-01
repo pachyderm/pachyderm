@@ -206,11 +206,21 @@ google-cluster:
 	gsutil mb $(BUCKET_NAME) # for PFS
 	gcloud compute disks create --size=$(STORAGE_SIZE)GB $(STORAGE_NAME) # for PPS
 
-
 clean-google-cluster:
 	gcloud container clusters delete $(CLUSTER_NAME)
 	gsutil -m rm -r gs://$(BUCKET_NAME)
 	gcloud compute disks delete $(STORAGE_NAME)
+
+amazon-cluster-manifest:
+	@pach-deploy google $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+
+amazon-cluster:
+	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION)
+
+clean-amazon-cluster:
+	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
 
 
 .PHONY: \
