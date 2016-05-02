@@ -45,7 +45,8 @@ $ make install
 Launching a Pachyderm cluster from the root of this repo is dead simple:
 
 ```shell
-$ kubectl create -f http://pachyderm.io/manifest.json
+#$ kubectl create -f http://pachyderm.io/manifest.json
+$ make launch
 ```
 
 Here's what a functioning cluster looks like:
@@ -147,7 +148,7 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 
 ```shell
 # Write sample data to pfs
-$ cat examples/fruit_stand/set1.txt >~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat examples/fruit_stand/set1.txt > ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 [//]: # (cat examples/fruit_stand/set1.txt >~/pfs/data/CHAINED_INPUT/sales)
 
@@ -321,7 +322,7 @@ fab8c59c786842ccaf20589e15606604
 Next, we need to add more data. We're going to append more purchases from set2.txt to the file "sales."
 
 ```shell
-$ cat examples/fruit_stand/set2.txt >~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
+$ cat examples/fruit_stand/set2.txt > ~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
 [//]: # (SKIP)
 
