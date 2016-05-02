@@ -14,6 +14,12 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 
 - [Go](#go) >= 1.6
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
+- Clone this repo.  If you are deploying locally, clone it under your `GOPATH`:
+
+```shell
+# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
+$ go get github.com/pachyderm/pachyderm
+```
 
 ### Go
 
