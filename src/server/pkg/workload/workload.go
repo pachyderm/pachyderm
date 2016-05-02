@@ -11,7 +11,7 @@ import (
 )
 
 func RunWorkload(
-	client client.APIClient,
+	client *client.APIClient,
 	rand *rand.Rand,
 	size int,
 ) error {
@@ -61,7 +61,7 @@ const (
 const maxStartedCommits = 6
 const maxStartedJobs = 6
 
-func (w *worker) work(c client.APIClient) error {
+func (w *worker) work(c *client.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:
