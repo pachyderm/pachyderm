@@ -20,6 +20,7 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
+MANIFEST = etc/kube/pachyderm.json
 
 all: build
 
@@ -82,6 +83,9 @@ docker-build: docker-build-job-shim docker-build-pachd
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
+docker-build-fruitstand:
+	docker build -t fruit_stand examples/fruit_stand
+
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
@@ -100,7 +104,7 @@ kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
-	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
+	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
 	# if we can call the list repo, that means that the cluster is ready to serve
 	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
@@ -108,13 +112,20 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-launch:
+	kubectl delete --ignore-not-found -f $(MANIFEST)
+
+full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
+clean-pps-storage:
+	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
+	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
+
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 300s
+	CGOENABLED=0 go test ./src/server -timeout 500s
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
@@ -199,15 +210,33 @@ kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
-cluster:
+google-cluster-manifest:
+	@pach-deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+
+google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 	gcloud components update kubectl
 	gcloud compute firewall-rules create pachd --allow=tcp:30650
+	gsutil mb gs://$(BUCKET_NAME) # for PFS
+	gcloud compute disks create --size=$(STORAGE_SIZE)GB $(STORAGE_NAME) # for PPS
 
-clean-cluster:
+clean-google-cluster:
 	gcloud container clusters delete $(CLUSTER_NAME)
+	gsutil -m rm -r gs://$(BUCKET_NAME)
+	gcloud compute disks delete $(STORAGE_NAME)
+
+amazon-cluster-manifest:
+	@pach-deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+
+amazon-cluster:
+	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION) --availability-zone $(AWS_AVAILABILITY_ZONE) --volume-type gp2
+
+clean-amazon-cluster:
+	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
 
 
 .PHONY: \
