@@ -28,11 +28,11 @@ FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X F
 ### Kubectl
 
 ```shell
-### Darwin
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/darwin/amd64/kubectl
+### Darwin (OS X)
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/darwin/amd64/kubectl
 
 ### Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linux/amd64/kubectl
 
 ### Copy kubectl to your path
 chmod +x kubectl
