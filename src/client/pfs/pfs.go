@@ -236,7 +236,7 @@ func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 	return err
 }
 
-// PutBlock takes a reader and splits it chunks the data in it into blocks.
+// PutBlock takes a reader and splits the data in it into blocks.
 // Blocks are guaranteed to be new line delimited.
 // Blocks are content addressed and are thus identified by hashes of the content.
 // NOTE: this is lower level function that's used internally and might not be
@@ -315,7 +315,7 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 }
 
 // PutFileWriter writes a file to PFS.
-// handle is used to perform multiple writes that are guaranteed wind up
+// handle is used to perform multiple writes that are guaranteed to wind up
 // contiguous in the final file. It may be safely left empty and likely won't
 // be needed in most use cases.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
