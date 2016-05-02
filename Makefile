@@ -149,7 +149,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
+test: pretest test-guide test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
 test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)

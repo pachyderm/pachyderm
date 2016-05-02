@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 func parseCommandFromShellString(shell string) string {
@@ -38,15 +37,12 @@ type Command struct {
 }
 
 func collapseArgs(args []string) string {
-	//	return fmt.Sprintf("\"%v\"", strings.Join(args, " "))
 	return strings.Join(args, " ")
 }
 func finalizeArgs(c *Command) []string {
 	var finalArgs []string
-	var argBuffer []string
 
 	finalArgs = append(finalArgs, "-cE")
-	//	finalArgs = append(finalArgs, c.Cmd)
 
 	var rawArgs []string
 	rawArgs = append(rawArgs, c.Cmd)
@@ -55,26 +51,11 @@ func finalizeArgs(c *Command) []string {
 	finalArgs = append(finalArgs, strings.Join(rawArgs, " "))
 
 	return finalArgs
-
-	for _, rawArg := range c.Args {
-		if rawArg != ">" {
-			argBuffer = append(argBuffer, rawArg)
-		} else {
-
-			finalArgs = append(finalArgs, collapseArgs(argBuffer))
-			argBuffer = make([]string, 0)
-		}
-	}
-	finalArgs = append(finalArgs, collapseArgs(argBuffer))
-
-	return finalArgs
 }
 
 func runHelper(c *Command) (string, error) {
 
-	//	shellCommand := exec.Command(c.Cmd, c.Args...)
 	args := finalizeArgs(c)
-	fmt.Printf("final args: (%v)\n", args)
 	shellCommand := exec.Command("bash", args...)
 
 	basePath := filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm")
@@ -83,8 +64,6 @@ func runHelper(c *Command) (string, error) {
 	raw, err := shellCommand.CombinedOutput()
 	fmt.Printf("Output: [%v]\n", string(raw))
 	return string(raw), err
-
-	//	return "didnotrun", nil
 }
 
 func getAPIClient(address string) (pfsclient.APIClient, error) {
@@ -148,9 +127,6 @@ func (c *Command) Run(input string) (string, error) {
 		fmt.Printf("Waiting for mount...\n")
 		<-ready
 		fmt.Printf("Mounted!\n")
-		fmt.Printf("Sleeping for 20s\n")
-		time.Sleep(20 * time.Second)
-		fmt.Printf("Done Sleeping!\n")
 
 		return "", err
 	}
