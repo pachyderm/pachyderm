@@ -103,8 +103,7 @@ Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/
 First of all, set three environment variables:
 
 ```shell
-$ export CLUSTER_NAME=[the name of your Kubernetes cluster]
-$ export BUCKET_NAME=[the name of the bucket where your data will be stored]
+$ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire Google Cloud Storage namespace]
 $ export STORAGE_NAME=[the name of the persistent disk where your pipeline information will be stored]
 $ export STORAGE_SIZE=[the size of the persistent disk that you are going to create]
 ```
@@ -115,7 +114,7 @@ Then, simply run:
 $ make google-cluster
 ```
 
-This creates a Kubernetes cluster, a bucket, and a persistent disk.  To check that everything has been set up correctly, try:
+This creates a Kubernetes cluster named "pachyderm", a bucket, and a persistent disk.  To check that everything has been set up correctly, try:
 
 ```shell
 $ gcloud compute instances list
@@ -130,10 +129,30 @@ $ gcloud compute disks list
 
 ### Deploy Pachyderm
 
+First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
+
+```shell
+$ gcloud compute instances list
+```
+
+Then export it with port 30650:
+
+```shell
+$ export ADDRESS=[the external address]:30650
+# for example:
+# export ADDRESS=104.197.179.185:30650
+```
+
+This is so we can use [`pachctl`](#pachctl) to talk to our cluster later.
+
+Now you can deploy Pachyderm with:
+
 ```shell
 $ make google-cluster-manifest > manifest
-$ MANIFEST=manifest make launch
+$ make MANIFEST=manifest launch
 ```
+
+It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
 ## Amazon Web Services (AWS)
 
@@ -153,7 +172,7 @@ Deploying Kubernetes on AWS is still a relatively lengthy and manual process com
 First of all, set three environment variables:
 
 ```shell
-$ export BUCKET_NAME=[the name of the bucket where your data will be stored]
+$ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire AWS region]
 $ export STORAGE_SIZE=[the size of the EBS volume that you are going to create]
 $ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
 ```
@@ -181,8 +200,10 @@ aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 
 ```shell
 $ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[security token] make amazon-cluster-manifest > manifest
-$ MANIFEST=manifest make launch
+$ make MANIFEST=manifest launch
 ```
+
+It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
 ## pachctl
 
@@ -212,11 +233,20 @@ Make sure you add `GOPATH/bin` to your `PATH` env variable:
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
-
 ### Usage
 
-TODO
+Before you can start using `pachctl`, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
+
+```shell
+$ export ADDRESS=[the IP address of the node where Pachyderm runs]:30650
+# for example:
+# export ADDRESS=104.197.179.185:30650
+```
 
 ## Contributing
 
 If you're interested in contributing, you'll need a bit more tooling setup. [Follow the instructions here](https://github.com/pachyderm/pachyderm/blob/master/contributing/setup.md)
+
+## Next Step
+
+Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/GUIDE.md).

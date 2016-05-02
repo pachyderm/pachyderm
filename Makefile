@@ -112,7 +112,7 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-launch:
-	kubectl delete --ignore-not-found -f etc/kube/pachyderm.json
+	kubectl delete --ignore-not-found -f $(MANIFEST)
 
 full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -203,7 +203,7 @@ google-cluster:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 	gcloud components update kubectl
 	gcloud compute firewall-rules create pachd --allow=tcp:30650
-	gsutil mb $(BUCKET_NAME) # for PFS
+	gsutil mb gs://$(BUCKET_NAME) # for PFS
 	gcloud compute disks create --size=$(STORAGE_SIZE)GB $(STORAGE_NAME) # for PPS
 
 clean-google-cluster:
