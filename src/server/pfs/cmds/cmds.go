@@ -361,22 +361,30 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
-	var mountPoint string
 	mount := &cobra.Command{
-		Use:   "mount [repo/commit:alias...]",
+		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
-		Run: pkgcobra.Run(func(args []string) error {
+		Run: func(c *cobra.Command, args []string) {
 			//lion.SetLevel(lion.LevelDebug)
 			apiClient, err := getAPIClient(address)
 			if err != nil {
-				return err
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
 			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, shard(), parseCommitMounts(args), nil)
-		}),
+			if len(args) != 1 {
+				c.Usage()
+				os.Exit(1)
+			}
+			mountPoint := args[0]
+			err = mounter.Mount(mountPoint, shard(), nil, nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+		},
 	}
-	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
 	addShardFlags(mount)
 
 	var result []*cobra.Command
