@@ -1,35 +1,66 @@
 # Setup
 
-* [Intro](#intro) 
-
 ## Intro
-This document is about setting up and troubleshooting Pachyderm installations.
-It's meant to cover known good configurations for a number of different platforms.
-If you don't see your platform here please open and issue letting us know and
-we'll help you find an install path and then document it here.
 
-## Dependencies
+Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically Pachyderm can run on any platform that Kubernetes supports.  This guide covers the following commonly used platforms:
+
+* [Local](#local-deployment)
+* [Google Cloud Platform](#google-cloud-playform)
+* [AWS](#amazon-web-services-aws)
+
+Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
+
+## Common Prerequisites
 
 - [Go](#go) >= 1.6
-- [Docker](#docker) >= 1.10
-- [Kubernetes](#kubernetes) and [Kubectl](#kubectl) >= 1.2.0
-- [FUSE](#fuse) 2.8.2 (https://osxfuse.github.io/)
+- [FUSE (optional)](#fuse-optional) >= 2.8.2
+- Clone this repo.  If you are deploying locally, clone it under your `GOPATH`:
 
-## Go
+```shell
+# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
+$ go get github.com/pachyderm/pachyderm
+```
+
+### Go
+
 Find Go 1.6 [here](https://golang.org/doc/install).
 
-## Docker
+### FUSE (optional)
 
-Docker has great docs for installing on any platform, check them out
-[here](https://docs.docker.com/engine/installation/).
+Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS.
 
-## Kubernetes
+FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X FUSE](https://osxfuse.github.io/)
 
-Kubernetes can be installed in many different ways, if you're looking to setup
-a development cluster we recommend running [Dockerized Kubernetes](#dockerized-kubernetes).
-Otherwise you should follow instructions specific to your cloud provider.
+### Kubectl
 
-### Dockerized Kubernetes
+```shell
+### Darwin (OS X)
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/darwin/amd64/kubectl
+
+### Linux
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linux/amd64/kubectl
+
+### Copy kubectl to your path
+chmod +x kubectl
+mv kubectl /usr/local/bin/
+```
+
+## Local Deployment
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/engine/installation) >= 1.10
+
+### Port Forwarding
+
+Both kubectl and pachctl need a port forwarded so they can talk with their servers.  If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
+
+
+```shell
+$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+```
+
+### Deploy Kubernetes
 
 From the root of this repo you can deploy Kubernetes with:
 
@@ -37,45 +68,135 @@ From the root of this repo you can deploy Kubernetes with:
 $ make launch-kube
 ```
 
-### Amazon
+This step can take a while the first time you run it, since some Docker images need to be pulled. 
 
-CoreOS has [great instructions](https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html)
-on how to get on how to get Kubernetes working on AWS.
+### Deploy Pachyderm
 
-### Google
-
-Google has the best support for Kubernetes, they wrote it, through [Google
-Container Engine](https://cloud.google.com/container-engine/).
-
-### Microsoft
-
-Kubernetes on Azure seems to be the least well tested of all the options. This
-is the [best guide](https://github.com/kubernetes/kubernetes/blob/master/docs/getting-started-guides/coreos/azure/README.md)
-we've found.
-
-## Kubectl
+From the root of this repo you can deploy Pachyderm on Kubernetes with:
 
 ```shell
-### Darwin
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/darwin/amd64/kubectl
-
-### Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
-
-### Copy kubectl to your path
-chmod +x kubectl
-mv kubectl /usr/local/bin/
+$ make launch
 ```
 
-## Pachctl
+This step can take a while the first time you run it, since a lot of Docker images need to be pulled. 
 
-### From Homebrew
+## Google Cloud Platform
+
+Google Cloud Platform has excellent support for Kubernetes through the [Google Container Engine](https://cloud.google.com/container-engine/).
+
+### Prerequisites
+
+- [Google Cloud SDK](https://cloud.google.com/sdk/) >= 106.0.0
+
+If this is the first time you use the SDK, make sure to follow through the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts).
+
+After the SDK is installed, run:
+
+```shell
+$ gcloud components install kubectl
+```
+
+### Set up the infrastructure
+
+Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you.
+
+First of all, set three environment variables:
+
+```shell
+$ export CLUSTER_NAME=[the name of your Kubernetes cluster]
+$ export BUCKET_NAME=[the name of the bucket where your data will be stored]
+$ export STORAGE_NAME=[the name of the persistent disk where your pipeline information will be stored]
+$ export STORAGE_SIZE=[the size of the persistent disk that you are going to create]
+```
+
+Then, simply run:
+
+```shell
+$ make google-cluster
+```
+
+This creates a Kubernetes cluster, a bucket, and a persistent disk.  To check that everything has been set up correctly, try:
+
+```shell
+$ gcloud compute instances list
+# should see a number of instances
+
+$ gsutil ls
+# should see a bucket
+
+$ gcloud compute disks list
+# should see a number of disks, including the one you specified
+```
+
+### Deploy Pachyderm
+
+```shell
+$ make google-cluster-manifest > manifest
+$ MANIFEST=manifest make launch
+```
+
+## Amazon Web Services (AWS)
+
+### Prerequisites
+
+- [AWS CLI](https://aws.amazon.com/cli/) 
+
+### Deploy Kubernetes
+
+Deploying Kubernetes on AWS is still a relatively lengthy and manual process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
+
+* https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
+* http://kubernetes.io/docs/getting-started-guides/aws/
+
+## Set up the infrstructure
+
+First of all, set three environment variables:
+
+```shell
+$ export BUCKET_NAME=[the name of the bucket where your data will be stored]
+$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create]
+$ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
+```
+
+Then, simply run:
+
+```shell
+$ make amazon-cluster
+```
+
+Record the "volume-id" in the output:
+
+```shell
+$ export STORAGE_NAME=[volume id]
+```
+
+Now you should be able to see the bucket and the EBS volume that are just created:
+
+```shell
+aws s3api list-buckets --query 'Buckets[].Name'
+aws ec2 describe-volumes --query 'Volumes[].VolumeId'
+```
+
+### Deploy Pachyderm
+
+```shell
+$ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[security token] make amazon-cluster-manifest > manifest
+$ MANIFEST=manifest make launch
+```
+
+## pachctl
+
+`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
+
+### Installation
+
+#### Homebrew
 
 ```shell
 $brew tap pachyderm/tap && brew install pachctl
 ```
 
-### From Source
+#### From Source
 
 To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
 
@@ -91,71 +212,10 @@ Make sure you add `GOPATH/bin` to your `PATH` env variable:
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
-## Port Forwarding
-Both kubectl and pachctl need a port forwarded so they can talk with their servers.
-If docker is running locally you can skip this step. Otherwise do the following:
 
-```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
+### Usage
 
-You'll know it works if `kubectl version` runs without error:
-
-```shell
-kubectl version
-Client Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
-Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
-```
-
-## Launch Pachyderm
-
-From the root of this repo:
-
-```shell
-$ kubectl create -f http://pachyderm.io/manifest.json
-```
-
-Here's what a functioning cluster looks like:
-
-```shell
-$ kubectl get all
-CONTROLLER   CONTAINER(S)   IMAGE(S)                               SELECTOR      REPLICAS   AGE
-etcd         etcd           gcr.io/google_containers/etcd:2.0.12   app=etcd      1          2m
-pachd        pachd          pachyderm/pachd                        app=pachd     1          1m
-rethink      rethink        rethinkdb:2.1.5                        app=rethink   1          1m
-NAME         CLUSTER_IP   EXTERNAL_IP   PORT(S)                        SELECTOR      AGE
-etcd         10.0.0.197   <none>        2379/TCP,2380/TCP              app=etcd      2m
-kubernetes   10.0.0.1     <none>        443/TCP                        <none>        10d
-pachd        10.0.0.100   nodes         650/TCP,750/TCP                app=pachd     1m
-rethink      10.0.0.218   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   1m
-NAME                   READY     STATUS    RESTARTS   AGE
-etcd-4r4hp             1/1       Running   0          2m
-k8s-master-127.0.0.1   3/3       Running   0          10d
-pachd-u992h            1/1       Running   1          1m
-rethink-268hq          1/1       Running   0          1m
-NAME      LABELS    STATUS    VOLUME    CAPACITY   ACCESSMODES   AGE
-```
-
-You'll know it works if `pachctl version` runs without error:
-
-```shell
-pachctl version
-COMPONENT           VERSION
-pachctl             1.0.0
-pachd               1.0.0
-```
-
-## Production Clusters
-For production clusters you'll want to give Pachyderm access to object storage.
-We currently only support s3, to launch a cluster with s3 credentials run:
-
-```shell
-$ pachctl manifest amazon-secret bucket id secret token region | kubectl create -f -
-```
-
-This encodes your credentials as Kubernetes secrets and gives pachd containers
-access to them.
-
+TODO
 
 ## Contributing
 
