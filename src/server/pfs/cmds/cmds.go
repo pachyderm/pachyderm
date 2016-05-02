@@ -215,7 +215,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, false, all)
+			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, pfsclient.NONE, false, all)
 			if err != nil {
 				return err
 			}

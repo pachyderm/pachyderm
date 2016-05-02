@@ -41,6 +41,16 @@ func NewDiff(repoName string, commitID string, shard uint64) *Diff {
 	}
 }
 
+const (
+	NONE  = CommitType_COMMIT_TYPE_NONE
+	READ  = CommitType_COMMIT_TYPE_READ
+	WRITE = CommitType_COMMIT_TYPE_WRITE
+)
+
+// CreateRepo creates a new Repo object in pfs with the given name. Repos are
+// the top level data object in pfs and should be used to store data of a
+// similar type. For example rather than having a single Repo for an entire
+// project you might have seperate Repos for logs, metrics, database dumps etc.
 func CreateRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
 		context.Background(),
@@ -51,6 +61,7 @@ func CreateRepo(apiClient APIClient, repoName string) error {
 	return err
 }
 
+// InspectRepo returns info about a specific Repo.
 func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 	repoInfo, err := apiClient.InspectRepo(
 		context.Background(),
@@ -64,6 +75,7 @@ func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 	return repoInfo, nil
 }
 
+// ListRepo returns info about all Repos.
 func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 	repoInfos, err := apiClient.ListRepo(
 		context.Background(),
@@ -75,6 +87,11 @@ func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 	return repoInfos.RepoInfo, nil
 }
 
+// DeleteRepo deletes a repo and reclaims the storage space it was using. Note
+// that as of 1.0 we do not reclaim the blocks that the Repo was referencing,
+// this is because they may also be referenced by other Repos and deleting them
+// would make those Repos inaccessible. This will be resolved in later
+// versions.
 func DeleteRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.DeleteRepo(
 		context.Background(),
@@ -85,6 +102,20 @@ func DeleteRepo(apiClient APIClient, repoName string) error {
 	return err
 }
 
+// StartCommit begins the process of committing data to a Repo. Once started
+// you can write to the Commit with PutFile and when all the data has been
+// written you must finish the Commit with FinishCommit. NOTE, data is not
+// persisted until FinishCommit is called.
+// parentCommit specifies the parent Commit, upon creation the new Commit will
+// appear identical to the parent Commit, data can safely be added to the new
+// commit without affecting the contents of the parent Commit. You may pass ""
+// as parentCommit in which case the new Commit will have no parent and will
+// initially appear empty.
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
 func StartCommit(apiClient APIClient, repoName string, parentCommit string, branch string) (*Commit, error) {
 	commit, err := apiClient.StartCommit(
 		context.Background(),
@@ -100,6 +131,9 @@ func StartCommit(apiClient APIClient, repoName string, parentCommit string, bran
 	return commit, nil
 }
 
+// FinishCommit ends the process of committing data to a Repo and persists the
+// Commit. Once a Commit is finished the data becomes immutable and future
+// attempts to write to it with PutFile will error.
 func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.FinishCommit(
 		context.Background(),
@@ -110,6 +144,10 @@ func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 	return err
 }
 
+// CancelCommit ends the process of committing data to a repo. It differs from
+// FinishCommit in that the Commit will not be used as a source for downstream
+// pipelines. CancelCommit is used primarily by PPS for the output commits of
+// errant jobs.
 func CancelCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.FinishCommit(
 		context.Background(),
@@ -121,6 +159,7 @@ func CancelCommit(apiClient APIClient, repoName string, commitID string) error {
 	return err
 }
 
+// InspectCommit returns info about a specific Commit.
 func InspectCommit(apiClient APIClient, repoName string, commitID string) (*CommitInfo, error) {
 	commitInfo, err := apiClient.InspectCommit(
 		context.Background(),
@@ -134,7 +173,17 @@ func InspectCommit(apiClient APIClient, repoName string, commitID string) (*Comm
 	return commitInfo, nil
 }
 
-func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string, block bool, all bool) ([]*CommitInfo, error) {
+// ListCommit returns info about multiple commits.
+// repoNames defines a set of Repos to consider commits from, if repoNames is left
+// nil or empty then the result will be empty.
+// fromCommitIDs lets you get info about Commits that occurred after this
+// set of commits.
+// commitType specifies the type of commit you want returned, normally READ is the most useful option
+// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
+// Using fromCommitIDs and block you can get subscription semantics from ListCommit.
+// all, when set to true, will cause ListCommit to return cancelled commits as well.
+func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
+	commitType CommitType, block bool, all bool) ([]*CommitInfo, error) {
 	var repos []*Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &Repo{Name: repoName})
@@ -161,6 +210,7 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 	return commitInfos.CommitInfo, nil
 }
 
+// ListBranch lists the active branches on a Repo.
 func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 	commitInfos, err := apiClient.ListBranch(
 		context.Background(),
@@ -174,6 +224,8 @@ func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 	return commitInfos.CommitInfo, nil
 }
 
+// DeleteCommit deletes a commit.
+// Note it is currently not implemented.
 func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.DeleteCommit(
 		context.Background(),
@@ -184,6 +236,11 @@ func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 	return err
 }
 
+// PutBlock takes a reader and splits the data in it into blocks.
+// Blocks are guaranteed to be new line delimited.
+// Blocks are content addressed and are thus identified by hashes of the content.
+// NOTE: this is lower level function that's used internally and might not be
+// useful to users.
 func PutBlock(apiClient BlockAPIClient, reader io.Reader) (*BlockRefs, error) {
 	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
@@ -195,13 +252,20 @@ func PutBlock(apiClient BlockAPIClient, reader io.Reader) (*BlockRefs, error) {
 	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeBytes uint64) (io.Reader, error) {
+// GetBlock returns the content of a block using it's hash.
+// offset specifies a number of bytes that should be skipped in the beginning of the block.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the block.
+// If size is set to 0 then all of the data will be returned.
+// NOTE: this is lower level function that's used internally and might not be
+// useful to users.
+func GetBlock(apiClient BlockAPIClient, hash string, offset uint64, size uint64) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
 		&GetBlockRequest{
 			Block:       NewBlock(hash),
-			OffsetBytes: offsetBytes,
-			SizeBytes:   sizeBytes,
+			OffsetBytes: offset,
+			SizeBytes:   size,
 		},
 	)
 	if err != nil {
@@ -210,6 +274,9 @@ func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeByt
 	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
+// DeleteBlock deletes a block from the block store.
+// NOTE: this is lower level function that's used internally and might not be
+// useful to users.
 func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 	_, err := apiClient.DeleteBlock(
 		context.Background(),
@@ -221,6 +288,7 @@ func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 	return err
 }
 
+// InspectBlock returns info about a specific Block.
 func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
 		context.Background(),
@@ -234,6 +302,7 @@ func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 	return blockInfo, nil
 }
 
+// ListBlock returns info about all Blocks.
 func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
 		context.Background(),
@@ -245,10 +314,17 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
+// PutFileWriter writes a file to PFS.
+// handle is used to perform multiple writes that are guaranteed to wind up
+// contiguous in the final file. It may be safely left empty and likely won't
+// be needed in most use cases.
+// NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
+// you are done writing.
 func PutFileWriter(apiClient APIClient, repoName string, commitID string, path string, handle string) (io.WriteCloser, error) {
 	return newPutFileWriteCloser(apiClient, repoName, commitID, path, handle)
 }
 
+// PutFile writes a file to PFS from a reader.
 func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
 	writer, err := PutFileWriter(apiClient, repoName, commitID, path, "")
 	if err != nil {
@@ -263,6 +339,14 @@ func PutFile(apiClient APIClient, repoName string, commitID string, path string,
 	return int(written), err
 }
 
+// GetFile returns the contents of a file at a specific Commit.
+// offset specifies a number of bytes that should be skipped in the beginning of the file.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
+// fromCommitID lets you get only the data which was added after this Commit.
+// shard allows you to downsample the data, returning only a subset of the
+// blocks in the file. shard may be left nil in which case the entire file will be returned
 func GetFile(apiClient APIClient, repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *Shard, writer io.Writer) error {
 	return getFile(apiClient, repoName, commitID, path, offset, size, fromCommitID, shard, false, writer)
 }
@@ -295,6 +379,11 @@ func getFile(apiClient APIClient, repoName string, commitID string, path string,
 	return nil
 }
 
+// InspectFile returns info about a specific file.  fromCommitID lets you get
+// only info which was added after this Commit.  shard allows you to downsample
+// the data, returning info about only a subset of the blocks in the file.
+// shard may be left nil in which case info about the entire file will be
+// returned
 func InspectFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) (*FileInfo, error) {
 	return inspectFile(apiClient, repoName, commitID, path, fromCommitID, shard, false)
 }
@@ -319,6 +408,13 @@ func inspectFile(apiClient APIClient, repoName string, commitID string, path str
 	return fileInfo, nil
 }
 
+// ListFile returns info about all files in a Commit.
+// fromCommitID lets you get only info which was added after this Commit.
+// shard allows you to downsample the data, returning info about only a subset
+// of the blocks in the files or only a subset of files. shard may be left nil
+// in which case info about all the files and all the blocks in those files
+// will be returned.
+// recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
 func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, recurse bool) ([]*FileInfo, error) {
 	return listFile(apiClient, repoName, commitID, path, fromCommitID, shard, recurse, false)
 }
@@ -344,6 +440,11 @@ func listFile(apiClient APIClient, repoName string, commitID string, path string
 	return fileInfos.FileInfo, nil
 }
 
+// DeleteFile deletes a file from a Commit.
+// DeleteFile leaves a tombstone in the Commit, assuming the file isn't written
+// to later attempting to get the file from the finished commit will result in
+// not found error.
+// The file will of course remain intact in the Commit's parent.
 func DeleteFile(apiClient APIClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.DeleteFile(
 		context.Background(),
@@ -354,6 +455,9 @@ func DeleteFile(apiClient APIClient, repoName string, commitID string, path stri
 	return err
 }
 
+// MakeDirectory creates a directory in PFS.
+// Note directories are created implicitly by PutFile, so you technically never
+// need this function unless you want to create an empty directory.
 func MakeDirectory(apiClient APIClient, repoName string, commitID string, path string) (retErr error) {
 	putFileClient, err := apiClient.PutFile(context.Background())
 	if err != nil {

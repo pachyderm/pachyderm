@@ -93,7 +93,7 @@ func TestSimple(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
-	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, pfsclient.NONE, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -769,14 +769,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, pfsclient.NONE, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = pfsclient.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true, false)
+		_, err = pfsclient.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, pfsclient.NONE, true, false)
 		close(ch)
 	}()
 
@@ -804,10 +804,10 @@ func TestListCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, pfsclient.CancelCommit(pfsClient, repo, commit3.ID))
-	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, pfsclient.NONE, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, true)
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, pfsclient.NONE, false, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)
