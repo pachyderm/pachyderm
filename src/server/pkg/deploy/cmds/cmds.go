@@ -16,7 +16,7 @@ func DeployCmd() *cobra.Command {
 		Use:   os.Args[0] + " [amazon bucket id secret token region [volume-name volume-size-in-GB] | google bucket [volume-name volume-size-in-GB]]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 6}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
 			if len(args) == 0 {
 				assets.WriteLocalAssets(os.Stdout, uint64(shards))
 			} else {
