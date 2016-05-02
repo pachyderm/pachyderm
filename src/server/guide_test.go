@@ -233,6 +233,10 @@ func runCommands(t *testing.T, commands []Command) {
 }
 
 func TestGuide(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	data, _ := ioutil.ReadFile("../../examples/fruit_stand/GUIDE.md")
 	tokens := strings.Split(string(data), "```shell")
 
