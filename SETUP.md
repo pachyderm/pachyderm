@@ -13,7 +13,7 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 ## Common Prerequisites
 
 - [Go](#go) >= 1.6
-- [FUSE (optional)](#fuse) >= 2.8.2 ()
+- [FUSE (optional)](#fuse-optional) >= 2.8.2
 
 ### Go
 
