@@ -14,7 +14,7 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 
 - [Go](#go) >= 1.6
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
-- Clone this repo.  If you are deploying locally, clone it under your `GOPATH`:
+- Clone this repo under your `GOPATH`:
 
 ```shell
 # this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
@@ -105,7 +105,7 @@ First of all, set three environment variables:
 ```shell
 $ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire Google Cloud Storage namespace]
 $ export STORAGE_NAME=[the name of the persistent disk where your pipeline information will be stored]
-$ export STORAGE_SIZE=[the size of the persistent disk that you are going to create]
+$ export STORAGE_SIZE=[the size of the persistent disk that you are going to create, in GBs]
 ```
 
 Then, simply run:
@@ -164,16 +164,17 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 
 Deploying Kubernetes on AWS is still a relatively lengthy and manual process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
 
-* https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
 * http://kubernetes.io/docs/getting-started-guides/aws/
+* https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
 
 ## Set up the infrstructure
 
 First of all, set three environment variables:
 
 ```shell
+$ export KUBECTLFLAGS="-s [the IP address of the node where Kubernetes runs]"
 $ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire AWS region]
-$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create]
+$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs]
 $ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
 ```
 
@@ -183,7 +184,7 @@ Then, simply run:
 $ make amazon-cluster
 ```
 
-Record the "volume-id" in the output:
+Record the "volume-id" in the output, then export it:
 
 ```shell
 $ export STORAGE_NAME=[volume id]
@@ -235,7 +236,7 @@ $ export PATH=$PATH:$GOPATH/bin
 
 ### Usage
 
-Before you can start using `pachctl`, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
+If Pachyderm is running locally, you are good to go.  Otherwise, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
 
 ```shell
 $ export ADDRESS=[the IP address of the node where Pachyderm runs]:30650
@@ -243,9 +244,13 @@ $ export ADDRESS=[the IP address of the node where Pachyderm runs]:30650
 # export ADDRESS=104.197.179.185:30650
 ```
 
-## Contributing
+Now, create an empty repo to make sure that everything has been set up correctly:
 
-If you're interested in contributing, you'll need a bit more tooling setup. [Follow the instructions here](https://github.com/pachyderm/pachyderm/blob/master/contributing/setup.md)
+```shell
+pachctl create-repo test
+pachctl list-repo
+# should see "test"
+```
 
 ## Next Step
 
