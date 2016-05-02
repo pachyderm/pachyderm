@@ -169,13 +169,14 @@ Deploying Kubernetes on AWS is still a relatively lengthy and manual process com
 
 ## Set up the infrstructure
 
-First of all, set three environment variables:
+First of all, set these environment variables:
 
 ```shell
 $ export KUBECTLFLAGS="-s [the IP address of the node where Kubernetes runs]"
 $ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire AWS region]
 $ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs]
 $ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
+$ export AWS_AVAILABILITY_ZONE=[the AWS availability zone where you want your EBS volume to reside]
 ```
 
 Then, simply run:
@@ -199,8 +200,16 @@ aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 
 ### Deploy Pachyderm
 
+First of all, get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
+
 ```shell
-$ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[security token] make amazon-cluster-manifest > manifest
+$ aws sts get-session-token
+```
+
+Then run the following commands with the credentials you get:
+
+```shell
+$ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[session token] make amazon-cluster-manifest > manifest
 $ make MANIFEST=manifest launch
 ```
 
