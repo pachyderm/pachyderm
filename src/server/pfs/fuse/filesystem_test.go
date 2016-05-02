@@ -472,7 +472,7 @@ func testFuse(
 	go func() {
 		defer wg.Done()
 		fmt.Printf("XXX mounting\n")
-		require.NoError(t, mounter.Mount(mountpoint, nil, nil, ready))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready))
 	}()
 
 	<-ready

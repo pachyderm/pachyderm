@@ -120,7 +120,7 @@ full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 300s
+	CGOENABLED=0 go test ./src/server -timeout 500s
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
