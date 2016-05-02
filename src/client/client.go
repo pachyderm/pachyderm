@@ -4,30 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"go.pedge.io/proto/version"
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-)
-
-const (
-	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 1
-	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion = 0
-	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 0
-)
-
-var (
-	// Version is the current version for pachyderm.
-	Version = &protoversion.Version{
-		Major:      MajorVersion,
-		Minor:      MinorVersion,
-		Micro:      MicroVersion,
-		Additional: getBuildNumber(),
-	}
 )
 
 type PfsAPIClient pfs.APIClient
@@ -40,7 +20,7 @@ type APIClient struct {
 	BlockAPIClient
 }
 
-// NewFromAddress constructs a new APIClient which the server at pachAddr.
+// NewFromAddress constructs a new APIClient for the server at pachAddr.
 func NewFromAddress(pachAddr string) (*APIClient, error) {
 	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
 	if err != nil {
@@ -65,20 +45,4 @@ func NewInCluster() (*APIClient, error) {
 	}
 
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
-}
-
-func PrettyPrintVersion(version *protoversion.Version) string {
-	result := fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
-	if version.Additional != "" {
-		result += fmt.Sprintf("(%s)", version.Additional)
-	}
-	return result
-}
-
-func getBuildNumber() string {
-	value := os.Getenv("PACH_BUILD_NUMBER")
-	if value == "" {
-		value = "dirty"
-	}
-	return value
 }

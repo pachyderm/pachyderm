@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/gengo/grpc-gateway/runtime"
-	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
-	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs"  // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	"github.com/pachyderm/pachyderm/src/client/version"
+	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -155,7 +155,7 @@ func do(appEnvObj interface{}) error {
 		},
 		protoserver.ServeWithHTTPOptions{
 			ServeOptions: protoserver.ServeOptions{
-				Version: pclient.Version,
+				Version: version.Version,
 			},
 		},
 		protoserver.ServeEnv{
