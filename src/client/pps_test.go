@@ -4,20 +4,18 @@ import (
 	"bytes"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 func Example_pps() {
-	var client client.APIClient
+	var c client.APIClient
 
 	// we assume there's already a repo called "repo"
 	// and that it already has some data in it
 	// take a look at src/client/pfs_test.go for an example of how to get there.
 
 	// Create a map pipeline
-	if err := pps.CreatePipeline(
-		client,
+	if err := c.CreatePipeline(
 		"map", // the name of the pipeline
 		"pachyderm/test_image", // your docker image
 		[]string{"map"},        // the command run in your docker image
@@ -25,13 +23,12 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// map over "repo"
-			pps.NewPipelineInput("repo", pps.MAP),
+			client.NewPipelineInput("repo", client.MAP),
 		},
 	); err != nil {
 		return // handle error
 	}
-	if err := pps.CreatePipeline(
-		client,
+	if err := c.CreatePipeline(
 		"reduce",               // the name of the pipeline
 		"pachyderm/test_image", // your docker image
 		[]string{"reduce"},     // the command run in your docker image
@@ -39,17 +36,16 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// reduce over "map"
-			pps.NewPipelineInput("map", pps.REDUCE),
+			client.NewPipelineInput("map", client.REDUCE),
 		},
 	); err != nil {
 		return // handle error
 	}
 
-	commits, err := pfs.ListCommit( // List commits that are...
-		client,
+	commits, err := c.ListCommit( // List commits that are...
 		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
 		nil,                // starting at the beginning of time
-		pfs.READ,           // are readable
+		client.READ,        // are readable
 		true,               // block until commits are available
 		false,              // ignore cancelled commits
 	)
@@ -59,7 +55,7 @@ func Example_pps() {
 	for _, commitInfo := range commits {
 		// Read output from the pipeline
 		var buffer bytes.Buffer
-		if err := pfs.GetFile(client, "reduce", commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer); err != nil {
+		if err := c.GetFile("reduce", commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer); err != nil {
 			return //handle error
 		}
 	}
