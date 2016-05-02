@@ -85,7 +85,7 @@ Then we'll use pachyderm to mount:
 # We background this process because it blocks.
 $ pachctl mount ~/pfs
 ```
-[//]: # (FORK)
+[//]: # (MOUNT)
 
 This will mount pfs on `~/pfs` you can inspect the filesystem like you would any
 other local filesystem. Try:

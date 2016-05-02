@@ -1,15 +1,18 @@
-package client
+package server
 
 import (
 	"fmt"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"google.golang.org/grpc"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
-	"time"
 )
 
 func parseCommandFromShellString(shell string) string {
@@ -30,7 +33,7 @@ type Command struct {
 	Cmd            string
 	Args           []string
 	ExpectedOutput string
-	Fork           bool
+	Mount          bool
 }
 
 func runHelper(c *Command) (string, error) {
@@ -52,8 +55,28 @@ func runHelper(c *Command) (string, error) {
 	//return "didnotrun", nil
 }
 
+func getAPIClient(address string) (pfsclient.APIClient, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return pfsclient.NewAPIClient(clientConn), nil
+}
+
+func shard(fileNumber int, fileModulus int, blockNumber int, blockModulus int) *pfsclient.Shard {
+
+	return &pfsclient.Shard{
+		FileNumber:   uint64(fileNumber),
+		FileModulus:  uint64(fileModulus),
+		BlockNumber:  uint64(blockNumber),
+		BlockModulus: uint64(blockModulus),
+	}
+}
+
 func (c *Command) Run(input string) (string, error) {
-	fmt.Printf("Running [%v %v] ... forked? %v \n", c.Cmd, c.Args, c.Fork)
+	fmt.Printf("Running [%v %v] ... forked? %v \n", c.Cmd, c.Args, c.Mount)
+	var wg sync.WaitGroup
+	defer wg.Wait()
 
 	homePath := fmt.Sprintf("%v/", os.Getenv("HOME"))
 
@@ -62,54 +85,39 @@ func (c *Command) Run(input string) (string, error) {
 		c.Args[i] = strings.Replace(c.Args[i], "~/", homePath, 2)
 	}
 
-	if c.Fork {
+	if c.Mount {
 		fmt.Printf("I should be forking: [%v]\n", c)
+		mountPoint := filepath.Join(os.Getenv("HOME"), "pfs")
+		address := "0.0.0.0:30650"
 
-		done := make(chan bool)
+		apiClient, err := getAPIClient(address)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		mounter := fuse.NewMounter(address, apiClient)
 
-		func(cmd *Command) {
-			fmt.Printf("2 - I should be forking: [%v | %v]\n", c, cmd)
-			go func() {
-				fmt.Printf("3 - I should be forking: [%v | %v]\n", c, cmd)
-				// Remove the &
-				//				var finalArgs []string
-				//				finalArgs = append(finalArgs, "-cE")
-				/*
-					var nestedCommand []string
-					nestedCommand = append(nestedCommand, c.Cmd)
-					nestedCommand = append(nestedCommand, c.Args...)
-					rawNestedCommand := fmt.Sprintf("\"%v\"", strings.Join(nestedCommand, " "))
-					finalArgs = append(finalArgs, rawNestedCommand)
-				*/
+		ready := make(chan bool)
 
-				//				finalArgs = append(finalArgs, c.Cmd)
-				//				finalArgs = append(finalArgs, c.Args...)
-				//				c.Args = finalArgs
-				//				c.Cmd = "bash"
+		go func() {
+			fmt.Printf("XXX mounting\n")
+			err := mounter.Mount(mountPoint, shard(0, 1, 0, 1), nil, ready)
+			//		err = mounter.Mount(mountPoint, shard(0, 1, 0, 1), nil, nil)
+			fmt.Printf("completed mount call\n")
+			if err != nil {
+				fmt.Printf("Error mounting: %v\n", err)
+			}
+		}()
+		/*
+			err = <-didError
+			if err != nil {
+				return "", err
+			}*/
+		fmt.Printf("Waiting for mount...\n")
+		<-ready
+		fmt.Printf("Mounted!\n")
 
-				/*				var args []string
-								for _, arg := range cmd.Args {
-									if arg != "&" {
-										args = append(args, arg)
-									}
-								}
-								cmd.Args = args*/
-
-				fmt.Printf("!!! forked job for command: %v\n", c)
-				done <- true
-
-				_, err := runHelper(c)
-
-				if err != nil {
-					fmt.Printf("Error Forking Mounting: %v\n", err.Error())
-				}
-			}()
-		}(c)
-
-		// lazy
-		<-done
-
-		return "", nil
+		return "", err
 	}
 
 	out, err := runHelper(c)
@@ -126,7 +134,7 @@ func parseCommand(raw string) *Command {
 
 	// Detect if there are any special directives
 	if strings.Contains(raw, "[//]") {
-		// Options are SKIP | CHECK_OUTPUT | custom command
+		// Options are SKIP | CHECK_OUTPUT | MOUNT | custom command
 
 		re, err := regexp.Compile(`\[\/\/\].*?\n`)
 		if err != nil {
@@ -148,8 +156,8 @@ func parseCommand(raw string) *Command {
 			case "CHECK_OUTPUT":
 				shellString := strings.Split(raw, "```")
 				cmd.ExpectedOutput = parseExpectedOutput(shellString[0])
-			case "FORK":
-				cmd.Fork = true
+			case "MOUNT":
+				cmd.Mount = true
 			default:
 				rawCommand := strings.TrimSpace(strings.TrimLeft(directive, "$"))
 				cmd.Cmd, cmd.Args = splitCommand(rawCommand)
@@ -192,33 +200,23 @@ func parseExpectedOutput(raw string) string {
 
 func runCommands(t *testing.T, commands []Command) {
 	pipe := ""
-	var last Command
+
 	for _, c := range commands {
-		done := false
-		runOnce := true
-		if last.Fork {
-			// Last command was a fork
-			runOnce = false
+		out, err := c.Run(pipe)
+		if err != nil {
+			t.Errorf(err.Error())
+			t.FailNow()
 		}
-
-		for !done {
-			out, err := c.Run(pipe)
-			if err != nil {
-				t.Errorf(err.Error())
-				t.Fail()
-			}
-			if out != "" {
-				pipe = out
-			}
-			if runOnce {
-				done = true
-			} else {
-				fmt.Printf("sleeping...\n")
-				time.Sleep(1 * time.Second)
+		if c.ExpectedOutput != "" {
+			fmt.Printf("Checking output ... expected[%v] == actual[%v] ?\n", c.ExpectedOutput, out)
+			if c.ExpectedOutput != out {
+				t.Errorf("Mismatched output. Expectd [%v], Actual [%v]\n", c.ExpectedOutput, out)
+				t.FailNow()
 			}
 		}
-
-		last = c
+		if out != "" {
+			pipe = out
+		}
 	}
 }
 
