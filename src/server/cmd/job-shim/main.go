@@ -46,12 +46,12 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
-			pfsClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
+			client, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
 			}
 
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, pfsClient)
+			mounter := fuse.NewMounter(appEnv.PachydermAddress, client.PfsAPIClient)
 			ready := make(chan bool)
 			go func() {
 				if err := mounter.Mount(

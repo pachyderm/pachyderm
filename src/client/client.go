@@ -32,10 +32,12 @@ var (
 
 type PfsAPIClient pfs.APIClient
 type PpsAPIClient pps.APIClient
+type BlockAPIClient pfs.BlockAPIClient
 
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
+	BlockAPIClient
 }
 
 // NewFromAddress constructs a new APIClient which the server at pachAddr.
@@ -48,6 +50,7 @@ func NewFromAddress(pachAddr string) (*APIClient, error) {
 	return &APIClient{
 		pfs.NewAPIClient(clientConn),
 		pps.NewAPIClient(clientConn),
+		pfs.NewBlockAPIClient(clientConn),
 	}, nil
 }
 

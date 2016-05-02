@@ -1,4 +1,4 @@
-package pps
+package client
 
 import (
 	"io"
@@ -7,10 +7,11 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
-func NewJob(jobID string) *Job {
-	return &Job{ID: jobID}
+func NewJob(jobID string) *pps.Job {
+	return &pps.Job{ID: jobID}
 }
 
 type InputType int
@@ -20,20 +21,20 @@ const (
 	REDUCE
 )
 
-func NewJobInput(repoName string, commitID string, inputType InputType) *JobInput {
-	return &JobInput{
-		Commit: pfs.NewCommit(repoName, commitID),
+func NewJobInput(repoName string, commitID string, inputType InputType) *pps.JobInput {
+	return &pps.JobInput{
+		Commit: NewCommit(repoName, commitID),
 		Reduce: inputType == REDUCE,
 	}
 }
 
-func NewPipeline(pipelineName string) *Pipeline {
-	return &Pipeline{Name: pipelineName}
+func NewPipeline(pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{Name: pipelineName}
 }
 
-func NewPipelineInput(repoName string, inputType InputType) *PipelineInput {
-	return &PipelineInput{
-		Repo:   pfs.NewRepo(repoName),
+func NewPipelineInput(repoName string, inputType InputType) *pps.PipelineInput {
+	return &pps.PipelineInput{
+		Repo:   NewRepo(repoName),
 		Reduce: inputType == REDUCE,
 	}
 }
@@ -54,23 +55,22 @@ func NewPipelineInput(repoName string, inputType InputType) *PipelineInput {
 // parentJobID specifies the a job to use as a parent, it may be left empty in
 // which case there is no parent job. If not left empty your job will use the
 // parent Job's output commit as the parent of its output commit.
-func CreateJob(
-	client APIClient,
+func (c APIClient) CreateJob(
 	image string,
 	cmd []string,
 	stdin []string,
 	parallelism uint64,
-	inputs []*JobInput,
+	inputs []*pps.JobInput,
 	parentJobID string,
-) (*Job, error) {
-	var parentJob *Job
+) (*pps.Job, error) {
+	var parentJob *pps.Job
 	if parentJobID != "" {
 		parentJob = NewJob(parentJobID)
 	}
-	return client.CreateJob(
+	return c.PpsAPIClient.CreateJob(
 		context.Background(),
-		&CreateJobRequest{
-			Transform: &Transform{
+		&pps.CreateJobRequest{
+			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
@@ -85,10 +85,10 @@ func CreateJob(
 // InspectJob returns info about a specific job.
 // blockOutput will cause the call to block until the job has been assigned an output commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func InspectJob(client APIClient, jobID string, blockOutput bool, blockState bool) (*JobInfo, error) {
-	return client.InspectJob(
+func (c APIClient) InspectJob(jobID string, blockOutput bool, blockState bool) (*pps.JobInfo, error) {
+	return c.PpsAPIClient.InspectJob(
 		context.Background(),
-		&InspectJobRequest{
+		&pps.InspectJobRequest{
 			Job:         NewJob(jobID),
 			BlockOutput: blockOutput,
 			BlockState:  blockState,
@@ -99,11 +99,15 @@ func InspectJob(client APIClient, jobID string, blockOutput bool, blockState boo
 // If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
-func ListJob(client APIClient, pipelineName string, inputCommit []*pfs.Commit) ([]*JobInfo, error) {
-	jobInfos, err := client.ListJob(
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*pps.JobInfo, error) {
+	var pipeline *pps.Pipeline
+	if pipelineName != "" {
+		pipeline = NewPipeline(pipelineName)
+	}
+	jobInfos, err := c.PpsAPIClient.ListJob(
 		context.Background(),
-		&ListJobRequest{
-			Pipeline:    NewPipeline(pipelineName),
+		&pps.ListJobRequest{
+			Pipeline:    pipeline,
 			InputCommit: inputCommit,
 		})
 	if err != nil {
@@ -113,14 +117,13 @@ func ListJob(client APIClient, pipelineName string, inputCommit []*pfs.Commit) (
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr).
-func GetLogs(
-	client APIClient,
+func (c APIClient) GetLogs(
 	jobID string,
 	writer io.Writer,
 ) error {
-	getLogsClient, err := client.GetLogs(
+	getLogsClient, err := c.PpsAPIClient.GetLogs(
 		context.Background(),
-		&GetLogsRequest{
+		&pps.GetLogsRequest{
 			Job: NewJob(jobID),
 		},
 	)
@@ -148,20 +151,19 @@ func GetLogs(
 // on availabe resources.
 // inputs specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
-func CreatePipeline(
-	client APIClient,
+func (c APIClient) CreatePipeline(
 	name string,
 	image string,
 	cmd []string,
 	stdin []string,
 	parallelism uint64,
-	inputs []*PipelineInput,
+	inputs []*pps.PipelineInput,
 ) error {
-	_, err := client.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
-		&CreatePipelineRequest{
+		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
-			Transform: &Transform{
+			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
@@ -174,20 +176,20 @@ func CreatePipeline(
 }
 
 // InspectPipeline returns info about a specific pipeline.
-func InspectPipeline(client APIClient, pipelineName string) (*PipelineInfo, error) {
-	return client.InspectPipeline(
+func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
+	return c.PpsAPIClient.InspectPipeline(
 		context.Background(),
-		&InspectPipelineRequest{
+		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
 		},
 	)
 }
 
 // ListPipeline returns info about all pipelines.
-func ListPipeline(client APIClient) ([]*PipelineInfo, error) {
-	pipelineInfos, err := client.ListPipeline(
+func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
+	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
 		context.Background(),
-		&ListPipelineRequest{},
+		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
 		return nil, err
@@ -196,10 +198,10 @@ func ListPipeline(client APIClient) ([]*PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func DeletePipeline(client APIClient, name string) error {
-	_, err := client.DeletePipeline(
+func (c APIClient) DeletePipeline(name string) error {
+	_, err := c.PpsAPIClient.DeletePipeline(
 		context.Background(),
-		&DeletePipelineRequest{
+		&pps.DeletePipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
 	)
