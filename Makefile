@@ -160,6 +160,22 @@ test-fuse: deps-client
 test-local: deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
+clean-test-guide: 
+	docker-machine ls
+	echo "Clean Launch\n=========" || make clean-launch
+	echo "Unmounting  \n=========" || umount $$HOME/pfs
+	echo "Removing mount point\n====================" || rm -rf $$HOME/pfs
+	docker-machine restart `docker-machine ls | tail -n +2 | cut -f 1 -d " "`
+	echo "y" | docker-machine regenerate-certs `docker-machine ls | tail -n +2 | cut -f 1 -d " "`
+	ps -ef | grep "docker/machine" | grep -v grep | cut -f 4 -d " " | while read -r pid; do	\
+		kill $$pid; \
+	done
+	docker-machine ssh `docker-machine ls | tail -n +2 | cut -f 1 -d " "` -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+	docker ps
+
+test-guide: 
+	go test -v ./src/server/ -run TestGuide
+
 clean: clean-launch clean-launch-kube
 
 doc: install
