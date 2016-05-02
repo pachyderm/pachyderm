@@ -38,7 +38,7 @@ type APIClient struct {
 	PpsAPIClient
 }
 
-// NewFromAddress constructs a new APIClient which for the server at pachAddr.
+// NewFromAddress constructs a new APIClient which the server at pachAddr.
 func NewFromAddress(pachAddr string) (*APIClient, error) {
 	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
 	if err != nil {
