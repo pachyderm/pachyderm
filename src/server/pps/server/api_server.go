@@ -189,13 +189,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
 
-	var nonEmptyFilterShards []*pfsclient.Shard
 	// If the job has no input, we respect the specified degree of parallelism
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
+		var nonEmptyFilterShardNumbers []uint64
 		for i := 0; i < int(request.Parallelism); i++ {
 		CheckInputs:
 			for _, jobInput := range request.Inputs {
@@ -224,19 +224,20 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 				}
 				for _, fileInfo := range fileInfos.FileInfo {
 					if fileInfo.SizeBytes > 0 {
-						nonEmptyFilterShards = append(nonEmptyFilterShards, listFileRequest.Shard)
+						nonEmptyFilterShardNumbers = append(nonEmptyFilterShardNumbers, uint64(i))
 						break CheckInputs
 					}
 				}
 			}
 		}
 
-		if len(nonEmptyFilterShards) == 0 {
+		if len(nonEmptyFilterShardNumbers) == 0 {
 			return nil, ErrEmptyInput
 		}
 
-		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShards))
-		persistJobInfo.NonEmptyFilterShards = nonEmptyFilterShards
+		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShardNumbers))
+		persistJobInfo.NonEmptyFilterShardNumbers = nonEmptyFilterShardNumbers
+		persistJobInfo.ShardModulus = request.Parallelism
 	}
 
 	if a.kubeClient == nil {
@@ -439,7 +440,17 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		commitMount := &fuse.CommitMount{
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-			Shard:      jobInfo.NonEmptyFilterShards[jobInfo.PodsStarted-1],
+		}
+		if jobInput.Reduce {
+			commitMount.Shard = &pfsclient.Shard{
+				FileNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
+				FileModulus: jobInfo.ShardModulus,
+			}
+		} else {
+			commitMount.Shard = &pfsclient.Shard{
+				BlockNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
+				BlockModulus: jobInfo.ShardModulus,
+			}
 		}
 		commitMounts = append(commitMounts, commitMount)
 	}
