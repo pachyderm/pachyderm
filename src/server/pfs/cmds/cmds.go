@@ -13,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 
 	"github.com/spf13/cobra"
+	"go.pedge.io/pkg/cobra"
+
 	//"go.pedge.io/lion"
 
 	"google.golang.org/grpc"
@@ -208,16 +210,43 @@ This layers the data in the commit over the data in the parent.`,
 	}
 
 	var all bool
+	var block bool
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
-		Short: "Return all commits on a repo.",
-		Long:  "Return all commits on a repo.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Short: "Return all commits on a set of repos",
+		Long: `Return all commits on a set of repos.
+
+Examples:
+
+	# return commits in repo "foo" and repo "bar"
+	$ pachctl list-commit foo bar
+
+	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
+	$ pachctl list-commit foo/abc123 bar/def456
+
+`,
+		Run: pkgcobra.Run(func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, false, all)
+
+			var repos []string
+			var fromCommits []string
+			for _, arg := range args {
+				parts := strings.Split(arg, "/")
+				if len(parts) > 2 {
+					return fmt.Errorf("Invalid argument: %s; read usage with --help", arg)
+				}
+				repos = append(repos, parts[0])
+				if len(parts) == 2 {
+					fromCommits = append(fromCommits, parts[1])
+				} else {
+					fromCommits = append(fromCommits, "")
+				}
+			}
+
+			commitInfos, err := pfsclient.ListCommit(apiClient, repos, fromCommits, block, all)
 			if err != nil {
 				return err
 			}
@@ -230,6 +259,7 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled commits")
+	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the `from` commits")
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
