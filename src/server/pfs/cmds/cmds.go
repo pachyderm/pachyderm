@@ -215,7 +215,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := _client.ListCommit(args, nil, client.NONE, false, all)
+			commitInfos, err := _client.ListCommit(args, nil, client.CommitTypeNone, false, all)
 			if err != nil {
 				return err
 			}

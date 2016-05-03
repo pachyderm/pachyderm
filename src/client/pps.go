@@ -17,14 +17,14 @@ func NewJob(jobID string) *pps.Job {
 type InputType int
 
 const (
-	MAP InputType = iota
-	REDUCE
+	InputTypeMap InputType = iota
+	InputTypeReduce
 )
 
 func NewJobInput(repoName string, commitID string, inputType InputType) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
-		Reduce: inputType == REDUCE,
+		Reduce: inputType == InputTypeReduce,
 	}
 }
 
@@ -35,7 +35,7 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 func NewPipelineInput(repoName string, inputType InputType) *pps.PipelineInput {
 	return &pps.PipelineInput{
 		Repo:   NewRepo(repoName),
-		Reduce: inputType == REDUCE,
+		Reduce: inputType == InputTypeReduce,
 	}
 }
 
