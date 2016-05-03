@@ -94,7 +94,7 @@ func TestSimple(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.NONE, false, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -770,14 +770,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.NONE, false, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.NONE, true, false)
+		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, false)
 		close(ch)
 	}()
 
@@ -805,10 +805,10 @@ func TestListCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.NONE, false, false)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.NONE, false, true)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)

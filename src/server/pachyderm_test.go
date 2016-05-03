@@ -837,7 +837,7 @@ func TestSimple(t *testing.T) {
 	_, err = c.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit1.ID))
-	commitInfos, err := c.ListCommit([]string{repo}, nil, client.NONE, false, false)
+	commitInfos, err := c.ListCommit([]string{repo}, nil, client.CommitTypeNone, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
