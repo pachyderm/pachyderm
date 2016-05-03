@@ -445,7 +445,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
-	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	require.Equal(t, 3, int(jobInfo.Parallelism))
@@ -467,7 +467,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	require.Equal(t, 3, len(fileInfos))
 
 	// Make sure that each job gets a different ID
-	job2, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job2, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -481,12 +481,11 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	}
 
 	t.Parallel()
-	pachClient := getPachClient(t)
+	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
-	require.NoError(t, ppsclient.CreatePipeline(
-		pachClient,
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
 		[]string{"sh"},
@@ -498,7 +497,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	))
 
 	// Manually trigger the pipeline
-	_, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	_, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -511,7 +510,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
-	listCommitResponse, err := pachClient.ListCommit(
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
 		ctx,
 		listCommitRequest,
 	)
@@ -519,7 +518,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, 30, buffer.Len())
 }
 
@@ -529,12 +528,11 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	}
 
 	t.Parallel()
-	pachClient := getPachClient(t)
+	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
-	require.NoError(t, ppsclient.CreatePipeline(
-		pachClient,
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
 		[]string{"sh"},
@@ -546,7 +544,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	))
 
 	// Manually trigger the pipeline
-	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -559,7 +557,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
-	listCommitResponse, err := pachClient.ListCommit(
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
 		ctx,
 		listCommitRequest,
 	)
@@ -567,11 +565,11 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 
 	// Manually trigger the pipeline
-	_, err = pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	_, err = c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -584,7 +582,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
 		Block:      true,
 	}
-	listCommitResponse, err = pachClient.ListCommit(
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
 		ctx,
 		listCommitRequest,
 	)
@@ -592,7 +590,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer2 bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
+	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
@@ -602,12 +600,11 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	}
 
 	t.Parallel()
-	pachClient := getPachClient(t)
+	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
-	require.NoError(t, ppsclient.CreatePipeline(
-		pachClient,
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
 		[]string{"sh"},
@@ -619,7 +616,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	))
 
 	// Manually trigger the pipeline
-	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -632,7 +629,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	listCommitResponse, err := pachClient.ListCommit(
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
 		ctx,
 		listCommitRequest,
 	)
@@ -640,11 +637,11 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 
 	// Manually trigger the pipeline
-	_, err = pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	_, err = c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: pipelineName,
 		},
@@ -657,7 +654,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 		Block:      true,
 		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
 	}
-	listCommitResponse, err = pachClient.ListCommit(
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
 		ctx,
 		listCommitRequest,
 	)
@@ -665,7 +662,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer2 bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
+	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
@@ -675,12 +672,12 @@ func TestRemoveAndAppend(t *testing.T) {
 	}
 
 	t.Parallel()
-	pachClient := getPachClient(t)
+	c := getPachClient(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 
-	job1, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job1, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
@@ -696,15 +693,15 @@ func TestRemoveAndAppend(t *testing.T) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	jobInfo1, err := pachClient.InspectJob(ctx, inspectJobRequest1)
+	jobInfo1, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest1)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo1.State)
 
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 
-	job2, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+	job2, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
@@ -721,12 +718,12 @@ func TestRemoveAndAppend(t *testing.T) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	jobInfo2, err := pachClient.InspectJob(ctx, inspectJobRequest2)
+	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
 
 	var buffer2 bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
+	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
 	require.Equal(t, "bar\nbar\nbar\n", buffer2.String())
 }
 
