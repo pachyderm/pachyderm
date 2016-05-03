@@ -190,6 +190,7 @@ message GetFileRequest {
   int64 size_bytes = 3;
   Shard shard = 4;
   Commit from_commit = 5;
+  bool unsafe = 6;
 }
 
 message PutFileRequest {
@@ -203,6 +204,7 @@ message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
   Commit from_commit = 3;
+  bool unsafe = 4;
 }
 
 message ListFileRequest {
@@ -210,6 +212,7 @@ message ListFileRequest {
   Shard shard = 2;
   Commit from_commit = 3;
   bool recurse = 4;
+  bool unsafe = 5;
 }
 
 message DeleteFileRequest {

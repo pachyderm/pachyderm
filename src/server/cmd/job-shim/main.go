@@ -54,7 +54,7 @@ func do(appEnvObj interface{}) error {
 			mounter := fuse.NewMounter(appEnv.PachydermAddress, client.PfsAPIClient)
 			ready := make(chan bool)
 			go func() {
-				if err := mounter.Mount(
+				if err := mounter.MountAndCreate(
 					"/pfs",
 					nil,
 					response.CommitMounts,

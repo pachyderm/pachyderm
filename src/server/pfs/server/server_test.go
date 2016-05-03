@@ -478,6 +478,32 @@ func TestPutFile(t *testing.T) {
 	require.Equal(t, "bar\n", buffer2.String())
 }
 
+func TestPutSameFileInParallel(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	var wg sync.WaitGroup
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+			require.NoError(t, err)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+}
+
 func TestInspectFile(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
@@ -580,44 +606,45 @@ func TestDeleteFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "bar", strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit1.ID, "foo"))
+	// The deletion should fail because the file did not exist before this commit,
+	// and files written in the current commit should not be visible yet.
+	require.YesError(t, client.DeleteFile(repo, commit1.ID, "foo"))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	// foo should not exist
+	// foo should still be here because we can't remove a file that we are adding
+	// in the same commit
 	_, err = client.InspectFile(repo, commit1.ID, "foo", "", nil)
-	require.YesError(t, err)
+	require.NoError(t, err)
 
-	// Should see one file
+	// Should see two files
 	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-	require.Equal(t, fileInfos[0].File.Path, "bar")
+	require.Equal(t, 2, len(fileInfos))
 
 	// Empty commit
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	// Should still see one file
+	// Should still see two files
 	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-	require.Equal(t, fileInfos[0].File.Path, "bar")
+	require.Equal(t, 2, len(fileInfos))
 
-	// Delete the other file
+	// Delete foo
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar"))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "foo"))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	// Should see zero files
+	// Should see one file
 	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
 	// The removed file should not exist
-	_, err = client.InspectFile(repo, commit3.ID, "bar", "", nil)
+	_, err = client.InspectFile(repo, commit3.ID, "foo", "", nil)
 	require.YesError(t, err)
 }
 
@@ -663,35 +690,37 @@ func TestDeleteDir(t *testing.T) {
 	commit1, err := client.StartCommit(repo, "", "")
 	require.NoError(t, err)
 
-	fileContent1 := "foo\n"
-	_, err = client.PutFile(repo, commit1.ID, "dir/foo", strings.NewReader(fileContent1))
+	_, err = client.PutFile(repo, commit1.ID, "dir/foo", strings.NewReader("foo1"))
 	require.NoError(t, err)
 
-	fileContent2 := "bar\n"
-	_, err = client.PutFile(repo, commit1.ID, "dir/bar", strings.NewReader(fileContent2))
+	_, err = client.PutFile(repo, commit1.ID, "dir/bar", strings.NewReader("bar1"))
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit1.ID, "dir"))
+	// Since the directory did not exist before this commit, this should error
+	require.YesError(t, client.DeleteFile(repo, commit1.ID, "dir"))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	// Should see zero files
+	// Should see one directory
 	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
 	// dir should not exist
 	_, err = client.InspectFile(repo, commit1.ID, "dir", "", nil)
-	require.YesError(t, err)
+	require.NoError(t, err)
 
-	// Commit 2: Add two files into the same directory
+	// Commit 2: Delete the directory and add the same two files
+	// The two files should reflect the new content
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 
-	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader(fileContent1))
+	require.NoError(t, client.DeleteFile(repo, commit2.ID, "dir"))
+
+	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
 	require.NoError(t, err)
 
-	_, err = client.PutFile(repo, commit2.ID, "dir/bar", strings.NewReader(fileContent2))
+	_, err = client.PutFile(repo, commit2.ID, "dir/bar", strings.NewReader("bar2"))
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
@@ -700,6 +729,14 @@ func TestDeleteDir(t *testing.T) {
 	fileInfos, err = client.ListFile(repo, commit2.ID, "dir", "", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo2", buffer.String())
+
+	var buffer2 bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/bar", 0, 0, "", nil, &buffer2))
+	require.Equal(t, "bar2", buffer2.String())
 
 	// Commit 3: delete the directory
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
@@ -793,6 +830,46 @@ func TestOffsetRead(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, "master", "foo", int64(len(fileData)*2)+1, 0, "", nil, &buffer))
 	require.Equal(t, "", buffer.String())
+}
+
+func TestUnsafeOperations(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "TestUnsafeOperations"
+	require.NoError(t, client.CreateRepo(repo))
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+
+	fileData := "foo"
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader(fileData))
+	require.NoError(t, err)
+
+	// A safe read should not be able to see the file
+	var buffer bytes.Buffer
+	require.YesError(t, client.GetFile(repo, "master", "foo", 0, 0, "", nil, &buffer))
+
+	// An unsafe read should
+	var buffer2 bytes.Buffer
+	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, &buffer2))
+	require.Equal(t, "foo", buffer2.String())
+
+	fileInfo, err := client.InspectFile(repo, "master", "foo", "", nil)
+	require.YesError(t, err)
+
+	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, int(fileInfo.SizeBytes))
+
+	fileInfos, err := client.ListFile(repo, "master", "", "", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	require.NoError(t, client.FinishCommit(repo, "master"))
 }
 
 // FinishCommit should block until the parent has been finished
