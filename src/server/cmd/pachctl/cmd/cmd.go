@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
@@ -47,7 +47,7 @@ Envronment variables:
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVersionHeader(writer)
-			printVersion(writer, "pachctl", client.Version)
+			printVersion(writer, "pachctl", version.Version)
 			writer.Flush()
 
 			versionClient, err := getVersionAPIClient(address)
@@ -82,6 +82,6 @@ func printVersionHeader(w io.Writer) {
 	fmt.Fprintf(w, "COMPONENT\tVERSION\t\n")
 }
 
-func printVersion(w io.Writer, component string, version *protoversion.Version) {
-	fmt.Fprintf(w, "%s\t%s\t\n", component, client.PrettyPrintVersion(version))
+func printVersion(w io.Writer, component string, v *protoversion.Version) {
+	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
 }
