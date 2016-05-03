@@ -1,13 +1,19 @@
 # Pachyderm Documentation #
 
-[Pachctl CLI](https://github.com/pachyderm/pachyderm/blob/master/doc/pachctl)
+[Pachctl CLI](pachctl)
 
-[Golang protobuf API (PFS)](https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto)
+[Golang protobuf API (PFS)](../src/client/pfs/pfs.proto)
 
-[Golang protobuf API (PPS)](https://github.com/pachyderm/pachyderm/blob/master/src/client/pps/pps.proto)
+[Golang protobuf API (PPS)](../src/client/pps/pps.proto)
 
-[Frequently Asked Questions](https://github.com/pachyderm/pachyderm/blob/master/doc/FAQ.md)
+[Frequently Asked Questions](FAQ.md)
 
 [Use Cases](pachyderm.io/use_cases.html)
 
-[Pachyderm Design Goals](https://github.com/pachyderm/pachyderm/blob/master/doc/design_goals.md)
+[Pachyderm Design Goals](design_goals.md)
+
+[Pipeline Specification](pipeline_spec.md)
+
+[Miscellaneous](miscellaneous.md)
+
+
