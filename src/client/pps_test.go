@@ -23,7 +23,7 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// map over "repo"
-			client.NewPipelineInput("repo", client.MAP),
+			client.NewPipelineInput("repo", client.InputTypeMap),
 		},
 	); err != nil {
 		return // handle error
@@ -36,7 +36,7 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// reduce over "map"
-			client.NewPipelineInput("map", client.REDUCE),
+			client.NewPipelineInput("map", client.InputTypeReduce),
 		},
 	); err != nil {
 		return // handle error
@@ -45,9 +45,9 @@ func Example_pps() {
 	commits, err := c.ListCommit( // List commits that are...
 		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
 		nil,                // starting at the beginning of time
-		client.READ,        // are readable
-		true,               // block until commits are available
-		false,              // ignore cancelled commits
+		client.CommitTypeRead, // are readable
+		true,  // block until commits are available
+		false, // ignore cancelled commits
 	)
 	if err != nil {
 		return // handle error

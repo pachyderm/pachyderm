@@ -177,7 +177,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // nil or empty then the result will be empty.
 // fromCommitIDs lets you get info about Commits that occurred after this
 // set of commits.
-// commitType specifies the type of commit you want returned, normally READ is the most useful option
+// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
 // all, when set to true, will cause ListCommit to return cancelled commits as well.
