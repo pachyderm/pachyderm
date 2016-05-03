@@ -10,9 +10,11 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+
 	"github.com/spf13/cobra"
 	//"go.pedge.io/lion"
-	"go.pedge.io/pkg/cobra"
+
 	"google.golang.org/grpc"
 )
 
@@ -43,7 +45,7 @@ func Cmds(address string) []*cobra.Command {
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
 Repos are created with create-repo.`,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -52,7 +54,7 @@ Repos are created with create-repo.`,
 		Use:   "create-repo repo-name",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -65,7 +67,7 @@ Repos are created with create-repo.`,
 		Use:   "inspect-repo repo-name",
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -88,7 +90,7 @@ Repos are created with create-repo.`,
 		Use:   "list-repo",
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -110,7 +112,7 @@ Repos are created with create-repo.`,
 		Use:   "delete-repo repo-name",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -134,7 +136,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.`,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -144,7 +146,7 @@ This layers the data in the commit over the data in the parent.`,
 		Use:   "start-commit repo-name [branch]",
 		Short: "Start a new commit.",
 		Long:  "Start a new commit with parent-commit-id as the parent.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
+		Run: cmd.RunBoundedArgs(1, 2, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -169,7 +171,7 @@ This layers the data in the commit over the data in the parent.`,
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -186,7 +188,7 @@ This layers the data in the commit over the data in the parent.`,
 		Use:   "inspect-commit repo-name commit-id",
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -210,7 +212,7 @@ This layers the data in the commit over the data in the parent.`,
 		Use:   "list-commit repo-name",
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -233,7 +235,7 @@ This layers the data in the commit over the data in the parent.`,
 		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -258,7 +260,7 @@ This layers the data in the commit over the data in the parent.`,
 
 Files can be written to started (but not finished) commits with put-file.
 Files can be read from finished commits with get-file.`,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -267,7 +269,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "put-file repo-name commit-id path/to/file",
 		Short: "Put a file from stdin",
 		Long:  "Put a file from stdin. commit-id must be a writeable commit.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -283,7 +285,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
-		Run: checkArgs(3, func(args []string) error {
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -299,7 +301,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "inspect-file repo-name commit-id path/to/file",
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -324,7 +326,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 2, Max: 3}, func(args []string) error {
+		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -352,7 +354,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "delete-file repo-name commit-id path/to/file",
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -407,19 +409,6 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, deleteFile)
 	result = append(result, mount)
 	return result
-}
-
-func checkArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
-		if len(args) != numArgs {
-			fmt.Println("Expected %d arguments, got %d.", numArgs, len(args))
-			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				pkgcobra.ErrAndExit("%v", err)
-			}
-		}
-	}
 }
 
 func getAPIClient(address string) (pfsclient.APIClient, error) {
