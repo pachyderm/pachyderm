@@ -30,6 +30,8 @@ Pachyderm has a CLI called `pachctl`, you can install it with `make install` or 
 $ brew tap pachyderm/tap && brew install pachctl
 ```
 
+Docs for pachctl can be found [here](https://github.com/pachyderm/pachyderm/blob/master/doc/pachctl/pachctl.md).
+
 Pachyderm also supports a Go client library, Godocs are [here](https://godoc.org/github.com/pachyderm/pachyderm/src/client).
 
 ### What is Pachyderm?
