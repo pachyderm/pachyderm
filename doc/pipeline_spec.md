@@ -40,27 +40,23 @@
 
 ## Examples
 
-Here is a modified example from the [fruit stand example](../examples/fruit_stand/GUIDE.md).
-
 ```json
 {
   "pipeline": {
-    "name": "filter"
+    "name": "my-pipeline"
   },
   "transform": {
-    "image": "fruit_stand",
-    "cmd": [ "sh" ],
+    "image": "my-image",
+    "cmd": [ "my-binary", "arg1", "arg2"],
     "stdin": [
-        "grep apple  /pfs/data/* >/pfs/out/apple",
-        "grep banana /pfs/data/* >/pfs/out/banana",
-        "grep orange /pfs/data/* >/pfs/out/orange"
+        "my-std-input"
     ]
   },
   "parallelism": "4",
   "inputs": [
     {
       "repo": {
-        "name": "data"
+        "name": "my-input"
       },
       "reduce": true
     }
@@ -68,5 +64,5 @@ Here is a modified example from the [fruit stand example](../examples/fruit_stan
 }
 ```
 
-This pipeline runs when the repo `data` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs a bash script.  Each job will get a unique set of files as input because `reduce` is set to true.
+This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-imge`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a unique set of files as input because `reduce` is set to true.
 
