@@ -8,65 +8,7 @@ added the pipeline will automatically process it and materialize the results.
 
 ## Setup
 
-Before we can launch a cluster you'll need the following things:
-
-- Docker >= 1.8
-- Go >= 1.5
-- Kubernetes and Kubectl >= 1.2.0
-- For Mac users: FUSE 2.8.2 (https://osxfuse.github.io/)
-
-### Kubernetes
-
-For development we recommend a dockerized Kubernetes deployment.
-If `docker` is installed you can launch one from the root of this repo with:
-
-```shell
-$ make launch-kube
-```
-
-### Forward Ports
-Unless `docker` is running locally we'll need to forward ports so that `kubectl`
-and `pachctl` can talk to the servers.
-
-```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
-
-### `pachctl`
-Pachyderm is controlled with a CLI, `pachctl`. To install:
-
-```shell
-$ make install
-```
-
-## Launch the Cluster
-
-Launching a Pachyderm cluster from the root of this repo is dead simple:
-
-```shell
-$ kubectl create -f http://pachyderm.io/manifest.json
-```
-
-Here's what a functioning cluster looks like:
-
-```shell
-$ kubectl get all
-CONTROLLER   CONTAINER(S)   IMAGE(S)                               SELECTOR      REPLICAS   AGE
-etcd         etcd           gcr.io/google_containers/etcd:2.0.12   app=etcd      1          2m
-pachd        pachd          pachyderm/pachd                        app=pachd     1          1m
-rethink      rethink        rethinkdb:2.1.5                        app=rethink   1          1m
-NAME         CLUSTER_IP   EXTERNAL_IP   PORT(S)                        SELECTOR      AGE
-etcd         10.0.0.197   <none>        2379/TCP,2380/TCP              app=etcd      2m
-kubernetes   10.0.0.1     <none>        443/TCP                        <none>        10d
-pachd        10.0.0.100   nodes         650/TCP,750/TCP                app=pachd     1m
-rethink      10.0.0.218   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   1m
-NAME                   READY     STATUS    RESTARTS   AGE
-etcd-4r4hp             1/1       Running   0          2m
-k8s-master-127.0.0.1   3/3       Running   0          10d
-pachd-u992h            1/1       Running   1          1m
-rethink-268hq          1/1       Running   0          1m
-NAME      LABELS    STATUS    VOLUME    CAPACITY   ACCESSMODES   AGE
-```
+We assume that you have set up a Pachyderm cluster and have configured `pachctl` to talk to the cluster.  [Detailed instructions can be found here](../../SETUP.md).
 
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
@@ -86,7 +28,7 @@ That probably wasn't terribly interesting, but that's ok because you shouldn't s
 yet. `/pfs` will contain a directory for each `repo`, but you haven't made any
 yet. Let's make one.
 
-## Create a `Repo`
+## Create a Repo
 
 `Repo`s are the highest level primitive in `pfs`. Like all primitives in pfs, they share
 their name with a primitive in Git and are designed to behave analagously.
@@ -104,7 +46,7 @@ data
 Now `ls` does something! `/pfs` contains a directory for every repo in the
 filesystem.
 
-## Start a `Commit`
+## Start a Commit
 Now that you've created a `Repo` you should see an empty directory `/pfs/data`.
 If you try writing to it, it will fail because you can't write directly to a
 `Repo`. In Pachyderm, you write data to an explicit `commit`. Commits are
@@ -141,7 +83,7 @@ $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
 
-## Finish a `Commit`
+## Finish a Commit
 
 Pachyderm won't let you read data from a commit until the `commit` is `finished`.
 This prevents reads from racing with writes. Furthermore, every write
@@ -162,7 +104,7 @@ when it's been started and files are being added, or _read-only_ after it's
 finished.
 
 
-## Create a `Pipeline`
+## Create a Pipeline
 
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
