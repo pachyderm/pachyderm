@@ -174,10 +174,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 	if f.directory.Write {
+		fmt.Printf("Write is true ... not going to inspect file\n")
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
 		a.Size = 0
 	} else {
+		fmt.Printf("inspecting file FOR REALSIES\n")
 		fileInfo, err := pfsclient.InspectFile(
 			f.fs.apiClient,
 			f.File.Commit.Repo.Name,
@@ -303,6 +305,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	// observed on osx, not on linux.
 	repeated := h.written - int(request.Offset)
 	if repeated < 0 {
+		//		repeated = h.written
 		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
 	}
 	written, err := h.w.Write(request.Data[repeated:])

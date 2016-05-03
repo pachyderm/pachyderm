@@ -791,6 +791,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
+	fmt.Printf("Unsafe? %v\n", unsafe)
 	if err != nil {
 		return nil, nil, err
 	}
