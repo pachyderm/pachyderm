@@ -71,6 +71,15 @@ NAME      LABELS    STATUS    VOLUME    CAPACITY   ACCESSMODES   AGE
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
 can read and write data.
+
+First create the mount point:
+
+```shell
+$ mkdir ~/pfs
+```
+
+And then mount it:
+
 ```shell
 # We background this process because it blocks.
 $ pachctl mount &
