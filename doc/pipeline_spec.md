@@ -61,7 +61,7 @@ Here is a modified example from the [fruit stand example](../examples/fruit_stan
     {
       "repo": {
         "name": "data"
-      }
+      },
       reduce: true
     }
   ]

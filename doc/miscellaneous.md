@@ -10,9 +10,17 @@ To understand how such a behavior can occur in Pachyderm, it's important to unde
 
 For instance, imagine that you have a dataset that contains `file_A`, `file_B`, and `file_C`, each of of which is 1TB in size.  Now, each of your nodes will get a portion of each of these files.  If your nodes independently start processing files in alphanumeric order, they will all start with `file_A`, causing all traffic to be sent to the node that handles `file_A`.  In contrast, if your nodes process files in a random order, traffic will be distributed between three nodes.
 
-## File Removal
+## Overwriting and Removing files
 
-Imagine three jobs executing the following commands in parallel:
+In Pachyderm's FUSE implementation (used by PPS), you may not implicitly overwrite files.  Every write is treated as an append.  That is, the following command:
+
+```shell
+echo foo > /pfs/out/file
+```
+
+Will append `foo` to `/pfs/out/file`, instead of overwriting it with `foo`.  This is so that when you have many parallel containers writing to the same file, one container doesn't inadvertently overwrite the data written by other containers.  Therefore if you have three parallel containers running the above command in parallel, you end up with `foofoofoo` instead of `foo`.
+
+Now imagine three containers executing the following commands in parallel:
 
 ```shell
 rm -rf /pfs/out/file
