@@ -28,13 +28,13 @@
 
 `transform.image` is the name of the Docker image that your jobs run in.  Currently, this image needs to [inherit from a Pachyderm-provided image known as `job-shim`](https://github.com/pachyderm/pachyderm/blob/fae98e54af0d6932e258e4b0df4ea784414c921e/examples/fruit_stand/Dockerfile#L1).
 
-`transform.cmd` is the command passed to the Docker run invocation.  Note that as with Docker cmd is not run inside a shell that means that things like wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not work.  To get that behavior you should have your command be a shell of your choice (e.g. `sh`) and pass a shell script to stdin.
+`transform.cmd` is the command passed to the Docker run invocation.  Note that as with Docker, cmd is not run inside a shell which means that things like wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not work.  To get that behavior, you can set `cmd` to be a shell of your choice (e.g. `sh`) and pass a shell script to stdin.
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
 
-`parallelism` is how many copies of your container should run in parallel.  You may pass 0 for parallelism in which case PPS will set the parallelism based on available resources.
+`parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
 
-`inputs` specifies a set of Repos that will be visible to the jobs during runtime. commits to these repos will cause the pipeline to create new jobs to process them.
+`inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
 `inputs.reduce` specifies how a repo will be partitioned among parallel containers.  If set to true, the data will be partitioned by files.  If set to false, the data will be partitioned by blocks.
 
