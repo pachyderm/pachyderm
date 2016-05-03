@@ -91,6 +91,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, - reads from stdin.")
 
+	var block bool
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
@@ -106,6 +107,7 @@ The increase the throughput of a job increase the Shard paremeter.
 					Job: &ppsclient.Job{
 						ID: args[0],
 					},
+					BlockState: block,
 				},
 			)
 			if err != nil {
@@ -120,6 +122,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			return writer.Flush()
 		}),
 	}
+	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 
 	var pipelineName string
 	listJob := &cobra.Command{
