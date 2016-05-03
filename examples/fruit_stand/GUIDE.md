@@ -28,7 +28,7 @@ That probably wasn't terribly interesting, but that's ok because you shouldn't s
 yet. `/pfs` will contain a directory for each `repo`, but you haven't made any
 yet. Let's make one.
 
-## Create a `Repo`
+## Create a Repo
 
 `Repo`s are the highest level primitive in `pfs`. Like all primitives in pfs, they share
 their name with a primitive in Git and are designed to behave analagously.
@@ -46,7 +46,7 @@ data
 Now `ls` does something! `/pfs` contains a directory for every repo in the
 filesystem.
 
-## Start a `Commit`
+## Start a Commit
 Now that you've created a `Repo` you should see an empty directory `/pfs/data`.
 If you try writing to it, it will fail because you can't write directly to a
 `Repo`. In Pachyderm, you write data to an explicit `commit`. Commits are
@@ -83,7 +83,7 @@ $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
 
-## Finish a `Commit`
+## Finish a Commit
 
 Pachyderm won't let you read data from a commit until the `commit` is `finished`.
 This prevents reads from racing with writes. Furthermore, every write
@@ -104,7 +104,7 @@ when it's been started and files are being added, or _read-only_ after it's
 finished.
 
 
-## Create a `Pipeline`
+## Create a Pipeline
 
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
