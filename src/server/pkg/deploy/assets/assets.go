@@ -8,23 +8,27 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
-	suite              = "pachyderm"
-	pachdImage         = "pachyderm/pachd"
-	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage       = "rethinkdb:2.2.6"
-	serviceAccountName = "pachyderm"
-	etcdName           = "etcd"
-	pachdName          = "pachd"
-	rethinkName        = "rethink"
-	amazonSecretName   = "amazon-secret"
-	googleSecretName   = "google-secret"
-	initName           = "pachd-init"
-	trueVal            = true
+	suite                  = "pachyderm"
+	volumeSuite            = "pachyderm-pps-storage"
+	pachdImage             = "pachyderm/pachd"
+	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
+	rethinkImage           = "rethinkdb:2.2.6"
+	serviceAccountName     = "pachyderm"
+	etcdName               = "etcd"
+	pachdName              = "pachd"
+	rethinkName            = "rethink"
+	rethinkVolumeName      = "rethink-volume"
+	rethinkVolumeClaimName = "rethink-volume-claim"
+	amazonSecretName       = "amazon-secret"
+	googleSecretName       = "google-secret"
+	initName               = "pachd-init"
+	trueVal                = true
 )
 
 type backend int
@@ -277,8 +281,8 @@ func EtcdService() *api.Service {
 	}
 }
 
-func RethinkRc() *api.ReplicationController {
-	return &api.ReplicationController{
+func RethinkRc(backend backend, volume string) *api.ReplicationController {
+	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
@@ -331,12 +335,19 @@ func RethinkRc() *api.ReplicationController {
 						{
 							Name: "rethink-storage",
 						},
-						//TODO this needs to be real storage
 					},
 				},
 			},
 		},
 	}
+
+	if backend != localBackend && volume != "" {
+		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
+			ClaimName: rethinkVolumeClaimName,
+		}
+	}
+
+	return spec
 }
 
 func RethinkService() *api.Service {
@@ -350,6 +361,7 @@ func RethinkService() *api.Service {
 			Labels: labels(rethinkName),
 		},
 		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": rethinkName,
 			},
@@ -357,16 +369,17 @@ func RethinkService() *api.Service {
 				{
 					Port:     8080,
 					Name:     "admin-port",
-					NodePort: 8081,
+					NodePort: 32080,
 				},
 				{
 					Port:     28015,
 					Name:     "driver-port",
-					NodePort: 28015,
+					NodePort: 32081,
 				},
 				{
-					Port: 29015,
-					Name: "cluster-port",
+					Port:     29015,
+					Name:     "cluster-port",
+					NodePort: 32082,
 				},
 			},
 		},
@@ -453,12 +466,81 @@ func GoogleSecret(bucket string) *api.Secret {
 	}
 }
 
+func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume {
+	spec := &api.PersistentVolume{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "PersistentVolume",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   rethinkVolumeName,
+			Labels: volumeLabels(rethinkVolumeName),
+		},
+		Spec: api.PersistentVolumeSpec{
+			Capacity: map[api.ResourceName]resource.Quantity{
+				"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
+			},
+			AccessModes:                   []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+			PersistentVolumeReclaimPolicy: api.PersistentVolumeReclaimRetain,
+		},
+	}
+
+	switch backend {
+	case amazonBackend:
+		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+			AWSElasticBlockStore: &api.AWSElasticBlockStoreVolumeSource{
+				FSType:   "ext4",
+				VolumeID: name,
+			},
+		}
+	case googleBackend:
+		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+			GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
+				FSType: "ext4",
+				PDName: name,
+			},
+		}
+	default:
+		panic("cannot generate volume spec for unknown backend")
+	}
+
+	return spec
+}
+
+func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
+	return &api.PersistentVolumeClaim{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   rethinkVolumeClaimName,
+			Labels: volumeLabels(rethinkVolumeClaimName),
+		},
+		Spec: api.PersistentVolumeClaimSpec{
+			Resources: api.ResourceRequirements{
+				Requests: map[api.ResourceName]resource.Quantity{
+					"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
+				},
+			},
+			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+		},
+	}
+}
+
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, backend backend) {
+func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+
+	if backend != localBackend && volumeName != "" {
+		RethinkVolume(backend, volumeName, volumeSize).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
 
 	EtcdRc().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -467,7 +549,7 @@ func WriteAssets(w io.Writer, shards uint64, backend backend) {
 
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	RethinkRc().CodecEncodeSelf(encoder)
+	RethinkRc(backend, volumeName).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	InitJob().CodecEncodeSelf(encoder)
@@ -477,22 +559,21 @@ func WriteAssets(w io.Writer, shards uint64, backend backend) {
 	fmt.Fprintf(w, "\n")
 	PachdRc(shards, backend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-
 }
 
 func WriteLocalAssets(w io.Writer, shards uint64) {
-	WriteAssets(w, shards, localBackend)
+	WriteAssets(w, shards, localBackend, "", 0)
 }
 
-func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string) {
-	WriteAssets(w, shards, amazonBackend)
+func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
-func WriteGoogleAssets(w io.Writer, shards uint64, bucket string) {
-	WriteAssets(w, shards, googleBackend)
+func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -502,5 +583,12 @@ func labels(name string) map[string]string {
 	return map[string]string{
 		"app":   name,
 		"suite": suite,
+	}
+}
+
+func volumeLabels(name string) map[string]string {
+	return map[string]string{
+		"app":   name,
+		"suite": volumeSuite,
 	}
 }

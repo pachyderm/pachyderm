@@ -278,6 +278,7 @@ Files can be read from finished commits with get-file.`,
 	}
 
 	var fromCommitID string
+	var unsafe bool
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -292,6 +293,7 @@ Files can be read from finished commits with get-file.`,
 	}
 	addShardFlags(getFile)
 	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "from commit")
+	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -316,6 +318,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(inspectFile)
+	inspectFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to inspect files written in the current commit; this operation will race with concurrent writes")
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -343,6 +346,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
+	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
@@ -357,22 +361,30 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
-	var mountPoint string
 	mount := &cobra.Command{
-		Use:   "mount [repo/commit:alias...]",
+		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
-		Run: pkgcobra.Run(func(args []string) error {
+		Run: func(c *cobra.Command, args []string) {
 			//lion.SetLevel(lion.LevelDebug)
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				return err
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
 			}
 			mounter := fuse.NewMounter(address, client.PfsAPIClient)
-			return mounter.Mount(mountPoint, shard(), parseCommitMounts(args), nil)
-		}),
+			if len(args) != 1 {
+				c.Usage()
+				os.Exit(1)
+			}
+			mountPoint := args[0]
+			err = mounter.Mount(mountPoint, shard(), nil, nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				os.Exit(1)
+			}
+		},
 	}
-	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
 	addShardFlags(mount)
 
 	var result []*cobra.Command

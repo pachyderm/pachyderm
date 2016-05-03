@@ -291,7 +291,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard)
+	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard, request.Unsafe)
 	if err != nil {
 		// TODO this should be done more consistently throughout
 		if err == pfsserver.ErrFileNotFound {
@@ -317,7 +317,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard)
+	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -339,7 +339,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse)
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse, request.Unsafe)
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:
@@ -383,6 +383,11 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		go func() {
 			defer wg.Done()
 			err := a.driver.DeleteFile(request.File, shard)
+			// We are ignoring ErrFileNotFound because the file being
+			// deleted can be a directory, and directory is scattered
+			// across many DiffInfos across many shards.  Yet not all
+			// shards necessarily contain DiffInfos that contain the
+			// directory, so some of them will report FileNotFound
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:
