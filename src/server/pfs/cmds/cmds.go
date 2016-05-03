@@ -266,7 +266,7 @@ Files can be read from finished commits with get-file.`,
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file",
 		Short: "Put a file from stdin",
-		Long:  "Put a file from stdin. Directories must exist. commit-id must be a writeable commit.",
+		Long:  "Put a file from stdin. commit-id must be a writeable commit.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
@@ -283,7 +283,7 @@ Files can be read from finished commits with get-file.`,
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+		Run: checkArgs(3, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -407,6 +407,19 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, deleteFile)
 	result = append(result, mount)
 	return result
+}
+
+func checkArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if len(args) != numArgs {
+			fmt.Println("Expected %d arguments, got %d.", numArgs, len(args))
+			cmd.Usage()
+		} else {
+			if err := run(args); err != nil {
+				pkgcobra.ErrAndExit("%v", err)
+			}
+		}
+	}
 }
 
 func getAPIClient(address string) (pfsclient.APIClient, error) {
