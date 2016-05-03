@@ -24,7 +24,7 @@ CLUSTER_NAME = pachyderm
 all: build
 
 version:
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Printf("%v.%v.%v(%v)", client.Version.Major, client.Version.Minor, client.Version.Micro, client.Version.Additional) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
