@@ -9,10 +9,10 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -34,7 +34,7 @@ parent.
 If the job fails the commit it creates will not be finished.
 The increase the throughput of a job increase the Shard paremeter.
 `,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -95,7 +95,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -126,7 +126,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "list-job -p pipeline-name",
 		Short: "Return info about all jobs.",
 		Long:  "Return info about all jobs.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -160,7 +160,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "get-logs job-id",
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -180,7 +180,7 @@ to process each incoming commit.
 Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -244,7 +244,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "inspect-pipeline pipeline-name",
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -274,7 +274,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "list-pipeline",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -299,7 +299,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
@@ -323,7 +323,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
