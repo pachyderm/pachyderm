@@ -1,5 +1,9 @@
 # Pachyderm Documentation #
 
+[Deploying Pachyderm](../SETUP.md)
+
+[Quickstart Guide](../examples/fruit_stand/README.md)
+
 [Pachctl CLI](pachctl)
 
 [Golang protobuf API (PFS)](../src/client/pfs/pfs.proto)

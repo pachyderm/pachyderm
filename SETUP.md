@@ -279,4 +279,4 @@ pachctl list-repo
 
 ## Next Step
 
-Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/GUIDE.md).
+Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
