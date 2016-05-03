@@ -8,13 +8,13 @@ import (
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
@@ -55,7 +55,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: func(cmd *cobra.Command, args []string) {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
@@ -79,7 +79,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
 				errorAndExit("Error reading from stdin: %s", err.Error())
 			}
-			job, err := apiClient.CreateJob(
+			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
 			)
@@ -97,19 +97,11 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			jobInfo, err := apiClient.InspectJob(
-				context.Background(),
-				&ppsclient.InspectJobRequest{
-					Job: &ppsclient.Job{
-						ID: args[0],
-					},
-					BlockState: block,
-				},
-			)
+			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
 				errorAndExit("Error from InspectJob: %s", err.Error())
 			}
@@ -130,28 +122,17 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about all jobs.",
 		Long:  "Return info about all jobs.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			var pipeline *ppsclient.Pipeline
-			if pipelineName != "" {
-				pipeline = &ppsclient.Pipeline{
-					Name: pipelineName,
-				}
-			}
-			jobInfos, err := apiClient.ListJob(
-				context.Background(),
-				&ppsclient.ListJobRequest{
-					Pipeline: pipeline,
-				},
-			)
+			jobInfos, err := client.ListJob(pipelineName, nil)
 			if err != nil {
 				errorAndExit("Error from InspectJob: %s", err.Error())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
-			for _, jobInfo := range jobInfos.JobInfo {
+			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
 			}
 			return writer.Flush()
@@ -164,11 +145,11 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			return ppsclient.GetLogs(apiClient, args[0], os.Stdout)
+			return client.GetLogs(args[0], os.Stdout)
 		}),
 	}
 
@@ -198,7 +179,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a spec, the spec looks like this\n%s", exampleCreatePipelineRequest),
 		Run: func(cmd *cobra.Command, args []string) {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
@@ -232,7 +213,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				if err := jsonpb.UnmarshalString(string(message), &request); err != nil {
 					errorAndExit("Error reading from stdin: %s", err.Error())
 				}
-				if _, err := apiClient.CreatePipeline(
+				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					&request,
 				); err != nil {
@@ -248,18 +229,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			pipelineInfo, err := apiClient.InspectPipeline(
-				context.Background(),
-				&ppsclient.InspectPipelineRequest{
-					Pipeline: &ppsclient.Pipeline{
-						Name: args[0],
-					},
-				},
-			)
+			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
 				errorAndExit("Error from InspectPipeline: %s", err.Error())
 			}
@@ -278,20 +252,17 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			pipelineInfos, err := apiClient.ListPipeline(
-				context.Background(),
-				&ppsclient.ListPipelineRequest{},
-			)
+			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
 				errorAndExit("Error from ListPipeline: %s", err.Error())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
-			for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+			for _, pipelineInfo := range pipelineInfos {
 				pretty.PrintPipelineInfo(writer, pipelineInfo)
 			}
 			return writer.Flush()
@@ -303,18 +274,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			if _, err := apiClient.DeletePipeline(
-				context.Background(),
-				&ppsclient.DeletePipelineRequest{
-					Pipeline: &ppsclient.Pipeline{
-						Name: args[0],
-					},
-				},
-			); err != nil {
+			if err := client.DeletePipeline(args[0]); err != nil {
 				errorAndExit("Error from DeletePipeline: %s", err.Error())
 			}
 			return nil
@@ -327,7 +291,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -360,7 +324,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 			}
 
-			job, err := apiClient.CreateJob(
+			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				request,
 			)
@@ -391,12 +355,4 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 func errorAndExit(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
 	os.Exit(1)
-}
-
-func getAPIClient(address string) (ppsclient.APIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return ppsclient.NewAPIClient(clientConn), nil
 }

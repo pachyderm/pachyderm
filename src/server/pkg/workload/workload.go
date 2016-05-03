@@ -5,33 +5,24 @@ import (
 	"io"
 	"math/rand"
 
-	"golang.org/x/net/context"
-
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 func RunWorkload(
-	pfsClient pfsclient.APIClient,
-	ppsClient ppsclient.APIClient,
+	client *client.APIClient,
 	rand *rand.Rand,
 	size int,
 ) error {
 	worker := newWorker(rand)
 	for i := 0; i < size; i++ {
-		if err := worker.work(pfsClient, ppsClient); err != nil {
+		if err := worker.work(client); err != nil {
 			return err
 		}
 	}
 	for _, job := range worker.startedJobs {
-		jobInfo, err := ppsClient.InspectJob(
-			context.Background(),
-			&ppsclient.InspectJobRequest{
-				Job:        job,
-				BlockState: true,
-			},
-		)
+		jobInfo, err := client.InspectJob(job.ID, false, true)
 		if err != nil {
 			return err
 		}
@@ -70,16 +61,16 @@ const (
 const maxStartedCommits = 6
 const maxStartedJobs = 6
 
-func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClient) error {
+func (w *worker) work(c *client.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:
 		repoName := w.randString(10)
-		if err := pfsclient.CreateRepo(pfsClient, repoName); err != nil {
+		if err := c.CreateRepo(repoName); err != nil {
 			return err
 		}
 		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
-		commit, err := pfsclient.StartCommit(pfsClient, repoName, "", "")
+		commit, err := c.StartCommit(repoName, "", "")
 		if err != nil {
 			return err
 		}
@@ -93,10 +84,10 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			commit := w.started[i]
 			// before we finish a commit we add a file, this assures that there
 			// won't be any empty commits which will later crash jobs
-			if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+			if _, err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 				return err
 			}
-			if err := pfsclient.FinishCommit(pfsClient, commit.Repo.Name, commit.ID); err != nil {
+			if err := c.FinishCommit(commit.Repo.Name, commit.ID); err != nil {
 				return err
 			}
 			w.started = append(w.started[:i], w.started[i+1:]...)
@@ -106,7 +97,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := pfsclient.StartCommit(pfsClient, commit.Repo.Name, commit.ID, "")
+			commit, err := c.StartCommit(commit.Repo.Name, commit.ID, "")
 			if err != nil {
 				return err
 			}
@@ -117,20 +108,14 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			return nil
 		}
 		commit := w.started[w.rand.Intn(len(w.started))]
-		if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
+		if _, err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 			return err
 		}
 	case opt < job:
 		if len(w.startedJobs) >= maxStartedJobs {
 			job := w.startedJobs[0]
 			w.startedJobs = w.startedJobs[1:]
-			jobInfo, err := ppsClient.InspectJob(
-				context.Background(),
-				&ppsclient.InspectJobRequest{
-					Job:        job,
-					BlockState: true,
-				},
-			)
+			jobInfo, err := c.InspectJob(job.ID, false, true)
 			if err != nil {
 				return err
 			}
@@ -159,8 +144,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].ID
 			}
 			outFilename := w.randString(10)
-			job, err := ppsclient.CreateJob(
-				ppsClient,
+			job, err := c.CreateJob(
 				"",
 				[]string{"bash"},
 				w.grepCmd(inputs, outFilename),
@@ -191,8 +175,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 		}
 		pipelineName := w.randString(10)
 		outFilename := w.randString(10)
-		if err := ppsclient.CreatePipeline(
-			ppsClient,
+		if err := c.CreatePipeline(
 			pipelineName,
 			"",
 			[]string{"bash"},
@@ -202,7 +185,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 		); err != nil {
 			return err
 		}
-		w.pipelines = append(w.pipelines, ppsclient.NewPipeline(pipelineName))
+		w.pipelines = append(w.pipelines, client.NewPipeline(pipelineName))
 	}
 	return nil
 }

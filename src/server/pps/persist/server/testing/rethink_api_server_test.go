@@ -3,6 +3,7 @@ package testing
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -35,7 +36,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, pipelineInfo.PipelineName, "foo")
-	input := &ppsclient.JobInput{Commit: pfsclient.NewCommit("bar", uuid.NewWithoutDashes())}
+	input := &ppsclient.JobInput{Commit: client.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
@@ -45,7 +46,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		},
 	)
 	jobID := jobInfo.JobID
-	input2 := &ppsclient.JobInput{Commit: pfsclient.NewCommit("fizz", uuid.NewWithoutDashes())}
+	input2 := &ppsclient.JobInput{Commit: client.NewCommit("fizz", uuid.NewWithoutDashes())}
 
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
@@ -108,7 +109,7 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 			context.Background(),
 			&persist.JobOutput{
 				JobID:        jobID,
-				OutputCommit: pfsclient.NewCommit("foo", "bar"),
+				OutputCommit: client.NewCommit("foo", "bar"),
 			})
 		require.NoError(t, err)
 		_, err = apiServer.CreateJobState(
