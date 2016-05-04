@@ -882,6 +882,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfsserver.ErrFileNotFound
 	}
+	fmt.Printf("ZZZ inspectFile() returning: %v\n", fileInfo.SizeBytes)
 	return fileInfo, blockRefs, nil
 }
 

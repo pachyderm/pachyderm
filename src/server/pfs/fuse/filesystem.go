@@ -30,12 +30,14 @@ type filesystem struct {
 	inodes   map[string]uint64
 	lock     sync.RWMutex
 	handleID string
+	Server   *fs.Server
 }
 
 func newFilesystem(
 	pfsAPIClient pfsclient.APIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
+	server *fs.Server,
 ) *filesystem {
 	return &filesystem{
 		apiClient: client.APIClient{PfsAPIClient: pfsAPIClient},
@@ -46,6 +48,7 @@ func newFilesystem(
 		inodes:   make(map[string]uint64),
 		lock:     sync.RWMutex{},
 		handleID: uuid.NewWithoutDashes(),
+		Server:   server,
 	}
 }
 
@@ -174,11 +177,18 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
-	if f.directory.Write {
+
+	fmt.Printf("Invalidating (in attr)\n")
+	f.directory.fs.Server.InvalidateNodeData(f)
+
+	if false { // f.directory.Write {
+		fmt.Printf("ZZZ IM WRITING (in attr)\n")
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
 		a.Size = 0
 	} else {
+		fmt.Printf("ZZZ I'm inspectingFile (in attr)\n")
+
 		fileInfo, err := f.fs.apiClient.InspectFile(
 			f.File.Commit.Repo.Name,
 			f.File.Commit.ID,
@@ -434,7 +444,12 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	if d.Node.Write {
+	//	d.fs.Server.InvalidateNodeData(d)
+	fmt.Printf("Invalidating (in lookupfile)\n")
+	d.fs.Server.InvalidateEntry(d, name)
+
+	if false { //d.Node.Write {
+		fmt.Printf("ZZZ I'm writing (in lookupfile)\n")
 		// Basically, if the directory is writable, we are looking up files
 		// from an open commit.  In this case, we want to return an empty file,
 		// because sometimes you want to remove a file but a remove operation
@@ -449,6 +464,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 			SizeBytes: 0,
 		}
 	} else {
+		fmt.Printf("ZZZ I'm inspecting file (in lookupfile)\n")
 		fileInfo, err = d.fs.apiClient.InspectFile(
 			d.File.Commit.Repo.Name,
 			d.File.Commit.ID,
@@ -511,6 +527,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
+
 	fileInfos, err := d.fs.apiClient.ListFile(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
@@ -527,9 +544,14 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 	var result []fuse.Dirent
 	for _, fileInfo := range fileInfos {
 		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.File.Path)
+
 		if shortPath[0] == '/' {
 			shortPath = shortPath[1:]
 		}
+
+		fmt.Printf("Invalidating (in readFiles)\n")
+		d.fs.Server.InvalidateEntry(d, fileInfo.File.Path)
+
 		switch fileInfo.FileType {
 		case pfsclient.FileType_FILE_TYPE_REGULAR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
