@@ -26,7 +26,7 @@ all: build
 
 version:
 	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
-	@go run /tmp/pachyderm_version.go
+	go run /tmp/pachyderm_version.go
 
 deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
