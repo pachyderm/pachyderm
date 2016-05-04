@@ -223,19 +223,16 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
+			commits, err := cmd.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
 			var repos []string
 			var fromCommits []string
-			for _, arg := range args {
-				parts := strings.Split(arg, "/")
-				if len(parts) > 2 {
-					return fmt.Errorf("Invalid argument: %s; read usage with --help", arg)
-				}
-				repos = append(repos, parts[0])
-				if len(parts) == 2 {
-					fromCommits = append(fromCommits, parts[1])
-				} else {
-					fromCommits = append(fromCommits, "")
-				}
+			for _, commit := range commits {
+				repos = append(repos, commit.Repo.Name)
+				fromCommits = append(fromCommits, commit.ID)
 			}
 
 			_client, err := client.NewFromAddress(address)
