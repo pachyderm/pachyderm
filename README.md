@@ -91,7 +91,7 @@ We can't wait to see what they are!
 
 ### Contributing
 
-[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
