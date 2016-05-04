@@ -89,17 +89,20 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	return nil
 }
 
-func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
+var _ fs.NodeRequestLookuper = (*directory)(nil)
+
+func (d *directory) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (result fs.Node, retErr error) {
+	resp.EntryValid = 0
 	defer func() {
-		protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
+		protolion.Debug(&DirectoryLookup{&d.Node, req.Name, getNode(result), errorToString(retErr)})
 	}()
 	if d.File.Commit.Repo.Name == "" {
-		return d.lookUpRepo(ctx, name)
+		return d.lookUpRepo(ctx, req.Name)
 	}
 	if d.File.Commit.ID == "" {
-		return d.lookUpCommit(ctx, name)
+		return d.lookUpCommit(ctx, req.Name)
 	}
-	return d.lookUpFile(ctx, name)
+	return d.lookUpFile(ctx, req.Name)
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retErr error) {
@@ -178,8 +181,8 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 
-	fmt.Printf("Invalidating (in attr)\n")
-	f.directory.fs.Server.InvalidateNodeData(f)
+	//	fmt.Printf("Invalidating (in attr)\n")
+	//	f.directory.fs.Server.InvalidateNodeData(f)
 
 	if false { // f.directory.Write {
 		fmt.Printf("ZZZ IM WRITING (in attr)\n")
@@ -206,6 +209,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
+	a.Valid = 0
 	return nil
 }
 
@@ -445,8 +449,8 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var err error
 
 	//	d.fs.Server.InvalidateNodeData(d)
-	fmt.Printf("Invalidating (in lookupfile)\n")
-	d.fs.Server.InvalidateEntry(d, name)
+	//	fmt.Printf("Invalidating (in lookupfile)\n")
+	//	d.fs.Server.InvalidateEntry(d, name)
 
 	if false { //d.Node.Write {
 		fmt.Printf("ZZZ I'm writing (in lookupfile)\n")
@@ -549,8 +553,8 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 			shortPath = shortPath[1:]
 		}
 
-		fmt.Printf("Invalidating (in readFiles)\n")
-		d.fs.Server.InvalidateEntry(d, fileInfo.File.Path)
+		//		fmt.Printf("Invalidating (in readFiles)\n")
+		//		d.fs.Server.InvalidateEntry(d, "this-should-not-exist")
 
 		switch fileInfo.FileType {
 		case pfsclient.FileType_FILE_TYPE_REGULAR:
