@@ -22,7 +22,7 @@ func RunWorkload(
 		}
 	}
 	for _, job := range worker.startedJobs {
-		jobInfo, err := client.InspectJob(job.ID, false, true)
+		jobInfo, err := client.InspectJob(job.ID, true)
 		if err != nil {
 			return err
 		}
@@ -115,7 +115,7 @@ func (w *worker) work(c *client.APIClient) error {
 		if len(w.startedJobs) >= maxStartedJobs {
 			job := w.startedJobs[0]
 			w.startedJobs = w.startedJobs[1:]
-			jobInfo, err := c.InspectJob(job.ID, false, true)
+			jobInfo, err := c.InspectJob(job.ID, true)
 			if err != nil {
 				return err
 			}

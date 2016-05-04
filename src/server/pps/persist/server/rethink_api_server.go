@@ -188,9 +188,6 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo := &persist.JobInfo{}
 	var mustHaveFields []interface{}
-	if request.BlockOutput {
-		mustHaveFields = append(mustHaveFields, "OutputCommit")
-	}
 	if request.BlockState {
 		mustHaveFields = append(mustHaveFields, "State")
 	}
@@ -199,14 +196,8 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 		request.Job.ID,
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
-			blockOutput := jobInfo.HasFields("OutputCommit")
-			blockState := jobInfo.Field("State").Ne(ppsclient.JobState_JOB_STATE_RUNNING)
-			if request.BlockOutput && request.BlockState {
-				return blockOutput.And(blockState)
-			} else if request.BlockOutput {
-				return blockOutput
-			} else if request.BlockState {
-				return blockState
+			if request.BlockState {
+				return jobInfo.Field("State").Ne(ppsclient.JobState_JOB_STATE_RUNNING)
 			}
 			return gorethink.Expr(true)
 		},

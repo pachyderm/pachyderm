@@ -112,7 +112,7 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-launch:
-	kubectl delete --ignore-not-found -f $(MANIFEST)
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
 
 full-clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
