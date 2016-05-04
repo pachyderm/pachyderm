@@ -6,7 +6,7 @@ if [ -z "$TRAVIS_BUILD_NUMBER" ]; then
 fi
 
 export PACH_BUILD_NUMBER=$TRAVIS_BUILD_NUMBER
-export VERSION=`make -s version`
+export VERSION=`make -s version 2>&1`
 echo "Tagging this build as: v$VERSION"
 git tag "v$VERSION"
 echo "Pushing tags ..."
