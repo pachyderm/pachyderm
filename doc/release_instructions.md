@@ -3,7 +3,13 @@
 
 ## Pachctl
 
-[Follow the release instructions for pachctl](https://github.com/pachyderm/homebrew-tap/blob/master/README.md)
+1) Update the CLI docs in this repo by doing:
+
+```shell
+make doc
+```
+
+2) [Follow the release instructions for pachctl](https://github.com/pachyderm/homebrew-tap/blob/master/README.md)
 
 ## Pachd
 

@@ -3,6 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 
 * [News](#news)
+* [Getting Started](#getting-started)
 * [What is Pachyderm?](#what-is-pachyderm)
 * [What's new about Pachyderm? (How is it different from Hadoop?)](#-new-about-pachyderm-how-is-it-different-from-hadoop)
 * [Our Vision](#our-vision)
@@ -15,13 +16,23 @@ WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our tea
 
 ### Getting Started
 
-Already got a kube cluster:
+Already got a kubernetes cluster:
 
 ```sh
-$ kubectl create -f http://pachyderm.io/manifest.json
+$ kubectl create -f https://pachyderm.io/manifest.json
 ```
 
-Get up and running with the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+
+Pachyderm has a CLI called `pachctl`, you can install it with `make install` or using Homebrew:
+
+```
+$ brew tap pachyderm/tap && brew install pachctl
+```
+
+Docs for pachctl can be found [here](https://github.com/pachyderm/pachyderm/blob/master/doc/pachctl/pachctl.md).
+
+Pachyderm also supports a Go client library, Godocs are [here](https://godoc.org/github.com/pachyderm/pachyderm/src/client).
 
 ### What is Pachyderm?
 
