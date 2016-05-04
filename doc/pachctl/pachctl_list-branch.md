@@ -1,14 +1,14 @@
-## ./pachctl list-repo
+## ./pachctl list-branch
 
-Return all repos.
+Return all branches on a repo.
 
 ### Synopsis
 
 
-Reutrn all repos.
+Return all branches on a repo.
 
 ```
-./pachctl list-repo
+./pachctl list-branch repo-name
 ```
 
 ### SEE ALSO
