@@ -392,25 +392,19 @@ Files can be read from finished commits with get-file.`,
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
-		Run: func(c *cobra.Command, args []string) {
-			//lion.SetLevel(lion.LevelDebug)
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(1)
+				return err
 			}
 			mounter := fuse.NewMounter(address, client.PfsAPIClient)
-			if len(args) != 1 {
-				c.Usage()
-				os.Exit(1)
-			}
 			mountPoint := args[0]
 			err = mounter.Mount(mountPoint, shard(), nil, nil)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				os.Exit(1)
+				return err
 			}
-		},
+			return nil
+		}),
 	}
 	addShardFlags(mount)
 
