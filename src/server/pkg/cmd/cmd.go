@@ -43,8 +43,9 @@ func ErrorAndExit(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// Given a slice of arguments of the form "repo/commit-id" or "repo" (in which
-// case we consider the commit ID to be empty), return a list of Commits
+// ParseCommits takes a slice of arguments of the form "repo/commit-id" or
+// "repo" (in which case we consider the commit ID to be empty), and returns
+// a list of Commits
 func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
