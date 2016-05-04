@@ -4,17 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+)
+
+const (
+	pipelineSpecLoc = "github.com/pachyderm/pachyderm/doc/pipeline-spec.md"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
@@ -34,7 +40,7 @@ parent.
 If the job fails the commit it creates will not be finished.
 The increase the throughput of a job increase the Shard paremeter.
 `,
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -49,6 +55,12 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
+	gopath := os.Getenv("GOPATH")
+	pipelineSpec, err := ioutil.ReadFile(filepath.Join(gopath, pipelineSpecLoc))
+	if err != nil {
+		return nil, err
+	}
+
 	var jobPath string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
@@ -57,7 +69,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				errorAndExit("Error connecting to pps: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
 			var jobReader io.Reader
 			if jobPath == "-" {
@@ -66,25 +78,25 @@ The increase the throughput of a job increase the Shard paremeter.
 			} else {
 				jobFile, err := os.Open(jobPath)
 				if err != nil {
-					errorAndExit("Error opening %s: %s", jobPath, err.Error())
+					pkgcmd.ErrorAndExit("Error opening %s: %s", jobPath, err.Error())
 				}
 				defer func() {
 					if err := jobFile.Close(); err != nil {
-						errorAndExit("Error closing%s: %s", jobPath, err.Error())
+						pkgcmd.ErrorAndExit("Error closing%s: %s", jobPath, err.Error())
 					}
 				}()
 				jobReader = jobFile
 			}
 			var request ppsclient.CreateJobRequest
 			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
-				errorAndExit("Error reading from stdin: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
 			)
 			if err != nil {
-				errorAndExit("Error from CreateJob: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from CreateJob: %s", err.Error())
 			}
 			fmt.Println(job.ID)
 		},
@@ -96,17 +108,17 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
-				errorAndExit("Error from InspectJob: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from InspectJob: %s", err.Error())
 			}
 			if jobInfo == nil {
-				errorAndExit("Job %s not found.", args[0])
+				pkgcmd.ErrorAndExit("Job %s not found.", args[0])
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
@@ -118,25 +130,52 @@ The increase the throughput of a job increase the Shard paremeter.
 
 	var pipelineName string
 	listJob := &cobra.Command{
-		Use:   "list-job -p pipeline-name",
-		Short: "Return info about all jobs.",
-		Long:  "Return info about all jobs.",
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Use:   "list-job [-p pipeline-name] [commits]",
+		Short: "Return info about jobs.",
+		Long: `Return info about jobs.
+
+Examples:
+
+	# return all jobs
+	$ pachctl list-job
+
+	# return all jobs in pipeline foo
+	$ pachctl list-job -p foo
+
+	# return all jobs whose input commits include foo/abc123 and bar/def456
+	$ pachctl list-job foo/abc123 bar/def456
+
+	# return all jobs in pipeline foo and whose input commits include bar/def456
+	$ pachctl list-job -p foo bar/def456
+
+`,
+		Run: func(cmd *cobra.Command, args []string) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				return err
+				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
 			}
-			jobInfos, err := client.ListJob(pipelineName, nil)
+
+			commits, err := pkgcmd.ParseCommits(args)
 			if err != nil {
-				errorAndExit("Error from InspectJob: %s", err.Error())
+				cmd.Usage()
+				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
 			}
+
+			jobInfos, err := client.ListJob(pipelineName, commits)
+			if err != nil {
+				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+			}
+
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
 			}
-			return writer.Flush()
-		}),
+
+			if err := writer.Flush(); err != nil {
+				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+			}
+		},
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 
@@ -144,7 +183,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "get-logs job-id",
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
@@ -164,24 +203,23 @@ to process each incoming commit.
 Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
 
 	var pipelinePath string
-	exampleCreatePipelineRequest, err := marshaller.MarshalToString(example.CreatePipelineRequest())
 	if err != nil {
 		return nil, err
 	}
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  fmt.Sprintf("Create a new pipeline from a spec, the spec looks like this\n%s", exampleCreatePipelineRequest),
+		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				errorAndExit("Error connecting to pps: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
 			var pipelineReader io.Reader
 			if pipelinePath == "-" {
@@ -190,11 +228,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else {
 				pipelineFile, err := os.Open(pipelinePath)
 				if err != nil {
-					errorAndExit("Error opening %s: %s", pipelinePath, err.Error())
+					pkgcmd.ErrorAndExit("Error opening %s: %s", pipelinePath, err.Error())
 				}
 				defer func() {
 					if err := pipelineFile.Close(); err != nil {
-						errorAndExit("Error closing%s: %s", pipelinePath, err.Error())
+						pkgcmd.ErrorAndExit("Error closing%s: %s", pipelinePath, err.Error())
 					}
 				}()
 				pipelineReader = pipelineFile
@@ -207,17 +245,17 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					} else {
-						errorAndExit("Error reading from stdin: %s", err.Error())
+						pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 					}
 				}
 				if err := jsonpb.UnmarshalString(string(message), &request); err != nil {
-					errorAndExit("Error reading from stdin: %s", err.Error())
+					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					&request,
 				); err != nil {
-					errorAndExit("Error from CreatePipeline: %s", err.Error())
+					pkgcmd.ErrorAndExit("Error from CreatePipeline: %s", err.Error())
 				}
 			}
 		},
@@ -228,17 +266,17 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "inspect-pipeline pipeline-name",
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				errorAndExit("Error from InspectPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from InspectPipeline: %s", err.Error())
 			}
 			if pipelineInfo == nil {
-				errorAndExit("Pipeline %s not found.", args[0])
+				pkgcmd.ErrorAndExit("Pipeline %s not found.", args[0])
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
@@ -251,14 +289,14 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "list-pipeline",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				errorAndExit("Error from ListPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from ListPipeline: %s", err.Error())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
@@ -273,13 +311,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 			if err := client.DeletePipeline(args[0]); err != nil {
-				errorAndExit("Error from DeletePipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
@@ -290,7 +328,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
@@ -309,18 +347,18 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
 				if err != nil {
-					errorAndExit("Error opening %s: %s", specPath, err.Error())
+					pkgcmd.ErrorAndExit("Error opening %s: %s", specPath, err.Error())
 				}
 
 				defer func() {
 					if err := specFile.Close(); err != nil {
-						errorAndExit("Error closing%s: %s", specPath, err.Error())
+						pkgcmd.ErrorAndExit("Error closing%s: %s", specPath, err.Error())
 					}
 				}()
 
 				specReader = specFile
 				if err := jsonpb.Unmarshal(specReader, request); err != nil {
-					errorAndExit("Error reading from stdin: %s", err.Error())
+					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 				}
 			}
 
@@ -329,7 +367,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				errorAndExit("Error from RunPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from RunPipeline: %s", err.Error())
 			}
 			fmt.Println(job.ID)
 			return nil
@@ -350,9 +388,4 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, runPipeline)
 	return result, nil
-}
-
-func errorAndExit(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
-	os.Exit(1)
 }
