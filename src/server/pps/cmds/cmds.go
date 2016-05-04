@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	pipelineSpecLoc = "github.com/pachyderm/pachyderm/doc/pipeline-spec.md"
+	// path relative to gopath
+	pipelineSpecLoc = "src/github.com/pachyderm/pachyderm/doc/pipeline_spec.md"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
