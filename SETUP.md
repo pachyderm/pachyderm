@@ -175,7 +175,7 @@ Deploying Kubernetes on AWS is still a relatively lengthy and manual process com
 * http://kubernetes.io/docs/getting-started-guides/aws/
 * https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
 
-## Set up the infrstructure
+### Set up the infrastructure
 
 First of all, set these environment variables:
 
