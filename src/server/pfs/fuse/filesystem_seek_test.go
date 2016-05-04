@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
@@ -18,10 +18,10 @@ func TestSeekRead(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -30,7 +30,7 @@ func TestSeekRead(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NoError(t, file.Close())
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
 
 		fmt.Printf("==== Finished commit\n")
 
@@ -73,10 +73,10 @@ func TestSeekWriteGap(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -107,7 +107,7 @@ func TestSeekWriteGap(t *testing.T) {
 		require.YesError(t, err)
 		require.Equal(t, 3, n1)
 
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID)) */
+		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
 	})
 }
 
@@ -116,10 +116,10 @@ func TestSeekWriteBackwards(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -152,6 +152,6 @@ func TestSeekWriteBackwards(t *testing.T) {
 
 		fmt.Printf("==== %v - write word len %v\n", time.Now(), n1)
 
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID)) */
+		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
 	})
 }
