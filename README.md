@@ -22,7 +22,7 @@ Already got a kubernetes cluster:
 $ kubectl create -f https://pachyderm.io/manifest.json
 ```
 
-If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand).
 
 Pachyderm has a CLI called `pachctl`, you can install it with `make install` or using Homebrew:
 
