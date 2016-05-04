@@ -1,14 +1,14 @@
-## ./pachctl list-repo
+## ./pachctl get-logs
 
-Return all repos.
+Return logs from a job.
 
 ### Synopsis
 
 
-Reutrn all repos.
+Return logs from a job.
 
 ```
-./pachctl list-repo
+./pachctl get-logs job-id
 ```
 
 ### SEE ALSO
