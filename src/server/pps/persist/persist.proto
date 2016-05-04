@@ -23,7 +23,8 @@ message JobInfo {
   uint64 pods_started = 11;
   uint64 pods_succeeded = 12;
   uint64 pods_failed = 13;
-  repeated pfs.Shard non_empty_filter_shards = 14;
+  repeated uint64 non_empty_filter_shard_numbers = 14;
+  uint64 shard_modulus = 15;
 }
 
 message JobInfos {

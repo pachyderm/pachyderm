@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -31,9 +32,9 @@ func TestRootReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
-		require.NoError(t, pfsclient.CreateRepo(apiClient, "one"))
-		require.NoError(t, pfsclient.CreateRepo(apiClient, "two"))
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("one"))
+		require.NoError(t, c.CreateRepo("two"))
 
 		require.NoError(t, fstestutil.CheckDir(mountpoint, map[string]fstestutil.FileInfoCheck{
 			"one": func(fi os.FileInfo) error {
@@ -73,15 +74,15 @@ func TestRepoReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
-		commitA, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, c.CreateRepo(repoName))
+		commitA, err := c.StartCommit(repoName, "", "")
 		require.NoError(t, err)
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commitA.ID))
+		require.NoError(t, c.FinishCommit(repoName, commitA.ID))
 		t.Logf("finished commit %v", commitA.ID)
 
-		commitB, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		commitB, err := c.StartCommit(repoName, "", "")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
@@ -125,10 +126,10 @@ func TestCommitOpenReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
-		commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, c.CreateRepo(repoName))
+		commit, err := c.StartCommit(repoName, "", "")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -156,10 +157,10 @@ func TestCommitFinishedReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
-		commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, c.CreateRepo(repoName))
+		commit, err := c.StartCommit(repoName, "", "")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -175,7 +176,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 			scriptPerm = 0750
 		)
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
+		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
 			greetingName: func(fi os.FileInfo) error {
@@ -216,10 +217,10 @@ func TestWriteAndRead(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
-		commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
+		require.NoError(t, c.CreateRepo(repoName))
+		commit, err := c.StartCommit(repoName, "", "")
 		require.NoError(t, err)
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
@@ -227,7 +228,7 @@ func TestWriteAndRead(t *testing.T) {
 		_, err = ioutil.ReadFile(filePath)
 		// errors because the commit is unfinished
 		require.YesError(t, err)
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
+		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(t, []byte(greeting), data)
@@ -239,15 +240,15 @@ func TestBigWrite(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
@@ -260,23 +261,23 @@ func Test296(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
-		commit2, err := pfsclient.StartCommit(apiClient, repo, commit.ID, "")
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit2, err := c.StartCommit(repo, commit.ID, "")
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit2.ID))
+		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "1\n2\n3\n", string(data))
@@ -288,10 +289,10 @@ func TestSpacedWrites(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -301,7 +302,7 @@ func TestSpacedWrites(t *testing.T) {
 		_, err = file.Write([]byte("foo"))
 		require.NoError(t, err)
 		require.NoError(t, file.Close())
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "foofoo", string(data))
@@ -313,9 +314,9 @@ func TestMountCachingViaWalk(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo1 := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
+		require.NoError(t, c.CreateRepo(repo1))
 
 		// Now if we walk the FS we should see the file.
 		// This first act of 'walking' should also initiate the cache
@@ -333,7 +334,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 
 		// Now create another repo, and look for it under the mount point
 		repo2 := "bar"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
+		require.NoError(t, c.CreateRepo(repo2))
 
 		// Now if we walk the FS we should see the new file.
 		// This now works. But originally (issue #205) this second ls on mac doesn't report the file!
@@ -352,9 +353,9 @@ func TestMountCachingViaShell(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo1 := "foo"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
+		require.NoError(t, c.CreateRepo(repo1))
 
 		// Now if we walk the FS we should see the file.
 		// This first act of 'walking' should also initiate the cache
@@ -368,7 +369,7 @@ func TestMountCachingViaShell(t *testing.T) {
 
 		// Now create another repo, and look for it under the mount point
 		repo2 := "bar"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
+		require.NoError(t, c.CreateRepo(repo2))
 
 		// Now if we walk the FS we should see the new file.
 		// This second ls on mac doesn't report the file!
@@ -385,7 +386,7 @@ func TestMountCachingViaShell(t *testing.T) {
 
 func testFuse(
 	t *testing.T,
-	test func(apiClient pfsclient.APIClient, mountpoint string),
+	test func(client client.APIClient, mountpoint string),
 ) {
 	fmt.Printf("XXX NEW TEST\n")
 	// don't leave goroutines running
@@ -484,6 +485,6 @@ func testFuse(
 		fmt.Printf("XXX Unmounted!\n")
 	}()
 	fmt.Printf("XXX running test callback\n")
-	test(apiClient, mountpoint)
+	test(client.APIClient{PfsAPIClient: apiClient}, mountpoint)
 	fmt.Printf("XXX ran test callback\n")
 }
