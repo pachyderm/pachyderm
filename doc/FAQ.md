@@ -91,7 +91,7 @@ Pachyderm has three main methods for getting data into the system.
 2. The [pachctl CLI](https://github.com/pachyderm/pachyderm/tree/master/doc/pachctl), which
 allows you to put files into Pachyderm.
 3. You can mount Pachyderm locally and add files directly to the filesystem
-   through the [FUSE interface](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#mount-the-filesystem).
+   through the [FUSE interface](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand#mount-the-filesystem).
 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also
@@ -122,7 +122,7 @@ will be added in the future!
 
 ##### Can I run Pachyderm locally?
 Yup! Pachyderm can be run locally directly in Docker. Check out our [QuickStart
-guide](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md)
+guide](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand)
 to get started.
 
 ## Computation
@@ -166,7 +166,7 @@ input. By this method Pachyderm, actually creates a
 The full picture would look like this: raw data enters Pachyderm which triggers
 the “filter" pipeline. The “filter" pipeline outputs its results in a commit to
 the “filter" repo which triggers the “sum" pipeline. The final results would be
-available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline)
+available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand#create-a-pipeline)
 to see exactly this example.
 
 ##### How do I perform batched analytics in Pachyderm?
