@@ -19,18 +19,25 @@ make doc
 - make sure on GH its marked as a release
 - checkout the commit locally, then run:
 
+```shell
     git fetch --tags
     make release-pachd
+```
 
 To test / verify:
 
+```shell
     git pull --tags
     cp etc/kube/pachyderm.json .
     tag=`git tag -l --points-at HEAD`
     docker_tag=`echo $tag | sed -e 's/[\(]/-/g' | sed -e 's/[\)]//g'`
     sed "s/pachyderm\/pachd/pachyderm\/pachd:$docker_tag/" pachyderm.json > tagged_pachyderm.json
+    docker ps # check DM is connected
+    kubectl get all # check k8s is up
+    make clean-launch
     kubectl create -f tagged_pachyderm.json
-    until timeout 5s $GOPATH/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+    until timeout 5s pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+```
 
 Then do:
 
