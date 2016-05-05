@@ -222,6 +222,12 @@ clean-amazon-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
 
+install-go-bindata:
+	go get -u github.com/jteeuwen/go-bindata/...
+
+assets: install-go-bindata
+	go-bindata -o assets.go -pkg pachyderm doc/ 
+
 
 .PHONY: \
 	doc \
