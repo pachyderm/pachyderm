@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 )
@@ -59,13 +58,13 @@ func main() {
 				return err
 			}
 			for i := 0; i < commits; i++ {
-				if _, err := pfs.StartCommit(client, "data", "", "master"); err != nil {
+				if _, err := client.StartCommit("data", "", "master"); err != nil {
 					return err
 				}
-				if _, err := pfs.PutFile(client, "data", "master", "sales", &reader{lines}); err != nil {
+				if _, err := client.PutFile("data", "master", "sales", &reader{lines}); err != nil {
 					return err
 				}
-				if err := pfs.FinishCommit(client, "data", "master"); err != nil {
+				if err := client.FinishCommit("data", "master"); err != nil {
 					return err
 				}
 			}
