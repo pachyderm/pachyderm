@@ -6,9 +6,7 @@
 
 [Pachctl CLI](pachctl)
 
-[Golang protobuf API (PFS)](../src/client/pfs/pfs.proto)
-
-[Golang protobuf API (PPS)](../src/client/pps/pps.proto)
+[Golang Client](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
 
 [Frequently Asked Questions](FAQ.md)
 
