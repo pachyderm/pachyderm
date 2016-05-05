@@ -8,7 +8,10 @@ import (
 )
 
 func Example_pfs() {
-	var c client.APIClient
+	c, err := client.NewFromAddress("0.0.0.0:30650")
+	if err != nil {
+		return // handle error
+	}
 	// Create a repo called "repo"
 	if err := c.CreateRepo("repo"); err != nil {
 		return // handle error

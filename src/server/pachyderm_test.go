@@ -67,9 +67,8 @@ func testJob(t *testing.T, shards int) {
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
-		Job:         job,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job,
+		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
@@ -134,9 +133,8 @@ func TestDuplicatedJob(t *testing.T) {
 	require.Equal(t, job1, job2)
 
 	inspectJobRequest := &ppsclient.InspectJobRequest{
-		Job:         job1,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job1,
+		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
@@ -215,9 +213,8 @@ func TestGrep(t *testing.T) {
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
-		Job:         job1,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job1,
+		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
@@ -439,9 +436,8 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 		},
 	})
 	inspectJobRequest := &ppsclient.InspectJobRequest{
-		Job:         job,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job,
+		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
@@ -689,9 +685,8 @@ func TestRemoveAndAppend(t *testing.T) {
 	require.NoError(t, err)
 
 	inspectJobRequest1 := &ppsclient.InspectJobRequest{
-		Job:         job1,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job1,
+		BlockState: true,
 	}
 	jobInfo1, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest1)
 	require.NoError(t, err)
@@ -714,9 +709,8 @@ func TestRemoveAndAppend(t *testing.T) {
 	require.NoError(t, err)
 
 	inspectJobRequest2 := &ppsclient.InspectJobRequest{
-		Job:         job2,
-		BlockOutput: true,
-		BlockState:  true,
+		Job:        job2,
+		BlockState: true,
 	}
 	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)

@@ -123,9 +123,8 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 	_, err = apiServer.InspectJob(
 		context.Background(),
 		&ppsclient.InspectJobRequest{
-			Job:         &ppsclient.Job{ID: jobID},
-			BlockOutput: true,
-			BlockState:  true,
+			Job:        &ppsclient.Job{ID: jobID},
+			BlockState: true,
 		},
 	)
 	require.NoError(t, err)

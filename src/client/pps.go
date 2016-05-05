@@ -85,13 +85,12 @@ func (c APIClient) CreateJob(
 // InspectJob returns info about a specific job.
 // blockOutput will cause the call to block until the job has been assigned an output commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
-func (c APIClient) InspectJob(jobID string, blockOutput bool, blockState bool) (*pps.JobInfo, error) {
+func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
 	return c.PpsAPIClient.InspectJob(
 		context.Background(),
 		&pps.InspectJobRequest{
-			Job:         NewJob(jobID),
-			BlockOutput: blockOutput,
-			BlockState:  blockState,
+			Job:        NewJob(jobID),
+			BlockState: blockState,
 		})
 }
 

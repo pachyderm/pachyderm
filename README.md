@@ -22,7 +22,7 @@ Already got a kubernetes cluster:
 $ kubectl create -f https://pachyderm.io/manifest.json
 ```
 
-If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand).
 
 Pachyderm has a CLI called `pachctl`, you can install it with `make install` or using Homebrew:
 
@@ -58,7 +58,7 @@ There are two bold new ideas in Pachyderm:
 
 These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/examples/fruit_stand/GUIDE.md)).
+To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand)).
 
 Pachyderm also version controls all data using a commit-based distributed
 filesystem (PFS), similar to what git does with code. Version control for data
@@ -91,7 +91,7 @@ We can't wait to see what they are!
 
 ### Contributing
 
-[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
