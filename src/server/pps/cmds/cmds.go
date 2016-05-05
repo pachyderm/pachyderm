@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
@@ -17,11 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-)
-
-const (
-	// path relative to gopath
-	pipelineSpecLoc = "src/github.com/pachyderm/pachyderm/doc/pipeline_spec.md"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
@@ -56,11 +50,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	gopath := os.Getenv("GOPATH")
-	pipelineSpec, err := ioutil.ReadFile(filepath.Join(gopath, pipelineSpecLoc))
-	if err != nil {
-		return nil, err
-	}
+	pipelineSpec := string(pachyderm.MustAsset("doc/pipeline_spec.md"))
 
 	var jobPath string
 	createJob := &cobra.Command{

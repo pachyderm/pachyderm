@@ -78,7 +78,7 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build: docker-build-job-shim docker-build-pachd
+docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -221,6 +221,12 @@ amazon-cluster:
 clean-amazon-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
+
+install-go-bindata:
+	go get -u github.com/jteeuwen/go-bindata/...
+
+assets: install-go-bindata
+	go-bindata -o assets.go -pkg pachyderm doc/ 
 
 
 .PHONY: \
