@@ -23,6 +23,6 @@ function create_docker_machine () {
         --google-disk-type pd-ssd \
         --google-machine-type n1-standard-8 \
         --google-zone us-central1-c \
-        --google-project YOURNAME-dev \
+        --google-project $1-dev \
         dev
 }
