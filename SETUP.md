@@ -14,12 +14,8 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 
 - [Go](#go) >= 1.6
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
-- Clone this repo under your `GOPATH`:
-
-```shell
-# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
-$ go get github.com/pachyderm/pachyderm
-```
+- [Kubectl (kubernetes CLI)](#kubectl) >= 1.2.2
+- [Pachyderm Repository](#pachyderm)
 
 ### Go
 
@@ -33,6 +29,8 @@ FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X F
 
 ### Kubectl
 
+Make sure you have version 1.2.2 or higher.
+
 ```shell
 ### Darwin (OS X)
 $ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/darwin/amd64/kubectl
@@ -44,6 +42,16 @@ $ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linu
 chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
+
+### Pachyderm
+
+Clone this repo under your `GOPATH`:
+
+```shell
+# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
+$ go get github.com/pachyderm/pachyderm
+```
+
 
 ## Local Deployment
 
