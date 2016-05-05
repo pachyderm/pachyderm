@@ -78,7 +78,7 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build: docker-build-job-shim docker-build-pachd
+docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
