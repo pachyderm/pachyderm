@@ -1,10 +1,11 @@
 ReadFile
 WriteFile
-append
-redirect
+Append
+Redirect
+write
+close
 delete
 unlink
 symlink
-listfile
-ReadDirectory
-writedirectory
+readdir
+mkdir

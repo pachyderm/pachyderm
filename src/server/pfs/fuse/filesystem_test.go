@@ -21,50 +21,11 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse/spec"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
 )
-
-var OpenCommitSyscallSpec *spec.Spec
-var ClosedCommitSyscallSpec *spec.Spec
-var RootSyscallSpec *spec.Spec
-var RepoSyscallSpec *spec.Spec
-
-func TestMain(m *testing.M) {
-	fmt.Println("This gets run BEFORE any tests get run!")
-
-	OpenCommitSyscallSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
-	ClosedCommitSyscallSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
-	RootSyscallSpec, _ = spec.New("Syscalls on root level directory", "spec/syscalls.txt")
-	RepoSyscallSpec, _ = spec.New("Syscalls on repo level directories", "spec/syscalls.txt")
-
-	exitVal := m.Run()
-
-	fmt.Println("This gets run AFTER any tests get run!")
-	err := OpenCommitSyscallSpec.GenerateReport("spec/reports/syscall-open-commits.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = ClosedCommitSyscallSpec.GenerateReport("spec/reports/syscall-closed-commits.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = RootSyscallSpec.GenerateReport("spec/reports/syscall-root.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = RepoSyscallSpec.GenerateReport("spec/reports/syscall-repo.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-
-	// Todo - if the reports changed, fail CI, because it means this wasn't run
-	// locally and couldn't have been run on linux and mac
-	os.Exit(exitVal)
-}
 
 func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
@@ -107,7 +68,7 @@ func TestRootReadDir(t *testing.T) {
 					return nil
 				},
 			}),
-			"ReadDirectory",
+			"readdir",
 		)
 	})
 }
@@ -163,7 +124,7 @@ func TestRepoReadDir(t *testing.T) {
 					return nil
 				},
 			}),
-			"ReadDirectory",
+			"readdir",
 		)
 	})
 }
@@ -206,7 +167,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 		OpenCommitSyscallSpec.NoError(
 			t,
 			fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil),
-			"ReadDirectory",
+			"readdir",
 		)
 
 	})
@@ -278,7 +239,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 					return nil
 				},
 			}),
-			"ReadDirectory",
+			"readdir",
 		)
 	})
 }
@@ -325,15 +286,15 @@ func TestBigWrite(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		OpenCommitSyscallSpec.NoError(t, pkgexec.RunStdin(stdin, "sh"), "Append")
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "ReadFile")
 		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
 	})
 }
 
-func Test296(t *testing.T) {
+func Test296AppendViaRedirectAcrossCommits(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -342,22 +303,25 @@ func Test296(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
+
 		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		OpenCommitSyscallSpec.NoError(t, pkgexec.RunStdin(stdin, "sh"), "Redirect")
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		OpenCommitSyscallSpec.NoError(t, pkgexec.RunStdin(stdin, "sh"), "Redirect")
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
+
 		commit2, err := c.StartCommit(repo, commit.ID, "")
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		OpenCommitSyscallSpec.NoError(t, pkgexec.RunStdin(stdin, "sh"), "Redirect")
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
+
 		data, err := ioutil.ReadFile(path)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "ReadFile")
 		require.Equal(t, "1\n2\n3\n", string(data))
 	})
 }
@@ -376,13 +340,13 @@ func TestSpacedWrites(t *testing.T) {
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		_, err = file.Write([]byte("foo"))
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "write")
 		_, err = file.Write([]byte("foo"))
-		require.NoError(t, err)
-		require.NoError(t, file.Close())
+		OpenCommitSyscallSpec.NoError(t, err, "write")
+		OpenCommitSyscallSpec.NoError(t, file.Close(), "close")
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "ReadFile")
 		require.Equal(t, "foofoo", string(data))
 	})
 }
@@ -407,7 +371,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 		}
 
 		err := filepath.Walk(mountpoint, walkCallback)
-		require.NoError(t, err)
+		RootSyscallSpec.NoError(t, err, "readdir")
 		require.OneOfEquals(t, "/foo", filesSeen)
 
 		// Now create another repo, and look for it under the mount point
@@ -419,7 +383,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 
 		filesSeen = make([]interface{}, 0)
 		err = filepath.Walk(mountpoint, walkCallback)
-		require.NoError(t, err)
+		RootSyscallSpec.NoError(t, err, "readdir")
 		require.OneOfEquals(t, "/foo", filesSeen)
 		require.OneOfEquals(t, "/bar", filesSeen)
 
@@ -441,7 +405,7 @@ func TestMountCachingViaShell(t *testing.T) {
 		ls := exec.Command("ls")
 		ls.Dir = mountpoint
 		out, err := ls.Output()
-		require.NoError(t, err)
+		RootSyscallSpec.NoError(t, err, "readdir")
 
 		require.Equal(t, "foo\n", string(out))
 
@@ -455,7 +419,7 @@ func TestMountCachingViaShell(t *testing.T) {
 		ls = exec.Command("ls")
 		ls.Dir = mountpoint
 		out, err = ls.Output()
-		require.NoError(t, err)
+		RootSyscallSpec.NoError(t, err, "readdir")
 
 		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
 
@@ -545,7 +509,7 @@ func testFuse(
 	mounter := fuse.NewMounter(localAddress, apiClient)
 	fmt.Printf("XXX created clientConn\n")
 	mountpoint := filepath.Join(tmp, "mnt")
-	require.NoError(t, os.Mkdir(mountpoint, 0700))
+	RootSyscallSpec.NoError(t, os.Mkdir(mountpoint, 0700), "mkdir")
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
