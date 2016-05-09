@@ -27,14 +27,14 @@ And then mount it:
 $ pachctl mount &
 ```
 
-This will mount pfs on `/pfs` you can inspect the filesystem like you would any
+This will mount pfs on `~/pfs` you can inspect the filesystem like you would any
 other local filesystem. Try:
 
 ```shell
-$ ls /pfs
+$ ls ~/pfs
 ```
 That probably wasn't terribly interesting, but that's ok because you shouldn't see anything
-yet. `/pfs` will contain a directory for each `repo`, but you haven't made any
+yet. `~/pfs` will contain a directory for each `repo`, but you haven't made any
 yet. Let's make one.
 
 ## Create a Repo
@@ -48,15 +48,15 @@ making them very specific. For this demo we'll simply create a `repo` called
 
 ```shell
 $ pachctl create-repo data
-$ ls /pfs
+$ ls ~/pfs
 data
 ```
 
-Now `ls` does something! `/pfs` contains a directory for every repo in the
+Now `ls` does something! `~/pfs` contains a directory for every repo in the
 filesystem.
 
 ## Start a Commit
-Now that you've created a `Repo` you should see an empty directory `/pfs/data`.
+Now that you've created a `Repo` you should see an empty directory `~/pfs/data`.
 If you try writing to it, it will fail because you can't write directly to a
 `Repo`. In Pachyderm, you write data to an explicit `commit`. Commits are
 immutable snapshots of your data which give Pachyderm its version control for
@@ -70,9 +70,9 @@ $ pachctl start-commit data
 ```
 
 This returns a brand new commit id. Yours should be different from mine.
-Now if we take a look back at `/pfs` things have changed:
+Now if we take a look back at `~/pfs` things have changed:
 ```shell
-$ ls /pfs/data
+$ ls ~/pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
@@ -82,14 +82,14 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 
 ```shell
 # Write sample data to pfs
-$ cat examples/fruit_stand/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat examples/fruit_stand/set1.txt > ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 
 However, you'll notice that we can't read the file "sales" yet.
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
-cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
+$ cat ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+cat: ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
 
 ## Finish a Commit
@@ -105,7 +105,7 @@ $ pachctl finish-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
 Now we can view the file:
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 However, we've lost the ability to write to this `commit` since finished
 commits are immutable. In Pachyderm, a `commit` is always either _write-only_
@@ -218,7 +218,7 @@ name where it stores its output results. In our example, the "filter" transforma
  We can read the output data from the "sum" `repo` in the same fashion that we read the input data:
 
 ```shell
-$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
 
 ## Processing More Data
@@ -243,7 +243,7 @@ fab8c59c786842ccaf20589e15606604
 Next, we need to add more data. We're going to append more purchases from set2.txt to the file "sales."
 
 ```shell
-$ cat examples/fruit_stand/set2.txt >/pfs/data/fab8c59c786842ccaf20589e15606604/sales
+$ cat examples/fruit_stand/set2.txt > ~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
 read "sales" from the latest commit to see all the puchases from `set1` and
@@ -257,7 +257,7 @@ the new data we've added. We'll see a corresponding commit to the output
 "sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold. 
 
 ```shell
-$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
 One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since `grep` is a command that is completely parallelizable (i.e. it's a `map`), Pachyderm will only `grep` the new data from set2.txt. If you look back at the pipeline, you'll notice that there is a `"reduce": true` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. 
 
