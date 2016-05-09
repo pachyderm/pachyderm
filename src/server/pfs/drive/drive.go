@@ -13,11 +13,11 @@ import (
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error
+	CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, provenance []*pfs.Repo, shards map[uint64]bool) error
 	InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error)
 	ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error
-	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, shards map[uint64]bool) error
+	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error
 	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, fromCommit []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error)

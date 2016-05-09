@@ -58,7 +58,8 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
-func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
+func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
+	provenance []*pfs.Repo, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if _, ok := d.diffs[repo.Name]; ok {
@@ -77,6 +78,9 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		diffInfo := &pfs.DiffInfo{
 			Diff:     client.NewDiff(repo.Name, "", shard),
 			Finished: created,
+		}
+		for _, provRepo := range provenance {
+			diffInfo.Provenance = append(diffInfo.Provenance, client.NewCommit(provRepo.Name, ""))
 		}
 		if err := d.diffs.insert(diffInfo); err != nil {
 			return err
@@ -192,15 +196,16 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
-	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
+	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
 		diffInfo := &pfs.DiffInfo{
-			Diff:    client.NewDiff(repo.Name, commitID, shard),
-			Started: started,
-			Appends: make(map[string]*pfs.Append),
-			Branch:  branch,
+			Diff:       client.NewDiff(repo.Name, commitID, shard),
+			Started:    started,
+			Appends:    make(map[string]*pfs.Append),
+			Branch:     branch,
+			Provenance: provenance,
 		}
 		if branch != "" {
 			parentCommit, err := d.branchParent(client.NewCommit(repo.Name, commitID), branch)
@@ -701,8 +706,11 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 		}
 		for _, diffInfo := range diffInfos {
 			diffInfo := diffInfo
-			if diffInfo.Diff.Commit.ID == "" {
+			if diffInfo.Diff.Commit.ID == "" && result.Created == nil {
 				result.Created = diffInfo.Finished
+				for _, provCommit := range diffInfo.Provenance {
+					result.Provenance = append(result.Provenance, provCommit.Repo)
+				}
 			}
 			result.SizeBytes += diffInfo.SizeBytes
 		}
@@ -735,6 +743,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.Finished = diffInfo.Finished
 		commitInfo.SizeBytes = diffInfo.SizeBytes
 		commitInfo.Cancelled = diffInfo.Cancelled
+		commitInfo.Provenance = diffInfo.Provenance
 		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)
