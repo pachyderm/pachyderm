@@ -31,11 +31,11 @@ func TestSeekRead(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "open")
 		_, err = file.Write([]byte("foobarbaz"))
 
-		require.NoError(t, err)
-		require.NoError(t, file.Close())
+		OpenCommitSyscallSpec.NoError(t, err, "write")
+		OpenCommitSyscallSpec.NoError(t, file.Close(), "close")
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 
 		fmt.Printf("==== Finished commit\n")
@@ -88,17 +88,17 @@ func TestSeekWriteGap(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "open")
 		defer func() {
 			// MAC OS X BEHAVIOR - it allows seek, but this is an invalid write
-			require.YesError(t, file.Close())
+			ClosedCommitSyscallSpec.YesError(t, file.Close(), "close")
 		}()
 
 		_, err = file.Write([]byte("foo"))
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "write")
 
 		err = file.Sync()
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "sync")
 
 		offset, err := file.Seek(6, 0)
 
@@ -106,18 +106,18 @@ func TestSeekWriteGap(t *testing.T) {
 		fmt.Printf("==== %v - offset (%v)\n", time.Now(), offset)
 
 		// MAC OS X BEHAVIOR - it allows seek
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "lseek")
 		require.Equal(t, int64(6), offset)
 
 		/* Leaving in place so the test's intention is clear / for repro'ing manually for mac */
 
 		err = file.Sync()
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "sync")
 
 		n1, err := file.Write([]byte("baz"))
 
 		// MAC OS X BEHAVIOR - it allows seek
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "write")
 		require.Equal(t, 3, n1)
 
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -136,17 +136,17 @@ func TestSeekWriteBackwards(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "open")
 		defer func() {
 			// MAC OS X BEHAVIOR - it allows seek but this is an invalid write
-			require.YesError(t, file.Close())
+			ClosedCommitSyscallSpec.YesError(t, file.Close(), "close")
 		}()
 
 		_, err = file.Write([]byte("foofoofoo"))
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "write")
 
 		err = file.Sync()
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "sync")
 
 		offset, err := file.Seek(3, 0)
 
@@ -154,18 +154,18 @@ func TestSeekWriteBackwards(t *testing.T) {
 		fmt.Printf("==== %v - offset (%v)\n", time.Now(), offset)
 
 		// MAC OS X BEHAVIOR - it allows seek
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "lseek")
 		require.Equal(t, int64(3), offset)
 
 		/* Leaving in place so the test's intention is clear / for repro'ing manually for mac */
 
 		err = file.Sync()
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "sync")
 
 		n1, err := file.Write([]byte("bar"))
 
 		// MAC OS X BEHAVIOR - it allows seek
-		require.NoError(t, err)
+		OpenCommitSyscallSpec.NoError(t, err, "write")
 		require.Equal(t, 3, n1)
 
 		fmt.Printf("==== %v - write word len %v\n", time.Now(), n1)

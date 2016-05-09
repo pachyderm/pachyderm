@@ -160,3 +160,7 @@ func (s *Spec) GenerateReport(fileName string) error {
 
 	return nil
 }
+
+func CombinedReport(specs []Spec, fileName string) error {
+
+}

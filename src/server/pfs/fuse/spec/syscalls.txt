@@ -9,3 +9,6 @@ unlink
 symlink
 readdir
 mkdir
+lseek
+sync
+open
