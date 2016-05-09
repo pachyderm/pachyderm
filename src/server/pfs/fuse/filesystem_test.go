@@ -296,13 +296,19 @@ func TestWriteAndRead(t *testing.T) {
 		require.NoError(t, err)
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
-		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
+		OpenCommitSyscallSpec.NoError(
+			t,
+			ioutil.WriteFile(filePath, []byte(greeting), 0644),
+			"WriteFile",
+		)
 		_, err = ioutil.ReadFile(filePath)
 		// errors because the commit is unfinished
-		require.YesError(t, err)
+		fmt.Printf("XXX Expect an error here (%v)\n", err)
+		OpenCommitSyscallSpec.YesError(t, err, "ReadFile")
+
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 		data, err := ioutil.ReadFile(filePath)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "ReadFile")
 		require.Equal(t, []byte(greeting), data)
 	})
 }

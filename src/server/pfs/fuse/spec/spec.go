@@ -22,27 +22,20 @@ type Result int
 
 const (
 	UNDEFINED Result = 1 + iota
-	FAILED
-	SUCCEEDED
+	UNSUPPORTED
+	SUPPORTED
 )
 
 func (r Result) String() string {
 	switch r {
 	case UNDEFINED:
 		return "undefined"
-	case FAILED:
-		return "failed"
-	case SUCCEEDED:
-		return "succeeded"
+	case UNSUPPORTED:
+		return "unsupported"
+	case SUPPORTED:
+		return "supported"
 	}
 	return ""
-}
-
-func (r Result) Bool() bool {
-	if r == SUCCEEDED {
-		return true
-	}
-	return false
 }
 
 type Spec struct {
@@ -89,40 +82,58 @@ func (s *Spec) Load(dataSet string) error {
 //
 // Basically - the spec results are an 'AND' not an 'OR'
 func (s *Spec) NoError(t *testing.T, err error, result string) {
-	oldResult, ok := s.Results[result]
+	state := UNSUPPORTED
+	if err == nil {
+		state = SUPPORTED
+	}
+
+	s.updateResult(t, result, state)
+	require.NoError(t, err)
+}
+
+// This function may be called several times (across tests). This is expected.
+// We report the most conservative value in case you're debugging and tests
+// dont pass and you're using the spec for reference.
+//
+// Basically - the spec results are an 'AND' not an 'OR'
+func (s *Spec) YesError(t *testing.T, err error, result string) {
+	state := UNSUPPORTED
+	if err == nil {
+		state = SUPPORTED
+	}
+	s.updateResult(t, result, state)
+	require.YesError(t, err)
+}
+
+func (s *Spec) updateResult(t *testing.T, resultName string, newResult Result) {
+	oldResult, ok := s.Results[resultName]
 
 	if !ok && s.static {
 		// Missing this result row from the static spec. Err
-		t.Errorf("Missing (%v) row from static spec (%v)\n", result, s.Name)
+		t.Errorf("Missing (%v) row from static spec (%v)\n", resultName, s.Name)
 		return
 	}
 
-	state := FAILED
-	if err == nil {
-		state = SUCCEEDED
-	}
-
 	// Leave this line. This will be helpful when using the tests to fix FUSE issues
-	fmt.Printf("Spec check: %v\n", state.String())
+	fmt.Printf("Checking spec for action: %v\n", newResult.String())
 
 	switch oldResult {
-	case FAILED:
-		// Cannot be assigned now that its in a failed state
+	case UNSUPPORTED:
+		// Cannot be assigned now that its in a unsupported state
 	case UNDEFINED:
 		// First time we've seen this check, assign the state
-		s.Results[result] = state
-	case SUCCEEDED:
+		s.Results[resultName] = newResult
+	case SUPPORTED:
 		// The previous state is successful, so assign the result of AND'ing
 		// the previous state and the new state
-		if oldResult.Bool() && state.Bool() {
-			// Do nothing. Previous and current succeeded
+		if oldResult == SUPPORTED && newResult == SUPPORTED {
+			// Do nothing. Previous and current supported
 		} else {
 			// Demote to failure.
-			s.Results[result] = FAILED
+			s.Results[resultName] = UNSUPPORTED
 		}
 	}
 
-	require.NoError(t, err)
 }
 
 func (s *Spec) GenerateReport(fileName string) error {

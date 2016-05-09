@@ -10,12 +10,12 @@
   background-color: grey;
 }
 
-.failed {
+.unsupported {
   background-color: red;
 }
 
 
-.succeeded {
+.supported {
   background-color: green;
 }
 
@@ -44,8 +44,19 @@ table, th, td {
   <td>
     ReadDirectory
   </td>
-  <td class="succeeded">
-    succeeded
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+  <td class="supported">
+    supported
   </td>
 </tr>
 
@@ -87,17 +98,6 @@ table, th, td {
 <tr>
   <td>
     listfile
-  </td>
-  <td class="undefined">
-    undefined
-  </td>
-</tr>
-
-
-
-<tr>
-  <td>
-    read
   </td>
   <td class="undefined">
     undefined
