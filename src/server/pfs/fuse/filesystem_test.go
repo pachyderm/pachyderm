@@ -21,11 +21,30 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse/spec"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
 )
+
+var OpenCommitSpec *spec.Spec
+var ClosedCommitSpec *spec.Spec
+
+func TestMain(m *testing.M) {
+	fmt.Println("This gets run BEFORE any tests get run!")
+
+	OpenCommitSpec = spec.New("Syscalls During an Open Commit")
+	ClosedCommitSpec = spec.New("Syscalls During a Closed Commit")
+
+	exitVal := m.Run()
+
+	fmt.Println("This gets run AFTER any tests get run!")
+	OpenCommitSpec.GenerateReport()
+	ClosedCommitSpec.GenerateReport()
+
+	os.Exit(exitVal)
+}
 
 func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
@@ -148,7 +167,9 @@ func TestCommitOpenReadDir(t *testing.T) {
 
 		// open mounts look empty, so that mappers cannot accidentally use
 		// them to communicate in an unreliable fashion
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil))
+		err = fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil)
+		OpenCommitSpec.NoError(t, err, "ReadDirectory")
+
 	})
 }
 
