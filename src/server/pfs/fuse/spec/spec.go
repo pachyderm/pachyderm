@@ -12,7 +12,9 @@ import (
 	"testing"
 	"text/template"
 
+	"errors"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"path/filepath"
 )
 
 type Result int
@@ -37,14 +39,22 @@ func (r Result) String() string {
 
 type Spec struct {
 	Name    string
+	Metric  string
 	Results map[string]Result
 }
 
-func New(name string) *Spec {
-	return &Spec{
+func New(name string, dataSet string) (*Spec, error) {
+	tokens := strings.Split(filepath.Base(dataSet), ".")
+	if len(tokens) < 2 {
+		return nil, errors.New("Invalid filename - no name before the dot")
+	}
+	s := &Spec{
 		Name:    name,
+		Metric:  tokens[0],
 		Results: make(map[string]Result),
 	}
+	s.Load(dataSet)
+	return s, nil
 }
 
 func (s *Spec) Load(dataSet string) error {
@@ -54,6 +64,9 @@ func (s *Spec) Load(dataSet string) error {
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
+		if line == "" {
+			continue
+		}
 		s.Results[line] = UNDEFINED
 	}
 

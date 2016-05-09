@@ -34,8 +34,8 @@ var ClosedCommitSpec *spec.Spec
 func TestMain(m *testing.M) {
 	fmt.Println("This gets run BEFORE any tests get run!")
 
-	OpenCommitSpec = spec.New("Syscalls During an Open Commit")
-	ClosedCommitSpec = spec.New("Syscalls During a Closed Commit")
+	OpenCommitSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
+	ClosedCommitSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
 
 	exitVal := m.Run()
 
