@@ -720,43 +720,52 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	return result, nil
 }
 
-func (d *driver) recurseRepoProvenance(repo *pfs.Repo, repoSet map[string]bool, shards map[uint64]bool) error {
-	shardToDiffInfo, ok := d.diffs[repo.Name]
+func (d *driver) recurseProvenance(commit *pfs.Commit, repoSet map[string]bool,
+	shards map[uint64]bool) ([]*pfs.Commit, error) {
+	shardToDiffInfo, ok := d.diffs[commit.Repo.Name]
 	if !ok {
-		return pfsserver.ErrRepoNotFound
+		return nil, pfsserver.ErrRepoNotFound
 	}
+	var result []*pfs.Commit
 	for shard := range shards {
 		diffInfos := shardToDiffInfo[shard]
 		if !ok {
-			return fmt.Errorf("missing shard %d (this is likely a bug)")
+			return nil, fmt.Errorf("missing shard %d (this is likely a bug)")
 		}
-		diffInfo, ok := diffInfos[""]
+		diffInfo, ok := diffInfos[commit.ID]
 		if !ok {
-			return fmt.Errorf("missing \"\" diff (this is likely a bug)")
+			return nil, fmt.Errorf("missing \"\" diff (this is likely a bug)")
 		}
 		for _, provCommit := range diffInfo.Provenance {
 			if !repoSet[provCommit.Repo.Name] {
 				repoSet[provCommit.Repo.Name] = true
-				if err := d.recurseRepoProvenance(provCommit.Repo, repoSet, shards); err != nil {
-					return err
+				result = append(result, provCommit)
+				provCommits, err := d.recurseProvenance(provCommit, repoSet, shards)
+				if err != nil {
+					return nil, err
 				}
+				result = append(result, provCommits...)
 			}
 		}
 		break // we only need to consider 1 shard
 	}
-	return nil
+	return result, nil
 }
 
 func (d *driver) repoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Repo, error) {
-	repoSet := make(map[string]bool)
-	if err := d.recurseRepoProvenance(repo, repoSet, shards); err != nil {
+	provCommits, err := d.recurseProvenance(client.NewCommit(repo.Name, ""), make(map[string]bool), shards)
+	if err != nil {
 		return nil, err
 	}
 	var result []*pfs.Repo
-	for repoName := range repoSet {
-		result = append(result, client.NewRepo(repoName))
+	for _, provCommit := range provCommits {
+		result = append(result, provCommit.Repo)
 	}
 	return result, nil
+}
+
+func (d *driver) commitProvenance(commit *pfs.Commit, shards map[uint64]bool) ([]*pfs.Commit, error) {
+	return d.recurseProvenance(commit, make(map[string]bool), shards)
 }
 
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
@@ -784,7 +793,6 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.Finished = diffInfo.Finished
 		commitInfo.SizeBytes = diffInfo.SizeBytes
 		commitInfo.Cancelled = diffInfo.Cancelled
-		commitInfo.Provenance = diffInfo.Provenance
 		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)
@@ -795,6 +803,12 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	if len(commitInfo) > 1 {
 		return nil, fmt.Errorf("multiple commitInfos, (this is likely a bug)")
 	}
+	result := commitInfo[0]
+	provenance, err := d.commitProvenance(canonicalCommit, shards)
+	if err != nil {
+		return nil, err
+	}
+	result.Provenance = provenance
 	return commitInfo[0], nil
 }
 
