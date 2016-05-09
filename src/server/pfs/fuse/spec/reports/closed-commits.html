@@ -2,7 +2,7 @@
 <html>
 <body>
 
-<h1> {{ .Name }} </h1>
+<h1> Syscalls During a Closed Commit </h1>
 
 <style>
 
@@ -25,18 +25,7 @@
 
 <table>
 
-{{ range $name, $result := .Results }}
 
-<tr>
-  <td>
-    {{ $name }}
-  </td>
-  <td class="{{ $result }}">
-    {{ $result }}
-  </td>
-</tr>
-
-{{end}}
 
 </table>
 

@@ -10,10 +10,9 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"fmt"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"text/template"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 type Result int
@@ -23,6 +22,18 @@ const (
 	FAILED
 	SUCCEEDED
 )
+
+func (r Result) String() string {
+	switch r {
+	case UNDEFINED:
+		return "undefined"
+	case FAILED:
+		return "failed"
+	case SUCCEEDED:
+		return "succeeded"
+	}
+	return ""
+}
 
 type Spec struct {
 	Name    string
@@ -58,19 +69,14 @@ func (s *Spec) NoError(t *testing.T, err error, result string) {
 	require.NoError(t, err)
 }
 
-func (s *Spec) fileName() string {
-	normalized := strings.Replace(s.Name, " ", "-", -1)
-	return fmt.Sprintf("%v-report.html", normalized)
-}
-
-func (s *Spec) GenerateReport() error {
-	t := template.New("report")
-	t, err := t.ParseFiles("spec.html")
+func (s *Spec) GenerateReport(fileName string) error {
+	t := template.New("spec.html")
+	t, err := t.ParseFiles("spec/spec.html")
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Create(s.fileName())
+	f, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}

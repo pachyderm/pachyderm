@@ -2,7 +2,7 @@
 <html>
 <body>
 
-<h1> {{ .Name }} </h1>
+<h1> Syscalls During an Open Commit </h1>
 
 <style>
 
@@ -25,18 +25,18 @@
 
 <table>
 
-{{ range $name, $result := .Results }}
+
 
 <tr>
   <td>
-    {{ $name }}
+    ReadDirectory
   </td>
-  <td class="{{ $result }}">
-    {{ $result }}
+  <td class="succeeded">
+    succeeded
   </td>
 </tr>
 
-{{end}}
+
 
 </table>
 

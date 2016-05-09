@@ -40,8 +40,14 @@ func TestMain(m *testing.M) {
 	exitVal := m.Run()
 
 	fmt.Println("This gets run AFTER any tests get run!")
-	OpenCommitSpec.GenerateReport()
-	ClosedCommitSpec.GenerateReport()
+	err := OpenCommitSpec.GenerateReport("spec/reports/open-commits.html")
+	if err != nil {
+		fmt.Printf("Error generating report: %v\n", err.Error())
+	}
+	err = ClosedCommitSpec.GenerateReport("spec/reports/closed-commits.html")
+	if err != nil {
+		fmt.Printf("Error generating report: %v\n", err.Error())
+	}
 
 	os.Exit(exitVal)
 }
