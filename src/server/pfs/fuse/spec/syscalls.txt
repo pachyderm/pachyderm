@@ -1,5 +1,5 @@
 read
-write
+WriteFile
 append
 redirect
 delete

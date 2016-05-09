@@ -31,13 +31,15 @@ import (
 var OpenCommitSyscallSpec *spec.Spec
 var ClosedCommitSyscallSpec *spec.Spec
 var RootSyscallSpec *spec.Spec
+var RepoSyscallSpec *spec.Spec
 
 func TestMain(m *testing.M) {
 	fmt.Println("This gets run BEFORE any tests get run!")
 
 	OpenCommitSyscallSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
 	ClosedCommitSyscallSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
-	RootSyscallSpec, _ = spec.New("Syscalls on root or repo level directories", "spec/syscalls.txt")
+	RootSyscallSpec, _ = spec.New("Syscalls on root level directory", "spec/syscalls.txt")
+	RepoSyscallSpec, _ = spec.New("Syscalls on repo level directories", "spec/syscalls.txt")
 
 	exitVal := m.Run()
 
@@ -51,6 +53,10 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
 	err = RootSyscallSpec.GenerateReport("spec/reports/syscall-root.html")
+	if err != nil {
+		fmt.Printf("Error generating report: %v\n", err.Error())
+	}
+	err = RepoSyscallSpec.GenerateReport("spec/reports/syscall-repo.html")
 	if err != nil {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
@@ -123,38 +129,42 @@ func TestRepoReadDir(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			commitB.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0775; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, ??? as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-		}))
+		RepoSyscallSpec.NoError(
+			t,
+			fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
+				commitA.ID: func(fi os.FileInfo) error {
+					if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					// TODO show commitSize in commit stat?
+					if g, e := fi.Size(), int64(0); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
+					// TODO test ctime via .Sys
+					// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+				commitB.ID: func(fi os.FileInfo) error {
+					if g, e := fi.Mode(), os.ModeDir|0775; g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					// TODO show commitSize in commit stat?
+					if g, e := fi.Size(), int64(0); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show CommitInfo.StartTime as ctime, ??? as mtime
+					// TODO test ctime via .Sys
+					// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+			}),
+			"ReadDirectory",
+		)
 	})
 }
 
@@ -175,18 +185,29 @@ func TestCommitOpenReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		OpenCommitSyscallSpec.NoError(
+			t,
+			ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm),
+			"WriteFile",
+		)
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		OpenCommitSyscallSpec.NoError(
+			t,
+			ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm),
+			"WriteFile",
+		)
 
 		// open mounts look empty, so that mappers cannot accidentally use
 		// them to communicate in an unreliable fashion
-		err = fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil)
-		OpenCommitSyscallSpec.NoError(t, err, "ReadDirectory")
+		OpenCommitSyscallSpec.NoError(
+			t,
+			fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil),
+			"ReadDirectory",
+		)
 
 	})
 }
@@ -208,45 +229,57 @@ func TestCommitFinishedReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		OpenCommitSyscallSpec.NoError(
+			t,
+			ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm),
+			"WriteFile",
+		)
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		OpenCommitSyscallSpec.NoError(
+			t,
+			ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm),
+			"WriteFile",
+		)
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
-			greetingName: func(fi os.FileInfo) error {
-				// TODO respect greetingPerm
-				if g, e := fi.Mode(), os.FileMode(0666); g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				if g, e := fi.Size(), int64(len(greeting)); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show fileModTime as mtime
-				// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			scriptName: func(fi os.FileInfo) error {
-				// TODO respect scriptPerm
-				if g, e := fi.Mode(), os.FileMode(0666); g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				if g, e := fi.Size(), int64(len(script)); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show fileModTime as mtime
-				// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-		}))
+		ClosedCommitSyscallSpec.NoError(
+			t,
+			fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+				greetingName: func(fi os.FileInfo) error {
+					// TODO respect greetingPerm
+					if g, e := fi.Mode(), os.FileMode(0666); g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					if g, e := fi.Size(), int64(len(greeting)); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show fileModTime as mtime
+					// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+				scriptName: func(fi os.FileInfo) error {
+					// TODO respect scriptPerm
+					if g, e := fi.Mode(), os.FileMode(0666); g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					if g, e := fi.Size(), int64(len(script)); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show fileModTime as mtime
+					// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+			}),
+			"ReadDirectory",
+		)
 	})
 }
 
