@@ -695,12 +695,12 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	result := &pfs.RepoInfo{
 		Repo: repo,
 	}
-	_, ok := d.diffs[repo.Name]
+	shardToDiffInfo, ok := d.diffs[repo.Name]
 	if !ok {
 		return nil, pfsserver.ErrRepoNotFound
 	}
 	for shard := range shards {
-		diffInfos, ok := d.diffs[repo.Name][shard]
+		diffInfos, ok := shardToDiffInfo[shard]
 		if !ok {
 			continue
 		}
@@ -708,12 +708,53 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 			diffInfo := diffInfo
 			if diffInfo.Diff.Commit.ID == "" && result.Created == nil {
 				result.Created = diffInfo.Finished
-				for _, provCommit := range diffInfo.Provenance {
-					result.Provenance = append(result.Provenance, provCommit.Repo)
-				}
 			}
 			result.SizeBytes += diffInfo.SizeBytes
 		}
+	}
+	provenance, err := d.repoProvenance(repo, shards)
+	if err != nil {
+		return nil, err
+	}
+	result.Provenance = provenance
+	return result, nil
+}
+
+func (d *driver) recurseRepoProvenance(repo *pfs.Repo, repoSet map[string]bool, shards map[uint64]bool) error {
+	shardToDiffInfo, ok := d.diffs[repo.Name]
+	if !ok {
+		return pfsserver.ErrRepoNotFound
+	}
+	for shard := range shards {
+		diffInfos := shardToDiffInfo[shard]
+		if !ok {
+			return fmt.Errorf("missing shard %d (this is likely a bug)")
+		}
+		diffInfo, ok := diffInfos[""]
+		if !ok {
+			return fmt.Errorf("missing \"\" diff (this is likely a bug)")
+		}
+		for _, provCommit := range diffInfo.Provenance {
+			if !repoSet[provCommit.Repo.Name] {
+				repoSet[provCommit.Repo.Name] = true
+				if err := d.recurseRepoProvenance(provCommit.Repo, repoSet, shards); err != nil {
+					return err
+				}
+			}
+		}
+		break // we only need to consider 1 shard
+	}
+	return nil
+}
+
+func (d *driver) repoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Repo, error) {
+	repoSet := make(map[string]bool)
+	if err := d.recurseRepoProvenance(repo, repoSet, shards); err != nil {
+		return nil, err
+	}
+	var result []*pfs.Repo
+	for repoName := range repoSet {
+		result = append(result, client.NewRepo(repoName))
 	}
 	return result, nil
 }
