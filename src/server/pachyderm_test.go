@@ -714,6 +714,7 @@ func TestRemoveAndAppend(t *testing.T) {
 	}
 	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)
+	fmt.Printf("Actual Job State: %v\n", jobInfo2.State)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
 
 	var buffer2 bytes.Buffer

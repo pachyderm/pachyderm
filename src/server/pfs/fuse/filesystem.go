@@ -181,10 +181,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 
-	//	fmt.Printf("Invalidating (in attr)\n")
-	//	f.directory.fs.Server.InvalidateNodeData(f)
-
-	if false { // f.directory.Write {
+	if false { //f.directory.Write {
 		fmt.Printf("ZZZ IM WRITING (in attr)\n")
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
@@ -448,10 +445,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	//	d.fs.Server.InvalidateNodeData(d)
-	//	fmt.Printf("Invalidating (in lookupfile)\n")
-	//	d.fs.Server.InvalidateEntry(d, name)
-
 	if false { //d.Node.Write {
 		fmt.Printf("ZZZ I'm writing (in lookupfile)\n")
 		// Basically, if the directory is writable, we are looking up files
@@ -552,9 +545,6 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		if shortPath[0] == '/' {
 			shortPath = shortPath[1:]
 		}
-
-		//		fmt.Printf("Invalidating (in readFiles)\n")
-		//		d.fs.Server.InvalidateEntry(d, "this-should-not-exist")
 
 		switch fileInfo.FileType {
 		case pfsclient.FileType_FILE_TYPE_REGULAR:
