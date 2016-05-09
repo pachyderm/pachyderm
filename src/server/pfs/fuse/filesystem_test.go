@@ -28,27 +28,35 @@ import (
 	"google.golang.org/grpc"
 )
 
-var OpenCommitSpec *spec.Spec
-var ClosedCommitSpec *spec.Spec
+var OpenCommitSyscallSpec *spec.Spec
+var ClosedCommitSyscallSpec *spec.Spec
+var RootSyscallSpec *spec.Spec
 
 func TestMain(m *testing.M) {
 	fmt.Println("This gets run BEFORE any tests get run!")
 
-	OpenCommitSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
-	ClosedCommitSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
+	OpenCommitSyscallSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
+	ClosedCommitSyscallSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
+	RootSyscallSpec, _ = spec.New("Syscalls on root or repo level directories", "spec/syscalls.txt")
 
 	exitVal := m.Run()
 
 	fmt.Println("This gets run AFTER any tests get run!")
-	err := OpenCommitSpec.GenerateReport("spec/reports/open-commits.html")
+	err := OpenCommitSyscallSpec.GenerateReport("spec/reports/syscall-open-commits.html")
 	if err != nil {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
-	err = ClosedCommitSpec.GenerateReport("spec/reports/closed-commits.html")
+	err = ClosedCommitSyscallSpec.GenerateReport("spec/reports/syscall-closed-commits.html")
+	if err != nil {
+		fmt.Printf("Error generating report: %v\n", err.Error())
+	}
+	err = RootSyscallSpec.GenerateReport("spec/reports/syscall-root.html")
 	if err != nil {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
 
+	// Todo - if the reports changed, fail CI, because it means this wasn't run
+	// locally and couldn't have been run on linux and mac
 	os.Exit(exitVal)
 }
 
@@ -61,36 +69,40 @@ func TestRootReadDir(t *testing.T) {
 		require.NoError(t, c.CreateRepo("one"))
 		require.NoError(t, c.CreateRepo("two"))
 
-		require.NoError(t, fstestutil.CheckDir(mountpoint, map[string]fstestutil.FileInfoCheck{
-			"one": func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show repoSize in repo stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show RepoInfo.Created as time
-				// if g, e := fi.ModTime().UTC(), repoModTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			"two": func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show repoSize in repo stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show RepoInfo.Created as time
-				// if g, e := fi.ModTime().UTC(), repoModTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-		}))
+		RootSyscallSpec.NoError(
+			t,
+			fstestutil.CheckDir(mountpoint, map[string]fstestutil.FileInfoCheck{
+				"one": func(fi os.FileInfo) error {
+					if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					// TODO show repoSize in repo stat?
+					if g, e := fi.Size(), int64(0); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show RepoInfo.Created as time
+					// if g, e := fi.ModTime().UTC(), repoModTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+				"two": func(fi os.FileInfo) error {
+					if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+						return fmt.Errorf("wrong mode: %v != %v", g, e)
+					}
+					// TODO show repoSize in repo stat?
+					if g, e := fi.Size(), int64(0); g != e {
+						t.Errorf("wrong size: %v != %v", g, e)
+					}
+					// TODO show RepoInfo.Created as time
+					// if g, e := fi.ModTime().UTC(), repoModTime; g != e {
+					// 	t.Errorf("wrong mtime: %v != %v", g, e)
+					// }
+					return nil
+				},
+			}),
+			"ReadDirectory",
+		)
 	})
 }
 
@@ -174,7 +186,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 		// open mounts look empty, so that mappers cannot accidentally use
 		// them to communicate in an unreliable fashion
 		err = fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil)
-		OpenCommitSpec.NoError(t, err, "ReadDirectory")
+		OpenCommitSyscallSpec.NoError(t, err, "ReadDirectory")
 
 	})
 }
