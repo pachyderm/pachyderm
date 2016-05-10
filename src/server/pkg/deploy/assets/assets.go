@@ -142,10 +142,6 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 750,
-									Name:          "api-http-port",
-								},
-								{
 									ContainerPort: 1050,
 									Name:          "trace-port",
 								},
@@ -185,11 +181,6 @@ func PachdService() *api.Service {
 					Port:     650,
 					Name:     "api-grpc-port",
 					NodePort: 30650,
-				},
-				{
-					Port:     750,
-					Name:     "api-http-port",
-					NodePort: 30750,
 				},
 			},
 		},

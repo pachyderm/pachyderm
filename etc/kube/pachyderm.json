@@ -16,8 +16,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -84,8 +84,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -125,27 +125,28 @@
     }
   },
   "spec": {
+    "type": "NodePort",
     "ports": [
       {
         "name": "admin-port",
         "protocol": "",
         "port": 8080,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 32080
       },
       {
         "name": "driver-port",
         "protocol": "",
         "port": 28015,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 32081
       },
       {
         "name": "cluster-port",
         "protocol": "",
         "port": 29015,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 32082
       }
     ],
     "selector": {
@@ -237,8 +238,8 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pachd-init"
+      "app": "pachd-init",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -304,13 +305,6 @@
         "port": 650,
         "targetPort": 0,
         "nodePort": 30650
-      },
-      {
-        "name": "api-http-port",
-        "protocol": "",
-        "port": 750,
-        "targetPort": 0,
-        "nodePort": 30750
       }
     ],
     "selector": {
@@ -361,10 +355,6 @@
                 "name": "api-grpc-port",
                 "containerPort": 650,
                 "protocol": "TCP"
-              },
-              {
-                "name": "api-http-port",
-                "containerPort": 750
               },
               {
                 "name": "trace-port",
