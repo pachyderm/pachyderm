@@ -195,49 +195,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
-		var nonEmptyFilterShardNumbers []uint64
-		for i := 0; i < int(request.Parallelism); i++ {
-		CheckInputs:
-			for _, jobInput := range request.Inputs {
-				listFileRequest := &pfsclient.ListFileRequest{
-					File: &pfsclient.File{
-						Commit: jobInput.Commit,
-						Path:   "", // the root directory
-					},
-					FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-					Shard: &pfsclient.Shard{
-						FileModulus:  1,
-						BlockModulus: 1,
-					},
-					Recurse: true,
-				}
-				if jobInput.Reduce {
-					listFileRequest.Shard.FileNumber = uint64(i)
-					listFileRequest.Shard.FileModulus = request.Parallelism
-				} else {
-					listFileRequest.Shard.BlockNumber = uint64(i)
-					listFileRequest.Shard.BlockModulus = request.Parallelism
-				}
-				fileInfos, err := pfsAPIClient.ListFile(ctx, listFileRequest)
-				if err != nil {
-					return nil, err
-				}
-				for _, fileInfo := range fileInfos.FileInfo {
-					if fileInfo.SizeBytes > 0 {
-						nonEmptyFilterShardNumbers = append(nonEmptyFilterShardNumbers, uint64(i))
-						break CheckInputs
-					}
-				}
-			}
+		shardModuli, err := a.computeShardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
+		if err != nil {
+			return nil, err
 		}
 
-		if len(nonEmptyFilterShardNumbers) == 0 {
-			return nil, ErrEmptyInput
-		}
-
-		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShardNumbers))
-		persistJobInfo.NonEmptyFilterShardNumbers = nonEmptyFilterShardNumbers
-		persistJobInfo.ShardModulus = request.Parallelism
+		persistJobInfo.Parallelism = product(shardModuli)
+		persistJobInfo.ShardModuli = shardModuli
 	}
 
 	if a.kubeClient == nil {
@@ -270,6 +234,140 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
+}
+
+// computeShardModuli computes the modulus to use for each input.  In other words,
+// it computes how many shards each input repo should be partitioned into.
+//
+// The algorithm is as follows:
+// 1. Each input starts with a modulus of 1
+// 2. Double the modulus of the input that currently has the highest size/modulus
+// ratio, but only if doing so does not result in empty shards.  If it does, we
+// remove the input from further consideration.
+// 3. Repeat step 2, until the product of the moduli hits the given parallelism,
+// or until all inputs have been removed from consideration.
+func (a *apiServer) computeShardModuli(ctx context.Context, inputs []*ppsclient.JobInput, parallelism uint64, repoToFromCommit map[string]*pfsclient.Commit) ([]uint64, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var shardModuli []uint64
+	var inputSizes []uint64
+	for _, input := range inputs {
+		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+			Commit: input.Commit,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if commitInfo.SizeBytes == 0 {
+			return nil, ErrEmptyInput
+		}
+
+		inputSizes = append(inputSizes, commitInfo.SizeBytes)
+		shardModuli = append(shardModuli, 1)
+	}
+
+	limitHit := make(map[int]bool)
+	for {
+		max := float64(0)
+		modulusIndex := 0
+		// Find the modulus to double
+		// It should maximize the decrease in size per shard
+		for i, inputSize := range inputSizes {
+			if !limitHit[i] {
+				diff := float64(inputSize) / float64(shardModuli[i])
+				if diff > max {
+					max = diff
+					modulusIndex = i
+				}
+			}
+		}
+
+		b, err := a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
+		if err != nil {
+			return nil, err
+		}
+
+		if b {
+			shardModuli[modulusIndex] *= 2
+		} else {
+			limitHit[modulusIndex] = true
+		}
+
+		if product(shardModuli) >= parallelism || len(limitHit) == len(inputs) {
+			break
+		}
+	}
+
+	return shardModuli, nil
+}
+
+// product computes the product of a list of integers
+//
+// The algorithm, originally discovered at Pachyderm, is as follows:
+// 1. Set p to 1
+// 2. Set p to the product of itself and the first unprocessed number in the list
+// 3. Repeat step 2 until we run out of numbers
+// 4. Return p
+func product(numbers []uint64) uint64 {
+	p := uint64(1)
+	for _, n := range numbers {
+		p *= n
+	}
+	return p
+}
+
+// noEmptyShards computes if every shard will have some input data given an
+// input and a modulus number.
+//
+// TODO: it's very inefficient as of now, since it involves many calls to ListFile
+func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput, modulus uint64, repoToFromCommit map[string]*pfsclient.Commit) (bool, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < int(modulus); i++ {
+		listFileRequest := &pfsclient.ListFileRequest{
+			File: &pfsclient.File{
+				Commit: input.Commit,
+				Path:   "", // the root directory
+			},
+			FromCommit: repoToFromCommit[input.Commit.Repo.Name],
+			Shard: &pfsclient.Shard{
+				FileModulus:  1,
+				BlockModulus: 1,
+			},
+			Recurse: true,
+		}
+
+		if input.Reduce {
+			listFileRequest.Shard.FileNumber = uint64(i)
+			listFileRequest.Shard.FileModulus = modulus
+		} else {
+			listFileRequest.Shard.BlockNumber = uint64(i)
+			listFileRequest.Shard.BlockModulus = modulus
+		}
+
+		fileInfos, err := pfsClient.ListFile(ctx, listFileRequest)
+		if err != nil {
+			return false, err
+		}
+
+		var totalSize uint64
+		for _, fileInfo := range fileInfos.FileInfo {
+			totalSize += fileInfo.SizeBytes
+		}
+
+		if totalSize == 0 {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // isConflictErr returns true if the error is non-nil and the query failed
@@ -435,21 +533,23 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if jobInfo.OutputCommit == nil {
 		return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 	}
+
 	var commitMounts []*fuse.CommitMount
-	for _, jobInput := range jobInfo.Inputs {
+	filterNumbers := computeFilterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
+	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
 		}
 		if jobInput.Reduce {
 			commitMount.Shard = &pfsclient.Shard{
-				FileNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
-				FileModulus: jobInfo.ShardModulus,
+				FileNumber:  filterNumbers[i],
+				FileModulus: jobInfo.ShardModuli[i],
 			}
 		} else {
 			commitMount.Shard = &pfsclient.Shard{
-				BlockNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
-				BlockModulus: jobInfo.ShardModulus,
+				BlockNumber:  filterNumbers[i],
+				BlockModulus: jobInfo.ShardModuli[i],
 			}
 		}
 		commitMounts = append(commitMounts, commitMount)
@@ -485,6 +585,17 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
 	}, nil
+}
+
+// computeFilterNumber essentially computes a representation of the number N
+// as if the base for each digit is the corresponding number in the moduli array
+func computeFilterNumber(n uint64, moduli []uint64) []uint64 {
+	res := make([]uint64, len(moduli), len(moduli))
+	for i := len(moduli) - 1; i >= 0; i-- {
+		res[i] = n % moduli[i]
+		n = n / moduli[i]
+	}
+	return res
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
