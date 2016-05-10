@@ -164,8 +164,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
-		for _, jobInput := range parentJobInfo.Inputs {
-			if !jobInput.Reduce {
+		for _, jobInput := range request.Inputs {
+			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
 			}
@@ -522,8 +522,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
-		for _, jobInput := range parentJobInfo.Inputs {
-			if !jobInput.Reduce {
+		for _, jobInput := range jobInfo.Inputs {
+			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
 			}
@@ -541,19 +541,28 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
 		}
-		if jobInput.Reduce {
-			commitMount.Shard = &pfsclient.Shard{
-				FileNumber:  filterNumbers[i],
-				FileModulus: jobInfo.ShardModuli[i],
-			}
-		} else {
+
+		switch jobInput.Strategy.Partition {
+		case ppsclient.PARTITION_BLOCK:
 			commitMount.Shard = &pfsclient.Shard{
 				BlockNumber:  filterNumbers[i],
 				BlockModulus: jobInfo.ShardModuli[i],
 			}
+		case ppsclient.PARTITION_FILE:
+			commitMount.Shard = &pfsclient.Shard{
+				FileNumber:  filterNumbers[i],
+				FileModulus: jobInfo.ShardModuli[i],
+			}
+		case ppsclient.PARTITION_REPO:
+			// empty shard matches everything
+			commitMount.Shard = &pfsclient.Shard{}
+		default:
+			return nil, fmt.Errorf("unrecognized partition strategy: %v; this is likely a bug", jobInput.Strategy.Partition)
 		}
+
 		commitMounts = append(commitMounts, commitMount)
 	}
+
 	outputCommitMount := &fuse.CommitMount{
 		Commit: jobInfo.OutputCommit,
 		Alias:  "out",

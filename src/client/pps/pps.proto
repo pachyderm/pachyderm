@@ -50,9 +50,20 @@ message Pipeline {
   string name = 1;
 }
 
+enum Partition {
+  PARTITION_BLOCK = 0;
+  PARTITION_FILE = 1;
+  PARTITION_REPO = 2;
+}
+
+message Strategy {
+  Partition partition = 1;
+  bool incrementality = 2;
+}
+
 message PipelineInput {
-    pfs.Repo repo = 1;
-    bool reduce = 2;
+  pfs.Repo repo = 1;
+  Strategy strategy = 2;
 }
 
 message PipelineInfo {
