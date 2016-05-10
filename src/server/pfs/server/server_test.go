@@ -1047,6 +1047,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []*pfsclient.Commit{BCommit, ACommit}, commitInfo.Provenance)
 
+	// Test that we prevent provenant commits that aren't from provenant repos.
 	_, err = client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfsclient.StartCommitRequest{
@@ -1055,6 +1056,37 @@ func TestProvenance(t *testing.T) {
 		},
 	)
 	require.YesError(t, err)
+
+	// Test ListRepo using provenance filtering
+	repoInfos, err := client.PfsAPIClient.ListRepo(
+		context.Background(),
+		&pfsclient.ListRepoRequest{
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+		},
+	)
+	require.NoError(t, err)
+	var repos []*pfsclient.Repo
+	for _, repoInfo := range repoInfos.RepoInfo {
+		repos = append(repos, repoInfo.Repo)
+	}
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("C")}, repos)
+
+	// Test ListRepo using provenance filtering
+	repoInfos, err = client.PfsAPIClient.ListRepo(
+		context.Background(),
+		&pfsclient.ListRepoRequest{
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+		},
+	)
+	require.NoError(t, err)
+	repos = nil
+	for _, repoInfo := range repoInfos.RepoInfo {
+		repos = append(repos, repoInfo.Repo)
+	}
+	require.EqualOneOf(t, []interface{}{
+		[]*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("C")},
+		[]*pfsclient.Repo{pclient.NewRepo("C"), pclient.NewRepo("B")},
+	}, repos)
 }
 
 func generateRandomString(n int) string {
