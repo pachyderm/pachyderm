@@ -78,7 +78,7 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build: docker-build-job-shim docker-build-pachd
+docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -239,6 +239,12 @@ spec-generate: spec-check test-fuse docker-build-compile
 	docker run --privileged pachyderm_compile make spec-generate-remote-linux \
 	| sed -e '1,/src\/server\/pfs\/fuse\/spec\/reports\/summary/d' \
 	> ./src/server/pfs/fuse/spec/reports/summary-linux.html
+
+install-go-bindata:
+	go get -u github.com/jteeuwen/go-bindata/...
+
+assets: install-go-bindata
+	go-bindata -o assets.go -pkg pachyderm doc/ 
 
 .PHONY: \
 	doc \

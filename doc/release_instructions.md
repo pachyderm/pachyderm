@@ -24,6 +24,14 @@ make doc
     make release-pachd
 ```
 
+3) Use the image by tag in the manifest
+
+To update the version, look in `etc/kube/pachyderm.json` and update any lines where you see `pachd` listed as the image. An example of a line that should be changed to reflect the latest version:
+
+```shell
+            "image": "pachyderm/pachd:v1.0.0-530",
+```
+
 To test / verify:
 
 ```shell
@@ -47,3 +55,23 @@ Then do:
     pachd               1.0.498     
 
 And independent of your pachctl version, you should see the version of pachd you just tagged/created.
+
+If all of the above works, commit your changes. The commit message should say "Bumping manifest to use pachd image version X.Y.Z(ABC)"
+
+4) Deploy the updated manifest
+
+Once you've verified the image works, you'll need to update the image referenced in the manifest and update the live manifest.
+
+To do that:
+
+1. Clone the corpsite repository (www)
+2. Update the `manifest.json` file by replacing it w a copy of the manifest from `etc/kube/pachyderm.json`
+3. Commit your change on a branch
+4. Run the make command to deploy
+5. Repeat the verification steps above (from #3) using the manifest from the live url: `https://pachyderm.io/manifest.json`
+6. Once its verified to be working, merge your branch onto master
+
+
+
+
+

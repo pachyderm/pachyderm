@@ -3,8 +3,11 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -12,6 +15,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -850,6 +854,27 @@ func TestSimple(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+// This test fails if you updated some static assets (such as doc/pipeline_spec.md)
+// that are used in code but forgot to run:
+// $ make assets
+func TestAssets(t *testing.T) {
+	assetPaths := []string{"doc/pipeline_spec.md"}
+
+	for _, path := range assetPaths {
+		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		asset, err := pachyderm.Asset(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		require.Equal(t, doc, asset)
+	}
 }
 
 func getPachClient(t *testing.T) *client.APIClient {

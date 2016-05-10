@@ -8,7 +8,10 @@ import (
 )
 
 func Example_pps() {
-	var c client.APIClient
+	c, err := client.NewFromAddress("0.0.0.0:30650")
+	if err != nil {
+		return // handle error
+	}
 
 	// we assume there's already a repo called "repo"
 	// and that it already has some data in it
