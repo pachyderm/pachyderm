@@ -90,9 +90,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
 				select {
 				case errCh <- err:
-					// error reported
 				default:
-					// not the first error
 				}
 			}
 		}()
@@ -112,7 +110,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	return d.inspectRepo(repo, shards)
 }
 
-func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
+func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var wg sync.WaitGroup
@@ -128,9 +126,14 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 			if err != nil {
 				select {
 				case errCh <- err:
-					// error reported
 				default:
-					// not the first error
+				}
+			}
+			provSet := repoSet(repoInfo.Provenance)
+			for _, repo := range provenance {
+				if !provSet[repo.Name] {
+					// this repo doesn't match the provenance we want, ignore it
+					return
 				}
 			}
 			lock.Lock()
@@ -143,7 +146,6 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	case err := <-errCh:
 		return nil, err
 	default:
-		// no error
 	}
 	return result, nil
 }
@@ -179,9 +181,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 			); err != nil {
 				select {
 				case errCh <- err:
-					// error reported
 				default:
-					// not the first error
 				}
 			}
 		}()
@@ -205,10 +205,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			if !ok {
 				return fmt.Errorf("repo %s not found", repo.Name)
 			}
-			provRepos := make(map[string]bool)
-			for _, provCommit := range diffInfo.Provenance {
-				provRepos[provCommit.Repo.Name] = true
-			}
+			provRepos := repoSetFromCommits(diffInfo.Provenance)
 			for _, provCommit := range provenance {
 				if !provRepos[provCommit.Repo.Name] {
 					return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
@@ -302,9 +299,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
 				select {
 				case errCh <- err:
-					// error reported
 				default:
-					// not the first error
 				}
 			}
 		}()
@@ -334,11 +329,8 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	repoSet := make(map[string]bool)
-	for _, repo := range repos {
-		repoSet[repo.Name] = true
-	}
+func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	repoSet := repoSet(repos)
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
@@ -366,14 +358,32 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, all boo
 				if err != nil {
 					return nil, err
 				}
-				if !commitInfo.Cancelled || all {
-					result = append(result, commitInfo)
-				}
 				commit = commitInfo.ParentCommit
+				if commitInfo.Cancelled && !all {
+					continue
+				}
+				if !MatchProvenance(provenance, commitInfo.Provenance) {
+					continue
+				}
+				result = append(result, commitInfo)
 			}
 		}
 	}
 	return result, nil
+}
+
+func MatchProvenance(want []*pfs.Commit, have []*pfs.Commit) bool {
+	repoToCommit := make(map[string]*pfs.Commit)
+	for _, haveCommit := range have {
+		repoToCommit[haveCommit.Repo.Name] = haveCommit
+	}
+	for _, wantCommit := range want {
+		haveCommit, ok := repoToCommit[wantCommit.Repo.Name]
+		if !ok || wantCommit.ID != haveCommit.ID {
+			return false
+		}
+	}
+	return true
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
@@ -1215,4 +1225,20 @@ func coalesceHandles(_append *pfs.Append) {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	}
 	_append.Handles = nil
+}
+
+func repoSet(repos []*pfs.Repo) map[string]bool {
+	result := make(map[string]bool)
+	for _, repo := range repos {
+		result[repo.Name] = true
+	}
+	return result
+}
+
+func repoSetFromCommits(commits []*pfs.Commit) map[string]bool {
+	result := make(map[string]bool)
+	for _, commit := range commits {
+		result[commit.Repo.Name] = true
+	}
+	return result
 }
