@@ -999,6 +999,55 @@ func Test0Modulus(t *testing.T) {
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
 }
 
+func TestProvenance(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	repoInfo, err := client.InspectRepo("B")
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("A")}, repoInfo.Provenance)
+	repoInfo, err = client.InspectRepo("C")
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("A")}, repoInfo.Provenance)
+	ACommit, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	BCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	commitInfo, err := client.InspectCommit("B", BCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Commit{ACommit}, commitInfo.Provenance)
+	CCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	commitInfo, err = client.InspectCommit("C", CCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Commit{BCommit, ACommit}, commitInfo.Provenance)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
