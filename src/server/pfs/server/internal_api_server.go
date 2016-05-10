@@ -61,7 +61,7 @@ func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateR
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.CreateRepo(request.Repo, request.Created, shards); err != nil {
+	if err := a.driver.CreateRepo(request.Repo, request.Created, request.Provenance, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -121,7 +121,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 		return nil, err
 	}
 	if err := a.driver.StartCommit(request.Repo, request.ID, request.ParentID,
-		request.Branch, request.Started, shards); err != nil {
+		request.Branch, request.Started, request.Provenance, shards); err != nil {
 		return nil, err
 	}
 	if err := a.pulseCommitWaiters(client.NewCommit(request.Repo.Name, request.ID), pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
