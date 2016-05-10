@@ -41,8 +41,8 @@ func (r Result) String() string {
 type Spec struct {
 	Name    string
 	Metric  string
-	Results map[string]Result
-	static  bool // Whether or not rows are defined by a static list or dynamically in tests
+	Results map[string]Result // key = action name, value = result (if its supported)
+	static  bool              // Whether or not rows are defined by a static list or dynamically in tests
 }
 
 func New(name string, dataSet string) (*Spec, error) {
@@ -161,6 +161,51 @@ func (s *Spec) GenerateReport(fileName string) error {
 	return nil
 }
 
+type CombinedSpec struct {
+	Metric    string
+	SpecNames []string
+	Results   map[string][]Result // key = action, value = slice of result values
+}
+
+type Row struct {
+	Label   string
+	Results []string
+}
+
 func CombinedReport(specs []Spec, fileName string) error {
+	t := template.New("combined_spec.html")
+	t, err := t.ParseFiles("spec/combined_spec.html")
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	w := bufio.NewWriter(f)
+
+	cs := &CombinedSpec{
+		Metric:  specs[0].Metric,
+		Results: make(map[string][]Result),
+	}
+
+	for _, spec := range specs {
+		cs.SpecNames = append(cs.SpecNames, spec.Name)
+		for name, result := range spec.Results {
+			cs.Results[name] = append(cs.Results[name], result)
+		}
+	}
+
+	err = t.Execute(w, cs)
+	if err != nil {
+		return err
+	}
+
+	w.Flush()
+
+	return nil
 
 }

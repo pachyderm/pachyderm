@@ -41,6 +41,8 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
 
+	spec.CombinedReport([]spec.Spec{*OpenCommitSyscallSpec, *ClosedCommitSyscallSpec}, "spec/reports/syscall-commits.html")
+
 	// Todo - if the reports changed, fail CI, because it means this wasn't run
 	// locally and couldn't have been run on linux and mac
 	os.Exit(exitVal)

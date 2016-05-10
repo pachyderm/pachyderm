@@ -1,0 +1,30 @@
+<table>
+
+<tr>
+  <th>
+    {{ .Metric }}
+  </th>
+  {{ range .SpecNames }}
+    <th> {{ . }} </th>
+  {{ end }}
+
+</tr>
+
+
+{{ range $name, $results := .Results }}
+
+<tr>
+  <td>
+    {{ $name }}
+  </td>
+
+  {{ range $results }}
+    <td class="{{ . }}">
+      {{ . }}
+    </td>
+  {{ end }}
+</tr>
+
+{{end}}
+
+</table>
