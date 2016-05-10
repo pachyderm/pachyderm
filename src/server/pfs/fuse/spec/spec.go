@@ -77,9 +77,9 @@ func (s *Spec) Load(dataSet string) error {
 	return nil
 }
 
-// This function may be called several times (across tests). This is expected.
-// We report the most conservative value in case you're debugging and tests
-// dont pass and you're using the spec for reference.
+// NoError  may be called several times (across tests). This is expected.
+// We report the most conservative value in case you're debugging, tests
+// don't pass, and you're using the spec for reference.
 //
 // Basically - the spec results are an 'AND' not an 'OR'
 func (s *Spec) NoError(t *testing.T, err error, result string) {
@@ -92,9 +92,9 @@ func (s *Spec) NoError(t *testing.T, err error, result string) {
 	require.NoError(t, err)
 }
 
-// This function may be called several times (across tests). This is expected.
-// We report the most conservative value in case you're debugging and tests
-// dont pass and you're using the spec for reference.
+// YesError may be called several times (across tests). This is expected.
+// We report the most conservative value in case you're debugging, tests
+// don't pass, and you're using the spec for reference.
 //
 // Basically - the spec results are an 'AND' not an 'OR'
 func (s *Spec) YesError(t *testing.T, err error, result string) {
