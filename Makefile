@@ -222,15 +222,23 @@ clean-amazon-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
 
-generate-spec:
-	# Needs to be done on a mac
-	if [[ ne `uname` Darwin ]]; then \
-		@echo "Spec generation must be run on a Mac" \
-		exit 1 \
+spec-check:
+	@# Needs to be done on a mac
+	@if [[ "$$(uname)" -ne "Darwin" ]]; then \
+		echo "Spec generation must be run on a Mac"; \
+		exit 1; \
+	else \
+		echo "Detected Darwin system. Generating spec ..."; \
 	fi
-	make test-fuse
-	# Now do it on docker machine to get linux spec
 
+spec-generate-remote-linux: test-fuse
+	cat ./src/server/pfs/fuse/spec/reports/summary-linux.html
+
+spec-generate: spec-check test-fuse docker-build-compile
+	@# Now do it on docker machine to get linux spec
+	docker run --privileged pachyderm_compile make spec-generate-remote-linux \
+	| sed -e '1,/src\/server\/pfs\/fuse\/spec\/reports\/summary/d' \
+	> ./src/server/pfs/fuse/spec/reports/summary-linux.html
 
 .PHONY: \
 	doc \

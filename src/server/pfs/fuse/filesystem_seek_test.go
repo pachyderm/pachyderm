@@ -29,7 +29,7 @@ func TestSeekRead(t *testing.T) {
 		_, err = file.Write([]byte("foobarbaz"))
 
 		OpenCommitSyscallSpec.NoError(t, err, "write")
-		OpenCommitSyscallSpec.NoError(t, file.Close())
+		OpenCommitSyscallSpec.NoError(t, file.Close(), "close")
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 
 		fmt.Printf("==== Finished commit\n")
@@ -50,7 +50,7 @@ func TestSeekRead(t *testing.T) {
 		fmt.Printf("==== %v - err (%v)\n", time.Now(), err)
 
 		fmt.Printf("==== %v - offset (%v)\n", time.Now(), offset)
-		ClosedCommitSyscallSpec.YesError(t, err)
+		ClosedCommitSyscallSpec.YesError(t, err, "lseek")
 		require.Equal(t, int64(0), offset)
 
 		fmt.Printf("==== Seeked to %v\n", offset)

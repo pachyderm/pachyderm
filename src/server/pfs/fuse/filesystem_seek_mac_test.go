@@ -46,7 +46,7 @@ func TestSeekRead(t *testing.T) {
 
 		word1 := make([]byte, 3)
 		n1, err := file.Read(word1)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "read")
 		require.Equal(t, 3, n1)
 		require.Equal(t, "foo", string(word1))
 
@@ -67,7 +67,7 @@ func TestSeekRead(t *testing.T) {
 
 		word2 := make([]byte, 3)
 		n2, err := file.Read(word2)
-		require.NoError(t, err)
+		ClosedCommitSyscallSpec.NoError(t, err, "read")
 		require.Equal(t, 3, n2)
 		require.Equal(t, "baz", string(word2))
 
