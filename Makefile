@@ -222,6 +222,15 @@ clean-amazon-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
 
+generate-spec:
+	# Needs to be done on a mac
+	if [[ ne `uname` Darwin ]]; then \
+		@echo "Spec generation must be run on a Mac" \
+		exit 1 \
+	fi
+	make test-fuse
+	# Now do it on docker machine to get linux spec
+
 
 .PHONY: \
 	doc \

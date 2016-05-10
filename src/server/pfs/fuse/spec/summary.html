@@ -6,6 +6,14 @@
 
 <h1> Summary </h1>
 
+<h2> Support for {{ .OS }} </h2>
+
+<ul>
+{{ range $name, $link := .Links }}
+<li><a href="./{{ $link }}"> {{ $name }} </a></li>
+{{ end }}
+</ul>
+
 <style>
 
 .undefined {

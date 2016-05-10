@@ -37,19 +37,19 @@ func TestMain(m *testing.M) {
 		},
 	)
 
-	summary := &spec.Summary{
-		SingleSpecs: []spec.Spec{
-			*RootSyscallSpec,
-			*RepoSyscallSpec,
-			*OpenCommitSyscallSpec,
-			*ClosedCommitSyscallSpec,
-		},
-		CombinedSpecs: []spec.CombinedSpec{
-			*allCommits,
-			*allReports,
-		},
+	summary := spec.NewSummary()
+	summary.SingleSpecs = []spec.Spec{
+		*RootSyscallSpec,
+		*RepoSyscallSpec,
+		*OpenCommitSyscallSpec,
+		*ClosedCommitSyscallSpec,
 	}
-	err := summary.GenerateReport("spec/reports/summary.html")
+	summary.CombinedSpecs = []spec.CombinedSpec{
+		*allCommits,
+		*allReports,
+	}
+
+	err := summary.GenerateReport("spec/reports")
 
 	if err != nil {
 		fmt.Printf("FAILURE!! Error generating summary: %v\n", err)

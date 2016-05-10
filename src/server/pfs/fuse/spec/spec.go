@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"path/filepath"
+	"runtime"
 )
 
 type Result int
@@ -208,16 +209,42 @@ func (cs *CombinedSpec) GenerateReport(fileName string) error {
 }
 
 type Summary struct {
+	OS            string
+	Links         map[string]string
 	SingleSpecs   []Spec
 	CombinedSpecs []CombinedSpec
 }
 
-func (s *Summary) GenerateReport(fileName string) error {
+func (s *Summary) generateLinks(prefix string) {
+	supportedOSs := [2]string{"darwin", "linux"}
+	s.Links = make(map[string]string)
+
+	for _, os := range supportedOSs {
+		if os != s.OS {
+			s.Links[os] = s.fileName(os)
+		}
+	}
+}
+
+func (s *Summary) fileName(variant string) string {
+	return fmt.Sprintf("summary-%v.html", variant)
+}
+
+func NewSummary() *Summary {
+	return &Summary{
+		OS: runtime.GOOS,
+	}
+}
+
+func (s *Summary) GenerateReport(dir string) error {
+	s.generateLinks(dir)
+
 	t, err := template.ParseFiles("spec/summary.html", "spec/combined_spec.html", "spec/spec.html")
 	if err != nil {
 		return err
 	}
 
+	fileName := filepath.Join(dir, s.fileName(runtime.GOOS))
 	f, err := os.Create(fileName)
 	if err != nil {
 		return err
