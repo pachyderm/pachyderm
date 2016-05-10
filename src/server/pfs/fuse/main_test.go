@@ -14,7 +14,7 @@ var RootSyscallSpec *spec.Spec
 var RepoSyscallSpec *spec.Spec
 
 func TestMain(m *testing.M) {
-	fmt.Println("This gets run BEFORE any tests get run!")
+	fmt.Println("========== Running Pre Fuse Test Hooks\n")
 
 	OpenCommitSyscallSpec, _ = spec.New("Open Commit", "spec/syscalls.txt")
 	ClosedCommitSyscallSpec, _ = spec.New("Closed Commit", "spec/syscalls.txt")
@@ -22,29 +22,11 @@ func TestMain(m *testing.M) {
 	RepoSyscallSpec, _ = spec.New("Repo Level directories", "spec/syscalls.txt")
 
 	exitVal := m.Run()
-
-	fmt.Println("This gets run AFTER any tests get run!")
-	err := OpenCommitSyscallSpec.GenerateReport("spec/reports/syscall-open-commits.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = ClosedCommitSyscallSpec.GenerateReport("spec/reports/syscall-closed-commits.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = RootSyscallSpec.GenerateReport("spec/reports/syscall-root.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
-	err = RepoSyscallSpec.GenerateReport("spec/reports/syscall-repo.html")
-	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err.Error())
-	}
+	fmt.Printf("========== Running Post Fuse Test Hooks\n")
 
 	// Now Generate the summary report
 
 	allCommits := spec.NewCombinedSpec([]spec.Spec{*OpenCommitSyscallSpec, *ClosedCommitSyscallSpec})
-	allCommits.GenerateReport("spec/reports/syscall-commits.html")
 
 	allReports := spec.NewCombinedSpec(
 		[]spec.Spec{
@@ -67,7 +49,7 @@ func TestMain(m *testing.M) {
 			*allReports,
 		},
 	}
-	err = summary.GenerateReport("spec/reports/summary.html")
+	err := summary.GenerateReport("spec/reports/summary.html")
 
 	if err != nil {
 		fmt.Printf("FAILURE!! Error generating summary: %v\n", err)
