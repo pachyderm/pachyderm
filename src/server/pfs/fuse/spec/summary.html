@@ -1,0 +1,43 @@
+{{ define "summary" }}
+
+<!DOCTYPE html5>
+<html>
+<body>
+
+<h1> Summary </h1>
+
+<style>
+
+.undefined {
+  background-color: grey;
+}
+
+.unsupported {
+  background-color: red;
+}
+
+
+.supported {
+  background-color: green;
+}
+
+table, th, td {
+   border: 1px solid black;
+}
+
+</style>
+
+
+{{ range .CombinedSpecs }}
+  {{ template "combined_spec" . }}
+{{ end }}
+
+{{ range .SingleSpecs }}
+  {{ template "spec" . }}
+{{ end }}
+
+</body>
+</html>
+
+
+{{ end }}

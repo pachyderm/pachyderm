@@ -1,30 +1,6 @@
-<!DOCTYPE html5>
-<html>
-<body>
+{{ define "spec" }}
 
-<h1> {{ .Name }} </h1>
-
-<style>
-
-.undefined {
-  background-color: grey;
-}
-
-.unsupported {
-  background-color: red;
-}
-
-
-.supported {
-  background-color: green;
-}
-
-table, th, td {
-   border: 1px solid black;
-}
-
-</style>
-
+<h2> {{ .Name }} </h2>
 
 <table>
 
@@ -53,6 +29,4 @@ table, th, td {
 
 </table>
 
-
-</body>
-</html>
+{{ end }}

@@ -1,0 +1,1430 @@
+
+
+<!DOCTYPE html5>
+<html>
+<body>
+
+<h1> Summary </h1>
+
+<style>
+
+.undefined {
+  background-color: grey;
+}
+
+.unsupported {
+  background-color: red;
+}
+
+
+.supported {
+  background-color: green;
+}
+
+table, th, td {
+   border: 1px solid black;
+}
+
+</style>
+
+
+
+  
+
+<h2>
+  Comparison:
+  
+    Open Commit,
+  
+    Closed Commit,
+  
+</h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  
+    <th> Open Commit </th>
+  
+    <th> Closed Commit </th>
+  
+
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+
+  
+    <td class="unsupported">
+      unsupported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="unsupported">
+      unsupported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+</table>
+
+
+
+  
+
+<h2>
+  Comparison:
+  
+    Root Level Directory,
+  
+    Repo Level directories,
+  
+    Open Commit,
+  
+    Closed Commit,
+  
+</h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  
+    <th> Root Level Directory </th>
+  
+    <th> Repo Level directories </th>
+  
+    <th> Open Commit </th>
+  
+    <th> Closed Commit </th>
+  
+
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="unsupported">
+      unsupported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="unsupported">
+      unsupported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+    <td class="supported">
+      supported
+    </td>
+  
+    <td class="undefined">
+      undefined
+    </td>
+  
+</tr>
+
+
+
+</table>
+
+
+
+
+
+  
+
+<h2> Root Level Directory </h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  <th>
+    Support Status
+  </th>
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+</table>
+
+
+
+  
+
+<h2> Repo Level directories </h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  <th>
+    Support Status
+  </th>
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+</table>
+
+
+
+  
+
+<h2> Open Commit </h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  <th>
+    Support Status
+  </th>
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+  <td class="unsupported">
+    unsupported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+</table>
+
+
+
+  
+
+<h2> Closed Commit </h2>
+
+<table>
+
+<tr>
+  <th>
+    syscalls
+  </th>
+  <th>
+    Support Status
+  </th>
+</tr>
+
+
+
+
+<tr>
+  <td>
+    Append
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    ReadFile
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    Redirect
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    WriteFile
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    close
+  </td>
+  <td class="unsupported">
+    unsupported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    delete
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    lseek
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    mkdir
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    open
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    readdir
+  </td>
+  <td class="supported">
+    supported
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    symlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    sync
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    unlink
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+<tr>
+  <td>
+    write
+  </td>
+  <td class="undefined">
+    undefined
+  </td>
+</tr>
+
+
+
+</table>
+
+
+
+
+</body>
+</html>
+
+

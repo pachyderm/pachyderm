@@ -16,10 +16,10 @@ var RepoSyscallSpec *spec.Spec
 func TestMain(m *testing.M) {
 	fmt.Println("This gets run BEFORE any tests get run!")
 
-	OpenCommitSyscallSpec, _ = spec.New("Syscalls During an Open Commit", "spec/syscalls.txt")
-	ClosedCommitSyscallSpec, _ = spec.New("Syscalls During a Closed Commit", "spec/syscalls.txt")
-	RootSyscallSpec, _ = spec.New("Syscalls on root level directory", "spec/syscalls.txt")
-	RepoSyscallSpec, _ = spec.New("Syscalls on repo level directories", "spec/syscalls.txt")
+	OpenCommitSyscallSpec, _ = spec.New("Open Commit", "spec/syscalls.txt")
+	ClosedCommitSyscallSpec, _ = spec.New("Closed Commit", "spec/syscalls.txt")
+	RootSyscallSpec, _ = spec.New("Root Level Directory", "spec/syscalls.txt")
+	RepoSyscallSpec, _ = spec.New("Repo Level directories", "spec/syscalls.txt")
 
 	exitVal := m.Run()
 
@@ -41,7 +41,38 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Error generating report: %v\n", err.Error())
 	}
 
-	spec.CombinedReport([]spec.Spec{*OpenCommitSyscallSpec, *ClosedCommitSyscallSpec}, "spec/reports/syscall-commits.html")
+	// Now Generate the summary report
+
+	allCommits := spec.NewCombinedSpec([]spec.Spec{*OpenCommitSyscallSpec, *ClosedCommitSyscallSpec})
+	allCommits.GenerateReport("spec/reports/syscall-commits.html")
+
+	allReports := spec.NewCombinedSpec(
+		[]spec.Spec{
+			*RootSyscallSpec,
+			*RepoSyscallSpec,
+			*OpenCommitSyscallSpec,
+			*ClosedCommitSyscallSpec,
+		},
+	)
+
+	summary := &spec.Summary{
+		SingleSpecs: []spec.Spec{
+			*RootSyscallSpec,
+			*RepoSyscallSpec,
+			*OpenCommitSyscallSpec,
+			*ClosedCommitSyscallSpec,
+		},
+		CombinedSpecs: []spec.CombinedSpec{
+			*allCommits,
+			*allReports,
+		},
+	}
+	err = summary.GenerateReport("spec/reports/summary.html")
+
+	if err != nil {
+		fmt.Printf("FAILURE!! Error generating summary: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Todo - if the reports changed, fail CI, because it means this wasn't run
 	// locally and couldn't have been run on linux and mac

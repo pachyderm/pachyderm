@@ -137,8 +137,7 @@ func (s *Spec) updateResult(t *testing.T, resultName string, newResult Result) {
 }
 
 func (s *Spec) GenerateReport(fileName string) error {
-	t := template.New("spec.html")
-	t, err := t.ParseFiles("spec/spec.html")
+	t, err := template.ParseFiles("spec/spec.html")
 	if err != nil {
 		return err
 	}
@@ -151,7 +150,7 @@ func (s *Spec) GenerateReport(fileName string) error {
 	defer f.Close()
 	w := bufio.NewWriter(f)
 
-	err = t.Execute(w, s)
+	err = t.ExecuteTemplate(w, "spec", s)
 	if err != nil {
 		return err
 	}
@@ -167,26 +166,7 @@ type CombinedSpec struct {
 	Results   map[string][]Result // key = action, value = slice of result values
 }
 
-type Row struct {
-	Label   string
-	Results []string
-}
-
-func CombinedReport(specs []Spec, fileName string) error {
-	t := template.New("combined_spec.html")
-	t, err := t.ParseFiles("spec/combined_spec.html")
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-	w := bufio.NewWriter(f)
-
+func NewCombinedSpec(specs []Spec) *CombinedSpec {
 	cs := &CombinedSpec{
 		Metric:  specs[0].Metric,
 		Results: make(map[string][]Result),
@@ -199,7 +179,54 @@ func CombinedReport(specs []Spec, fileName string) error {
 		}
 	}
 
-	err = t.Execute(w, cs)
+	return cs
+}
+
+func (cs *CombinedSpec) GenerateReport(fileName string) error {
+	t, err := template.ParseFiles("spec/combined_spec.html")
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	w := bufio.NewWriter(f)
+
+	err = t.ExecuteTemplate(w, "combined_spec", cs)
+	if err != nil {
+		return err
+	}
+
+	w.Flush()
+
+	return nil
+
+}
+
+type Summary struct {
+	SingleSpecs   []Spec
+	CombinedSpecs []CombinedSpec
+}
+
+func (s *Summary) GenerateReport(fileName string) error {
+	t, err := template.ParseFiles("spec/summary.html", "spec/combined_spec.html", "spec/spec.html")
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	w := bufio.NewWriter(f)
+
+	err = t.ExecuteTemplate(w, "summary", s)
 	if err != nil {
 		return err
 	}
