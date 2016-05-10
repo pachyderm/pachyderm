@@ -390,7 +390,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	if req.Pipeline != nil && len(req.Inputs) > 0 {
 		s := req.Pipeline.Name
 		for _, input := range req.Inputs {
-			s += "/" + input.Commit.ID
+			s += "/" + input.String()
 		}
 
 		hash := md5.Sum([]byte(s))
@@ -892,11 +892,13 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
 	repoToInput := make(map[string]*ppsclient.PipelineInput)
+	repoIsIncremental := make(map[string]bool)
 	var inputRepos []*pfsclient.Repo
 	for _, input := range pipelineInfo.Inputs {
 		repoToLeaves[input.Repo.Name] = make(map[string]bool)
 		repoToInput[input.Repo.Name] = input
 		inputRepos = append(inputRepos, &pfsclient.Repo{Name: input.Repo.Name})
+		repoIsIncremental[input.Repo.Name] = input.Strategy.Incrementality
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -955,7 +957,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 					continue
 				}
 				var parentJob *ppsclient.Job
-				if commitInfo.ParentCommit != nil {
+				if commitInfo.ParentCommit != nil && repoIsIncremental[commitInfo.Commit.Repo.Name] {
 					parentJob, err = a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
 					if err != nil {
 						return err
