@@ -200,6 +200,22 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
+		if len(provenance) != 0 {
+			diffInfo, ok := d.diffs.get(client.NewDiff(repo.Name, "", shard))
+			if !ok {
+				return fmt.Errorf("repo %s not found", repo.Name)
+			}
+			provRepos := make(map[string]bool)
+			for _, provCommit := range diffInfo.Provenance {
+				provRepos[provCommit.Repo.Name] = true
+			}
+			for _, provCommit := range provenance {
+				if !provRepos[provCommit.Repo.Name] {
+					return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
+						provCommit.Repo.Name, provCommit.ID, provCommit.Repo.Name, repo.Name)
+				}
+			}
+		}
 		diffInfo := &pfs.DiffInfo{
 			Diff:       client.NewDiff(repo.Name, commitID, shard),
 			Started:    started,
