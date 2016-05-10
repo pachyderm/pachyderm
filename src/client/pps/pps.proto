@@ -25,9 +25,20 @@ enum JobState {
     JOB_STATE_SUCCESS = 2;
 }
 
+enum Partition {
+  BLOCK = 0;
+  FILE = 1;
+  REPO = 2;
+}
+
+message Strategy {
+  Partition partition = 1;
+  bool incrementality = 2;
+}
+
 message JobInput {
     pfs.Commit commit = 1;
-    bool reduce = 2;
+    Strategy strategy = 2;
 }
 
 message JobInfo {
@@ -48,17 +59,6 @@ message JobInfos {
 
 message Pipeline {
   string name = 1;
-}
-
-enum Partition {
-  PARTITION_BLOCK = 0;
-  PARTITION_FILE = 1;
-  PARTITION_REPO = 2;
-}
-
-message Strategy {
-  Partition partition = 1;
-  bool incrementality = 2;
 }
 
 message PipelineInput {
