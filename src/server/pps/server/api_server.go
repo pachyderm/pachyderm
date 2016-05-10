@@ -591,7 +591,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 // as if the base for each digit is the corresponding number in the moduli array
 func computeFilterNumber(n uint64, moduli []uint64) []uint64 {
 	res := make([]uint64, len(moduli), len(moduli))
-	for i := len(moduli) - 1; i >= 0; i -= 1 {
+	for i := len(moduli) - 1; i >= 0; i-- {
 		res[i] = n % moduli[i]
 		n = n / moduli[i]
 	}
