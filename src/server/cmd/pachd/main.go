@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/gengo/grpc-gateway/runtime"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -23,9 +22,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pkg/http"
 	"go.pedge.io/proto/server"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -141,7 +138,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	return protoserver.ServeWithHTTP(
+	return protoserver.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
@@ -150,19 +147,11 @@ func do(appEnvObj interface{}) error {
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)
 		},
-		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
-		},
-		protoserver.ServeWithHTTPOptions{
-			ServeOptions: protoserver.ServeOptions{
-				Version: version.Version,
-			},
+		protoserver.ServeOptions{
+			Version: version.Version,
 		},
 		protoserver.ServeEnv{
 			GRPCPort: appEnv.Port,
-		},
-		pkghttp.HandlerEnv{
-			Port: appEnv.HTTPPort,
 		},
 	)
 }

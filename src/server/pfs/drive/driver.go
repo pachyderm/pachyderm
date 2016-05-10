@@ -58,7 +58,8 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
-func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
+func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
+	provenance []*pfs.Repo, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if _, ok := d.diffs[repo.Name]; ok {
@@ -77,6 +78,9 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		diffInfo := &pfs.DiffInfo{
 			Diff:     client.NewDiff(repo.Name, "", shard),
 			Finished: created,
+		}
+		for _, provRepo := range provenance {
+			diffInfo.Provenance = append(diffInfo.Provenance, client.NewCommit(provRepo.Name, ""))
 		}
 		if err := d.diffs.insert(diffInfo); err != nil {
 			return err
@@ -192,15 +196,16 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
-	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
+	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
 		diffInfo := &pfs.DiffInfo{
-			Diff:    client.NewDiff(repo.Name, commitID, shard),
-			Started: started,
-			Appends: make(map[string]*pfs.Append),
-			Branch:  branch,
+			Diff:       client.NewDiff(repo.Name, commitID, shard),
+			Started:    started,
+			Appends:    make(map[string]*pfs.Append),
+			Branch:     branch,
+			Provenance: provenance,
 		}
 		if branch != "" {
 			parentCommit, err := d.branchParent(client.NewCommit(repo.Name, commitID), branch)
@@ -690,24 +695,77 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	result := &pfs.RepoInfo{
 		Repo: repo,
 	}
-	_, ok := d.diffs[repo.Name]
+	shardToDiffInfo, ok := d.diffs[repo.Name]
 	if !ok {
 		return nil, pfsserver.ErrRepoNotFound
 	}
 	for shard := range shards {
-		diffInfos, ok := d.diffs[repo.Name][shard]
+		diffInfos, ok := shardToDiffInfo[shard]
 		if !ok {
 			continue
 		}
 		for _, diffInfo := range diffInfos {
 			diffInfo := diffInfo
-			if diffInfo.Diff.Commit.ID == "" {
+			if diffInfo.Diff.Commit.ID == "" && result.Created == nil {
 				result.Created = diffInfo.Finished
 			}
 			result.SizeBytes += diffInfo.SizeBytes
 		}
 	}
+	provenance, err := d.repoProvenance(repo, shards)
+	if err != nil {
+		return nil, err
+	}
+	result.Provenance = provenance
 	return result, nil
+}
+
+func (d *driver) recurseProvenance(commit *pfs.Commit, repoSet map[string]bool,
+	shards map[uint64]bool) ([]*pfs.Commit, error) {
+	shardToDiffInfo, ok := d.diffs[commit.Repo.Name]
+	if !ok {
+		return nil, pfsserver.ErrRepoNotFound
+	}
+	var result []*pfs.Commit
+	for shard := range shards {
+		diffInfos := shardToDiffInfo[shard]
+		if !ok {
+			return nil, fmt.Errorf("missing shard %d (this is likely a bug)")
+		}
+		diffInfo, ok := diffInfos[commit.ID]
+		if !ok {
+			return nil, fmt.Errorf("missing \"\" diff (this is likely a bug)")
+		}
+		for _, provCommit := range diffInfo.Provenance {
+			if !repoSet[provCommit.Repo.Name] {
+				repoSet[provCommit.Repo.Name] = true
+				result = append(result, provCommit)
+				provCommits, err := d.recurseProvenance(provCommit, repoSet, shards)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, provCommits...)
+			}
+		}
+		break // we only need to consider 1 shard
+	}
+	return result, nil
+}
+
+func (d *driver) repoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Repo, error) {
+	provCommits, err := d.recurseProvenance(client.NewCommit(repo.Name, ""), make(map[string]bool), shards)
+	if err != nil {
+		return nil, err
+	}
+	var result []*pfs.Repo
+	for _, provCommit := range provCommits {
+		result = append(result, provCommit.Repo)
+	}
+	return result, nil
+}
+
+func (d *driver) commitProvenance(commit *pfs.Commit, shards map[uint64]bool) ([]*pfs.Commit, error) {
+	return d.recurseProvenance(commit, make(map[string]bool), shards)
 }
 
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
@@ -745,6 +803,12 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	if len(commitInfo) > 1 {
 		return nil, fmt.Errorf("multiple commitInfos, (this is likely a bug)")
 	}
+	result := commitInfo[0]
+	provenance, err := d.commitProvenance(canonicalCommit, shards)
+	if err != nil {
+		return nil, err
+	}
+	result.Provenance = provenance
 	return commitInfo[0], nil
 }
 
