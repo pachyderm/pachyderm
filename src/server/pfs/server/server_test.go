@@ -1046,6 +1046,15 @@ func TestProvenance(t *testing.T) {
 	commitInfo, err = client.InspectCommit("C", CCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, []*pfsclient.Commit{BCommit, ACommit}, commitInfo.Provenance)
+
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.YesError(t, err)
 }
 
 func generateRandomString(n int) string {
