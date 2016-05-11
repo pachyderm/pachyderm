@@ -231,6 +231,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			var request ppsclient.CreatePipelineRequest
 			decoder := json.NewDecoder(pipelineReader)
 			for {
+				// We want to allow for a syntactic suger where the user
+				// can specify a strategy with a string such as "map" or "reduce".
+				// To that end, we check for the "strategy" field and replace
+				// the string with an actual strategy object before we unmarshal
+				// the json spec into a protobuf message
+
 				message := json.RawMessage{}
 				if err := decoder.Decode(&message); err != nil {
 					if err == io.EOF {
