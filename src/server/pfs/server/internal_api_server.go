@@ -227,6 +227,70 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	repoInfos, err := a.driver.ListRepo([]*pfs.Repo{request.Commit.Repo}, shards)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var wg sync.WaitGroup
+	var result []*pfs.CommitInfo
+	var lock sync.Mutex
+	errCh := make(chan error, 1)
+	for _, repoInfo := range repoInfos {
+		repoInfo := repoInfo
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			commitInfos, err := a.ListCommit(ctx, &pfs.ListCommitRequest{
+				Repo:       []*pfs.Repo{repoInfo.Repo},
+				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+				Provenance: []*pfs.Commit{request.Commit},
+				Block:      true,
+				All:        true,
+			})
+			if err != nil {
+				select {
+				case errCh <- err:
+				default:
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			for _, commitInfo := range commitInfos.CommitInfo {
+				if commitInfo.Cancelled {
+					// one of the commits was cancelled so downstream commits might now show up
+					// cancel everything
+					cancel()
+					select {
+					case errCh <- fmt.Errorf("commit %s/%s was cancelled", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID):
+					default:
+					}
+				}
+				result = append(result, commitInfo)
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+	}
+	return &pfs.CommitInfos{CommitInfo: result}, nil
+}
+
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
 	defer func(start time.Time) {
