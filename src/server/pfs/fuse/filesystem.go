@@ -287,7 +287,6 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	defer func() {
 		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
 	}()
-	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
 			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.fs.handleID)
