@@ -172,8 +172,9 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	if err != nil {
 		return nil, err
 	}
-	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.Provenance, request.CommitType, request.All, shards)
-	if err != nil {
+	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
+		request.FromCommit, request.Provenance, request.All, shards)
+	if err != nil && (!request.Block || err != pfsserver.ErrRepoNotFound) {
 		return nil, err
 	}
 	if len(commitInfos) == 0 && request.Block {
@@ -502,8 +503,9 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 	defer a.commitWaitersLock.Unlock()
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
-	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.Provenance, request.CommitType, request.All, shards)
-	if err != nil {
+	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
+		request.FromCommit, request.Provenance, request.All, shards)
+	if err != nil && err != pfsserver.ErrRepoNotFound {
 		return err
 	}
 	if len(commitInfos) != 0 {
@@ -543,22 +545,6 @@ WaitersLoop:
 	}
 	a.commitWaiters = unpulsedWaiters
 	return nil
-}
-
-func (a *internalAPIServer) filteredListCommits(repos []*pfs.Repo, fromCommit []*pfs.Commit, provenance []*pfs.Commit,
-	commitType pfs.CommitType, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	commitInfos, err := a.driver.ListCommit(repos, fromCommit, provenance, all, shards)
-	if err != nil && err != pfsserver.ErrRepoNotFound {
-		return nil, err
-	}
-	var filtered []*pfs.CommitInfo
-	for _, commitInfo := range commitInfos {
-		if commitType != pfs.CommitType_COMMIT_TYPE_NONE && commitInfo.CommitType != commitType {
-			continue
-		}
-		filtered = append(filtered, commitInfo)
-	}
-	return filtered, nil
 }
 
 func drainFileServer(putFileServer interface {

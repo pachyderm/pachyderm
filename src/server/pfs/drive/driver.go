@@ -329,7 +329,8 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
+	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
@@ -363,6 +364,10 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, provena
 					continue
 				}
 				if !MatchProvenance(provenance, commitInfo.Provenance) {
+					continue
+				}
+				if commitType != pfs.CommitType_COMMIT_TYPE_NONE &&
+					commitType != commitInfo.CommitType {
 					continue
 				}
 				result = append(result, commitInfo)
