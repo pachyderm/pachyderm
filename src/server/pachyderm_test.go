@@ -898,19 +898,20 @@ done
 	))
 
 	content := "foo"
+	numfiles := 10
 
 	commit1, err := c.StartCommit(inputRepo1, "", "")
-	require.NoError(t, err)
-	_, err = c.PutFile(inputRepo1, commit1.ID, "file1", strings.NewReader(content))
-	_, err = c.PutFile(inputRepo1, commit1.ID, "file2", strings.NewReader(content))
-	require.NoError(t, err)
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo1, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
 	require.NoError(t, c.FinishCommit(inputRepo1, commit1.ID))
 
 	commit2, err := c.StartCommit(inputRepo2, "", "")
-	require.NoError(t, err)
-	_, err = c.PutFile(inputRepo2, commit2.ID, "file1", strings.NewReader(content))
-	_, err = c.PutFile(inputRepo2, commit2.ID, "file2", strings.NewReader(content))
-	require.NoError(t, err)
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo2, commit2.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
 	require.NoError(t, c.FinishCommit(inputRepo2, commit2.ID))
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
@@ -933,9 +934,91 @@ done
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
-	require.Equal(t, 2*2, len(lines))
+	require.Equal(t, numfiles*numfiles, len(lines))
 	for _, line := range lines {
 		require.Equal(t, len(content)*2, len(line))
+	}
+}
+
+func TestPipelineWithGlobalStrategy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	reduceRepo := uniqueString("inputRepo")
+	require.NoError(t, c.CreateRepo(reduceRepo))
+	globalRepo := uniqueString("inputRepo")
+	require.NoError(t, c.CreateRepo(globalRepo))
+	numfiles := 20
+
+	pipelineName := uniqueString("pipeline")
+	parallelism := 2
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		// this script simply outputs the number of files under the global repo
+		[]string{fmt.Sprintf(`
+numfiles=(/pfs/%s/*)
+numfiles=${#numfiles[@]}
+echo $numfiles > /pfs/out/file
+`, globalRepo)},
+		uint64(parallelism),
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:     &pfsclient.Repo{Name: reduceRepo},
+				Strategy: client.ReduceStrategy,
+			},
+			{
+				Repo:     &pfsclient.Repo{Name: globalRepo},
+				Strategy: client.GlobalStrategy,
+			},
+		},
+	))
+
+	content := "foo"
+
+	commit1, err := c.StartCommit(reduceRepo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(reduceRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(reduceRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(globalRepo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(globalRepo, commit2.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(globalRepo, commit2.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	fileInfos, err := c.ListFile(pipelineName, outCommits[0].Commit.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, parallelism, len(lines)) // each job outputs one line
+	for _, line := range lines {
+		require.Equal(t, fmt.Sprintf("%d", numfiles), line)
 	}
 }
 
