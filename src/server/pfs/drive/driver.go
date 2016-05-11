@@ -6,6 +6,7 @@ import (
 	"path"
 	"sync"
 
+	"errors"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -795,7 +796,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	shards := make(map[uint64]bool)
 	shards[shard] = true
 
-	commitInfo, err = d.InspectCommit(commit, shards)
+	commitInfo, err := d.InspectCommit(commit, shards)
 
 	if err != nil {
 		return nil, nil, err
