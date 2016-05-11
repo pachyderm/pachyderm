@@ -191,6 +191,10 @@ message DeleteCommitRequest {
   Commit commit = 1;
 }
 
+message FlushCommitRequest {
+  repeated Commit commit = 1;
+}
+
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
@@ -249,6 +253,8 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // FlushCommit waits for downstream commits to finish
+  rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
