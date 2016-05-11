@@ -27,10 +27,10 @@
 			"revisionTime": "2016-04-22T03:27:55Z"
 		},
 		{
-			"checksumSHA1": "azOYNy3r6+bHDNcMnsa5G1eP52Y=",
-			"path": "github.com/antonholmquist/jason",
-			"revision": "423803175a265e07c3f35cd8faf009eac345efb8",
-			"revisionTime": "2016-02-10T10:18:53+01:00"
+			"checksumSHA1": "9mLNJYo5jgm1gAFYqCqsGkaVPqQ=",
+			"path": "github.com/Jeffail/gabs",
+			"revision": "c28ac41b517d24bf381d39d5a294fac6536d81fa",
+			"revisionTime": "2016-05-08T11:46:42+01:00"
 		},
 		{
 			"path": "github.com/aws/aws-sdk-go/aws/client/metadata",
