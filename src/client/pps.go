@@ -25,6 +25,11 @@ var (
 		Incrementality: false,
 	}
 
+	StreamingReduceStrategy = pps.Strategy{
+		Partition:      pps.Partition_FILE,
+		Incrementality: true,
+	}
+
 	GlobalStrategy = pps.Strategy{
 		Partition:      pps.Partition_REPO,
 		Incrementality: false,
