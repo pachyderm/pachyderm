@@ -3,7 +3,7 @@
     "name": "filter"
   },
   "transform": {
-    "image": "fruit_stand",
+    "image": "pachyderm/job-shim",
     "cmd": [ "sh" ],
     "stdin": [
         "grep apple  /pfs/data/sales >/pfs/out/apple",
@@ -25,7 +25,7 @@
     "name": "sum"
   },
   "transform": {
-    "image": "fruit_stand",
+    "image": "pachyderm/job-shim",
     "cmd": [ "sh" ],
     "stdin": [
         "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
