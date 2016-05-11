@@ -792,6 +792,21 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
+	shards := make(map[uint64]bool)
+	shards[shard] = true
+
+	commitInfo, err = d.InspectCommit(commit, shards)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if commitInfo.Cancelled {
+		return nil, nil, errors.New("Cannot inspectFile on cancelled commit\n")
+	}
+
+	fileInfo.CommitType = commitInfo.CommitType
+
 	if err != nil {
 		return nil, nil, err
 	}

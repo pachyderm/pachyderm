@@ -77,6 +77,7 @@ message FileInfo {
   google.protobuf.Timestamp modified = 4;
   Commit commit_modified = 5;
   repeated File children = 6;
+  CommitType commit_type = 7;
 }
 
 message FileInfos {

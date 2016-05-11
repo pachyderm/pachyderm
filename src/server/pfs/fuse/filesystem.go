@@ -181,29 +181,37 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 
-	if false { //f.directory.Write {
-		fmt.Printf("ZZZ IM WRITING (in attr)\n")
-		// If the file is from an open commit, we just pretend that it's
-		// an empty file.
+	/*
+		if false { //f.directory.Write {
+			//	if f.directory.Write {
+			fmt.Printf("ZZZ IM WRITING (in attr)\n")
+			// If the file is from an open commit, we just pretend that it's
+			// an empty file.
 		a.Size = 0
-	} else {
-		fmt.Printf("ZZZ I'm inspectingFile (in attr)\n")
+		} else { */
+	fmt.Printf("ZZZ I'm inspectingFile (in attr)\n")
 
-		fileInfo, err := f.fs.apiClient.InspectFile(
-			f.File.Commit.Repo.Name,
-			f.File.Commit.ID,
-			f.File.Path,
-			f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-			f.Shard,
-		)
-		if err != nil && !f.local {
-			return err
-		}
-		if fileInfo != nil {
-			a.Size = fileInfo.SizeBytes
-			a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
-		}
+	fileInfo, err := f.fs.apiClient.InspectFile(
+		f.File.Commit.Repo.Name,
+		f.File.Commit.ID,
+		f.File.Path,
+		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
+		f.Shard,
+	)
+	if err != nil && !f.local {
+		return err
 	}
+	if fileInfo != nil {
+		a.Size = fileInfo.SizeBytes
+		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+	}
+	//	}
+
+	if fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+		fmt.Printf("!!! I see a closed commit\n")
+		a.Size = 0
+	}
+
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
 	a.Valid = 0
@@ -445,33 +453,40 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	if false { //d.Node.Write {
-		fmt.Printf("ZZZ I'm writing (in lookupfile)\n")
-		// Basically, if the directory is writable, we are looking up files
-		// from an open commit.  In this case, we want to return an empty file,
-		// because sometimes you want to remove a file but a remove operation
-		// is usually proceeded with a lookup operation, and the remove operation
-		// would not be able to proceed if the lookup failed.  Therefore, we want
-		// the lookup to not fail, so we return an empty file.
-		fileInfo = &pfsclient.FileInfo{
-			File: &pfsclient.File{
-				Path: path.Join(d.File.Path, name),
-			},
-			FileType:  pfsclient.FileType_FILE_TYPE_REGULAR,
-			SizeBytes: 0,
-		}
-	} else {
-		fmt.Printf("ZZZ I'm inspecting file (in lookupfile)\n")
-		fileInfo, err = d.fs.apiClient.InspectFile(
-			d.File.Commit.Repo.Name,
-			d.File.Commit.ID,
-			path.Join(d.File.Path, name),
-			d.fs.getFromCommitID(d.File.Commit.Repo.Name),
-			d.Shard,
-		)
-		if err != nil {
-			return nil, fuse.ENOENT
-		}
+	/*
+		//	if false { //d.Node.Write {
+		if d.Node.Write {
+			fmt.Printf("ZZZ I'm writing (in lookupfile)\n")
+			// Basically, if the directory is writable, we are looking up files
+			// from an open commit.  In this case, we want to return an empty file,
+			// because sometimes you want to remove a file but a remove operation
+			// is usually proceeded with a lookup operation, and the remove operation
+			// would not be able to proceed if the lookup failed.  Therefore, we want
+			// the lookup to not fail, so we return an empty file.
+			fileInfo = &pfsclient.FileInfo{
+				File: &pfsclient.File{
+					Path: path.Join(d.File.Path, name),
+				},
+				FileType:  pfsclient.FileType_FILE_TYPE_REGULAR,
+				SizeBytes: 0,
+			}
+		} else { */
+	fmt.Printf("ZZZ I'm inspecting file (in lookupfile)\n")
+	fileInfo, err = d.fs.apiClient.InspectFile(
+		d.File.Commit.Repo.Name,
+		d.File.Commit.ID,
+		path.Join(d.File.Path, name),
+		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+		d.Shard,
+	)
+	if err != nil {
+		return nil, fuse.ENOENT
+	}
+	//}
+
+	if fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+		fmt.Printf("!!! I see a closed commit\n")
+		fileInfo.SizeBytes = 0
 	}
 
 	// We want to inherit the metadata other than the path, which should be the
