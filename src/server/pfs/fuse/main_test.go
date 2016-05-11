@@ -12,6 +12,7 @@ import (
 
 var OpenCommitSyscallSpec *spec.Spec
 var ClosedCommitSyscallSpec *spec.Spec
+var CancelledCommitSyscallSpec *spec.Spec
 var RootSyscallSpec *spec.Spec
 var RepoSyscallSpec *spec.Spec
 
@@ -20,6 +21,7 @@ func TestMain(m *testing.M) {
 
 	OpenCommitSyscallSpec, _ = spec.New("Open Commit", "spec/syscalls.txt")
 	ClosedCommitSyscallSpec, _ = spec.New("Closed Commit", "spec/syscalls.txt")
+	CancelledCommitSyscallSpec, _ = spec.New("Cancelled Commit", "spec/syscalls.txt")
 	RootSyscallSpec, _ = spec.New("Root Level Directory", "spec/syscalls.txt")
 	RepoSyscallSpec, _ = spec.New("Repo Level directories", "spec/syscalls.txt")
 
@@ -36,6 +38,7 @@ func TestMain(m *testing.M) {
 			*RepoSyscallSpec,
 			*OpenCommitSyscallSpec,
 			*ClosedCommitSyscallSpec,
+			*CancelledCommitSyscallSpec,
 		},
 	)
 
@@ -45,6 +48,7 @@ func TestMain(m *testing.M) {
 		*RepoSyscallSpec,
 		*OpenCommitSyscallSpec,
 		*ClosedCommitSyscallSpec,
+		*CancelledCommitSyscallSpec,
 	}
 	summary.CombinedSpecs = []spec.CombinedSpec{
 		*allCommits,

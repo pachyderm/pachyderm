@@ -44,6 +44,30 @@ type Spec struct {
 	Metric  string
 	Results map[string]Result // key = action name, value = result (if its supported)
 	static  bool              // Whether or not rows are defined by a static list or dynamically in tests
+	*Coverage
+}
+
+type Coverage struct {
+	UndefinedCount        int
+	UndefinedPercentage   float64
+	UnsupportedCount      int
+	UnsupportedPercentage float64
+	SupportedCount        int
+	SupportedPercentage   float64
+	TotalCount            int
+}
+
+func NewCoverage(undefined int, unsupported int, supported int) *Coverage {
+	total := undefined + unsupported + supported
+	return &Coverage{
+		UndefinedCount:        undefined,
+		UndefinedPercentage:   float64(undefined) / float64(total),
+		UnsupportedCount:      unsupported,
+		UnsupportedPercentage: float64(unsupported) / float64(total),
+		SupportedCount:        supported,
+		SupportedPercentage:   float64(supported) / float64(total),
+		TotalCount:            total,
+	}
 }
 
 func New(name string, dataSet string) (*Spec, error) {
@@ -137,6 +161,24 @@ func (s *Spec) updateResult(t *testing.T, resultName string, newResult Result) {
 
 }
 
+func (s *Spec) CalculateCoverage() {
+	undefined := 0
+	unsupported := 0
+	supported := 0
+	for _, result := range s.Results {
+		switch result {
+		case UNDEFINED:
+			undefined += 1
+		case UNSUPPORTED:
+			unsupported += 1
+		case SUPPORTED:
+			supported += 1
+		}
+	}
+
+	s.Coverage = NewCoverage(undefined, unsupported, supported)
+}
+
 func (s *Spec) GenerateReport(fileName string) error {
 	t, err := template.ParseFiles("spec/spec.html")
 	if err != nil {
@@ -150,6 +192,8 @@ func (s *Spec) GenerateReport(fileName string) error {
 
 	defer f.Close()
 	w := bufio.NewWriter(f)
+
+	s.CalculateCoverage()
 
 	err = t.ExecuteTemplate(w, "spec", s)
 	if err != nil {
@@ -165,6 +209,7 @@ type CombinedSpec struct {
 	Metric    string
 	SpecNames []string
 	Results   map[string][]Result // key = action, value = slice of result values
+	*Coverage
 }
 
 func NewCombinedSpec(specs []Spec) *CombinedSpec {
@@ -183,6 +228,28 @@ func NewCombinedSpec(specs []Spec) *CombinedSpec {
 	return cs
 }
 
+func (cs *CombinedSpec) CalculateCoverage() {
+	undefined := 0
+	unsupported := 0
+	supported := 0
+
+	for _, results := range cs.Results {
+		for _, result := range results {
+			switch result {
+			case UNDEFINED:
+				undefined += 1
+			case UNSUPPORTED:
+				unsupported += 1
+			case SUPPORTED:
+				supported += 1
+			}
+		}
+	}
+
+	cs.Coverage = NewCoverage(undefined, unsupported, supported)
+
+}
+
 func (cs *CombinedSpec) GenerateReport(fileName string) error {
 	t, err := template.ParseFiles("spec/combined_spec.html")
 	if err != nil {
@@ -196,6 +263,8 @@ func (cs *CombinedSpec) GenerateReport(fileName string) error {
 
 	defer f.Close()
 	w := bufio.NewWriter(f)
+
+	cs.CalculateCoverage()
 
 	err = t.ExecuteTemplate(w, "combined_spec", cs)
 	if err != nil {

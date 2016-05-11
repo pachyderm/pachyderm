@@ -5,11 +5,14 @@ Redirect
 write
 close
 delete
+link
 unlink
 symlink
 readdir
 mkdir
+mknod
 lseek
 sync
 open
 read
+create

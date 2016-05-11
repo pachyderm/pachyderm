@@ -116,7 +116,11 @@ func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 
 func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs ...interface{}) {
 	logMessage(tb, userMsgAndArgs)
-	_, file, line, ok := runtime.Caller(2)
+	_, file, line, ok := runtime.Caller(3)
+	if ok {
+		tb.Logf("%s:%d", file, line)
+	}
+	_, file, line, ok = runtime.Caller(2)
 	if ok {
 		tb.Logf("%s:%d", file, line)
 	}
