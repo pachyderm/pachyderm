@@ -1087,6 +1087,93 @@ func TestProvenance(t *testing.T) {
 		[]*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("C")},
 		[]*pfsclient.Repo{pclient.NewRepo("C"), pclient.NewRepo("B")},
 	}, repos)
+
+	// Test ListCommit using provenance filtering
+	commitInfos, err := client.PfsAPIClient.ListCommit(
+		context.Background(),
+		&pfsclient.ListCommitRequest{
+			Repo:       []*pfsclient.Repo{pclient.NewRepo("C")},
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos.CommitInfo))
+	require.Equal(t, CCommit, commitInfos.CommitInfo[0].Commit)
+
+	// Negative test ListCommit using provenance filtering
+	commitInfos, err = client.PfsAPIClient.ListCommit(
+		context.Background(),
+		&pfsclient.ListCommitRequest{
+			Repo:       []*pfsclient.Repo{pclient.NewRepo("A")},
+			Provenance: []*pfsclient.Commit{BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos.CommitInfo))
+
+	// Test Blocking ListCommit using provenance filtering
+	ACommit2, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit2.ID))
+	commitInfosCh := make(chan *pfsclient.CommitInfos)
+	go func() {
+		commitInfos, err := client.PfsAPIClient.ListCommit(
+			context.Background(),
+			&pfsclient.ListCommitRequest{
+				Repo:       []*pfsclient.Repo{pclient.NewRepo("B")},
+				Provenance: []*pfsclient.Commit{ACommit2},
+				CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+				Block:      true,
+			},
+		)
+		require.NoError(t, err)
+		commitInfosCh <- commitInfos
+	}()
+	BCommit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Commit{ACommit2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit2.ID))
+	select {
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout waiting for commit")
+	case commitInfos := <-commitInfosCh:
+		require.Equal(t, 1, len(commitInfos.CommitInfo))
+		require.Equal(t, BCommit2, commitInfos.CommitInfo[0].Commit)
+	}
+	go func() {
+		commitInfos, err := client.PfsAPIClient.ListCommit(
+			context.Background(),
+			&pfsclient.ListCommitRequest{
+				Repo:       []*pfsclient.Repo{pclient.NewRepo("C")},
+				Provenance: []*pfsclient.Commit{ACommit2},
+				CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+				Block:      true,
+			},
+		)
+		require.NoError(t, err)
+		commitInfosCh <- commitInfos
+	}()
+	CCommit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{BCommit2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit2.ID))
+	select {
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout waiting for commit")
+	case commitInfos := <-commitInfosCh:
+		require.Equal(t, 1, len(commitInfos.CommitInfo))
+		require.Equal(t, CCommit2, commitInfos.CommitInfo[0].Commit)
+	}
 }
 
 func generateRandomString(n int) string {
