@@ -24,7 +24,7 @@ And then mount it:
 
 ```shell
 # We background this process because it blocks.
-$ pachctl mount &
+$ pachctl mount ~/pfs &
 ```
 
 This will mount pfs on `~/pfs` you can inspect the filesystem like you would any
