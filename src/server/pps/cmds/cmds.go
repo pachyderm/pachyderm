@@ -251,25 +251,16 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					pkgcmd.ErrorAndExit("Error parsing spec: inputs is not an array", err.Error())
 				}
 				for _, input := range children {
-					key := "strategy"
-					strategyString, ok := input.S(key).Data().(string)
+					strategyAlias, ok := input.S("strategy").Data().(string)
 					if ok {
-						switch strategyString {
-						case "map":
-							input.Set(pach.MapStrategy, key)
-						case "reduce":
-							input.Set(pach.ReduceStrategy, key)
-						case "streaming_reduce":
-							input.Set(pach.StreamingReduceStrategy, key)
-						case "global":
-							input.Set(pach.GlobalStrategy, key)
-						default:
-							pkgcmd.ErrorAndExit("Unrecognized strategy: %s", strategyString)
+						strat, ok := pach.StrategyAliasMap[strategyAlias]
+						if ok {
+							input.Set(strat, "strategy")
+						} else {
+							pkgcmd.ErrorAndExit("Unrecognized strategy: %s", strategyAlias)
 						}
 					}
 				}
-
-				fmt.Println(pipeline.String())
 
 				if err := jsonpb.UnmarshalString(pipeline.String(), &request); err != nil {
 					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %s", err.Error())

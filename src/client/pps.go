@@ -34,6 +34,13 @@ var (
 		Partition:      pps.Partition_REPO,
 		Incrementality: false,
 	}
+
+	StrategyAliasMap = map[string]pps.Strategy{
+		"map":              MapStrategy,
+		"reduce":           ReduceStrategy,
+		"streaming_reduce": StreamingReduceStrategy,
+		"global":           GlobalStrategy,
+	}
 )
 
 func NewJobInput(repoName string, commitID string, strategy pps.Strategy) *pps.JobInput {
