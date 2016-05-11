@@ -15,27 +15,27 @@ func NewJob(jobID string) *pps.Job {
 }
 
 var (
-	MapStrategy = pps.Strategy{
+	MapStrategy = &pps.Strategy{
 		Partition:      pps.Partition_BLOCK,
 		Incrementality: true,
 	}
 
-	ReduceStrategy = pps.Strategy{
+	ReduceStrategy = &pps.Strategy{
 		Partition:      pps.Partition_FILE,
 		Incrementality: false,
 	}
 
-	StreamingReduceStrategy = pps.Strategy{
+	StreamingReduceStrategy = &pps.Strategy{
 		Partition:      pps.Partition_FILE,
 		Incrementality: true,
 	}
 
-	GlobalStrategy = pps.Strategy{
+	GlobalStrategy = &pps.Strategy{
 		Partition:      pps.Partition_REPO,
 		Incrementality: false,
 	}
 
-	StrategyAliasMap = map[string]pps.Strategy{
+	StrategyAliasMap = map[string]*pps.Strategy{
 		"map":              MapStrategy,
 		"reduce":           ReduceStrategy,
 		"streaming_reduce": StreamingReduceStrategy,

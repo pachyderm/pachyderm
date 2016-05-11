@@ -123,6 +123,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	jobID := getJobID(request)
 
+	fmt.Printf("Creating job with id: %v\n", jobID)
+
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
 	// If JobInfo.Pipeline is set, use the pipeline repo
@@ -146,24 +148,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	// If parent is set...
-	if parentJobInfo != nil {
-		reduce := false
-		for _, jobInput := range request.Inputs {
-			if jobInput.Reduce {
-				reduce = true
-			}
-		}
-		// ...and if the job is not a reduce job, the parent's output commit
-		// should be this commit's parent.
-		// Otherwise this commit should have no parent.
-		if !reduce {
-			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-		}
-	}
-
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
+		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for _, jobInput := range request.Inputs {
 			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
@@ -172,6 +159,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	fmt.Printf("starting commit: %v\n", startCommitRequest)
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -200,6 +188,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 
+		fmt.Printf("shardModuli: %v\n", shardModuli)
+
 		persistJobInfo.Parallelism = product(shardModuli)
 		persistJobInfo.ShardModuli = shardModuli
 	}
@@ -214,6 +204,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	if err == nil {
+		fmt.Printf("creating job: %v\n", persistJobInfo)
 		// we only create a kube job if the job did not already exist
 		if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 			return nil, err
@@ -344,12 +335,16 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 			Recurse: true,
 		}
 
-		if input.Reduce {
-			listFileRequest.Shard.FileNumber = uint64(i)
-			listFileRequest.Shard.FileModulus = modulus
-		} else {
+		switch input.Strategy.Partition {
+		case ppsclient.Partition_BLOCK:
 			listFileRequest.Shard.BlockNumber = uint64(i)
 			listFileRequest.Shard.BlockModulus = modulus
+		case ppsclient.Partition_FILE:
+			listFileRequest.Shard.FileNumber = uint64(i)
+			listFileRequest.Shard.FileModulus = modulus
+		case ppsclient.Partition_REPO:
+		default:
+			return false, fmt.Errorf("unrecognized partition strategy; this is likely a bug")
 		}
 
 		fileInfos, err := pfsClient.ListFile(ctx, listFileRequest)
@@ -381,6 +376,7 @@ func isConflictErr(err error) bool {
 }
 
 func getJobID(req *ppsclient.CreateJobRequest) string {
+	fmt.Printf("getting job ID for %v\n", req)
 	// If the job belongs to a pipeline, and the pipeline has inputs,
 	// we want to make sure that the same
 	// job does not run twice.  We ensure that by generating the job id by
@@ -543,17 +539,17 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 
 		switch jobInput.Strategy.Partition {
-		case ppsclient.PARTITION_BLOCK:
+		case ppsclient.Partition_BLOCK:
 			commitMount.Shard = &pfsclient.Shard{
 				BlockNumber:  filterNumbers[i],
 				BlockModulus: jobInfo.ShardModuli[i],
 			}
-		case ppsclient.PARTITION_FILE:
+		case ppsclient.Partition_FILE:
 			commitMount.Shard = &pfsclient.Shard{
 				FileNumber:  filterNumbers[i],
 				FileModulus: jobInfo.ShardModuli[i],
 			}
-		case ppsclient.PARTITION_REPO:
+		case ppsclient.Partition_REPO:
 			// empty shard matches everything
 			commitMount.Shard = &pfsclient.Shard{}
 		default:
@@ -876,6 +872,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 }
 
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
+	fmt.Printf("Running pipeline %s\n", pipelineInfo.Pipeline.Name)
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
 	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
@@ -922,7 +919,9 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 			FromCommit: fromCommits,
 			Block:      true,
 		}
+		fmt.Printf("Listening for commits for repos: %v; from commits: %v\n", listCommitRequest.Repo, listCommitRequest.FromCommit)
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
+		fmt.Printf("Got commits: %v\n", commitInfos)
 		if err != nil {
 			return err
 		}
@@ -966,10 +965,11 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 				var inputs []*ppsclient.JobInput
 				for _, commit := range append(commitSet, commitInfo.Commit) {
 					inputs = append(inputs, &ppsclient.JobInput{
-						Commit: commit,
-						Reduce: repoToInput[commit.Repo.Name].Reduce,
+						Commit:   commit,
+						Strategy: repoToInput[commit.Repo.Name].Strategy,
 					})
 				}
+				fmt.Printf("Creating job for pipeline %v with inputs: %v\n", pipelineInfo.Pipeline, inputs)
 				if _, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
