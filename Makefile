@@ -166,7 +166,7 @@ test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
 
 test-fuse: deps-client
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse') $(FLAGS)
 
 test-local: deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
@@ -221,6 +221,8 @@ amazon-cluster:
 clean-amazon-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
+spec-view:
+	open ./src/server/pfs/fuse/spec/reports/summary-darwin.html
 
 spec-check:
 	@# Needs to be done on a mac
@@ -231,14 +233,20 @@ spec-check:
 		echo "Detected Darwin system. Generating spec ..."; \
 	fi
 
-spec-generate-remote-linux: test-fuse
+spec-generate-remote-linux:
+	make FLAGS="-spec.regenerate" test-fuse
 	cat ./src/server/pfs/fuse/spec/reports/summary-linux.html
 
-spec-generate: spec-check test-fuse docker-build-compile
+spec-generate: spec-check
+	make FLAGS="-spec.regenerate" test-fuse
+	make docker-build-compile
 	@# Now do it on docker machine to get linux spec
 	docker run --privileged pachyderm_compile make spec-generate-remote-linux \
 	| sed -e '1,/src\/server\/pfs\/fuse\/spec\/reports\/summary/d' \
 	> ./src/server/pfs/fuse/spec/reports/summary-linux.html
+	@echo "Successfully regenerated spec reports:\n"
+	@ls -d -1 src/server/pfs/fuse/spec/reports/*.*
+	@echo "\nTo view the specs, run 'make spec-view'"
 
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...

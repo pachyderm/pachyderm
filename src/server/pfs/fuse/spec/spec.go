@@ -47,27 +47,31 @@ type Spec struct {
 	*Coverage
 }
 
+type Percentage float64
+
+func (p *Percentage) String() string {
+	return fmt.Sprintf("%4.2f%%", (*p)*100)
+}
+
 type Coverage struct {
 	UndefinedCount        int
-	UndefinedPercentage   float64
+	UndefinedPercentage   Percentage
 	UnsupportedCount      int
-	UnsupportedPercentage float64
+	UnsupportedPercentage Percentage
 	SupportedCount        int
-	SupportedPercentage   float64
+	SupportedPercentage   Percentage
 	TotalCount            int
 }
 
-func NewCoverage(undefined int, unsupported int, supported int) *Coverage {
+func (c *Coverage) Update(undefined int, unsupported int, supported int) {
 	total := undefined + unsupported + supported
-	return &Coverage{
-		UndefinedCount:        undefined,
-		UndefinedPercentage:   float64(undefined) / float64(total),
-		UnsupportedCount:      unsupported,
-		UnsupportedPercentage: float64(unsupported) / float64(total),
-		SupportedCount:        supported,
-		SupportedPercentage:   float64(supported) / float64(total),
-		TotalCount:            total,
-	}
+	c.UndefinedCount = undefined
+	c.UndefinedPercentage = Percentage(undefined) / Percentage(total)
+	c.UnsupportedCount = unsupported
+	c.UnsupportedPercentage = Percentage(unsupported) / Percentage(total)
+	c.SupportedCount = supported
+	c.SupportedPercentage = Percentage(supported) / Percentage(total)
+	c.TotalCount = total
 }
 
 func New(name string, dataSet string) (*Spec, error) {
@@ -76,10 +80,11 @@ func New(name string, dataSet string) (*Spec, error) {
 		return nil, errors.New("Invalid filename - no name before the dot")
 	}
 	s := &Spec{
-		Name:    name,
-		Metric:  tokens[0],
-		Results: make(map[string]Result),
-		static:  true,
+		Name:     name,
+		Metric:   tokens[0],
+		Results:  make(map[string]Result),
+		static:   true,
+		Coverage: &Coverage{},
 	}
 	s.Load(dataSet)
 	return s, nil
@@ -176,11 +181,11 @@ func (s *Spec) CalculateCoverage() {
 		}
 	}
 
-	s.Coverage = NewCoverage(undefined, unsupported, supported)
+	s.Coverage.Update(undefined, unsupported, supported)
 }
 
 func (s *Spec) GenerateReport(fileName string) error {
-	t, err := template.ParseFiles("spec/spec.html")
+	t, err := template.ParseFiles("spec/spec.html", "spec/coverage.html")
 	if err != nil {
 		return err
 	}
@@ -214,8 +219,9 @@ type CombinedSpec struct {
 
 func NewCombinedSpec(specs []Spec) *CombinedSpec {
 	cs := &CombinedSpec{
-		Metric:  specs[0].Metric,
-		Results: make(map[string][]Result),
+		Metric:   specs[0].Metric,
+		Results:  make(map[string][]Result),
+		Coverage: &Coverage{},
 	}
 
 	for _, spec := range specs {
@@ -246,12 +252,11 @@ func (cs *CombinedSpec) CalculateCoverage() {
 		}
 	}
 
-	cs.Coverage = NewCoverage(undefined, unsupported, supported)
-
+	cs.Coverage.Update(undefined, unsupported, supported)
 }
 
 func (cs *CombinedSpec) GenerateReport(fileName string) error {
-	t, err := template.ParseFiles("spec/combined_spec.html")
+	t, err := template.ParseFiles("spec/combined_spec.html", "spec/coverage.html")
 	if err != nil {
 		return err
 	}
@@ -282,6 +287,21 @@ type Summary struct {
 	Links         map[string]string
 	SingleSpecs   []Spec
 	CombinedSpecs []CombinedSpec
+	*Coverage
+}
+
+func (s *Summary) CalculateCoverage() {
+	undefined := 0
+	unsupported := 0
+	supported := 0
+
+	for _, spec := range s.SingleSpecs {
+		undefined += spec.Coverage.UndefinedCount
+		unsupported += spec.Coverage.UnsupportedCount
+		supported += spec.Coverage.SupportedCount
+	}
+
+	s.Coverage.Update(undefined, unsupported, supported)
 }
 
 func (s *Summary) generateLinks(prefix string) {
@@ -301,14 +321,15 @@ func (s *Summary) fileName(variant string) string {
 
 func NewSummary() *Summary {
 	return &Summary{
-		OS: runtime.GOOS,
+		OS:       runtime.GOOS,
+		Coverage: &Coverage{},
 	}
 }
 
 func (s *Summary) GenerateReport(dir string) error {
 	s.generateLinks(dir)
 
-	t, err := template.ParseFiles("spec/summary.html", "spec/combined_spec.html", "spec/spec.html")
+	t, err := template.ParseFiles("spec/summary.html", "spec/combined_spec.html", "spec/spec.html", "spec/coverage.html")
 	if err != nil {
 		return err
 	}
@@ -321,6 +342,16 @@ func (s *Summary) GenerateReport(dir string) error {
 
 	defer f.Close()
 	w := bufio.NewWriter(f)
+
+	for _, spec := range s.SingleSpecs {
+		spec.CalculateCoverage()
+	}
+
+	for _, cs := range s.CombinedSpecs {
+		cs.CalculateCoverage()
+	}
+
+	s.CalculateCoverage()
 
 	err = t.ExecuteTemplate(w, "summary", s)
 	if err != nil {

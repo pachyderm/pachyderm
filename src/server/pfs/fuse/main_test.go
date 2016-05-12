@@ -1,6 +1,7 @@
 package fuse_test
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -16,21 +17,21 @@ var CancelledCommitSyscallSpec *spec.Spec
 var RootSyscallSpec *spec.Spec
 var RepoSyscallSpec *spec.Spec
 
-func TestMain(m *testing.M) {
-	fmt.Println("========== Running Pre Fuse Test Hooks\n")
+var regeneratingSpec bool
 
-	OpenCommitSyscallSpec, _ = spec.New("Open Commit", "spec/syscalls.txt")
-	ClosedCommitSyscallSpec, _ = spec.New("Closed Commit", "spec/syscalls.txt")
-	CancelledCommitSyscallSpec, _ = spec.New("Cancelled Commit", "spec/syscalls.txt")
-	RootSyscallSpec, _ = spec.New("Root Level Directory", "spec/syscalls.txt")
-	RepoSyscallSpec, _ = spec.New("Repo Level directories", "spec/syscalls.txt")
+func init() {
+	flag.BoolVar(&regeneratingSpec, "spec.regenerate", false, "Set to true when regenerating the spec")
+	flag.Parse()
+}
 
-	exitVal := m.Run()
-	fmt.Printf("========== Running Post Fuse Test Hooks\n")
-
-	// Now Generate the summary report
-
-	allCommits := spec.NewCombinedSpec([]spec.Spec{*OpenCommitSyscallSpec, *ClosedCommitSyscallSpec})
+func generateSummaryReport() {
+	allCommits := spec.NewCombinedSpec(
+		[]spec.Spec{
+			*OpenCommitSyscallSpec,
+			*ClosedCommitSyscallSpec,
+			*CancelledCommitSyscallSpec,
+		},
+	)
 
 	allReports := spec.NewCombinedSpec(
 		[]spec.Spec{
@@ -62,9 +63,32 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	didSpecReportChange()
-	// Todo - if the reports changed, fail CI, because it means this wasn't run
-	// locally and couldn't have been run on linux and mac
+}
+
+func TestMain(m *testing.M) {
+	// This runs before tests get called
+	OpenCommitSyscallSpec, _ = spec.New("Open Commit", "spec/syscalls.txt")
+	ClosedCommitSyscallSpec, _ = spec.New("Closed Commit", "spec/syscalls.txt")
+	CancelledCommitSyscallSpec, _ = spec.New("Cancelled Commit", "spec/syscalls.txt")
+	RootSyscallSpec, _ = spec.New("Root Level Directory", "spec/syscalls.txt")
+	RepoSyscallSpec, _ = spec.New("Repo Level directories", "spec/syscalls.txt")
+
+	// Call the tests
+	exitVal := m.Run()
+
+	// This runs after tests are called
+	if exitVal > 0 {
+		os.Exit(exitVal)
+	}
+
+	generateSummaryReport()
+
+	if regeneratingSpec {
+		fmt.Printf("Successfully regenerated spec reports.\n")
+	} else {
+		didSpecReportChange()
+	}
+
 	os.Exit(exitVal)
 }
 
@@ -80,9 +104,19 @@ func didSpecReportChange() {
 		os.Exit(1)
 	}
 
-	if strings.Contains(string(raw), "reports/summary") {
+	match := "reports/summary"
+
+	if strings.Contains(string(raw), match) {
 		fmt.Printf("There are uncommitted changes!\nThe generated spec does not match the existing spec. Please run `make spec-generate` locally to vet and commit the changes as necessary\n")
-		fmt.Printf("Uncommitted changes:\n%v\n", string(raw))
+		fmt.Printf("Specs that don't match committed versions:\n")
+
+		lines := strings.Split(string(raw), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, match) {
+				fmt.Println(line)
+			}
+		}
+
 		os.Exit(1)
 	}
 

@@ -1,0 +1,40 @@
+{{ define "coverage" }}
+
+<div>
+  <h3> Coverage: </h3>
+
+<table>
+
+<tr>
+<td>  </td>
+<td> Undefined </td>
+<td> Unsupported </td>
+<td> Supported </td>
+<td> Total </td>
+</tr>
+
+<tr>
+<td> Percentage </td>
+<td> {{ .UndefinedPercentage }} </td>
+<td> {{ .UnsupportedPercentage }} </td>
+<td> {{ .SupportedPercentage }} </td>
+<td>  </td>
+</tr>
+
+<tr>
+<td> Count </td>
+<td> {{ .UndefinedCount }} </td>
+<td> {{ .UnsupportedCount }} </td>
+<td> {{ .SupportedCount }} </td>
+<td> {{ .TotalCount }} </td>
+</tr>
+
+
+</table>
+
+</div>
+
+<p></p>
+
+
+{{ end }}

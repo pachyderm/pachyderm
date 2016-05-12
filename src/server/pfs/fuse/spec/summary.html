@@ -8,6 +8,10 @@
 
 <h2> Support for {{ .OS }} </h2>
 
+
+{{ template "coverage" .Coverage }}
+
+Other Platforms:
 <ul>
 {{ range $name, $link := .Links }}
 <li><a href="./{{ $link }}"> {{ $name }} </a></li>
@@ -37,10 +41,12 @@ table, th, td {
 
 
 {{ range .CombinedSpecs }}
+  <hr/>
   {{ template "combined_spec" . }}
 {{ end }}
 
 {{ range .SingleSpecs }}
+  <hr/>
   {{ template "spec" . }}
 {{ end }}
 
