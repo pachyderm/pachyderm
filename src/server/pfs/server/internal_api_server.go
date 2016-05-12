@@ -182,7 +182,10 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		if err := a.registerCommitWaiter(request, shards, commitChan); err != nil {
 			return nil, err
 		}
-		for commitInfo := range commitChan {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case commitInfo := <-commitChan:
 			commitInfos = append(commitInfos, commitInfo)
 		}
 	}
@@ -600,7 +603,6 @@ WaitersLoop:
 			for _, repo := range commitWaiter.repos {
 				if repo.Name == commit.Repo.Name {
 					commitWaiter.commitInfoChan <- commitInfo
-					close(commitWaiter.commitInfoChan)
 					continue WaitersLoop
 				}
 			}
