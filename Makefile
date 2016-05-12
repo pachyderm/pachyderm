@@ -107,7 +107,7 @@ launch: install
 	$(eval STARTTIME := $(shell date +%s)	)
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
-	until timeout 5s ./etc/kube/check_pachd_ready.sh; do sleep 5; done
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: launch-kube launch
