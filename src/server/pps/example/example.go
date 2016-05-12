@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -17,6 +18,7 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
+				Strategy: client.MapStrategy,
 			},
 		},
 		ParentJob: &ppsclient.Job{
@@ -36,7 +38,8 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 		Parallelism: 1,
 		Inputs: []*ppsclient.PipelineInput{
 			{
-				Repo: &pfs.Repo{Name: "in_repo"},
+				Repo:     &pfs.Repo{Name: "in_repo"},
+				Strategy: client.ReduceStrategy,
 			},
 		},
 	}
@@ -50,6 +53,7 @@ func RunPipelineSpec() *ppsclient.CreateJobRequest {
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
+				Strategy: client.GlobalStrategy,
 			},
 		},
 		Parallelism: 3,
