@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -74,6 +75,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if err != nil {
 		return nil, err
 	}
+
+	setDefaultJobInputStrategy(request.Inputs)
 
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
@@ -664,6 +667,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 
+	setDefaultPipelineInputStrategy(request.Inputs)
+
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
@@ -693,6 +698,26 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
+}
+
+// setDefaultPipelineInputStrategy sets strategy to the default for the inputs
+// that do not specify a strategy
+func setDefaultPipelineInputStrategy(inputs []*ppsclient.PipelineInput) {
+	for _, input := range inputs {
+		if input.Strategy == nil {
+			input.Strategy = client.DefaultStrategy
+		}
+	}
+}
+
+// setDefaultJobInputStrategy sets strategy to the default for the inputs
+// that do not specify a strategy
+func setDefaultJobInputStrategy(inputs []*ppsclient.JobInput) {
+	for _, input := range inputs {
+		if input.Strategy == nil {
+			input.Strategy = client.DefaultStrategy
+		}
+	}
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
