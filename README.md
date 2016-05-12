@@ -1,4 +1,4 @@
-# Pachyderm
+# Pachyderm: A Containerized Data Lake
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 
@@ -21,6 +21,8 @@ Already got a kubernetes cluster:
 ```sh
 $ kubectl create -f https://pachyderm.io/manifest.json
 ```
+
+Otherwise, check out our [setup instructions](SETUP.md).
 
 If you've never used Pachyderm before you should look at the [fruit stand example](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand).
 
