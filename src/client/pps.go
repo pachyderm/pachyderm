@@ -43,10 +43,10 @@ var (
 	}
 )
 
-func NewJobInput(repoName string, commitID string, strategy pps.Strategy) *pps.JobInput {
+func NewJobInput(repoName string, commitID string, strategy *pps.Strategy) *pps.JobInput {
 	return &pps.JobInput{
 		Commit:   NewCommit(repoName, commitID),
-		Strategy: &strategy,
+		Strategy: strategy,
 	}
 }
 
@@ -54,10 +54,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-func NewPipelineInput(repoName string, strategy pps.Strategy) *pps.PipelineInput {
+func NewPipelineInput(repoName string, strategy *pps.Strategy) *pps.PipelineInput {
 	return &pps.PipelineInput{
 		Repo:     NewRepo(repoName),
-		Strategy: &strategy,
+		Strategy: strategy,
 	}
 }
 
