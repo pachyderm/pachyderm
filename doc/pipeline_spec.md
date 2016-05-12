@@ -18,7 +18,14 @@
       "repo": {
         "name": string
       },
-      "reduce": bool
+      "strategy": "map"/"reduce"/"streaming_reduce"/"global"
+      // alternatively, strategy can be specified as an object.
+      // this is only for advanced use cases; most of the time, one of the four
+      // strategies above should suffice.
+      "strategy": {
+        "partition": "block"/"file"/"repo",
+        "incrementality": bool
+      }
     }
   ]
 }
@@ -36,7 +43,14 @@
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
-`inputs.reduce` specifies how a repo will be partitioned among parallel containers.  If set to true, the data will be partitioned by files.  If set to false, the data will be partitioned by blocks.
+`inputs.strategy` specifies how a repo will be partitioned among parallel containers, and whether the entire repo or just the new commit is used as the input.
+
+You may specify a strategy using either an alias or a JSON object.  We support four aliases that represent the four commonly used strategies:
+
+* map: each job sees a part of the new commit; files may be partitioned
+* reduce: each job sees a part of the entire repo; files are not partitioned
+* streaming_reduce: each job sees a part of the new commit; files are not partitioned
+* global: each job sees the entire repo
 
 ## Examples
 
@@ -58,11 +72,11 @@
       "repo": {
         "name": "my-input"
       },
-      "reduce": true
+      "strategy": "map"
     }
   ]
 }
 ```
 
-This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-imge`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a unique set of files as input because `reduce` is set to true.
+This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-imge`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a part of the new commit as input because `strategy` is set to `map`.
 
