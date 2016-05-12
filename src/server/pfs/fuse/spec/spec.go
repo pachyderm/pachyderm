@@ -173,11 +173,11 @@ func (s *Spec) CalculateCoverage() {
 	for _, result := range s.Results {
 		switch result {
 		case UNDEFINED:
-			undefined += 1
+			undefined++
 		case UNSUPPORTED:
-			unsupported += 1
+			unsupported++
 		case SUPPORTED:
-			supported += 1
+			supported++
 		}
 	}
 
@@ -243,11 +243,11 @@ func (cs *CombinedSpec) CalculateCoverage() {
 		for _, result := range results {
 			switch result {
 			case UNDEFINED:
-				undefined += 1
+				undefined++
 			case UNSUPPORTED:
-				unsupported += 1
+				unsupported++
 			case SUPPORTED:
-				supported += 1
+				supported++
 			}
 		}
 	}
