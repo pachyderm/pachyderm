@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -25,7 +27,16 @@ import (
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	"os"
+	"time"
 )
+
+var readinessCheck bool
+
+func init() {
+	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
+	flag.Parse()
+}
 
 type appEnv struct {
 	Port            uint16 `env:"PORT,default=650"`
@@ -57,6 +68,26 @@ func do(appEnvObj interface{}) error {
 		}
 		return nil
 	}
+	fmt.Printf("Readiness check? %v\n", readinessCheck)
+	if readinessCheck {
+		//c, err := client.NewInCluster()
+		c, err := client.NewFromAddress("127.0.0.1:650")
+		if err != nil {
+			return err
+		}
+
+		_, err = c.ListRepo()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("ok\n")
+		os.Exit(0)
+
+		return nil
+	}
+	// Delay startup just to test readiness
+	time.Sleep(30 * time.Second)
 	clusterID, err := getClusterID(etcdClient)
 	if err != nil {
 		return err
