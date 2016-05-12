@@ -35,6 +35,8 @@ var (
 		Incrementality: false,
 	}
 
+	DefaultStrategy = MapStrategy
+
 	StrategyAliasMap = map[string]*pps.Strategy{
 		"map":              MapStrategy,
 		"reduce":           ReduceStrategy,
