@@ -58,6 +58,8 @@ func generateSummaryReport() {
 
 	err := summary.GenerateReport("spec/reports")
 
+	fmt.Printf("FUSE Spec has %4.2f coverage.\n", summary.Coverage.SupportedPercentage+summary.Coverage.UnsupportedPercentage)
+
 	if err != nil {
 		fmt.Printf("FAILURE!! Error generating summary: %v\n", err)
 		os.Exit(1)

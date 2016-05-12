@@ -30,14 +30,12 @@ type filesystem struct {
 	inodes   map[string]uint64
 	lock     sync.RWMutex
 	handleID string
-	Server   *fs.Server
 }
 
 func newFilesystem(
 	pfsAPIClient pfsclient.APIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
-	server *fs.Server,
 ) *filesystem {
 	return &filesystem{
 		apiClient: client.APIClient{PfsAPIClient: pfsAPIClient},
@@ -48,7 +46,6 @@ func newFilesystem(
 		inodes:   make(map[string]uint64),
 		lock:     sync.RWMutex{},
 		handleID: uuid.NewWithoutDashes(),
-		Server:   server,
 	}
 }
 
