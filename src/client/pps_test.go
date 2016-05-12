@@ -26,7 +26,7 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// map over "repo"
-			client.NewPipelineInput("repo", client.InputTypeMap),
+			client.NewPipelineInput("repo", client.MapStrategy),
 		},
 	); err != nil {
 		return // handle error
@@ -39,7 +39,7 @@ func Example_pps() {
 		0,                      // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// reduce over "map"
-			client.NewPipelineInput("map", client.InputTypeReduce),
+			client.NewPipelineInput("map", client.ReduceStrategy),
 		},
 	); err != nil {
 		return // handle error
