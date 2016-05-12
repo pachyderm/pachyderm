@@ -927,11 +927,12 @@ func TestProvenance(t *testing.T) {
 	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
-	_, err = c.FlushCommit(aRepo, commit2.ID)
+	commitInfos, err := c.FlushCommit(aRepo, commit2.ID)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
 
 	// There should only be 2 commits on cRepo
-	commitInfos, err := c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, false)
+	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 }
