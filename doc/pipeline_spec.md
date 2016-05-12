@@ -52,6 +52,8 @@ You may specify a strategy using either an alias or a JSON object.  We support f
 * streaming_reduce: each job sees a part of the new commit; files are not partitioned
 * global: each job sees the entire repo
 
+If a strategy is not specified, the "map" strategy is used by default.
+
 ## Examples
 
 ```json
