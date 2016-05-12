@@ -12,21 +12,19 @@ if [ -z "$results" ]; then
   exit 1
 fi
 
-echo $results | tr ' ' "\n"
 
 readyPods=`echo $results | tr ' ' "\n" | grep "Ready=True" | wc -l`
 allPods=`echo $results | tr ' ' "\n" | grep "Ready=" | wc -l`
-
-echo "$readyPods, $allPods"
 
 if [ "$allPods" -eq 0 ]; then
     echo "No pods found yet"
     exit 1
 fi
 
-#if [ "$readyPods" -ne "$allPods" ]; then
+echo $results | tr ' ' "\n"
+echo "-------"
+
 if [ "$readyPods" -ne "$allPods" ]; then
-    echo "$readyPods != $allPods"
     exit 1
 fi
 
