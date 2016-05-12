@@ -1176,6 +1176,74 @@ func TestProvenance(t *testing.T) {
 	}
 }
 
+func TestFlush(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	ACommit, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		BCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("B"),
+				Provenance: []*pfsclient.Commit{ACommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+		CCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("C"),
+				Provenance: []*pfsclient.Commit{BCommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	}()
+
+	// Flush ACommit
+	commitInfos, err := client.FlushCommit("A", ACommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	// Now test what happens if one of the commits gets cancelled
+	ACommit2, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit2.ID))
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		BCommit2, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("B"),
+				Provenance: []*pfsclient.Commit{ACommit2},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.CancelCommit("B", BCommit2.ID))
+	}()
+
+	// Flush ACommit2
+	_, err = client.FlushCommit("A", ACommit2.ID)
+	require.YesError(t, err)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
