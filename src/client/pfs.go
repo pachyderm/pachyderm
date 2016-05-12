@@ -235,6 +235,19 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	return err
 }
 
+func (c APIClient) FlushCommit(repoName string, commitID string) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := c.PfsAPIClient.FlushCommit(
+		context.Background(),
+		&pfs.FlushCommitRequest{
+			Commit: NewCommit(repoName, commitID),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return commitInfos.CommitInfo, nil
+}
+
 // PutBlock takes a reader and splits the data in it into blocks.
 // Blocks are guaranteed to be new line delimited.
 // Blocks are content addressed and are thus identified by hashes of the content.
