@@ -3,28 +3,32 @@
 
 results=`kubectl get pods \
   -l app=pachd \
-  -o jsonpath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'`
+  -o jsonpath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}' \
+  | tr ';' "\n"`
 
-if [ -z $results ]; then \
-  echo "Empty result"; \
-  echo $results; \
-  exit 1; \
+if [ -z "$results" ]; then
+  echo "Empty result"
+  echo $results
+  exit 1
 fi
 
-echo $results \
-  | tr ';' "\n" \
-  | grep "Ready=" \
-  | while read line; do \
-    echo $line | grep True; \
-    ready=$?; \
-    echo "line: $line"; \
-    echo "ready? ($ready)"; \
-    if [[ $ready -ne "0" ]]; then \
-        echo "Not ready, exiting"; \
-        exit 1; \
-    fi; \
-  done
+echo $results | tr ' ' "\n"
 
+readyPods=`echo $results | tr ' ' "\n" | grep "Ready=True" | wc -l`
+allPods=`echo $results | tr ' ' "\n" | grep "Ready=" | wc -l`
+
+echo "$readyPods, $allPods"
+
+if [ "$allPods" -eq 0 ]; then
+    echo "No pods found yet"
+    exit 1
+fi
+
+#if [ "$readyPods" -ne "$allPods" ]; then
+if [ "$readyPods" -ne "$allPods" ]; then
+    echo "$readyPods != $allPods"
+    exit 1
+fi
 
 echo "Success"
 exit 0
