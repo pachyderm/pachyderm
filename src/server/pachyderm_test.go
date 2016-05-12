@@ -947,8 +947,6 @@ func TestPipelineWithGlobalStrategy(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	reduceRepo := uniqueString("inputRepo")
-	require.NoError(t, c.CreateRepo(reduceRepo))
 	globalRepo := uniqueString("inputRepo")
 	require.NoError(t, c.CreateRepo(globalRepo))
 	numfiles := 20
@@ -968,10 +966,6 @@ echo $numfiles > /pfs/out/file
 		uint64(parallelism),
 		[]*ppsclient.PipelineInput{
 			{
-				Repo:     &pfsclient.Repo{Name: reduceRepo},
-				Strategy: client.ReduceStrategy,
-			},
-			{
 				Repo:     &pfsclient.Repo{Name: globalRepo},
 				Strategy: client.GlobalStrategy,
 			},
@@ -980,21 +974,13 @@ echo $numfiles > /pfs/out/file
 
 	content := "foo"
 
-	commit1, err := c.StartCommit(reduceRepo, "", "")
+	commit, err := c.StartCommit(globalRepo, "", "")
 	require.NoError(t, err)
 	for i := 0; i < numfiles; i++ {
-		_, err = c.PutFile(reduceRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		_, err = c.PutFile(globalRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
 		require.NoError(t, err)
 	}
-	require.NoError(t, c.FinishCommit(reduceRepo, commit1.ID))
-
-	commit2, err := c.StartCommit(globalRepo, "", "")
-	require.NoError(t, err)
-	for i := 0; i < numfiles; i++ {
-		_, err = c.PutFile(globalRepo, commit2.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
-		require.NoError(t, err)
-	}
-	require.NoError(t, c.FinishCommit(globalRepo, commit2.ID))
+	require.NoError(t, c.FinishCommit(globalRepo, commit.ID))
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{{pipelineName}},
