@@ -122,8 +122,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	jobID := getJobID(request)
-
-	fmt.Printf("Creating job with id: %v\n", jobID)
+	_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: &ppsclient.Job{jobID},
+	})
+	if err == nil {
+		// the job already exists. we simply return
+		return &ppsclient.Job{jobID}, nil
+	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
@@ -159,7 +164,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	fmt.Printf("starting commit: %v\n", startCommitRequest)
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -188,8 +192,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 
-		fmt.Printf("shardModuli: %v\n", shardModuli)
-
 		persistJobInfo.Parallelism = product(shardModuli)
 		persistJobInfo.ShardModuli = shardModuli
 	}
@@ -199,12 +201,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil && !isConflictErr(err) {
+	if err != nil {
 		return nil, err
 	}
 
 	if err == nil {
-		fmt.Printf("creating job: %v\n", persistJobInfo)
 		// we only create a kube job if the job did not already exist
 		if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 			return nil, err
@@ -365,18 +366,7 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 	return true, nil
 }
 
-// isConflictErr returns true if the error is non-nil and the query failed
-// due to a duplicate primary key.
-func isConflictErr(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	return strings.Contains(err.Error(), "Duplicate primary key")
-}
-
 func getJobID(req *ppsclient.CreateJobRequest) string {
-	fmt.Printf("getting job ID for %v\n", req)
 	// If the job belongs to a pipeline, and the pipeline has inputs,
 	// we want to make sure that the same
 	// job does not run twice.  We ensure that by generating the job id by
@@ -872,7 +862,6 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 }
 
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
-	fmt.Printf("Running pipeline %s\n", pipelineInfo.Pipeline.Name)
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
 	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
@@ -919,9 +908,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 			FromCommit: fromCommits,
 			Block:      true,
 		}
-		fmt.Printf("Listening for commits for repos: %v; from commits: %v\n", listCommitRequest.Repo, listCommitRequest.FromCommit)
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
-		fmt.Printf("Got commits: %v\n", commitInfos)
 		if err != nil {
 			return err
 		}
@@ -969,7 +956,6 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						Strategy: repoToInput[commit.Repo.Name].Strategy,
 					})
 				}
-				fmt.Printf("Creating job for pipeline %v with inputs: %v\n", pipelineInfo.Pipeline, inputs)
 				if _, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
