@@ -382,9 +382,11 @@
               }
             ],
             "readinessProbe": {
-              "httpGet": {
-                "path": "/pfs.API/ListRepo",
-                "port": 650
+              "exec": {
+                "command": [
+                  "./pachd",
+                  "--readiness-check"
+                ]
               },
               "initialDelaySeconds": 15,
               "timeoutSeconds": 1
