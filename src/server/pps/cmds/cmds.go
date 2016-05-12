@@ -79,7 +79,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				jobReader = jobFile
 			}
 			var request ppsclient.CreateJobRequest
-			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
+			if err := jsonpb.UnmarshalString(replaceStrategyAliases(jobReader), &request); err != nil {
 				pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 			}
 			job, err := client.PpsAPIClient.CreateJob(
@@ -230,39 +230,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			var request ppsclient.CreatePipelineRequest
 			for {
-				// We want to allow for a syntactic suger where the user
-				// can specify a strategy with a string such as "map" or "reduce".
-				// To that end, we check for the "strategy" field and replace
-				// the string with an actual strategy object before we unmarshal
-				// the json spec into a protobuf message
-
-				pipeline, err := gabs.ParseJSONBuffer(pipelineReader)
-				if err != nil {
-					if err == io.EOF {
-						break
-					} else {
-						pkgcmd.ErrorAndExit("Error parsing JSON: %s", err.Error())
-					}
-				}
-
-				inputs := pipeline.S("inputs")
-				children, err := inputs.Children()
-				if err != nil {
-					pkgcmd.ErrorAndExit("Error parsing spec: inputs is not an array", err.Error())
-				}
-				for _, input := range children {
-					strategyAlias, ok := input.S("strategy").Data().(string)
-					if ok {
-						strat, ok := pach.StrategyAliasMap[strategyAlias]
-						if ok {
-							input.Set(strat, "strategy")
-						} else {
-							pkgcmd.ErrorAndExit("Unrecognized strategy: %s", strategyAlias)
-						}
-					}
-				}
-
-				if err := jsonpb.UnmarshalString(pipeline.String(), &request); err != nil {
+				if err := jsonpb.UnmarshalString(replaceStrategyAliases(pipelineReader), &request); err != nil {
 					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %s", err.Error())
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
@@ -371,7 +339,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}()
 
 				specReader = specFile
-				if err := jsonpb.Unmarshal(specReader, request); err != nil {
+				if err := jsonpb.UnmarshalString(replaceStrategyAliases(specReader), request); err != nil {
 					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 				}
 			}
@@ -402,4 +370,40 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, runPipeline)
 	return result, nil
+}
+
+func replaceStrategyAliases(pipelineReader io.Reader) string {
+	// We want to allow for a syntactic suger where the user
+	// can specify a strategy with a string such as "map" or "reduce".
+	// To that end, we check for the "strategy" field and replace
+	// the string with an actual strategy object before we unmarshal
+	// the json spec into a protobuf message
+
+	pipeline, err := gabs.ParseJSONBuffer(pipelineReader)
+	if err != nil {
+		if err == io.EOF {
+			os.Exit(0)
+		} else {
+			pkgcmd.ErrorAndExit("Error parsing JSON: %s", err.Error())
+		}
+	}
+
+	inputs := pipeline.S("inputs")
+	children, err := inputs.Children()
+	if err != nil {
+		pkgcmd.ErrorAndExit("Error parsing spec: inputs is not an array", err.Error())
+	}
+	for _, input := range children {
+		strategyAlias, ok := input.S("strategy").Data().(string)
+		if ok {
+			strat, ok := pach.StrategyAliasMap[strategyAlias]
+			if ok {
+				input.Set(strat, "strategy")
+			} else {
+				pkgcmd.ErrorAndExit("Unrecognized strategy: %s", strategyAlias)
+			}
+		}
+	}
+
+	return pipeline.String()
 }
