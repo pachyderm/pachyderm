@@ -106,8 +106,7 @@ kube-cluster-assets: install
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
-	# if we can call the list repo, that means that the cluster is ready to serve
-	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+	until timeout 5s ./etc/kube/check_pachd_ready.sh; do sleep 5; done
 
 launch-dev: launch-kube launch
 
