@@ -68,7 +68,6 @@ func do(appEnvObj interface{}) error {
 		}
 		return nil
 	}
-	fmt.Printf("Readiness check? %v\n", readinessCheck)
 	if readinessCheck {
 		//c, err := client.NewInCluster()
 		c, err := client.NewFromAddress("127.0.0.1:650")
@@ -86,8 +85,7 @@ func do(appEnvObj interface{}) error {
 
 		return nil
 	}
-	// Delay startup just to test readiness
-	time.Sleep(30 * time.Second)
+
 	clusterID, err := getClusterID(etcdClient)
 	if err != nil {
 		return err
