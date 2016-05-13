@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"os"
-	"time"
 )
 
 var readinessCheck bool
