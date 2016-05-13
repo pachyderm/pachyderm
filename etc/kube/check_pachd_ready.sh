@@ -21,12 +21,9 @@ if [ "$allPods" -eq 0 ]; then
     exit 1
 fi
 
-echo $results | tr ' ' "\n"
-echo "-------"
-
 if [ "$readyPods" -ne "$allPods" ]; then
     exit 1
 fi
 
-echo "Success"
+echo "All pods are ready."
 exit 0
