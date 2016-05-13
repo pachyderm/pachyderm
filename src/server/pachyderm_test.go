@@ -46,7 +46,7 @@ func testJob(t *testing.T, shards int) {
 
 	t.Parallel()
 	c := getPachClient(t)
-	dataRepo := uniqueString("TestJob.data")
+	dataRepo := uniqueString("TestJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestDuplicatedJob(t *testing.T) {
 
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestDuplicatedJob.data")
+	dataRepo := uniqueString("TestDuplicatedJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit, err := c.StartCommit(dataRepo, "", "")
@@ -186,7 +186,7 @@ func TestDuplicatedJob(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	pipelineName := uniqueString("TestDuplicatedJob_pipeline")
 	require.NoError(t, c.CreateRepo(pipelineName))
 
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
@@ -263,7 +263,7 @@ func TestGrep(t *testing.T) {
 	}
 
 	t.Parallel()
-	dataRepo := uniqueString("TestGrep.data")
+	dataRepo := uniqueString("TestGrep_data")
 	c := getPachClient(t)
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err := c.StartCommit(dataRepo, "", "")
@@ -342,7 +342,7 @@ func TestPipeline(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline.data")
+	dataRepo := uniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -440,7 +440,7 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism.data")
+	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
