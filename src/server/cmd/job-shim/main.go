@@ -80,7 +80,7 @@ func do(appEnvObj interface{}) error {
 			}
 			success := true
 			if err := pkgexec.RunIO(io, response.Transform.Cmd...); err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+				fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
 				success = false
 			}
 			if _, err := ppsClient.FinishJob(
