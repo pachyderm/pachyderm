@@ -16,8 +16,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -84,8 +84,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -245,8 +245,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "app": "pachd-init",
-        "suite": "pachyderm"
+        "suite": "pachyderm",
+        "app": "pachd-init"
       }
     },
     "template": {
@@ -381,6 +381,16 @@
                 "mountPath": "/pach"
               }
             ],
+            "readinessProbe": {
+              "initialDelaySeconds": 15,
+              "timeoutSeconds": 1,
+              "exec": {
+                "command": [
+                  "./pachd",
+                  "--readiness-check"
+                ]
+              }
+            },
             "imagePullPolicy": "IfNotPresent",
             "securityContext": {
               "privileged": true
