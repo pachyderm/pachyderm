@@ -23,6 +23,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 )
 
 const (
@@ -94,26 +95,45 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 	t.Parallel()
 	shards := 0
 	c := getPachClient(t)
-	dataRepo := uniqueString("TestJob.data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	commit, err := c.StartCommit(dataRepo, "", "")
-	require.NoError(t, err)
-	fileContent := "foo\n"
-	// We want to create lots of files so that each parallel job will be
-	// started with some files
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
-	require.NoError(t, err)
+	repos := []string{
+		uniqueString("TestJob_FriarTuck"),
+		uniqueString("TestJob_RobinHood"),
+	}
 
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	var commits []*pfsclient.Commit
+
+	for _, repo := range repos {
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		fileContent := "foo\n"
+
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader(fileContent))
+		require.NoError(t, err)
+
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commits = append(commits, commit)
+	}
+
 	job, err := c.CreateJob(
 		"",
 		[]string{"bash"},
-		[]string{"echo $PACH_COMMIT_ID > /pfs/out/id"},
+		[]string{
+			"echo $PACH_OUTPUT_COMMIT_ID > /pfs/out/id",
+			fmt.Sprintf("echo $PACH_%v_COMMIT_ID > /pfs/out/input-id-%v", pps_server.RepoNameToEnvString(repos[0]), repos[0]),
+			fmt.Sprintf("echo $PACH_%v_COMMIT_ID > /pfs/out/input-id-%v", pps_server.RepoNameToEnvString(repos[1]), repos[1]),
+		},
 		uint64(shards),
-		[]*ppsclient.JobInput{{
-			Commit: commit,
-			Reduce: true,
-		}},
+		[]*ppsclient.JobInput{
+			{
+				Commit: commits[0],
+				Reduce: true,
+			},
+			{
+				Commit: commits[1],
+				Reduce: true,
+			},
+		},
 		"",
 	)
 	require.NoError(t, err)
@@ -121,6 +141,7 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 		Job:        job,
 		BlockState: true,
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
@@ -134,6 +155,14 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "id", 0, 0, "", nil, &buffer))
 	require.Equal(t, jobInfo.OutputCommit.ID, strings.TrimSpace(buffer.String()))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("input-id-%v", repos[0]), 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.Inputs[0].Commit.ID, strings.TrimSpace(buffer.String()))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("input-id-%v", repos[1]), 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.Inputs[1].Commit.ID, strings.TrimSpace(buffer.String()))
 }
 
 func TestDuplicatedJob(t *testing.T) {
@@ -929,5 +958,5 @@ func getPachClient(t *testing.T) *client.APIClient {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "." + uuid.NewWithoutDashes()[0:12]
+	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
 }
