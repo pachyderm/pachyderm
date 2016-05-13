@@ -125,6 +125,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
+	for _, input := range request.Inputs {
+		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+	}
+
 	// If JobInfo.Pipeline is set, use the pipeline repo
 	if request.Pipeline != nil {
 		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
@@ -140,7 +144,15 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			startCommitRequest.Repo = ppsserver.JobRepo(&ppsclient.Job{
 				ID: jobID,
 			})
-			if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
+			var provenance []*pfsclient.Repo
+			for _, input := range request.Inputs {
+				provenance = append(provenance, input.Commit.Repo)
+			}
+			if _, err := pfsAPIClient.CreateRepo(ctx,
+				&pfsclient.CreateRepoRequest{
+					Repo:       startCommitRequest.Repo,
+					Provenance: provenance,
+				}); err != nil {
 				return nil, err
 			}
 		}
@@ -572,7 +584,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: duplicate input repos")
 	}
 	repo := ppsserver.PipelineRepo(request.Pipeline)
-	if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: repo}); err != nil {
+	var provenance []*pfsclient.Repo
+	for _, input := range request.Inputs {
+		provenance = append(provenance, input.Repo)
+	}
+	if _, err := pfsAPIClient.CreateRepo(
+		ctx,
+		&pfsclient.CreateRepoRequest{
+			Repo:       repo,
+			Provenance: provenance,
+		}); err != nil {
 		return nil, err
 	}
 	persistPipelineInfo := &persist.PipelineInfo{
