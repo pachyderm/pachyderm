@@ -1008,6 +1008,94 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
+func TestPipelineWithSelfRepoAndStreamingReduceStrategy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(`
+echo lool
+ls /pfs
+echo lool
+ls /pfs/%s
+echo lool
+ls /pfs/self
+cp /pfs/%s/file /pfs/out/file
+if [ -d "/pfs/self" ]; then
+  cp /pfs/self/file /pfs/out/file
+fi
+`, repo, repo)},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:     &pfsclient.Repo{Name: repo},
+				Strategy: client.StreamingReduceStrategy,
+			},
+		},
+	))
+
+	commit1, err := c.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, 1, len(lines))
+	require.Equal(t, "foo", lines[0])
+
+	commit2, err := c.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, c.FinishCommit(repo, commit2.ID))
+
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer2 bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
+	lines = strings.Split(strings.TrimSpace(buffer2.String()), "\n")
+	require.Equal(t, 3, len(lines))
+	require.Equal(t, "foo", lines[0])
+	require.Equal(t, "bar", lines[1])
+	require.Equal(t, "foo", lines[2])
+}
+
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets

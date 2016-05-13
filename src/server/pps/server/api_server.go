@@ -158,11 +158,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
+		if len(request.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-		for _, jobInput := range request.Inputs {
+		for i, jobInput := range request.Inputs {
 			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
-				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
 	}
@@ -511,10 +514,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
-		for _, jobInput := range jobInfo.Inputs {
+		for i, jobInput := range jobInfo.Inputs {
 			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
-				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
 	}
@@ -574,11 +577,22 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
+
 	if commitInfo.ParentCommit != nil {
 		outputCommitMount.FromCommit = commitInfo.ParentCommit
 	}
 
 	commitMounts = append(commitMounts, outputCommitMount)
+
+	// If a job has a parent commit, we expose the parent commit
+	// to the job under /pfs/self
+	if commitInfo.ParentCommit != nil {
+		commitMounts = append(commitMounts, &fuse.CommitMount{
+			Commit: commitInfo.ParentCommit,
+			Alias:  "self",
+		})
+	}
+
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
@@ -672,6 +686,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
+
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
 		if _, err := pfsAPIClient.InspectRepo(ctx, &pfsclient.InspectRepoRequest{Repo: input.Repo}); err != nil {

@@ -45,6 +45,16 @@ var (
 	}
 )
 
+// RepoNameReserved returns whether a given repo name is reserved for internal usage
+func RepoNameReserved(name string) bool {
+	switch name {
+	case "out", "self":
+		return true
+	default:
+		return false
+	}
+}
+
 func NewJobInput(repoName string, commitID string, strategy *pps.Strategy) *pps.JobInput {
 	return &pps.JobInput{
 		Commit:   NewCommit(repoName, commitID),
