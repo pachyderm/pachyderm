@@ -972,6 +972,12 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Env: []api.EnvVar{
+								api.EnvVar{
+									Name:  "PACH_COMMIT_ID",
+									Value: jobInfo.OutputCommit.ID,
+								},
+							},
 						},
 					},
 					RestartPolicy: "OnFailure",
