@@ -104,10 +104,11 @@ kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
+	$(eval STARTTIME := $(shell date +%s)	)
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
-	# if we can call the list repo, that means that the cluster is ready to serve
-	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: launch-kube launch
 

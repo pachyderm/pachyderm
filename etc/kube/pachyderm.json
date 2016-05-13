@@ -381,6 +381,16 @@
                 "mountPath": "/pach"
               }
             ],
+            "readinessProbe": {
+              "exec": {
+                "command": [
+                  "./pachd",
+                  "--readiness-check"
+                ]
+              },
+              "initialDelaySeconds": 15,
+              "timeoutSeconds": 1
+            },
             "imagePullPolicy": "IfNotPresent",
             "securityContext": {
               "privileged": true
