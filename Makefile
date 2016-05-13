@@ -22,6 +22,15 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm.json
 
+
+ifndef TRAVIS_BUILD_NUMBER
+	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
+	TIMEOUT = 100s
+else
+	# Locally ... it can take almost this much time to complete
+	TIMEOUT = 500s
+endif
+
 all: build
 
 version:
@@ -125,7 +134,7 @@ clean-pps-storage:
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 500s
+	CGOENABLED=0 go test ./src/server -timeout $(TIMEOUT)
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
