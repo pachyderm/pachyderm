@@ -108,7 +108,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		protolion.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
 	}()
 	if d.File.Commit.Repo.Name == "" {
-		return d.readRepos(ctx), nil
+		return d.readRepos(ctx)
 	}
 	if d.File.Commit.ID == "" {
 		commitMount := d.fs.getCommitMount(d.getRepoOrAliasName())
@@ -486,16 +486,26 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	}
 }
 
-func (d *directory) readRepos(ctx context.Context) []fuse.Dirent {
+func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	var result []fuse.Dirent
-	for _, mount := range d.fs.CommitMounts {
-		name := mount.Commit.Repo.Name
-		if mount.Alias != "" {
-			name = mount.Alias
+	if len(d.fs.CommitMounts) == 0 {
+		repoInfos, err := d.fs.apiClient.ListRepo()
+		if err != nil {
+			return nil, err
 		}
-		result = append(result, fuse.Dirent{Name: name, Type: fuse.DT_Dir})
+		for _, repoInfo := range repoInfos {
+			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
+		}
+	} else {
+		for _, mount := range d.fs.CommitMounts {
+			name := mount.Commit.Repo.Name
+			if mount.Alias != "" {
+				name = mount.Alias
+			}
+			result = append(result, fuse.Dirent{Name: name, Type: fuse.DT_Dir})
+		}
 	}
-	return result
+	return result, nil
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
