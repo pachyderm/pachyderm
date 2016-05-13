@@ -90,6 +90,52 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
+func TestPachCommitIdEnvVarInJob(t *testing.T) {
+	t.Parallel()
+	shards := 0
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestJob.data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	fileContent := "foo\n"
+	// We want to create lots of files so that each parallel job will be
+	// started with some files
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	job, err := c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{"echo $PACH_COMMIT_ID > /pfs/out/id"},
+		uint64(shards),
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Reduce: true,
+		}},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
+	require.True(t, jobInfo.Parallelism > 0)
+	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "id", 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.OutputCommit.ID, strings.TrimSpace(buffer.String()))
+}
+
 func TestDuplicatedJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
