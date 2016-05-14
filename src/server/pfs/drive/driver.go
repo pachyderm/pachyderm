@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -58,12 +59,26 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
+func validateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+
+	if !match {
+		return fmt.Errorf("Repo name (%v) invalid. Only alphanumeric and underscore characters allowed.", name)
+	}
+
+	return nil
+}
+
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if _, ok := d.diffs[repo.Name]; ok {
 		return fmt.Errorf("repo %s exists", repo.Name)
 	}
+	if err := validateRepoName(repo.Name); err != nil {
+		return err
+	}
+
 	d.createRepoState(repo)
 
 	blockClient, err := d.getBlockClient()
