@@ -23,6 +23,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 )
 
 const (
@@ -45,7 +46,7 @@ func testJob(t *testing.T, shards int) {
 
 	t.Parallel()
 	c := getPachClient(t)
-	dataRepo := uniqueString("TestJob.data")
+	dataRepo := uniqueString("TestJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
@@ -90,6 +91,84 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
+func TestPachCommitIdEnvVarInJob(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	shards := 0
+	c := getPachClient(t)
+	repos := []string{
+		uniqueString("TestJob_FriarTuck"),
+		uniqueString("TestJob_RobinHood"),
+	}
+
+	var commits []*pfsclient.Commit
+
+	for _, repo := range repos {
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		fileContent := "foo\n"
+
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader(fileContent))
+		require.NoError(t, err)
+
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commits = append(commits, commit)
+	}
+
+	job, err := c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo $PACH_OUTPUT_COMMIT_ID > /pfs/out/id",
+			fmt.Sprintf("echo $PACH_%v_COMMIT_ID > /pfs/out/input-id-%v", pps_server.RepoNameToEnvString(repos[0]), repos[0]),
+			fmt.Sprintf("echo $PACH_%v_COMMIT_ID > /pfs/out/input-id-%v", pps_server.RepoNameToEnvString(repos[1]), repos[1]),
+		},
+		uint64(shards),
+		[]*ppsclient.JobInput{
+			{
+				Commit: commits[0],
+				Reduce: true,
+			},
+			{
+				Commit: commits[1],
+				Reduce: true,
+			},
+		},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
+	require.True(t, jobInfo.Parallelism > 0)
+	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "id", 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.OutputCommit.ID, strings.TrimSpace(buffer.String()))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("input-id-%v", repos[0]), 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.Inputs[0].Commit.ID, strings.TrimSpace(buffer.String()))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("input-id-%v", repos[1]), 0, 0, "", nil, &buffer))
+	require.Equal(t, jobInfo.Inputs[1].Commit.ID, strings.TrimSpace(buffer.String()))
+}
+
 func TestDuplicatedJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -99,7 +178,7 @@ func TestDuplicatedJob(t *testing.T) {
 
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestDuplicatedJob.data")
+	dataRepo := uniqueString("TestDuplicatedJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit, err := c.StartCommit(dataRepo, "", "")
@@ -111,7 +190,7 @@ func TestDuplicatedJob(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	pipelineName := uniqueString("TestDuplicatedJob_pipeline")
 	require.NoError(t, c.CreateRepo(pipelineName))
 
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
@@ -188,7 +267,7 @@ func TestGrep(t *testing.T) {
 	}
 
 	t.Parallel()
-	dataRepo := uniqueString("TestGrep.data")
+	dataRepo := uniqueString("TestGrep_data")
 	c := getPachClient(t)
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err := c.StartCommit(dataRepo, "", "")
@@ -267,7 +346,7 @@ func TestPipeline(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline.data")
+	dataRepo := uniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -365,7 +444,7 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism.data")
+	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -883,5 +962,5 @@ func getPachClient(t *testing.T) *client.APIClient {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "." + uuid.NewWithoutDashes()[0:12]
+	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
 }
