@@ -440,6 +440,8 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
+	require.NoError(t, err)
+
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job,
 		BlockState: true,
@@ -473,6 +475,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
+	require.NoError(t, err)
 	require.True(t, job.ID != job2.ID)
 }
 
@@ -503,6 +506,7 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
+	require.NoError(t, err)
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
@@ -550,6 +554,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
+	require.NoError(t, err)
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
@@ -622,6 +627,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 			Name: pipelineName,
 		},
 	})
+	require.NoError(t, err)
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
@@ -648,6 +654,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 		},
 		ParentJob: job,
 	})
+	require.NoError(t, err)
 
 	listCommitRequest = &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
