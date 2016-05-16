@@ -81,6 +81,16 @@ func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	require.YesError(t, client.CreateRepo("/repo"))
+
+	require.NoError(t, client.CreateRepo("lenny"))
+	require.NoError(t, client.CreateRepo("lenny123"))
+	require.NoError(t, client.CreateRepo("lenny_123"))
+
+	require.YesError(t, client.CreateRepo("lenny-123"))
+	require.YesError(t, client.CreateRepo("lenny.123"))
+	require.YesError(t, client.CreateRepo("lenny:"))
+	require.YesError(t, client.CreateRepo("lenny,"))
+	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
 func TestSimple(t *testing.T) {
