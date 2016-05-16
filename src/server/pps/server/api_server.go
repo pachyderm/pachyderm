@@ -1080,6 +1080,10 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 	}, nil
 }
 
+func RepoNameToEnvString(repoName string) string {
+	return strings.ToUpper(repoName)
+}
+
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobID
 	parallelism := int(jobInfo.Parallelism)
@@ -1087,6 +1091,25 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
 	}
+
+	var jobEnv []api.EnvVar
+	jobEnv = append(
+		jobEnv,
+		api.EnvVar{
+			Name:  "PACH_OUTPUT_COMMIT_ID",
+			Value: jobInfo.OutputCommit.ID,
+		},
+	)
+	for _, input := range jobInfo.Inputs {
+		jobEnv = append(
+			jobEnv,
+			api.EnvVar{
+				Name:  fmt.Sprintf("PACH_%v_COMMIT_ID", RepoNameToEnvString(input.Commit.Repo.Name)),
+				Value: input.Commit.ID,
+			},
+		)
+	}
+
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -1117,6 +1140,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Env:             jobEnv,
 						},
 					},
 					RestartPolicy: "OnFailure",
