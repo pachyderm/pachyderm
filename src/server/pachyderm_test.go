@@ -130,12 +130,12 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 		uint64(shards),
 		[]*ppsclient.JobInput{
 			{
-				Commit: commits[0],
-				Reduce: true,
+				Commit:   commits[0],
+				Strategy: client.ReduceStrategy,
 			},
 			{
-				Commit: commits[1],
-				Reduce: true,
+				Commit:   commits[1],
+				Strategy: client.ReduceStrategy,
 			},
 		},
 		"",
