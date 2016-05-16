@@ -186,6 +186,10 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 
 func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.Job == nil {
+		return nil, fmt.Errorf("request.Job cannot be nil")
+	}
+
 	jobInfo := &persist.JobInfo{}
 	var mustHaveFields []interface{}
 	if request.BlockState {
