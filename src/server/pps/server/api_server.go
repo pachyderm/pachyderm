@@ -509,12 +509,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			return nil, err
 		}
 	}
-	repoToFromCommit := make(map[string]*pfsclient.Commit)
+	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
 			if jobInput.Strategy.Incrementality {
 				// input isn't being reduced, do it incrementally
-				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
+				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
 	}
@@ -527,8 +527,15 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	filterNumbers := computeFilterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
-			Commit:     jobInput.Commit,
-			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
+			Commit: jobInput.Commit,
+		}
+		parentJobCommit := repoToParentJobCommit[jobInput.Commit.Repo.Name]
+		if parentJobCommit != nil && jobInput.Commit.ID != parentJobCommit.ID {
+			// We only include a from commit if we have a different commit for a
+			// repo than our parent.
+			// This means that only the commit that triggered this pipeline will be
+			// done incrementally, the other repos will be shown in full
+			commitMount.FromCommit = parentJobCommit
 		}
 
 		switch jobInput.Strategy.Partition {
