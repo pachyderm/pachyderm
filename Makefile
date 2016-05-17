@@ -170,7 +170,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
+test: pretest test-client test-fuse run-rethinkdb test-local stop-rethinkdb docker-build clean-launch launch integration-tests
 
 test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
@@ -182,6 +182,13 @@ test-local: deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
+
+run-rethinkdb:
+	docker run --name pachyderm-test-rethinkdb -d rethinkdb:2.2.6 
+	sleep 10  # wait for rethinkdb to start up
+
+stop-rethinkdb:
+	docker stop  pachyderm-test-rethinkdb
 
 doc: install
 	# we rename to pachctl because the program name is used in generating docs
