@@ -660,6 +660,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 		},
 		ParentJob: job,
 	})
+	require.NoError(t, err)
 
 	listCommitRequest = &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
