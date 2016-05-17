@@ -44,7 +44,6 @@ func testJob(t *testing.T, shards int) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -92,7 +91,6 @@ func testJob(t *testing.T, shards int) {
 }
 
 func TestPachCommitIdEnvVarInJob(t *testing.T) {
-	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -174,8 +172,6 @@ func TestDuplicatedJob(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
-
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestDuplicatedJob_data")
@@ -233,7 +229,6 @@ func TestLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 	job, err := c.CreateJob(
 		"",
@@ -266,7 +261,6 @@ func TestGrep(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	dataRepo := uniqueString("TestGrep_data")
 	c := getPachClient(t)
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -317,7 +311,6 @@ func TestJobLongOutputLine(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 	job, err := c.CreateJob(
 		"",
@@ -343,7 +336,6 @@ func TestPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipeline_data")
@@ -441,7 +433,6 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism_data")
@@ -496,7 +487,6 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -563,7 +553,6 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -611,7 +600,6 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -685,7 +673,6 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -759,7 +746,6 @@ func TestRemoveAndAppend(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
@@ -819,7 +805,6 @@ func TestWorkload(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	seed := time.Now().UnixNano()
 	require.NoError(t, workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100))
@@ -831,7 +816,6 @@ func TestSharding(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	repo := uniqueString("TestSharding")
 	c := getPachClient(t)
 	err := c.CreateRepo(repo)
@@ -883,7 +867,6 @@ func TestFromCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	repo := uniqueString("TestFromCommit")
 	c := getPachClient(t)
 	seed := time.Now().UnixNano()
@@ -914,7 +897,6 @@ func TestSimple(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 	repo := uniqueString("TestSimple")
 	require.NoError(t, c.CreateRepo(repo))
@@ -947,7 +929,6 @@ func TestPipelineWithMultipleInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	inputRepo1 := uniqueString("inputRepo")
@@ -1031,7 +1012,6 @@ func TestPipelineWithGlobalStrategy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	globalRepo := uniqueString("inputRepo")
@@ -1099,7 +1079,6 @@ func TestPipelineWithSelfRepoAndStreamingReduceStrategy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	repo := uniqueString("repo")
