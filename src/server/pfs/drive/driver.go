@@ -6,7 +6,9 @@ import (
 	"path"
 	"regexp"
 	"sync"
+	"time"
 
+	"github.com/dancannon/gorethink"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -17,10 +19,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	RethinkConnectTimeoutSeconds = 5
+)
+
 type driver struct {
 	blockAddress    string
 	blockClient     pfs.BlockAPIClient
 	blockClientOnce sync.Once
+	session         *gorethink.Session
 	diffs           diffMap
 	dags            map[string]*dag.DAG
 	branches        map[string]map[string]string
@@ -40,6 +47,31 @@ func newDriver(blockAddress string) (Driver, error) {
 		lock:            sync.RWMutex{},
 		commitConds:     make(map[string]*sync.Cond),
 	}, nil
+}
+
+func newRethinkDriver(blockAddress string, rethinkAddress string) (Driver, error) {
+	driver := &driver{
+		blockAddress:    blockAddress,
+		blockClient:     nil,
+		blockClientOnce: sync.Once{},
+		diffs:           make(diffMap),
+		dags:            make(map[string]*dag.DAG),
+		branches:        make(map[string]map[string]string),
+		lock:            sync.RWMutex{},
+		commitConds:     make(map[string]*sync.Cond),
+	}
+
+	session, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: rethinkAddress,
+		Timeout: RethinkConnectTimeoutSeconds * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	driver.session = session
+
+	return driver, nil
 }
 
 func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {

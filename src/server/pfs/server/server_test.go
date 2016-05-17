@@ -29,9 +29,10 @@ import (
 
 const (
 	shards  = 32
-	servers = 4
+	servers = 1
 
-	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+	Alphabet       = "abcdefghijklmnopqrstuvwxyz"
+	RethinkAddress = "localhost:28015"
 )
 
 var (
@@ -1012,7 +1013,7 @@ func Test0Modulus(t *testing.T) {
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = ALPHABET[rand.Intn(len(ALPHABET))]
+		b[i] = Alphabet[rand.Intn(len(Alphabet))]
 	}
 	return string(b)
 }
@@ -1075,7 +1076,7 @@ func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) 
 	var internalAPIServers []*internalAPIServer
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := drive.NewDriver(address)
+		driver, err := drive.NewRethinkDriver(address, RethinkAddress)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)

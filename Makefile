@@ -184,7 +184,7 @@ test-local: deps-client
 clean: clean-launch clean-launch-kube
 
 run-rethinkdb:
-	docker run --name pachyderm-test-rethinkdb -d rethinkdb:2.2.6 
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 rethinkdb:2.2.6 
 	sleep 10  # wait for rethinkdb to start up
 
 stop-rethinkdb:

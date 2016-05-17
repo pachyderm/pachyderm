@@ -37,3 +37,7 @@ type Driver interface {
 func NewDriver(blockAddress string) (Driver, error) {
 	return newDriver(blockAddress)
 }
+
+func NewRethinkDriver(blockAddress string, rethinkAddress string) (Driver, error) {
+	return newRethinkDriver(blockAddress, rethinkAddress)
+}
