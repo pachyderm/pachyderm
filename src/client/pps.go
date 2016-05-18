@@ -14,17 +14,51 @@ func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
 
-type InputType int
+var (
+	MapStrategy = &pps.Strategy{
+		Partition:      pps.Partition_BLOCK,
+		Incrementality: true,
+	}
 
-const (
-	InputTypeMap InputType = iota
-	InputTypeReduce
+	ReduceStrategy = &pps.Strategy{
+		Partition:      pps.Partition_FILE,
+		Incrementality: false,
+	}
+
+	StreamingReduceStrategy = &pps.Strategy{
+		Partition:      pps.Partition_FILE,
+		Incrementality: true,
+	}
+
+	GlobalStrategy = &pps.Strategy{
+		Partition:      pps.Partition_REPO,
+		Incrementality: false,
+	}
+
+	DefaultStrategy = MapStrategy
+
+	StrategyAliasMap = map[string]*pps.Strategy{
+		"map":              MapStrategy,
+		"reduce":           ReduceStrategy,
+		"streaming_reduce": StreamingReduceStrategy,
+		"global":           GlobalStrategy,
+	}
 )
 
-func NewJobInput(repoName string, commitID string, inputType InputType) *pps.JobInput {
+// RepoNameReserved returns whether a given repo name is reserved for internal usage
+func RepoNameReserved(name string) bool {
+	switch name {
+	case "out", "self":
+		return true
+	default:
+		return false
+	}
+}
+
+func NewJobInput(repoName string, commitID string, strategy *pps.Strategy) *pps.JobInput {
 	return &pps.JobInput{
-		Commit: NewCommit(repoName, commitID),
-		Reduce: inputType == InputTypeReduce,
+		Commit:   NewCommit(repoName, commitID),
+		Strategy: strategy,
 	}
 }
 
@@ -32,10 +66,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-func NewPipelineInput(repoName string, inputType InputType) *pps.PipelineInput {
+func NewPipelineInput(repoName string, strategy *pps.Strategy) *pps.PipelineInput {
 	return &pps.PipelineInput{
-		Repo:   NewRepo(repoName),
-		Reduce: inputType == InputTypeReduce,
+		Repo:     NewRepo(repoName),
+		Strategy: strategy,
 	}
 }
 
