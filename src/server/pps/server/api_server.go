@@ -900,7 +900,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	returnNil := func() {
+	returnNil := func() bool {
 		a.cancelFuncsLock.Lock()
 		defer a.cancelFuncsLock.Unlock()
 		if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
