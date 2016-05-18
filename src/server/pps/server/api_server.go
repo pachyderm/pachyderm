@@ -900,20 +900,24 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	a.cancelFuncsLock.Lock()
-	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
-		// The pipeline is already being run
-		a.cancelFuncsLock.Unlock()
-		return nil
-	}
-	if len(pipelineInfo.Inputs) == 0 {
-		// this pipeline does not have inputs; there is nothing to be done
-		a.cancelFuncsLock.Unlock()
-		return nil
-	}
+	returnNil := func() {
+		a.cancelFuncsLock.Lock()
+		defer a.cancelFuncsLock.Unlock()
+		if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
+			// The pipeline is already being run
+			return true
+		}
+		if len(pipelineInfo.Inputs) == 0 {
+			// this pipeline does not have inputs; there is nothing to be done
+			return true
+		}
 
-	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
-	a.cancelFuncsLock.Unlock()
+		a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
+		return false
+	}()
+	if returnNil {
+		return nil
+	}
 	repoToLeaves := make(map[string]map[string]bool)
 	repoToInput := make(map[string]*ppsclient.PipelineInput)
 	repoIsIncremental := make(map[string]bool)
