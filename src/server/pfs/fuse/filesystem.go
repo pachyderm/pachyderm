@@ -111,7 +111,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		return d.readRepos(ctx)
 	}
 	if d.File.Commit.ID == "" {
-		commitMount := d.fs.getCommitMount(d.File.Commit.Repo.Name)
+		commitMount := d.fs.getCommitMount(d.getRepoOrAliasName())
 		if commitMount != nil && commitMount.Commit.ID != "" {
 			d.File.Commit.ID = commitMount.Commit.ID
 			d.Shard = commitMount.Shard
@@ -183,7 +183,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 			f.File.Commit.Repo.Name,
 			f.File.Commit.ID,
 			f.File.Path,
-			f.fs.getFromCommitID(f.File.Commit.Repo.Name),
+			f.fs.getFromCommitID(f.getRepoOrAliasName()),
 			f.Shard,
 		)
 		if err != nil && !f.local {
@@ -264,7 +264,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		h.f.File.Path,
 		request.Offset,
 		int64(request.Size),
-		h.f.fs.getFromCommitID(h.f.File.Commit.Repo.Name),
+		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
 		h.f.Shard,
 		&buffer,
 	); err != nil {
@@ -347,6 +347,14 @@ func (d *directory) copy() *directory {
 			Shard: d.Shard,
 		},
 	}
+}
+
+func (d *directory) getRepoOrAliasName() string {
+	parts := strings.Split(d.File.Path, "/")
+	if len(parts) < 2 || parts[0] != "pfs" {
+		return ""
+	}
+	return parts[1] // a filepath should always be like /pfs/repo_name/...
 }
 
 func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
@@ -452,7 +460,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 			d.File.Commit.Repo.Name,
 			d.File.Commit.ID,
 			path.Join(d.File.Path, name),
-			d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+			d.fs.getFromCommitID(d.getRepoOrAliasName()),
 			d.Shard,
 		)
 		if err != nil {
@@ -479,17 +487,20 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
-	repoInfos, err := d.fs.apiClient.ListRepo()
-	if err != nil {
-		return nil, err
-	}
 	var result []fuse.Dirent
-	for _, repoInfo := range repoInfos {
-		commitMount := d.fs.getCommitMount(repoInfo.Repo.Name)
-		if commitMount != nil {
-			name := repoInfo.Repo.Name
-			if commitMount.Alias != "" {
-				name = commitMount.Alias
+	if len(d.fs.CommitMounts) == 0 {
+		repoInfos, err := d.fs.apiClient.ListRepo()
+		if err != nil {
+			return nil, err
+		}
+		for _, repoInfo := range repoInfos {
+			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
+		}
+	} else {
+		for _, mount := range d.fs.CommitMounts {
+			name := mount.Commit.Repo.Name
+			if mount.Alias != "" {
+				name = mount.Alias
 			}
 			result = append(result, fuse.Dirent{Name: name, Type: fuse.DT_Dir})
 		}
@@ -514,7 +525,7 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		d.File.Path,
-		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+		d.fs.getFromCommitID(d.getRepoOrAliasName()),
 		d.Shard,
 		// setting recurse to false for performance reasons
 		// it does however means that we won't know the correct sizes of directories

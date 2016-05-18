@@ -27,6 +27,12 @@
 			"revisionTime": "2016-04-22T03:27:55Z"
 		},
 		{
+			"checksumSHA1": "9mLNJYo5jgm1gAFYqCqsGkaVPqQ=",
+			"path": "github.com/Jeffail/gabs",
+			"revision": "c28ac41b517d24bf381d39d5a294fac6536d81fa",
+			"revisionTime": "2016-05-08T11:46:42+01:00"
+		},
+		{
 			"path": "github.com/aws/aws-sdk-go/aws/client/metadata",
 			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
 			"revisionTime": "2016-02-10T13:55:15-08:00"

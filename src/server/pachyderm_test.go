@@ -43,7 +43,6 @@ func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
@@ -65,8 +64,8 @@ func testJob(t *testing.T, shards int) {
 		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
 		uint64(shards),
 		[]*ppsclient.JobInput{{
-			Commit: commit,
-			Reduce: true,
+			Commit:   commit,
+			Strategy: client.ReduceStrategy,
 		}},
 		"",
 	)
@@ -92,10 +91,10 @@ func testJob(t *testing.T, shards int) {
 }
 
 func TestPachCommitIdEnvVarInJob(t *testing.T) {
-	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 
 	shards := 0
 	c := getPachClient(t)
@@ -130,12 +129,12 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 		uint64(shards),
 		[]*ppsclient.JobInput{
 			{
-				Commit: commits[0],
-				Reduce: true,
+				Commit:   commits[0],
+				Strategy: client.ReduceStrategy,
 			},
 			{
-				Commit: commits[1],
-				Reduce: true,
+				Commit:   commits[1],
+				Strategy: client.ReduceStrategy,
 			},
 		},
 		"",
@@ -173,9 +172,7 @@ func TestDuplicatedJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
-
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestDuplicatedJob_data")
@@ -235,6 +232,7 @@ func TestLogs(t *testing.T) {
 	}
 	t.Parallel()
 	c := getPachClient(t)
+
 	job, err := c.CreateJob(
 		"",
 		[]string{"echo", "foo"},
@@ -261,12 +259,11 @@ func TestLogs(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	dataRepo := uniqueString("TestGrep_data")
 	c := getPachClient(t)
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -342,8 +339,8 @@ func TestPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipeline_data")
@@ -440,8 +437,8 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism_data")
@@ -460,8 +457,9 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 		nil,
 		3,
 		[]*ppsclient.PipelineInput{{
-			Repo:   &pfsclient.Repo{Name: dataRepo},
-			Reduce: true, // setting reduce to true so only one pod gets the file
+			Repo: &pfsclient.Repo{Name: dataRepo},
+			// Use reduce strategy so only one pod gets the file
+			Strategy: client.ReduceStrategy,
 		}},
 	))
 	// Do first commit to repo
@@ -494,8 +492,8 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -561,8 +559,8 @@ func TestPipelineThatWritesToOneFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -609,8 +607,8 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -683,8 +681,8 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -757,8 +755,8 @@ func TestRemoveAndAppend(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	c := getPachClient(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
@@ -818,7 +816,6 @@ func TestWorkload(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
 	c := getPachClient(t)
 	seed := time.Now().UnixNano()
 	require.NoError(t, workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100))
@@ -829,8 +826,8 @@ func TestSharding(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	repo := uniqueString("TestSharding")
 	c := getPachClient(t)
 	err := c.CreateRepo(repo)
@@ -881,8 +878,8 @@ func TestFromCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	t.Parallel()
+
 	repo := uniqueString("TestFromCommit")
 	c := getPachClient(t)
 	seed := time.Now().UnixNano()
@@ -940,6 +937,246 @@ func TestSimple(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+func TestPipelineWithMultipleInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	inputRepo1 := uniqueString("inputRepo")
+	require.NoError(t, c.CreateRepo(inputRepo1))
+	inputRepo2 := uniqueString("inputRepo")
+	require.NoError(t, c.CreateRepo(inputRepo2))
+
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(`
+for f1 in /pfs/%s/*
+do
+	for f2 in /pfs/%s/*
+	do
+		v1=$(<$f1)
+		v2=$(<$f2)
+		echo $v1$v2 > /pfs/out/file
+	done
+done
+`, inputRepo1, inputRepo2)},
+		4,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:     &pfsclient.Repo{Name: inputRepo1},
+				Strategy: client.ReduceStrategy,
+			},
+			{
+				Repo:     &pfsclient.Repo{Name: inputRepo2},
+				Strategy: client.ReduceStrategy,
+			},
+		},
+	))
+
+	content := "foo"
+	numfiles := 10
+
+	commit1, err := c.StartCommit(inputRepo1, "", "")
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo1, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(inputRepo1, commit1.ID))
+
+	commit2, err := c.StartCommit(inputRepo2, "", "")
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo2, commit2.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(inputRepo2, commit2.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	fileInfos, err := c.ListFile(pipelineName, outCommits[0].Commit.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, numfiles*numfiles, len(lines))
+	for _, line := range lines {
+		require.Equal(t, len(content)*2, len(line))
+	}
+}
+
+func TestPipelineWithGlobalStrategy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	globalRepo := uniqueString("inputRepo")
+	require.NoError(t, c.CreateRepo(globalRepo))
+	numfiles := 20
+
+	pipelineName := uniqueString("pipeline")
+	parallelism := 2
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		// this script simply outputs the number of files under the global repo
+		[]string{fmt.Sprintf(`
+numfiles=(/pfs/%s/*)
+numfiles=${#numfiles[@]}
+echo $numfiles > /pfs/out/file
+`, globalRepo)},
+		uint64(parallelism),
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:     &pfsclient.Repo{Name: globalRepo},
+				Strategy: client.GlobalStrategy,
+			},
+		},
+	))
+
+	content := "foo"
+
+	commit, err := c.StartCommit(globalRepo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(globalRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(globalRepo, commit.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	fileInfos, err := c.ListFile(pipelineName, outCommits[0].Commit.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, parallelism, len(lines)) // each job outputs one line
+	for _, line := range lines {
+		require.Equal(t, fmt.Sprintf("%d", numfiles), line)
+	}
+}
+
+func TestPipelineWithSelfRepoAndStreamingReduceStrategy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(`
+echo lool
+ls /pfs
+echo lool
+ls /pfs/%s
+echo lool
+ls /pfs/self
+cp /pfs/%s/file /pfs/out/file
+if [ -d "/pfs/self" ]; then
+  cp /pfs/self/file /pfs/out/file
+fi
+`, repo, repo)},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:     &pfsclient.Repo{Name: repo},
+				Strategy: client.StreamingReduceStrategy,
+			},
+		},
+	))
+
+	commit1, err := c.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, 1, len(lines))
+	require.Equal(t, "foo", lines[0])
+
+	commit2, err := c.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, c.FinishCommit(repo, commit2.ID))
+
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{{pipelineName}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer2 bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
+	lines = strings.Split(strings.TrimSpace(buffer2.String()), "\n")
+	require.Equal(t, 3, len(lines))
+	require.Equal(t, "foo", lines[0])
+	require.Equal(t, "bar", lines[1])
+	require.Equal(t, "foo", lines[2])
 }
 
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)

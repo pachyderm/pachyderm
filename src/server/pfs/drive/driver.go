@@ -863,19 +863,22 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 
 					if !children[child] && !deletedChildren[child] {
-						fileInfo.Children = append(
-							fileInfo.Children,
-							client.NewFile(commit.Repo.Name, commit.ID, child),
-						)
-						if recurse {
-							childFileInfo, _, err := d.inspectFile(&pfs.File{
-								Commit: file.Commit,
-								Path:   child,
-							}, filterShard, shard, from, recurse, unsafe)
-							if err != nil {
-								return nil, nil, err
+						childFile := client.NewFile(commit.Repo.Name, commit.ID, child)
+						if pfsserver.FileInShard(filterShard, childFile) {
+							fileInfo.Children = append(
+								fileInfo.Children,
+								client.NewFile(commit.Repo.Name, commit.ID, child),
+							)
+							if recurse {
+								childFileInfo, _, err := d.inspectFile(&pfs.File{
+									Commit: file.Commit,
+									Path:   child,
+								}, filterShard, shard, from, recurse, unsafe)
+								if err != nil {
+									return nil, nil, err
+								}
+								fileInfo.SizeBytes += childFileInfo.SizeBytes
 							}
-							fileInfo.SizeBytes += childFileInfo.SizeBytes
 						}
 					}
 					children[child] = true
