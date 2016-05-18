@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -848,10 +849,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 					for leaf := range leaves {
 						newCommitSet := make([]*pfsclient.Commit, len(commitSet)+1)
 						copy(newCommitSet, commitSet)
-						newCommitSet[len(commitSet)] = &pfsclient.Commit{
-							Repo: &pfsclient.Repo{Name: repoName},
-							ID:   leaf,
-						}
+						newCommitSet[len(commitSet)] = client.NewCommit(repoName, leaf)
 						newCommitSets = append(newCommitSets, newCommitSet)
 					}
 				}

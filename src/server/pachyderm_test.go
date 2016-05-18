@@ -919,7 +919,7 @@ func TestProvenance(t *testing.T) {
 	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
-	_, err = c.FlushCommit(aRepo, commit1.ID)
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit1.ID)})
 	require.NoError(t, err)
 
 	commit2, err := c.StartCommit(aRepo, "", "master")
@@ -927,7 +927,7 @@ func TestProvenance(t *testing.T) {
 	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
-	commitInfos, err := c.FlushCommit(aRepo, commit2.ID)
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit2.ID)})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
