@@ -12,7 +12,7 @@
 
 [Use Cases](pachyderm.io/use_cases.html)
 
-[Pachyderm Design Goals](design_goals.md)
+[Pachyderm Design Goals](pachyderm.io/dsbor.html)
 
 [Pipeline Specification](pipeline_spec.md)
 
