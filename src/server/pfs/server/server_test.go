@@ -1217,7 +1217,7 @@ func TestFlush(t *testing.T) {
 	}()
 
 	// Flush ACommit
-	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)})
+	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
@@ -1240,7 +1240,7 @@ func TestFlush(t *testing.T) {
 	}()
 
 	// Flush ACommit2
-	_, err = client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit2.ID)})
+	_, err = client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit2.ID)}, nil)
 	require.YesError(t, err)
 }
 
