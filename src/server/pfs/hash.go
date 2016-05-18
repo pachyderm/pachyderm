@@ -25,7 +25,11 @@ func NewHasher(fileModulus uint64, blockModulus uint64) *Hasher {
 // foo/bar/buzz, HashFile only considers foo
 func (s *Hasher) HashFile(file *pfs.File) uint64 {
 	parts := strings.Split(path.Clean(file.Path), string(filepath.Separator))
-	return uint64(adler32.Checksum([]byte(parts[0]))) % s.FileModulus
+	var topLevelPath string
+	if len(parts) > 0 {
+		topLevelPath = parts[0]
+	}
+	return uint64(adler32.Checksum([]byte(topLevelPath))) % s.FileModulus
 }
 
 func (s *Hasher) HashBlock(block *pfs.Block) uint64 {
