@@ -64,5 +64,5 @@
 }
 ```
 
-This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-imge`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a unique set of files as input because `reduce` is set to true.
+This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-image`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a unique set of files as input because `reduce` is set to true.
 
