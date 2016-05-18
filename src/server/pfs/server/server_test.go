@@ -1009,6 +1009,45 @@ func Test0Modulus(t *testing.T) {
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
 }
 
+func TestShardingInTopLevel(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	folders := 4
+	filesPerFolder := 10
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < folders; i++ {
+		for j := 0; j < filesPerFolder; j++ {
+			_, err = client.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	totalFiles := 0
+	for i := 0; i < folders; i++ {
+		shard := &pfsclient.Shard{
+			FileNumber:  uint64(i),
+			FileModulus: uint64(folders),
+		}
+		for j := 0; j < folders; j++ {
+			// You should either see all files in the folder (if the folder
+			// matches the shard), or no files in the folder (if the folder
+			// does not match the shard).
+			fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", shard, false)
+			require.NoError(t, err)
+			require.EqualOneOf(t, []interface{}{filesPerFolder, 0}, len(fileInfos))
+			totalFiles += len(fileInfos)
+		}
+	}
+	require.Equal(t, folders*filesPerFolder, totalFiles)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
