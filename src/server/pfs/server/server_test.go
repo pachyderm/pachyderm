@@ -1231,7 +1231,10 @@ func TestFlush(t *testing.T) {
 	}()
 
 	// Flush ACommit
-	commitInfos, err := client.FlushCommit(
+	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	commitInfos, err = client.FlushCommit(
 		[]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)},
 		[]*pfsclient.Repo{pclient.NewRepo("C")},
 	)
