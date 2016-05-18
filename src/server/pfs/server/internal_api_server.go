@@ -300,6 +300,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 					case errCh <- fmt.Errorf("commit %s/%s was cancelled", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID):
 					default:
 					}
+					return
 				}
 				result = append(result, commitInfo)
 			}
