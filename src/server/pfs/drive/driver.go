@@ -433,14 +433,14 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
-		if diffInfo.ParentCommit != nil {
-			_append.LastRef = d.lastRef(
-				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
-				shard,
-			)
-		}
-		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	if diffInfo.ParentCommit != nil {
+		_append.LastRef = d.lastRef(
+			client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
+			shard,
+		)
+	}
+	diffInfo.Appends[path.Clean(file.Path)] = _append
 	if handle == "" {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	} else {
@@ -492,18 +492,18 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{}
-		if diffInfo.ParentCommit != nil {
-			_append.LastRef = d.lastRef(
-				client.NewFile(
-					diffInfo.ParentCommit.Repo.Name,
-					diffInfo.ParentCommit.ID,
-					file.Path,
-				),
-				shard,
-			)
-		}
-		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	if diffInfo.ParentCommit != nil {
+		_append.LastRef = d.lastRef(
+			client.NewFile(
+				diffInfo.ParentCommit.Repo.Name,
+				diffInfo.ParentCommit.ID,
+				file.Path,
+			),
+			shard,
+		)
+	}
+	diffInfo.Appends[path.Clean(file.Path)] = _append
 	// The fact that this is a directory is signified by setting Children
 	// to non-nil
 	_append.Children = make(map[string]bool)
