@@ -908,6 +908,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	}
 	if len(pipelineInfo.Inputs) == 0 {
 		// this pipeline does not have inputs; there is nothing to be done
+		a.cancelFuncsLock.Unlock()
 		return nil
 	}
 
