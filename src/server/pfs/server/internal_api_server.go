@@ -248,6 +248,19 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	if err != nil {
 		return nil, err
 	}
+	// repoWhiteList is the set of repos we're interested in, empty means we're
+	// interested in all repos
+	repoWhiteList := make(map[string]bool)
+	for _, toRepo := range request.ToRepo {
+		repoWhiteList[toRepo.Name] = true
+		repoInfo, err := a.driver.InspectRepo(toRepo, shards)
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range repoInfo.Provenance {
+			repoWhiteList[repo.Name] = true
+		}
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var wg sync.WaitGroup
@@ -255,6 +268,9 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	var lock sync.Mutex
 	errCh := make(chan error, 1)
 	for _, repoInfo := range repoInfos {
+		if len(repoWhiteList) > 0 && !repoWhiteList[repoInfo.Repo.Name] {
+			continue
+		}
 		repoInfo := repoInfo
 		wg.Add(1)
 		go func() {
