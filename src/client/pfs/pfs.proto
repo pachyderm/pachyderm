@@ -193,6 +193,7 @@ message DeleteCommitRequest {
 
 message FlushCommitRequest {
   repeated Commit commit = 1;
+  repeated Repo to_repo = 2;
 }
 
 message GetFileRequest {
