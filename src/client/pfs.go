@@ -235,11 +235,20 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	return err
 }
 
-func (c APIClient) FlushCommit(repoName string, commitID string) ([]*pfs.CommitInfo, error) {
+// FlushCommit blocks until all of the commits which have a set of commits as
+// provenance have finished. For commits to be considered they must have all of
+// the specified commits as provenance. This in effect waits for all of the
+// jobs that are triggered by a set of commits to complete.
+// It returns an error if any of the commits it's waiting on are cancelled due
+// to one of the jobs encountering an error during runtime.
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommit just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommit(commits []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.FlushCommit(
 		context.Background(),
 		&pfs.FlushCommitRequest{
-			Commit: NewCommit(repoName, commitID),
+			Commit: commits,
 		},
 	)
 	if err != nil {
