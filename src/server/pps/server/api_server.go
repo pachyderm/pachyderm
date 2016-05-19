@@ -800,12 +800,12 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
-	repoToInput := make(map[string]*ppsclient.PipelineInput)
-	var inputRepos []*pfsclient.Repo
-	for _, input := range pipelineInfo.Inputs {
-		repoToLeaves[input.Repo.Name] = make(map[string]bool)
-		repoToInput[input.Repo.Name] = input
-		inputRepos = append(inputRepos, &pfsclient.Repo{Name: input.Repo.Name})
+	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
+	if err != nil {
+		return err
+	}
+	for _, repo := range rawInputRepos {
+		repoToLeaves[repo.Name] = make(map[string]bool)
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -824,7 +824,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			Repo:       inputRepos,
+			Repo:       rawInputRepos,
 			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 			FromCommit: fromCommits,
 			Block:      true,
@@ -857,22 +857,19 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 			}
 			for _, commitSet := range commitSets {
 				// + 1 as the commitSet doesn't contain the commit we just got
-				if len(commitSet)+1 < len(pipelineInfo.Inputs) {
+				if len(commitSet)+1 < len(rawInputRepos) {
 					continue
 				}
 				var parentJob *ppsclient.Job
 				if commitInfo.ParentCommit != nil {
-					parentJob, err = a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
+					parentJob, err = a.parentJob(ctx, append(commitSet, commitInfo.ParentCommit), pipelineInfo)
 					if err != nil {
 						return err
 					}
 				}
-				var inputs []*ppsclient.JobInput
-				for _, commit := range append(commitSet, commitInfo.Commit) {
-					inputs = append(inputs, &ppsclient.JobInput{
-						Commit: commit,
-						Reduce: repoToInput[commit.Repo.Name].Reduce,
-					})
+				trueInputs, err := a.trueInputs(ctx, append(commitSet, commitInfo.Commit), pipelineInfo)
+				if err != nil {
+					return err
 				}
 				if _, err = a.CreateJob(
 					ctx,
@@ -880,7 +877,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						Transform:   pipelineInfo.Transform,
 						Pipeline:    pipelineInfo.Pipeline,
 						Parallelism: pipelineInfo.Parallelism,
-						Inputs:      inputs,
+						Inputs:      trueInputs,
 						ParentJob:   parentJob,
 					},
 				); err != nil && err != ErrEmptyInput {
@@ -893,15 +890,22 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 
 func (a *apiServer) parentJob(
 	ctx context.Context,
+	rawInputs []*pfsclient.Commit,
 	pipelineInfo *ppsclient.PipelineInfo,
-	commitSet []*pfsclient.Commit,
-	newCommit *pfsclient.CommitInfo,
 ) (*ppsclient.Job, error) {
+	trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	var trueInputCommits []*pfsclient.Commit
+	for _, input := range trueInputs {
+		trueInputCommits = append(trueInputCommits, input.Commit)
+	}
 	jobInfo, err := a.ListJob(
 		ctx,
 		&ppsclient.ListJobRequest{
 			Pipeline:    pipelineInfo.Pipeline,
-			InputCommit: append(commitSet, newCommit.ParentCommit),
+			InputCommit: trueInputCommits,
 		})
 	if err != nil {
 		return nil, err
@@ -910,6 +914,85 @@ func (a *apiServer) parentJob(
 		return nil, nil
 	}
 	return jobInfo.JobInfo[0].Job, nil
+}
+
+// rawInputs tracks provenance for a pipeline back to its raw sources of
+// data
+// rawInputs is much efficient less than it could be because it does a lot of
+// duplicate work computing provenance. It could be made more efficient by
+// adding a special purpose rpc to the pfs api but that call wouldn't be useful
+// for much other than this.
+func (a *apiServer) rawInputs(
+	ctx context.Context,
+	pipelineInfo *ppsclient.PipelineInfo,
+) ([]*pfsclient.Repo, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	repoInfo, err := pfsClient.InspectRepo(
+		ctx,
+		&pfsclient.InspectRepoRequest{Repo: ppsserver.PipelineRepo(pipelineInfo.Pipeline)},
+	)
+	if err != nil {
+		return nil, err
+	}
+	var result []*pfsclient.Repo
+	for _, repo := range repoInfo.Provenance {
+		repoInfo, err := pfsClient.InspectRepo(
+			ctx,
+			&pfsclient.InspectRepoRequest{Repo: repo},
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(repoInfo.Provenance) == 0 {
+			result = append(result, repoInfo.Repo)
+		}
+	}
+	return result, nil
+}
+
+// trueInputs returns the JobInputs for a set of raw input commits
+func (a *apiServer) trueInputs(
+	ctx context.Context,
+	rawInputs []*pfsclient.Commit,
+	pipelineInfo *ppsclient.PipelineInfo,
+) ([]*ppsclient.JobInput, error) {
+	repoSet := make(map[string]bool)
+	for _, input := range pipelineInfo.Inputs {
+		repoSet[input.Repo.Name] = true
+	}
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	commitInfos, err := pfsClient.FlushCommit(
+		ctx,
+		&pfsclient.FlushCommitRequest{
+			Commit: rawInputs,
+			ToRepo: []*pfsclient.Repo{ppsserver.PipelineRepo(pipelineInfo.Pipeline)},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	repoToInput := make(map[string]*ppsclient.PipelineInput)
+	for _, input := range pipelineInfo.Inputs {
+		repoToInput[input.Repo.Name] = input
+	}
+	var result []*ppsclient.JobInput
+	for _, commitInfo := range commitInfos.CommitInfo {
+		pipelineInput, ok := repoToInput[commitInfo.Commit.Repo.Name]
+		if ok {
+			result = append(result,
+				&ppsclient.JobInput{
+					Commit: commitInfo.Commit,
+					Reduce: pipelineInput.Reduce,
+				})
+		}
+	}
+	return result, nil
 }
 
 func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
