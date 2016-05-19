@@ -957,9 +957,15 @@ func TestPipelineWithMultipleInputs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{fmt.Sprintf(`
-for f1 in /pfs/%s/*
+repo1=%s
+repo2=%s
+echo $repo1
+ls -1 /pfs/$repo1
+echo $repo2
+ls -1 /pfs/$repo2
+for f1 in /pfs/$repo1/*
 do
-	for f2 in /pfs/%s/*
+	for f2 in /pfs/$repo2/*
 	do
 		v1=$(<$f1)
 		v2=$(<$f2)
@@ -971,11 +977,11 @@ done
 		[]*ppsclient.PipelineInput{
 			{
 				Repo:     &pfsclient.Repo{Name: inputRepo1},
-				Strategy: client.ReduceStrategy,
+				Strategy: client.StreamingReduceStrategy,
 			},
 			{
 				Repo:     &pfsclient.Repo{Name: inputRepo2},
-				Strategy: client.ReduceStrategy,
+				Strategy: client.StreamingReduceStrategy,
 			},
 		},
 	))
@@ -1018,6 +1024,54 @@ done
 	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
 	require.Equal(t, numfiles*numfiles, len(lines))
+	for _, line := range lines {
+		require.Equal(t, len(content)*2, len(line))
+	}
+
+	commit3, err := c.StartCommit(inputRepo1, commit1.ID, "")
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo1, commit3.ID, fmt.Sprintf("file2-%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(inputRepo1, commit3.ID))
+
+	listCommitRequest.FromCommit = append(listCommitRequest.FromCommit, outCommits[0].Commit)
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines = strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, 2*numfiles*numfiles, len(lines))
+	for _, line := range lines {
+		require.Equal(t, len(content)*2, len(line))
+	}
+
+	commit4, err := c.StartCommit(inputRepo2, commit2.ID, "")
+	for i := 0; i < numfiles; i++ {
+		_, err = c.PutFile(inputRepo2, commit4.ID, fmt.Sprintf("file2-%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(inputRepo2, commit4.ID))
+
+	listCommitRequest.FromCommit[0] = outCommits[0].Commit
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	lines = strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, 4*numfiles*numfiles, len(lines))
 	for _, line := range lines {
 		require.Equal(t, len(content)*2, len(line))
 	}

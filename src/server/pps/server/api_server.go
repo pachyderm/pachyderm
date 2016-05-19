@@ -331,12 +331,15 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 				Commit: input.Commit,
 				Path:   "", // the root directory
 			},
-			FromCommit: repoToFromCommit[input.Commit.Repo.Name],
 			Shard: &pfsclient.Shard{
 				FileModulus:  1,
 				BlockModulus: 1,
 			},
 			Recurse: true,
+		}
+		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
+		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
+			listFileRequest.FromCommit = parentInputCommit
 		}
 
 		switch input.Strategy.Partition {
