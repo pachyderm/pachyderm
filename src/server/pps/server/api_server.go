@@ -959,29 +959,43 @@ func (a *apiServer) trueInputs(
 	rawInputs []*pfsclient.Commit,
 	pipelineInfo *ppsclient.PipelineInfo,
 ) ([]*ppsclient.JobInput, error) {
-	repoSet := make(map[string]bool)
-	for _, input := range pipelineInfo.Inputs {
-		repoSet[input.Repo.Name] = true
-	}
 	pfsClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
+	var toRepo []*pfsclient.Repo
+	repoToInput := make(map[string]*ppsclient.PipelineInput)
+	for _, input := range pipelineInfo.Inputs {
+		toRepo = append(toRepo, input.Repo)
+		repoToInput[input.Repo.Name] = input
+	}
+	var result []*ppsclient.JobInput
+	for _, commit := range rawInputs {
+		pipelineInput, ok := repoToInput[commit.Repo.Name]
+		if ok {
+			result = append(result,
+				&ppsclient.JobInput{
+					Commit: commit,
+					Reduce: pipelineInput.Reduce,
+				})
+		}
+	}
+	if len(result) == len(pipelineInfo.Inputs) {
+		// our pipeline only has raw inputs
+		// no need to flush them, we can return them as is
+		return result, nil
+	}
+	// Flush the rawInputs up to true input repos of the pipeline
 	commitInfos, err := pfsClient.FlushCommit(
 		ctx,
 		&pfsclient.FlushCommitRequest{
 			Commit: rawInputs,
-			ToRepo: []*pfsclient.Repo{ppsserver.PipelineRepo(pipelineInfo.Pipeline)},
+			ToRepo: toRepo,
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	repoToInput := make(map[string]*ppsclient.PipelineInput)
-	for _, input := range pipelineInfo.Inputs {
-		repoToInput[input.Repo.Name] = input
-	}
-	var result []*ppsclient.JobInput
 	for _, commitInfo := range commitInfos.CommitInfo {
 		pipelineInput, ok := repoToInput[commitInfo.Commit.Repo.Name]
 		if ok {
