@@ -350,11 +350,11 @@ func (d *directory) copy() *directory {
 }
 
 func (d *directory) getRepoOrAliasName() string {
-	parts := strings.Split(d.File.Path, "/")
-	if len(parts) < 2 || parts[0] != "pfs" {
-		return ""
+	if d.RepoAlias != "" {
+		return d.RepoAlias
+	} else {
+		return d.File.Commit.Repo.Name
 	}
-	return parts[1] // a filepath should always be like /pfs/repo_name/...
 }
 
 func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {

@@ -63,6 +63,24 @@ type apiServer struct {
 	versionLock sync.RWMutex
 }
 
+// Implement sort.Interface so job inputs can be sorted
+// We sort job inputs based on repo names
+type JobInputs []*ppsclient.JobInput
+
+func (self JobInputs) Len() int {
+	return len(self)
+}
+
+func (self JobInputs) Less(i, j int) bool {
+	return self[i].Commit.Repo.Name < self[j].Commit.Repo.Name
+}
+
+func (self JobInputs) Swap(i, j int) {
+	x := self[i]
+	self[i] = self[j]
+	self[j] = x
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
@@ -76,6 +94,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, err
 	}
 
+	// We need to sort job inputs because the following code depends on
+	// the invariant that inputs[i] matches parentInputs[i]
+	sort.Sort(JobInputs(request.Inputs))
+
+	// In case some inputs have not provided a strategy, we set the default
+	// strategy for them
 	setDefaultJobInputStrategy(request.Inputs)
 
 	// Currently this happens when someone attempts to run a pipeline once
