@@ -61,7 +61,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	if strings.Contains(request.Repo.Name, "/") {
 		return nil, fmt.Errorf("repo names cannot contain /")
 	}
-	if client.RepoNameReserved(request.Repo.Name) {
+	if client.ReservedRepoNames[request.Repo.Name] {
 		return nil, fmt.Errorf("repo name %s is a reserved keyword", request.Repo.Name)
 	}
 	clientConns, err := a.router.GetAllClientConns(a.version)

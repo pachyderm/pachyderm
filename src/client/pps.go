@@ -16,44 +16,39 @@ func NewJob(jobID string) *pps.Job {
 
 var (
 	MapStrategy = &pps.Strategy{
-		Partition:      pps.Partition_BLOCK,
-		Incrementality: true,
+		Partition:   pps.Partition_BLOCK,
+		Incremental: true,
 	}
 
 	ReduceStrategy = &pps.Strategy{
-		Partition:      pps.Partition_FILE,
-		Incrementality: false,
+		Partition:   pps.Partition_FILE,
+		Incremental: false,
 	}
 
-	StreamingReduceStrategy = &pps.Strategy{
-		Partition:      pps.Partition_FILE,
-		Incrementality: true,
+	IncrementalReduceStrategy = &pps.Strategy{
+		Partition:   pps.Partition_FILE,
+		Incremental: true,
 	}
 
 	GlobalStrategy = &pps.Strategy{
-		Partition:      pps.Partition_REPO,
-		Incrementality: false,
+		Partition:   pps.Partition_REPO,
+		Incremental: false,
 	}
 
 	DefaultStrategy = MapStrategy
 
 	StrategyAliasMap = map[string]*pps.Strategy{
-		"map":              MapStrategy,
-		"reduce":           ReduceStrategy,
-		"streaming_reduce": StreamingReduceStrategy,
-		"global":           GlobalStrategy,
+		"map":                MapStrategy,
+		"reduce":             ReduceStrategy,
+		"incremental_reduce": IncrementalReduceStrategy,
+		"global":             GlobalStrategy,
+	}
+
+	ReservedRepoNames = map[string]bool{
+		"out":  true,
+		"self": true,
 	}
 )
-
-// RepoNameReserved returns whether a given repo name is reserved for internal usage
-func RepoNameReserved(name string) bool {
-	switch name {
-	case "out", "self":
-		return true
-	default:
-		return false
-	}
-}
 
 func NewJobInput(repoName string, commitID string, strategy *pps.Strategy) *pps.JobInput {
 	return &pps.JobInput{

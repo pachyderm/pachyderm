@@ -40,7 +40,8 @@ var (
 )
 
 var (
-	ErrEmptyInput = errors.New("job was not started due to empty input")
+	ErrEmptyInput           = errors.New("job was not started due to empty input")
+	ErrParentInputsMismatch = errors.New("job does not have the same set of inputs as its parent")
 )
 
 type apiServer struct {
@@ -141,6 +142,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if err != nil {
 			return nil, err
 		}
+
+		// Check that the parent job has the same set of inputs as the current job
+		if len(parentJobInfo.Inputs) != len(request.Inputs) {
+			return nil, ErrParentInputsMismatch
+		}
+
+		for i, input := range request.Inputs {
+			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
+				return nil, ErrParentInputsMismatch
+			}
+		}
 	}
 
 	pfsAPIClient, err := a.getPfsClient()
@@ -187,7 +199,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
-			if jobInput.Strategy.Incrementality {
+			if jobInput.Strategy.Incremental {
 				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
@@ -217,7 +229,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
-		shardModuli, err := a.computeShardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +267,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}, nil
 }
 
-// computeShardModuli computes the modulus to use for each input.  In other words,
+// shardModuli computes the modulus to use for each input.  In other words,
 // it computes how many shards each input repo should be partitioned into.
 //
 // The algorithm is as follows:
@@ -265,7 +277,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 // remove the input from further consideration.
 // 3. Repeat step 2, until the product of the moduli hits the given parallelism,
 // or until all inputs have been removed from consideration.
-func (a *apiServer) computeShardModuli(ctx context.Context, inputs []*ppsclient.JobInput, parallelism uint64, repoToFromCommit map[string]*pfsclient.Commit) ([]uint64, error) {
+func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInput, parallelism uint64, repoToFromCommit map[string]*pfsclient.Commit) ([]uint64, error) {
 	pfsClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
@@ -539,7 +551,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
-			if jobInput.Strategy.Incrementality {
+			if jobInput.Strategy.Incremental {
 				// input isn't being reduced, do it incrementally
 				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
@@ -551,7 +563,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	var commitMounts []*fuse.CommitMount
-	filterNumbers := computeFilterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
+	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
@@ -630,9 +642,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}, nil
 }
 
-// computeFilterNumber essentially computes a representation of the number N
+// filterNumber essentially computes a representation of the number N
 // as if the base for each digit is the corresponding number in the moduli array
-func computeFilterNumber(n uint64, moduli []uint64) []uint64 {
+func filterNumber(n uint64, moduli []uint64) []uint64 {
 	res := make([]uint64, len(moduli), len(moduli))
 	for i := len(moduli) - 1; i >= 0; i-- {
 		res[i] = n % moduli[i]
@@ -960,7 +972,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 		repoToLeaves[input.Repo.Name] = make(map[string]bool)
 		repoToInput[input.Repo.Name] = input
 		inputRepos = append(inputRepos, &pfsclient.Repo{Name: input.Repo.Name})
-		repoIsIncremental[input.Repo.Name] = input.Strategy.Incrementality
+		repoIsIncremental[input.Repo.Name] = input.Strategy.Incremental
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {

@@ -33,7 +33,7 @@ enum Partition {
 
 message Strategy {
   Partition partition = 1;
-  bool incrementality = 2;
+  bool incremental = 2;
 }
 
 message JobInput {

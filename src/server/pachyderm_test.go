@@ -977,11 +977,11 @@ done
 		[]*ppsclient.PipelineInput{
 			{
 				Repo:     &pfsclient.Repo{Name: inputRepo1},
-				Strategy: client.StreamingReduceStrategy,
+				Strategy: client.IncrementalReduceStrategy,
 			},
 			{
 				Repo:     &pfsclient.Repo{Name: inputRepo2},
-				Strategy: client.StreamingReduceStrategy,
+				Strategy: client.IncrementalReduceStrategy,
 			},
 		},
 	))
@@ -1145,7 +1145,7 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
-func TestPipelineWithSelfRepoAndStreamingReduceStrategy(t *testing.T) {
+func TestPipelineWithSelfRepoAndIncrementalReduceStrategy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1176,7 +1176,7 @@ fi
 		[]*ppsclient.PipelineInput{
 			{
 				Repo:     &pfsclient.Repo{Name: repo},
-				Strategy: client.StreamingReduceStrategy,
+				Strategy: client.IncrementalReduceStrategy,
 			},
 		},
 	))
