@@ -343,8 +343,9 @@ func (d *directory) copy() *directory {
 				},
 				Path: d.File.Path,
 			},
-			Write: d.Write,
-			Shard: d.Shard,
+			Write:     d.Write,
+			Shard:     d.Shard,
+			RepoAlias: d.RepoAlias,
 		},
 	}
 }
@@ -363,11 +364,21 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 			Shard:  f.Shard,
 		}
 	}
+
+	// We prefer alias matching over repo name matching, since there can be
+	// two commit mounts with the same repo but different aliases, such as
+	// "out" and "self"
 	for _, commitMount := range f.CommitMounts {
-		if commitMount.Commit.Repo.Name == nameOrAlias || commitMount.Alias == nameOrAlias {
+		if commitMount.Alias == nameOrAlias {
 			return commitMount
 		}
 	}
+	for _, commitMount := range f.CommitMounts {
+		if commitMount.Commit.Repo.Name == nameOrAlias {
+			return commitMount
+		}
+	}
+
 	return nil
 }
 
