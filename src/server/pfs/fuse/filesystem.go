@@ -352,9 +352,8 @@ func (d *directory) copy() *directory {
 func (d *directory) getRepoOrAliasName() string {
 	if d.RepoAlias != "" {
 		return d.RepoAlias
-	} else {
-		return d.File.Commit.Repo.Name
 	}
+	return d.File.Commit.Repo.Name
 }
 
 func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
