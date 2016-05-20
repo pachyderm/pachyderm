@@ -63,7 +63,7 @@ type apiServer struct {
 	versionLock sync.RWMutex
 }
 
-// Implement sort.Interface so job inputs can be sorted
+// JobInputs implements sort.Interface so job inputs can be sorted
 // We sort job inputs based on repo names
 type JobInputs []*ppsclient.JobInput
 
