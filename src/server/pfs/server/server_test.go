@@ -488,6 +488,44 @@ func TestPutFile(t *testing.T) {
 	require.Equal(t, "bar\n", buffer2.String())
 }
 
+func TestListFileTwoCommits(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	numFiles := 5
+
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, commit2.ID, fmt.Sprintf("file2-%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+
+	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2*numFiles, len(fileInfos))
+}
+
 func TestPutSameFileInParallel(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)

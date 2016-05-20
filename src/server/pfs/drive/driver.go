@@ -429,7 +429,7 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
-	addDirs(diffInfo, file)
+	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
@@ -488,7 +488,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
-	addDirs(diffInfo, file)
+	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{}
@@ -612,7 +612,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
 	diffInfo.Appends[cleanPath].Delete = true
-	deleteFromDir(diffInfo, file)
+	d.deleteFromDir(diffInfo, file, shard)
 
 	return nil
 }
@@ -995,7 +995,7 @@ func updateDAG(diffInfo *pfs.DiffInfo, dag *dag.DAG) {
 	}
 }
 
-func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func (d *driver) addDirs(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 	for {
@@ -1008,6 +1008,12 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 			_append.Children = make(map[string]bool)
 		}
 		_append.Children[childPath] = true
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, dirPath),
+				shard,
+			)
+		}
 		if dirPath == "." {
 			break
 		}
@@ -1016,7 +1022,7 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	}
 }
 
-func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func (d *driver) deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 
@@ -1034,6 +1040,12 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	// so we don't want to remove the file from the directory.
 	if !_append.Children[childPath] {
 		_append.Children[childPath] = false
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, dirPath),
+				shard,
+			)
+		}
 	}
 }
 
