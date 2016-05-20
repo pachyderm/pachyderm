@@ -67,18 +67,18 @@ type apiServer struct {
 // We sort job inputs based on repo names
 type JobInputs []*ppsclient.JobInput
 
-func (self JobInputs) Len() int {
-	return len(self)
+func (inputs JobInputs) Len() int {
+	return len(inputs)
 }
 
-func (self JobInputs) Less(i, j int) bool {
-	return self[i].Commit.Repo.Name < self[j].Commit.Repo.Name
+func (inputs JobInputs) Less(i, j int) bool {
+	return inputs[i].Commit.Repo.Name < inputs[j].Commit.Repo.Name
 }
 
-func (self JobInputs) Swap(i, j int) {
-	x := self[i]
-	self[i] = self[j]
-	self[j] = x
+func (inputs JobInputs) Swap(i, j int) {
+	x := inputs[i]
+	inputs[i] = inputs[j]
+	inputs[j] = x
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
