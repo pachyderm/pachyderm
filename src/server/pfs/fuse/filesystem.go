@@ -163,7 +163,12 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 	defer func() {
 		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
 	}()
-	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+	fmt.Printf("Removing file w remove request: %v\n", req)
+	fmt.Printf("Repo %v, Commit ID %v, path %v\n", d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+	err := d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+	fmt.Printf("Completed delete file request\n")
+	fmt.Printf("Err? %v\n", err)
+	return err
 }
 
 type file struct {
@@ -186,22 +191,45 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.Shard,
 	)
 
-	if err != nil && !f.local {
-		return err
-	}
-
 	if fileInfo != nil {
-		a.Size = fileInfo.SizeBytes
-		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 
 		if fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
 			a.Size = 0
+			a.Valid = 0
+		} else {
+			a.Size = fileInfo.SizeBytes
+			a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+		}
+	} else {
+		if err != nil && !f.local {
+			return err
 		}
 	}
 
+	/*
+		if f.directory.Write {
+			// If the file is from an open commit, we just pretend that it's
+			// an empty file.
+			a.Size = 0
+
+		} else {
+			fileInfo, err := f.fs.apiClient.InspectFile(
+				f.File.Commit.Repo.Name,
+				f.File.Commit.ID,
+				f.File.Path,
+				f.fs.getFromCommitID(f.File.Commit.Repo.Name),
+				f.Shard,
+			)
+			if err != nil && !f.local {
+				return err
+			}
+			if fileInfo != nil {
+				a.Size = fileInfo.SizeBytes
+				a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+			}
+		}*/
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
-	a.Valid = 0
 	return nil
 }
 
@@ -438,6 +466,33 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
 	var fileInfo *pfsclient.FileInfo
 	var err error
+	/*
+		if d.Node.Write {
+			// Basically, if the directory is writable, we are looking up files
+			// from an open commit.  In this case, we want to return an empty file,
+			// because sometimes you want to remove a file but a remove operation
+			// is usually proceeded with a lookup operation, and the remove operation
+			// would not be able to proceed if the lookup failed.  Therefore, we want
+			// the lookup to not fail, so we return an empty file.
+			fileInfo = &pfsclient.FileInfo{
+				File: &pfsclient.File{
+					Path: path.Join(d.File.Path, name),
+				},
+				FileType:  pfsclient.FileType_FILE_TYPE_REGULAR,
+				SizeBytes: 0,
+			}
+		} else {
+			fileInfo, err = d.fs.apiClient.InspectFile(
+				d.File.Commit.Repo.Name,
+				d.File.Commit.ID,
+				path.Join(d.File.Path, name),
+				d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+				d.Shard,
+			)
+			if err != nil {
+				return nil, fuse.ENOENT
+			}
+		}*/
 
 	fileInfo, err = d.fs.apiClient.InspectFile(
 		d.File.Commit.Repo.Name,
@@ -446,12 +501,30 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
 	)
-	if err != nil {
-		return nil, fuse.ENOENT
-	}
 
-	if fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+	fmt.Printf("Commit: %v\n", d.File.Commit)
+	if fileInfo != nil && fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+		fmt.Printf("I RECOGNIZE AN OPEN COMMIT WHEN I SEE ONE")
 		fileInfo.SizeBytes = 0
+		fileInfo.FileType = pfsclient.FileType_FILE_TYPE_REGULAR
+		fileInfo.File = &pfsclient.File{
+			Path: path.Join(d.File.Path, name),
+		}
+
+	} else {
+		fmt.Printf("fileInfo is nil or close?\n")
+
+		commitInfo, errCommit := d.fs.apiClient.InspectCommit(d.File.Commit.Repo.Name, d.File.Commit.ID)
+		if errCommit != nil {
+			fmt.Printf("Error retrieving commit: %v\n", err)
+		} else {
+			fmt.Printf("Commit type: %v\n", commitInfo.CommitType)
+		}
+
+		if err != nil {
+			//if err != nil && commitInfo.CommitType != pfsclient.CommitType_COMMIT_TYPE_WRITE {
+			return nil, fuse.ENOENT
+		}
 	}
 
 	// We want to inherit the metadata other than the path, which should be the

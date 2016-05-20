@@ -538,7 +538,9 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	fmt.Printf("Inside ListFile\n")
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
+	fmt.Printf("! completed inspectFile()\n")
 	if err != nil {
 		return nil, err
 	}
@@ -546,8 +548,11 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 		return []*pfs.FileInfo{fileInfo}, nil
 	}
 	var result []*pfs.FileInfo
+	fmt.Printf("Looping over children\n")
 	for _, child := range fileInfo.Children {
+		fmt.Printf("About to inspect child file %v, unsafe? %v\n", child, unsafe)
 		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe)
+		fmt.Printf("- completed!\n")
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -565,15 +570,18 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RLock()
 	// We don't want to be able to delete files that are only added in the current
 	// commit, which is why we set unsafe to false.
+	fmt.Printf("XXX In internal delete file\n")
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, false)
 	if err != nil {
 		d.lock.RUnlock()
 		return err
 	}
 	d.lock.RUnlock()
-
+	fmt.Printf("Got real fileInfo %v\n", fileInfo)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		fmt.Printf("About to call List File\n")
 		fileInfos, err := d.ListFile(file, nil, nil, shard, false, false)
+		fmt.Printf("Listed file: %v, %v\n", fileInfos, err)
 		if err != nil {
 			return err
 		}
@@ -582,7 +590,9 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 			// We are deleting the file from the current commit, not whatever
 			// commit they were last modified in
 			info.File.Commit = file.Commit
+			fmt.Printf("Really Deleting file ... %v\n", info.File)
 			if err := d.DeleteFile(info.File, shard); err != nil {
+				fmt.Printf("Error really deleting that file\n")
 				return err
 			}
 		}
@@ -594,10 +604,12 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	fmt.Printf("in deleteFile\n")
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Got commit\n")
 	diffInfo, ok := d.diffs.get(client.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
 	if !ok {
 		// This is a weird case since the commit existed above, it means someone
@@ -613,6 +625,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
 	diffInfo.Appends[cleanPath].Delete = true
+	fmt.Printf("set delete flag\n")
 	deleteFromDir(diffInfo, file)
 
 	return nil
@@ -810,9 +823,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	commit, err := d.canonicalCommit(file.Commit)
 	shards := make(map[uint64]bool)
 	shards[shard] = true
-
+	fmt.Printf("IN DRIVER INSPECT FILE\n")
 	commitInfo, err := d.InspectCommit(commit, shards)
-
+	fmt.Printf("Commit type: %v\n", commitInfo.CommitType)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -826,6 +839,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if err != nil {
 		return nil, nil, err
 	}
+	fmt.Printf("Looping for commits for this file\n")
 	for commit != nil && (from == nil || commit.ID != from.ID) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if !ok {
@@ -850,6 +864,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
 					if !pfsserver.FileInShard(filterShard, file) {
+						fmt.Printf("XXX FILE TYPE NONE\n")
 						return nil, nil, pfsserver.ErrFileNotFound
 					}
 				}
@@ -911,7 +926,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		commit = diffInfo.ParentCommit
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
-		return nil, nil, pfsserver.ErrFileNotFound
+		fmt.Printf("XXX FILE TYPE NONE AFTER LOOPING\n")
+		if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
+			fmt.Printf("XXX But open commit ... so returning fileinfo %v / blockrefs %v\n", fileInfo, blockRefs)
+			return fileInfo, blockRefs, nil
+		} else {
+			fmt.Printf("XXX closed commit ... so returning error not found\n")
+			return nil, nil, pfsserver.ErrFileNotFound
+		}
 	}
 	return fileInfo, blockRefs, nil
 }
@@ -1030,6 +1052,7 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 }
 
 func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+	fmt.Printf("in deleteFromDir\n")
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 

@@ -765,6 +765,8 @@ func TestRemoveAndAppend(t *testing.T) {
 		},
 		Parallelism: 3,
 	})
+	fmt.Printf("Job1 completed\n")
+	fmt.Printf("Job: %v\n", job1.ID)
 	require.NoError(t, err)
 
 	inspectJobRequest1 := &ppsclient.InspectJobRequest{
@@ -796,6 +798,10 @@ func TestRemoveAndAppend(t *testing.T) {
 		BlockState: true,
 	}
 	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
+	if jobInfo2 != nil {
+		fmt.Printf("expected state (%v), actual state (%v)\n", ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
+	}
+	fmt.Printf("Job: %v\n", job2.ID)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
 
