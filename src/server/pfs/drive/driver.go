@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"sync"
 
-	"errors"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -821,21 +820,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
-	shards := make(map[uint64]bool)
-	shards[shard] = true
-	fmt.Printf("IN DRIVER INSPECT FILE\n")
-	commitInfo, err := d.InspectCommit(commit, shards)
-	fmt.Printf("Commit type: %v\n", commitInfo.CommitType)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if commitInfo.Cancelled {
-		return nil, nil, errors.New("Cannot inspectFile on cancelled commit\n")
-	}
-
-	fileInfo.CommitType = commitInfo.CommitType
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -927,13 +911,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		fmt.Printf("XXX FILE TYPE NONE AFTER LOOPING\n")
-		if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
-			fmt.Printf("XXX But open commit ... so returning fileinfo %v / blockrefs %v\n", fileInfo, blockRefs)
-			return fileInfo, blockRefs, nil
-		} else {
-			fmt.Printf("XXX closed commit ... so returning error not found\n")
-			return nil, nil, pfsserver.ErrFileNotFound
-		}
+		return nil, nil, pfsserver.ErrFileNotFound
 	}
 	return fileInfo, blockRefs, nil
 }
