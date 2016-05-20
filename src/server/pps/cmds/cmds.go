@@ -1,15 +1,15 @@
 package cmds
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"text/tabwriter"
 
+	"github.com/Jeffail/gabs"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/client"
+	pach "github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
@@ -58,7 +58,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
@@ -79,7 +79,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				jobReader = jobFile
 			}
 			var request ppsclient.CreateJobRequest
-			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
+			if err := jsonpb.UnmarshalString(replaceStrategyAliases(jobReader), &request); err != nil {
 				pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 			}
 			job, err := client.PpsAPIClient.CreateJob(
@@ -100,7 +100,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ Examples:
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
 			}
@@ -175,7 +175,7 @@ Examples:
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -208,7 +208,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
@@ -229,18 +229,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				pipelineReader = pipelineFile
 			}
 			var request ppsclient.CreatePipelineRequest
-			decoder := json.NewDecoder(pipelineReader)
 			for {
-				message := json.RawMessage{}
-				if err := decoder.Decode(&message); err != nil {
-					if err == io.EOF {
-						break
-					} else {
-						pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
-					}
-				}
-				if err := jsonpb.UnmarshalString(string(message), &request); err != nil {
-					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
+				if err := jsonpb.UnmarshalString(replaceStrategyAliases(pipelineReader), &request); err != nil {
+					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %s", err.Error())
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
@@ -258,7 +249,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -281,7 +272,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -303,7 +294,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -320,7 +311,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -348,7 +339,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}()
 
 				specReader = specFile
-				if err := jsonpb.Unmarshal(specReader, request); err != nil {
+				if err := jsonpb.UnmarshalString(replaceStrategyAliases(specReader), request); err != nil {
 					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
 				}
 			}
@@ -379,4 +370,40 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, runPipeline)
 	return result, nil
+}
+
+func replaceStrategyAliases(pipelineReader io.Reader) string {
+	// We want to allow for a syntactic suger where the user
+	// can specify a strategy with a string such as "map" or "reduce".
+	// To that end, we check for the "strategy" field and replace
+	// the string with an actual strategy object before we unmarshal
+	// the json spec into a protobuf message
+
+	pipeline, err := gabs.ParseJSONBuffer(pipelineReader)
+	if err != nil {
+		if err == io.EOF {
+			os.Exit(0)
+		} else {
+			pkgcmd.ErrorAndExit("Error parsing JSON: %s", err.Error())
+		}
+	}
+
+	inputs := pipeline.S("inputs")
+	children, err := inputs.Children()
+	if err != nil {
+		pkgcmd.ErrorAndExit("Error parsing spec: inputs is not an array", err.Error())
+	}
+	for _, input := range children {
+		strategyAlias, ok := input.S("strategy").Data().(string)
+		if ok {
+			strat, ok := pach.StrategyAliasMap[strategyAlias]
+			if ok {
+				input.Set(strat, "strategy")
+			} else {
+				pkgcmd.ErrorAndExit("Unrecognized strategy: %s", strategyAlias)
+			}
+		}
+	}
+
+	return pipeline.String()
 }
