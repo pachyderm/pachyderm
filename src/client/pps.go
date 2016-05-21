@@ -14,17 +14,46 @@ func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
 
-type InputType int
+var (
+	MapMethod = &pps.Method{
+		Partition:   pps.Partition_BLOCK,
+		Incremental: true,
+	}
 
-const (
-	InputTypeMap InputType = iota
-	InputTypeReduce
+	ReduceMethod = &pps.Method{
+		Partition:   pps.Partition_FILE,
+		Incremental: false,
+	}
+
+	IncrementalReduceMethod = &pps.Method{
+		Partition:   pps.Partition_FILE,
+		Incremental: true,
+	}
+
+	GlobalMethod = &pps.Method{
+		Partition:   pps.Partition_REPO,
+		Incremental: false,
+	}
+
+	DefaultMethod = MapMethod
+
+	MethodAliasMap = map[string]*pps.Method{
+		"map":                MapMethod,
+		"reduce":             ReduceMethod,
+		"incremental_reduce": IncrementalReduceMethod,
+		"global":             GlobalMethod,
+	}
+
+	ReservedRepoNames = map[string]bool{
+		"out":  true,
+		"prev": true,
+	}
 )
 
-func NewJobInput(repoName string, commitID string, inputType InputType) *pps.JobInput {
+func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
-		Reduce: inputType == InputTypeReduce,
+		Method: method,
 	}
 }
 
@@ -32,10 +61,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-func NewPipelineInput(repoName string, inputType InputType) *pps.PipelineInput {
+func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
 	return &pps.PipelineInput{
 		Repo:   NewRepo(repoName),
-		Reduce: inputType == InputTypeReduce,
+		Method: method,
 	}
 }
 
