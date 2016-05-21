@@ -54,6 +54,7 @@ You may specify a method using either an alias or a JSON object.  We support fou
 
 If a method is not specified, the "map" method is used by default.
 
+
 ## Examples
 
 ```json
@@ -81,3 +82,7 @@ If a method is not specified, the "map" method is used by default.
 ```
 
 This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-image`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a part of the new commit as input because `method` is set to `map`.
+
+## Accessing the output of a job's parent
+
+Sometimes in a job, you might want to use the output of the job's parent.  See the "sum" part of the [fruit stand demo](../examples/fruit_stand/README.md) as an example.  If the job does have a parent, the output of its parent will be available under `/pfs/prev`. 
