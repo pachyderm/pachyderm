@@ -139,10 +139,6 @@ func (w *worker) work(c *client.APIClient) error {
 				inputs[i] = commit.Repo.Name
 				jobInputs = append(jobInputs, &ppsclient.JobInput{Commit: commit})
 			}
-			var parentJobID string
-			if len(w.jobs) > 0 {
-				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].ID
-			}
 			outFilename := w.randString(10)
 			job, err := c.CreateJob(
 				"",
@@ -150,7 +146,7 @@ func (w *worker) work(c *client.APIClient) error {
 				w.grepCmd(inputs, outFilename),
 				1,
 				jobInputs,
-				parentJobID,
+				"",
 			)
 			if err != nil {
 				return err
