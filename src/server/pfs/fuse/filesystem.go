@@ -367,7 +367,7 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 
 	// We prefer alias matching over repo name matching, since there can be
 	// two commit mounts with the same repo but different aliases, such as
-	// "out" and "self"
+	// "out" and "prev"
 	for _, commitMount := range f.CommitMounts {
 		if commitMount.Alias == nameOrAlias {
 			return commitMount

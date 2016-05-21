@@ -1145,7 +1145,7 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
-func TestPipelineWithSelfRepoAndIncrementalReduceStrategy(t *testing.T) {
+func TestPipelineWithPrevRepoAndIncrementalReduceStrategy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1161,15 +1161,9 @@ func TestPipelineWithSelfRepoAndIncrementalReduceStrategy(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{fmt.Sprintf(`
-echo lool
-ls /pfs
-echo lool
-ls /pfs/%s
-echo lool
-ls /pfs/self
 cp /pfs/%s/file /pfs/out/file
-if [ -d "/pfs/self" ]; then
-  cp /pfs/self/file /pfs/out/file
+if [ -d "/pfs/prev" ]; then
+  cp /pfs/prev/file /pfs/out/file
 fi
 `, repo, repo)},
 		1,
