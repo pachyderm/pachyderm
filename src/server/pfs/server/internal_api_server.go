@@ -32,7 +32,7 @@ type internalAPIServer struct {
 	hasher            *pfsserver.Hasher
 	router            shard.Router
 	driver            drive.Driver
-	commitWaiters     []*commitWait
+	commitWaiters     map[*commitWait]bool
 	commitWaitersLock sync.Mutex
 }
 
@@ -46,7 +46,7 @@ func newInternalAPIServer(
 		hasher:            hasher,
 		router:            router,
 		driver:            driver,
-		commitWaiters:     nil,
+		commitWaiters:     make(map[*commitWait]bool),
 		commitWaitersLock: sync.Mutex{},
 	}
 }
@@ -178,15 +178,15 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		return nil, err
 	}
 	if len(commitInfos) == 0 && request.Block {
-		commitChan := make(chan *pfs.CommitInfo)
-		if err := a.registerCommitWaiter(request, shards, commitChan); err != nil {
+		commitWait, err := a.newCommitWait(request, shards)
+		if err != nil {
 			return nil, err
 		}
 		select {
 		case <-ctx.Done():
+			a.cancelCommitWait(commitWait)
 			return nil, ctx.Err()
-		case commitInfo := <-commitChan:
-			commitInfos = append(commitInfos, commitInfo)
+		case commitInfos = <-commitWait.commitInfoChan:
 		}
 	}
 	return &pfs.CommitInfos{
@@ -571,22 +571,17 @@ type commitWait struct {
 	provenance     []*pfs.Commit
 	commitType     pfs.CommitType
 	all            bool
-	commitInfoChan chan *pfs.CommitInfo
+	commitInfoChan chan []*pfs.CommitInfo
 }
 
-func newCommitWait(repos []*pfs.Repo, provenance []*pfs.Commit, commitType pfs.CommitType, all bool, commitInfoChan chan *pfs.CommitInfo) *commitWait {
-	return &commitWait{
-		repos:          repos,
-		provenance:     provenance,
-		commitType:     commitType,
-		all:            all,
-		commitInfoChan: commitInfoChan,
+func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards map[uint64]bool) (*commitWait, error) {
+	result := &commitWait{
+		repos:          request.Repo,
+		provenance:     request.Provenance,
+		commitType:     request.CommitType,
+		all:            request.All,
+		commitInfoChan: make(chan []*pfs.CommitInfo, 1),
 	}
-}
-
-func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest, shards map[uint64]bool, outChan chan *pfs.CommitInfo) error {
-	// This is a blocking request, which means we need to block until we
-	// have at least one response.
 	a.commitWaitersLock.Lock()
 	defer a.commitWaitersLock.Unlock()
 	// We need to redo the call to ListCommit because commits may have been
@@ -594,18 +589,20 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
 		request.FromCommit, request.Provenance, request.All, shards)
 	if err != nil && err != pfsserver.ErrRepoNotFound {
-		return err
+		return nil, err
 	}
 	if len(commitInfos) != 0 {
-		go func() {
-			for _, commitInfo := range commitInfos {
-				outChan <- commitInfo
-			}
-			close(outChan)
-		}()
+		result.commitInfoChan <- commitInfos
+	} else {
+		a.commitWaiters[result] = true
 	}
-	a.commitWaiters = append(a.commitWaiters, newCommitWait(request.Repo, request.Provenance, request.CommitType, request.All, outChan))
-	return nil
+	return result, nil
+}
+
+func (a *internalAPIServer) cancelCommitWait(cw *commitWait) {
+	a.commitWaitersLock.Lock()
+	defer a.commitWaitersLock.Unlock()
+	delete(a.commitWaiters, cw)
 }
 
 func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) error {
@@ -615,22 +612,24 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 	if err != nil {
 		return err
 	}
-	var unpulsedWaiters []*commitWait
+	var pulsedWaiters []*commitWait
 WaitersLoop:
-	for _, commitWaiter := range a.commitWaiters {
+	for commitWaiter := range a.commitWaiters {
 		if (commitWaiter.commitType == pfs.CommitType_COMMIT_TYPE_NONE || commitType == commitWaiter.commitType) &&
 			(commitWaiter.all || !commitInfo.Cancelled) &&
 			drive.MatchProvenance(commitWaiter.provenance, commitInfo.Provenance) {
 			for _, repo := range commitWaiter.repos {
 				if repo.Name == commit.Repo.Name {
-					commitWaiter.commitInfoChan <- commitInfo
+					commitWaiter.commitInfoChan <- []*pfs.CommitInfo{commitInfo}
+					pulsedWaiters = append(pulsedWaiters, commitWaiter)
 					continue WaitersLoop
 				}
 			}
 		}
-		unpulsedWaiters = append(unpulsedWaiters, commitWaiter)
 	}
-	a.commitWaiters = unpulsedWaiters
+	for _, commitWaiter := range pulsedWaiters {
+		delete(a.commitWaiters, commitWaiter)
+	}
 	return nil
 }
 
