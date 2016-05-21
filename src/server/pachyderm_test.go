@@ -1164,7 +1164,7 @@ cp /pfs/%s/file /pfs/out/file
 if [ -d "/pfs/prev" ]; then
   cp /pfs/prev/file /pfs/out/file
 fi
-`, repo, repo)},
+`, repo)},
 		1,
 		[]*ppsclient.PipelineInput{
 			{
