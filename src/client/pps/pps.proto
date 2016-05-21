@@ -31,14 +31,14 @@ enum Partition {
   REPO = 2;
 }
 
-message Strategy {
+message Method {
   Partition partition = 1;
   bool incremental = 2;
 }
 
 message JobInput {
     pfs.Commit commit = 1;
-    Strategy strategy = 2;
+    Method method = 2;
 }
 
 message JobInfo {
@@ -63,7 +63,7 @@ message Pipeline {
 
 message PipelineInput {
   pfs.Repo repo = 1;
-  Strategy strategy = 2;
+  Method method = 2;
 }
 
 message PipelineInfo {

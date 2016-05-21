@@ -15,33 +15,33 @@ func NewJob(jobID string) *pps.Job {
 }
 
 var (
-	MapStrategy = &pps.Strategy{
+	MapMethod = &pps.Method{
 		Partition:   pps.Partition_BLOCK,
 		Incremental: true,
 	}
 
-	ReduceStrategy = &pps.Strategy{
+	ReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
 		Incremental: false,
 	}
 
-	IncrementalReduceStrategy = &pps.Strategy{
+	IncrementalReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
 		Incremental: true,
 	}
 
-	GlobalStrategy = &pps.Strategy{
+	GlobalMethod = &pps.Method{
 		Partition:   pps.Partition_REPO,
 		Incremental: false,
 	}
 
-	DefaultStrategy = MapStrategy
+	DefaultMethod = MapMethod
 
-	StrategyAliasMap = map[string]*pps.Strategy{
-		"map":                MapStrategy,
-		"reduce":             ReduceStrategy,
-		"incremental_reduce": IncrementalReduceStrategy,
-		"global":             GlobalStrategy,
+	MethodAliasMap = map[string]*pps.Method{
+		"map":                MapMethod,
+		"reduce":             ReduceMethod,
+		"incremental_reduce": IncrementalMethod,
+		"global":             GlobalMethod,
 	}
 
 	ReservedRepoNames = map[string]bool{
@@ -50,10 +50,10 @@ var (
 	}
 )
 
-func NewJobInput(repoName string, commitID string, strategy *pps.Strategy) *pps.JobInput {
+func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
 	return &pps.JobInput{
-		Commit:   NewCommit(repoName, commitID),
-		Strategy: strategy,
+		Commit: NewCommit(repoName, commitID),
+		Method: method,
 	}
 }
 
@@ -61,10 +61,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
-func NewPipelineInput(repoName string, strategy *pps.Strategy) *pps.PipelineInput {
+func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
 	return &pps.PipelineInput{
-		Repo:     NewRepo(repoName),
-		Strategy: strategy,
+		Repo:   NewRepo(repoName),
+		Method: method,
 	}
 }
 

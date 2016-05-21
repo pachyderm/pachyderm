@@ -18,7 +18,7 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
-				Strategy: client.MapStrategy,
+				Method: client.MapMethod,
 			},
 		},
 		ParentJob: &ppsclient.Job{
@@ -38,8 +38,8 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 		Parallelism: 1,
 		Inputs: []*ppsclient.PipelineInput{
 			{
-				Repo:     &pfs.Repo{Name: "in_repo"},
-				Strategy: client.ReduceStrategy,
+				Repo:   &pfs.Repo{Name: "in_repo"},
+				Method: client.ReduceMethod,
 			},
 		},
 	}
@@ -53,7 +53,7 @@ func RunPipelineSpec() *ppsclient.CreateJobRequest {
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
-				Strategy: client.GlobalStrategy,
+				Method: client.GlobalMethod,
 			},
 		},
 		Parallelism: 3,
