@@ -2,7 +2,7 @@
 
 ## Format
 
-```json
+```
 {
   "pipeline": {
     "name": string
