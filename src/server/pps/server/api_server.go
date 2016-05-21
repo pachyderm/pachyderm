@@ -628,11 +628,11 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	commitMounts = append(commitMounts, outputCommitMount)
 
 	// If a job has a parent commit, we expose the parent commit
-	// to the job under /pfs/self
+	// to the job under /pfs/prev
 	if commitInfo.ParentCommit != nil {
 		commitMounts = append(commitMounts, &fuse.CommitMount{
 			Commit: commitInfo.ParentCommit,
-			Alias:  "self",
+			Alias:  "prev",
 		})
 	}
 

@@ -46,7 +46,7 @@ var (
 
 	ReservedRepoNames = map[string]bool{
 		"out":  true,
-		"self": true,
+		"prev": true,
 	}
 )
 
