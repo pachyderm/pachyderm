@@ -182,14 +182,14 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
-	/*
-		commitInfo, err := f.directory.fs.apiClient.InspectCommit(f.directory.File.Commit.Repo.Name, f.directory.File.Commit.ID)
-		if err != nil {
-			return err
-		}
-		if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
-	*/
-	if f.directory.Write {
+
+	commitInfo, err := f.directory.fs.apiClient.InspectCommit(f.directory.File.Commit.Repo.Name, f.directory.File.Commit.ID)
+	if err != nil {
+		return err
+	}
+	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+
+		//if f.directory.Write {
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
 		a.Size = 0
@@ -448,15 +448,15 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
 	var fileInfo *pfsclient.FileInfo
 	var err error
-	/*
-		commitInfo, err := d.fs.apiClient.InspectCommit(d.File.Commit.Repo.Name, d.File.Commit.ID)
-		if err != nil {
-			return nil, err
-		}
 
-		if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
-	*/
-	if d.Node.Write {
+	commitInfo, err := d.fs.apiClient.InspectCommit(d.File.Commit.Repo.Name, d.File.Commit.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
+
+		//	if d.Node.Write {
 		// Basically, if the directory is writable, we are looking up files
 		// from an open commit.  In this case, we want to return an empty file,
 		// because sometimes you want to remove a file but a remove operation
