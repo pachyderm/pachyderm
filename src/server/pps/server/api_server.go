@@ -99,9 +99,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// the invariant that inputs[i] matches parentInputs[i]
 	sort.Sort(JobInputs(request.Inputs))
 
-	// In case some inputs have not provided a strategy, we set the default
-	// strategy for them
-	setDefaultJobInputStrategy(request.Inputs)
+	// In case some inputs have not provided a method, we set the default
+	// method for them
+	setDefaultJobInputMethod(request.Inputs)
 
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
@@ -199,7 +199,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
-			if jobInput.Strategy.Incremental {
+			if jobInput.Method.Incremental {
 				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
@@ -378,7 +378,7 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 			listFileRequest.FromCommit = parentInputCommit
 		}
 
-		switch input.Strategy.Partition {
+		switch input.Method.Partition {
 		case ppsclient.Partition_BLOCK:
 			listFileRequest.Shard.BlockNumber = uint64(i)
 			listFileRequest.Shard.BlockModulus = modulus
@@ -387,7 +387,7 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 			listFileRequest.Shard.FileModulus = modulus
 		case ppsclient.Partition_REPO:
 		default:
-			return false, fmt.Errorf("unrecognized partition strategy; this is likely a bug")
+			return false, fmt.Errorf("unrecognized partition method; this is likely a bug")
 		}
 
 		fileInfos, err := pfsClient.ListFile(ctx, listFileRequest)
@@ -551,7 +551,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
-			if jobInput.Strategy.Incremental {
+			if jobInput.Method.Incremental {
 				// input isn't being reduced, do it incrementally
 				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
@@ -577,7 +577,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			commitMount.FromCommit = parentJobCommit
 		}
 
-		switch jobInput.Strategy.Partition {
+		switch jobInput.Method.Partition {
 		case ppsclient.Partition_BLOCK:
 			commitMount.Shard = &pfsclient.Shard{
 				BlockNumber:  filterNumbers[i],
@@ -592,7 +592,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// empty shard matches everything
 			commitMount.Shard = &pfsclient.Shard{}
 		default:
-			return nil, fmt.Errorf("unrecognized partition strategy: %v; this is likely a bug", jobInput.Strategy.Partition)
+			return nil, fmt.Errorf("unrecognized partition method: %v; this is likely a bug", jobInput.Method.Partition)
 		}
 
 		commitMounts = append(commitMounts, commitMount)
@@ -724,7 +724,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 
-	setDefaultPipelineInputStrategy(request.Inputs)
+	setDefaultPipelineInputMethod(request.Inputs)
 
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
@@ -758,22 +758,22 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	return google_protobuf.EmptyInstance, nil
 }
 
-// setDefaultPipelineInputStrategy sets strategy to the default for the inputs
-// that do not specify a strategy
-func setDefaultPipelineInputStrategy(inputs []*ppsclient.PipelineInput) {
+// setDefaultPipelineInputMethod sets method to the default for the inputs
+// that do not specify a method
+func setDefaultPipelineInputMethod(inputs []*ppsclient.PipelineInput) {
 	for _, input := range inputs {
-		if input.Strategy == nil {
-			input.Strategy = client.DefaultStrategy
+		if input.Method == nil {
+			input.Method = client.DefaultMethod
 		}
 	}
 }
 
-// setDefaultJobInputStrategy sets strategy to the default for the inputs
-// that do not specify a strategy
-func setDefaultJobInputStrategy(inputs []*ppsclient.JobInput) {
+// setDefaultJobInputMethod sets method to the default for the inputs
+// that do not specify a method
+func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 	for _, input := range inputs {
-		if input.Strategy == nil {
-			input.Strategy = client.DefaultStrategy
+		if input.Method == nil {
+			input.Method = client.DefaultMethod
 		}
 	}
 }
@@ -972,7 +972,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 		repoToLeaves[input.Repo.Name] = make(map[string]bool)
 		repoToInput[input.Repo.Name] = input
 		inputRepos = append(inputRepos, &pfsclient.Repo{Name: input.Repo.Name})
-		repoIsIncremental[input.Repo.Name] = input.Strategy.Incremental
+		repoIsIncremental[input.Repo.Name] = input.Method.Incremental
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -1040,8 +1040,8 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 				var inputs []*ppsclient.JobInput
 				for _, commit := range append(commitSet, commitInfo.Commit) {
 					inputs = append(inputs, &ppsclient.JobInput{
-						Commit:   commit,
-						Strategy: repoToInput[commit.Repo.Name].Strategy,
+						Commit: commit,
+						Method: repoToInput[commit.Repo.Name].Method,
 					})
 				}
 				if _, err = a.CreateJob(

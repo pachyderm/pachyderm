@@ -64,8 +64,8 @@ func testJob(t *testing.T, shards int) {
 		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
 		uint64(shards),
 		[]*ppsclient.JobInput{{
-			Commit:   commit,
-			Strategy: client.ReduceStrategy,
+			Commit: commit,
+			Method: client.ReduceMethod,
 		}},
 		"",
 	)
@@ -129,12 +129,12 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 		uint64(shards),
 		[]*ppsclient.JobInput{
 			{
-				Commit:   commits[0],
-				Strategy: client.ReduceStrategy,
+				Commit: commits[0],
+				Method: client.ReduceMethod,
 			},
 			{
-				Commit:   commits[1],
-				Strategy: client.ReduceStrategy,
+				Commit: commits[1],
+				Method: client.ReduceMethod,
 			},
 		},
 		"",
@@ -458,8 +458,8 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 		3,
 		[]*ppsclient.PipelineInput{{
 			Repo: &pfsclient.Repo{Name: dataRepo},
-			// Use reduce strategy so only one pod gets the file
-			Strategy: client.ReduceStrategy,
+			// Use reduce method so only one pod gets the file
+			Method: client.ReduceMethod,
 		}},
 	))
 	// Do first commit to repo
@@ -811,7 +811,6 @@ func TestRemoveAndAppend(t *testing.T) {
 }
 
 func TestWorkload(t *testing.T) {
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -976,12 +975,12 @@ done
 		4,
 		[]*ppsclient.PipelineInput{
 			{
-				Repo:     &pfsclient.Repo{Name: inputRepo1},
-				Strategy: client.IncrementalReduceStrategy,
+				Repo:   &pfsclient.Repo{Name: inputRepo1},
+				Method: client.IncrementalReduceMethod,
 			},
 			{
-				Repo:     &pfsclient.Repo{Name: inputRepo2},
-				Strategy: client.IncrementalReduceStrategy,
+				Repo:   &pfsclient.Repo{Name: inputRepo2},
+				Method: client.IncrementalReduceMethod,
 			},
 		},
 	))
@@ -1077,7 +1076,7 @@ done
 	}
 }
 
-func TestPipelineWithGlobalStrategy(t *testing.T) {
+func TestPipelineWithGlobalMethod(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1103,8 +1102,8 @@ echo $numfiles > /pfs/out/file
 		uint64(parallelism),
 		[]*ppsclient.PipelineInput{
 			{
-				Repo:     &pfsclient.Repo{Name: globalRepo},
-				Strategy: client.GlobalStrategy,
+				Repo:   &pfsclient.Repo{Name: globalRepo},
+				Method: client.GlobalMethod,
 			},
 		},
 	))
@@ -1145,7 +1144,7 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
-func TestPipelineWithPrevRepoAndIncrementalReduceStrategy(t *testing.T) {
+func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1169,8 +1168,8 @@ fi
 		1,
 		[]*ppsclient.PipelineInput{
 			{
-				Repo:     &pfsclient.Repo{Name: repo},
-				Strategy: client.IncrementalReduceStrategy,
+				Repo:   &pfsclient.Repo{Name: repo},
+				Method: client.IncrementalReduceMethod,
 			},
 		},
 	))
