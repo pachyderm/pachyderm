@@ -40,7 +40,7 @@ var (
 	MethodAliasMap = map[string]*pps.Method{
 		"map":                MapMethod,
 		"reduce":             ReduceMethod,
-		"incremental_reduce": IncrementalMethod,
+		"incremental_reduce": IncrementalReduceMethod,
 		"global":             GlobalMethod,
 	}
 
