@@ -40,7 +40,8 @@ var (
 )
 
 var (
-	ErrEmptyInput = errors.New("job was not started due to empty input")
+	ErrEmptyInput           = errors.New("job was not started due to empty input")
+	ErrParentInputsMismatch = errors.New("job does not have the same set of inputs as its parent")
 )
 
 type apiServer struct {
@@ -63,6 +64,24 @@ type apiServer struct {
 	versionLock sync.RWMutex
 }
 
+// JobInputs implements sort.Interface so job inputs can be sorted
+// We sort job inputs based on repo names
+type JobInputs []*ppsclient.JobInput
+
+func (inputs JobInputs) Len() int {
+	return len(inputs)
+}
+
+func (inputs JobInputs) Less(i, j int) bool {
+	return inputs[i].Commit.Repo.Name < inputs[j].Commit.Repo.Name
+}
+
+func (inputs JobInputs) Swap(i, j int) {
+	x := inputs[i]
+	inputs[i] = inputs[j]
+	inputs[j] = x
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
@@ -75,6 +94,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if err != nil {
 		return nil, err
 	}
+
+	// We need to sort job inputs because the following code depends on
+	// the invariant that inputs[i] matches parentInputs[i]
+	sort.Sort(JobInputs(request.Inputs))
+
+	// In case some inputs have not provided a method, we set the default
+	// method for them
+	setDefaultJobInputMethod(request.Inputs)
 
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
@@ -115,6 +142,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if err != nil {
 			return nil, err
 		}
+
+		// Check that the parent job has the same set of inputs as the current job
+		if len(parentJobInfo.Inputs) != len(request.Inputs) {
+			return nil, ErrParentInputsMismatch
+		}
+
+		for i, input := range request.Inputs {
+			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
+				return nil, ErrParentInputsMismatch
+			}
+		}
 	}
 
 	pfsAPIClient, err := a.getPfsClient()
@@ -123,6 +161,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	jobID := getJobID(request)
+	_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: &ppsclient.Job{jobID},
+	})
+	if err == nil {
+		// the job already exists. we simply return
+		return &ppsclient.Job{jobID}, nil
+	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
@@ -159,28 +204,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	// If parent is set...
-	if parentJobInfo != nil {
-		reduce := false
-		for _, jobInput := range request.Inputs {
-			if jobInput.Reduce {
-				reduce = true
-			}
-		}
-		// ...and if the job is not a reduce job, the parent's output commit
-		// should be this commit's parent.
-		// Otherwise this commit should have no parent.
-		if !reduce {
-			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-		}
-	}
-
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
-		for _, jobInput := range parentJobInfo.Inputs {
-			if !jobInput.Reduce {
+		if len(request.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
+		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		for i, jobInput := range request.Inputs {
+			if jobInput.Method.Incremental {
 				// input isn't being reduced, do it incrementally
-				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
 	}
@@ -208,49 +241,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
-		var nonEmptyFilterShardNumbers []uint64
-		for i := 0; i < int(request.Parallelism); i++ {
-		CheckInputs:
-			for _, jobInput := range request.Inputs {
-				listFileRequest := &pfsclient.ListFileRequest{
-					File: &pfsclient.File{
-						Commit: jobInput.Commit,
-						Path:   "", // the root directory
-					},
-					FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-					Shard: &pfsclient.Shard{
-						FileModulus:  1,
-						BlockModulus: 1,
-					},
-					Recurse: true,
-				}
-				if jobInput.Reduce {
-					listFileRequest.Shard.FileNumber = uint64(i)
-					listFileRequest.Shard.FileModulus = request.Parallelism
-				} else {
-					listFileRequest.Shard.BlockNumber = uint64(i)
-					listFileRequest.Shard.BlockModulus = request.Parallelism
-				}
-				fileInfos, err := pfsAPIClient.ListFile(ctx, listFileRequest)
-				if err != nil {
-					return nil, err
-				}
-				for _, fileInfo := range fileInfos.FileInfo {
-					if fileInfo.SizeBytes > 0 {
-						nonEmptyFilterShardNumbers = append(nonEmptyFilterShardNumbers, uint64(i))
-						break CheckInputs
-					}
-				}
-			}
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
+		if err != nil {
+			return nil, err
 		}
 
-		if len(nonEmptyFilterShardNumbers) == 0 {
-			return nil, ErrEmptyInput
-		}
-
-		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShardNumbers))
-		persistJobInfo.NonEmptyFilterShardNumbers = nonEmptyFilterShardNumbers
-		persistJobInfo.ShardModulus = request.Parallelism
+		persistJobInfo.Parallelism = product(shardModuli)
+		persistJobInfo.ShardModuli = shardModuli
 	}
 
 	if a.kubeClient == nil {
@@ -258,15 +255,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil && !isConflictErr(err) {
+	if err != nil {
 		return nil, err
-	}
-
-	if err == nil {
-		// we only create a kube job if the job did not already exist
-		if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
-			return nil, err
-		}
 	}
 
 	defer func() {
@@ -280,19 +270,154 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
+	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
+		return nil, err
+	}
+
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
 }
 
-// isConflictErr returns true if the error is non-nil and the query failed
-// due to a duplicate primary key.
-func isConflictErr(err error) bool {
-	if err == nil {
-		return false
+// shardModuli computes the modulus to use for each input.  In other words,
+// it computes how many shards each input repo should be partitioned into.
+//
+// The algorithm is as follows:
+// 1. Each input starts with a modulus of 1
+// 2. Double the modulus of the input that currently has the highest size/modulus
+// ratio, but only if doing so does not result in empty shards.  If it does, we
+// remove the input from further consideration.
+// 3. Repeat step 2, until the product of the moduli hits the given parallelism,
+// or until all inputs have been removed from consideration.
+func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInput, parallelism uint64, repoToFromCommit map[string]*pfsclient.Commit) ([]uint64, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
 	}
 
-	return strings.Contains(err.Error(), "Duplicate primary key")
+	var shardModuli []uint64
+	var inputSizes []uint64
+	for _, input := range inputs {
+		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+			Commit: input.Commit,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if commitInfo.SizeBytes == 0 {
+			return nil, ErrEmptyInput
+		}
+
+		inputSizes = append(inputSizes, commitInfo.SizeBytes)
+		shardModuli = append(shardModuli, 1)
+	}
+
+	limitHit := make(map[int]bool)
+	for {
+		max := float64(0)
+		modulusIndex := 0
+		// Find the modulus to double
+		// It should maximize the decrease in size per shard
+		for i, inputSize := range inputSizes {
+			if !limitHit[i] {
+				diff := float64(inputSize) / float64(shardModuli[i])
+				if diff > max {
+					max = diff
+					modulusIndex = i
+				}
+			}
+		}
+
+		b, err := a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
+		if err != nil {
+			return nil, err
+		}
+
+		if b {
+			shardModuli[modulusIndex] *= 2
+		} else {
+			limitHit[modulusIndex] = true
+		}
+
+		if product(shardModuli) >= parallelism || len(limitHit) == len(inputs) {
+			break
+		}
+	}
+
+	return shardModuli, nil
+}
+
+// product computes the product of a list of integers
+//
+// The algorithm, originally discovered at Pachyderm, is as follows:
+// 1. Set p to 1
+// 2. Set p to the product of itself and the first unprocessed number in the list
+// 3. Repeat step 2 until we run out of numbers
+// 4. Return p
+func product(numbers []uint64) uint64 {
+	p := uint64(1)
+	for _, n := range numbers {
+		p *= n
+	}
+	return p
+}
+
+// noEmptyShards computes if every shard will have some input data given an
+// input and a modulus number.
+//
+// TODO: it's very inefficient as of now, since it involves many calls to ListFile
+func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput, modulus uint64, repoToFromCommit map[string]*pfsclient.Commit) (bool, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return false, err
+	}
+
+	for i := 0; i < int(modulus); i++ {
+		listFileRequest := &pfsclient.ListFileRequest{
+			File: &pfsclient.File{
+				Commit: input.Commit,
+				Path:   "", // the root directory
+			},
+			Shard: &pfsclient.Shard{
+				FileModulus:  1,
+				BlockModulus: 1,
+			},
+			Recurse: true,
+		}
+		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
+		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
+			listFileRequest.FromCommit = parentInputCommit
+		}
+
+		switch input.Method.Partition {
+		case ppsclient.Partition_BLOCK:
+			listFileRequest.Shard.BlockNumber = uint64(i)
+			listFileRequest.Shard.BlockModulus = modulus
+		case ppsclient.Partition_FILE:
+			listFileRequest.Shard.FileNumber = uint64(i)
+			listFileRequest.Shard.FileModulus = modulus
+		case ppsclient.Partition_REPO:
+		default:
+			return false, fmt.Errorf("unrecognized partition method; this is likely a bug")
+		}
+
+		fileInfos, err := pfsClient.ListFile(ctx, listFileRequest)
+		if err != nil {
+			return false, err
+		}
+
+		var totalSize uint64
+		for _, fileInfo := range fileInfos.FileInfo {
+			totalSize += fileInfo.SizeBytes
+		}
+
+		if totalSize == 0 {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func getJobID(req *ppsclient.CreateJobRequest) string {
@@ -305,7 +430,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	if req.Pipeline != nil && len(req.Inputs) > 0 {
 		s := req.Pipeline.Name
 		for _, input := range req.Inputs {
-			s += "/" + input.Commit.ID
+			s += "/" + input.String()
 		}
 
 		hash := md5.Sum([]byte(s))
@@ -437,10 +562,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
-		for _, jobInput := range parentJobInfo.Inputs {
-			if !jobInput.Reduce {
+		for i, jobInput := range jobInfo.Inputs {
+			if jobInput.Method.Incremental {
 				// input isn't being reduced, do it incrementally
-				repoToParentJobCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
 	}
@@ -448,8 +573,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if jobInfo.OutputCommit == nil {
 		return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 	}
+
 	var commitMounts []*fuse.CommitMount
-	for _, jobInput := range jobInfo.Inputs {
+	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
+	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
 		}
@@ -461,19 +588,28 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// done incrementally, the other repos will be shown in full
 			commitMount.FromCommit = parentJobCommit
 		}
-		if jobInput.Reduce {
+
+		switch jobInput.Method.Partition {
+		case ppsclient.Partition_BLOCK:
 			commitMount.Shard = &pfsclient.Shard{
-				FileNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
-				FileModulus: jobInfo.ShardModulus,
+				BlockNumber:  filterNumbers[i],
+				BlockModulus: jobInfo.ShardModuli[i],
 			}
-		} else {
+		case ppsclient.Partition_FILE:
 			commitMount.Shard = &pfsclient.Shard{
-				BlockNumber:  jobInfo.NonEmptyFilterShardNumbers[jobInfo.PodsStarted-1],
-				BlockModulus: jobInfo.ShardModulus,
+				FileNumber:  filterNumbers[i],
+				FileModulus: jobInfo.ShardModuli[i],
 			}
+		case ppsclient.Partition_REPO:
+			// empty shard matches everything
+			commitMount.Shard = &pfsclient.Shard{}
+		default:
+			return nil, fmt.Errorf("unrecognized partition method: %v; this is likely a bug", jobInput.Method.Partition)
 		}
+
 		commitMounts = append(commitMounts, commitMount)
 	}
+
 	outputCommitMount := &fuse.CommitMount{
 		Commit: jobInfo.OutputCommit,
 		Alias:  "out",
@@ -496,15 +632,37 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
+
 	if commitInfo.ParentCommit != nil {
 		outputCommitMount.FromCommit = commitInfo.ParentCommit
 	}
 
 	commitMounts = append(commitMounts, outputCommitMount)
+
+	// If a job has a parent commit, we expose the parent commit
+	// to the job under /pfs/prev
+	if commitInfo.ParentCommit != nil {
+		commitMounts = append(commitMounts, &fuse.CommitMount{
+			Commit: commitInfo.ParentCommit,
+			Alias:  "prev",
+		})
+	}
+
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
 	}, nil
+}
+
+// filterNumber essentially computes a representation of the number N
+// as if the base for each digit is the corresponding number in the moduli array
+func filterNumber(n uint64, moduli []uint64) []uint64 {
+	res := make([]uint64, len(moduli), len(moduli))
+	for i := len(moduli) - 1; i >= 0; i-- {
+		res[i] = n % moduli[i]
+		n = n / moduli[i]
+	}
+	return res
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
@@ -578,9 +736,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 
+	setDefaultPipelineInputMethod(request.Inputs)
+
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
+
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
 		if _, err := pfsAPIClient.InspectRepo(ctx, &pfsclient.InspectRepoRequest{Repo: input.Repo}); err != nil {
@@ -616,6 +777,26 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
+}
+
+// setDefaultPipelineInputMethod sets method to the default for the inputs
+// that do not specify a method
+func setDefaultPipelineInputMethod(inputs []*ppsclient.PipelineInput) {
+	for _, input := range inputs {
+		if input.Method == nil {
+			input.Method = client.DefaultMethod
+		}
+	}
+}
+
+// setDefaultJobInputMethod sets method to the default for the inputs
+// that do not specify a method
+func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
+	for _, input := range inputs {
+		if input.Method == nil {
+			input.Method = client.DefaultMethod
+		}
+	}
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
@@ -786,19 +967,24 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	a.cancelFuncsLock.Lock()
-	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
-		// The pipeline is already being run
-		a.cancelFuncsLock.Unlock()
-		return nil
-	}
-	if len(pipelineInfo.Inputs) == 0 {
-		// this pipeline does not have inputs; there is nothing to be done
-		return nil
-	}
+	returnNil := func() bool {
+		a.cancelFuncsLock.Lock()
+		defer a.cancelFuncsLock.Unlock()
+		if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
+			// The pipeline is already being run
+			return true
+		}
+		if len(pipelineInfo.Inputs) == 0 {
+			// this pipeline does not have inputs; there is nothing to be done
+			return true
+		}
 
-	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
-	a.cancelFuncsLock.Unlock()
+		a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
+		return false
+	}()
+	if returnNil {
+		return nil
+	}
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
 	if err != nil {
@@ -860,16 +1046,16 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 				if len(commitSet)+1 < len(rawInputRepos) {
 					continue
 				}
-				var parentJob *ppsclient.Job
-				if commitInfo.ParentCommit != nil {
-					parentJob, err = a.parentJob(ctx, append(commitSet, commitInfo.ParentCommit), pipelineInfo)
-					if err != nil {
-						return err
-					}
-				}
 				trueInputs, err := a.trueInputs(ctx, append(commitSet, commitInfo.Commit), pipelineInfo)
 				if err != nil {
 					return err
+				}
+				var parentJob *ppsclient.Job
+				if commitInfo.ParentCommit != nil {
+					parentJob, err = a.parentJob(ctx, trueInputs, commitSet, commitInfo.ParentCommit, pipelineInfo)
+					if err != nil {
+						return err
+					}
 				}
 				if _, err = a.CreateJob(
 					ctx,
@@ -890,22 +1076,31 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 
 func (a *apiServer) parentJob(
 	ctx context.Context,
-	rawInputs []*pfsclient.Commit,
+	trueInputs []*ppsclient.JobInput,
+	oldRawInputCommits []*pfsclient.Commit,
+	newRawInputCommitParent *pfsclient.Commit,
 	pipelineInfo *ppsclient.PipelineInfo,
 ) (*ppsclient.Job, error) {
-	trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
+	parentTrueInputs, err := a.trueInputs(ctx, append(oldRawInputCommits, newRawInputCommitParent), pipelineInfo)
 	if err != nil {
 		return nil, err
 	}
-	var trueInputCommits []*pfsclient.Commit
-	for _, input := range trueInputs {
-		trueInputCommits = append(trueInputCommits, input.Commit)
+	parental, err := inputsAreParental(trueInputs, parentTrueInputs)
+	if err != nil {
+		return nil, err
+	}
+	if !parental {
+		return nil, nil
+	}
+	var parentTrueInputCommits []*pfsclient.Commit
+	for _, input := range parentTrueInputs {
+		parentTrueInputCommits = append(parentTrueInputCommits, input.Commit)
 	}
 	jobInfo, err := a.ListJob(
 		ctx,
 		&ppsclient.ListJobRequest{
 			Pipeline:    pipelineInfo.Pipeline,
-			InputCommit: trueInputCommits,
+			InputCommit: parentTrueInputCommits,
 		})
 	if err != nil {
 		return nil, err
@@ -914,6 +1109,26 @@ func (a *apiServer) parentJob(
 		return nil, nil
 	}
 	return jobInfo.JobInfo[0].Job, nil
+}
+
+// inputsAreParental returns true if a job run from oldTrueInputs can be used
+// as a parent for one run from newTrueInputs
+func inputsAreParental(
+	trueInputs []*ppsclient.JobInput,
+	parentTrueInputs []*ppsclient.JobInput,
+) (bool, error) {
+	if len(trueInputs) != len(parentTrueInputs) {
+		return false, fmt.Errorf("true inputs have different lengths (this is likely a bug)")
+	}
+	sort.Sort(JobInputs(trueInputs))
+	sort.Sort(JobInputs(parentTrueInputs))
+	for i, trueInput := range trueInputs {
+		parentTrueInput := parentTrueInputs[i]
+		if trueInput.Commit.ID != parentTrueInput.Commit.ID && !trueInput.Method.Incremental {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // rawInputs tracks provenance for a pipeline back to its raw sources of
@@ -976,7 +1191,7 @@ func (a *apiServer) trueInputs(
 			result = append(result,
 				&ppsclient.JobInput{
 					Commit: commit,
-					Reduce: pipelineInput.Reduce,
+					Method: pipelineInput.Method,
 				})
 		}
 	}
@@ -1002,7 +1217,7 @@ func (a *apiServer) trueInputs(
 			result = append(result,
 				&ppsclient.JobInput{
 					Commit: commitInfo.Commit,
-					Reduce: pipelineInput.Reduce,
+					Method: pipelineInput.Method,
 				})
 		}
 	}
@@ -1058,6 +1273,10 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 	}, nil
 }
 
+func RepoNameToEnvString(repoName string) string {
+	return strings.ToUpper(repoName)
+}
+
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobID
 	parallelism := int(jobInfo.Parallelism)
@@ -1065,6 +1284,25 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
 	}
+
+	var jobEnv []api.EnvVar
+	jobEnv = append(
+		jobEnv,
+		api.EnvVar{
+			Name:  "PACH_OUTPUT_COMMIT_ID",
+			Value: jobInfo.OutputCommit.ID,
+		},
+	)
+	for _, input := range jobInfo.Inputs {
+		jobEnv = append(
+			jobEnv,
+			api.EnvVar{
+				Name:  fmt.Sprintf("PACH_%v_COMMIT_ID", RepoNameToEnvString(input.Commit.Repo.Name)),
+				Value: input.Commit.ID,
+			},
+		)
+	}
+
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -1095,6 +1333,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Env:             jobEnv,
 						},
 					},
 					RestartPolicy: "OnFailure",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -58,6 +59,16 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
+func validateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+
+	if !match {
+		return fmt.Errorf("Repo name (%v) invalid. Only alphanumeric and underscore characters allowed.", name)
+	}
+
+	return nil
+}
+
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	provenance []*pfs.Repo, shards map[uint64]bool) error {
 	d.lock.Lock()
@@ -65,6 +76,10 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	if _, ok := d.diffs[repo.Name]; ok {
 		return fmt.Errorf("repo %s exists", repo.Name)
 	}
+	if err := validateRepoName(repo.Name); err != nil {
+		return err
+	}
+
 	d.createRepoState(repo)
 
 	blockClient, err := d.getBlockClient()
@@ -450,18 +465,18 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
-	addDirs(diffInfo, file)
+	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
-		if diffInfo.ParentCommit != nil {
-			_append.LastRef = d.lastRef(
-				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
-				shard,
-			)
-		}
-		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	if diffInfo.ParentCommit != nil {
+		_append.LastRef = d.lastRef(
+			client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
+			shard,
+		)
+	}
+	diffInfo.Appends[path.Clean(file.Path)] = _append
 	if handle == "" {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	} else {
@@ -509,22 +524,22 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
-	addDirs(diffInfo, file)
+	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = &pfs.Append{}
-		if diffInfo.ParentCommit != nil {
-			_append.LastRef = d.lastRef(
-				client.NewFile(
-					diffInfo.ParentCommit.Repo.Name,
-					diffInfo.ParentCommit.ID,
-					file.Path,
-				),
-				shard,
-			)
-		}
-		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
+	if diffInfo.ParentCommit != nil {
+		_append.LastRef = d.lastRef(
+			client.NewFile(
+				diffInfo.ParentCommit.Repo.Name,
+				diffInfo.ParentCommit.ID,
+				file.Path,
+			),
+			shard,
+		)
+	}
+	diffInfo.Appends[path.Clean(file.Path)] = _append
 	// The fact that this is a directory is signified by setting Children
 	// to non-nil
 	_append.Children = make(map[string]bool)
@@ -633,7 +648,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 	}
 	diffInfo.Appends[cleanPath].Delete = true
-	deleteFromDir(diffInfo, file)
+	d.deleteFromDir(diffInfo, file, shard)
 
 	return nil
 }
@@ -943,19 +958,22 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 
 					if !children[child] && !deletedChildren[child] {
-						fileInfo.Children = append(
-							fileInfo.Children,
-							client.NewFile(commit.Repo.Name, commit.ID, child),
-						)
-						if recurse {
-							childFileInfo, _, err := d.inspectFile(&pfs.File{
-								Commit: file.Commit,
-								Path:   child,
-							}, filterShard, shard, from, recurse, unsafe)
-							if err != nil {
-								return nil, nil, err
+						childFile := client.NewFile(commit.Repo.Name, commit.ID, child)
+						if pfsserver.FileInShard(filterShard, childFile) {
+							fileInfo.Children = append(
+								fileInfo.Children,
+								client.NewFile(commit.Repo.Name, commit.ID, child),
+							)
+							if recurse {
+								childFileInfo, _, err := d.inspectFile(&pfs.File{
+									Commit: file.Commit,
+									Path:   child,
+								}, filterShard, shard, from, recurse, unsafe)
+								if err != nil {
+									return nil, nil, err
+								}
+								fileInfo.SizeBytes += childFileInfo.SizeBytes
 							}
-							fileInfo.SizeBytes += childFileInfo.SizeBytes
 						}
 					}
 					children[child] = true
@@ -1072,7 +1090,7 @@ func updateDAG(diffInfo *pfs.DiffInfo, dag *dag.DAG) {
 	}
 }
 
-func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func (d *driver) addDirs(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 	for {
@@ -1085,6 +1103,12 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 			_append.Children = make(map[string]bool)
 		}
 		_append.Children[childPath] = true
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, dirPath),
+				shard,
+			)
+		}
 		if dirPath == "." {
 			break
 		}
@@ -1093,7 +1117,7 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	}
 }
 
-func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func (d *driver) deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 
@@ -1111,6 +1135,12 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	// so we don't want to remove the file from the directory.
 	if !_append.Children[childPath] {
 		_append.Children[childPath] = false
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, dirPath),
+				shard,
+			)
+		}
 	}
 }
 

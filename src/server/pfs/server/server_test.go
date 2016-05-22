@@ -81,6 +81,16 @@ func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	require.YesError(t, client.CreateRepo("/repo"))
+
+	require.NoError(t, client.CreateRepo("lenny"))
+	require.NoError(t, client.CreateRepo("lenny123"))
+	require.NoError(t, client.CreateRepo("lenny_123"))
+
+	require.YesError(t, client.CreateRepo("lenny-123"))
+	require.YesError(t, client.CreateRepo("lenny.123"))
+	require.YesError(t, client.CreateRepo("lenny:"))
+	require.YesError(t, client.CreateRepo("lenny,"))
+	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
 func TestSimple(t *testing.T) {
@@ -476,6 +486,44 @@ func TestPutFile(t *testing.T) {
 	var buffer2 bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer2))
 	require.Equal(t, "bar\n", buffer2.String())
+}
+
+func TestListFileTwoCommits(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	numFiles := 5
+
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, commit2.ID, fmt.Sprintf("file2-%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+
+	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2*numFiles, len(fileInfos))
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
@@ -1265,6 +1313,45 @@ func TestFlush(t *testing.T) {
 		[]*pfsclient.Repo{pclient.NewRepo("C")},
 	)
 	require.YesError(t, err)
+}
+
+func TestShardingInTopLevel(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	folders := 4
+	filesPerFolder := 10
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < folders; i++ {
+		for j := 0; j < filesPerFolder; j++ {
+			_, err = client.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	totalFiles := 0
+	for i := 0; i < folders; i++ {
+		shard := &pfsclient.Shard{
+			FileNumber:  uint64(i),
+			FileModulus: uint64(folders),
+		}
+		for j := 0; j < folders; j++ {
+			// You should either see all files in the folder (if the folder
+			// matches the shard), or no files in the folder (if the folder
+			// does not match the shard).
+			fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", shard, false)
+			require.NoError(t, err)
+			require.EqualOneOf(t, []interface{}{filesPerFolder, 0}, len(fileInfos))
+			totalFiles += len(fileInfos)
+		}
+	}
+	require.Equal(t, folders*filesPerFolder, totalFiles)
 }
 
 func generateRandomString(n int) string {

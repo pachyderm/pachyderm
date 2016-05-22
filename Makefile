@@ -22,6 +22,15 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm.json
 
+
+ifndef TRAVIS_BUILD_NUMBER
+	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
+	TIMEOUT = 100s
+else
+	# Locally ... it can take almost this much time to complete
+	TIMEOUT = 500s
+endif
+
 all: build
 
 version:
@@ -104,10 +113,11 @@ kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
+	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
-	# if we can call the list repo, that means that the cluster is ready to serve
-	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: launch-kube launch
 
@@ -125,7 +135,7 @@ clean-pps-storage:
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 500s
+	CGOENABLED=0 go test -v ./src/server -timeout $(TIMEOUT)
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
