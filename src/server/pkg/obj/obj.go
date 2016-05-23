@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -38,8 +39,17 @@ func NewAmazonClient(bucket string, id string, secret string, token string,
 
 func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	config := backoff.NewExponentialBackOff()
+	// We want to backoff more aggressively (i.e. wait longer) than the default
+	config.InitialInterval = 1 * time.Second
+	config.Multiplier = 2
 	config.MaxElapsedTime = 5 * time.Minute
 	return config
+}
+
+type RetryError struct {
+	err               error
+	timeTillNextRetry time.Duration
+	bytesProcessed    int
 }
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
@@ -57,7 +67,7 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	err := backoff.Retry(func() error {
+	err := backoff.RetryNotify(func() error {
 		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
 			bytesRead += n
 			if bytesRead == len(data) {
@@ -66,7 +76,13 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig)
+	}, b.backoffConfig, func(err error, d time.Duration) {
+		protolion.Debugf("%v", RetryError{
+			err:               err,
+			timeTillNextRetry: d,
+			bytesProcessed:    bytesRead,
+		})
+	})
 	return bytesRead, err
 }
 
@@ -89,7 +105,7 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
-	err := backoff.Retry(func() error {
+	err := backoff.RetryNotify(func() error {
 		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
 			bytesWritten += n
 			if bytesWritten == len(data) {
@@ -98,7 +114,13 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig)
+	}, b.backoffConfig, func(err error, d time.Duration) {
+		protolion.Debugf("%v", RetryError{
+			err:               err,
+			timeTillNextRetry: d,
+			bytesProcessed:    bytesWritten,
+		})
+	})
 	return bytesWritten, err
 }
 
