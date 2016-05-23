@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -182,27 +183,21 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
-
-	commitInfo, err := f.directory.fs.apiClient.InspectCommit(f.directory.File.Commit.Repo.Name, f.directory.File.Commit.ID)
-	if err != nil {
-		return err
-	}
-	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
-
-		//if f.directory.Write {
+	fileInfo, err := f.fs.apiClient.InspectFile(
+		f.File.Commit.Repo.Name,
+		f.File.Commit.ID,
+		f.File.Path,
+		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
+		f.Shard,
+	)
+	fmt.Printf("err? (%v), fileinfo? (%v)\n", err, fileInfo)
+	fmt.Printf("FNF err? (%v)\n", err == pfsserver.ErrFileNotFound)
+	if fileInfo != nil && fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
 		a.Size = 0
-
 	} else {
-		fileInfo, err := f.fs.apiClient.InspectFile(
-			f.File.Commit.Repo.Name,
-			f.File.Commit.ID,
-			f.File.Path,
-			f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-			f.Shard,
-		)
-		if err != nil && !f.local {
+		if err != nil && !f.local && err != pfsserver.ErrFileNotFound {
 			return err
 		}
 		if fileInfo != nil {
