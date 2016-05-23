@@ -281,7 +281,7 @@ func TestInspectRepoComplex(t *testing.T) {
 
 	require.Equal(t, int(info.SizeBytes), totalSize)
 
-	infos, err := client.ListRepo()
+	infos, err := client.ListRepo(nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(infos))
 	info = infos[0]
@@ -302,7 +302,7 @@ func TestListRepo(t *testing.T) {
 	}
 
 	test := func() {
-		repoInfos, err := client.ListRepo()
+		repoInfos, err := client.ListRepo(nil)
 		require.NoError(t, err)
 
 		for i, repoInfo := range repoInfos {
@@ -341,7 +341,7 @@ func TestDeleteRepo(t *testing.T) {
 		}
 	}
 
-	repoInfos, err := client.ListRepo()
+	repoInfos, err := client.ListRepo(nil)
 	require.NoError(t, err)
 
 	for _, repoInfo := range repoInfos {

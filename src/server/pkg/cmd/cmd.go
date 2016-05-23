@@ -68,3 +68,25 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 
 	return commits, nil
 }
+
+type RepeatedStringArg []string
+
+func (r *RepeatedStringArg) String() string {
+	result := "["
+	for i, s := range *r {
+		if i != 0 {
+			result += ", "
+		}
+		result += s
+	}
+	return result + "]"
+}
+
+func (r *RepeatedStringArg) Set(s string) error {
+	*r = append(*r, s)
+	return nil
+}
+
+func (r *RepeatedStringArg) Type() string {
+	return "[]string"
+}
