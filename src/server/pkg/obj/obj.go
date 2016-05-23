@@ -67,7 +67,7 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	err := backoff.Retry(func() error {
+	err := backoff.RetryNotify(func() error {
 		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
 			bytesRead += n
 			if bytesRead == len(data) {
@@ -78,7 +78,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
 		protolion.Debugf("%v", RetryError{
-			err:               e,
+			err:               err,
 			timeTillNextRetry: d,
 			bytesProcessed:    bytesRead,
 		})
@@ -116,7 +116,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
 		protolion.Debugf("%v", RetryError{
-			err:               e,
+			err:               err,
 			timeTillNextRetry: d,
 			bytesProcessed:    bytesWritten,
 		})
