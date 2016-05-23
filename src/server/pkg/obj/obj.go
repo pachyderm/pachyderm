@@ -77,7 +77,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Debugf("%v", RetryError{
+		protolion.Infof("%v", RetryError{
 			err:               err,
 			timeTillNextRetry: d,
 			bytesProcessed:    bytesRead,
@@ -115,7 +115,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Debugf("%v", RetryError{
+		protolion.Infof("%v", RetryError{
 			err:               err,
 			timeTillNextRetry: d,
 			bytesProcessed:    bytesWritten,
