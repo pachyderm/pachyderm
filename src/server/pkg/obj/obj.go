@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -42,6 +43,12 @@ func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	return config
 }
 
+type RetryError struct {
+	err               error
+	timeTillNextRetry time.Duration
+	bytesProcessed    int
+}
+
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
 	reader        io.ReadCloser
@@ -66,7 +73,13 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig)
+	}, b.backoffConfig, func(err error, d time.Duration) {
+		protolion.Debugf("%v", RetryError{
+			err:               e,
+			timeTillNextRetry: d,
+			bytesProcessed:    bytesRead,
+		})
+	})
 	return bytesRead, err
 }
 
@@ -89,7 +102,7 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
-	err := backoff.Retry(func() error {
+	err := backoff.RetryNotify(func() error {
 		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
 			bytesWritten += n
 			if bytesWritten == len(data) {
@@ -98,7 +111,13 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig)
+	}, b.backoffConfig, func(err error, d time.Duration) {
+		protolion.Debugf("%v", RetryError{
+			err:               e,
+			timeTillNextRetry: d,
+			bytesProcessed:    bytesWritten,
+		})
+	})
 	return bytesWritten, err
 }
 
