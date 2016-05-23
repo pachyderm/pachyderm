@@ -36,6 +36,7 @@ message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
+  repeated Repo provenance = 4;
 }
 
 message RepoInfos {
@@ -58,6 +59,7 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 6;
   uint64 size_bytes = 7;
   bool cancelled = 8;
+  repeated Commit provenance = 9;
 }
 
 message CommitInfos {
@@ -125,6 +127,7 @@ message DiffInfo {
   map<string, Append> appends = 6;
   uint64 size_bytes = 7;
   bool cancelled = 8;
+  repeated Commit provenance = 9;
 }
 
 message Shard {
@@ -137,6 +140,7 @@ message Shard {
 message CreateRepoRequest {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
+  repeated Repo provenance = 3;
 }
 
 message InspectRepoRequest {
@@ -144,6 +148,7 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
+    repeated Repo provenance = 1;
 }
 
 message DeleteRepoRequest {
@@ -156,6 +161,7 @@ message StartCommitRequest {
   string parent_id = 3;
   string branch = 4;
   google.protobuf.Timestamp started = 5;
+  repeated Commit provenance = 6;
 }
 
 message FinishCommitRequest {
@@ -172,8 +178,9 @@ message ListCommitRequest {
   repeated Repo repo = 1;
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
-  bool all = 4;
-  bool block = 5;
+  repeated Commit provenance = 4;
+  bool all = 5;
+  bool block = 6;
 }
 
 message ListBranchRequest {
@@ -182,6 +189,11 @@ message ListBranchRequest {
 
 message DeleteCommitRequest {
   Commit commit = 1;
+}
+
+message FlushCommitRequest {
+  repeated Commit commit = 1;
+  repeated Repo to_repo = 2;
 }
 
 message GetFileRequest {
@@ -242,6 +254,8 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // FlushCommit waits for downstream commits to finish
+  rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
@@ -281,6 +295,8 @@ service InternalAPI {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // FlushCommit waits for downstream commits to finish
+  rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
