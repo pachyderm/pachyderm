@@ -823,6 +823,15 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if err != nil {
 		return nil, nil, err
 	}
+
+	shards := make(map[uint64]bool)
+	shards[shard] = true
+	commitInfo, err := d.inspectCommit(commit, shards)
+	if err != nil {
+		return nil, nil, err
+	}
+	fileInfo.CommitType = commitInfo.CommitType
+
 	fmt.Printf("Looping for commits for this file\n")
 	for commit != nil && (from == nil || commit.ID != from.ID) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
@@ -840,8 +849,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 
 			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					return nil, nil,
-						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+					return nil, nil, fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 					// the first time we find out it's a regular file we check
@@ -867,8 +875,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				// have an Append with an empty children just to signify that
 				// this is a directory.
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-					return nil, nil,
-						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+					return nil, nil, fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
 				for child, add := range _append.Children {
@@ -911,7 +918,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		fmt.Printf("XXX FILE TYPE NONE AFTER LOOPING\n")
-		return nil, nil, pfsserver.ErrFileNotFound
+		//		return nil, nil, pfsserver.ErrFileNotFound
+		return fileInfo, nil, pfsserver.ErrFileNotFound
+
 	}
 	return fileInfo, blockRefs, nil
 }
