@@ -75,10 +75,16 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 }
 
 // ListRepo returns info about all Repos.
-func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
+// provenance may be used to return only repos with a set of repos as provenance
+// it may also be left nil to return all repos
+func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
+	request := &pfs.ListRepoRequest{}
+	for _, repoName := range provenance {
+		request.Provenance = append(request.Provenance, NewRepo(repoName))
+	}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
 		context.Background(),
-		&pfs.ListRepoRequest{},
+		request,
 	)
 	if err != nil {
 		return nil, err

@@ -85,16 +85,17 @@ Repos are created with create-repo.`,
 		}),
 	}
 
+	var listRepoProvenance cmd.RepeatedStringArg
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			c, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			repoInfos, err := client.ListRepo()
+			repoInfos, err := c.ListRepo(listRepoProvenance)
 			if err != nil {
 				return err
 			}
@@ -106,6 +107,7 @@ Repos are created with create-repo.`,
 			return writer.Flush()
 		}),
 	}
+	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 
 	deleteRepo := &cobra.Command{
 		Use:   "delete-repo repo-name",
