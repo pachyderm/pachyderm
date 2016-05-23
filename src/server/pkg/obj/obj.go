@@ -39,6 +39,9 @@ func NewAmazonClient(bucket string, id string, secret string, token string,
 
 func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	config := backoff.NewExponentialBackOff()
+	// We want to backoff more aggressively (i.e. wait longer) than the default
+	config.InitialInterval = 1 * time.Second
+	config.Multiplier = 2
 	config.MaxElapsedTime = 5 * time.Minute
 	return config
 }
