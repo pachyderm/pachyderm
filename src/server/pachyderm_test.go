@@ -1283,8 +1283,9 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		cPipeline,
 		"",
-		[]string{"cp", path.Join("/pfs", bPipeline, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"sh"},
+		[]string{fmt.Sprintf("diff %s %s >/pfs/out/file",
+			path.Join("/pfs", aRepo, "file"), path.Join("/pfs", bPipeline, "file"))},
 		1,
 		[]*ppsclient.PipelineInput{
 			{Repo: client.NewRepo(aRepo)},
@@ -1297,15 +1298,16 @@ func TestProvenance(t *testing.T) {
 	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
-	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit1.ID)}, nil)
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
 
 	commit2, err := c.StartCommit(aRepo, "", "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
-	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit2.ID)}, nil)
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit2.ID)}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
@@ -1313,6 +1315,12 @@ func TestProvenance(t *testing.T) {
 	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
+	for _, commitInfo := range commitInfos {
+		// C takes the diff of 2 files that should always be the same, so we
+		// expect no output and thus no file
+		_, err := c.InspectFile(cPipeline, commitInfo.Commit.ID, "file", "", nil)
+		require.YesError(t, err)
+	}
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
