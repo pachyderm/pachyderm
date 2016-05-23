@@ -188,7 +188,14 @@ func TestDuplicatedJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipelineName := uniqueString("TestDuplicatedJob_pipeline")
-	require.NoError(t, c.CreateRepo(pipelineName))
+	_, err = c.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       client.NewRepo(pipelineName),
+			Provenance: []*pfsclient.Repo{client.NewRepo(dataRepo)},
+		},
+	)
+	require.NoError(t, err)
 
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 	// Now we manually create the same job
@@ -1245,6 +1252,67 @@ func TestAssets(t *testing.T) {
 
 		require.Equal(t, doc, asset)
 	}
+}
+
+// TestProvenance creates a pipeline DAG that's not a transitive reduction
+// It looks like this:
+// A
+// | \
+// v  v
+// B-->C
+// When we commit to A we expect to see 1 commit on C rather than 2.
+func TestProvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo)}},
+	))
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", bPipeline, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{
+			{Repo: client.NewRepo(aRepo)},
+			{Repo: client.NewRepo(bPipeline)},
+		},
+	))
+	// commit to aRepo
+	commit1, err := c.StartCommit(aRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+
+	commit2, err := c.StartCommit(aRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit2.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	// There should only be 2 commits on cRepo
+	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
