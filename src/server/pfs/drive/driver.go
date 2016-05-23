@@ -758,7 +758,7 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 			result.SizeBytes += diffInfo.SizeBytes
 		}
 	}
-	provenance, err := d.repoProvenance(repo, shards)
+	provenance, err := d.fullRepoProvenance(repo, shards)
 	if err != nil {
 		return nil, err
 	}
@@ -766,7 +766,10 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	return result, nil
 }
 
-func (d *driver) recurseProvenance(commit *pfs.Commit, repoSet map[string]bool,
+// fullCommitProvenance recursively computes the provenance of the commit,
+// starting with the immediate provenance that was declared when the commit was
+// created, then our immediate provenance's immediate provenance etc.
+func (d *driver) fullCommitProvenance(commit *pfs.Commit, repoSet map[string]bool,
 	shards map[uint64]bool) ([]*pfs.Commit, error) {
 	shardToDiffInfo, ok := d.diffs[commit.Repo.Name]
 	if !ok {
@@ -786,7 +789,7 @@ func (d *driver) recurseProvenance(commit *pfs.Commit, repoSet map[string]bool,
 			if !repoSet[provCommit.Repo.Name] {
 				repoSet[provCommit.Repo.Name] = true
 				result = append(result, provCommit)
-				provCommits, err := d.recurseProvenance(provCommit, repoSet, shards)
+				provCommits, err := d.fullCommitProvenance(provCommit, repoSet, shards)
 				if err != nil {
 					return nil, err
 				}
@@ -798,8 +801,9 @@ func (d *driver) recurseProvenance(commit *pfs.Commit, repoSet map[string]bool,
 	return result, nil
 }
 
-func (d *driver) repoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Repo, error) {
-	provCommits, err := d.recurseProvenance(client.NewCommit(repo.Name, ""), make(map[string]bool), shards)
+// fullRepoProvenance recursively computes the provenance of a repo
+func (d *driver) fullRepoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Repo, error) {
+	provCommits, err := d.fullCommitProvenance(client.NewCommit(repo.Name, ""), make(map[string]bool), shards)
 	if err != nil {
 		return nil, err
 	}
@@ -811,7 +815,7 @@ func (d *driver) repoProvenance(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.
 }
 
 func (d *driver) commitProvenance(commit *pfs.Commit, shards map[uint64]bool) ([]*pfs.Commit, error) {
-	return d.recurseProvenance(commit, make(map[string]bool), shards)
+	return d.fullCommitProvenance(commit, make(map[string]bool), shards)
 }
 
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
