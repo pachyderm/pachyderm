@@ -15,6 +15,10 @@ Examples:
 	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
 	$ pachctl list-commit foo/abc123 bar/def456
 
+	# return commits in repo "foo" that have commits 
+	# "bar/abc123" and "baz/def456" as provenance
+	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
+
 
 
 ```
@@ -24,8 +28,9 @@ Examples:
 ### Options
 
 ```
-  -a, --all          list all commits including cancelled commits
-  -b, --block from   block until there are new commits since the from commits
+  -a, --all                 list all commits including cancelled commits
+  -b, --block               block until there are new commits since the from commits
+  -p, --provenance commit   list only commits with the specified commits provenance, commits are specified as RepoName/CommitID (default [])
 ```
 
 ### SEE ALSO
