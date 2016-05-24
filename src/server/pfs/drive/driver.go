@@ -5,7 +5,6 @@ import (
 	"io"
 	"path"
 	"regexp"
-	"runtime"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -539,13 +538,13 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
-	var result []*pfs.FileInfo
 	if err != nil {
 		return nil, err
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		return []*pfs.FileInfo{fileInfo}, nil
 	}
+	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
 		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe)
 		if err != nil && err != pfsserver.ErrFileNotFound {
@@ -571,6 +570,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 		return err
 	}
 	d.lock.RUnlock()
+
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		fileInfos, err := d.ListFile(file, nil, nil, shard, false, false)
 		if err != nil {
@@ -836,7 +836,8 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 
 			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					return nil, nil, fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+					return nil, nil,
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 					// the first time we find out it's a regular file we check
@@ -861,7 +862,8 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				// have an Append with an empty children just to signify that
 				// this is a directory.
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-					return nil, nil, fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+					return nil, nil,
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
 				for child, add := range _append.Children {

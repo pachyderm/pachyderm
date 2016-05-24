@@ -165,7 +165,6 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
 	}()
 	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
-
 }
 
 type file struct {
