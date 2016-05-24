@@ -164,12 +164,8 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 	defer func() {
 		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
 	}()
-	fmt.Printf("Removing file w remove request: %v\n", req)
-	fmt.Printf("Repo %v, Commit ID %v, path %v\n", d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
-	err := d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
-	fmt.Printf("Completed delete file request\n")
-	fmt.Printf("Err? %v\n", err)
-	return err
+	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
+
 }
 
 type file struct {
@@ -190,8 +186,6 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
 	)
-	fmt.Printf("err? (%v), fileinfo? (%v)\n", err, fileInfo)
-	fmt.Printf("FNF err? (%v)\n", err == pfsserver.ErrFileNotFound)
 	if fileInfo != nil && fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.

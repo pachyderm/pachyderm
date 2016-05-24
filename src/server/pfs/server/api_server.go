@@ -539,7 +539,6 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 
 	fileInfo, err := pfs.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
 	if err != nil {
-		//		return fileInfo, err
 		return nil, err
 	}
 
