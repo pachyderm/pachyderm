@@ -75,10 +75,17 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 }
 
 // ListRepo returns info about all Repos.
-func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
+// provenance specifies a set of provenance repos, only repos which have ALL of
+// the specified repos as provenance will be returned unless provenance is nil
+// in which case it is ignored.
+func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
+	request := &pfs.ListRepoRequest{}
+	for _, repoName := range provenance {
+		request.Provenance = append(request.Provenance, NewRepo(repoName))
+	}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
 		context.Background(),
-		&pfs.ListRepoRequest{},
+		request,
 	)
 	if err != nil {
 		return nil, err
@@ -181,8 +188,11 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
 // all, when set to true, will cause ListCommit to return cancelled commits as well.
+// provenance specifies a set of provenance commits, only commits which have
+// ALL of the specified commits as provenance will be returned unless
+// provenance is nil in which case it is ignored.
 func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, all bool) ([]*pfs.CommitInfo, error) {
+	commitType pfs.CommitType, block bool, all bool, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &pfs.Repo{Name: repoName})
@@ -201,6 +211,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 			FromCommit: fromCommits,
 			Block:      block,
 			All:        all,
+			Provenance: provenance,
 		},
 	)
 	if err != nil {
@@ -233,6 +244,31 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 		},
 	)
 	return err
+}
+
+// FlushCommit blocks until all of the commits which have a set of commits as
+// provenance have finished. For commits to be considered they must have all of
+// the specified commits as provenance. This in effect waits for all of the
+// jobs that are triggered by a set of commits to complete.
+// It returns an error if any of the commits it's waiting on are cancelled due
+// to one of the jobs encountering an error during runtime.
+// If toRepos is not nil then only the commits up to and including those repos
+// will be considered, otherwise all repos are considered.
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommit just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := c.PfsAPIClient.FlushCommit(
+		context.Background(),
+		&pfs.FlushCommitRequest{
+			Commit: commits,
+			ToRepo: toRepos,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return commitInfos.CommitInfo, nil
 }
 
 // PutBlock takes a reader and splits the data in it into blocks.

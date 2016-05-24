@@ -380,6 +380,47 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var commitInfos []*pfs.CommitInfo
+	errCh := make(chan error, 1)
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).FlushCommit(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
+		}(clientConn)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+	}
+	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
+}
+
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
 	var err error

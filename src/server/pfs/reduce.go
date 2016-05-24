@@ -16,6 +16,7 @@ func ReduceRepoInfos(repoInfos []*pfs.RepoInfo) []*pfs.RepoInfo {
 			continue
 		}
 		reducedRepoInfo.SizeBytes += repoInfo.SizeBytes
+		reducedRepoInfo.Provenance = repoInfo.Provenance
 	}
 	var result []*pfs.RepoInfo
 	for _, repoInfo := range reducedRepoInfos {
@@ -37,6 +38,7 @@ func ReduceCommitInfos(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
 			reducedCommitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
 		}
 		reducedCommitInfo.SizeBytes += commitInfo.SizeBytes
+		reducedCommitInfo.Provenance = commitInfo.Provenance
 	}
 	var result []*pfs.CommitInfo
 	for _, commitInfo := range reducedCommitInfos {
