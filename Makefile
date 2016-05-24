@@ -61,7 +61,10 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
+
+install-doc:
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
 homebrew: deps-client
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
@@ -183,7 +186,7 @@ test-local: deps-client
 
 clean: clean-launch clean-launch-kube
 
-doc: install
+doc: install-doc
 	# we rename to pachctl because the program name is used in generating docs
 	cp $(GOPATH)/bin/pachctl-doc ./pachctl
 	rm -rf doc/pachctl && mkdir doc/pachctl
