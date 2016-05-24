@@ -11,7 +11,7 @@ Create a new pipeline from a spec
 
 ## Format
 
-```json
+```
 {
   "pipeline": {
     "name": string

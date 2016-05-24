@@ -21,6 +21,7 @@ Envronment variables:
 * [./pachctl delete-repo](./pachctl_delete-repo.md)	 - Delete a repo.
 * [./pachctl file](./pachctl_file.md)	 - Docs for files.
 * [./pachctl finish-commit](./pachctl_finish-commit.md)	 - Finish a started commit.
+* [./pachctl flush-commit](./pachctl_flush-commit.md)	 - Wait for all commits caused by the specified commits to finish and return them.
 * [./pachctl get-file](./pachctl_get-file.md)	 - Return the contents of a file.
 * [./pachctl get-logs](./pachctl_get-logs.md)	 - Return logs from a job.
 * [./pachctl inspect-commit](./pachctl_inspect-commit.md)	 - Return info about a commit.

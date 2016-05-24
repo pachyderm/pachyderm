@@ -11,6 +11,12 @@ Reutrn all repos.
 ./pachctl list-repo
 ```
 
+### Options
+
+```
+  -p, --provenance value   list only repos with the specified repos provenance (default [])
+```
+
 ### SEE ALSO
 * [./pachctl](./pachctl.md)	 - 
 
