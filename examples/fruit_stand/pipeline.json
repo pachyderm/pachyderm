@@ -16,7 +16,8 @@
     {
       "repo": {
         "name": "data"
-      }
+      },
+      "method": "map"
     }
   ]
 }
@@ -39,7 +40,7 @@
       "repo": {
         "name": "filter"
       },
-	  "reduce": true
+	  "method": "reduce"
     }
   ]
 }
