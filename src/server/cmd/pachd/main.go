@@ -74,7 +74,7 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 
-		_, err = c.ListRepo()
+		_, err = c.ListRepo(nil)
 		if err != nil {
 			return err
 		}

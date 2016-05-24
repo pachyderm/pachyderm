@@ -85,16 +85,17 @@ Repos are created with create-repo.`,
 		}),
 	}
 
+	var listRepoProvenance cmd.RepeatedStringArg
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			c, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			repoInfos, err := client.ListRepo()
+			repoInfos, err := c.ListRepo(listRepoProvenance)
 			if err != nil {
 				return err
 			}
@@ -106,6 +107,7 @@ Repos are created with create-repo.`,
 			return writer.Flush()
 		}),
 	}
+	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 
 	deleteRepo := &cobra.Command{
 		Use:   "delete-repo repo-name",
@@ -208,6 +210,7 @@ This layers the data in the commit over the data in the parent.`,
 
 	var all bool
 	var block bool
+	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
 		Short: "Return all commits on a set of repos",
@@ -220,6 +223,10 @@ Examples:
 
 	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
 	$ pachctl list-commit foo/abc123 bar/def456
+
+	# return commits in repo "foo" that have commits 
+	# "bar/abc123" and "baz/def456" as provenance
+	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
@@ -235,12 +242,16 @@ Examples:
 				fromCommits = append(fromCommits, commit.ID)
 			}
 
-			_client, err := client.NewFromAddress(address)
+			c, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 
-			commitInfos, err := _client.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all)
+			provenance, err := cmd.ParseCommits(listCommitProvenance)
+			if err != nil {
+				return err
+			}
+			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all, provenance)
 			if err != nil {
 				return err
 			}
@@ -254,7 +265,55 @@ Examples:
 		}),
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled commits")
-	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the `from` commits")
+	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
+		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
+
+	var repos cmd.RepeatedStringArg
+	flushCommit := &cobra.Command{
+		Use:   "flush-commit commit [commit ...]",
+		Short: "Wait for all commits caused by the specified commits to finish and return them.",
+		Long: `Wait for all commits caused by the specified commits to finish and return them.
+
+Examples:
+
+	# return commits caused by foo/abc123 and bar/def456
+	$ pachctl flush-commit foo/abc123 bar/def456
+
+	# return commits caused by foo/abc123 leading to repos bar and baz
+	$ pachctl flush-commit foo/abc123 -r bar -r baz
+
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			commits, err := cmd.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			var toRepos []*pfsclient.Repo
+			for _, repoName := range repos {
+				toRepos = append(toRepos, client.NewRepo(repoName))
+			}
+
+			commitInfos, err := c.FlushCommit(commits, toRepos)
+			if err != nil {
+				return err
+			}
+
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitInfoHeader(writer)
+			for _, commitInfo := range commitInfos {
+				pretty.PrintCommitInfo(writer, commitInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
@@ -419,6 +478,7 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, flushCommit)
 	result = append(result, listBranch)
 	result = append(result, file)
 	result = append(result, putFile)

@@ -87,7 +87,7 @@ func docFaqMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/FAQ.md", size: 17557, mode: os.FileMode(436), modTime: time.Unix(1462397351, 0)}
+	info := bindataFileInfo{name: "doc/FAQ.md", size: 17557, mode: os.FileMode(420), modTime: time.Unix(1462407697, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -107,7 +107,7 @@ func docReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/README.md", size: 433, mode: os.FileMode(436), modTime: time.Unix(1463603749, 0)}
+	info := bindataFileInfo{name: "doc/README.md", size: 433, mode: os.FileMode(420), modTime: time.Unix(1464034627, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -127,7 +127,7 @@ func docMiscellaneousMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/miscellaneous.md", size: 2838, mode: os.FileMode(436), modTime: time.Unix(1462324503, 0)}
+	info := bindataFileInfo{name: "doc/miscellaneous.md", size: 2838, mode: os.FileMode(420), modTime: time.Unix(1462349939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -147,7 +147,7 @@ func docPipeline_specMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pipeline_spec.md", size: 3546, mode: os.FileMode(436), modTime: time.Unix(1463794836, 0)}
+	info := bindataFileInfo{name: "doc/pipeline_spec.md", size: 3546, mode: os.FileMode(420), modTime: time.Unix(1464034627, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -167,7 +167,7 @@ func docRelease_instructionsMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/release_instructions.md", size: 2354, mode: os.FileMode(436), modTime: time.Unix(1463012613, 0)}
+	info := bindataFileInfo{name: "doc/release_instructions.md", size: 2354, mode: os.FileMode(420), modTime: time.Unix(1463099241, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
