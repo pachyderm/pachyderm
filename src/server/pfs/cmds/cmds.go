@@ -269,6 +269,52 @@ Examples:
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 
+	var repos cmd.RepeatedStringArg
+	flushCommit := &cobra.Command{
+		Use:   "flush-commit commit [commit ...]",
+		Short: "Wait for all commits caused by the specified commits to finish and return them.",
+		Long: `Wait for all commits caused by the specified commits to finish and return them.
+
+Examples:
+
+	# return commits caused by foo/abc123 and bar/def456
+	$ pachctl flush-commit foo/abc123 bar/def456
+
+	# return commits caused by foo/abc123 leading to repos bar and baz
+	$ pachctl flush-commit foo/abc123 -r bar -r baz
+
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			commits, err := cmd.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			var toRepos []*pfsclient.Repo
+			for _, repoName := range repos {
+				toRepos = append(toRepos, client.NewRepo(repoName))
+			}
+
+			commitInfos, err := c.FlushCommit(commits, toRepos)
+			if err != nil {
+				return err
+			}
+
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitInfoHeader(writer)
+			for _, commitInfo := range commitInfos {
+				pretty.PrintCommitInfo(writer, commitInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
+
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
@@ -432,6 +478,7 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, flushCommit)
 	result = append(result, listBranch)
 	result = append(result, file)
 	result = append(result, putFile)
