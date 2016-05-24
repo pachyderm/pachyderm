@@ -161,12 +161,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	jobID := getJobID(request)
-	_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
-		Job: &ppsclient.Job{jobID},
-	})
-	if err == nil {
-		// the job already exists. we simply return
-		return &ppsclient.Job{jobID}, nil
+	if !request.Force {
+		_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+			Job: &ppsclient.Job{jobID},
+		})
+		if err == nil {
+			// the job already exists. we simply return
+			return &ppsclient.Job{jobID}, nil
+		}
 	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
@@ -427,7 +429,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	// hashing the pipeline name and input commits.  That way, two same jobs
 	// will have the sam job IDs, therefore won't be created in the database
 	// twice.
-	if req.Pipeline != nil && len(req.Inputs) > 0 {
+	if req.Pipeline != nil && len(req.Inputs) > 0 && !req.Force {
 		s := req.Pipeline.Name
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
