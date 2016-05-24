@@ -75,8 +75,9 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 }
 
 // ListRepo returns info about all Repos.
-// provenance may be used to return only repos with a set of repos as provenance
-// it may also be left nil to return all repos
+// provenance specifies a set of provenance repos, only repos which have ALL of
+// the specified repos as provenance will be returned unless provenance is nil
+// in which case it is ignored.
 func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 	request := &pfs.ListRepoRequest{}
 	for _, repoName := range provenance {
@@ -187,8 +188,11 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
 // all, when set to true, will cause ListCommit to return cancelled commits as well.
+// provenance specifies a set of provenance commits, only commits which have
+// ALL of the specified commits as provenance will be returned unless
+// provenance is nil in which case it is ignored.
 func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, all bool) ([]*pfs.CommitInfo, error) {
+	commitType pfs.CommitType, block bool, all bool, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &pfs.Repo{Name: repoName})
@@ -207,6 +211,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 			FromCommit: fromCommits,
 			Block:      block,
 			All:        all,
+			Provenance: provenance,
 		},
 	)
 	if err != nil {
