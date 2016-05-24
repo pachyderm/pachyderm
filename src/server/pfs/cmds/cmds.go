@@ -210,6 +210,7 @@ This layers the data in the commit over the data in the parent.`,
 
 	var all bool
 	var block bool
+	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
 		Short: "Return all commits on a set of repos",
@@ -222,6 +223,10 @@ Examples:
 
 	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
 	$ pachctl list-commit foo/abc123 bar/def456
+
+	# return commits in repo "foo" that have commits 
+	# "bar/abc123" and "baz/def456" as provenance
+	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
@@ -237,12 +242,16 @@ Examples:
 				fromCommits = append(fromCommits, commit.ID)
 			}
 
-			_client, err := client.NewFromAddress(address)
+			c, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
 
-			commitInfos, err := _client.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all)
+			provenance, err := cmd.ParseCommits(listCommitProvenance)
+			if err != nil {
+				return err
+			}
+			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all, provenance)
 			if err != nil {
 				return err
 			}
@@ -256,7 +265,9 @@ Examples:
 		}),
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled commits")
-	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the `from` commits")
+	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
+		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",

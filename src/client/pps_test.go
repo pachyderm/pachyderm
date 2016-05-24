@@ -51,6 +51,7 @@ func Example_pps() {
 		client.CommitTypeRead, // are readable
 		true,  // block until commits are available
 		false, // ignore cancelled commits
+		nil,   // have no provenance
 	)
 	if err != nil {
 		return // handle error
