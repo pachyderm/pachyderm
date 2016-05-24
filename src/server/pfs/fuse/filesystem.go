@@ -499,7 +499,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	var result []fuse.Dirent
 	if len(d.fs.CommitMounts) == 0 {
-		repoInfos, err := d.fs.apiClient.ListRepo()
+		repoInfos, err := d.fs.apiClient.ListRepo(nil)
 		if err != nil {
 			return nil, err
 		}
@@ -519,7 +519,8 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name}, nil, client.CommitTypeNone, false, false)
+	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
+		nil, client.CommitTypeNone, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
