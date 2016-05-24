@@ -104,7 +104,7 @@ func TestSimple(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -281,7 +281,7 @@ func TestInspectRepoComplex(t *testing.T) {
 
 	require.Equal(t, int(info.SizeBytes), totalSize)
 
-	infos, err := client.ListRepo()
+	infos, err := client.ListRepo(nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(infos))
 	info = infos[0]
@@ -302,7 +302,7 @@ func TestListRepo(t *testing.T) {
 	}
 
 	test := func() {
-		repoInfos, err := client.ListRepo()
+		repoInfos, err := client.ListRepo(nil)
 		require.NoError(t, err)
 
 		for i, repoInfo := range repoInfos {
@@ -341,7 +341,7 @@ func TestDeleteRepo(t *testing.T) {
 		}
 	}
 
-	repoInfos, err := client.ListRepo()
+	repoInfos, err := client.ListRepo(nil)
 	require.NoError(t, err)
 
 	for _, repoInfo := range repoInfos {
@@ -818,14 +818,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, false)
+		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, false, nil)
 		close(ch)
 	}()
 
@@ -853,10 +853,10 @@ func TestListCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, true)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, true, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)
@@ -1045,6 +1045,274 @@ func Test0Modulus(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
+}
+
+func TestProvenance(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	repoInfo, err := client.InspectRepo("B")
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("A")}, repoInfo.Provenance)
+	repoInfo, err = client.InspectRepo("C")
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("A")}, repoInfo.Provenance)
+	ACommit, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	BCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	commitInfo, err := client.InspectCommit("B", BCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Commit{ACommit}, commitInfo.Provenance)
+	CCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	commitInfo, err = client.InspectCommit("C", CCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, []*pfsclient.Commit{BCommit, ACommit}, commitInfo.Provenance)
+
+	// Test that we prevent provenant commits that aren't from provenant repos.
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.YesError(t, err)
+
+	// Test ListRepo using provenance filtering
+	repoInfos, err := client.PfsAPIClient.ListRepo(
+		context.Background(),
+		&pfsclient.ListRepoRequest{
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+		},
+	)
+	require.NoError(t, err)
+	var repos []*pfsclient.Repo
+	for _, repoInfo := range repoInfos.RepoInfo {
+		repos = append(repos, repoInfo.Repo)
+	}
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("C")}, repos)
+
+	// Test ListRepo using provenance filtering
+	repoInfos, err = client.PfsAPIClient.ListRepo(
+		context.Background(),
+		&pfsclient.ListRepoRequest{
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+		},
+	)
+	require.NoError(t, err)
+	repos = nil
+	for _, repoInfo := range repoInfos.RepoInfo {
+		repos = append(repos, repoInfo.Repo)
+	}
+	require.EqualOneOf(t, []interface{}{
+		[]*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("C")},
+		[]*pfsclient.Repo{pclient.NewRepo("C"), pclient.NewRepo("B")},
+	}, repos)
+
+	// Test ListCommit using provenance filtering
+	commitInfos, err := client.PfsAPIClient.ListCommit(
+		context.Background(),
+		&pfsclient.ListCommitRequest{
+			Repo:       []*pfsclient.Repo{pclient.NewRepo("C")},
+			Provenance: []*pfsclient.Commit{ACommit},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos.CommitInfo))
+	require.Equal(t, CCommit, commitInfos.CommitInfo[0].Commit)
+
+	// Negative test ListCommit using provenance filtering
+	commitInfos, err = client.PfsAPIClient.ListCommit(
+		context.Background(),
+		&pfsclient.ListCommitRequest{
+			Repo:       []*pfsclient.Repo{pclient.NewRepo("A")},
+			Provenance: []*pfsclient.Commit{BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos.CommitInfo))
+
+	// Test Blocking ListCommit using provenance filtering
+	ACommit2, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit2.ID))
+	commitInfosCh := make(chan *pfsclient.CommitInfos)
+	go func() {
+		commitInfos, err := client.PfsAPIClient.ListCommit(
+			context.Background(),
+			&pfsclient.ListCommitRequest{
+				Repo:       []*pfsclient.Repo{pclient.NewRepo("B")},
+				Provenance: []*pfsclient.Commit{ACommit2},
+				CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+				Block:      true,
+			},
+		)
+		require.NoError(t, err)
+		commitInfosCh <- commitInfos
+	}()
+	BCommit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Commit{ACommit2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit2.ID))
+	select {
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout waiting for commit")
+	case commitInfos := <-commitInfosCh:
+		require.Equal(t, 1, len(commitInfos.CommitInfo))
+		require.Equal(t, BCommit2, commitInfos.CommitInfo[0].Commit)
+	}
+	go func() {
+		commitInfos, err := client.PfsAPIClient.ListCommit(
+			context.Background(),
+			&pfsclient.ListCommitRequest{
+				Repo:       []*pfsclient.Repo{pclient.NewRepo("C")},
+				Provenance: []*pfsclient.Commit{ACommit2},
+				CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+				Block:      true,
+			},
+		)
+		require.NoError(t, err)
+		commitInfosCh <- commitInfos
+	}()
+	CCommit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo("C"),
+			Provenance: []*pfsclient.Commit{BCommit2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit2.ID))
+	select {
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout waiting for commit")
+	case commitInfos := <-commitInfosCh:
+		require.Equal(t, 1, len(commitInfos.CommitInfo))
+		require.Equal(t, CCommit2, commitInfos.CommitInfo[0].Commit)
+	}
+}
+
+func TestFlush(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("D"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	ACommit, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		BCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("B"),
+				Provenance: []*pfsclient.Commit{ACommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+		CCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("C"),
+				Provenance: []*pfsclient.Commit{BCommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("C", CCommit.ID))
+		DCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("D"),
+				Provenance: []*pfsclient.Commit{BCommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("D", DCommit.ID))
+	}()
+
+	// Flush ACommit
+	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	commitInfos, err = client.FlushCommit(
+		[]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)},
+		[]*pfsclient.Repo{pclient.NewRepo("C")},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	// Now test what happens if one of the commits gets cancelled
+	ACommit2, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit2.ID))
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		BCommit2, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("B"),
+				Provenance: []*pfsclient.Commit{ACommit2},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.CancelCommit("B", BCommit2.ID))
+	}()
+
+	// Flush ACommit2
+	_, err = client.FlushCommit(
+		[]*pfsclient.Commit{pclient.NewCommit("A", ACommit2.ID)},
+		[]*pfsclient.Repo{pclient.NewRepo("C")},
+	)
+	require.YesError(t, err)
 }
 
 func TestShardingInTopLevel(t *testing.T) {
