@@ -219,6 +219,11 @@ func TestDuplicatedJob(t *testing.T) {
 
 	require.Equal(t, job1, job2)
 
+	req.Force = true
+	job3, err := c.PpsAPIClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+	require.NotEqual(t, job1, job3)
+
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job1,
 		BlockState: true,
