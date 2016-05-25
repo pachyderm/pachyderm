@@ -332,6 +332,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				Pipeline: &ppsclient.Pipeline{
 					Name: args[0],
 				},
+				Force: true,
 			}
 
 			var specReader io.Reader
