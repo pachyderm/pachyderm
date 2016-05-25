@@ -3,7 +3,7 @@
     "name": "filter"
   },
   "transform": {
-    "image": "pachyderm/job-shim",
+    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
         "grep apple  /pfs/data/sales >/pfs/out/apple",
@@ -26,12 +26,19 @@
     "name": "sum"
   },
   "transform": {
-    "image": "pachyderm/job-shim",
+    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
-        "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
-        "cut -f 2 /pfs/filter/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
-        "cut -f 2 /pfs/filter/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+        "for fruit in apple orange banana; do",
+            "new_sum=`cat /pfs/filter/$fruit | awk '{s+=$2} END {print s}'`",
+            "if [ -d '/pfs/prev' ]; then",
+                "old_sum=`cat /pfs/prev/$fruit`",
+            "else",
+                "old_sum=0",
+            "fi",
+            "sum=$((new_sum + old_sum))",
+            "rm /pfs/out/$fruit && echo $sum > /pfs/out/$fruit",
+        "done"
     ]
   },
   "parallelism": "1",
@@ -40,7 +47,7 @@
       "repo": {
         "name": "filter"
       },
-	  "method": "reduce"
+      "method": "incremental_reduce"
     }
   ]
 }
