@@ -1238,6 +1238,62 @@ fi
 	require.Equal(t, "foo", lines[2])
 }
 
+func TestPipelineThatUseNonexistentInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	pipelineName := uniqueString("pipeline")
+	require.YesError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(``, repo)},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo: &pfsclient.Repo{Name: "nonexistent"},
+			},
+		},
+	))
+}
+
+func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(``, repo)},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo: &pfsclient.Repo{Name: repo},
+			},
+		},
+	))
+
+	// Shouldn't be able to delete the input repo because the pipeline
+	// is still running
+	require.YesError(t, c.DeleteRepo(repo))
+
+	// The correct flow to delete the input repo
+	require.NoError(t, c.DeletePipeline(pipelineName))
+	require.NoError(t, c.DeleteRepo(pipelineName))
+	require.NoError(t, c.DeleteRepo(repo))
+}
+
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
