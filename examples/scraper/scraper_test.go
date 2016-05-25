@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
@@ -22,5 +23,6 @@ func TestScraper(t *testing.T) {
 	require.NoError(t, putFileCmd.Run())
 	require.NoError(t, exec.Command("pachctl", "finish-commit", "urls", "master").Run())
 	require.NoError(t, exec.Command("pachctl", "create-pipeline", "-f", "scraper.json").Run())
+	time.Sleep(5 * time.Second)
 	require.NoError(t, exec.Command("pachctl", "flush-commit", "urls/master").Run())
 }
