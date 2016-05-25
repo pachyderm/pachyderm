@@ -23,8 +23,8 @@
       // this is only for advanced use cases; most of the time, one of the four
       // strategies above should suffice.
       "method": {
-        "partition": "block"/"file"/"repo",
-        "incrementality": bool
+        "partition": "BLOCK"/"FILE"/"REPO",
+        "incremental": bool
       }
     }
   ]
