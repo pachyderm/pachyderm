@@ -451,31 +451,18 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
+	fileInfo, err = d.fs.apiClient.InspectFile(
+		d.File.Commit.Repo.Name,
+		d.File.Commit.ID,
+		path.Join(d.File.Path, name),
+		d.fs.getFromCommitID(d.getRepoOrAliasName()),
+		d.Shard,
+	)
+	if err != nil {
+		return nil, fuse.ENOENT
+	}
 	if d.Node.Write {
-		// Basically, if the directory is writable, we are looking up files
-		// from an open commit.  In this case, we want to return an empty file,
-		// because sometimes you want to remove a file but a remove operation
-		// is usually proceeded with a lookup operation, and the remove operation
-		// would not be able to proceed if the lookup failed.  Therefore, we want
-		// the lookup to not fail, so we return an empty file.
-		fileInfo = &pfsclient.FileInfo{
-			File: &pfsclient.File{
-				Path: path.Join(d.File.Path, name),
-			},
-			FileType:  pfsclient.FileType_FILE_TYPE_REGULAR,
-			SizeBytes: 0,
-		}
-	} else {
-		fileInfo, err = d.fs.apiClient.InspectFile(
-			d.File.Commit.Repo.Name,
-			d.File.Commit.ID,
-			path.Join(d.File.Path, name),
-			d.fs.getFromCommitID(d.getRepoOrAliasName()),
-			d.Shard,
-		)
-		if err != nil {
-			return nil, fuse.ENOENT
-		}
+		fileInfo.SizeBytes = 0
 	}
 
 	// We want to inherit the metadata other than the path, which should be the
