@@ -85,6 +85,7 @@ message CreateJobRequest {
   uint64 parallelism = 3;
   repeated JobInput inputs = 4;
   Job parent_job = 5;
+  bool force = 6;
 }
 
 message InspectJobRequest {
