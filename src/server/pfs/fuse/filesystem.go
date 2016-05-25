@@ -185,10 +185,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
 	)
+	fmt.Printf("XXX In Attr() --- err (%v) fileInfo (%v)\n", err, fileInfo)
 	if fileInfo != nil && fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
 		// If the file is from an open commit, we just pretend that it's
 		// an empty file.
 		a.Size = 0
+		a.Valid = 0
 	} else {
 		if err != nil && !f.local && err != pfsserver.ErrFileNotFound {
 			return err
@@ -444,7 +446,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
 	)
-
+	fmt.Printf("XXX lookUpFile() -- err (%v) fileinfo (%v)\n", err, fileInfo)
 	if fileInfo != nil && fileInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_WRITE {
 		// Basically, if the directory is writable, we are looking up files
 		// from an open commit.  In this case, we want to return an empty file,

@@ -263,6 +263,7 @@ func TestWriteAndRead(t *testing.T) {
 			ioutil.WriteFile(filePath, []byte(greeting), 0644),
 			"WriteFile",
 		)
+		fmt.Printf("ZZZ GOING TO READ FILE\n")
 		_, err = ioutil.ReadFile(filePath)
 		// errors because the commit is unfinished
 		fmt.Printf("XXX Expect an error here (%v)\n", err)
