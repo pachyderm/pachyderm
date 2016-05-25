@@ -314,7 +314,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 	}
 
 	limitHit := make(map[int]bool)
-	for {
+	for product(shardModuli) < parallelism && len(limitHit) < len(inputs) {
 		max := float64(0)
 		modulusIndex := 0
 		// Find the modulus to double
@@ -338,10 +338,6 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			shardModuli[modulusIndex] *= 2
 		} else {
 			limitHit[modulusIndex] = true
-		}
-
-		if product(shardModuli) >= parallelism || len(limitHit) == len(inputs) {
-			break
 		}
 	}
 
