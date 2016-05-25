@@ -47,7 +47,7 @@
       "repo": {
         "name": "filter"
       },
-      "method": "incremental_reduce"
+	  "method": "reduce"
     }
   ]
 }
