@@ -212,7 +212,6 @@ func TestCommitFinishedReadDir(t *testing.T) {
 }
 
 func TestWriteAndRead(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -384,11 +383,27 @@ func TestMountCachingViaShell(t *testing.T) {
 	})
 }
 
+func TestCreateFileInDir(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+
+		fmt.Printf("running Mkdir")
+		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
+		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
 ) {
-	fmt.Printf("XXX NEW TEST\n")
 	// don't leave goroutines running
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -407,7 +422,6 @@ func testFuse(
 	defer func() {
 		_ = listener.Close()
 	}()
-	fmt.Printf("XXX creating servers\n")
 
 	// TODO try to share more of this setup code with various main
 	// functions
@@ -465,26 +479,19 @@ func testFuse(
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
-	fmt.Printf("XXX created clientConn\n")
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		fmt.Printf("XXX mounting\n")
 		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready))
 	}()
 
 	<-ready
-	fmt.Printf("XXX mounted\n")
 
 	defer func() {
-		fmt.Printf("XXX Trying to unmount\n")
 		_ = mounter.Unmount(mountpoint)
-		fmt.Printf("XXX Unmounted!\n")
 	}()
-	fmt.Printf("XXX running test callback\n")
 	test(client.APIClient{PfsAPIClient: apiClient}, mountpoint)
-	fmt.Printf("XXX ran test callback\n")
 }
