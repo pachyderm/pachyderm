@@ -79,6 +79,11 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
+	for _, provRepo := range provenance {
+		if _, err := d.inspectRepo(provRepo, shards); err != nil {
+			return nil
+		}
+	}
 
 	d.createRepoState(repo)
 
@@ -166,19 +171,39 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 }
 
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
+	// Make sure that this repo is not the provenance of any other repo
+	repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+	if err != nil {
+		return err
+	}
+
 	var diffInfos []*pfs.DiffInfo
-	d.lock.Lock()
-	if _, ok := d.diffs[repo.Name]; !ok {
-		d.lock.Unlock()
-		return pfsserver.ErrRepoNotFound
-	}
-	for shard := range shards {
-		for _, diffInfo := range d.diffs[repo.Name][shard] {
-			diffInfos = append(diffInfos, diffInfo)
+	err = func() error {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if _, ok := d.diffs[repo.Name]; !ok {
+			return pfsserver.ErrRepoNotFound
 		}
+		if len(repoInfos) > 0 {
+			var repoNames []string
+			for _, repoInfo := range repoInfos {
+				repoNames = append(repoNames, repoInfo.Repo.Name)
+			}
+			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
+		}
+
+		for shard := range shards {
+			for _, diffInfo := range d.diffs[repo.Name][shard] {
+				diffInfos = append(diffInfos, diffInfo)
+			}
+		}
+		delete(d.diffs, repo.Name)
+		return nil
+	}()
+	if err != nil {
+		return err
 	}
-	delete(d.diffs, repo.Name)
-	d.lock.Unlock()
+
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
@@ -737,6 +762,7 @@ func (d *driver) Dump() {
 	}
 }
 
+// inspectRepo assumes that the lock is being held
 func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
 	result := &pfs.RepoInfo{
 		Repo: repo,
