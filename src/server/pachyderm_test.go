@@ -1250,7 +1250,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{fmt.Sprintf(``, repo)},
+		[]string{""},
 		1,
 		[]*ppsclient.PipelineInput{
 			{
