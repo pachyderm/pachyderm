@@ -833,6 +833,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -842,8 +843,18 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, fmt.Errorf("Pipeline cannot be nil")
 	}
 
-	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
+	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
+	// the same IDs, since kubernetes jobs simply use these IDs as their names
+	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		Pipeline: request.Pipeline,
+	})
+	if err != nil {
 		return nil, err
+	}
+	for _, jobInfo := range jobInfos.JobInfo {
+		if err = a.kubeClient.Jobs(api.NamespaceDefault).Delete(jobInfo.JobID, nil); err != nil {
+			return nil, err
+		}
 	}
 
 	// The reason we need to do this, is that if we don't, then if the very same
@@ -854,6 +865,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	// jobs might have already being removed.
 	// Therefore, we delete the job infos.
 	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+
+	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
 
