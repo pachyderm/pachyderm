@@ -49,7 +49,7 @@ message PipelineInfo {
   google.protobuf.Timestamp created_at = 6;
   uint64 shard = 7;  // this is which shard the pipeline is assigned to
   pps.PipelineState state = 8;
-  string error = 9;
+  string recent_error = 9;
 }
 
 message PipelineInfoChange {
