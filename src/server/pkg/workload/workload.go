@@ -26,7 +26,7 @@ func RunWorkload(
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != ppsclient.JobState_JOB_STATE_SUCCESS {
+		if jobInfo.State != ppsclient.JobState_JOB_SUCCESS {
 			return fmt.Errorf("job %s failed", job.ID)
 		}
 	}
@@ -119,7 +119,7 @@ func (w *worker) work(c *client.APIClient) error {
 			if err != nil {
 				return err
 			}
-			if jobInfo.State != ppsclient.JobState_JOB_STATE_SUCCESS {
+			if jobInfo.State != ppsclient.JobState_JOB_SUCCESS {
 				return fmt.Errorf("job %s failed", job.ID)
 			}
 			w.jobs = append(w.jobs, job)
