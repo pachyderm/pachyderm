@@ -1384,52 +1384,6 @@ func TestProvenance(t *testing.T) {
 	}
 }
 
-func TestPipelineState(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c := getPachClient(t)
-	repo := uniqueString("data")
-	require.NoError(t, c.CreateRepo(repo))
-	pipeline := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
-		nil,
-		1,
-		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
-	))
-
-	time.Sleep(5 * time.Second) // wait for this pipeline to get picked up
-	pipelineInfo, err := c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, ppsclient.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
-
-	// Now we introduce an error to the pipeline by removing its output repo
-	// and starting a job
-	require.NoError(t, c.DeleteRepo(pipeline))
-	commit, err := c.StartCommit(repo, "", "")
-	require.NoError(t, err)
-	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
-
-	// So the state of the pipeline will alternate between running and
-	// restarting.  We just want to make sure that it has definitely restarted.
-	var states []interface{}
-	for i := 0; i < 10; i++ {
-		time.Sleep(1 * time.Second)
-		pipelineInfo, err = c.InspectPipeline(pipeline)
-		require.NoError(t, err)
-		states = append(states, pipelineInfo.State)
-
-	}
-	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
-}
-
 // TestRecreatingPipeline tracks #432
 func TestRecreatingPipeline(t *testing.T) {
 	if testing.Short() {
