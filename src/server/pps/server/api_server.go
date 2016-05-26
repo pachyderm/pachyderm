@@ -265,7 +265,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if retErr != nil {
 			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 				JobID: persistJobInfo.JobID,
-				State: ppsclient.JobState_JOB_STATE_FAILURE,
+				State: ppsclient.JobState_JOB_FAILURE,
 			}); err != nil {
 				protolion.Errorf("error from CreateJobState %s", err.Error())
 			}
@@ -681,6 +681,13 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
+		// If any pod failed, the job failed
+		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
+			JobID: request.Job.ID,
+			State: ppsclient.JobState_JOB_FAILURE,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
@@ -697,15 +704,18 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		}); err != nil {
 			return nil, err
 		}
+		// The reason why we need to inspect the commit is that the commit's
+		// parent might have been cancelled, which would automatically result
+		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: jobInfo.OutputCommit,
 		})
 		if err != nil {
 			return nil, err
 		}
-		jobState := ppsclient.JobState_JOB_STATE_SUCCESS
+		jobState := ppsclient.JobState_JOB_SUCCESS
 		if failed || commitInfo.Cancelled {
-			jobState = ppsclient.JobState_JOB_STATE_FAILURE
+			jobState = ppsclient.JobState_JOB_FAILURE
 		}
 		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
@@ -770,6 +780,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
+		State:        ppsclient.PipelineState_PIPELINE_STARTING,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -909,13 +920,31 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// cascading failures as other pps nodes might be depending
 					// on it.
 					b.MaxElapsedTime = 0
-					backoff.Retry(func() error {
+					err = backoff.RetryNotify(func() error {
 						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
-							protolion.Printf("error running pipeline: %v", err)
 							return err
 						}
 						return nil
-					}, b)
+					}, b, func(err error, d time.Duration) {
+						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineChange.Pipeline.PipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
+							RecentError:  err.Error(),
+						}); err != nil {
+							protolion.Errorf("error updating pipeline state: %v", err)
+						}
+					})
+					// At this point we stop retrying and update the pipeline state
+					// to FAILED
+					if err != nil {
+						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineChange.Pipeline.PipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_FAILED,
+							RecentError:  err.Error(),
+						}); err != nil {
+							protolion.Errorf("error updating pipeline state: %v", err)
+						}
+					}
 				}()
 			}
 		}
@@ -983,6 +1012,19 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	if returnNil {
 		return nil
 	}
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+	_, err = persistClient.UpdatePipelineState(ctx, &persist.UpdatePipelineStateRequest{
+		PipelineName: pipelineInfo.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
+	})
+	if err != nil {
+		return err
+	}
+
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
 	if err != nil {
