@@ -1384,6 +1384,64 @@ func TestProvenance(t *testing.T) {
 	}
 }
 
+func TestDirectory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel() //cleanup resources
+
+	job1, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: []string{"sh"},
+			Stdin: []string{
+				"mkdir /pfs/out/dir",
+				"echo foo > /pfs/out/dir/file",
+			},
+		},
+		Parallelism: 3,
+	})
+	require.NoError(t, err)
+	inspectJobRequest1 := &ppsclient.InspectJobRequest{
+		Job:        job1,
+		BlockState: true,
+	}
+	jobInfo1, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest1)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo1.State)
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "dir/file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+
+	job2, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: []string{"sh"},
+			Stdin: []string{
+				"echo bar > /pfs/out/dir/file",
+			},
+		},
+		Parallelism: 3,
+		ParentJob:   job1,
+	})
+	require.NoError(t, err)
+	inspectJobRequest2 := &ppsclient.InspectJobRequest{
+		Job:        job2,
+		BlockState: true,
+	}
+	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS, jobInfo2.State)
+
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "dir/file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)

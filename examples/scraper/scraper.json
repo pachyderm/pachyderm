@@ -1,0 +1,27 @@
+{
+  "pipeline": {
+    "name": "scrape"
+  },
+  "transform": {
+    "image": "fruit_stand",
+    "cmd": [ "wget",
+        "--recursive",
+        "--level", "1",
+         "--page-requisites",
+         "--adjust-extension",
+         "--convert-links",
+         "--timestamping",
+         "--directory-prefix",
+         "/pfs/out",
+         "--input-file", "/pfs/urls/urls"
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "urls"
+      }
+    }
+  ]
+}

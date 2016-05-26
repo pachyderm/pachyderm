@@ -372,6 +372,14 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
+	var canonicalProvenance []*pfs.Commit
+	for _, provCommit := range provenance {
+		canonicalCommit, err := d.canonicalCommit(provCommit)
+		if err != nil {
+			return nil, err
+		}
+		canonicalProvenance = append(canonicalProvenance, canonicalCommit)
+	}
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
@@ -403,7 +411,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 				if commitInfo.Cancelled && !all {
 					continue
 				}
-				if !MatchProvenance(provenance, commitInfo.Provenance) {
+				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
 					continue
 				}
 				if commitType != pfs.CommitType_COMMIT_TYPE_NONE &&
@@ -937,6 +945,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	for commit != nil && (from == nil || commit.ID != from.ID) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
+		if diffInfo.Cancelled {
+			return nil, nil, pfsserver.ErrFileNotFound
+		}
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
