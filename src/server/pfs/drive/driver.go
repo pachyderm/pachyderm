@@ -953,11 +953,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
 					}
 				} else {
-					handleBlockRefs, ok := _append.Handles[handle]
-					if !ok {
-						return nil, nil, fmt.Errorf("handle %s not found", handle)
+					if handleBlockRefs, ok := _append.Handles[handle]; ok {
+						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
 					}
-					filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
 				}
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
