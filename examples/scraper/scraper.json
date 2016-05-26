@@ -3,7 +3,6 @@
     "name": "scrape"
   },
   "transform": {
-    "image": "fruit_stand",
     "cmd": [ "wget",
         "--recursive",
         "--level", "1",
