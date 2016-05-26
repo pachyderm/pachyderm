@@ -51,7 +51,11 @@ func newFilesystem(
 
 func (f *filesystem) Root() (result fs.Node, retErr error) {
 	defer func() {
-		protolion.Debug(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		} else {
+			protolion.Error(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		}
 	}()
 	return &directory{
 		f,
@@ -72,7 +76,11 @@ type directory struct {
 
 func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
-		protolion.Debug(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		} else {
+			protolion.Error(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		}
 	}()
 
 	a.Valid = time.Nanosecond
@@ -88,7 +96,11 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
+		} else {
+			protolion.Error(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
+		}
 	}()
 	if d.File.Commit.Repo.Name == "" {
 		return d.lookUpRepo(ctx, name)
@@ -105,7 +117,11 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		for _, dirent := range result {
 			dirents = append(dirents, &Dirent{dirent.Inode, dirent.Name})
 		}
-		protolion.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
+		} else {
+			protolion.Error(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
+		}
 	}()
 	if d.File.Commit.Repo.Name == "" {
 		return d.readRepos(ctx)
@@ -124,7 +140,11 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (result fs.Node, _ fs.Handle, retErr error) {
 	defer func() {
-		protolion.Debug(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
+		} else {
+			protolion.Error(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
+		}
 	}()
 	if d.File.Commit.ID == "" {
 		return nil, 0, fuse.EPERM
@@ -143,7 +163,11 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
 	defer func() {
-		protolion.Debug(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
+		} else {
+			protolion.Error(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
+		}
 	}()
 	if d.File.Commit.ID == "" {
 		return nil, fuse.EPERM
@@ -158,7 +182,11 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 
 func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr error) {
 	defer func() {
-		protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&FileRemove{&d.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileRemove{&d.Node, errorToString(retErr)})
+		}
 	}()
 	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name, d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
 }
@@ -172,7 +200,11 @@ type file struct {
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
-		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		}
 	}()
 	if f.directory.Write {
 		// If the file is from an open commit, we just pretend that it's
@@ -201,7 +233,11 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
-		protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileOpen{&f.Node, errorToString(retErr)})
+		}
 	}()
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
 	return f.newHandle(), nil
@@ -255,7 +291,11 @@ type handle struct {
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
 	defer func() {
-		protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileRead{&h.f.Node, errorToString(retErr)})
+		}
 	}()
 	var buffer bytes.Buffer
 	if err := h.f.fs.apiClient.GetFile(
@@ -285,7 +325,11 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 
 func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
 	defer func() {
-		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
+		if retErr == nil {
+			protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileWrite{&h.f.Node, errorToString(retErr)})
+		}
 	}()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
