@@ -427,6 +427,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	// twice.
 	if req.Pipeline != nil && len(req.Inputs) > 0 && !req.Force {
 		s := req.Pipeline.Name
+		s += req.Transform.String()
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
 		}
@@ -844,6 +845,18 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
+
+	// The reason we need to do this, is that if we don't, then if the very same
+	// pipeline is recreated, we won't actually create new jobs due to the fact
+	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
+	// name + inputs.  So the jobs will already be in the database, resulting
+	// in no new jobs being created, even though the output of those existing
+	// jobs might have already being removed.
+	// Therefore, we delete the job infos.
+	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+
 	return google_protobuf.EmptyInstance, nil
 }
 
