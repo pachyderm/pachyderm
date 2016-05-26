@@ -67,9 +67,16 @@ message PipelineInput {
 }
 
 enum PipelineState {
+    // After this pipeline is created, but before it's picked up by any
+    // pachd node.
     PIPELINE_STARTING = 0;
+    // After this pipeline is picked up by a pachd node.  This is the normal
+    // state of a pipeline.
     PIPELINE_RUNNING = 1;
+    // After some error caused runPipeline to exit, but before the pipeline is
+    // re-run.  This is when the exponential backoff is in effect.
     PIPELINE_RESTARTING = 2;
+    // We have retried too many times and we have given up on this pipeline.
     PIPELINE_FAILED = 3;
 }
 
