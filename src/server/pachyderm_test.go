@@ -1385,7 +1385,7 @@ func TestProvenance(t *testing.T) {
 }
 
 // TestRecreatingPipeline tracks #432
-func TestRecreatingPipeline(t *testing.T) {
+func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1413,7 +1413,7 @@ func TestRecreatingPipeline(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			Repo:       []*pfsclient.Repo{pipeline},
+			Repo:       []*pfsclient.Repo{{pipeline}},
 			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 			Block:      true,
 		}
@@ -1426,13 +1426,13 @@ func TestRecreatingPipeline(t *testing.T) {
 		require.NoError(t, err)
 		outCommits := listCommitResponse.CommitInfo
 		require.Equal(t, 1, len(outCommits))
-	}
-	createPipelineAndRunJob()
 
-	// Now we remove and recreate the pipeline and its output repo.
-	// We expect a new job to be run, creating a new commit
-	require.NoError(t, c.DeleteRepo(pipeline))
-	require.NoError(t, c.DeletePipeline(pipeline))
+		require.NoError(t, c.DeleteRepo(pipeline))
+		require.NoError(t, c.DeletePipeline(pipeline))
+	}
+
+	// Do it twice.  We expect jobs to be created on both runs.
+	createPipelineAndRunJob()
 	createPipelineAndRunJob()
 }
 
