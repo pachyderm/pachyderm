@@ -990,6 +990,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
 		State:       persistPipelineInfo.State,
+		RecentError: persistPipelineInfo.RecentError,
 	}
 }
 
