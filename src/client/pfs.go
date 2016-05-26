@@ -382,15 +382,18 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 // fromCommitID lets you get only the data which was added after this Commit.
 // shard allows you to downsample the data, returning only a subset of the
 // blocks in the file. shard may be left nil in which case the entire file will be returned
-func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *pfs.Shard, writer io.Writer) error {
-	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, false, writer)
+func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64,
+	size int64, fromCommitID string, shard *pfs.Shard, writer io.Writer) error {
+	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, false, "", writer)
 }
 
-func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *pfs.Shard, writer io.Writer) error {
-	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, true, writer)
+func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, offset int64,
+	size int64, fromCommitID string, shard *pfs.Shard, handle string, writer io.Writer) error {
+	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, true, handle, writer)
 }
 
-func (c APIClient) getFile(repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *pfs.Shard, unsafe bool, writer io.Writer) error {
+func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
+	size int64, fromCommitID string, shard *pfs.Shard, unsafe bool, handle string, writer io.Writer) error {
 	if size == 0 {
 		size = math.MaxInt64
 	}
@@ -403,6 +406,7 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 			SizeBytes:   size,
 			FromCommit:  newFromCommit(repoName, fromCommitID),
 			Unsafe:      unsafe,
+			Handle:      handle,
 		},
 	)
 	if err != nil {
@@ -419,15 +423,18 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 // the data, returning info about only a subset of the blocks in the file.
 // shard may be left nil in which case info about the entire file will be
 // returned
-func (c APIClient) InspectFile(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard) (*pfs.FileInfo, error) {
-	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, false)
+func (c APIClient) InspectFile(repoName string, commitID string, path string,
+	fromCommitID string, shard *pfs.Shard) (*pfs.FileInfo, error) {
+	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, false, "")
 }
 
-func (c APIClient) InspectFileUnsafe(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard) (*pfs.FileInfo, error) {
-	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, true)
+func (c APIClient) InspectFileUnsafe(repoName string, commitID string, path string,
+	fromCommitID string, shard *pfs.Shard, handle string) (*pfs.FileInfo, error) {
+	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, true, handle)
 }
 
-func (c APIClient) inspectFile(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard, unsafe bool) (*pfs.FileInfo, error) {
+func (c APIClient) inspectFile(repoName string, commitID string, path string,
+	fromCommitID string, shard *pfs.Shard, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fileInfo, err := c.PfsAPIClient.InspectFile(
 		context.Background(),
 		&pfs.InspectFileRequest{
@@ -435,6 +442,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string, fr
 			Shard:      shard,
 			FromCommit: newFromCommit(repoName, fromCommitID),
 			Unsafe:     unsafe,
+			Handle:     handle,
 		},
 	)
 	if err != nil {
@@ -450,15 +458,20 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string, fr
 // in which case info about all the files and all the blocks in those files
 // will be returned.
 // recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
-func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, shard, recurse, false)
+func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string,
+	shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
+	return c.listFile(repoName, commitID, path, fromCommitID, shard, recurse, false, "")
 }
 
-func (c APIClient) ListFileUnsafe(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, shard, recurse, true)
+// ListFileUnsafe is identical to ListFile except that it will consider files in unfinished commits.
+// handle can be used to specify a specific set of dirty writes that you're interested in.
+func (c APIClient) ListFileUnsafe(repoName string, commitID string, path string, fromCommitID string,
+	shard *pfs.Shard, recurse bool, handle string) ([]*pfs.FileInfo, error) {
+	return c.listFile(repoName, commitID, path, fromCommitID, shard, recurse, true, handle)
 }
 
-func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string, shard *pfs.Shard, recurse bool, unsafe bool) ([]*pfs.FileInfo, error) {
+func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
+	shard *pfs.Shard, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		context.Background(),
 		&pfs.ListFileRequest{
@@ -467,6 +480,7 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 			FromCommit: newFromCommit(repoName, fromCommitID),
 			Recurse:    recurse,
 			Unsafe:     unsafe,
+			Handle:     handle,
 		},
 	)
 	if err != nil {

@@ -203,6 +203,7 @@ message GetFileRequest {
   Shard shard = 4;
   Commit from_commit = 5;
   bool unsafe = 6;
+  string handle = 7;
 }
 
 message PutFileRequest {
@@ -217,6 +218,7 @@ message InspectFileRequest {
   Shard shard = 2;
   Commit from_commit = 3;
   bool unsafe = 4;
+  string handle = 5;
 }
 
 message ListFileRequest {
@@ -225,6 +227,7 @@ message ListFileRequest {
   Commit from_commit = 3;
   bool recurse = 4;
   bool unsafe = 5;
+  string handle = 6;
 }
 
 message DeleteFileRequest {

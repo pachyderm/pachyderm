@@ -899,7 +899,7 @@ func TestUnsafeOperations(t *testing.T) {
 
 	// An unsafe read should
 	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, &buffer2))
+	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, "", &buffer2))
 	require.Equal(t, "foo", buffer2.String())
 
 	fileInfo, err := client.InspectFile(repo, "master", "foo", "", nil)
