@@ -116,7 +116,7 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 			context.Background(),
 			&persist.JobState{
 				JobID: jobID,
-				State: ppsclient.JobState_JOB_STATE_SUCCESS,
+				State: ppsclient.JobState_JOB_SUCCESS,
 			})
 		require.NoError(t, err)
 	}()
