@@ -272,10 +272,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if pipelineInfo == nil {
 				pkgcmd.ErrorAndExit("Pipeline %s not found.", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintPipelineHeader(writer)
-			pretty.PrintPipelineInfo(writer, pipelineInfo)
-			return writer.Flush()
+			pretty.PrintDetailedPipelineInfo(pipelineInfo)
+			return nil
 		}),
 	}
 
