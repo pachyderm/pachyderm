@@ -211,12 +211,13 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		// an empty file.
 		a.Size = 0
 	} else {
-		fileInfo, err := f.fs.apiClient.InspectFile(
+		fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
 			f.File.Commit.Repo.Name,
 			f.File.Commit.ID,
 			f.File.Path,
 			f.fs.getFromCommitID(f.getRepoOrAliasName()),
 			f.Shard,
+			f.fs.handleID,
 		)
 		if err != nil && !f.local {
 			return err
@@ -298,7 +299,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		}
 	}()
 	var buffer bytes.Buffer
-	if err := h.f.fs.apiClient.GetFile(
+	if err := h.f.fs.apiClient.GetFileUnsafe(
 		h.f.File.Commit.Repo.Name,
 		h.f.File.Commit.ID,
 		h.f.File.Path,
@@ -306,6 +307,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		int64(request.Size),
 		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
 		h.f.Shard,
+		h.f.fs.handleID,
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
@@ -495,12 +497,13 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	fileInfo, err = d.fs.apiClient.InspectFile(
+	fileInfo, err = d.fs.apiClient.InspectFileUnsafe(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
 		d.fs.getFromCommitID(d.getRepoOrAliasName()),
 		d.Shard,
+		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, fuse.ENOENT
@@ -563,7 +566,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := d.fs.apiClient.ListFile(
+	fileInfos, err := d.fs.apiClient.ListFileUnsafe(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		d.File.Path,
@@ -572,6 +575,7 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		// setting recurse to false for performance reasons
 		// it does however means that we won't know the correct sizes of directories
 		false,
+		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, err
