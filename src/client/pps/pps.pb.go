@@ -103,10 +103,17 @@ func (Partition) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []in
 type PipelineState int32
 
 const (
-	PipelineState_PIPELINE_STARTING   PipelineState = 0
-	PipelineState_PIPELINE_RUNNING    PipelineState = 1
+	// After this pipeline is created, but before it's picked up by any
+	// pachd node.
+	PipelineState_PIPELINE_STARTING PipelineState = 0
+	// After this pipeline is picked up by a pachd node.  This is the normal
+	// state of a pipeline.
+	PipelineState_PIPELINE_RUNNING PipelineState = 1
+	// After some error caused runPipeline to exit, but before the pipeline is
+	// re-run.  This is when the exponential backoff is in effect.
 	PipelineState_PIPELINE_RESTARTING PipelineState = 2
-	PipelineState_PIPELINE_FAILED     PipelineState = 3
+	// We have retried too many times and we have given up on this pipeline.
+	PipelineState_PIPELINE_FAILED PipelineState = 3
 )
 
 var PipelineState_name = map[int32]string{
