@@ -265,6 +265,15 @@ func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *ppsclient
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) DeleteJobInfosForPipeline(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	_, err = a.getTerm(jobInfosTable).GetAllByIndex(
+		pipelineNameIndex,
+		request.Name,
+	).Delete().RunWrite(a.session)
+	return google_protobuf.EmptyInstance, err
+}
+
 func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.updateMessage(jobInfosTable, request); err != nil {
