@@ -201,7 +201,7 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
 			if request.BlockState {
-				return jobInfo.Field("State").Ne(ppsclient.JobState_JOB_STATE_RUNNING)
+				return jobInfo.Field("State").Ne(ppsclient.JobState_JOB_RUNNING)
 			}
 			return gorethink.Expr(true)
 		},
@@ -285,6 +285,14 @@ func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist
 func (a *rethinkAPIServer) CreateJobState(ctx context.Context, request *persist.JobState) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.updateMessage(jobInfosTable, request); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *persist.UpdatePipelineStateRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
