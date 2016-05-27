@@ -530,6 +530,7 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient
+	sent          bool
 }
 
 func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, handle string) (*putFileWriteCloser, error) {
@@ -552,12 +553,21 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 	if err := w.putFileClient.Send(w.request); err != nil {
 		return 0, err
 	}
+	w.sent = true
+	w.request.Value = nil
 	// File is only needed on the first request
 	w.request.File = nil
 	return len(p), nil
 }
 
 func (w *putFileWriteCloser) Close() error {
+	// we always send at least one request, otherwise it's impossible to create
+	// an empty file
+	if !w.sent {
+		if err := w.putFileClient.Send(w.request); err != nil {
+			return err
+		}
+	}
 	_, err := w.putFileClient.CloseAndRecv()
 	return err
 }
