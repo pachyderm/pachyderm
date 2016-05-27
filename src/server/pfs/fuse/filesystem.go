@@ -156,6 +156,21 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 		local:     true,
 	}
+	// we perform an empty write to Create the file
+	// this will check if the file can't be created (for example if a directory is already there)
+	// it also makes sure later calls don't get file not found errors when they attempt to read
+	w, err := d.fs.apiClient.PutFileWriter(
+		directory.File.Commit.Repo.Name,
+		directory.File.Commit.ID,
+		directory.File.Path,
+		directory.fs.handleID,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := w.Close(); err != nil {
+		return nil, 0, err
+	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
 	handle := localResult.newHandle()
 	return localResult, handle, nil
