@@ -605,11 +605,11 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	return result, nil
 }
 
-func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
+func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.RLock()
 	// We don't want to be able to delete files that are only added in the current
 	// commit, which is why we set unsafe to false.
-	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, false, "")
+	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
 		return err
@@ -617,7 +617,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RUnlock()
 
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		fileInfos, err := d.ListFile(file, nil, nil, shard, false, false, "")
+		fileInfos, err := d.ListFile(file, nil, nil, shard, false, unsafe, handle)
 		if err != nil {
 			return err
 		}
@@ -626,16 +626,16 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 			// We are deleting the file from the current commit, not whatever
 			// commit they were last modified in
 			info.File.Commit = file.Commit
-			if err := d.DeleteFile(info.File, shard); err != nil {
+			if err := d.DeleteFile(info.File, shard, unsafe, handle); err != nil {
 				return err
 			}
 		}
 	}
 
-	return d.deleteFile(file, shard)
+	return d.deleteFile(file, shard, unsafe, handle)
 }
 
-func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
+func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
@@ -653,8 +653,17 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 	}
 
 	cleanPath := path.Clean(file.Path)
-	if _, ok := diffInfo.Appends[cleanPath]; !ok {
+	if _append, ok := diffInfo.Appends[cleanPath]; !ok {
+		// we have no append for this file, we create on so that we can set the
+		// Delete flag in it
 		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+	} else if unsafe {
+		// we have an append for this file and unsafe is true so we need to modify the append
+		if handle == "" {
+			diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+		} else {
+			delete(_append.Handles, handle)
+		}
 	}
 	diffInfo.Appends[cleanPath].Delete = true
 	d.deleteFromDir(diffInfo, file, shard)
