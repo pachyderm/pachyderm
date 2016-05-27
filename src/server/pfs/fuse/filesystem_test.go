@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -398,41 +397,6 @@ func TestCreateFileInDir(t *testing.T) {
 		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
-	})
-}
-
-func TestReadCancelledCommit(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
-	if testing.Short() {
-		t.Skip("Skipped because of short mode")
-	}
-
-	testFuse(t, func(c client.APIClient, mountpoint string) {
-		repoName := "foo"
-		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
-		require.NoError(t, err)
-		greeting := "Hello, world\n"
-		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
-
-		require.NoError(
-			t,
-			ioutil.WriteFile(filePath, []byte(greeting), 0644),
-			"WriteFile",
-		)
-
-		_, err = c.PfsAPIClient.FinishCommit(
-			context.Background(),
-			&pfsclient.FinishCommitRequest{
-				Commit: client.NewCommit(repoName, commit.ID),
-				Cancel: true,
-			},
-		)
-
-		require.NoError(t, err)
-
-		_, err = ioutil.ReadFile(filePath)
-		require.YesError(t, err, "ReadFile")
 	})
 }
 
