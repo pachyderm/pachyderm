@@ -1354,6 +1354,22 @@ func TestShardingInTopLevel(t *testing.T) {
 	require.Equal(t, folders*filesPerFolder, totalFiles)
 }
 
+func TestCreate(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	w, err := client.PutFileWriter(repo, commit.ID, "foo", "handle")
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	_, err = client.InspectFileUnsafe(repo, commit.ID, "foo", "", nil, "handle")
+	require.NoError(t, err)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
