@@ -1381,6 +1381,65 @@ func TestDirectory(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
 }
 
+func TestFailedJobReadData(t *testing.T) {
+	// We want to enable users to be able to read data from cancelled commits for debugging purposes`
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	shards := 0
+	c := getPachClient(t)
+	repo := uniqueString("TestJob_Foo")
+
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	fileContent := "foo\n"
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	err = c.FinishCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	job, err := c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo fubar > /pfs/out/file",
+			"exit 1",
+		},
+		uint64(shards),
+		[]*ppsclient.JobInput{
+			{
+				Commit: commit,
+				Method: client.ReduceMethod,
+			},
+		},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_FAILURE.String(), jobInfo.State.String())
+	require.True(t, jobInfo.Parallelism > 0)
+	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, true, commitInfo.Cancelled)
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "fubar", strings.TrimSpace(buffer.String()))
+
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
