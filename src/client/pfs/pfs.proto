@@ -232,6 +232,8 @@ message ListFileRequest {
 
 message DeleteFileRequest {
   File file = 1;
+  bool unsafe = 2;
+  string handle = 3;
 }
 
 service API {

@@ -494,11 +494,13 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 // to later attempting to get the file from the finished commit will result in
 // not found error.
 // The file will of course remain intact in the Commit's parent.
-func (c APIClient) DeleteFile(repoName string, commitID string, path string) error {
+func (c APIClient) DeleteFile(repoName string, commitID string, path string, unsafe bool, handle string) error {
 	_, err := c.PfsAPIClient.DeleteFile(
 		context.Background(),
 		&pfs.DeleteFileRequest{
-			File: NewFile(repoName, commitID, path),
+			File:   NewFile(repoName, commitID, path),
+			Unsafe: unsafe,
+			Handle: handle,
 		},
 	)
 	return err
