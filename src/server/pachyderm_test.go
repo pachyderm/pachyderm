@@ -1426,13 +1426,12 @@ func TestRecreatePipeline(t *testing.T) {
 		require.NoError(t, err)
 		outCommits := listCommitResponse.CommitInfo
 		require.Equal(t, 1, len(outCommits))
-
-		require.NoError(t, c.DeleteRepo(pipeline))
-		require.NoError(t, c.DeletePipeline(pipeline))
 	}
 
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipelineAndRunJob()
+	require.NoError(t, c.DeleteRepo(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline))
 	createPipelineAndRunJob()
 }
 
