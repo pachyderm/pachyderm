@@ -20,9 +20,9 @@ message Job {
 }
 
 enum JobState {
-    JOB_STATE_RUNNING = 0;
-    JOB_STATE_FAILURE = 1;
-    JOB_STATE_SUCCESS = 2;
+    JOB_RUNNING = 0;
+    JOB_FAILURE = 1;
+    JOB_SUCCESS = 2;
 }
 
 enum Partition {
@@ -66,6 +66,20 @@ message PipelineInput {
   Method method = 2;
 }
 
+enum PipelineState {
+    // After this pipeline is created, but before it's picked up by any
+    // pachd node.
+    PIPELINE_STARTING = 0;
+    // After this pipeline is picked up by a pachd node.  This is the normal
+    // state of a pipeline.
+    PIPELINE_RUNNING = 1;
+    // After some error caused runPipeline to exit, but before the pipeline is
+    // re-run.  This is when the exponential backoff is in effect.
+    PIPELINE_RESTARTING = 2;
+    // We have retried too many times and we have given up on this pipeline.
+    PIPELINE_FAILED = 3;
+}
+
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
@@ -73,6 +87,8 @@ message PipelineInfo {
   repeated PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
+  PipelineState state = 7;
+  string recent_error = 8;
 }
 
 message PipelineInfos {
