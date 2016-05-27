@@ -1384,6 +1384,56 @@ func TestProvenance(t *testing.T) {
 	}
 }
 
+// TestRecreatingPipeline tracks #432
+func TestRecreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipeline := uniqueString("pipeline")
+	createPipelineAndRunJob := func() {
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+		))
+
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+		listCommitRequest := &pfsclient.ListCommitRequest{
+			Repo:       []*pfsclient.Repo{{pipeline}},
+			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+			Block:      true,
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel()
+		listCommitResponse, err := c.PfsAPIClient.ListCommit(
+			ctx,
+			listCommitRequest,
+		)
+		require.NoError(t, err)
+		outCommits := listCommitResponse.CommitInfo
+		require.Equal(t, 1, len(outCommits))
+	}
+
+	// Do it twice.  We expect jobs to be created on both runs.
+	createPipelineAndRunJob()
+	require.NoError(t, c.DeleteRepo(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline))
+	createPipelineAndRunJob()
+}
+
 func TestPipelineState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
