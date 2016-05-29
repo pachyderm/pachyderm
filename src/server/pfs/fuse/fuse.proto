@@ -81,7 +81,8 @@ message FileAttr {
 
 message FileRead {
   Node file = 1;
-  string error = 2;
+  string data = 2;
+  string error = 3;
 }
 
 message FileOpen {
@@ -91,7 +92,8 @@ message FileOpen {
 
 message FileWrite {
   Node file = 1;
-  string error = 2;
+  string data = 2;
+  string error = 3;
 }
 
 message FileRemove {
