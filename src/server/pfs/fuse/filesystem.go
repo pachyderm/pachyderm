@@ -154,7 +154,6 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	localResult := &file{
 		directory: *directory,
 		size:      0,
-		local:     true,
 	}
 	// we perform an empty write to Create the file
 	// this will check if the file can't be created (for example if a directory is already there)
@@ -210,7 +209,6 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 type file struct {
 	directory
 	size    int64
-	local   bool
 	handles []*handle
 }
 
@@ -222,26 +220,20 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 			protolion.Error(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 		}
 	}()
-	if f.directory.Write {
-		// If the file is from an open commit, we just pretend that it's
-		// an empty file.
-		a.Size = 0
-	} else {
-		fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
-			f.File.Commit.Repo.Name,
-			f.File.Commit.ID,
-			f.File.Path,
-			f.fs.getFromCommitID(f.getRepoOrAliasName()),
-			f.Shard,
-			f.fs.handleID,
-		)
-		if err != nil && !f.local {
-			return err
-		}
-		if fileInfo != nil {
-			a.Size = fileInfo.SizeBytes
-			a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
-		}
+	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+		f.File.Commit.Repo.Name,
+		f.File.Commit.ID,
+		f.File.Path,
+		f.fs.getFromCommitID(f.getRepoOrAliasName()),
+		f.Shard,
+		f.fs.handleID,
+	)
+	if err != nil {
+		return err
+	}
+	if fileInfo != nil {
+		a.Size = fileInfo.SizeBytes
+		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
@@ -309,9 +301,9 @@ type handle struct {
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
 	defer func() {
 		if retErr == nil {
-			protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
+			protolion.Debug(&FileRead{&h.f.Node, string(response.Data), errorToString(retErr)})
 		} else {
-			protolion.Error(&FileRead{&h.f.Node, errorToString(retErr)})
+			protolion.Error(&FileRead{&h.f.Node, string(response.Data), errorToString(retErr)})
 		}
 	}()
 	var buffer bytes.Buffer
@@ -344,9 +336,9 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
 	defer func() {
 		if retErr == nil {
-			protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
+			protolion.Debug(&FileWrite{&h.f.Node, string(request.Data), errorToString(retErr)})
 		} else {
-			protolion.Error(&FileWrite{&h.f.Node, errorToString(retErr)})
+			protolion.Error(&FileWrite{&h.f.Node, string(request.Data), errorToString(retErr)})
 		}
 	}()
 	if h.w == nil {
@@ -537,7 +529,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		return &file{
 			directory: *directory,
 			size:      int64(fileInfo.SizeBytes),
-			local:     false,
 		}, nil
 	case pfsclient.FileType_FILE_TYPE_DIR:
 		return directory, nil
