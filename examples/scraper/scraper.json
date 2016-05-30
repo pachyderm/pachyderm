@@ -6,13 +6,14 @@
     "cmd": [ "wget",
         "--recursive",
         "--level", "1",
-         "--page-requisites",
-         "--adjust-extension",
-         "--convert-links",
-         "--timestamping",
-         "--directory-prefix",
-         "/pfs/out",
-         "--input-file", "/pfs/urls/urls"
+        "--accept", "html,jpg,jpeg,png,gif,bmp",
+        "--page-requisites",
+        "--adjust-extension",
+        "--timestamping",
+		"--convert-links",
+        "--directory-prefix",
+        "/pfs/out",
+        "--input-file", "/pfs/urls/urls"
     ]
   },
   "parallelism": "1",
