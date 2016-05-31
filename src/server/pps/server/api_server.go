@@ -489,6 +489,9 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	if err != nil {
 		return err
 	}
+	if len(podList.Items) == 0 {
+		return fmt.Errorf("job %s does not exist", request.Job.ID)
+	}
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(podList.Items))
 	logs := make([][]byte, len(podList.Items))
