@@ -223,11 +223,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
 			var pipelineReader io.Reader
+			var bytes []byte
 			if pipelinePath == "-" {
 				pipelineReader = os.Stdin
 				fmt.Print("Reading from stdin.\n")
 			} else {
-				bytes, err := ioutil.ReadFile(pipelinePath)
+				bytes, err = ioutil.ReadFile(pipelinePath)
 				if err != nil {
 					pkgcmd.ErrorAndExit("Error reading file %s", pipelinePath)
 				}
@@ -242,7 +243,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					}
-					err = describeSyntaxError(err, pipelineReader)
+					err = describeSyntaxError(err, strings.NewReader(string(bytes)))
 					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
@@ -401,11 +402,11 @@ func describeSyntaxError(originalErr error, reader io.Reader) error {
 	}
 
 	buffer := make([]byte, sErr.Offset)
-	file, _ := reader.(*os.File)
-
-	file.Seek(0, 0)
-	file.Read(buffer)
-
+	file, ok := reader.(*os.File)
+	if ok {
+		file.Seek(0, 0)
+	}
+	reader.Read(buffer)
 	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
 	if lineOffset == -1 {
 		lineOffset = 0

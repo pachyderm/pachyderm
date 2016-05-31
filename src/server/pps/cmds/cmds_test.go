@@ -83,7 +83,6 @@ invalid character '\n' in string literal
 `
 	cmd := []string{"pachctl", "create-job", "-f", "bad1.json"}
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob", "bad1.json", badJSON1, cmd, descriptiveOutput)
-	fmt.Printf("err?")
 }
 
 func TestJSONSyntaxErrorsReportedCreateJob2(t *testing.T) {
@@ -95,5 +94,26 @@ invalid character 'a' looking for beginning of object key string
 `
 	cmd := []string{"pachctl", "create-job", "-f", "bad2.json"}
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob2", "bad2.json", badJSON2, cmd, descriptiveOutput)
-	fmt.Printf("err?")
+}
+
+func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
+	descriptiveOutput := `Error parsing pipeline spec: Syntax Error on line 5:
+
+    "c": {a
+          ^
+invalid character 'a' looking for beginning of object key string
+`
+	cmd := []string{"pachctl", "create-pipeline", "-f", "bad2.json"}
+	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreatePipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
+}
+
+func TestJSONSyntaxErrorsReportedRunPipeline(t *testing.T) {
+	descriptiveOutput := `Error parsing pipeline spec: Syntax Error on line 5:
+
+    "c": {a
+          ^
+invalid character 'a' looking for beginning of object key string
+`
+	cmd := []string{"pachctl", "run-pipeline", "-f", "bad2.json", "somePipelineName"}
+	testBadJSON(t, "TestJSONSyntaxErrorsReportedRunPipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
 }
