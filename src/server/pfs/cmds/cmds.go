@@ -378,7 +378,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(getFile)
-	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "from commit")
+	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 
 	inspectFile := &cobra.Command{
@@ -406,7 +406,6 @@ Files can be read from finished commits with get-file.`,
 	addShardFlags(inspectFile)
 	inspectFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to inspect files written in the current commit; this operation will race with concurrent writes")
 
-	var fromCommit string
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
@@ -420,7 +419,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommit, shard(), true)
+			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, shard(), true)
 			if err != nil {
 				return err
 			}
@@ -433,8 +432,8 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
+	listFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only list files that are written since this commit")
 	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
-	listFile.Flags().StringVarP(&fromCommit, "from-commit", "f", "", "only list files that are written since a given commit")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
