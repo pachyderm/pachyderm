@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -85,6 +86,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			decoder := json.NewDecoder(jobReader)
 			s, err := replaceMethodAliases(decoder)
 			if err != nil {
+				err = describeSyntaxError(err, jobReader)
 				pkgcmd.ErrorAndExit("Error parsing job spec: %v", err)
 			}
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
@@ -240,6 +242,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					}
+					err = describeSyntaxError(err, pipelineReader)
 					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
@@ -353,6 +356,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				decoder := json.NewDecoder(specReader)
 				s, err := replaceMethodAliases(decoder)
 				if err != nil {
+					err = describeSyntaxError(err, specReader)
 					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
 				}
 
@@ -387,6 +391,37 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, runPipeline)
 	return result, nil
+}
+
+func describeSyntaxError(originalErr error, reader io.Reader) error {
+
+	sErr, ok := originalErr.(*json.SyntaxError)
+	if !ok {
+		return originalErr
+	}
+
+	buffer := make([]byte, sErr.Offset)
+	file, _ := reader.(*os.File)
+
+	file.Seek(0, 0)
+	file.Read(buffer)
+
+	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
+	if lineOffset == -1 {
+		lineOffset = 0
+	}
+
+	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
+	lineNumber := len(lines)
+
+	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
+		lineNumber,
+		string(buffer[lineOffset:]),
+		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
+		originalErr,
+	)
+
+	return errors.New(descriptiveErrorString)
 }
 
 func replaceMethodAliases(decoder *json.Decoder) (string, error) {
