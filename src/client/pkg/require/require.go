@@ -16,6 +16,16 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 	}
 }
 
+func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
+	if reflect.DeepEqual(expected, actual) {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Equal: %#v (expected)\n"+
+				"    == %#v (actual)", expected, actual)
+	}
+}
+
 func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	equal := false
 	for _, expected := range expecteds {

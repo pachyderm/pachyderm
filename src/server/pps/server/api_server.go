@@ -161,12 +161,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	jobID := getJobID(request)
-	_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
-		Job: &ppsclient.Job{jobID},
-	})
-	if err == nil {
-		// the job already exists. we simply return
-		return &ppsclient.Job{jobID}, nil
+	if !request.Force {
+		_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+			Job: &ppsclient.Job{jobID},
+		})
+		if err == nil {
+			// the job already exists. we simply return
+			return &ppsclient.Job{jobID}, nil
+		}
 	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
@@ -263,7 +265,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if retErr != nil {
 			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 				JobID: persistJobInfo.JobID,
-				State: ppsclient.JobState_JOB_STATE_FAILURE,
+				State: ppsclient.JobState_JOB_FAILURE,
 			}); err != nil {
 				protolion.Errorf("error from CreateJobState %s", err.Error())
 			}
@@ -314,7 +316,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 	}
 
 	limitHit := make(map[int]bool)
-	for {
+	for product(shardModuli) < parallelism && len(limitHit) < len(inputs) {
 		max := float64(0)
 		modulusIndex := 0
 		// Find the modulus to double
@@ -338,10 +340,6 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			shardModuli[modulusIndex] *= 2
 		} else {
 			limitHit[modulusIndex] = true
-		}
-
-		if product(shardModuli) >= parallelism || len(limitHit) == len(inputs) {
-			break
 		}
 	}
 
@@ -427,8 +425,9 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	// hashing the pipeline name and input commits.  That way, two same jobs
 	// will have the sam job IDs, therefore won't be created in the database
 	// twice.
-	if req.Pipeline != nil && len(req.Inputs) > 0 {
+	if req.Pipeline != nil && len(req.Inputs) > 0 && !req.Force {
 		s := req.Pipeline.Name
+		s += req.Transform.String()
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
 		}
@@ -670,6 +669,13 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
+		// If any pod failed, the job failed
+		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
+			JobID: request.Job.ID,
+			State: ppsclient.JobState_JOB_FAILURE,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
@@ -686,15 +692,18 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		}); err != nil {
 			return nil, err
 		}
+		// The reason why we need to inspect the commit is that the commit's
+		// parent might have been cancelled, which would automatically result
+		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: jobInfo.OutputCommit,
 		})
 		if err != nil {
 			return nil, err
 		}
-		jobState := ppsclient.JobState_JOB_STATE_SUCCESS
+		jobState := ppsclient.JobState_JOB_SUCCESS
 		if failed || commitInfo.Cancelled {
-			jobState = ppsclient.JobState_JOB_STATE_FAILURE
+			jobState = ppsclient.JobState_JOB_FAILURE
 		}
 		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
@@ -759,6 +768,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
+		State:        ppsclient.PipelineState_PIPELINE_STARTING,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -821,6 +831,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -830,9 +841,35 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, fmt.Errorf("Pipeline cannot be nil")
 	}
 
+	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
+	// the same IDs, since kubernetes jobs simply use these IDs as their names
+	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		Pipeline: request.Pipeline,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, jobInfo := range jobInfos.JobInfo {
+		if err = a.kubeClient.Jobs(api.NamespaceDefault).Delete(jobInfo.JobID, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	// The reason we need to do this, is that if we don't, then if the very same
+	// pipeline is recreated, we won't actually create new jobs due to the fact
+	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
+	// name + inputs.  So the jobs will already be in the database, resulting
+	// in no new jobs being created, even though the output of those existing
+	// jobs might have already being removed.
+	// Therefore, we delete the job infos.
+	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+
 	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
+
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -898,13 +935,31 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// cascading failures as other pps nodes might be depending
 					// on it.
 					b.MaxElapsedTime = 0
-					backoff.Retry(func() error {
+					err = backoff.RetryNotify(func() error {
 						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
-							protolion.Printf("error running pipeline: %v", err)
 							return err
 						}
 						return nil
-					}, b)
+					}, b, func(err error, d time.Duration) {
+						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineChange.Pipeline.PipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
+							RecentError:  err.Error(),
+						}); err != nil {
+							protolion.Errorf("error updating pipeline state: %v", err)
+						}
+					})
+					// At this point we stop retrying and update the pipeline state
+					// to FAILED
+					if err != nil {
+						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineChange.Pipeline.PipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_FAILED,
+							RecentError:  err.Error(),
+						}); err != nil {
+							protolion.Errorf("error updating pipeline state: %v", err)
+						}
+					}
 				}()
 			}
 		}
@@ -949,6 +1004,8 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Parallelism: persistPipelineInfo.Parallelism,
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
+		State:       persistPipelineInfo.State,
+		RecentError: persistPipelineInfo.RecentError,
 	}
 }
 
@@ -972,6 +1029,19 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	if returnNil {
 		return nil
 	}
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+	_, err = persistClient.UpdatePipelineState(ctx, &persist.UpdatePipelineStateRequest{
+		PipelineName: pipelineInfo.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
+	})
+	if err != nil {
+		return err
+	}
+
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
 	if err != nil {
