@@ -251,9 +251,9 @@ func TestWriteAndRead(t *testing.T) {
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
-		_, err = ioutil.ReadFile(filePath)
-		// errors because the commit is unfinished
-		require.YesError(t, err)
+		readGreeting, err := ioutil.ReadFile(filePath)
+		require.NoError(t, err)
+		require.Equal(t, greeting, string(readGreeting))
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
