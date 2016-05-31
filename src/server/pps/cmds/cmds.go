@@ -1,7 +1,9 @@
 package cmds
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -86,9 +88,10 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error connecting to pps: %v", err)
 			}
+			var buf bytes.Buffer
 			var jobReader io.Reader
 			if jobPath == "-" {
-				jobReader = os.Stdin
+				jobReader = io.TeeReader(os.Stdin, &buf)
 				fmt.Print("Reading from stdin.\n")
 			} else {
 				jobFile, err := os.Open(jobPath)
@@ -100,12 +103,13 @@ The increase the throughput of a job increase the Shard paremeter.
 						pkgcmd.ErrorAndExit("Error closing%s: %v", jobPath, err)
 					}
 				}()
-				jobReader = jobFile
+				jobReader = io.TeeReader(jobFile, &buf)
 			}
 			var request ppsclient.CreateJobRequest
 			decoder := json.NewDecoder(jobReader)
 			s, err := replaceMethodAliases(decoder)
 			if err != nil {
+				err = describeSyntaxError(err, buf)
 				pkgcmd.ErrorAndExit("Error parsing job spec: %v", err)
 			}
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
@@ -242,17 +246,18 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
 			}
+			var buf bytes.Buffer
 			var pipelineReader io.Reader
 			if pipelinePath == "-" {
-				pipelineReader = os.Stdin
+				pipelineReader = io.TeeReader(os.Stdin, &buf)
 				fmt.Print("Reading from stdin.\n")
 			} else {
-				bytes, err := ioutil.ReadFile(pipelinePath)
+				rawBytes, err := ioutil.ReadFile(pipelinePath)
 				if err != nil {
 					pkgcmd.ErrorAndExit("Error reading file %s", pipelinePath)
 				}
 
-				pipelineReader = strings.NewReader(string(bytes))
+				pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &buf)
 			}
 			var request ppsclient.CreatePipelineRequest
 			decoder := json.NewDecoder(pipelineReader)
@@ -262,6 +267,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					}
+					err = describeSyntaxError(err, buf)
 					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
@@ -355,9 +361,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				Force: true,
 			}
 
+			var buf bytes.Buffer
 			var specReader io.Reader
 			if specPath == "-" {
-				specReader = os.Stdin
+				specReader = io.TeeReader(os.Stdin, &buf)
 				fmt.Print("Reading from stdin.\n")
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
@@ -371,10 +378,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					}
 				}()
 
-				specReader = specFile
+				specReader = io.TeeReader(specFile, &buf)
 				decoder := json.NewDecoder(specReader)
 				s, err := replaceMethodAliases(decoder)
 				if err != nil {
+					err = describeSyntaxError(err, buf)
 					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
 				}
 
@@ -409,6 +417,34 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, runPipeline)
 	return result, nil
+}
+
+func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
+
+	sErr, ok := originalErr.(*json.SyntaxError)
+	if !ok {
+		return originalErr
+	}
+
+	buffer := make([]byte, sErr.Offset)
+	parsedBuffer.Read(buffer)
+
+	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
+	if lineOffset == -1 {
+		lineOffset = 0
+	}
+
+	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
+	lineNumber := len(lines)
+
+	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
+		lineNumber,
+		string(buffer[lineOffset:]),
+		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
+		originalErr,
+	)
+
+	return errors.New(descriptiveErrorString)
 }
 
 func replaceMethodAliases(decoder *json.Decoder) (string, error) {
