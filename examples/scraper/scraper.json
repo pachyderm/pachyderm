@@ -10,7 +10,6 @@
         "--page-requisites",
         "--adjust-extension",
         "--timestamping",
-		"--convert-links",
         "--directory-prefix",
         "/pfs/out",
         "--input-file", "/pfs/urls/urls"
