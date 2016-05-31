@@ -77,9 +77,7 @@ func (inputs JobInputs) Less(i, j int) bool {
 }
 
 func (inputs JobInputs) Swap(i, j int) {
-	x := inputs[i]
-	inputs[i] = inputs[j]
-	inputs[j] = x
+	inputs[i], inputs[j] = inputs[j], inputs[i]
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
