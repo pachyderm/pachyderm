@@ -171,7 +171,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		return nil, 0, err
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	handle := localResult.newHandle()
+	handle := localResult.newHandle(0)
 	return localResult, handle, nil
 }
 
@@ -249,7 +249,18 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		}
 	}()
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	return f.newHandle(), nil
+	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+		f.File.Commit.Repo.Name,
+		f.File.Commit.ID,
+		f.File.Path,
+		f.fs.getFromCommitID(f.getRepoOrAliasName()),
+		f.Shard,
+		f.fs.handleID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return f.newHandle(int(fileInfo.SizeBytes)), nil
 }
 
 func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
@@ -282,9 +293,10 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	return newInode
 }
 
-func (f *file) newHandle() *handle {
+func (f *file) newHandle(cursor int) *handle {
 	h := &handle{
-		f: f,
+		f:      f,
+		cursor: cursor,
 	}
 
 	f.handles = append(f.handles, h)
@@ -293,9 +305,9 @@ func (f *file) newHandle() *handle {
 }
 
 type handle struct {
-	f       *file
-	w       io.WriteCloser
-	written int
+	f      *file
+	w      io.WriteCloser
+	cursor int
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -353,7 +365,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	// previous call to Write. Why does the OS send us the same data twice in
 	// different calls? Good question, this is a behavior that's only been
 	// observed on osx, not on linux.
-	repeated := h.written - int(request.Offset)
+	repeated := h.cursor - int(request.Offset)
 	if repeated < 0 {
 		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
 	}
@@ -362,7 +374,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 		return err
 	}
 	response.Size = written + repeated
-	h.written += written
+	h.cursor += written
 	if h.f.size < request.Offset+int64(written) {
 		h.f.size = request.Offset + int64(written)
 	}
