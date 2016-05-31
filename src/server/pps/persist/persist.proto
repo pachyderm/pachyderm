@@ -48,6 +48,8 @@ message PipelineInfo {
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
   uint64 shard = 7;  // this is which shard the pipeline is assigned to
+  pps.PipelineState state = 8;
+  string recent_error = 9;
 }
 
 message PipelineInfoChange {
@@ -68,6 +70,12 @@ message ListPipelineInfosRequest {
   Shard shard = 1;
 }
 
+message UpdatePipelineStateRequest {
+  string pipeline_name = 1;
+  pps.PipelineState state = 2;
+  string recent_error = 3;
+}
+
 // As in, sharding
 message Shard {
   uint64 number = 1;
@@ -83,6 +91,7 @@ service API {
   rpc ListJobInfos(pachyderm.pps.ListJobRequest) returns (JobInfos) {}
   // should only be called when rolling back if a Job does not start!
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+  rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
@@ -97,6 +106,7 @@ service API {
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
+  rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
 
   // Shard rpcs
   // Returns the new job info

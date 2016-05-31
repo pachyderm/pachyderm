@@ -958,6 +958,15 @@ func TestFinishCommit(t *testing.T) {
 	}
 }
 
+func TestStartCommitWithNonexistentParent(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "TestStartCommitWithNonexistentParent"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "nonexistent", "")
+	require.YesError(t, err)
+}
+
 // If a commit's parent has been cancelled, the commit should be cancelled too
 func TestFinishCommitParentCancelled(t *testing.T) {
 	t.Parallel()

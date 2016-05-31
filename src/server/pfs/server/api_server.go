@@ -183,7 +183,6 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 		}
 	}
 	return google_protobuf.EmptyInstance, nil
-
 }
 
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {

@@ -1,9 +1,12 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/Jeffail/gabs"
@@ -60,7 +63,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error connecting to pps: %v", err)
 			}
 			var jobReader io.Reader
 			if jobPath == "-" {
@@ -69,25 +72,30 @@ The increase the throughput of a job increase the Shard paremeter.
 			} else {
 				jobFile, err := os.Open(jobPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error opening %s: %s", jobPath, err.Error())
+					pkgcmd.ErrorAndExit("Error opening %s: %v", jobPath, err)
 				}
 				defer func() {
 					if err := jobFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("Error closing%s: %s", jobPath, err.Error())
+						pkgcmd.ErrorAndExit("Error closing%s: %v", jobPath, err)
 					}
 				}()
 				jobReader = jobFile
 			}
 			var request ppsclient.CreateJobRequest
-			if err := jsonpb.UnmarshalString(replaceMethodAliases(jobReader), &request); err != nil {
-				pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
+			decoder := json.NewDecoder(jobReader)
+			s, err := replaceMethodAliases(decoder)
+			if err != nil {
+				pkgcmd.ErrorAndExit("Error parsing job spec: %v", err)
+			}
+			if err := jsonpb.UnmarshalString(s, &request); err != nil {
+				pkgcmd.ErrorAndExit("Error reading from stdin: %v", err)
 			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from CreateJob: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from CreateJob: %v", err)
 			}
 			fmt.Println(job.ID)
 		},
@@ -217,27 +225,31 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				pipelineReader = os.Stdin
 				fmt.Print("Reading from stdin.\n")
 			} else {
-				pipelineFile, err := os.Open(pipelinePath)
+				bytes, err := ioutil.ReadFile(pipelinePath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error opening %s: %s", pipelinePath, err.Error())
+					pkgcmd.ErrorAndExit("Error reading file %s", pipelinePath)
 				}
-				defer func() {
-					if err := pipelineFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("Error closing%s: %s", pipelinePath, err.Error())
-					}
-				}()
-				pipelineReader = pipelineFile
+
+				pipelineReader = strings.NewReader(string(bytes))
 			}
 			var request ppsclient.CreatePipelineRequest
+			decoder := json.NewDecoder(pipelineReader)
 			for {
-				if err := jsonpb.UnmarshalString(replaceMethodAliases(pipelineReader), &request); err != nil {
-					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %s", err.Error())
+				s, err := replaceMethodAliases(decoder)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
+				}
+				if err := jsonpb.UnmarshalString(s, &request); err != nil {
+					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %v", err)
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					&request,
 				); err != nil {
-					pkgcmd.ErrorAndExit("Error from CreatePipeline: %s", err.Error())
+					pkgcmd.ErrorAndExit("Error from CreatePipeline: %v", err)
 				}
 			}
 		},
@@ -260,10 +272,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if pipelineInfo == nil {
 				pkgcmd.ErrorAndExit("Pipeline %s not found.", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintPipelineHeader(writer)
-			pretty.PrintPipelineInfo(writer, pipelineInfo)
-			return writer.Flush()
+			pretty.PrintDetailedPipelineInfo(pipelineInfo)
+			return nil
 		}),
 	}
 
@@ -320,6 +330,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				Pipeline: &ppsclient.Pipeline{
 					Name: args[0],
 				},
+				Force: true,
 			}
 
 			var specReader io.Reader
@@ -329,18 +340,24 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error opening %s: %s", specPath, err.Error())
+					pkgcmd.ErrorAndExit("Error opening %s: %v", specPath, err)
 				}
 
 				defer func() {
 					if err := specFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("Error closing%s: %s", specPath, err.Error())
+						pkgcmd.ErrorAndExit("Error closing%s: %v", specPath, err)
 					}
 				}()
 
 				specReader = specFile
-				if err := jsonpb.UnmarshalString(replaceMethodAliases(specReader), request); err != nil {
-					pkgcmd.ErrorAndExit("Error reading from stdin: %s", err.Error())
+				decoder := json.NewDecoder(specReader)
+				s, err := replaceMethodAliases(decoder)
+				if err != nil {
+					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
+				}
+
+				if err := jsonpb.UnmarshalString(s, request); err != nil {
+					pkgcmd.ErrorAndExit("Error reading from stdin: %v", err)
 				}
 			}
 
@@ -349,7 +366,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from RunPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("Error from RunPipeline: %v", err)
 			}
 			fmt.Println(job.ID)
 			return nil
@@ -372,26 +389,21 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	return result, nil
 }
 
-func replaceMethodAliases(pipelineReader io.Reader) string {
+func replaceMethodAliases(decoder *json.Decoder) (string, error) {
 	// We want to allow for a syntactic suger where the user
 	// can specify a method with a string such as "map" or "reduce".
 	// To that end, we check for the "method" field and replace
 	// the string with an actual method object before we unmarshal
 	// the json spec into a protobuf message
-
-	pipeline, err := gabs.ParseJSONBuffer(pipelineReader)
+	pipeline, err := gabs.ParseJSONDecoder(decoder)
 	if err != nil {
-		if err == io.EOF {
-			os.Exit(0)
-		} else {
-			pkgcmd.ErrorAndExit("Error parsing JSON: %s", err.Error())
-		}
+		return "", err
 	}
 
 	inputs := pipeline.S("inputs")
 	children, err := inputs.Children()
 	if err != nil {
-		pkgcmd.ErrorAndExit("Error parsing spec: inputs is not an array", err.Error())
+		return "", err
 	}
 	for _, input := range children {
 		methodAlias, ok := input.S("method").Data().(string)
@@ -400,10 +412,10 @@ func replaceMethodAliases(pipelineReader io.Reader) string {
 			if ok {
 				input.Set(strat, "method")
 			} else {
-				pkgcmd.ErrorAndExit("Unrecognized method: %s", methodAlias)
+				return "", err
 			}
 		}
 	}
 
-	return pipeline.String()
+	return pipeline.String(), nil
 }
