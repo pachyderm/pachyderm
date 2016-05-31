@@ -64,8 +64,7 @@ func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue
 	// Do our cleanup here, since we have an exit 1 in the actual run:
 	wd, _ := os.Getwd()
 	fileName := filepath.Join(wd, inputFile)
-	e := os.Remove(fileName)
-	fmt.Printf("err removing file %v\n", e)
+	os.Remove(fileName)
 
 	require.YesError(t, err)
 	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
@@ -162,8 +161,7 @@ Envronment variables:
 	// Put our cleanup here, since we have an exit 1 in the actual run:
 
 	wd, _ := os.Getwd()
-	e := os.Remove(filepath.Join(wd, "bad2.json"))
-	fmt.Printf("error removing file ... %v\n", e)
+	os.Remove(filepath.Join(wd, "bad2.json"))
 
 	require.YesError(t, err)
 	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
