@@ -268,6 +268,9 @@ func TestLogs(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetLogs(job.ID, &buffer))
 	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
+
+	// Should get an error if the job does not exist
+	require.YesError(t, c.GetLogs("nonexistent", &buffer))
 }
 
 func TestGrep(t *testing.T) {
