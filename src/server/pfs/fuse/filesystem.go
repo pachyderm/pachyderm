@@ -336,9 +336,9 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
 	defer func() {
 		if retErr == nil {
-			protolion.Debug(&FileWrite{&h.f.Node, string(request.Data), errorToString(retErr)})
+			protolion.Debug(&FileWrite{&h.f.Node, string(request.Data), request.Offset, errorToString(retErr)})
 		} else {
-			protolion.Error(&FileWrite{&h.f.Node, string(request.Data), errorToString(retErr)})
+			protolion.Error(&FileWrite{&h.f.Node, string(request.Data), request.Offset, errorToString(retErr)})
 		}
 	}()
 	if h.w == nil {
