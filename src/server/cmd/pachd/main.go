@@ -27,6 +27,7 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
+	"k8s.io/kubernetes/pkg/api"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -155,6 +156,7 @@ func do(appEnvObj interface{}) error {
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
 		kubeClient,
+		getNamespace(),
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer}); err != nil {
@@ -223,4 +225,13 @@ func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
 		return nil, err
 	}
 	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
+}
+
+// getNamespace returns the kubernetes namespace that this pachd pod runs in
+func getNamespace() string {
+	namespace := os.Getenv("PACHD_POD_NAMESPACE")
+	if namespace != "" {
+		return namespace
+	}
+	return api.NamespaceDefault
 }
