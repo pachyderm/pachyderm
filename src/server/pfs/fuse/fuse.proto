@@ -93,7 +93,8 @@ message FileOpen {
 message FileWrite {
   Node file = 1;
   string data = 2;
-  string error = 3;
+  int64 offset = 3;
+  string error = 4;
 }
 
 message FileRemove {
