@@ -119,10 +119,8 @@ The increase the throughput of a job increase the Shard paremeter.
 			if jobInfo == nil {
 				pkgcmd.ErrorAndExit("Job %s not found.", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintJobHeader(writer)
-			pretty.PrintJobInfo(writer, jobInfo)
-			return writer.Flush()
+			pretty.PrintDetailedJobInfo(jobInfo)
+			return nil
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
