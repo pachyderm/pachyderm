@@ -27,7 +27,7 @@ const badJSON2 = `
 }
 `
 
-func testJSONSyntaxErrorsReported() {
+func testJSONSyntaxErrorsReported(inputFile string, inputFileValue string, inputCommand []string) {
 	address := "0.0.0.0:30650"
 
 	rootCmd := &cobra.Command{
@@ -46,41 +46,54 @@ Envronment variables:
 
 	// Call create job
 
-	ioutil.WriteFile("bad1.json", []byte(badJSON1), 0644)
+	ioutil.WriteFile(inputFile, []byte(inputFileValue), 0644)
 	defer func() {
-		os.Remove("bad1.json")
+		os.Remove(inputFile)
 	}()
-	os.Args = []string{"pachctl", "create-job", "-f", "bad1.json"}
-
+	os.Args = inputCommand
 	rootCmd.Execute()
 }
 
-func TestJSONSyntaxErrorsReported(t *testing.T) {
+func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue string, inputCommand []string, expectedOutput string) {
+
 	if os.Getenv("BE_CRASHER") == "1" {
-		testJSONSyntaxErrorsReported()
+		testJSONSyntaxErrorsReported(inputFile, inputFileValue, inputCommand)
 		return
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=TestJSONSyntaxErrorsReported")
+	cmd := exec.Command(os.Args[0], fmt.Sprintf("-test.run=%v", testName))
 	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
 	out, err := cmd.CombinedOutput()
 
 	require.YesError(t, err)
 	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		require.Equal(t, expectedOutput, string(out))
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
 
-		descriptiveOutput := `Error parsing job spec: Syntax Error on line 3:
+}
+
+func TestJSONSyntaxErrorsReportedCreateJob(t *testing.T) {
+	descriptiveOutput := `Error parsing job spec: Syntax Error on line 3:
 
 "356weryt
 
          ^
 invalid character '\n' in string literal
 `
+	cmd := []string{"pachctl", "create-job", "-f", "bad1.json"}
+	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob", "bad1.json", badJSON1, cmd, descriptiveOutput)
+	fmt.Printf("err?")
+}
 
-		require.Equal(t, descriptiveOutput, string(out))
-		return
-	}
-	t.Fatalf("process ran with err %v, want exit status 1", err)
+func TestJSONSyntaxErrorsReportedCreateJob2(t *testing.T) {
+	descriptiveOutput := `Error parsing job spec: Syntax Error on line 5:
 
-	fmt.Printf("err? %v\n", err)
-	fmt.Printf("asdf")
-
+    "c": {a
+          ^
+invalid character 'a' looking for beginning of object key string
+`
+	cmd := []string{"pachctl", "create-job", "-f", "bad2.json"}
+	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob2", "bad2.json", badJSON2, cmd, descriptiveOutput)
+	fmt.Printf("err?")
 }
