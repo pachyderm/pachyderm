@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -20,6 +21,26 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 )
+
+type ByCreationTime []*ppsclient.JobInfo
+
+func (arr ByCreationTime) Len() int { return len(arr) }
+
+func (arr ByCreationTime) Swap(i, j int) { arr[i], arr[j] = arr[j], arr[i] }
+
+func (arr ByCreationTime) Less(i, j int) bool {
+	if arr[i].CreatedAt == nil || arr[j].CreatedAt == nil {
+		return false
+	}
+
+	if arr[i].CreatedAt.Seconds < arr[j].CreatedAt.Seconds {
+		return true
+	} else if arr[i].CreatedAt.Seconds == arr[j].CreatedAt.Seconds {
+		return arr[i].CreatedAt.Nanos < arr[j].CreatedAt.Nanos
+	}
+
+	return false
+}
 
 func Cmds(address string) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
@@ -164,6 +185,9 @@ Examples:
 			if err != nil {
 				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
 			}
+
+			// Display newest jobs first
+			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
