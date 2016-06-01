@@ -412,7 +412,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\nbar\n", buffer.String())
+	require.Equal(t, "bar\n", buffer.String())
 
 	require.NoError(t, c.DeletePipeline(pipelineName))
 
