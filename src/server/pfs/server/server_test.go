@@ -1380,7 +1380,8 @@ func TestGetFileInvalidCommit(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
 	require.YesError(t, err)
-	require.Equal(t, "commit not found", grpc.ErrorDesc(err))
+
+	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
 func generateRandomString(n int) string {

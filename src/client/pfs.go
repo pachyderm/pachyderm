@@ -1,12 +1,15 @@
 package client
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 func NewRepo(repoName string) *pfs.Repo {
@@ -406,9 +409,11 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 		},
 	)
 	if err != nil {
+		err = errors.New(grpc.ErrorDesc(err))
 		return err
 	}
 	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+		err = errors.New(grpc.ErrorDesc(err))
 		return err
 	}
 	return nil
