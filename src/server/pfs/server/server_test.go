@@ -1363,6 +1363,26 @@ func TestShardingInTopLevel(t *testing.T) {
 	require.Equal(t, folders*filesPerFolder, totalFiles)
 }
 
+func TestGetFileInvalidCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
+	require.YesError(t, err)
+	require.Equal(t, "commit not found", grpc.ErrorDesc(err))
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {

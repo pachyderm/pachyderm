@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
+	"google.golang.org/grpc"
 )
 
 func Cmds(address string) []*cobra.Command {
@@ -374,7 +376,9 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			err = client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			err = errors.New(grpc.ErrorDesc(err))
+			return err
 		}),
 	}
 	addShardFlags(getFile)

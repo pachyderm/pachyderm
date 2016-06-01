@@ -386,6 +386,9 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 		if err == pfsserver.ErrFileNotFound {
 			return grpcErrorf(codes.NotFound, "%v", err)
 		}
+		if err == pfsserver.ErrCommitNotFound {
+			return grpcErrorf(codes.NotFound, "%v", err)
+		}
 		return err
 	}
 	defer func() {
