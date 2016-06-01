@@ -980,7 +980,7 @@ do
 	do
 		v1=$(<$f1)
 		v2=$(<$f2)
-		echo $v1$v2 > /pfs/out/file
+		echo $v1$v2 >> /pfs/out/file
 	done
 done
 `, inputRepo1, inputRepo2)},
@@ -1172,9 +1172,9 @@ func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{fmt.Sprintf(`
-cp /pfs/%s/file /pfs/out/file
+cat /pfs/%s/file >>/pfs/out/file
 if [ -d "/pfs/prev" ]; then
-  cp /pfs/prev/file /pfs/out/file
+  cat /pfs/prev/file >>/pfs/out/file
 fi
 `, repo)},
 		1,
@@ -1400,7 +1400,7 @@ func TestDirectory(t *testing.T) {
 			Cmd: []string{"sh"},
 			Stdin: []string{
 				"mkdir /pfs/out/dir",
-				"echo foo > /pfs/out/dir/file",
+				"echo foo >> /pfs/out/dir/file",
 			},
 		},
 		Parallelism: 3,
@@ -1422,7 +1422,7 @@ func TestDirectory(t *testing.T) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
-				"echo bar > /pfs/out/dir/file",
+				"echo bar >> /pfs/out/dir/file",
 			},
 		},
 		Parallelism: 3,
