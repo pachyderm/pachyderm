@@ -686,7 +686,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
-	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer2.String())
 }
 
 func TestPipelineThatAppendsToFile(t *testing.T) {
