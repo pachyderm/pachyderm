@@ -947,7 +947,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	for commit != nil && (from == nil || commit.ID != from.ID) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if !ok {
-			return nil, nil, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
+			return nil, nil, pfsserver.ErrCommitNotFound
 		}
 		if !unsafe && diffInfo.Finished == nil {
 			commit = diffInfo.ParentCommit

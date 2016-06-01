@@ -10,6 +10,8 @@ var ErrFileNotFound = errors.New("file not found")
 
 var ErrRepoNotFound = errors.New("repo not found")
 
+var ErrCommitNotFound = errors.New("commit not found")
+
 func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
 }
