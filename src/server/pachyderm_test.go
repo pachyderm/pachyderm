@@ -1378,9 +1378,10 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {
 		// C takes the diff of 2 files that should always be the same, so we
-		// expect no output and thus no file
-		_, err := c.InspectFile(cPipeline, commitInfo.Commit.ID, "file", "", nil)
-		require.YesError(t, err)
+		// expect an empty file
+		fileInfo, err := c.InspectFile(cPipeline, commitInfo.Commit.ID, "file", "", nil)
+		require.NoError(t, err)
+		require.Equal(t, 0, fileInfo.SizeBytes)
 	}
 }
 
