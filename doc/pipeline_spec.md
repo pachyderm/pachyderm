@@ -23,7 +23,7 @@
       // this is only for advanced use cases; most of the time, one of the four
       // strategies above should suffice.
       "method": {
-        "partition": "BLOCK"/"FILE"/"REPO",
+        "partition": "block"/"file"/"repo",
         "incremental": bool
       }
     }
@@ -56,10 +56,10 @@ For each pipeline input, you may specify a "method".  A method dictates exactly 
 A method consists of two properties: partition unit and incrementality.
 
 #### Partition Unit
-Partition unit specifies the granularity at which input data is parallelized across containers.  
+Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-* `Blocks`: different blocks of the same file may be parelleized across containers.
-* `Top-level objects`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
+* `block`: different blocks of the same file may be parelleized across containers.
+* `file`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
 ```
 /foo 
@@ -69,7 +69,7 @@ Partition unit specifies the granularity at which input data is parallelized acr
    /b
 ```
 then there are only three top-level objects, `/foo`, `/bar`, and `/buzz`, each of which will remain grouped in the same container. 
-* `Repo`: the entire repo.  In this case, the input won't be partitioned at all. 
+* `repo`: the entire repo.  In this case, the input won't be partitioned at all. 
 
 #### Incrementality
 
