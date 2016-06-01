@@ -40,6 +40,7 @@ var (
 )
 
 var (
+	ErrJobNotFound          = errors.New("job was not found")
 	ErrEmptyInput           = errors.New("job was not started due to empty input")
 	ErrParentInputsMismatch = errors.New("job does not have the same set of inputs as its parent")
 )
@@ -490,7 +491,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		return err
 	}
 	if len(podList.Items) == 0 {
-		return fmt.Errorf("job %s does not exist", request.Job.ID)
+		return ErrJobNotFound
 	}
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(podList.Items))
