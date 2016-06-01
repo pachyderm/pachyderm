@@ -383,6 +383,8 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard, request.Unsafe)
 	if err != nil {
+		err = pfsserver.ErrToCodedGrpcError(err)
+		fmt.Printf("!!! Internal API GetFile - err (%v)\n", err)
 		return err
 	}
 	defer func() {
