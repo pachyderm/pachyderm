@@ -79,6 +79,11 @@ message FileAttr {
   string error = 3;
 }
 
+message FileSetAttr {
+  Node file = 1;
+  string error = 2;
+}
+
 message FileRead {
   Node file = 1;
   string data = 2;
