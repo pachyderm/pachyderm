@@ -13,7 +13,6 @@ import (
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -104,7 +103,8 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil && err != pfsserver.ErrRepoNotFound {
+	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
+	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil && !isErrRepoNotFound {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -174,7 +174,8 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
 		request.FromCommit, request.Provenance, request.All, shards)
-	if err != nil && (!request.Block || err != pfsserver.ErrRepoNotFound) {
+	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
+	if err != nil && (!request.Block || !isErrRepoNotFound) {
 		return nil, err
 	}
 	if len(commitInfos) == 0 && request.Block {
@@ -382,13 +383,6 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard, request.Unsafe)
 	if err != nil {
-		// TODO this should be done more consistently throughout
-		if err == pfsserver.ErrFileNotFound {
-			return grpcErrorf(codes.NotFound, "%v", err)
-		}
-		if err == pfsserver.ErrCommitNotFound {
-			return grpcErrorf(codes.NotFound, "%v", err)
-		}
 		return err
 	}
 	defer func() {
@@ -432,7 +426,8 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		go func() {
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse, request.Unsafe)
-			if err != nil && err != pfsserver.ErrFileNotFound {
+			_, isErrFileNotFound := err.(*pfsserver.ErrFileNotFound)
+			if err != nil && !isErrFileNotFound {
 				select {
 				case errCh <- err:
 					// error reported
@@ -480,7 +475,8 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 			// across many DiffInfos across many shards.  Yet not all
 			// shards necessarily contain DiffInfos that contain the
 			// directory, so some of them will report FileNotFound
-			if err != nil && err != pfsserver.ErrFileNotFound {
+			_, isErrFileNotFound := err.(*pfsserver.ErrFileNotFound)
+			if err != nil && !isErrFileNotFound {
 				select {
 				case errCh <- err:
 					// error reported
@@ -591,7 +587,8 @@ func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards
 	// created between then and now.
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
 		request.FromCommit, request.Provenance, request.All, shards)
-	if err != nil && err != pfsserver.ErrRepoNotFound {
+	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
+	if err != nil && !isErrRepoNotFound {
 		return nil, err
 	}
 	if len(commitInfos) != 0 {
