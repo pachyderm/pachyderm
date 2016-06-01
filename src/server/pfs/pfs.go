@@ -2,8 +2,6 @@ package pfs
 
 import (
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
@@ -22,24 +20,6 @@ type ErrCommitNotFound struct {
 
 type ErrParentCommitNotFound struct {
 	error
-}
-
-// Retuns nothing / doesn't modify if it isn't one of the types listed above
-func ErrToCodedGrpcError(e error) error {
-	if e == nil {
-		return nil
-	}
-	switch recognizedErr := e.(type) {
-	case ErrFileNotFound:
-		return grpc.Errorf(codes.NotFound, recognizedErr.Error())
-	case ErrRepoNotFound:
-		return grpc.Errorf(codes.NotFound, recognizedErr.Error())
-	case ErrCommitNotFound:
-		return grpc.Errorf(codes.NotFound, recognizedErr.Error())
-	case ErrParentCommitNotFound:
-		return grpc.Errorf(codes.NotFound, recognizedErr.Error())
-	}
-	return e
 }
 
 func NewErrFileNotFound(file string, repo string, commitID string) *ErrFileNotFound {
