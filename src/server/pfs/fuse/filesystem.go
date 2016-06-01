@@ -155,19 +155,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		directory: *directory,
 		size:      0,
 	}
-	// we perform an empty write to Create the file
-	// this will check if the file can't be created (for example if a directory is already there)
-	// it also makes sure later calls don't get file not found errors when they attempt to read
-	w, err := d.fs.apiClient.PutFileWriter(
-		directory.File.Commit.Repo.Name,
-		directory.File.Commit.ID,
-		directory.File.Path,
-		directory.fs.handleID,
-	)
-	if err != nil {
-		return nil, 0, err
-	}
-	if err := w.Close(); err != nil {
+	if err := localResult.touch(); err != nil {
 		return nil, 0, err
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
@@ -240,6 +228,27 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	return nil
 }
 
+func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			protolion.Debug(&FileSetAttr{&f.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileSetAttr{&f.Node, errorToString(retErr)})
+		}
+	}()
+	if req.Size == 0 {
+		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
+			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
+		if err != nil {
+			return err
+		}
+		if err := f.touch(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
 		if retErr == nil {
@@ -272,6 +281,22 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func (f *file) touch() error {
+	w, err := f.fs.apiClient.PutFileWriter(
+		f.File.Commit.Repo.Name,
+		f.File.Commit.ID,
+		f.File.Path,
+		f.fs.handleID,
+	)
+	if err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
 	}
 	return nil
 }
