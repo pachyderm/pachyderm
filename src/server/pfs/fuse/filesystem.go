@@ -245,6 +245,9 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 		if err := f.touch(); err != nil {
 			return err
 		}
+		for _, handle := range f.handles {
+			handle.cursor = 0
+		}
 	}
 	return nil
 }
@@ -356,10 +359,6 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
-			// This happens when trying to read from a file in an open
-			// commit. We could catch this at `open(2)` time and never
-			// get here, but Open is currently not a remote operation.
-			//
 			// ENOENT from read(2) is weird, let's call this EINVAL
 			// instead.
 			return fuse.Errno(syscall.EINVAL)
