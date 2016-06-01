@@ -815,6 +815,7 @@ func TestRemoveAndAppend(t *testing.T) {
 	}
 	jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
 	require.NoError(t, err)
+	c.GetLogs(jobInfo2.Job.ID, os.Stdout)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo2.State)
 
 	var buffer2 bytes.Buffer
@@ -1491,6 +1492,7 @@ func TestFailedJobReadData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_FAILURE.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Parallelism > 0)
+	c.GetLogs(jobInfo.Job.ID, os.Stdout)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
