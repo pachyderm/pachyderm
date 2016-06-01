@@ -449,10 +449,32 @@ func TestCreateFileInDir(t *testing.T) {
 		commit, err := c.StartCommit("repo", "", "")
 		require.NoError(t, err)
 
-		fmt.Printf("running Mkdir")
 		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	})
+}
+
+func TestOverwriteFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit1, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+		_, err = c.PutFile("repo", commit1.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("repo", commit1.ID))
+		commit2, err := c.StartCommit("repo", commit1.ID, "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, "repo", commit2.ID, "file")
+		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit("repo", commit2.ID))
+		result, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, "bar\n", string(result))
 	})
 }
 
