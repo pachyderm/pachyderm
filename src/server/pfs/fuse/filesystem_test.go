@@ -281,6 +281,35 @@ func TestBigWrite(t *testing.T) {
 	})
 }
 
+func Test296Appends(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit2, err := c.StartCommit(repo, commit.ID, "")
+		require.NoError(t, err)
+		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit(repo, commit2.ID))
+		data, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, "1\n2\n3\n", string(data))
+	})
+}
+
 func Test296(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
@@ -306,7 +335,7 @@ func Test296(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
-		require.Equal(t, "1\n2\n3\n", string(data))
+		require.Equal(t, "3\n", string(data))
 	})
 }
 
