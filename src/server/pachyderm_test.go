@@ -1381,7 +1381,7 @@ func TestProvenance(t *testing.T) {
 		// expect an empty file
 		fileInfo, err := c.InspectFile(cPipeline, commitInfo.Commit.ID, "file", "", nil)
 		require.NoError(t, err)
-		require.Equal(t, 0, fileInfo.SizeBytes)
+		require.Equal(t, uint64(0), fileInfo.SizeBytes)
 	}
 }
 
