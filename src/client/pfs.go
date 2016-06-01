@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"math"
 
