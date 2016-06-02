@@ -1486,6 +1486,7 @@ func TestScrubbedErrors(t *testing.T) {
 	c := getPachClient(t)
 
 	a, err := c.InspectPipeline("blah")
+	fmt.Printf("pipelineinfo: %v\n", a)
 	require.Equal(t, "PipelineInfos blah not found", err.Error())
 
 	err = c.CreatePipeline(
