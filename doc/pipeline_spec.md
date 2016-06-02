@@ -18,7 +18,7 @@
       "repo": {
         "name": string
       },
-      "method": "map"/"reduce"/"incremental_reduce"/"global"
+      "method": "map"/"reduce"/"global"
       // alternatively, method can be specified as an object.
       // this is only for advanced use cases; most of the time, one of the four
       // strategies above should suffice.
@@ -84,7 +84,7 @@ For convenience, we have defined aliases for the four most commonly used input m
 
 |                | Block |  Top-level Objects |  Repo  |
 |----------------|-------|--------------------|--------|
-|   Incremental  |  map  | incremental-reduce |        |
+|   Incremental  |  map  |                    |        |
 | Nonincremental |       |       reduce       | global |
 
 #### Defaults
@@ -95,7 +95,7 @@ If no method is specified, the `map` method (Block + Incremental) is used by def
 
 A pipeline is allowed to have multiple inputs.  The important thing to understand is what happens when a new commit comes into one of the input repos.  In short, a pipeline processes the **cross product** of its inputs.  We will use an example to illustrate.
 
-Consider a pipeline that has two input repos: `foo` and `bar`.  `foo` uses the `incremental-reduce` method and `bar` uses the `reduce` method.  Now let's say that the following events occur:
+Consider a pipeline that has two input repos: `foo` and `bar`.  `foo` uses the `file/incremental` method and `bar` uses the `reduce` method.  Now let's say that the following events occur:
 
 ```
 1. PUT /file-1 in commit1 in foo -- no jobs triggered
@@ -126,7 +126,7 @@ job3:
 
 `job1` sees `/pfs/foo/file-1` and `/pfs/bar/file-a` because those are the only files available.
 
-`job2` sees `/pfs/foo/file-2` and `/pfs/bar/file-a` because it's triggered by commit2 in `foo`, and `foo` uses an incremental input method (`incremental-reduce`).
+`job2` sees `/pfs/foo/file-2` and `/pfs/bar/file-a` because it's triggered by commit2 in `foo`, and `foo` uses an incremental input method (`file/incremental`).
 
 `job3` sees all the files because it's triggered by commit2 in `bar`, and `bar` uses a non-incremental input method (`reduce`).
 
