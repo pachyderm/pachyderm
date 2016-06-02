@@ -79,7 +79,6 @@ type apiServer struct {
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
 	versionLock sync.RWMutex
-	namespace   string
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -288,7 +287,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
+	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 
@@ -498,7 +497,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	podList, err := a.kubeClient.Pods(a.namespace).List(kube_api.ListOptions{
+	podList, err := a.kubeClient.Pods(api.NamespaceDefault).List(kube_api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -522,7 +521,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			result := a.kubeClient.Pods(a.namespace).GetLogs(
+			result := a.kubeClient.Pods(api.NamespaceDefault).GetLogs(
 				pod.ObjectMeta.Name, &kube_api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
@@ -842,7 +841,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("pipelineinfo? %v\n", persistPipelineInfo)
 	if reflect.DeepEqual(*persistPipelineInfo, persist.PipelineInfo{}) {
 		return nil, NewErrPipelineNotFound(request.Pipeline.Name)
 	}
@@ -889,7 +887,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+		if err = a.kubeClient.Jobs(api.NamespaceDefault).Delete(jobInfo.JobID, nil); err != nil {
 			return nil, err
 		}
 	}
