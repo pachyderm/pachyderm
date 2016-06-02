@@ -109,8 +109,7 @@ func (c APIClient) CreateJob(
 			ParentJob:   parentJob,
 		},
 	)
-	err = sanitizeErr(err)
-	return job, err
+	return job, sanitizeErr(err)
 }
 
 // InspectJob returns info about a specific job.
@@ -123,8 +122,7 @@ func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, erro
 			Job:        NewJob(jobID),
 			BlockState: blockState,
 		})
-	err = sanitizeErr(err)
-	return jobInfo, err
+	return jobInfo, sanitizeErr(err)
 }
 
 // ListJob returns info about all jobs.
@@ -143,8 +141,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 			InputCommit: inputCommit,
 		})
 	if err != nil {
-		err = sanitizeErr(err)
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return jobInfos.JobInfo, nil
 }
@@ -161,8 +158,7 @@ func (c APIClient) GetLogs(
 		},
 	)
 	if err != nil {
-		err = sanitizeErr(err)
-		return err
+		return sanitizeErr(err)
 	}
 	return sanitizeErr(protostream.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
@@ -206,8 +202,7 @@ func (c APIClient) CreatePipeline(
 			Inputs:      inputs,
 		},
 	)
-	err = sanitizeErr(err)
-	return err
+	return sanitizeErr(err)
 }
 
 // InspectPipeline returns info about a specific pipeline.
@@ -218,8 +213,7 @@ func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, erro
 			Pipeline: NewPipeline(pipelineName),
 		},
 	)
-	err = sanitizeErr(err)
-	return pipelineInfo, err
+	return pipelineInfo, sanitizeErr(err)
 }
 
 // ListPipeline returns info about all pipelines.
@@ -229,8 +223,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
-		err = sanitizeErr(err)
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return pipelineInfos.PipelineInfo, nil
 }
@@ -243,6 +236,5 @@ func (c APIClient) DeletePipeline(name string) error {
 			Pipeline: NewPipeline(name),
 		},
 	)
-	err = sanitizeErr(err)
-	return err
+	return sanitizeErr(err)
 }
