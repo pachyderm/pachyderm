@@ -42,6 +42,10 @@ func NewErrJobNotFound(job string) error {
 	return fmt.Errorf("Job %v not found", job)
 }
 
+func NewErrPipelineNotFound(pipeline string) error {
+	return fmt.Errorf("Pipeline %v not found", pipeline)
+}
+
 type ErrEmptyInput struct {
 	error
 }
@@ -460,6 +464,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	if err != nil {
 		return nil, err
 	}
+	if (*persistJobInfo == persist.JobInfo{}) {
+		return nil, NewErrJobNotFound(request.Job.ID)
+	}
 	return newJobInfo(persistJobInfo)
 }
 
@@ -832,6 +839,10 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	persistPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
 	if err != nil {
 		return nil, err
+	}
+	fmt.Printf("pipelineinfo? %v\n", persistPipelineInfo)
+	if (*persistPipelineInfo == persist.PipelineInfo{}) {
+		return nil, NewErrPipelineNotFound(request.Pipeline.Name)
 	}
 	return newPipelineInfo(persistPipelineInfo), nil
 }
