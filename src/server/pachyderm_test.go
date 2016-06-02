@@ -1538,9 +1538,8 @@ func TestScrubbedErrors(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	a, err := c.InspectPipeline("blah")
-	fmt.Printf("pipelineinfo: %v\n", a)
-	require.Equal(t, "Pipeline blah not found", err.Error())
+	_, err := c.InspectPipeline("blah")
+	require.Equal(t, "PipelineInfos blah not found", err.Error())
 
 	err = c.CreatePipeline(
 		"lskdjf$#%^ERTYC",
@@ -1556,7 +1555,7 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Matches(t, "Repo job_.* not found", err.Error())
 
 	_, err = c.InspectJob("blah", true)
-	require.Equal(t, "Job blah not found", err.Error())
+	require.Equal(t, "JobInfos blah not found", err.Error())
 
 	home := os.Getenv("HOME")
 	f, err := os.Create(filepath.Join(home, "/tmpfile"))
