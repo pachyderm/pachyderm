@@ -24,6 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+	"k8s.io/kubernetes/pkg/api"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 const (
@@ -1533,10 +1535,52 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
+func TestWorkloadWithDynamicMembership(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	k, err := getKubeClient()
+	require.NoError(t, err)
+
+	c := getPachClient(t)
+
+	errCh := make(chan error)
+	go func() {
+		seed := time.Now().UnixNano()
+		errCh <- workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100)
+	}()
+
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	pachdRc, err := rc.Get("pachd")
+	require.NoError(t, err)
+
+	maxReplicas := pachdRc.Spec.Replicas * 4
+	for i := 0; i < 4; i++ {
+		pachdRc, err = rc.Get("pachd")
+		require.NoError(t, err)
+		pachdRc.Spec.Replicas = rand.Intn(maxReplicas) + 1
+		_, err = rc.Update(pachdRc)
+		fmt.Printf("scaling to %d replicas\n", pachdRc.Spec.Replicas)
+		require.NoError(t, err)
+		time.Sleep(5 * time.Second)
+	}
+
+	require.NoError(t, <-errCh)
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
+}
+
+func getKubeClient() (*kube.Client, error) {
+	config := &kube.Config{
+		Host:     "0.0.0.0:8080",
+		Insecure: false,
+	}
+	return kube.New(config)
 }
 
 func uniqueString(prefix string) string {
