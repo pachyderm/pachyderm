@@ -784,7 +784,7 @@ func TestRemoveAndAppend(t *testing.T) {
 				"echo foo > /pfs/out/file",
 			},
 		},
-		Parallelism: 3,
+		Parallelism: 1,
 	})
 	require.NoError(t, err)
 
@@ -798,7 +798,7 @@ func TestRemoveAndAppend(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+	require.Equal(t, strings.Repeat("foo\n", 1), buffer.String())
 
 	job2, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
@@ -807,7 +807,7 @@ func TestRemoveAndAppend(t *testing.T) {
 				"unlink /pfs/out/file && echo bar > /pfs/out/file",
 			},
 		},
-		Parallelism: 3,
+		Parallelism: 1,
 		ParentJob:   job1,
 	})
 	require.NoError(t, err)
@@ -823,7 +823,7 @@ func TestRemoveAndAppend(t *testing.T) {
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
-	require.Equal(t, "bar\nbar\nbar\n", buffer2.String())
+	require.Equal(t, strings.Repeat("bar\n", 1), buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {
