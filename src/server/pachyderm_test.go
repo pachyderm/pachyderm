@@ -1512,7 +1512,7 @@ func TestScrubbedErrors(t *testing.T) {
 	}()
 	require.NoError(t, err)
 	err = c.GetLogs("bogusJobId", f)
-	require.Equal(t, "Jobinfos bogusJobId not found", err.Error())
+	require.Equal(t, "Job bogusJobId not found", err.Error())
 
 }
 func getPachClient(t *testing.T) *client.APIClient {
