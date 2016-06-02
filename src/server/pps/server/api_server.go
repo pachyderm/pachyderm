@@ -39,11 +39,23 @@ var (
 	suite   = "pachyderm"
 )
 
-var (
-	ErrJobNotFound          = errors.New("job was not found")
-	ErrEmptyInput           = errors.New("job was not started due to empty input")
-	ErrParentInputsMismatch = errors.New("job does not have the same set of inputs as its parent")
-)
+func NewErrJobNotFound(job string) err {
+	return fmt.Errorf("Job %v not found", job)
+}
+
+type ErrEmptyInput struct {
+	error
+}
+
+func NewErrEmptyInput(commitID string) *ErrEmptyInput {
+	return &ErrEmptyInput{
+		error: fmt.Errorf("Job was not started due to empty input at commit %v", commitID),
+	}
+}
+
+func NewErrParentInputsMismatch(job string, parent string) err {
+	return fmt.Errorf("Job %v does not have the same set of inputs as its parent %v", job, parent)
+}
 
 type apiServer struct {
 	protorpclog.Logger
@@ -144,12 +156,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 		// Check that the parent job has the same set of inputs as the current job
 		if len(parentJobInfo.Inputs) != len(request.Inputs) {
-			return nil, ErrParentInputsMismatch
+			return nil, NewErrParentInputsMismatch(request.Job.ID, parentJobInfo.Job.ID)
 		}
 
 		for i, input := range request.Inputs {
 			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
-				return nil, ErrParentInputsMismatch
+				return nil, ErrParentInputsMismatch(request.Job.ID, parentJobInfo.Job.ID)
 			}
 		}
 	}
@@ -307,7 +319,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 		}
 
 		if commitInfo.SizeBytes == 0 {
-			return nil, ErrEmptyInput
+			return nil, NewErrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -489,7 +501,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		return err
 	}
 	if len(podList.Items) == 0 {
-		return ErrJobNotFound
+		return NewErrJobNotFound(request.Job.ID)
 	}
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(podList.Items))
@@ -1129,7 +1141,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						return err
 					}
 				}
-				if _, err = a.CreateJob(
+				_, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
 						Transform:   pipelineInfo.Transform,
@@ -1138,7 +1150,9 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						Inputs:      trueInputs,
 						ParentJob:   parentJob,
 					},
-				); err != nil && err != ErrEmptyInput {
+				)
+				_, isErrEmptyInput := err.(ErrEmptyInput)
+				if err != nil && err != isErrEmptyInput {
 					return err
 				}
 			}
