@@ -439,10 +439,12 @@ func (a *rethinkAPIServer) updateMessage(table Table, message proto.Message) err
 }
 
 func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, message proto.Message) error {
-	//	cursor, err := a.getTerm(table).Get(key).Default(gorethink.Error("value not found")).Run(a.session)
 	cursor, err := a.getTerm(table).Get(key).Run(a.session)
 	if err != nil {
 		return err
+	}
+	if cursor.IsNil() {
+		return fmt.Errorf("%v %v not found", table, key)
 	}
 	if cursor.Next(message) {
 		return cursor.Err()
@@ -471,6 +473,9 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	cursor, err := term.Run(a.session)
 	if err != nil {
 		return err
+	}
+	if cursor.IsNil() {
+		return fmt.Errorf("%v %v not found", table, key)
 	}
 	defer func() {
 		if err := cursor.Close(); err != nil && retErr == nil {
