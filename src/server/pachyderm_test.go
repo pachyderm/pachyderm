@@ -1535,6 +1535,10 @@ func TestPipelineState(t *testing.T) {
 
 func TestScrubbedErrors(t *testing.T) {
 
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	c := getPachClient(t)
 
