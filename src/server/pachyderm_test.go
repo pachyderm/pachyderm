@@ -767,6 +767,18 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 }
 
 func TestRemoveAndAppend(t *testing.T) {
+	testParellelRemoveAndAppend(t, 1)
+}
+
+func TestParellelRemoveAndAppend(t *testing.T) {
+	// This test does not pass on Travis which is why it's skipped right now As
+	// soon as we have a hypothesis for why this fails on travis but not
+	// locally we should un skip this test and try to fix it.
+	t.Skip()
+	testParellelRemoveAndAppend(t, 3)
+}
+
+func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -784,7 +796,7 @@ func TestRemoveAndAppend(t *testing.T) {
 				"echo foo > /pfs/out/file",
 			},
 		},
-		Parallelism: 1,
+		Parallelism: uint64(parallelism),
 	})
 	require.NoError(t, err)
 
@@ -798,7 +810,7 @@ func TestRemoveAndAppend(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, strings.Repeat("foo\n", 1), buffer.String())
+	require.Equal(t, strings.Repeat("foo\n", parallelism), buffer.String())
 
 	job2, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
@@ -807,7 +819,7 @@ func TestRemoveAndAppend(t *testing.T) {
 				"unlink /pfs/out/file && echo bar > /pfs/out/file",
 			},
 		},
-		Parallelism: 1,
+		Parallelism: uint64(parallelism),
 		ParentJob:   job1,
 	})
 	require.NoError(t, err)
@@ -823,7 +835,7 @@ func TestRemoveAndAppend(t *testing.T) {
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", nil, &buffer2))
-	require.Equal(t, strings.Repeat("bar\n", 1), buffer2.String())
+	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {
