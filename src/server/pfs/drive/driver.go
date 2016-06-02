@@ -442,6 +442,12 @@ func MatchProvenance(want []*pfs.Commit, have []*pfs.Commit) bool {
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
+
+	_, ok := d.branches[repo.Name]
+	if !ok {
+		return nil, pfsserver.NewErrRepoNotFound(repo.Name)
+	}
+
 	for commitID := range d.branches[repo.Name] {
 		commitInfo, err := d.inspectCommit(client.NewCommit(repo.Name, commitID), shards)
 		if err != nil {
@@ -916,7 +922,7 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 	for commit != nil {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if !ok {
-			return pfs.FileType_FILE_TYPE_NONE, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
+			return pfs.FileType_FILE_TYPE_NONE, pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if _append.Delete {
