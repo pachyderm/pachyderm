@@ -1,0 +1,26 @@
+{
+  "pipeline": {
+    "name": "scrape"
+  },
+  "transform": {
+    "cmd": [ "wget",
+        "--recursive",
+        "--level", "1",
+        "--accept", "html,jpg,jpeg,png,gif,bmp",
+        "--page-requisites",
+        "--adjust-extension",
+        "--timestamping",
+        "--directory-prefix",
+        "/pfs/out",
+        "--input-file", "/pfs/urls/urls"
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "urls"
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -381,6 +382,14 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
+	var canonicalProvenance []*pfs.Commit
+	for _, provCommit := range provenance {
+		canonicalCommit, err := d.canonicalCommit(provCommit)
+		if err != nil {
+			return nil, err
+		}
+		canonicalProvenance = append(canonicalProvenance, canonicalCommit)
+	}
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
@@ -412,7 +421,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 				if commitInfo.Cancelled && !all {
 					continue
 				}
-				if !MatchProvenance(provenance, commitInfo.Provenance) {
+				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
 					continue
 				}
 				if commitType != pfs.CommitType_COMMIT_TYPE_NONE &&
@@ -502,8 +511,9 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+		_append = newAppend()
 	}
+	defer func() { lion.Printf("append: %p %+v\n", _append, _append) }()
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
 			client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
@@ -561,7 +571,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = newAppend()
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
@@ -580,10 +590,11 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64, unsafe bool) (io.ReadCloser, error) {
+func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
+	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
 	if err != nil {
 		return nil, err
 	}
@@ -597,17 +608,17 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +627,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe, handle)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -630,11 +641,11 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	return result, nil
 }
 
-func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
+func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.RLock()
 	// We don't want to be able to delete files that are only added in the current
 	// commit, which is why we set unsafe to false.
-	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, false)
+	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
 		return err
@@ -642,7 +653,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RUnlock()
 
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		fileInfos, err := d.ListFile(file, nil, nil, shard, false, false)
+		fileInfos, err := d.ListFile(file, nil, nil, shard, false, unsafe, handle)
 		if err != nil {
 			return err
 		}
@@ -651,16 +662,16 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 			// We are deleting the file from the current commit, not whatever
 			// commit they were last modified in
 			info.File.Commit = file.Commit
-			if err := d.DeleteFile(info.File, shard); err != nil {
+			if err := d.DeleteFile(info.File, shard, unsafe, handle); err != nil {
 				return err
 			}
 		}
 	}
 
-	return d.deleteFile(file, shard)
+	return d.deleteFile(file, shard, unsafe, handle)
 }
 
-func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
+func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
@@ -678,10 +689,24 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 	}
 
 	cleanPath := path.Clean(file.Path)
-	if _, ok := diffInfo.Appends[cleanPath]; !ok {
-		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+	if _append, ok := diffInfo.Appends[cleanPath]; !ok {
+		// we have no append for this file, we create on so that we can set the
+		// Delete flag in it
+		diffInfo.Appends[cleanPath] = newAppend()
+	} else if unsafe {
+		// we have an append for this file and unsafe is true so we need to modify the append
+		if handle == "" {
+			diffInfo.Appends[cleanPath] = newAppend()
+		} else {
+			delete(_append.Handles, handle)
+		}
 	}
-	diffInfo.Appends[cleanPath].Delete = true
+	defer func() { lion.Printf("append: %+v\n", diffInfo.Appends[cleanPath]) }()
+	if !unsafe || handle == "" {
+		diffInfo.Appends[cleanPath].Delete = true
+	} else {
+		diffInfo.Appends[cleanPath].HandleDeletes[handle] = true
+	}
 	d.deleteFromDir(diffInfo, file, shard)
 
 	return nil
@@ -918,7 +943,7 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 			return pfs.FileType_FILE_TYPE_NONE, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete {
+			if _append.Delete || len(_append.HandleDeletes) > 0 {
 				break
 			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				return pfs.FileType_FILE_TYPE_REGULAR, nil
@@ -935,7 +960,8 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 // its children will have the correct sizes.  If recurse is false and the file
 // is a directory, its children will have size of 0.
 // If unsafe is set to true, you can inspect files in an open commit
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, recurse bool, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64,
+	from *pfs.Commit, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
@@ -954,6 +980,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			lion.Printf("inspect append: %p %+v\n", _append, _append)
 			if len(_append.BlockRefs) == 0 && len(_append.Handles) == 0 && _append.Children == nil && !_append.Delete {
 				return nil, nil, fmt.Errorf("the append for %s does not correspond to a file or a directory, and does not signify deletion; this is likely a bug", path.Clean(file.Path))
 			}
@@ -973,8 +1000,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
 				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
-				for _, handleBlockRefs := range _append.Handles {
-					filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+				if handle == "" {
+					for _, handleBlockRefs := range _append.Handles {
+						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+					}
+				} else {
+					if handleBlockRefs, ok := _append.Handles[handle]; ok {
+						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+					}
 				}
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
@@ -1007,7 +1040,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 								childFileInfo, _, err := d.inspectFile(&pfs.File{
 									Commit: file.Commit,
 									Path:   child,
-								}, filterShard, shard, from, recurse, unsafe)
+								}, filterShard, shard, from, recurse, unsafe, handle)
 								if err != nil {
 									return nil, nil, err
 								}
@@ -1019,7 +1052,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 			}
 			// If Delete is true, then everything before this commit is irrelevant
-			if _append.Delete {
+			if _append.Delete || unsafe && handle != "" && _append.HandleDeletes[handle] {
 				break
 			}
 			if fileInfo.CommitModified == nil {
@@ -1135,7 +1168,7 @@ func (d *driver) addDirs(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) 
 	for {
 		_append, ok := diffInfo.Appends[dirPath]
 		if !ok {
-			_append = &pfs.Append{}
+			_append = newAppend()
 			diffInfo.Appends[dirPath] = _append
 		}
 		if _append.Children == nil {
@@ -1162,7 +1195,7 @@ func (d *driver) deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File, shard ui
 
 	_append, ok := diffInfo.Appends[dirPath]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = newAppend()
 		diffInfo.Appends[dirPath] = _append
 	}
 	if _append.Children == nil {
@@ -1298,7 +1331,14 @@ func coalesceHandles(_append *pfs.Append) {
 	for _, blockRefs := range _append.Handles {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	}
+	for _, delete := range _append.HandleDeletes {
+		if delete {
+			_append.Delete = true
+		}
+		break
+	}
 	_append.Handles = nil
+	_append.HandleDeletes = nil
 }
 
 func repoSet(repos []*pfs.Repo) map[string]bool {
@@ -1315,4 +1355,11 @@ func repoSetFromCommits(commits []*pfs.Commit) map[string]bool {
 		result[commit.Repo.Name] = true
 	}
 	return result
+}
+
+func newAppend() *pfs.Append {
+	return &pfs.Append{
+		Handles:       make(map[string]*pfs.BlockRefs),
+		HandleDeletes: make(map[string]bool),
+	}
 }
