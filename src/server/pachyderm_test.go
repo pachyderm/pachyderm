@@ -1570,13 +1570,20 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 
 // scalePachd scales the number of pachd nodes to anywhere from 1 to
 // twice the original number
+// It's guaranteed that the new replica number will be different from
+// the original
 func scalePachd(t *testing.T, k *kube.Client) {
 	rc := k.ReplicationControllers(api.NamespaceDefault)
 	pachdRc, err := rc.Get("pachd")
 	require.NoError(t, err)
-	maxReplicas := pachdRc.Spec.Replicas * 2
-	pachdRc.Spec.Replicas = rand.Intn(maxReplicas) + 1
-	fmt.Println("scaling pachd to %d replicas", pachdRc.Spec.Replicas)
+	originalReplicas := pachdRc.Spec.Replicas
+	for {
+		pachdRc.Spec.Replicas = rand.Intn(originalReplicas*2) + 1
+		if pachdRc.Spec.Replicas != originalReplicas {
+			break
+		}
+	}
+	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
 	_, err = rc.Update(pachdRc)
 	require.NoError(t, err)
 }
