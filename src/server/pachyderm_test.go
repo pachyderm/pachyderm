@@ -268,6 +268,9 @@ func TestLogs(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetLogs(job.ID, &buffer))
 	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
+
+	// Should get an error if the job does not exist
+	require.YesError(t, c.GetLogs("nonexistent", &buffer))
 }
 
 func TestGrep(t *testing.T) {
@@ -1382,6 +1385,56 @@ func TestProvenance(t *testing.T) {
 		_, err := c.InspectFile(cPipeline, commitInfo.Commit.ID, "file", "", nil)
 		require.YesError(t, err)
 	}
+}
+
+// TestFlushCommit
+func TestFlushCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	prefix := uniqueString("repo")
+	makeRepoName := func(i int) string {
+		return fmt.Sprintf("%s_%d", prefix, i)
+	}
+
+	sourceRepo := makeRepoName(0)
+	require.NoError(t, c.CreateRepo(sourceRepo))
+
+	// Create a ten-stage pipeline
+	numStages := 5
+	for i := 0; i < numStages; i++ {
+		repo := makeRepoName(i)
+		require.NoError(t, c.CreatePipeline(
+			makeRepoName(i+1),
+			"",
+			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+		))
+	}
+
+	// commit to aRepo
+	commit1, err := c.StartCommit(sourceRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(sourceRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(sourceRepo, commit1.ID))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, numStages, len(commitInfos))
+
+	commit2, err := c.StartCommit(sourceRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(sourceRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(sourceRepo, commit2.ID))
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit2.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, numStages, len(commitInfos))
 }
 
 // TestRecreatingPipeline tracks #432
