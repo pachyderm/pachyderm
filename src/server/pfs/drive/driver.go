@@ -12,6 +12,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -510,8 +511,9 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+		_append = newAppend()
 	}
+	defer func() { lion.Printf("append: %p %+v\n", _append, _append) }()
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
 			client.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
@@ -569,7 +571,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = newAppend()
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
@@ -690,16 +692,21 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	if _append, ok := diffInfo.Appends[cleanPath]; !ok {
 		// we have no append for this file, we create on so that we can set the
 		// Delete flag in it
-		diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+		diffInfo.Appends[cleanPath] = newAppend()
 	} else if unsafe {
 		// we have an append for this file and unsafe is true so we need to modify the append
 		if handle == "" {
-			diffInfo.Appends[cleanPath] = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+			diffInfo.Appends[cleanPath] = newAppend()
 		} else {
 			delete(_append.Handles, handle)
 		}
 	}
-	diffInfo.Appends[cleanPath].Delete = true
+	defer func() { lion.Printf("append: %+v\n", diffInfo.Appends[cleanPath]) }()
+	if !unsafe || handle == "" {
+		diffInfo.Appends[cleanPath].Delete = true
+	} else {
+		diffInfo.Appends[cleanPath].HandleDeletes[handle] = true
+	}
 	d.deleteFromDir(diffInfo, file, shard)
 
 	return nil
@@ -936,7 +943,7 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 			return pfs.FileType_FILE_TYPE_NONE, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete {
+			if _append.Delete || len(_append.HandleDeletes) > 0 {
 				break
 			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				return pfs.FileType_FILE_TYPE_REGULAR, nil
@@ -973,6 +980,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			lion.Printf("inspect append: %p %+v\n", _append, _append)
 			if len(_append.BlockRefs) == 0 && len(_append.Handles) == 0 && _append.Children == nil && !_append.Delete {
 				return nil, nil, fmt.Errorf("the append for %s does not correspond to a file or a directory, and does not signify deletion; this is likely a bug", path.Clean(file.Path))
 			}
@@ -1044,7 +1052,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 			}
 			// If Delete is true, then everything before this commit is irrelevant
-			if _append.Delete {
+			if _append.Delete || unsafe && handle != "" && _append.HandleDeletes[handle] {
 				break
 			}
 			if fileInfo.CommitModified == nil {
@@ -1160,7 +1168,7 @@ func (d *driver) addDirs(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) 
 	for {
 		_append, ok := diffInfo.Appends[dirPath]
 		if !ok {
-			_append = &pfs.Append{}
+			_append = newAppend()
 			diffInfo.Appends[dirPath] = _append
 		}
 		if _append.Children == nil {
@@ -1187,7 +1195,7 @@ func (d *driver) deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File, shard ui
 
 	_append, ok := diffInfo.Appends[dirPath]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = newAppend()
 		diffInfo.Appends[dirPath] = _append
 	}
 	if _append.Children == nil {
@@ -1323,7 +1331,14 @@ func coalesceHandles(_append *pfs.Append) {
 	for _, blockRefs := range _append.Handles {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	}
+	for _, delete := range _append.HandleDeletes {
+		if delete {
+			_append.Delete = true
+		}
+		break
+	}
 	_append.Handles = nil
+	_append.HandleDeletes = nil
 }
 
 func repoSet(repos []*pfs.Repo) map[string]bool {
@@ -1340,4 +1355,11 @@ func repoSetFromCommits(commits []*pfs.Commit) map[string]bool {
 		result[commit.Repo.Name] = true
 	}
 	return result
+}
+
+func newAppend() *pfs.Append {
+	return &pfs.Append{
+		Handles:       make(map[string]*pfs.BlockRefs),
+		HandleDeletes: make(map[string]bool),
+	}
 }
