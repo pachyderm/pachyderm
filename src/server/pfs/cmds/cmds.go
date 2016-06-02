@@ -224,7 +224,7 @@ Examples:
 	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
 	$ pachctl list-commit foo/abc123 bar/def456
 
-	# return commits in repo "foo" that have commits 
+	# return commits in repo "foo" that have commits
 	# "bar/abc123" and "baz/def456" as provenance
 	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
 
@@ -378,7 +378,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(getFile)
-	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "from commit")
+	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 
 	inspectFile := &cobra.Command{
@@ -419,7 +419,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, "", shard(), true)
+			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, shard(), true)
 			if err != nil {
 				return err
 			}
@@ -432,6 +432,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
+	listFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only list files that are written since this commit")
 	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
 
 	deleteFile := &cobra.Command{

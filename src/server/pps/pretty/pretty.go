@@ -50,8 +50,28 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo))
 }
 
+func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
+	bytes, err := json.Marshal(jobInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	obj, err := gabs.ParseJSON(bytes)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// state is an integer; we want to print a string
+	_, err = obj.Set(ppsclient.JobState_name[int32(jobInfo.State)], "state")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	fmt.Println(obj.StringIndent("", "    "))
+}
+
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
-	bytes, err := json.MarshalIndent(pipelineInfo, "", "    ")
+	bytes, err := json.Marshal(pipelineInfo)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
