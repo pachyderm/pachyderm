@@ -525,14 +525,12 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 			retErr = err
 		}
 	}()
-	err = putFileClient.Send(
+	return sanitizeErr(putFileClient.Send(
 		&pfs.PutFileRequest{
 			File:     NewFile(repoName, commitID, path),
 			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
-	)
-	err = sanitizeErr(err)
-	return err
+	))
 }
 
 type putFileWriteCloser struct {

@@ -444,7 +444,6 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, 
 		return err
 	}
 	if cursor.IsNil() {
-		//	return fmt.Errorf("%v %v not found", table, key)
 		return nil
 	}
 	if cursor.Next(message) {
@@ -476,7 +475,6 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 		return err
 	}
 	if cursor.IsNil() {
-		//		return fmt.Errorf("%v %v not found", table, key)
 		return nil
 	}
 	defer func() {
