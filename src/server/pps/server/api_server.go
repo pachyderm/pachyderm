@@ -1155,8 +1155,8 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						ParentJob:   parentJob,
 					},
 				)
-				_, isErrEmptyInput := err.(ErrEmptyInput)
-				if err != nil && !isErrEmptyInput {
+				_, ok := err.(ErrEmptyInput)
+				if err != nil && !ok {
 					return err
 				}
 			}

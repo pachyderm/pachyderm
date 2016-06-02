@@ -103,8 +103,11 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 	if err != nil {
 		return nil, err
 	}
-	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
-	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil && !isErrRepoNotFound {
+
+	err := a.driver.DeleteRepo(request.Repo, shards)
+	_, ok := err.(*pfsserver.ErrRepoNotFound)
+
+	if err != nil && !ok {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -174,8 +177,8 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
 		request.FromCommit, request.Provenance, request.All, shards)
-	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
-	if err != nil && (!request.Block || !isErrRepoNotFound) {
+	_, ok := err.(*pfsserver.ErrRepoNotFound)
+	if err != nil && (!request.Block || !ok) {
 		return nil, err
 	}
 	if len(commitInfos) == 0 && request.Block {
@@ -426,8 +429,8 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		go func() {
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse, request.Unsafe)
-			_, isErrFileNotFound := err.(*pfsserver.ErrFileNotFound)
-			if err != nil && !isErrFileNotFound {
+			_, ok := err.(*pfsserver.ErrFileNotFound)
+			if err != nil && !ok {
 				select {
 				case errCh <- err:
 					// error reported
@@ -475,8 +478,8 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 			// across many DiffInfos across many shards.  Yet not all
 			// shards necessarily contain DiffInfos that contain the
 			// directory, so some of them will report FileNotFound
-			_, isErrFileNotFound := err.(*pfsserver.ErrFileNotFound)
-			if err != nil && !isErrFileNotFound {
+			_, ok := err.(*pfsserver.ErrFileNotFound)
+			if err != nil && !ok {
 				select {
 				case errCh <- err:
 					// error reported
@@ -587,8 +590,8 @@ func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards
 	// created between then and now.
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
 		request.FromCommit, request.Provenance, request.All, shards)
-	_, isErrRepoNotFound := err.(*pfsserver.ErrRepoNotFound)
-	if err != nil && !isErrRepoNotFound {
+	_, ok := err.(*pfsserver.ErrRepoNotFound)
+	if err != nil && !ok {
 		return nil, err
 	}
 	if len(commitInfos) != 0 {

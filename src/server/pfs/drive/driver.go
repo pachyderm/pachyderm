@@ -623,11 +623,11 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
 		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe)
-		_, isErrFileNotFound := err.(*pfsserver.ErrFileNotFound)
-		if err != nil && !isErrFileNotFound {
+		_, ok := err.(*pfsserver.ErrFileNotFound)
+		if err != nil && !ok {
 			return nil, err
 		}
-		if isErrFileNotFound {
+		if ok {
 			// how can a listed child return not found?
 			// regular files without any blocks in this shard count as not found
 			continue
