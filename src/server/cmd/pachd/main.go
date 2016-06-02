@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -75,7 +78,8 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 
-		_, err = c.ListRepo(nil)
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*2)
+		_, err = c.PfsAPIClient.ListRepo(ctx, &pfsclient.ListRepoRequest{})
 		if err != nil {
 			return err
 		}
