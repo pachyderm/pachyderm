@@ -1505,6 +1505,15 @@ func TestScrubbedErrors(t *testing.T) {
 	_, err = c.InspectJob("blah", true)
 	require.Equal(t, "JobInfos blah not found", err.Error())
 
+	home := os.Getenv("HOME")
+	f, err := os.Create(filepath.Join(home, "/tmpfile"))
+	defer func() {
+		os.Remove(filepath.Join(home, "/tmpfile"))
+	}()
+	require.NoError(t, err)
+	err = c.GetLogs("bogusJobId", f)
+	require.Equal(t, "Jobinfos bogusJobId not found", err.Error())
+
 }
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
