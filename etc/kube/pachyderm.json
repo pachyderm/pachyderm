@@ -16,8 +16,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -245,8 +245,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "suite": "pachyderm",
-        "app": "pachd-init"
+        "app": "pachd-init",
+        "suite": "pachyderm"
       }
     },
     "template": {
@@ -254,8 +254,8 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "app": "pachd-init",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "pachd-init"
         }
       },
       "spec": {
@@ -292,8 +292,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd"
     }
   },
   "spec": {
@@ -372,6 +372,15 @@
               },
               {
                 "name": "STORAGE_BACKEND"
+              },
+              {
+                "name": "PACHD_POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
               }
             ],
             "resources": {},

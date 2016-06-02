@@ -146,6 +146,15 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 									Name:  "STORAGE_BACKEND",
 									Value: backendEnvVar,
 								},
+								{
+									Name: "PACHD_POD_NAMESPACE",
+									ValueFrom: &api.EnvVarSource{
+										FieldRef: &api.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.namespace",
+										},
+									},
+								},
 							},
 							Ports: []api.ContainerPort{
 								{
