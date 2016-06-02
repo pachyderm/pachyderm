@@ -1540,10 +1540,8 @@ func TestWorkloadWithDynamicMembership(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	k, err := getKubeClient()
-	require.NoError(t, err)
-
 	c := getPachClient(t)
+	k := getKubeClient(t)
 
 	errCh := make(chan error)
 	go func() {
@@ -1551,22 +1549,36 @@ func TestWorkloadWithDynamicMembership(t *testing.T) {
 		errCh <- workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100)
 	}()
 
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
-
-	maxReplicas := pachdRc.Spec.Replicas * 4
-	for i := 0; i < 4; i++ {
-		pachdRc, err = rc.Get("pachd")
-		require.NoError(t, err)
-		pachdRc.Spec.Replicas = rand.Intn(maxReplicas) + 1
-		_, err = rc.Update(pachdRc)
-		fmt.Printf("scaling to %d replicas\n", pachdRc.Spec.Replicas)
-		require.NoError(t, err)
-		time.Sleep(5 * time.Second)
+	for i := 0; i < 2; i++ {
+		time.Sleep(10 * time.Second)
+		scalePachd(t, k)
+		time.Sleep(10 * time.Second)
 	}
 
 	require.NoError(t, <-errCh)
+}
+
+func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	k := getKubeClient(t)
+	scalePachd(t, k)
+	TestJob(t)
+}
+
+// scalePachd scales the number of pachd nodes to anywhere from 1 to
+// twice the original number
+func scalePachd(t *testing.T, k *kube.Client) {
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	pachdRc, err := rc.Get("pachd")
+	require.NoError(t, err)
+	maxReplicas := pachdRc.Spec.Replicas * 2
+	pachdRc.Spec.Replicas = rand.Intn(maxReplicas) + 1
+	fmt.Println("scaling pachd to %d replicas", pachdRc.Spec.Replicas)
+	_, err = rc.Update(pachdRc)
+	require.NoError(t, err)
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
@@ -1575,12 +1587,14 @@ func getPachClient(t *testing.T) *client.APIClient {
 	return client
 }
 
-func getKubeClient() (*kube.Client, error) {
+func getKubeClient(t *testing.T) *kube.Client {
 	config := &kube.Config{
 		Host:     "0.0.0.0:8080",
 		Insecure: false,
 	}
-	return kube.New(config)
+	k, err := kube.New(config)
+	require.NoError(t, err)
+	return k
 }
 
 func uniqueString(prefix string) string {
