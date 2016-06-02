@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -464,7 +465,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	if err != nil {
 		return nil, err
 	}
-	if (*persistJobInfo == persist.JobInfo{}) {
+	if reflect.DeepEqual(*persistJobInfo, persist.JobInfo{}) {
 		return nil, NewErrJobNotFound(request.Job.ID)
 	}
 	return newJobInfo(persistJobInfo)
@@ -841,7 +842,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 		return nil, err
 	}
 	fmt.Printf("pipelineinfo? %v\n", persistPipelineInfo)
-	if (*persistPipelineInfo == persist.PipelineInfo{}) {
+	if reflect.DeepEqual(*persistPipelineInfo, persist.PipelineInfo{}) {
 		return nil, NewErrPipelineNotFound(request.Pipeline.Name)
 	}
 	return newPipelineInfo(persistPipelineInfo), nil
