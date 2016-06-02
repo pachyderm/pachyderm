@@ -147,6 +147,7 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 				select {
 				case errCh <- err:
 				default:
+					return
 				}
 			}
 			provSet := repoSet(repoInfo.Provenance)
