@@ -104,7 +104,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 		return nil, err
 	}
 
-	err := a.driver.DeleteRepo(request.Repo, shards)
+	err = a.driver.DeleteRepo(request.Repo, shards)
 	_, ok := err.(*pfsserver.ErrRepoNotFound)
 
 	if err != nil && !ok {
