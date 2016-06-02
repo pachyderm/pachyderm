@@ -164,7 +164,7 @@ func (c APIClient) GetLogs(
 		err = sanitizeErr(err)
 		return err
 	}
-	return protostream.WriteFromStreamingBytesClient(getLogsClient, writer)
+	return sanitizeErr(protostream.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

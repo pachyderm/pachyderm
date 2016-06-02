@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -39,7 +38,7 @@ var (
 	suite   = "pachyderm"
 )
 
-func NewErrJobNotFound(job string) err {
+func NewErrJobNotFound(job string) error {
 	return fmt.Errorf("Job %v not found", job)
 }
 
@@ -53,8 +52,8 @@ func NewErrEmptyInput(commitID string) *ErrEmptyInput {
 	}
 }
 
-func NewErrParentInputsMismatch(job string, parent string) err {
-	return fmt.Errorf("Job %v does not have the same set of inputs as its parent %v", job, parent)
+func NewErrParentInputsMismatch(parent string) error {
+	return fmt.Errorf("Job does not have the same set of inputs as its parent %v", parent)
 }
 
 type apiServer struct {
@@ -156,12 +155,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 		// Check that the parent job has the same set of inputs as the current job
 		if len(parentJobInfo.Inputs) != len(request.Inputs) {
-			return nil, NewErrParentInputsMismatch(request.Job.ID, parentJobInfo.Job.ID)
+			return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
 		}
 
 		for i, input := range request.Inputs {
 			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
-				return nil, ErrParentInputsMismatch(request.Job.ID, parentJobInfo.Job.ID)
+				return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
 			}
 		}
 	}
@@ -1152,7 +1151,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 					},
 				)
 				_, isErrEmptyInput := err.(ErrEmptyInput)
-				if err != nil && err != isErrEmptyInput {
+				if err != nil && !isErrEmptyInput {
 					return err
 				}
 			}
