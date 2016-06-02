@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -45,4 +46,12 @@ func NewInCluster() (*APIClient, error) {
 	}
 
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
+}
+
+func sanitizeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return errors.New(grpc.ErrorDesc(err))
 }
