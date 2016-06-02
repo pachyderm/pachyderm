@@ -1,14 +1,12 @@
 package client
 
 import (
-	"errors"
 	"io"
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 func NewRepo(repoName string) *pfs.Repo {
@@ -579,12 +577,4 @@ func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {
 		return NewCommit(repoName, fromCommitID)
 	}
 	return nil
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }
