@@ -815,11 +815,11 @@ func (d *driver) fullCommitProvenance(commit *pfs.Commit, repoSet map[string]boo
 	for shard := range shards {
 		diffInfos := shardToDiffInfo[shard]
 		if !ok {
-			return nil, fmt.Errorf("missing shard %d (this is likely a bug)")
+			return nil, fmt.Errorf("missing shard %d (this is likely a bug)", shard)
 		}
 		diffInfo, ok := diffInfos[commit.ID]
 		if !ok {
-			return nil, fmt.Errorf("missing \"\" diff (this is likely a bug)")
+			return nil, fmt.Errorf("missing \"%s\" diff (this is likely a bug)", commit.ID)
 		}
 		for _, provCommit := range diffInfo.Provenance {
 			if !repoSet[provCommit.Repo.Name] {
