@@ -1395,6 +1395,9 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	_, err = client.StartCommit("zzzzz", "", "")
 	require.Equal(t, "Repo zzzzz not found", err.Error())
 
+	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, true, []*pfsclient.Commit{})
+	require.Equal(t, "Repo zzzzz not found", err.Error())
+
 	_, err = client.InspectRepo("bogusrepo")
 	require.Equal(t, "Repo bogusrepo not found", err.Error())
 
