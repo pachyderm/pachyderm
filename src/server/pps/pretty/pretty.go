@@ -1,9 +1,11 @@
 package pretty
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
+	"github.com/Jeffail/gabs"
 	"github.com/fatih/color"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -23,7 +25,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 }
 
 func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
 }
 
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
@@ -41,20 +43,75 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 		}
 	}
 	if pipelineInfo.OutputRepo != nil {
-		fmt.Fprintf(w, "%s\t\n", pipelineInfo.OutputRepo.Name)
+		fmt.Fprintf(w, "%s\t", pipelineInfo.OutputRepo.Name)
 	} else {
-		fmt.Fprintf(w, "\t\n")
+		fmt.Fprintf(w, "\t")
 	}
+	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo))
+}
+
+func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
+	bytes, err := json.Marshal(jobInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	obj, err := gabs.ParseJSON(bytes)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// state is an integer; we want to print a string
+	_, err = obj.Set(ppsclient.JobState_name[int32(jobInfo.State)], "state")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	fmt.Println(obj.StringIndent("", "    "))
+}
+
+func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
+	bytes, err := json.Marshal(pipelineInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	obj, err := gabs.ParseJSON(bytes)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// state is an integer; we want to print a string
+	_, err = obj.Set(ppsclient.PipelineState_name[int32(pipelineInfo.State)], "state")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	fmt.Println(obj.StringIndent("", "    "))
 }
 
 func jobState(jobInfo *ppsclient.JobInfo) string {
 	switch jobInfo.State {
-	case ppsclient.JobState_JOB_STATE_RUNNING:
+	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
-	case ppsclient.JobState_JOB_STATE_FAILURE:
+	case ppsclient.JobState_JOB_FAILURE:
 		return color.New(color.FgRed).SprintFunc()("failure")
-	case ppsclient.JobState_JOB_STATE_SUCCESS:
+	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
+	}
+	return "-"
+}
+
+func pipelineState(pipelineInfo *ppsclient.PipelineInfo) string {
+	switch pipelineInfo.State {
+	case ppsclient.PipelineState_PIPELINE_STARTING:
+		return color.New(color.FgYellow).SprintFunc()("starting")
+	case ppsclient.PipelineState_PIPELINE_RUNNING:
+		return color.New(color.FgGreen).SprintFunc()("running")
+	case ppsclient.PipelineState_PIPELINE_RESTARTING:
+		return color.New(color.FgYellow).SprintFunc()("restarting")
+	case ppsclient.PipelineState_PIPELINE_FAILED:
+		return color.New(color.FgRed).SprintFunc()("failed")
 	}
 	return "-"
 }
