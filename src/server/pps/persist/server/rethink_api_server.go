@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/dancannon/gorethink"
@@ -465,6 +466,7 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 ) (retErr error) {
 	term := a.getTerm(table).
 		Get(key).
+		Default(gorethink.Error("value not found")).
 		Changes(gorethink.ChangesOpts{
 			IncludeInitial: true,
 		}).
@@ -472,10 +474,10 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 		Filter(predicate)
 	cursor, err := term.Run(a.session)
 	if err != nil {
+		if strings.Contains(err.Error(), "value not found") {
+			err = fmt.Errorf("%v %v not found", table, key)
+		}
 		return err
-	}
-	if cursor.IsNil() {
-		return fmt.Errorf("%v %v not found", table, key)
 	}
 	defer func() {
 		if err := cursor.Close(); err != nil && retErr == nil {
