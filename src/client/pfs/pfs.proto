@@ -205,11 +205,19 @@ message GetFileRequest {
   bool unsafe = 6;
 }
 
+enum Delimiter {
+  DELIMITER_NONE = 0;
+  DELIMITER_JSON = 1;
+  DELIMITER_LINE = 2;
+  DELIMITER_USER = 3;
+}
+
 message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
   bytes value = 3;
   string handle = 4;
+  Delimiter delimiter = 5;
 }
 
 message InspectFileRequest {
@@ -313,6 +321,11 @@ service InternalAPI {
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 }
 
+message PutBlockRequest {
+  bytes value = 1;
+  Delimiter delimiter = 2;
+}
+
 message GetBlockRequest {
   Block block = 1;
   uint64 offset_bytes = 2;
@@ -343,7 +356,7 @@ message DeleteDiffRequest {
 }
 
 service BlockAPI {
-  rpc PutBlock(stream google.protobuf.BytesValue) returns (BlockRefs) {}
+  rpc PutBlock(stream PutBlockRequest) returns (BlockRefs) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc DeleteBlock(DeleteBlockRequest) returns (google.protobuf.Empty) {}
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
