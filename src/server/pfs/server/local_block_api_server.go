@@ -48,11 +48,23 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
+
+	putBlockRequest, err := putBlockServer.Recv()
+	if err != nil {
+		if err != io.EOF {
+			return err
+		} else {
+			return nil
+		}
+	}
+
 	reader := bufio.NewReader(&putBlockReader{
 		server: putBlockServer,
+		buffer: bytes.NewBuffer(putBlockRequest.Value),
 	})
+
 	for {
-		blockRef, err := s.putOneBlock(reader)
+		blockRef, err := s.putOneBlock(putBlockRequest.Delimiter, reader)
 		if err != nil {
 			return err
 		}
@@ -218,13 +230,22 @@ func (s *localBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInf
 	return result, nil
 }
 
-func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
+func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 	var buffer bytes.Buffer
 	var bytesWritten int
 	hash := newHash()
 	EOF := false
+
+	var rawDelimiter byte
+	switch delimiter {
+	case pfsclient.Delimiter_LINE:
+		rawDelimiter = '\n'
+	default:
+		rawDelimiter = '\n'
+	}
+
 	for !EOF {
-		bytes, err := reader.ReadBytes('\n')
+		bytes, err := reader.ReadBytes(rawDelimiter)
 		if err != nil {
 			if err == io.EOF {
 				EOF = true
@@ -248,8 +269,8 @@ func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 	}, buffer.Bytes(), nil
 }
 
-func (s *localBlockAPIServer) putOneBlock(reader *bufio.Reader) (*pfsclient.BlockRef, error) {
-	blockRef, data, err := readBlock(reader)
+func (s *localBlockAPIServer) putOneBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader) (*pfsclient.BlockRef, error) {
+	blockRef, data, err := readBlock(delimiter, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +286,7 @@ func (s *localBlockAPIServer) deleteBlock(block *pfsclient.Block) error {
 
 type putBlockReader struct {
 	server pfsclient.BlockAPI_PutBlockServer
-	buffer bytes.Buffer
+	buffer *bytes.Buffer
 }
 
 func (r *putBlockReader) Read(p []byte) (int, error) {

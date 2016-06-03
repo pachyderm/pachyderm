@@ -2,7 +2,9 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -81,13 +83,22 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
+	putBlockRequest, err := putBlockServer.Recv()
+	if err != nil {
+		if err != io.EOF {
+			return err
+		} else {
+			return nil
+		}
+	}
 	reader := bufio.NewReader(&putBlockReader{
 		server: putBlockServer,
+		buffer: bytes.NewBuffer(putBlockRequest.Value),
 	})
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	for {
-		blockRef, data, err := readBlock(reader)
+		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader)
 		if err != nil {
 			return err
 		}
