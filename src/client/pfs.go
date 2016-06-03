@@ -276,15 +276,20 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 // Blocks are content addressed and are thus identified by hashes of the content.
 // NOTE: this is lower level function that's used internally and might not be
 // useful to users.
-func (c APIClient) PutBlock(reader io.Reader) (*pfs.BlockRefs, error) {
-	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
+func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (_ *pfs.BlockRefs, retErr error) {
+	writer, err := c.newPutBlockWriteCloser(delimiter)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	if _, err := io.Copy(protostream.NewStreamingBytesWriter(putBlockClient), reader); err != nil {
-		return nil, err
-	}
-	return putBlockClient.CloseAndRecv()
+
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+
+	_, err = io.Copy(writer, reader)
+	return writer.blockRefs, err
 }
 
 // GetBlock returns the content of a block using it's hash.
@@ -545,6 +550,38 @@ func (w *putFileWriteCloser) Close() error {
 	return sanitizeErr(err)
 }
 
+type putBlockWriteCloser struct {
+	request        *pfs.PutBlockRequest
+	putBlockClient pfs.BlockAPI_PutBlockClient
+	blockRefs      *pfs.BlockRefs
+}
+
+func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWriteCloser, error) {
+	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return &putBlockWriteCloser{
+		request: &pfs.PutBlockRequest{
+			Delimiter: delimiter,
+		},
+		putBlockClient: putBlockClient,
+	}, nil
+}
+
+func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.putBlockClient.Send(w.request); err != nil {
+		return 0, sanitizeErr(err)
+	}
+	return len(p), nil
+}
+
+func (w *putBlockWriteCloser) Close() error {
+	var err error
+	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
+	return sanitizeErr(err)
+}
 func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {
 	if fromCommitID != "" {
 		return NewCommit(repoName, fromCommitID)

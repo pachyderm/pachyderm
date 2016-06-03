@@ -23,7 +23,7 @@ type Driver interface {
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
-	PutFile(file *pfs.File, handle string, shard uint64, reader io.Reader) error
+	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, shard uint64, reader io.Reader) error
 	MakeDirectory(file *pfs.File, shard uint64) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64, unsafe bool) (io.ReadCloser, error)
 	InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool) (*pfs.FileInfo, error)

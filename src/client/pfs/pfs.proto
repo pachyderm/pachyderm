@@ -206,10 +206,10 @@ message GetFileRequest {
 }
 
 enum Delimiter {
-  DELIMITER_NONE = 0;
-  DELIMITER_JSON = 1;
-  DELIMITER_LINE = 2;
-  DELIMITER_USER = 3;
+  NONE = 0;
+  JSON = 1;
+  LINE = 2;
+  USER = 3;
 }
 
 message PutFileRequest {
