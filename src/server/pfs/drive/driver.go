@@ -462,13 +462,14 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
-func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, handle string,
+	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
 	}
 	_client := client.APIClient{BlockAPIClient: blockClient}
-	blockRefs, err := _client.PutBlock(reader)
+	blockRefs, err := _client.PutBlock(delimiter, reader)
 	if err != nil {
 		return err
 	}
