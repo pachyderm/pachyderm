@@ -1,14 +1,50 @@
 package pfs
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-var ErrFileNotFound = errors.New("file not found")
+type ErrFileNotFound struct {
+	error
+}
 
-var ErrRepoNotFound = errors.New("repo not found")
+type ErrRepoNotFound struct {
+	error
+}
+
+type ErrCommitNotFound struct {
+	error
+}
+
+type ErrParentCommitNotFound struct {
+	error
+}
+
+func NewErrFileNotFound(file string, repo string, commitID string) *ErrFileNotFound {
+	return &ErrFileNotFound{
+		error: fmt.Errorf("File %v not found in repo %v at commit %v", file, repo, commitID),
+	}
+}
+
+func NewErrRepoNotFound(repo string) *ErrRepoNotFound {
+	return &ErrRepoNotFound{
+		error: fmt.Errorf("Repo %v not found", repo),
+	}
+}
+
+func NewErrCommitNotFound(repo string, commitID string) *ErrCommitNotFound {
+	return &ErrCommitNotFound{
+		error: fmt.Errorf("Commit %v not found in repo %v", commitID, repo),
+	}
+}
+
+func NewErrParentCommitNotFound(repo string, commitID string) *ErrParentCommitNotFound {
+	return &ErrParentCommitNotFound{
+		error: fmt.Errorf("Parent commit %v not found in repo %v", commitID, repo),
+	}
+}
 
 func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
