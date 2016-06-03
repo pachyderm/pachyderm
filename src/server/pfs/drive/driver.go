@@ -239,6 +239,15 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	// make sure that the parent commit exists
+	if parentID != "" {
+		_, err := d.inspectCommit(client.NewCommit(repo.Name, parentID), shards)
+		if err != nil {
+			return err
+		}
+	}
+
 	for shard := range shards {
 		if len(provenance) != 0 {
 			diffInfo, ok := d.diffs.get(client.NewDiff(repo.Name, "", shard))
