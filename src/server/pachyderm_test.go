@@ -1533,6 +1533,44 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
+func TestScrubbedErrors(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+
+	_, err := c.InspectPipeline("blah")
+	require.Equal(t, "PipelineInfos blah not found", err.Error())
+
+	err = c.CreatePipeline(
+		"lskdjf$#%^ERTYC",
+		"",
+		[]string{},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: "test"}}},
+	)
+	require.Equal(t, "Repo test not found", err.Error())
+
+	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	require.Matches(t, "Repo job_.* not found", err.Error())
+
+	_, err = c.InspectJob("blah", true)
+	require.Equal(t, "JobInfos blah not found", err.Error())
+
+	home := os.Getenv("HOME")
+	f, err := os.Create(filepath.Join(home, "/tmpfile"))
+	defer func() {
+		os.Remove(filepath.Join(home, "/tmpfile"))
+	}()
+	require.NoError(t, err)
+	err = c.GetLogs("bogusJobId", f)
+	require.Equal(t, "Job bogusJobId not found", err.Error())
+
+}
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
