@@ -483,9 +483,11 @@ func TestPutFile(t *testing.T) {
 	require.YesError(t, err) // because dir1 is a directory
 	require.NoError(t, client.FinishCommit(repo, commit4.ID))
 
-	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer2))
-	require.Equal(t, "bar\n", buffer2.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", nil, &buffer))
 }
 
 func TestListFileTwoCommits(t *testing.T) {
