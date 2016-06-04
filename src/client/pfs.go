@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"math"
 
@@ -276,20 +277,24 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 // Blocks are content addressed and are thus identified by hashes of the content.
 // NOTE: this is lower level function that's used internally and might not be
 // useful to users.
-func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (_ *pfs.BlockRefs, retErr error) {
+func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRefs *pfs.BlockRefs, retErr error) {
 	writer, err := c.newPutBlockWriteCloser(delimiter)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 
 	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
+		err := writer.Close()
+		if err != nil && retErr == nil {
 			retErr = err
+		} else {
+			blockRefs = writer.blockRefs
 		}
 	}()
 
-	_, err = io.Copy(writer, reader)
-	return writer.blockRefs, err
+	_, retErr = io.Copy(writer, reader)
+	fmt.Printf("!!! client.PutBlock() ... blockrefs %v\n", writer.blockRefs)
+	return blockRefs, retErr
 }
 
 // GetBlock returns the content of a block using it's hash.
@@ -566,11 +571,13 @@ func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWri
 			Delimiter: delimiter,
 		},
 		putBlockClient: putBlockClient,
+		blockRefs:      &pfs.BlockRefs{},
 	}, nil
 }
 
 func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
+	fmt.Printf("!!! putBlockWriteCloser.Write() ... writing value (%v)\n", string(p))
 	if err := w.putBlockClient.Send(w.request); err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -580,6 +587,7 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 func (w *putBlockWriteCloser) Close() error {
 	var err error
 	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
+	fmt.Printf("!!! putBlockWriteCloser.Close() ... blockrefs = %v\n", w.blockRefs)
 	return sanitizeErr(err)
 }
 func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {

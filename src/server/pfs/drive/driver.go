@@ -470,6 +470,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	}
 	_client := client.APIClient{BlockAPIClient: blockClient}
 	blockRefs, err := _client.PutBlock(delimiter, reader)
+	fmt.Printf("!!! a- Blockrefs: %v\n", blockRefs)
 	if err != nil {
 		return err
 	}
@@ -509,7 +510,10 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
+		_append = &pfs.Append{
+			Handles:  make(map[string]*pfs.BlockRefs),
+			FileType: pfs.FileType_FILE_TYPE_REGULAR,
+		}
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
@@ -518,6 +522,8 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		)
 	}
 	diffInfo.Appends[path.Clean(file.Path)] = _append
+	fmt.Printf("!!! Blockrefs: %v\n", blockRefs)
+	fmt.Printf("!!! I expect the append to exist here: %v\n", _append)
 	if handle == "" {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	} else {
@@ -568,7 +574,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = &pfs.Append{FileType: pfs.FileType_FILE_TYPE_DIR}
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
@@ -962,10 +968,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if len(_append.BlockRefs) == 0 && len(_append.Handles) == 0 && _append.Children == nil && !_append.Delete {
-				return nil, nil, fmt.Errorf("the append for %s does not correspond to a file or a directory, and does not signify deletion; this is likely a bug", path.Clean(file.Path))
+			if _append.FileType == pfs.FileType_FILE_TYPE_NONE && !_append.Delete {
+				return nil, nil, fmt.Errorf("the append for %s has file type NONE, this is likely a bug", path.Clean(file.Path))
 			}
-
+			fmt.Printf("blockrefs: (%v), handles(%v)\n", _append.BlockRefs, _append.Handles)
 			if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
@@ -976,6 +982,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
 					if !pfsserver.FileInShard(filterShard, file) {
+						fmt.Printf("!!!FIRST ONE\n")
 						return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 					}
 				}
@@ -1040,6 +1047,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		commit = diffInfo.ParentCommit
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+		fmt.Printf("!!!SECOND ONE\n")
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil
@@ -1143,7 +1151,7 @@ func (d *driver) addDirs(diffInfo *pfs.DiffInfo, child *pfs.File, shard uint64) 
 	for {
 		_append, ok := diffInfo.Appends[dirPath]
 		if !ok {
-			_append = &pfs.Append{}
+			_append = &pfs.Append{FileType: pfs.FileType_FILE_TYPE_DIR}
 			diffInfo.Appends[dirPath] = _append
 		}
 		if _append.Children == nil {
@@ -1170,7 +1178,7 @@ func (d *driver) deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File, shard ui
 
 	_append, ok := diffInfo.Appends[dirPath]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = &pfs.Append{FileType: pfs.FileType_FILE_TYPE_DIR}
 		diffInfo.Appends[dirPath] = _append
 	}
 	if _append.Children == nil {

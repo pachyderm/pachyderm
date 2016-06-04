@@ -50,12 +50,12 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 	defer drainBlockServer(putBlockServer)
 
 	putBlockRequest, err := putBlockServer.Recv()
+	fmt.Printf("!!! local - putBlockServer.Recv() returned %v, %v\n", putBlockRequest, err)
 	if err != nil {
 		if err != io.EOF {
 			return err
-		} else {
-			return nil
 		}
+		return putBlockServer.SendAndClose(result)
 	}
 
 	reader := bufio.NewReader(&putBlockReader{
@@ -65,6 +65,7 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 
 	for {
 		blockRef, err := s.putOneBlock(putBlockRequest.Delimiter, reader)
+		fmt.Printf("!!! putOneBlock? %v\n", blockRef)
 		if err != nil {
 			return err
 		}
@@ -73,6 +74,7 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 			break
 		}
 	}
+	fmt.Printf("!!! result %v\n", result)
 	return putBlockServer.SendAndClose(result)
 }
 
