@@ -689,6 +689,8 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer2))
+	// we expect only 3 foos here because > _overwrites_ rather than appending.
+	// Appending is done with >>.
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer2.String())
 }
 
