@@ -85,11 +85,12 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
 	if err != nil {
+		fmt.Printf("!!! Obj -- putBlockServer.Recv returned err: %v\n", err)
 		if err != io.EOF {
+			fmt.Printf("!!! Obj -- putBlockServer.Recv err is EOF\n")
 			return err
-		} else {
-			return nil
 		}
+		return putBlockServer.SendAndClose(result)
 	}
 	reader := bufio.NewReader(&putBlockReader{
 		server: putBlockServer,
