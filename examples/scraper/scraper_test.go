@@ -1,7 +1,6 @@
 package scraper
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -11,9 +10,6 @@ import (
 )
 
 func TestScraper(t *testing.T) {
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	fmt.Printf("wd: %s", wd)
 	require.NoError(t, exec.Command("pachctl", "create-repo", "urls").Run())
 	require.NoError(t, exec.Command("pachctl", "start-commit", "urls", "master").Run())
 	putFileCmd := exec.Command("pachctl", "put-file", "urls", "master", "urls")
