@@ -105,6 +105,7 @@ message Append {
   Commit last_ref = 3;
   bool delete = 4;
   map<string, BlockRefs> handles = 5;
+  FileType file_type = 6;
 }
 
 message BlockInfo {
