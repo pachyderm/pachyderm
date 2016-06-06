@@ -15,24 +15,31 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher  *pfsserver.Hasher
-	router  shard.Router
-	version int64
+	hasher *pfsserver.Hasher
+	router shard.Router
+
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
 	versionLock sync.RWMutex
+	version     int64
+
+	versionChanLock sync.Mutex
+	versionChans    map[int64]chan struct{}
+	// This is necessary because closing a channel twice causes a panic.
+	// See the discussion here: https://groups.google.com/d/msg/golang-nuts/pZwdYRGxCIk/Uz4iCT_C6f0J
+	versionChanClosed map[int64]bool
 }
 
 func newAPIServer(
@@ -40,34 +47,40 @@ func newAPIServer(
 	router shard.Router,
 ) *apiServer {
 	return &apiServer{
-		protorpclog.NewLogger("pachyderm.pfsserver.API"),
-		hasher,
-		router,
-		shard.InvalidVersion,
-		sync.RWMutex{},
+		Logger:      protorpclog.NewLogger("pachyderm.pfsserver.API"),
+		hasher:      hasher,
+		router:      router,
+		version:     shard.InvalidVersion,
+		versionLock: sync.RWMutex{},
 	}
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	a.versionLock.RLock()
-	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
 	defer func() {
 		if retErr == nil {
 			metrics.AddRepos(1)
 		}
 	}()
+
 	if strings.Contains(request.Repo.Name, "/") {
 		return nil, fmt.Errorf("repo names cannot contain /")
 	}
 	if client.ReservedRepoNames[request.Repo.Name] {
 		return nil, fmt.Errorf("repo name %s is a reserved keyword", request.Repo.Name)
 	}
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
+
 	request.Created = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
@@ -150,7 +163,6 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 				select {
 				default:
 				case errCh <- err:
-					return
 				}
 				return
 			}
@@ -704,9 +716,27 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 }
 
 func (a *apiServer) Version(version int64) error {
-	a.versionLock.Lock()
-	defer a.versionLock.Unlock()
-	a.version = version
+	func() {
+		a.versionLock.RLock()
+		defer a.versionLock.RUnlock()
+
+		a.versionChanLock.Lock()
+		defer a.versionChanLock.Unlock()
+
+		if !a.versionChanClosed[a.version] {
+			close(a.versionChans[a.version])
+			a.versionChanClosed[a.version] = true
+			a.versionChans[version] = make(chan struct{})
+		}
+	}()
+
+	func() {
+		a.versionLock.Lock()
+		defer a.versionLock.Unlock()
+
+		a.version = version
+	}()
+
 	return nil
 }
 
@@ -725,9 +755,24 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 	return a.router.GetClientConn(a.hasher.HashFile(file), version)
 }
 
-func versionToContext(version int64, ctx context.Context) context.Context {
-	return metadata.NewContext(
-		ctx,
-		metadata.Pairs("version", fmt.Sprint(version)),
-	)
+// getVersionContext returns a context that gets cancelled when one of the following
+// events occur:
+// 1. the given context gets cancelled
+// 2. a new version comes in
+// The caller is expected to close the returned channel when they are done with
+// using this context
+func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, chan struct{}) {
+	a.versionLock.RLock()
+	defer a.version.RUnlock()
+	versionChan := a.versionChan
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-versionChan:
+			cancel()
+		case <-done:
+		}
+	}()
+	return ctx, done
 }
