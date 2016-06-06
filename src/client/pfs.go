@@ -57,7 +57,7 @@ func (c APIClient) CreateRepo(repoName string) error {
 			Repo: NewRepo(repoName),
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // InspectRepo returns info about a specific Repo.
@@ -69,7 +69,7 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return repoInfo, nil
 }
@@ -88,7 +88,7 @@ func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 		request,
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return repoInfos.RepoInfo, nil
 }
@@ -132,7 +132,7 @@ func (c APIClient) StartCommit(repoName string, parentCommit string, branch stri
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return commit, nil
 }
@@ -147,7 +147,7 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 			Commit: NewCommit(repoName, commitID),
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // CancelCommit ends the process of committing data to a repo. It differs from
@@ -162,7 +162,7 @@ func (c APIClient) CancelCommit(repoName string, commitID string) error {
 			Cancel: true,
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // InspectCommit returns info about a specific Commit.
@@ -174,7 +174,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return commitInfo, nil
 }
@@ -215,7 +215,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return commitInfos.CommitInfo, nil
 }
@@ -229,7 +229,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.CommitInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return commitInfos.CommitInfo, nil
 }
@@ -243,7 +243,7 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 			Commit: NewCommit(repoName, commitID),
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // FlushCommit blocks until all of the commits which have a set of commits as
@@ -266,7 +266,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return commitInfos.CommitInfo, nil
 }
@@ -279,7 +279,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 func (c APIClient) PutBlock(reader io.Reader) (*pfs.BlockRefs, error) {
 	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	if _, err := io.Copy(protostream.NewStreamingBytesWriter(putBlockClient), reader); err != nil {
 		return nil, err
@@ -304,7 +304,7 @@ func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader,
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
 }
@@ -319,8 +319,7 @@ func (c APIClient) DeleteBlock(block *pfs.Block) error {
 			Block: block,
 		},
 	)
-
-	return err
+	return sanitizeErr(err)
 }
 
 // InspectBlock returns info about a specific Block.
@@ -332,7 +331,7 @@ func (c APIClient) InspectBlock(hash string) (*pfs.BlockInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return blockInfo, nil
 }
@@ -344,7 +343,7 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 		&pfs.ListBlockRequest{},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return blockInfos.BlockInfo, nil
 }
@@ -363,7 +362,7 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string, 
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
 	writer, err := c.PutFileWriter(repoName, commitID, path, "")
 	if err != nil {
-		return 0, err
+		return 0, sanitizeErr(err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
@@ -406,10 +405,10 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 		},
 	)
 	if err != nil {
-		return err
+		return sanitizeErr(err)
 	}
 	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
-		return err
+		return sanitizeErr(err)
 	}
 	return nil
 }
@@ -438,7 +437,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string, fr
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return fileInfo, nil
 }
@@ -470,7 +469,7 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return fileInfos.FileInfo, nil
 }
@@ -496,19 +495,19 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 func (c APIClient) MakeDirectory(repoName string, commitID string, path string) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
 	if err != nil {
-		return err
+		return sanitizeErr(err)
 	}
 	defer func() {
 		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = err
+			retErr = sanitizeErr(err)
 		}
 	}()
-	return putFileClient.Send(
+	return sanitizeErr(putFileClient.Send(
 		&pfs.PutFileRequest{
 			File:     NewFile(repoName, commitID, path),
 			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
-	)
+	))
 }
 
 type putFileWriteCloser struct {
@@ -534,7 +533,7 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
 	if err := w.putFileClient.Send(w.request); err != nil {
-		return 0, err
+		return 0, sanitizeErr(err)
 	}
 	// File is only needed on the first request
 	w.request.File = nil
@@ -543,7 +542,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 
 func (w *putFileWriteCloser) Close() error {
 	_, err := w.putFileClient.CloseAndRecv()
-	return err
+	return sanitizeErr(err)
 }
 
 func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {
