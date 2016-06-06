@@ -96,7 +96,7 @@ func (c APIClient) CreateJob(
 	if parentJobID != "" {
 		parentJob = NewJob(parentJobID)
 	}
-	return c.PpsAPIClient.CreateJob(
+	job, err := c.PpsAPIClient.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
 			Transform: &pps.Transform{
@@ -109,18 +109,20 @@ func (c APIClient) CreateJob(
 			ParentJob:   parentJob,
 		},
 	)
+	return job, sanitizeErr(err)
 }
 
 // InspectJob returns info about a specific job.
 // blockOutput will cause the call to block until the job has been assigned an output commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
-	return c.PpsAPIClient.InspectJob(
+	jobInfo, err := c.PpsAPIClient.InspectJob(
 		context.Background(),
 		&pps.InspectJobRequest{
 			Job:        NewJob(jobID),
 			BlockState: blockState,
 		})
+	return jobInfo, sanitizeErr(err)
 }
 
 // ListJob returns info about all jobs.
@@ -139,7 +141,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 			InputCommit: inputCommit,
 		})
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return jobInfos.JobInfo, nil
 }
@@ -156,9 +158,9 @@ func (c APIClient) GetLogs(
 		},
 	)
 	if err != nil {
-		return err
+		return sanitizeErr(err)
 	}
-	return protostream.WriteFromStreamingBytesClient(getLogsClient, writer)
+	return sanitizeErr(protostream.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
@@ -200,17 +202,18 @@ func (c APIClient) CreatePipeline(
 			Inputs:      inputs,
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // InspectPipeline returns info about a specific pipeline.
 func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
-	return c.PpsAPIClient.InspectPipeline(
+	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		context.Background(),
 		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
 		},
 	)
+	return pipelineInfo, sanitizeErr(err)
 }
 
 // ListPipeline returns info about all pipelines.
@@ -220,7 +223,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return pipelineInfos.PipelineInfo, nil
 }
@@ -233,5 +236,5 @@ func (c APIClient) DeletePipeline(name string) error {
 			Pipeline: NewPipeline(name),
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
