@@ -1381,6 +1381,87 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGetFileInvalidCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
+	require.YesError(t, err)
+
+	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
+}
+
+func TestScrubbedErrorStrings(t *testing.T) {
+
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	err := client.CreateRepo("foo||@&#$TYX")
+	require.Equal(t, "Repo name (foo||@&#$TYX) invalid. Only alphanumeric and underscore characters allowed.", err.Error())
+
+	_, err = client.StartCommit("zzzzz", "", "")
+	require.Equal(t, "Repo zzzzz not found", err.Error())
+
+	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, true, []*pfsclient.Commit{})
+	require.Equal(t, "Repo zzzzz not found", err.Error())
+
+	_, err = client.InspectRepo("bogusrepo")
+	require.Equal(t, "Repo bogusrepo not found", err.Error())
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	_, err = client.PutFile("sdf", commit1.ID, "file", strings.NewReader("foo\n"))
+	require.Equal(t, "Repo sdf not found", err.Error())
+
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+
+	err = client.FinishCommit("zzzzzz", commit1.ID)
+	require.Equal(t, "Repo zzzzzz not found", err.Error())
+
+	err = client.FinishCommit(repo, "bogus")
+	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+
+	err = client.CancelCommit(repo, "bogus")
+	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+
+	_, err = client.InspectCommit(repo, "bogus")
+	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+
+	_, err = client.ListBranch("blah")
+	require.Equal(t, "Repo blah not found", err.Error())
+
+	_, err = client.InspectFile(repo, commit1.ID, "file", "", nil)
+	require.Equal(t, fmt.Sprintf("File file not found in repo %v at commit %v", repo, commit1.ID), err.Error())
+
+	err = client.MakeDirectory(repo, "sdf", "foo")
+	require.Equal(t, "Commit sdf not found in repo test", err.Error())
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
+	require.YesError(t, err)
+
+	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
