@@ -22,6 +22,7 @@ import (
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type apiServer struct {
@@ -70,11 +71,11 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 		return nil, fmt.Errorf("repo name %s is a reserved keyword", request.Repo.Name)
 	}
 
-	ctx, done := a.getVersionContext(ctx)
-	defer close(done)
-
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
 
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
@@ -760,13 +761,12 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 // 1. the given context gets cancelled
 // 2. a new version comes in
 // The caller is expected to close the returned channel when they are done with
-// using this context
+// using this context.
+// The caller is expected to be holding a read lock on a.versionLock
 func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, chan struct{}) {
-	a.versionLock.RLock()
-	defer a.version.RUnlock()
-	versionChan := a.versionChan
 	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
+	versionChan := a.versionChans[a.version]
 	go func() {
 		select {
 		case <-versionChan:
@@ -774,5 +774,9 @@ func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, cha
 		case <-done:
 		}
 	}()
+	ctx = metadata.NewContext(
+		ctx,
+		metadata.Pairs("version", fmt.Sprint(a.version)),
+	)
 	return ctx, done
 }
