@@ -1705,6 +1705,35 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Equal(t, "Job bogusJobId not found", err.Error())
 
 }
+
+func TestAcceptReturnCode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	job, err := c.PpsAPIClient.CreateJob(
+		context.Background(),
+		&ppsclient.CreateJobRequest{
+			Transform: &ppsclient.Transform{
+				Cmd:              []string{"sh"},
+				Stdin:            []string{"exit 1"},
+				AcceptReturnCode: []int64{1},
+			},
+		},
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
