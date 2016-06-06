@@ -2,9 +2,20 @@ package require
 
 import (
 	"reflect"
+	"regexp"
 	"runtime"
 	"testing"
 )
+
+func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...interface{}) {
+	r, err := regexp.Compile(expectedMatch)
+	if err != nil {
+		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", expectedMatch)
+	}
+	if !r.MatchString(actual) {
+		fatal(tb, msgAndArgs, "Actual string (%v) does not match pattern (%v)", actual, expectedMatch)
+	}
+}
 
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	if !reflect.DeepEqual(expected, actual) {
