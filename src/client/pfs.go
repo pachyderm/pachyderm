@@ -286,6 +286,7 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 	defer func() {
 		err := writer.Close()
 		if err != nil && retErr == nil {
+			fmt.Printf("!!!! Error closing the putblockwritecloser: %v\n", err)
 			retErr = err
 		} else {
 			blockRefs = writer.blockRefs
@@ -364,13 +365,19 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 // be needed in most use cases.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c APIClient) PutFileWriter(repoName string, commitID string, path string, handle string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, handle)
+func (c APIClient) PutFileWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, handle)
 }
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileWriter(repoName, commitID, path, "")
+	return c.PutFileWithDelimiter(repoName, commitID, path, pfs.Delimiter_LINE, reader)
+}
+
+//PutFileWithDelimiter writes a file to PFS from a reader
+// delimiter is used to tell PFS how to break the input into blocks
+func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path string, delimiter pfs.Delimiter, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter, "")
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -525,16 +532,17 @@ type putFileWriteCloser struct {
 	putFileClient pfs.API_PutFileClient
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, handle string) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
-			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_FILE_TYPE_REGULAR,
-			Handle:   handle,
+			File:      NewFile(repoName, commitID, path),
+			FileType:  pfs.FileType_FILE_TYPE_REGULAR,
+			Handle:    handle,
+			Delimiter: delimiter,
 		},
 		putFileClient: putFileClient,
 	}, nil
@@ -577,7 +585,6 @@ func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWri
 
 func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
-	fmt.Printf("!!! putBlockWriteCloser.Write() ... writing value (%v)\n", string(p))
 	if err := w.putBlockClient.Send(w.request); err != nil {
 		return 0, sanitizeErr(err)
 	}

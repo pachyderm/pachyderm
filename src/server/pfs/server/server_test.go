@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1015,11 +1016,11 @@ func TestHandleRace(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "", "")
 	require.NoError(t, err)
-	writer1, err := client.PutFileWriter(repo, commit.ID, "foo", "handle1")
+	writer1, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle1")
 	require.NoError(t, err)
 	_, err = writer1.Write([]byte("foo"))
 	require.NoError(t, err)
-	writer2, err := client.PutFileWriter(repo, commit.ID, "foo", "handle2")
+	writer2, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle2")
 	require.NoError(t, err)
 	_, err = writer2.Write([]byte("bar"))
 	require.NoError(t, err)
@@ -1442,6 +1443,101 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	require.YesError(t, err)
 
 	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
+}
+
+func TestPutFileWithJSONDelimiter(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	rawMessage := `{
+		"level":"debug",
+		"timestamp":"%v",
+		"message":{
+			"thing":"foo"
+		},
+		"timing":[1,3,34,6,7]
+	}`
+	// Make sure we write slightly more than 8MBs so that we write into at least 2 blocks
+	numObjs := int((8.0 * 1024.0 * 1024.0) / float64(len(fmt.Sprintf(rawMessage, time.Now()))) * 1.2)
+	// 59968 - fail w mismatch
+	// 59967 - pass - size written = 8388464 --> 7.9998626708984375 MB
+	numObjs = 59968
+	var expectedOutput []byte
+	fmt.Printf("Number of objs to write: %v\n", numObjs)
+	for i := 0; i < numObjs; i++ {
+		msg := fmt.Sprintf(rawMessage, time.Now())
+		expectedOutput = append(expectedOutput, []byte(msg)...)
+	}
+	fmt.Printf("expectedOutput size: %v\n", len(expectedOutput))
+	//_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_JSON, bytes.NewReader(expectedOutput))
+	_, err = client.PutFile(repo, commit1.ID, "foo", bytes.NewReader(expectedOutput))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	// Make sure all the content is there
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, string(expectedOutput), buffer.String())
+
+	// Now verify that each block contains only valid JSON objects
+
+	blockA := &pfsclient.Shard{
+		FileNumber:   0,
+		FileModulus:  0,
+		BlockNumber:  0,
+		BlockModulus: 2,
+	}
+
+	blockB := &pfsclient.Shard{
+		FileNumber:   0,
+		FileModulus:  0,
+		BlockNumber:  1,
+		BlockModulus: 2,
+	}
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockA, &buffer))
+	var value json.RawMessage
+	decoder := json.NewDecoder(&buffer)
+	EOF := false
+	fmt.Printf("!!! blockA size: %v\n", buffer.Len())
+	for !EOF {
+		err = decoder.Decode(&value)
+		if err != nil {
+			if err == io.EOF {
+				EOF = true
+			} else {
+				require.NoError(t, err)
+			}
+		}
+		_, err = value.MarshalJSON()
+		require.NoError(t, err)
+	}
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockB, &buffer))
+	decoder = json.NewDecoder(&buffer)
+	EOF = false
+
+	fmt.Printf("!!! blockB size: %v\n", buffer.Len())
+	for !EOF {
+		err = decoder.Decode(&value)
+		if err != nil {
+			if err == io.EOF {
+				EOF = true
+			} else {
+				require.NoError(t, err)
+			}
+		}
+		_, err = value.MarshalJSON()
+		require.NoError(t, err)
+	}
 }
 
 func generateRandomString(n int) string {
