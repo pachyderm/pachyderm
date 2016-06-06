@@ -36,8 +36,9 @@ type apiServer struct {
 	versionLock sync.RWMutex
 	version     int64
 
-	versionChanLock sync.Mutex
-	versionChans    map[int64]chan struct{}
+	versionChanLock    sync.RWMutex
+	versionChans       map[int64]chan struct{}
+	versionChansClosed map[int64]bool
 }
 
 func newAPIServer(
@@ -45,13 +46,14 @@ func newAPIServer(
 	router shard.Router,
 ) *apiServer {
 	return &apiServer{
-		Logger:          protorpclog.NewLogger("pachyderm.pfsserver.API"),
-		hasher:          hasher,
-		router:          router,
-		versionLock:     sync.RWMutex{},
-		version:         shard.InvalidVersion,
-		versionChanLock: sync.Mutex{},
-		versionChans:    make(map[int64]chan struct{}),
+		Logger:             protorpclog.NewLogger("pachyderm.pfsserver.API"),
+		hasher:             hasher,
+		router:             router,
+		versionLock:        sync.RWMutex{},
+		version:            shard.InvalidVersion,
+		versionChanLock:    sync.RWMutex{},
+		versionChans:       make(map[int64]chan struct{}),
+		versionChansClosed: make(map[int64]bool),
 	}
 }
 
@@ -70,73 +72,117 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 		return nil, fmt.Errorf("repo name %s is a reserved keyword", request.Repo.Name)
 	}
 
-	a.versionLock.RLock()
-	defer a.versionLock.RUnlock()
+	// We need to wrap the main logic into a function because we want to
+	// make sure to release versionLock when the operation completes.  We
+	// can't do the "defer Unlock()" directly in the main function body
+	// because this function may call itself, and when it does, we'd be
+	// acquiring the read lock again before we release it.
+	//
+	// But what is the problem with acquiring a read lock twice?  You may ask.
+	// The problem is that the following sequence of events results in a deadlock:
+	// 1) thread 1 acquires read lock
+	// 2) thread 2 tries to acquire write lock; it blocks because the read lock
+	// is currently being held
+	// 3) thread 1 tries to acquire read lock again; it blocks because RWMutex
+	// is implemented such that RLock() blocks if there is a Lock() in the queue.
+	// This is so that the writer doesn't get starved.
+	//
+	// So now you have a deadlock since thread 1 and 2 are waiting for each other
+	var oldVersion int64
+	err := func() error {
+		a.versionLock.RLock()
+		defer a.versionLock.RUnlock()
+		oldVersion = a.version
 
-	ctx, done := a.getVersionContext(ctx)
-	defer close(done)
+		ctx, done := a.getVersionContext(ctx)
+		defer close(done)
 
-	clientConns, err := a.router.GetAllClientConns(a.version)
+		clientConns, err := a.router.GetAllClientConns(a.version)
+		if err != nil {
+			return err
+		}
+
+		request.Created = prototime.TimeToTimestamp(time.Now())
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
+				return err
+			}
+		}
+		return nil
+	}()
+
+	if a.versionChanged(oldVersion) {
+		return a.CreateRepo(ctx, request)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	request.Created = prototime.TimeToTimestamp(time.Now())
-	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
-			return nil, err
-		}
-	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	a.versionLock.RLock()
-	defer a.versionLock.RUnlock()
+	var repoInfos []*pfs.RepoInfo
+	var oldVersion int64
+	err := func() error {
+		a.versionLock.RLock()
+		defer a.versionLock.RUnlock()
+		oldVersion = a.version
 
-	ctx, done := a.getVersionContext(ctx)
-	defer close(done)
+		ctx, done := a.getVersionContext(ctx)
+		defer close(done)
 
-	clientConns, err := a.router.GetAllClientConns(a.version)
+		clientConns, err := a.router.GetAllClientConns(a.version)
+		if err != nil {
+			return err
+		}
+
+		var lock sync.Mutex
+		var wg sync.WaitGroup
+		errCh := make(chan error, 1)
+		for _, clientConn := range clientConns {
+			wg.Add(1)
+			go func(clientConn *grpc.ClientConn) {
+				defer wg.Done()
+				repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+				if err != nil {
+					select {
+					case errCh <- err:
+						// error reported
+					default:
+						// not the first error
+					}
+					return
+				}
+				lock.Lock()
+				defer lock.Unlock()
+				repoInfos = append(repoInfos, repoInfo)
+			}(clientConn)
+		}
+		wg.Wait()
+		select {
+		case err := <-errCh:
+			return err
+		default:
+		}
+
+		repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
+
+		if len(repoInfos) != 1 || repoInfos[0].Repo.Name != request.Repo.Name {
+			return fmt.Errorf("incorrect repo returned (this is likely a bug)")
+		}
+
+		return nil
+	}()
+
+	if a.versionChanged(oldVersion) {
+		return a.InspectRepo(ctx, request)
+	}
+
 	if err != nil {
 		return nil, err
-	}
-
-	var lock sync.Mutex
-	var wg sync.WaitGroup
-	var repoInfos []*pfs.RepoInfo
-	errCh := make(chan error, 1)
-	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
-			repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-			lock.Lock()
-			defer lock.Unlock()
-			repoInfos = append(repoInfos, repoInfo)
-		}(clientConn)
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
-	}
-
-	repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
-
-	if len(repoInfos) != 1 || repoInfos[0].Repo.Name != request.Repo.Name {
-		return nil, fmt.Errorf("incorrect repo returned (this is likely a bug)")
 	}
 
 	return repoInfos[0], nil
@@ -765,11 +811,11 @@ func (a *apiServer) Version(version int64) error {
 		a.versionChanLock.Lock()
 		defer a.versionChanLock.Unlock()
 
-		// Note that a channel cannot be closed be twice.  So here
-		// we are relying on the invariant that Version() only gets called
-		// once per version.
 		if vChan, ok := a.versionChans[a.version]; ok {
-			close(vChan)
+			if a.versionChansClosed[a.version] {
+				close(vChan)
+				a.versionChansClosed[a.version] = true
+			}
 		}
 		a.versionChans[version] = make(chan struct{})
 	}()
@@ -807,8 +853,11 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 // using this context.
 // The caller is expected to be holding a read lock on a.versionLock
 func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, chan struct{}) {
-	ctx, cancel := context.WithCancel(ctx)
+	a.versionChanLock.RLock()
+	defer a.versionChanLock.RUnlock()
 	versionChan := a.versionChans[a.version]
+
+	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
 		select {
@@ -822,4 +871,12 @@ func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, cha
 		metadata.Pairs("version", fmt.Sprint(a.version)),
 	)
 	return ctx, done
+}
+
+// versionChanged returns whether there has been a new version since the
+// given version
+func (a *apiServer) versionChanged(version int64) bool {
+	a.versionChanLock.RLock()
+	defer a.versionLock.RUnlock()
+	return a.versionChansClosed[version]
 }
