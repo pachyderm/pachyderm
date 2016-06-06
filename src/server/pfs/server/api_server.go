@@ -766,7 +766,9 @@ func (a *apiServer) Version(version int64) error {
 		// Note that a channel cannot be closed be twice.  So here
 		// we are relying on the invariant that Version() only gets called
 		// once per version.
-		close(a.versionChans[a.version])
+		if vChan, ok := a.versionChans[a.version]; ok {
+			close(vChan)
+		}
 		a.versionChans[version] = make(chan struct{})
 	}()
 
