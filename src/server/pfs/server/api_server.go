@@ -45,11 +45,13 @@ func newAPIServer(
 	router shard.Router,
 ) *apiServer {
 	return &apiServer{
-		Logger:      protorpclog.NewLogger("pachyderm.pfsserver.API"),
-		hasher:      hasher,
-		router:      router,
-		version:     shard.InvalidVersion,
-		versionLock: sync.RWMutex{},
+		Logger:          protorpclog.NewLogger("pachyderm.pfsserver.API"),
+		hasher:          hasher,
+		router:          router,
+		versionLock:     sync.RWMutex{},
+		version:         shard.InvalidVersion,
+		versionChanLock: sync.Mutex{},
+		versionChans:    make(map[int64]chan struct{}),
 	}
 }
 
