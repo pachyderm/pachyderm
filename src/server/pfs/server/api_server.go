@@ -36,7 +36,7 @@ type apiServer struct {
 	versionLock sync.RWMutex
 	version     int64
 
-	versionChanLock sync.Mutex
+	versionChanLock sync.RWMutex
 	versionChans    map[int64]chan struct{}
 }
 
@@ -50,7 +50,7 @@ func newAPIServer(
 		router:          router,
 		versionLock:     sync.RWMutex{},
 		version:         shard.InvalidVersion,
-		versionChanLock: sync.Mutex{},
+		versionChanLock: sync.RWMutex{},
 		versionChans:    make(map[int64]chan struct{}),
 	}
 }
@@ -807,8 +807,11 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 // using this context.
 // The caller is expected to be holding a read lock on a.versionLock
 func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, chan struct{}) {
-	ctx, cancel := context.WithCancel(ctx)
+	a.versionChanLock.RLock()
+	defer a.versionChanLock.RUnlock()
 	versionChan := a.versionChans[a.version]
+
+	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
 		select {
