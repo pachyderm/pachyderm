@@ -1544,7 +1544,7 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	scalePachd(t, k)
 	// Wait for the cluster to stablize... ideally we shouldn't have to
 	// do that.
-	time.Sleep(30 * time.Second)
+	time.Sleep(20 * time.Second)
 	TestJob(t)
 }
 
