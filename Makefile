@@ -175,13 +175,21 @@ pretest:
 
 test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
-test-client: deps-client
-	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
+test-client: 
+	#deps-client
+	rm -rf src/client/vendor
+	rm -rf src/server/vendor/github.com/pachyderm
+	cp -R src/server/vendor src/client/
+	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
+	rm -rf src/client/vendor
+	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: deps-client
+test-fuse: 
+	#deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local: deps-client
+test-local: 
+	#deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
