@@ -160,6 +160,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		clientConn := clientConn
+		defer clientConn.Close()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
