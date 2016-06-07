@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -26,13 +27,17 @@ import (
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher  *pfsserver.Hasher
-	router  shard.Router
-	version int64
+	hasher *pfsserver.Hasher
+	router shard.Router
+
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
 	versionLock sync.RWMutex
+	version     int64
+
+	versionChanLock sync.RWMutex
+	versionChans    map[int64]chan struct{}
 }
 
 func newAPIServer(
@@ -40,34 +45,42 @@ func newAPIServer(
 	router shard.Router,
 ) *apiServer {
 	return &apiServer{
-		protorpclog.NewLogger("pachyderm.pfsserver.API"),
-		hasher,
-		router,
-		shard.InvalidVersion,
-		sync.RWMutex{},
+		Logger:          protorpclog.NewLogger("pachyderm.pfsserver.API"),
+		hasher:          hasher,
+		router:          router,
+		versionLock:     sync.RWMutex{},
+		version:         shard.InvalidVersion,
+		versionChanLock: sync.RWMutex{},
+		versionChans:    make(map[int64]chan struct{}),
 	}
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	a.versionLock.RLock()
-	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
 	defer func() {
 		if retErr == nil {
 			metrics.AddRepos(1)
 		}
 	}()
+
 	if strings.Contains(request.Repo.Name, "/") {
 		return nil, fmt.Errorf("repo names cannot contain /")
 	}
 	if client.ReservedRepoNames[request.Repo.Name] {
 		return nil, fmt.Errorf("repo name %s is a reserved keyword", request.Repo.Name)
 	}
+
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
+
 	request.Created = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
@@ -81,7 +94,9 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
 
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
@@ -131,7 +146,10 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	var wg sync.WaitGroup
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
@@ -142,6 +160,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		clientConn := clientConn
+		defer clientConn.Close()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -150,7 +169,6 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 				select {
 				default:
 				case errCh <- err:
-					return
 				}
 				return
 			}
@@ -172,7 +190,10 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -189,7 +210,10 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	defer func() {
 		if retErr == nil {
 			metrics.AddCommits(1)
@@ -216,7 +240,10 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -234,7 +261,9 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
 
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
@@ -284,7 +313,10 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -325,7 +357,10 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -366,7 +401,10 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -383,7 +421,10 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -432,7 +473,10 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	defer drainFileServer(putFileServer)
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx := versionToContext(a.version, putFileServer.Context())
+
+	ctx, done := a.getVersionContext(putFileServer.Context())
+	defer close(done)
+
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
@@ -558,7 +602,10 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx := versionToContext(a.version, apiGetFileServer.Context())
+
+	ctx, done := a.getVersionContext(apiGetFileServer.Context())
+	defer close(done)
+
 	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return err
@@ -574,7 +621,10 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return nil, err
@@ -601,7 +651,10 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -653,7 +706,9 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
 
 	fileInfo, err := a.InspectFile(ctx, &pfs.InspectFileRequest{
 		File: request.File,
@@ -704,9 +759,29 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 }
 
 func (a *apiServer) Version(version int64) error {
-	a.versionLock.Lock()
-	defer a.versionLock.Unlock()
-	a.version = version
+	func() {
+		a.versionLock.RLock()
+		defer a.versionLock.RUnlock()
+
+		a.versionChanLock.Lock()
+		defer a.versionChanLock.Unlock()
+
+		// Note that a channel cannot be closed be twice.  So here
+		// we are relying on the invariant that Version() only gets called
+		// once per version.
+		if vChan, ok := a.versionChans[a.version]; ok {
+			close(vChan)
+		}
+		a.versionChans[version] = make(chan struct{})
+	}()
+
+	func() {
+		a.versionLock.Lock()
+		defer a.versionLock.Unlock()
+
+		a.version = version
+	}()
+
 	return nil
 }
 
@@ -725,9 +800,30 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 	return a.router.GetClientConn(a.hasher.HashFile(file), version)
 }
 
-func versionToContext(version int64, ctx context.Context) context.Context {
-	return metadata.NewContext(
+// getVersionContext returns a context that gets cancelled when one of the following
+// events occur:
+// 1. the given context gets cancelled
+// 2. a new version comes in
+// The caller is expected to close the returned channel when they are done with
+// using this context.
+// The caller is expected to be holding a read lock on a.versionLock
+func (a *apiServer) getVersionContext(ctx context.Context) (context.Context, chan struct{}) {
+	a.versionChanLock.RLock()
+	defer a.versionChanLock.RUnlock()
+	versionChan := a.versionChans[a.version]
+
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-versionChan:
+			cancel()
+		case <-done:
+		}
+	}()
+	ctx = metadata.NewContext(
 		ctx,
-		metadata.Pairs("version", fmt.Sprint(version)),
+		metadata.Pairs("version", fmt.Sprint(a.version)),
 	)
+	return ctx, done
 }
