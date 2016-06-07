@@ -15,7 +15,8 @@
         "--directory-prefix",
         "/pfs/out",
         "--input-file", "/pfs/urls/urls"
-    ]
+    ],
+    "acceptReturnCode": [4,5,6,7,8]
   },
   "parallelism": "1",
   "inputs": [
