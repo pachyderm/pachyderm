@@ -1535,29 +1535,6 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
-func TestWorkloadWithDynamicMembership(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	k := getKubeClient(t)
-
-	errCh := make(chan error)
-	go func() {
-		seed := time.Now().UnixNano()
-		errCh <- workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100)
-	}()
-
-	for i := 0; i < 2; i++ {
-		time.Sleep(10 * time.Second)
-		scalePachd(t, k)
-		time.Sleep(10 * time.Second)
-	}
-
-	require.NoError(t, <-errCh)
-}
-
 func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1565,6 +1542,9 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 
 	k := getKubeClient(t)
 	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
 	TestJob(t)
 }
 
