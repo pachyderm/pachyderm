@@ -7,10 +7,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
-	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/kubernetes/pkg/api/v1"
+	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -109,6 +109,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			MountPath: "/" + googleSecretName,
 		})
 	}
+	replicas := int32(2)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -119,7 +120,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 2,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
@@ -210,6 +211,7 @@ func PachdService() *api.Service {
 }
 
 func EtcdRc() *api.ReplicationController {
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -220,7 +222,7 @@ func EtcdRc() *api.ReplicationController {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
@@ -295,6 +297,7 @@ func EtcdService() *api.Service {
 }
 
 func RethinkRc(backend backend, volume string) *api.ReplicationController {
+	replicas := int32(1)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -305,7 +308,7 @@ func RethinkRc(backend backend, volume string) *api.ReplicationController {
 			Labels: labels(rethinkName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": rethinkName,
 			},
@@ -410,7 +413,7 @@ func InitJob() *extensions.Job {
 			Labels: labels(initName),
 		},
 		Spec: extensions.JobSpec{
-			Selector: &unversioned.LabelSelector{
+			Selector: &extensions.LabelSelector{
 				MatchLabels: labels(initName),
 			},
 			Template: api.PodTemplateSpec{
