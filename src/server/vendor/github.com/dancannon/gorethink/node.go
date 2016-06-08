@@ -3,8 +3,7 @@ package gorethink
 import (
 	"sync"
 
-	"github.com/hailocab/go-hostpool"
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
+	p "gopkg.in/dancannon/gorethink.v2/ql2"
 )
 
 // Node represents a database server in the cluster
@@ -15,7 +14,6 @@ type Node struct {
 
 	cluster *Cluster
 	pool    *Pool
-	hpr     hostpool.HostPoolResponse
 
 	mu     sync.RWMutex
 	closed bool
@@ -91,12 +89,7 @@ func (n *Node) Query(q Query) (cursor *Cursor, err error) {
 		return nil, ErrInvalidNode
 	}
 
-	cursor, err = n.pool.Query(q)
-	if err != nil {
-		return cursor, err
-	}
-
-	return cursor, err
+	return n.pool.Query(q)
 }
 
 // Exec executes a ReQL query using this nodes connection pool.
@@ -105,12 +98,7 @@ func (n *Node) Exec(q Query) (err error) {
 		return ErrInvalidNode
 	}
 
-	err = n.pool.Exec(q)
-	if err != nil {
-		return err
-	}
-
-	return err
+	return n.pool.Exec(q)
 }
 
 // Server returns the server name and server UUID being used by a connection.

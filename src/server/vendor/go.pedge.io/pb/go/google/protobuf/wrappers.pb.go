@@ -25,6 +25,7 @@ func (m *DoubleValue) Reset()                    { *m = DoubleValue{} }
 func (m *DoubleValue) String() string            { return proto.CompactTextString(m) }
 func (*DoubleValue) ProtoMessage()               {}
 func (*DoubleValue) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{0} }
+func (*DoubleValue) XXX_WellKnownType() string   { return "DoubleValue" }
 
 // Wrapper message for `float`.
 //
@@ -38,6 +39,7 @@ func (m *FloatValue) Reset()                    { *m = FloatValue{} }
 func (m *FloatValue) String() string            { return proto.CompactTextString(m) }
 func (*FloatValue) ProtoMessage()               {}
 func (*FloatValue) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{1} }
+func (*FloatValue) XXX_WellKnownType() string   { return "FloatValue" }
 
 // Wrapper message for `int64`.
 //
@@ -51,6 +53,7 @@ func (m *Int64Value) Reset()                    { *m = Int64Value{} }
 func (m *Int64Value) String() string            { return proto.CompactTextString(m) }
 func (*Int64Value) ProtoMessage()               {}
 func (*Int64Value) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{2} }
+func (*Int64Value) XXX_WellKnownType() string   { return "Int64Value" }
 
 // Wrapper message for `uint64`.
 //
@@ -64,6 +67,7 @@ func (m *UInt64Value) Reset()                    { *m = UInt64Value{} }
 func (m *UInt64Value) String() string            { return proto.CompactTextString(m) }
 func (*UInt64Value) ProtoMessage()               {}
 func (*UInt64Value) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{3} }
+func (*UInt64Value) XXX_WellKnownType() string   { return "UInt64Value" }
 
 // Wrapper message for `int32`.
 //
@@ -77,6 +81,7 @@ func (m *Int32Value) Reset()                    { *m = Int32Value{} }
 func (m *Int32Value) String() string            { return proto.CompactTextString(m) }
 func (*Int32Value) ProtoMessage()               {}
 func (*Int32Value) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{4} }
+func (*Int32Value) XXX_WellKnownType() string   { return "Int32Value" }
 
 // Wrapper message for `uint32`.
 //
@@ -90,6 +95,7 @@ func (m *UInt32Value) Reset()                    { *m = UInt32Value{} }
 func (m *UInt32Value) String() string            { return proto.CompactTextString(m) }
 func (*UInt32Value) ProtoMessage()               {}
 func (*UInt32Value) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{5} }
+func (*UInt32Value) XXX_WellKnownType() string   { return "UInt32Value" }
 
 // Wrapper message for `bool`.
 //
@@ -103,6 +109,7 @@ func (m *BoolValue) Reset()                    { *m = BoolValue{} }
 func (m *BoolValue) String() string            { return proto.CompactTextString(m) }
 func (*BoolValue) ProtoMessage()               {}
 func (*BoolValue) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{6} }
+func (*BoolValue) XXX_WellKnownType() string   { return "BoolValue" }
 
 // Wrapper message for `string`.
 //
@@ -116,6 +123,7 @@ func (m *StringValue) Reset()                    { *m = StringValue{} }
 func (m *StringValue) String() string            { return proto.CompactTextString(m) }
 func (*StringValue) ProtoMessage()               {}
 func (*StringValue) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{7} }
+func (*StringValue) XXX_WellKnownType() string   { return "StringValue" }
 
 // Wrapper message for `bytes`.
 //
@@ -129,6 +137,7 @@ func (m *BytesValue) Reset()                    { *m = BytesValue{} }
 func (m *BytesValue) String() string            { return proto.CompactTextString(m) }
 func (*BytesValue) ProtoMessage()               {}
 func (*BytesValue) Descriptor() ([]byte, []int) { return fileDescriptor9, []int{8} }
+func (*BytesValue) XXX_WellKnownType() string   { return "BytesValue" }
 
 func init() {
 	proto.RegisterType((*DoubleValue)(nil), "google.protobuf.DoubleValue")

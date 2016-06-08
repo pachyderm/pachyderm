@@ -4,10 +4,18 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 
 	"github.com/golang/protobuf/proto"
+)
+
+var (
+	// LoggingUnaryServerInterceptor is a grpc.UnaryServerInterceptor that logs every request and response.
+	LoggingUnaryServerInterceptor = newLoggingUnaryServerInterceptor()
 )
 
 // Logger is a logger intended to be used as such:
@@ -69,6 +77,47 @@ func Warn(serviceName string, methodName string, request proto.Message, response
 // Error logs an RPC call at the error level.
 func Error(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
 	protolion.Error(event(serviceName, methodName, request, response, err, duration))
+}
+
+func newLoggingUnaryServerInterceptor() func(context.Context, interface{}, *grpc.UnaryServerInfo, grpc.UnaryHandler) (interface{}, error) {
+	return func(
+		ctx context.Context,
+		request interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (interface{}, error) {
+		var protoRequest proto.Message
+		var protoResponse proto.Message
+		var ok bool
+		if request != nil {
+			protoRequest, ok = request.(proto.Message)
+			if !ok {
+				return handler(ctx, request)
+			}
+		}
+		start := time.Now()
+		response, err := handler(ctx, request)
+		duration := time.Since(start)
+		if response != nil {
+			protoResponse, ok = response.(proto.Message)
+			if !ok {
+				return response, err
+			}
+		}
+		split := strings.Split(info.FullMethod, "/")
+		if len(split) != 3 {
+			return response, err
+		}
+		Log(
+			split[1],
+			split[2],
+			protoRequest,
+			protoResponse,
+			err,
+			duration,
+		)
+		return response, err
+	}
 }
 
 func event(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) *Call {

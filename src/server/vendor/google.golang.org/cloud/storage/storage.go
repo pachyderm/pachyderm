@@ -446,7 +446,16 @@ func (o *ObjectHandle) Delete(ctx context.Context) error {
 	if err := applyConds("Delete", o.conds, call); err != nil {
 		return err
 	}
-	return call.Do()
+	err := call.Do()
+	switch e := err.(type) {
+	case nil:
+		return nil
+	case *googleapi.Error:
+		if e.Code == http.StatusNotFound {
+			return ErrObjectNotExist
+		}
+	}
+	return err
 }
 
 // CopyTo copies the object to the given dst.
@@ -520,7 +529,7 @@ func (o *ObjectHandle) NewRangeReader(ctx context.Context, offset, length int64)
 	if err := applyConds("NewReader", o.conds, objectsGetCall{req}); err != nil {
 		return nil, err
 	}
-	if length < 0 {
+	if length < 0 && offset > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
 	} else if length > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", offset, offset+length-1))
@@ -534,8 +543,13 @@ func (o *ObjectHandle) NewRangeReader(ctx context.Context, offset, length int64)
 		return nil, ErrObjectNotExist
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
+		body, _ := ioutil.ReadAll(res.Body)
 		res.Body.Close()
-		return nil, fmt.Errorf("storage: can't read object %v/%v, status code: %v", o.bucket, o.object, res.Status)
+		return nil, &googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+			Body:   string(body),
+		}
 	}
 	if offset > 0 && length != 0 && res.StatusCode != http.StatusPartialContent {
 		res.Body.Close()
