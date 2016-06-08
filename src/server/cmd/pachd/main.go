@@ -28,6 +28,7 @@ import (
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
+	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -213,7 +214,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 	} else {
 		return kubeClient, err
 	}
-	config := &kube.Config{
+	config := &kube_client.Config{
 		Host:     fmt.Sprintf("%s:443", env.KubeAddress),
 		Insecure: true,
 	}
