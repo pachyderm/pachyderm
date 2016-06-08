@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -12,7 +14,6 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
-	"go.pedge.io/pkg/exec"
 	"golang.org/x/net/context"
 )
 
@@ -30,7 +31,7 @@ func do(appEnvObj interface{}) error {
 		Use:   os.Args[0] + " job-id",
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			ppsClient, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
@@ -63,12 +64,12 @@ func do(appEnvObj interface{}) error {
 				}
 			}()
 
-			client, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
+			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
 			}
 
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, client.PfsAPIClient)
+			mounter := fuse.NewMounter(appEnv.PachydermAddress, c.PfsAPIClient)
 			ready := make(chan bool)
 			go func() {
 				if err := mounter.MountAndCreate(
@@ -90,22 +91,41 @@ func do(appEnvObj interface{}) error {
 			for _, line := range response.Transform.Stdin {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
-			io := pkgexec.IO{
-				Stdin:  io.MultiReader(readers...),
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
+			if len(response.Transform.Cmd) == 0 {
+				if _, err := ppsClient.FinishJob(
+					context.Background(),
+					&ppsserver.FinishJobRequest{
+						Job:     client.NewJob(args[0]),
+						Success: false,
+					},
+				); err != nil {
+					errorAndExit(err.Error())
+				}
 			}
+			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
+			cmd.Stdin = io.MultiReader(readers...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 			success := true
-			if err := pkgexec.RunIO(io, response.Transform.Cmd...); err != nil {
-				fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
+			if err := cmd.Run(); err != nil {
 				success = false
+				if exiterr, ok := err.(*exec.ExitError); ok {
+					if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+						for _, returnCode := range response.Transform.AcceptReturnCode {
+							if int(returnCode) == status.ExitStatus() {
+								success = true
+							}
+						}
+					}
+				}
+				if !success {
+					fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
+				}
 			}
 			if _, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
-					Job: &ppsclient.Job{
-						ID: args[0],
-					},
+					Job:     client.NewJob(args[0]),
 					Success: success,
 				},
 			); err != nil {
