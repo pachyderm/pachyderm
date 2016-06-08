@@ -1002,6 +1002,7 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 		return fmt.Errorf("shard %d is being deleted, but it was never added; this is likely a bug", shard)
 	}
 	cancel()
+	delete(a.shardCancelFuncs, shard)
 
 	return nil
 }

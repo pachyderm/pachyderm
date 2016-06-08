@@ -53,7 +53,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 //PachdRc TODO secrets is only necessary because dockerized kube chokes on them
-func PachdRc(shards uint64, backend backend) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationController {
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -80,6 +80,12 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 	var backendEnvVar string
 	switch backend {
 	case localBackend:
+		if hostPath == "" {
+			hostPath = "/tmp/pach"
+		}
+		volumes[0].HostPath = &api.HostPathVolumeSource{
+			Path: hostPath,
+		}
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
 		volumes = append(volumes, api.Volume{
@@ -542,7 +548,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 }
 
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int) {
+func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int, hostPath string) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -570,23 +576,23 @@ func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
-func WriteLocalAssets(w io.Writer, shards uint64) {
-	WriteAssets(w, shards, localBackend, "", 0)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath)
 }
 
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize)
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize)
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
