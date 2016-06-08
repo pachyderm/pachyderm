@@ -444,7 +444,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return client.DeleteFile(args[0], args[1], args[2])
+			return client.DeleteFile(args[0], args[1], args[2], false, "")
 		}),
 	}
 

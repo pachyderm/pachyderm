@@ -6,9 +6,9 @@
     "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
-        "grep apple  /pfs/data/sales >/pfs/out/apple",
-        "grep banana /pfs/data/sales >/pfs/out/banana",
-        "grep orange /pfs/data/sales >/pfs/out/orange"
+        "grep apple  /pfs/data/sales >>/pfs/out/apple",
+        "grep banana /pfs/data/sales >>/pfs/out/banana",
+        "grep orange /pfs/data/sales >>/pfs/out/orange"
     ]
   },
   "parallelism": "1",
@@ -37,7 +37,7 @@
                 "old_sum=0",
             "fi",
             "sum=$((new_sum + old_sum))",
-            "rm /pfs/out/$fruit && echo $sum > /pfs/out/$fruit",
+            "echo $sum > /pfs/out/$fruit",
         "done"
     ]
   },
