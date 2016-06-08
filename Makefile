@@ -106,7 +106,11 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube:
+check-kubectl:
+	# check that kubectl is installed
+	which kubectl
+
+launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
@@ -115,7 +119,7 @@ clean-launch-kube:
 kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
-launch: install
+launch: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
@@ -124,16 +128,16 @@ launch: install
 
 launch-dev: launch-kube launch
 
-clean-launch:
+clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
 
-full-clean-launch:
+full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-clean-pps-storage:
+clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
@@ -200,7 +204,7 @@ grep-data:
 grep-example:
 	sh examples/grep/run.sh
 
-logs:
+logs: check-kubectl
 	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
 
 kubectl:
