@@ -25,6 +25,7 @@ before_script:
 - docker version
 script:
 - make test
+- make lint
 after_success:
 - make tag-release
 notifications:
