@@ -464,6 +464,9 @@ func replaceMethodAliases(decoder *json.Decoder) (string, error) {
 		return "", err
 	}
 	for _, input := range children {
+		if !input.ExistsP("method") {
+			continue
+		}
 		methodAlias, ok := input.S("method").Data().(string)
 		if ok {
 			strat, ok := pach.MethodAliasMap[methodAlias]
