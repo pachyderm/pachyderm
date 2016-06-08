@@ -728,7 +728,9 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	defer close(done)
 
 	fileInfo, err := a.InspectFile(ctx, &pfs.InspectFileRequest{
-		File: request.File,
+		File:   request.File,
+		Unsafe: request.Unsafe,
+		Handle: request.Handle,
 	})
 	if err != nil {
 		return nil, err

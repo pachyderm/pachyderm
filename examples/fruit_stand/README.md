@@ -127,53 +127,7 @@ oranges and bananas using `grep`. The second one uses `awk` to sum these sales n
 +----------+     +------------+     +------------+
 ```
 
-The `pipeline` we're creating can be found at `examples/fruit_stand/pipeline.json`.
-Here's what it looks like:
-```json
-{
-  "pipeline": {
-    "name": "filter"
-  },
-  "transform": {
-    "cmd": [ "sh" ],
-    "stdin": [
-        "grep apple  /pfs/data/sales >/pfs/out/apple",
-        "grep banana /pfs/data/sales >/pfs/out/banana",
-        "grep orange /pfs/data/sales >/pfs/out/orange"
-    ]
-  },
-  "shards": "1",
-  "inputs": [
-    {
-      "repo": {
-        "name": "data"
-      }
-    }
-  ]
-}
-{
-  "pipeline": {
-    "name": "sum"
-  },
-  "transform": {
-    "cmd": [ "sh" ],
-    "stdin": [
-        "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
-        "cut -f 2 /pfs/filter/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
-        "cut -f 2 /pfs/filter/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
-    ]
-  },
-  "shards": "1",
-  "inputs": [
-    {
-      "repo": {
-        "name": "filter"
-      },
-	  "reduce": true
-    }
-  ]
-}
-```
+The `pipeline` we're creating can be found at [examples/fruit_stand/pipeline.json](pipeline.json).  Please open a new window to view the pipeline while we talk through it.
 
 In the first step of this `pipeline`, we are grepping for the terms "apple", "orange", and
 "banana" and writing that line to the corresponding file. Notice we read data

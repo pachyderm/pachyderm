@@ -79,9 +79,15 @@ message FileAttr {
   string error = 3;
 }
 
-message FileRead {
+message FileSetAttr {
   Node file = 1;
   string error = 2;
+}
+
+message FileRead {
+  Node file = 1;
+  string data = 2;
+  string error = 3;
 }
 
 message FileOpen {
@@ -91,10 +97,14 @@ message FileOpen {
 
 message FileWrite {
   Node file = 1;
-  string error = 2;
+  string data = 2;
+  int64 offset = 3;
+  string error = 4;
 }
 
 message FileRemove {
   Node file = 1;
-  string error = 2;
+  string name = 2;
+  bool dir = 3;
+  string error = 4;
 }

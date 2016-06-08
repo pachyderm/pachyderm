@@ -146,9 +146,36 @@ func TestCommitOpenReadDir(t *testing.T) {
 		)
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
 
-		// open mounts look empty, so that mappers cannot accidentally use
-		// them to communicate in an unreliable fashion
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil))
+		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+			greetingName: func(fi os.FileInfo) error {
+				// TODO respect greetingPerm
+				if g, e := fi.Mode(), os.FileMode(0666); g != e {
+					return fmt.Errorf("wrong mode: %v != %v", g, e)
+				}
+				if g, e := fi.Size(), int64(len(greeting)); g != e {
+					t.Errorf("wrong size: %v != %v", g, e)
+				}
+				// TODO show fileModTime as mtime
+				// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
+				// 	t.Errorf("wrong mtime: %v != %v", g, e)
+				// }
+				return nil
+			},
+			scriptName: func(fi os.FileInfo) error {
+				// TODO respect scriptPerm
+				if g, e := fi.Mode(), os.FileMode(0666); g != e {
+					return fmt.Errorf("wrong mode: %v != %v", g, e)
+				}
+				if g, e := fi.Size(), int64(len(script)); g != e {
+					t.Errorf("wrong size: %v != %v", g, e)
+				}
+				// TODO show fileModTime as mtime
+				// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
+				// 	t.Errorf("wrong mtime: %v != %v", g, e)
+				// }
+				return nil
+			},
+		}))
 	})
 }
 
@@ -212,7 +239,6 @@ func TestCommitFinishedReadDir(t *testing.T) {
 }
 
 func TestWriteAndRead(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -225,9 +251,9 @@ func TestWriteAndRead(t *testing.T) {
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
-		_, err = ioutil.ReadFile(filePath)
-		// errors because the commit is unfinished
-		require.YesError(t, err)
+		readGreeting, err := ioutil.ReadFile(filePath)
+		require.NoError(t, err)
+		require.Equal(t, greeting, string(readGreeting))
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
@@ -252,6 +278,35 @@ func TestBigWrite(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
+	})
+}
+
+func Test296Appends(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit2, err := c.StartCommit(repo, commit.ID, "")
+		require.NoError(t, err)
+		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit(repo, commit2.ID))
+		data, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, "1\n2\n3\n", string(data))
 	})
 }
 
@@ -280,7 +335,7 @@ func Test296(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
-		require.Equal(t, "1\n2\n3\n", string(data))
+		require.Equal(t, "3\n", string(data))
 	})
 }
 
@@ -384,11 +439,49 @@ func TestMountCachingViaShell(t *testing.T) {
 	})
 }
 
+func TestCreateFileInDir(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+
+		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
+		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	})
+}
+
+func TestOverwriteFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit1, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+		_, err = c.PutFile("repo", commit1.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("repo", commit1.ID))
+		commit2, err := c.StartCommit("repo", commit1.ID, "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, "repo", commit2.ID, "file")
+		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit("repo", commit2.ID))
+		result, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, "bar\n", string(result))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
 ) {
-	fmt.Printf("XXX NEW TEST\n")
 	// don't leave goroutines running
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -407,7 +500,6 @@ func testFuse(
 	defer func() {
 		_ = listener.Close()
 	}()
-	fmt.Printf("XXX creating servers\n")
 
 	// TODO try to share more of this setup code with various main
 	// functions
@@ -465,26 +557,19 @@ func testFuse(
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
-	fmt.Printf("XXX created clientConn\n")
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		fmt.Printf("XXX mounting\n")
 		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready))
 	}()
 
 	<-ready
-	fmt.Printf("XXX mounted\n")
 
 	defer func() {
-		fmt.Printf("XXX Trying to unmount\n")
 		_ = mounter.Unmount(mountpoint)
-		fmt.Printf("XXX Unmounted!\n")
 	}()
-	fmt.Printf("XXX running test callback\n")
 	test(client.APIClient{PfsAPIClient: apiClient}, mountpoint)
-	fmt.Printf("XXX ran test callback\n")
 }

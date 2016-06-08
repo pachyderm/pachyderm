@@ -3,7 +3,6 @@ package assets
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -82,11 +81,7 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 	switch backend {
 	case localBackend:
 		if hostPath == "" {
-			dir, err := ioutil.TempDir("/tmp", "pach-")
-			if err != nil {
-				panic(err)
-			}
-			hostPath = dir
+			hostPath = "/tmp/pach"
 		}
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: hostPath,
