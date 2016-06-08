@@ -242,7 +242,7 @@ assets: install-go-bindata
 	go-bindata -o assets.go -pkg pachyderm doc/
 
 lint:
-	@for pkg in $$(go list ./... | grep -v '/vendor/' ) ; do \
+	@for pkg in $$(go list ./src/... | grep -v '/vendor/' ) ; do \
 		if [ "`golint $$pkg | tee /dev/stderr`" ] ; then \
 			echo "golint errors!" && echo && exit 1; \
 		fi \
