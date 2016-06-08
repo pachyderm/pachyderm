@@ -1,8 +1,6 @@
 package gorethink
 
-import (
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
-)
+import p "gopkg.in/dancannon/gorethink.v2/ql2"
 
 // Aggregation
 // These commands are used to compute smaller values from large sequences.
@@ -166,4 +164,44 @@ func (t Term) MaxIndex(index interface{}, args ...interface{}) Term {
 	return constructMethodTerm(t, "Max", p.Term_MAX, funcWrapArgs(args), map[string]interface{}{
 		"index": index,
 	})
+}
+
+// FoldOpts contains the optional arguments for the Fold term
+type FoldOpts struct {
+	Emit      interface{} `gorethink:"emit,omitempty"`
+	FinalEmit interface{} `gorethink:"finalEmit,omitempty"`
+}
+
+func (o *FoldOpts) toMap() map[string]interface{} {
+	return optArgsToMap(o)
+}
+
+// Fold applies a function to a sequence in order, maintaining state via an
+// accumulator. The Fold command returns either a single value or a new sequence.
+//
+// In its first form, Fold operates like Reduce, returning a value by applying a
+// combining function to each element in a sequence, passing the current element
+// and the previous reduction result to the function. However, Fold has the
+// following differences from Reduce:
+//  - it is guaranteed to proceed through the sequence from first element to last.
+//  - it passes an initial base value to the function with the first element in
+//    place of the previous reduction result.
+//
+// In its second form, Fold operates like ConcatMap, returning a new sequence
+// rather than a single value. When an emit function is provided, Fold will:
+//  - proceed through the sequence in order and take an initial base value, as above.
+//  - for each element in the sequence, call both the combining function and a
+//    separate emitting function with the current element and previous reduction result.
+//  - optionally pass the result of the combining function to the emitting function.
+//
+// If provided, the emitting function must return a list.
+func (t Term) Fold(base, fn interface{}, optArgs ...FoldOpts) Term {
+	opts := map[string]interface{}{}
+	if len(optArgs) >= 1 {
+		opts = optArgs[0].toMap()
+	}
+
+	args := []interface{}{base, funcWrap(fn)}
+
+	return constructMethodTerm(t, "Fold", p.Term_FOLD, args, opts)
 }

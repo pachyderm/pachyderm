@@ -29,6 +29,7 @@ func (m *Empty) Reset()                    { *m = Empty{} }
 func (m *Empty) String() string            { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()               {}
 func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (*Empty) XXX_WellKnownType() string   { return "Empty" }
 
 func init() {
 	proto.RegisterType((*Empty)(nil), "google.protobuf.Empty")

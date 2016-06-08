@@ -62,6 +62,14 @@ When you cannot decide how many data sources to load at the beginning, you still
 err := cfg.Append("other file", []byte("other raw data"))
 ```
 
+If you have a list of files with possibilities that some of them may not available at the time, and you don't know exactly which ones, you can use `LooseLoad` to ignore nonexistent files without returning error.
+
+```go
+cfg, err := ini.LooseLoad("filename", "filename_404")
+```
+
+The cool thing is, whenever the file is available to load while you're calling `Reload` method, it will be counted as usual.
+
 ### Working with sections
 
 To get a section, you would need to:
@@ -385,6 +393,12 @@ CLONE_URL = https://%(IMPORT_PATH)s
 
 ```go
 cfg.Section("package.sub").Key("CLONE_URL").String()	// https://gopkg.in/ini.v1
+```
+
+#### Retrieve parent keys available to a child section
+
+```go
+cfg.Section("package.sub").ParentKeys() // ["CLONE_URL"]
 ```
 
 ### Auto-increment Key Names
