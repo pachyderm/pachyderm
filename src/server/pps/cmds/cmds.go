@@ -464,13 +464,35 @@ func replaceMethodAliases(decoder *json.Decoder) (string, error) {
 		return "", err
 	}
 	for _, input := range children {
+		if !input.ExistsP("method") {
+			continue
+		}
 		methodAlias, ok := input.S("method").Data().(string)
 		if ok {
 			strat, ok := pach.MethodAliasMap[methodAlias]
 			if ok {
 				input.Set(strat, "method")
 			} else {
-				return "", err
+				return "", fmt.Errorf("unrecognized input alias: %s", methodAlias)
+			}
+		} else {
+			if !(input.ExistsP("method.partition") && input.ExistsP("method.incremental")) {
+				return "", fmt.Errorf("an input method needs to be either a string alias or a json object; please read the pipeline specification for details")
+			}
+			partition, ok := input.S("method", "partition").Data().(string)
+			if ok {
+				switch partition {
+				case "block":
+					input.SetP(ppsclient.Partition_BLOCK, "method.partition")
+				case "file":
+					input.SetP(ppsclient.Partition_FILE, "method.partition")
+				case "repo":
+					input.SetP(ppsclient.Partition_REPO, "method.partition")
+				default:
+					return "", fmt.Errorf("partition needs to be 'block', 'file', or 'repo'; got %s instead", partition)
+				}
+			} else {
+				return "", fmt.Errorf("partition needs to be a string")
 			}
 		}
 	}
