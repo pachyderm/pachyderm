@@ -287,7 +287,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Batch().Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 
@@ -881,7 +881,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Batch().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -1403,6 +1403,7 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			Labels: labels(app),
 		},
 		Spec: batch.JobSpec{
+			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(app),
 			},
