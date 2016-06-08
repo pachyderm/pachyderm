@@ -1537,7 +1537,7 @@ func TestFlushCommit(t *testing.T) {
 	sourceRepo := makeRepoName(0)
 	require.NoError(t, c.CreateRepo(sourceRepo))
 
-	// Create a ten-stage pipeline
+	// Create a five-stage pipeline
 	numStages := 5
 	for i := 0; i < numStages; i++ {
 		repo := makeRepoName(i)
@@ -1551,24 +1551,67 @@ func TestFlushCommit(t *testing.T) {
 		))
 	}
 
-	// commit to aRepo
-	commit1, err := c.StartCommit(sourceRepo, "", "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(sourceRepo, commit1.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(sourceRepo, commit1.ID))
-	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit1.ID)}, nil)
-	require.NoError(t, err)
-	require.Equal(t, numStages, len(commitInfos))
+	test := func(parent string) string {
+		commit, err := c.StartCommit(sourceRepo, parent, "")
+		require.NoError(t, err)
+		_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
+		commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+		require.NoError(t, err)
+		require.Equal(t, numStages, len(commitInfos))
+		return commit.ID
+	}
 
-	commit2, err := c.StartCommit(sourceRepo, "", "master")
+	// Run the test twice, once on a orphan commit and another on
+	// a commit with a parent
+	commit := test("")
+	test(commit)
+}
+
+// TestFlushCommitWithFailure is similar to TestFlushCommit except that
+// the pipeline is designed to fail
+func TestFlushCommitWithFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	prefix := uniqueString("repo")
+	makeRepoName := func(i int) string {
+		return fmt.Sprintf("%s_%d", prefix, i)
+	}
+
+	sourceRepo := makeRepoName(0)
+	require.NoError(t, c.CreateRepo(sourceRepo))
+
+	// Create a five-stage pipeline; the third stage is designed to fail
+	numStages := 5
+	for i := 0; i < numStages; i++ {
+		fileName := "file"
+		if i == 3 {
+			fileName = "nonexistent"
+		}
+		repo := makeRepoName(i)
+		require.NoError(t, c.CreatePipeline(
+			makeRepoName(i+1),
+			"",
+			[]string{"cp", path.Join("/pfs", repo, fileName), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+		))
+	}
+
+	commit, err := c.StartCommit(sourceRepo, "", "")
 	require.NoError(t, err)
-	_, err = c.PutFile(sourceRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(sourceRepo, commit2.ID))
-	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit2.ID)}, nil)
-	require.NoError(t, err)
-	require.Equal(t, numStages, len(commitInfos))
+	require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+	fmt.Println(err.Error())
+	require.YesError(t, err)
 }
 
 // TestRecreatingPipeline tracks #432
