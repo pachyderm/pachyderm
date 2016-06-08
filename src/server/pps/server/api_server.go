@@ -687,13 +687,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
-		// If any pod failed, the job failed
-		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
-			JobID: request.Job.ID,
-			State: ppsclient.JobState_JOB_FAILURE,
-		}); err != nil {
-			return nil, err
-		}
 	}
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
