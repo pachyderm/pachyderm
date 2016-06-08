@@ -1,0 +1,47 @@
+{
+  "pipeline": {
+    "name": "wordcount-input"
+  },
+  "transform": {
+    "cmd": ["sh"],
+    "stdin": [
+        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 -C /pfs/out"
+    ]
+  },
+  "parallelism": "1"
+}
+{
+  "pipeline": {
+    "name": "wordcount-map"
+  },
+  "transform": {
+    "image": "wordcount-map",
+    "cmd": ["/map", "/pfs/wordcount-input/wikipedia_50GB", "/pfs/out"]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount-input"
+      }
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "wordcount-reduce"
+  },
+  "transform": {
+    "cmd": ["sh"],
+    "stdin": [
+        "find /pfs/wordcount-map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
+    ]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount-map"
+      },
+	  "reduce": true
+    }
+  ]
+}
