@@ -1431,7 +1431,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							Env:             jobEnv,
 						},
 					},
-					RestartPolicy: "OnFailure",
+					RestartPolicy: "Never",
 				},
 			},
 		},
