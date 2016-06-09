@@ -952,13 +952,10 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 			return pfs.FileType_FILE_TYPE_NONE, pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if _append.Delete || len(_append.HandleDeletes) > 0 {
+			if _append.FileType == pfs.FileType_FILE_TYPE_NONE {
 				break
-			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
-				return pfs.FileType_FILE_TYPE_REGULAR, nil
-			} else {
-				return pfs.FileType_FILE_TYPE_DIR, nil
 			}
+			return _append.FileType, nil
 		}
 		commit = diffInfo.ParentCommit
 	}
