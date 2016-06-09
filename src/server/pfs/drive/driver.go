@@ -522,6 +522,8 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = newAppend(pfs.FileType_FILE_TYPE_REGULAR)
+	} else {
+		_append.FileType = pfs.FileType_FILE_TYPE_REGULAR
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
@@ -990,6 +992,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			if _append.FileType == pfs.FileType_FILE_TYPE_NONE && !_append.Delete && len(_append.HandleDeletes) == 0 {
 				return nil, nil, fmt.Errorf("the append for %s has file type NONE, this is likely a bug", path.Clean(file.Path))
 			}
+			fmt.Printf("!!! inspectFile append: %v\n", _append)
 			if _append.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
@@ -1058,7 +1061,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 			}
 			// If Delete is true, then everything before this commit is irrelevant
-			if _append.Delete || unsafe && handle != "" && _append.HandleDeletes[handle] {
+			if _append.Delete || (unsafe && handle != "" && _append.HandleDeletes[handle]) {
 				break
 			}
 			if fileInfo.CommitModified == nil {
