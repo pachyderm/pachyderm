@@ -47,6 +47,28 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
+			// We want to make sure that we only send FinishJob once.
+			// The most bulletproof way would be to check that on server side,
+			// but this is easier.
+			var finished bool
+			// Make sure that we call FinishJob even if something caused a panic
+			defer func() {
+				if r := recover(); r != nil && !finished {
+					fmt.Println("job shim crashed; this is like a bug in pachyderm")
+					if _, err := ppsClient.FinishJob(
+						context.Background(),
+						&ppsserver.FinishJobRequest{
+							Job: &ppsclient.Job{
+								ID: args[0],
+							},
+							Success: false,
+						},
+					); err != nil {
+						errorAndExit(err.Error())
+					}
+				}
+			}()
+
 			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
@@ -75,6 +97,7 @@ func do(appEnvObj interface{}) error {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
 			if len(response.Transform.Cmd) == 0 {
+				fmt.Println("unable to run; a cmd needs to be provided")
 				if _, err := ppsClient.FinishJob(
 					context.Background(),
 					&ppsserver.FinishJobRequest{
@@ -84,6 +107,8 @@ func do(appEnvObj interface{}) error {
 				); err != nil {
 					errorAndExit(err.Error())
 				}
+				finished = true
+				return
 			}
 			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
 			cmd.Stdin = io.MultiReader(readers...)
@@ -114,6 +139,7 @@ func do(appEnvObj interface{}) error {
 			); err != nil {
 				errorAndExit(err.Error())
 			}
+			finished = true
 		},
 	}
 

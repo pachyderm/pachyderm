@@ -202,7 +202,9 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
 			if request.BlockState {
-				return jobInfo.Field("State").Ne(ppsclient.JobState_JOB_RUNNING)
+				return gorethink.Or(
+					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_SUCCESS),
+					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_FAILURE))
 			}
 			return gorethink.Expr(true)
 		},
@@ -427,6 +429,17 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 	}
 
 	return &jobInfo, nil
+}
+
+func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
+		gorethink.Row.Field("State").Eq(ppsclient.JobState_JOB_PULLING),
+		map[string]interface{}{
+			"State": ppsclient.JobState_JOB_RUNNING,
+		},
+		map[string]interface{}{},
+	)).RunWrite(a.session)
+	return google_protobuf.EmptyInstance, err
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
