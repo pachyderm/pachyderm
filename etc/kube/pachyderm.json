@@ -120,8 +120,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -245,8 +245,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "suite": "pachyderm",
-        "app": "pachd-init"
+        "app": "pachd-init",
+        "suite": "pachyderm"
       }
     },
     "template": {
@@ -345,7 +345,7 @@
           {
             "name": "pach-disk",
             "hostPath": {
-              "path": "/tmp/pach-402374041"
+              "path": "/tmp/pach"
             }
           }
         ],
