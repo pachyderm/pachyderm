@@ -202,7 +202,9 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
 			if request.BlockState {
-				return jobInfo.Field("State").Ne(ppsclient.JobState_JOB_RUNNING)
+				return gorethink.Or(
+					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_SUCCESS),
+					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_FAILURE))
 			}
 			return gorethink.Expr(true)
 		},
