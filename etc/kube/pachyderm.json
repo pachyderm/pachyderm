@@ -7,7 +7,6 @@
       "suite": "pachyderm"
     }
   },
-  "secrets": null,
   "kind": "ServiceAccount",
   "apiVersion": "v1"
 }
@@ -68,8 +67,7 @@
             ],
             "imagePullPolicy": "IfNotPresent"
           }
-        ],
-        "serviceAccountName": ""
+        ]
       }
     }
   },
@@ -92,17 +90,13 @@
     "ports": [
       {
         "name": "client-port",
-        "protocol": "",
         "port": 2379,
-        "targetPort": 0,
-        "nodePort": 0
+        "targetPort": 0
       },
       {
         "name": "peer-port",
-        "protocol": "",
         "port": 2380,
-        "targetPort": 0,
-        "nodePort": 0
+        "targetPort": 0
       }
     ],
     "selector": {
@@ -125,25 +119,21 @@
     }
   },
   "spec": {
-    "type": "NodePort",
     "ports": [
       {
         "name": "admin-port",
-        "protocol": "",
         "port": 8080,
         "targetPort": 0,
         "nodePort": 32080
       },
       {
         "name": "driver-port",
-        "protocol": "",
         "port": 28015,
         "targetPort": 0,
         "nodePort": 32081
       },
       {
         "name": "cluster-port",
-        "protocol": "",
         "port": 29015,
         "targetPort": 0,
         "nodePort": 32082
@@ -151,7 +141,8 @@
     ],
     "selector": {
       "app": "rethink"
-    }
+    },
+    "type": "NodePort"
   },
   "status": {
     "loadBalancer": {}
@@ -191,7 +182,7 @@
         "containers": [
           {
             "name": "rethink",
-            "image": "rethinkdb:2.2.6",
+            "image": "rethinkdb:2.3.3",
             "command": [
               "rethinkdb",
               "-d",
@@ -222,8 +213,7 @@
             ],
             "imagePullPolicy": "IfNotPresent"
           }
-        ],
-        "serviceAccountName": ""
+        ]
       }
     }
   },
@@ -238,8 +228,8 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd-init",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
@@ -254,12 +244,11 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
-        "volumes": null,
         "containers": [
           {
             "name": "pachd-init",
@@ -278,8 +267,7 @@
             "imagePullPolicy": "IfNotPresent"
           }
         ],
-        "restartPolicy": "OnFailure",
-        "serviceAccountName": ""
+        "restartPolicy": "OnFailure"
       }
     }
   },
@@ -292,16 +280,14 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pachd"
+      "app": "pachd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
-    "type": "NodePort",
     "ports": [
       {
         "name": "api-grpc-port",
-        "protocol": "",
         "port": 650,
         "targetPort": 0,
         "nodePort": 30650
@@ -309,7 +295,8 @@
     ],
     "selector": {
       "app": "pachd"
-    }
+    },
+    "type": "NodePort"
   },
   "status": {
     "loadBalancer": {}
@@ -343,7 +330,10 @@
       "spec": {
         "volumes": [
           {
-            "name": "pach-disk"
+            "name": "pach-disk",
+            "hostPath": {
+              "path": "/tmp/pach"
+            }
           }
         ],
         "containers": [

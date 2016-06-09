@@ -3,6 +3,7 @@ package pkgcobra //import "go.pedge.io/pkg/cobra"
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -76,6 +77,8 @@ func Check(err error) {
 
 // ErrorAndExit errors with the given format and args, and then exits.
 func ErrorAndExit(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
+	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
+		fmt.Fprintf(os.Stderr, "%s\n", errString)
+	}
 	os.Exit(1)
 }
