@@ -10,9 +10,9 @@
 
 [Frequently Asked Questions](FAQ.md)
 
-[Use Cases](pachyderm.io/use_cases.html)
+[Use Cases](https://pachyderm.io/use_cases.html)
 
-[Pachyderm Design Goals](pachyderm.io/dsbor.html)
+[Pachyderm Design Goals](https://pachyderm.io/dsbor.html)
 
 [Pipeline Specification](pipeline_spec.md)
 

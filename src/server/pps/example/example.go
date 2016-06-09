@@ -9,7 +9,8 @@ import (
 func CreateJobRequest() *ppsclient.CreateJobRequest {
 	return &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
-			Cmd: []string{"cmd", "args..."},
+			Cmd:              []string{"cmd", "args..."},
+			AcceptReturnCode: []int64{1},
 		},
 		Parallelism: 1,
 		Inputs: []*ppsclient.JobInput{
@@ -33,7 +34,8 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 			Name: "name",
 		},
 		Transform: &ppsclient.Transform{
-			Cmd: []string{"cmd", "args..."},
+			Cmd:              []string{"cmd", "args..."},
+			AcceptReturnCode: []int64{1},
 		},
 		Parallelism: 1,
 		Inputs: []*ppsclient.PipelineInput{

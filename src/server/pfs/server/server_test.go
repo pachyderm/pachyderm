@@ -484,9 +484,11 @@ func TestPutFile(t *testing.T) {
 	require.YesError(t, err) // because dir1 is a directory
 	require.NoError(t, client.FinishCommit(repo, commit4.ID))
 
-	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer2))
-	require.Equal(t, "bar\n", buffer2.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", nil, &buffer))
 }
 
 func TestListFileTwoCommits(t *testing.T) {
@@ -657,7 +659,7 @@ func TestDeleteFile(t *testing.T) {
 
 	// The deletion should fail because the file did not exist before this commit,
 	// and files written in the current commit should not be visible yet.
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "foo"))
+	require.YesError(t, client.DeleteFile(repo, commit1.ID, "foo", false, ""))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -684,7 +686,7 @@ func TestDeleteFile(t *testing.T) {
 	// Delete foo
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "foo"))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "foo", false, ""))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see one file
@@ -746,7 +748,7 @@ func TestDeleteDir(t *testing.T) {
 	require.NoError(t, err)
 
 	// Since the directory did not exist before this commit, this should error
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "dir"))
+	require.YesError(t, client.DeleteFile(repo, commit1.ID, "dir", false, ""))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -764,7 +766,7 @@ func TestDeleteDir(t *testing.T) {
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit2.ID, "dir"))
+	require.NoError(t, client.DeleteFile(repo, commit2.ID, "dir", false, ""))
 
 	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
 	require.NoError(t, err)
@@ -791,7 +793,7 @@ func TestDeleteDir(t *testing.T) {
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir"))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir", false, ""))
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
@@ -900,13 +902,13 @@ func TestUnsafeOperations(t *testing.T) {
 
 	// An unsafe read should
 	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, &buffer2))
+	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, "", &buffer2))
 	require.Equal(t, "foo", buffer2.String())
 
 	fileInfo, err := client.InspectFile(repo, "master", "foo", "", nil)
 	require.YesError(t, err)
 
-	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", nil)
+	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", nil, "")
 	require.NoError(t, err)
 	require.Equal(t, 3, int(fileInfo.SizeBytes))
 
@@ -914,7 +916,7 @@ func TestUnsafeOperations(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
-	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", nil, true)
+	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", nil, true, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -1362,6 +1364,22 @@ func TestShardingInTopLevel(t *testing.T) {
 		}
 	}
 	require.Equal(t, folders*filesPerFolder, totalFiles)
+}
+
+func TestCreate(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	w, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle")
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	_, err = client.InspectFileUnsafe(repo, commit.ID, "foo", "", nil, "handle")
+	require.NoError(t, err)
 }
 
 func TestGetFileInvalidCommit(t *testing.T) {
