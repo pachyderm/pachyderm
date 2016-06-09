@@ -55,6 +55,14 @@ cfg := ini.Empty()
 err := cfg.Append("other file", []byte("other raw data"))
 ```
 
+当您想要加载一系列文件，但是不能够确定其中哪些文件是不存在的，可以通过调用函数 `LooseLoad` 来忽略它们（`Load` 会因为文件不存在而返回错误）：
+
+```go
+cfg, err := ini.LooseLoad("filename", "filename_404")
+```
+
+更牛逼的是，当那些之前不存在的文件在重新调用 `Reload` 方法的时候突然出现了，那么它们会被正常加载。
+
 ### 操作分区（Section）
 
 获取指定分区：
@@ -378,6 +386,12 @@ CLONE_URL = https://%(IMPORT_PATH)s
 
 ```go
 cfg.Section("package.sub").Key("CLONE_URL").String()	// https://gopkg.in/ini.v1
+```
+
+#### 获取上级父分区下的所有键名
+
+```go
+cfg.Section("package.sub").ParentKeys() // ["CLONE_URL"]
 ```
 
 #### 读取自增键名

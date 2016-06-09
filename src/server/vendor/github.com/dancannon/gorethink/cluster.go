@@ -39,8 +39,12 @@ func NewCluster(hosts []Host, opts *ConnectOpts) (*Cluster, error) {
 		opts:  opts,
 	}
 
-	//Check that hosts in the ClusterConfig is not empty
-	c.connectNodes(c.getSeeds())
+	// Attempt to connect to each host and discover any additional hosts if host
+	// discovery is enabled
+	if err := c.connectNodes(c.getSeeds()); err != nil {
+		return nil, err
+	}
+
 	if !c.IsConnected() {
 		return nil, ErrNoConnectionsStarted
 	}
@@ -206,47 +210,47 @@ func (c *Cluster) listenForNodeChanges() error {
 	return err
 }
 
-func (c *Cluster) connectNodes(hosts []Host) {
+func (c *Cluster) connectNodes(hosts []Host) error {
 	// Add existing nodes to map
 	nodeSet := map[string]*Node{}
 	for _, node := range c.GetNodes() {
 		nodeSet[node.ID] = node
 	}
 
+	var attemptErr error
+
 	// Attempt to connect to each seed host
 	for _, host := range hosts {
 		conn, err := NewConnection(host.String(), c.opts)
 		if err != nil {
+			attemptErr = err
 			Log.Warnf("Error creating connection: %s", err.Error())
 			continue
 		}
 		defer conn.Close()
 
-		q, err := newQuery(
-			DB("rethinkdb").Table("server_status"),
-			map[string]interface{}{},
-			c.opts,
-		)
-		if err != nil {
-			Log.Warnf("Error building query: %s", err)
-			continue
-		}
-
-		_, cursor, err := conn.Query(q)
-		if err != nil {
-			Log.Warnf("Error fetching cluster status: %s", err)
-			continue
-		}
-
-		// TODO: connect to seed hosts using `.Server()` to get server ID. Need
-		// some way of making this backwards compatible
-
-		// TODO: AFTER try to discover hosts
-
 		if c.opts.DiscoverHosts {
+			q, err := newQuery(
+				DB("rethinkdb").Table("server_status"),
+				map[string]interface{}{},
+				c.opts,
+			)
+			if err != nil {
+				Log.Warnf("Error building query: %s", err)
+				continue
+			}
+
+			_, cursor, err := conn.Query(q)
+			if err != nil {
+				attemptErr = err
+				Log.Warnf("Error fetching cluster status: %s", err)
+				continue
+			}
+
 			var results []nodeStatus
 			err = cursor.All(&results)
 			if err != nil {
+				attemptErr = err
 				continue
 			}
 
@@ -261,31 +265,49 @@ func (c *Cluster) connectNodes(hosts []Host) {
 						nodeSet[node.ID] = node
 					}
 				} else {
+					attemptErr = err
 					Log.Warnf("Error connecting to node: %s", err)
 				}
 			}
 		} else {
-			node, err := c.connectNode(host.String(), []Host{host})
+			svrRsp, err := conn.Server()
+			if err != nil {
+				attemptErr = err
+				Log.Warnf("Error fetching server ID: %s", err)
+				continue
+			}
+
+			node, err := c.connectNode(svrRsp.ID, []Host{host})
 			if err == nil {
 				if _, ok := nodeSet[node.ID]; !ok {
 					Log.WithFields(logrus.Fields{
 						"id":   node.ID,
 						"host": node.Host.String(),
 					}).Debug("Connected to node")
+
 					nodeSet[node.ID] = node
 				}
 			} else {
+				attemptErr = err
 				Log.Warnf("Error connecting to node: %s", err)
 			}
 		}
+	}
+
+	// If no nodes were contactable then return the last error, this does not
+	// include driver errors such as if there was an issue building the
+	// query
+	if len(nodeSet) == 0 {
+		return attemptErr
 	}
 
 	nodes := []*Node{}
 	for _, node := range nodeSet {
 		nodes = append(nodes, node)
 	}
-
 	c.setNodes(nodes)
+
+	return nil
 }
 
 func (c *Cluster) connectNodeWithStatus(s nodeStatus) (*Node, error) {

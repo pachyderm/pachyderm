@@ -203,6 +203,19 @@ func parseField(structField reflect.StructField, value string) (interface{}, err
 			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
 		}
 		return uint64(parsedValue), nil
+	case reflect.Float32:
+		parsedValue, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+		}
+		return float32(parsedValue), nil
+
+	case reflect.Float64:
+		parsedValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", cannotParseErr, err.Error())
+		}
+		return float64(parsedValue), nil
 	case reflect.String:
 		return value, nil
 	default:

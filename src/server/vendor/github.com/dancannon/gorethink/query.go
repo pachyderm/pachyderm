@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
+	p "gopkg.in/dancannon/gorethink.v2/ql2"
 )
 
 // A Query represents a query ready to be sent to the database, A Query differs
@@ -206,6 +206,7 @@ type RunOpts struct {
 	DB             interface{} `gorethink:"db,omitempty"`
 	Db             interface{} `gorethink:"db,omitempty"` // Deprecated
 	Profile        interface{} `gorethink:"profile,omitempty"`
+	Durability     interface{} `gorethink:"durability,omitempty"`
 	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"` // Deprecated
 	ArrayLimit     interface{} `gorethink:"array_limit,omitempty"`
 	TimeFormat     interface{} `gorethink:"time_format,omitempty"`
@@ -239,6 +240,10 @@ func (t Term) Run(s *Session, optArgs ...RunOpts) (*Cursor, error) {
 	opts := map[string]interface{}{}
 	if len(optArgs) >= 1 {
 		opts = optArgs[0].toMap()
+	}
+
+	if s == nil || !s.IsConnected() {
+		return nil, ErrConnectionClosed
 	}
 
 	q, err := s.newQuery(t, opts)
@@ -276,6 +281,30 @@ func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 	return response, nil
 }
 
+// ReadOne is a shortcut method that runs the query on the given connection
+// and reads one response from the cursor before closing it.
+//
+// It returns any errors encountered from running the query or reading the response
+func (t Term) ReadOne(dest interface{}, s *Session, optArgs ...RunOpts) error {
+	res, err := t.Run(s, optArgs...)
+	if err != nil {
+		return err
+	}
+	return res.One(dest)
+}
+
+// ReadAll is a shortcut method that runs the query on the given connection
+// and reads all of the responses from the cursor before closing it.
+//
+// It returns any errors encountered from running the query or reading the responses
+func (t Term) ReadAll(dest interface{}, s *Session, optArgs ...RunOpts) error {
+	res, err := t.Run(s, optArgs...)
+	if err != nil {
+		return err
+	}
+	return res.All(dest)
+}
+
 // ExecOpts contains the optional arguments for the Exec function and  inherits
 // its options from RunOpts, the only difference is the addition of the NoReply
 // field.
@@ -286,6 +315,7 @@ type ExecOpts struct {
 	DB             interface{} `gorethink:"db,omitempty"`
 	Db             interface{} `gorethink:"db,omitempty"` // Deprecated
 	Profile        interface{} `gorethink:"profile,omitempty"`
+	Durability     interface{} `gorethink:"durability,omitempty"`
 	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"` // Deprecated
 	ArrayLimit     interface{} `gorethink:"array_limit,omitempty"`
 	TimeFormat     interface{} `gorethink:"time_format,omitempty"`

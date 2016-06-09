@@ -20,6 +20,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/client/restclient"
 )
 
 // Interface holds the experimental methods for clients of Kubernetes
@@ -27,12 +28,12 @@ import (
 // Features of Extensions group are not supported and may be changed or removed in
 // incompatible ways at any time.
 type ExtensionsInterface interface {
-	HorizontalPodAutoscalersNamespacer
 	ScaleNamespacer
 	DaemonSetsNamespacer
 	DeploymentsNamespacer
 	JobsNamespacer
 	IngressNamespacer
+	NetworkPolicyNamespacer
 	ThirdPartyResourceNamespacer
 	ReplicaSetsNamespacer
 	PodSecurityPoliciesInterface
@@ -42,15 +43,11 @@ type ExtensionsInterface interface {
 // Features of Extensions group are not supported and may be changed or removed in
 // incompatible ways at any time.
 type ExtensionsClient struct {
-	*RESTClient
+	*restclient.RESTClient
 }
 
 func (c *ExtensionsClient) PodSecurityPolicies() PodSecurityPolicyInterface {
 	return newPodSecurityPolicy(c)
-}
-
-func (c *ExtensionsClient) HorizontalPodAutoscalers(namespace string) HorizontalPodAutoscalerInterface {
-	return newHorizontalPodAutoscalers(c, namespace)
 }
 
 func (c *ExtensionsClient) Scales(namespace string) ScaleInterface {
@@ -73,8 +70,12 @@ func (c *ExtensionsClient) Ingress(namespace string) IngressInterface {
 	return newIngress(c, namespace)
 }
 
-func (c *ExtensionsClient) ThirdPartyResources(namespace string) ThirdPartyResourceInterface {
-	return newThirdPartyResources(c, namespace)
+func (c *ExtensionsClient) NetworkPolicies(namespace string) NetworkPolicyInterface {
+	return newNetworkPolicies(c, namespace)
+}
+
+func (c *ExtensionsClient) ThirdPartyResources() ThirdPartyResourceInterface {
+	return newThirdPartyResources(c)
 }
 
 func (c *ExtensionsClient) ReplicaSets(namespace string) ReplicaSetInterface {
@@ -85,12 +86,12 @@ func (c *ExtensionsClient) ReplicaSets(namespace string) ReplicaSetInterface {
 // provides access to experimental Kubernetes features.
 // Features of Extensions group are not supported and may be changed or removed in
 // incompatible ways at any time.
-func NewExtensions(c *Config) (*ExtensionsClient, error) {
+func NewExtensions(c *restclient.Config) (*ExtensionsClient, error) {
 	config := *c
 	if err := setExtensionsDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := RESTClientFor(&config)
+	client, err := restclient.RESTClientFor(&config)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func NewExtensions(c *Config) (*ExtensionsClient, error) {
 // panics if there is an error in the config.
 // Features of Extensions group are not supported and may be changed or removed in
 // incompatible ways at any time.
-func NewExtensionsOrDie(c *Config) *ExtensionsClient {
+func NewExtensionsOrDie(c *restclient.Config) *ExtensionsClient {
 	client, err := NewExtensions(c)
 	if err != nil {
 		panic(err)
@@ -109,7 +110,7 @@ func NewExtensionsOrDie(c *Config) *ExtensionsClient {
 	return client
 }
 
-func setExtensionsDefaults(config *Config) error {
+func setExtensionsDefaults(config *restclient.Config) error {
 	// if experimental group is not registered, return an error
 	g, err := registered.Group(extensions.GroupName)
 	if err != nil {
@@ -117,7 +118,7 @@ func setExtensionsDefaults(config *Config) error {
 	}
 	config.APIPath = defaultAPIPath
 	if config.UserAgent == "" {
-		config.UserAgent = DefaultKubernetesUserAgent()
+		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 	// TODO: Unconditionally set the config.Version, until we fix the config.
 	//if config.Version == "" {
@@ -126,6 +127,7 @@ func setExtensionsDefaults(config *Config) error {
 	//}
 
 	config.Codec = api.Codecs.LegacyCodec(*config.GroupVersion)
+	config.NegotiatedSerializer = api.Codecs
 	if config.QPS == 0 {
 		config.QPS = 5
 	}

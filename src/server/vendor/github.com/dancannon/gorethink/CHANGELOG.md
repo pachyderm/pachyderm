@@ -2,6 +2,69 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v2.0.4 - 2016-05-22
+
+### Changed
+ - Changed `Connect` to return the reason for connections failing (instead of just "no connections were made when creating the session")
+
+### Fixed
+ - Fixed queries not being retried when using `Query()`, queries are now retried if the request failed due to a bad connection.
+ - Fixed `Cursor` methods panicking if using a nil cursor, please note that you should still always check if your queries return an error.
+
+## v2.0.3 - 2016-05-12
+
+### Added
+ - Added constants for system database and table names.
+
+### Changed
+ - Re-enabled keep alive by default.
+
+## v2.0.2 - 2016-04-18
+
+### Fixed
+ - Fixed issue which prevented anonymous `time.Time` values from being encoded when used in a struct.
+ - Fixed panic when attempting to run a query with a nil session
+
+## v2.0.1 - 2016-04-14
+
+### Added
+ - Added `UnionWithOpts` term which allows `Union` to be called with optional arguments (such as `Interleave`)
+ - Added `IncludeOffsets` and `IncludeTypes` optional arguments to `ChangesOpts`
+ - Added `Conflict` optional argument to `InsertOpts`
+
+### Fixed
+ - Fixed error when connecting to database as non-admin user, please note that `DiscoverHosts` will not work with user authentication at this time due to the fact that RethinkDB restricts access to the required system tables.
+
+## v2.0.0 - 2016-04-13
+
+### Changed
+
+ - GoRethink now uses the v1.0 RethinkDB protocol which supports RethinkDB v2.3 and above. If you are using RethinkDB 2.2 or older please set `HandshakeVersion` when creating a session. For example:
+```go
+r.Connect(
+    ...
+    HandshakeVersion: r.HandshakeV0_4,
+    ...
+)
+```
+
+### Added
+ - Added support for username/password authentication. To login pass your username and password when creating a session using the `Username` and `Password` fields in the `ConnectOpts`.
+ - Added the `Grant` term
+ - Added the `Ordered` optional argument to `EqJoin`
+ - Added the `Fold` term and examples
+ - Added the `ReadOne` and `ReadAll` helper functions for quickly executing a query and scanning the result into a variable. For examples see the godocs.
+ - Added the `Peek` and `Skip` functions to the `Cursor`.
+ - Added support for referential arrays in structs
+ - Added the `Durability` argument to `RunOpts`/`ExecOpts`
+
+### Deprecated
+ - Deprecated the root `Wait` term, `r.Table(...).Wait()` should now be used instead.
+ - Deprecated session authentication using `AuthKey` 
+
+### Fixed
+ - Fixed issue with `ReconfigureOpts` field `PrimaryTag`
+
 ## v1.4.1 - 2016-04-02
 
 ### Fixed
