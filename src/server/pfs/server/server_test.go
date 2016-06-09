@@ -1483,7 +1483,7 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	}`
 
 	var expectedOutput []byte
-	for !( len(expectedOutput > 9*1024*1024) {
+	for !(len(expectedOutput) > 9*1024*1024) {
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_JSON, bytes.NewReader(expectedOutput))
@@ -1541,7 +1541,7 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 
 	// Write a big blob that would normally not fit in a block
 	var expectedOutputA []byte
-	for !(len(expectedOutputB) > 9*1024*1024) {
+	for !(len(expectedOutputA) > 9*1024*1024) {
 		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
 	}
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputA))
