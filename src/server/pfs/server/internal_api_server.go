@@ -367,7 +367,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 		if err != nil {
 			return err
 		}
-		if err := a.driver.PutFile(request.File, request.Handle, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, request.Delimiter, shard, &reader); err != nil {
 			return err
 		}
 	}
@@ -546,10 +546,8 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		_, err = r.buffer.Write(request.Value)
-		if err != nil {
-			return 0, err
-		}
+		//buffer.Write cannot error
+		r.buffer.Write(request.Value)
 	}
 	return r.buffer.Read(p)
 }
