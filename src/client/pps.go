@@ -10,46 +10,57 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// NewJob returns a new job.
 func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
 
 var (
+	// MapMethod is a shorthand input method that corresponds to the traditional
+	// notion of Map from Map/Reduce.
+	// It supports Incremental computation because if an operation can be run
+	// as a Map and return the correct result then it can also be run
+	// incrementally.
 	MapMethod = &pps.Method{
 		Partition:   pps.Partition_BLOCK,
 		Incremental: true,
 	}
 
+	// ReduceMethod is a shorthand input method that corresponds to the traditional
+	// notion of Reduce from Map/Reduce.
+	// It does not support incremental computation.
 	ReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
 		Incremental: false,
 	}
 
-	IncrementalReduceMethod = &pps.Method{
-		Partition:   pps.Partition_FILE,
-		Incremental: true,
-	}
-
+	// GlobalMethod is a shorthand input method that does not partition the repo at all.
+	// It does not support incremental computation.
 	GlobalMethod = &pps.Method{
 		Partition:   pps.Partition_REPO,
 		Incremental: false,
 	}
 
+	// DefaultMethod defines the default method for jobs to be MapMethod.
 	DefaultMethod = MapMethod
 
+	// MethodAliasMap defines shorthand aliases for methods.
 	MethodAliasMap = map[string]*pps.Method{
-		"map":                MapMethod,
-		"reduce":             ReduceMethod,
-		"incremental_reduce": IncrementalReduceMethod,
-		"global":             GlobalMethod,
+		"map":    MapMethod,
+		"reduce": ReduceMethod,
+		"global": GlobalMethod,
 	}
 
+	// ReservedRepoNames defines a set of repo names which can't be used by
+	// users because they would cause collisions when we try to map them into
+	// jobs filesystems.
 	ReservedRepoNames = map[string]bool{
 		"out":  true,
 		"prev": true,
 	}
 )
 
+// NewJobInput returns a new job input.
 func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
@@ -57,10 +68,12 @@ func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobI
 	}
 }
 
+// NewPipeline returns a new pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
+// NewPipelineInput returns a new pipeline input.
 func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
 	return &pps.PipelineInput{
 		Repo:   NewRepo(repoName),
@@ -71,7 +84,7 @@ func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
 // CreateJob creates and runs a job in PPS.
 // image is the Docker image to run the job in.
 // cmd is the command passed to the Docker run invocation.
-// NOTE as with Docker cmd is not run inside a shell that means that things
+// NOTE as with Docker, cmd is not run inside a shell that means that things
 // like wildcard globbing (*), pipes (|) and file redirects (> and >>) will not
 // work. To get that behavior you should have your command be a shell of your
 // choice and pass a shell script to stdin.

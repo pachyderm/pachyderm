@@ -11,10 +11,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// PfsAPIClient implements the pfs client interface.
 type PfsAPIClient pfs.APIClient
+
+// PpsAPIClient implements the pps client interface.
 type PpsAPIClient pps.APIClient
+
+// BlockAPIClient implements the block client interface.
 type BlockAPIClient pfs.BlockAPIClient
 
+// APIClient implements the pfs,pps and block client interfaces.
+// It also provides utility methods which make the APIs easier to work with.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient

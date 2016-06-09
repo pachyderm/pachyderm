@@ -9,10 +9,12 @@ import (
 	"golang.org/x/net/context"
 )
 
+// NewRepo returns a new.
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
 }
 
+// NewCommit returns a new.
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo: NewRepo(repoName),
@@ -20,6 +22,7 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewFile returns a new file.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
 		Commit: NewCommit(repoName, commitID),
@@ -27,12 +30,14 @@ func NewFile(repoName string, commitID string, path string) *pfs.File {
 	}
 }
 
+// NewBlock returns a new block.
 func NewBlock(hash string) *pfs.Block {
 	return &pfs.Block{
 		Hash: hash,
 	}
 }
 
+// NewDiff returns a new diff.
 func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
 	return &pfs.Diff{
 		Commit: NewCommit(repoName, commitID),
@@ -41,8 +46,15 @@ func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
 }
 
 const (
-	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE
-	CommitTypeRead  = pfs.CommitType_COMMIT_TYPE_READ
+	// CommitTypeNone indicates that you don't care what type a commit is.
+	// Commits will never have type CommitTypeNone.
+	// CommitTypeNone should only be used when requesting commits with ListCommit.
+	CommitTypeNone = pfs.CommitType_COMMIT_TYPE_NONE
+	// CommitTypeRead indicates a commit that is read only that is it has had
+	// FinishCommit called on it.
+	CommitTypeRead = pfs.CommitType_COMMIT_TYPE_READ
+	// CommitTypeWrite indicates a commit that is writeable that is it hasn't
+	// had FinishCommit called on it.
 	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
 )
 
@@ -386,6 +398,8 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, false, "", writer)
 }
 
+// GetFileUnsafe is like GetFile except that it allows you to read data that hasn't been committed yet.
+// This is considered unsafe because it races with processes that are writing the data.
 func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, shard *pfs.Shard, handle string, writer io.Writer) error {
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, true, handle, writer)
@@ -427,6 +441,8 @@ func (c APIClient) InspectFile(repoName string, commitID string, path string,
 	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, false, "")
 }
 
+// InspectFileUnsafe is like InspectFile except that it allows you to read data that hasn't been committed yet.
+// This is considered unsafe because it races with processes that are writing the data.
 func (c APIClient) InspectFileUnsafe(repoName string, commitID string, path string,
 	fromCommitID string, shard *pfs.Shard, handle string) (*pfs.FileInfo, error) {
 	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, true, handle)
