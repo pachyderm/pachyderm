@@ -1018,10 +1018,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
 			} else if _append.FileType == pfs.FileType_FILE_TYPE_DIR {
-				// With non-nil Children, this Append is for a directory, even if
-				// Children is empty.  This is because we sometimes
-				// have an Append with an empty children just to signify that
-				// this is a directory.
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
