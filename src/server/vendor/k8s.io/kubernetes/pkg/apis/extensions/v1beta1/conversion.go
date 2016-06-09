@@ -18,11 +18,12 @@ package v1beta1
 
 import (
 	"fmt"
-	"reflect"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	v1 "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/autoscaling"
+	"k8s.io/kubernetes/pkg/apis/batch"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -32,22 +33,24 @@ import (
 func addConversionFuncs(scheme *runtime.Scheme) {
 	// Add non-generated conversion functions
 	err := scheme.AddConversionFuncs(
-		Convert_api_PodSpec_To_v1_PodSpec,
-		Convert_v1_PodSpec_To_api_PodSpec,
+		Convert_extensions_ScaleStatus_To_v1beta1_ScaleStatus,
+		Convert_v1beta1_ScaleStatus_To_extensions_ScaleStatus,
 		Convert_extensions_DeploymentSpec_To_v1beta1_DeploymentSpec,
 		Convert_v1beta1_DeploymentSpec_To_extensions_DeploymentSpec,
 		Convert_extensions_DeploymentStrategy_To_v1beta1_DeploymentStrategy,
 		Convert_v1beta1_DeploymentStrategy_To_extensions_DeploymentStrategy,
 		Convert_extensions_RollingUpdateDeployment_To_v1beta1_RollingUpdateDeployment,
 		Convert_v1beta1_RollingUpdateDeployment_To_extensions_RollingUpdateDeployment,
-		Convert_extensions_DaemonSetSpec_To_v1beta1_DaemonSetSpec,
-		Convert_v1beta1_DaemonSetSpec_To_extensions_DaemonSetSpec,
-		Convert_extensions_DaemonSetUpdateStrategy_To_v1beta1_DaemonSetUpdateStrategy,
-		Convert_v1beta1_DaemonSetUpdateStrategy_To_extensions_DaemonSetUpdateStrategy,
-		Convert_extensions_RollingUpdateDaemonSet_To_v1beta1_RollingUpdateDaemonSet,
-		Convert_v1beta1_RollingUpdateDaemonSet_To_extensions_RollingUpdateDaemonSet,
 		Convert_extensions_ReplicaSetSpec_To_v1beta1_ReplicaSetSpec,
 		Convert_v1beta1_ReplicaSetSpec_To_extensions_ReplicaSetSpec,
+		// autoscaling
+		Convert_autoscaling_CrossVersionObjectReference_To_v1beta1_SubresourceReference,
+		Convert_v1beta1_SubresourceReference_To_autoscaling_CrossVersionObjectReference,
+		Convert_autoscaling_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec,
+		Convert_v1beta1_HorizontalPodAutoscalerSpec_To_autoscaling_HorizontalPodAutoscalerSpec,
+		// batch
+		Convert_batch_JobSpec_To_v1beta1_JobSpec,
+		Convert_v1beta1_JobSpec_To_batch_JobSpec,
 	)
 	if err != nil {
 		// If one of the conversion functions is malformed, detect it immediately.
@@ -86,23 +89,54 @@ func addConversionFuncs(scheme *runtime.Scheme) {
 	}
 }
 
-// The following two PodSpec conversions functions where copied from pkg/api/conversion.go
-// for the generated functions to work properly.
-// This should be fixed: https://github.com/kubernetes/kubernetes/issues/12977
-func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *v1.PodSpec, s conversion.Scope) error {
-	return v1.Convert_api_PodSpec_To_v1_PodSpec(in, out, s)
+func Convert_extensions_ScaleStatus_To_v1beta1_ScaleStatus(in *extensions.ScaleStatus, out *ScaleStatus, s conversion.Scope) error {
+	out.Replicas = int32(in.Replicas)
+
+	out.Selector = nil
+	out.TargetSelector = ""
+	if in.Selector != nil {
+		if in.Selector.MatchExpressions == nil || len(in.Selector.MatchExpressions) == 0 {
+			out.Selector = in.Selector.MatchLabels
+		}
+
+		selector, err := unversioned.LabelSelectorAsSelector(in.Selector)
+		if err != nil {
+			return fmt.Errorf("invalid label selector: %v", err)
+		}
+		out.TargetSelector = selector.String()
+	}
+	return nil
 }
 
-func Convert_v1_PodSpec_To_api_PodSpec(in *v1.PodSpec, out *api.PodSpec, s conversion.Scope) error {
-	return v1.Convert_v1_PodSpec_To_api_PodSpec(in, out, s)
+func Convert_v1beta1_ScaleStatus_To_extensions_ScaleStatus(in *ScaleStatus, out *extensions.ScaleStatus, s conversion.Scope) error {
+	out.Replicas = in.Replicas
+
+	// Normally when 2 fields map to the same internal value we favor the old field, since
+	// old clients can't be expected to know about new fields but clients that know about the
+	// new field can be expected to know about the old field (though that's not quite true, due
+	// to kubectl apply). However, these fields are readonly, so any non-nil value should work.
+	if in.TargetSelector != "" {
+		labelSelector, err := unversioned.ParseToLabelSelector(in.TargetSelector)
+		if err != nil {
+			out.Selector = nil
+			return fmt.Errorf("failed to parse target selector: %v", err)
+		}
+		out.Selector = labelSelector
+	} else if in.Selector != nil {
+		out.Selector = new(unversioned.LabelSelector)
+		selector := make(map[string]string)
+		for key, val := range in.Selector {
+			selector[key] = val
+		}
+		out.Selector.MatchLabels = selector
+	} else {
+		out.Selector = nil
+	}
+	return nil
 }
 
 func Convert_extensions_DeploymentSpec_To_v1beta1_DeploymentSpec(in *extensions.DeploymentSpec, out *DeploymentSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.DeploymentSpec))(in)
-	}
-	out.Replicas = new(int32)
-	*out.Replicas = int32(in.Replicas)
+	out.Replicas = &in.Replicas
 	if in.Selector != nil {
 		out.Selector = new(LabelSelector)
 		if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(in.Selector, out.Selector, s); err != nil {
@@ -133,11 +167,8 @@ func Convert_extensions_DeploymentSpec_To_v1beta1_DeploymentSpec(in *extensions.
 }
 
 func Convert_v1beta1_DeploymentSpec_To_extensions_DeploymentSpec(in *DeploymentSpec, out *extensions.DeploymentSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*DeploymentSpec))(in)
-	}
 	if in.Replicas != nil {
-		out.Replicas = int(*in.Replicas)
+		out.Replicas = *in.Replicas
 	}
 
 	if in.Selector != nil {
@@ -154,11 +185,8 @@ func Convert_v1beta1_DeploymentSpec_To_extensions_DeploymentSpec(in *DeploymentS
 	if err := Convert_v1beta1_DeploymentStrategy_To_extensions_DeploymentStrategy(&in.Strategy, &out.Strategy, s); err != nil {
 		return err
 	}
-	if in.RevisionHistoryLimit != nil {
-		out.RevisionHistoryLimit = new(int)
-		*out.RevisionHistoryLimit = int(*in.RevisionHistoryLimit)
-	}
-	out.MinReadySeconds = int(in.MinReadySeconds)
+	out.RevisionHistoryLimit = in.RevisionHistoryLimit
+	out.MinReadySeconds = in.MinReadySeconds
 	out.Paused = in.Paused
 	if in.RollbackTo != nil {
 		out.RollbackTo = new(extensions.RollbackConfig)
@@ -170,9 +198,6 @@ func Convert_v1beta1_DeploymentSpec_To_extensions_DeploymentSpec(in *DeploymentS
 }
 
 func Convert_extensions_DeploymentStrategy_To_v1beta1_DeploymentStrategy(in *extensions.DeploymentStrategy, out *DeploymentStrategy, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.DeploymentStrategy))(in)
-	}
 	out.Type = DeploymentStrategyType(in.Type)
 	if in.RollingUpdate != nil {
 		out.RollingUpdate = new(RollingUpdateDeployment)
@@ -186,9 +211,6 @@ func Convert_extensions_DeploymentStrategy_To_v1beta1_DeploymentStrategy(in *ext
 }
 
 func Convert_v1beta1_DeploymentStrategy_To_extensions_DeploymentStrategy(in *DeploymentStrategy, out *extensions.DeploymentStrategy, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*DeploymentStrategy))(in)
-	}
 	out.Type = extensions.DeploymentStrategyType(in.Type)
 	if in.RollingUpdate != nil {
 		out.RollingUpdate = new(extensions.RollingUpdateDeployment)
@@ -202,9 +224,6 @@ func Convert_v1beta1_DeploymentStrategy_To_extensions_DeploymentStrategy(in *Dep
 }
 
 func Convert_extensions_RollingUpdateDeployment_To_v1beta1_RollingUpdateDeployment(in *extensions.RollingUpdateDeployment, out *RollingUpdateDeployment, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.RollingUpdateDeployment))(in)
-	}
 	if out.MaxUnavailable == nil {
 		out.MaxUnavailable = &intstr.IntOrString{}
 	}
@@ -221,9 +240,6 @@ func Convert_extensions_RollingUpdateDeployment_To_v1beta1_RollingUpdateDeployme
 }
 
 func Convert_v1beta1_RollingUpdateDeployment_To_extensions_RollingUpdateDeployment(in *RollingUpdateDeployment, out *extensions.RollingUpdateDeployment, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*RollingUpdateDeployment))(in)
-	}
 	if err := s.Convert(in.MaxUnavailable, &out.MaxUnavailable, 0); err != nil {
 		return err
 	}
@@ -233,11 +249,9 @@ func Convert_v1beta1_RollingUpdateDeployment_To_extensions_RollingUpdateDeployme
 	return nil
 }
 
-func Convert_extensions_DaemonSetSpec_To_v1beta1_DaemonSetSpec(in *extensions.DaemonSetSpec, out *DaemonSetSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.DaemonSetSpec))(in)
-	}
-	// unable to generate simple pointer conversion for unversioned.LabelSelector -> v1beta1.LabelSelector
+func Convert_extensions_ReplicaSetSpec_To_v1beta1_ReplicaSetSpec(in *extensions.ReplicaSetSpec, out *ReplicaSetSpec, s conversion.Scope) error {
+	out.Replicas = new(int32)
+	*out.Replicas = int32(in.Replicas)
 	if in.Selector != nil {
 		out.Selector = new(LabelSelector)
 		if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(in.Selector, out.Selector, s); err != nil {
@@ -246,22 +260,17 @@ func Convert_extensions_DaemonSetSpec_To_v1beta1_DaemonSetSpec(in *extensions.Da
 	} else {
 		out.Selector = nil
 	}
+
 	if err := v1.Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
 		return err
 	}
-	if err := Convert_extensions_DaemonSetUpdateStrategy_To_v1beta1_DaemonSetUpdateStrategy(&in.UpdateStrategy, &out.UpdateStrategy, s); err != nil {
-		return err
-	}
-	out.UniqueLabelKey = new(string)
-	*out.UniqueLabelKey = in.UniqueLabelKey
 	return nil
 }
 
-func Convert_v1beta1_DaemonSetSpec_To_extensions_DaemonSetSpec(in *DaemonSetSpec, out *extensions.DaemonSetSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*DaemonSetSpec))(in)
+func Convert_v1beta1_ReplicaSetSpec_To_extensions_ReplicaSetSpec(in *ReplicaSetSpec, out *extensions.ReplicaSetSpec, s conversion.Scope) error {
+	if in.Replicas != nil {
+		out.Replicas = *in.Replicas
 	}
-	// unable to generate simple pointer conversion for v1beta1.LabelSelector -> unversioned.LabelSelector
 	if in.Selector != nil {
 		out.Selector = new(unversioned.LabelSelector)
 		if err := Convert_v1beta1_LabelSelector_To_unversioned_LabelSelector(in.Selector, out.Selector, s); err != nil {
@@ -273,78 +282,14 @@ func Convert_v1beta1_DaemonSetSpec_To_extensions_DaemonSetSpec(in *DaemonSetSpec
 	if err := v1.Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
 		return err
 	}
-	if err := Convert_v1beta1_DaemonSetUpdateStrategy_To_extensions_DaemonSetUpdateStrategy(&in.UpdateStrategy, &out.UpdateStrategy, s); err != nil {
-		return err
-	}
-	if in.UniqueLabelKey != nil {
-		out.UniqueLabelKey = *in.UniqueLabelKey
-	}
 	return nil
 }
 
-func Convert_extensions_DaemonSetUpdateStrategy_To_v1beta1_DaemonSetUpdateStrategy(in *extensions.DaemonSetUpdateStrategy, out *DaemonSetUpdateStrategy, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.DaemonSetUpdateStrategy))(in)
-	}
-	out.Type = DaemonSetUpdateStrategyType(in.Type)
-	if in.RollingUpdate != nil {
-		out.RollingUpdate = new(RollingUpdateDaemonSet)
-		if err := Convert_extensions_RollingUpdateDaemonSet_To_v1beta1_RollingUpdateDaemonSet(in.RollingUpdate, out.RollingUpdate, s); err != nil {
-			return err
-		}
-	} else {
-		out.RollingUpdate = nil
-	}
-	return nil
-}
-
-func Convert_v1beta1_DaemonSetUpdateStrategy_To_extensions_DaemonSetUpdateStrategy(in *DaemonSetUpdateStrategy, out *extensions.DaemonSetUpdateStrategy, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*DaemonSetUpdateStrategy))(in)
-	}
-	out.Type = extensions.DaemonSetUpdateStrategyType(in.Type)
-	if in.RollingUpdate != nil {
-		out.RollingUpdate = new(extensions.RollingUpdateDaemonSet)
-		if err := Convert_v1beta1_RollingUpdateDaemonSet_To_extensions_RollingUpdateDaemonSet(in.RollingUpdate, out.RollingUpdate, s); err != nil {
-			return err
-		}
-	} else {
-		out.RollingUpdate = nil
-	}
-	return nil
-}
-
-func Convert_extensions_RollingUpdateDaemonSet_To_v1beta1_RollingUpdateDaemonSet(in *extensions.RollingUpdateDaemonSet, out *RollingUpdateDaemonSet, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.RollingUpdateDaemonSet))(in)
-	}
-	if out.MaxUnavailable == nil {
-		out.MaxUnavailable = &intstr.IntOrString{}
-	}
-	if err := s.Convert(&in.MaxUnavailable, out.MaxUnavailable, 0); err != nil {
-		return err
-	}
-	out.MinReadySeconds = int32(in.MinReadySeconds)
-	return nil
-}
-
-func Convert_v1beta1_RollingUpdateDaemonSet_To_extensions_RollingUpdateDaemonSet(in *RollingUpdateDaemonSet, out *extensions.RollingUpdateDaemonSet, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*RollingUpdateDaemonSet))(in)
-	}
-	if err := s.Convert(in.MaxUnavailable, &out.MaxUnavailable, 0); err != nil {
-		return err
-	}
-	out.MinReadySeconds = int(in.MinReadySeconds)
-	return nil
-}
-
-func Convert_extensions_ReplicaSetSpec_To_v1beta1_ReplicaSetSpec(in *extensions.ReplicaSetSpec, out *ReplicaSetSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*extensions.ReplicaSetSpec))(in)
-	}
-	out.Replicas = new(int32)
-	*out.Replicas = int32(in.Replicas)
+func Convert_batch_JobSpec_To_v1beta1_JobSpec(in *batch.JobSpec, out *JobSpec, s conversion.Scope) error {
+	out.Parallelism = in.Parallelism
+	out.Completions = in.Completions
+	out.ActiveDeadlineSeconds = in.ActiveDeadlineSeconds
+	// unable to generate simple pointer conversion for unversioned.LabelSelector -> v1beta1.LabelSelector
 	if in.Selector != nil {
 		out.Selector = new(LabelSelector)
 		if err := Convert_unversioned_LabelSelector_To_v1beta1_LabelSelector(in.Selector, out.Selector, s); err != nil {
@@ -353,24 +298,32 @@ func Convert_extensions_ReplicaSetSpec_To_v1beta1_ReplicaSetSpec(in *extensions.
 	} else {
 		out.Selector = nil
 	}
-	if in.Template != nil {
-		out.Template = new(v1.PodTemplateSpec)
-		if err := v1.Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec(in.Template, out.Template, s); err != nil {
-			return err
-		}
+
+	// BEGIN non-standard conversion
+	// autoSelector has opposite meaning as manualSelector.
+	// in both cases, unset means false, and unset is always preferred to false.
+	// unset vs set-false distinction is not preserved.
+	manualSelector := in.ManualSelector != nil && *in.ManualSelector
+	autoSelector := !manualSelector
+	if autoSelector {
+		out.AutoSelector = new(bool)
+		*out.AutoSelector = true
 	} else {
-		out.Template = nil
+		out.AutoSelector = nil
+	}
+	// END non-standard conversion
+
+	if err := v1.Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
+		return err
 	}
 	return nil
 }
 
-func Convert_v1beta1_ReplicaSetSpec_To_extensions_ReplicaSetSpec(in *ReplicaSetSpec, out *extensions.ReplicaSetSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*ReplicaSetSpec))(in)
-	}
-	if in.Replicas != nil {
-		out.Replicas = int(*in.Replicas)
-	}
+func Convert_v1beta1_JobSpec_To_batch_JobSpec(in *JobSpec, out *batch.JobSpec, s conversion.Scope) error {
+	out.Parallelism = in.Parallelism
+	out.Completions = in.Completions
+	out.ActiveDeadlineSeconds = in.ActiveDeadlineSeconds
+	// unable to generate simple pointer conversion for v1beta1.LabelSelector -> unversioned.LabelSelector
 	if in.Selector != nil {
 		out.Selector = new(unversioned.LabelSelector)
 		if err := Convert_v1beta1_LabelSelector_To_unversioned_LabelSelector(in.Selector, out.Selector, s); err != nil {
@@ -379,13 +332,73 @@ func Convert_v1beta1_ReplicaSetSpec_To_extensions_ReplicaSetSpec(in *ReplicaSetS
 	} else {
 		out.Selector = nil
 	}
-	if in.Template != nil {
-		out.Template = new(api.PodTemplateSpec)
-		if err := v1.Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec(in.Template, out.Template, s); err != nil {
-			return err
-		}
+
+	// BEGIN non-standard conversion
+	// autoSelector has opposite meaning as manualSelector.
+	// in both cases, unset means false, and unset is always preferred to false.
+	// unset vs set-false distinction is not preserved.
+	autoSelector := bool(in.AutoSelector != nil && *in.AutoSelector)
+	manualSelector := !autoSelector
+	if manualSelector {
+		out.ManualSelector = new(bool)
+		*out.ManualSelector = true
 	} else {
-		out.Template = nil
+		out.ManualSelector = nil
+	}
+	// END non-standard conversion
+
+	if err := v1.Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec(&in.Template, &out.Template, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_autoscaling_CrossVersionObjectReference_To_v1beta1_SubresourceReference(in *autoscaling.CrossVersionObjectReference, out *SubresourceReference, s conversion.Scope) error {
+	out.Kind = in.Kind
+	out.Name = in.Name
+	out.APIVersion = in.APIVersion
+	out.Subresource = "scale"
+	return nil
+}
+
+func Convert_v1beta1_SubresourceReference_To_autoscaling_CrossVersionObjectReference(in *SubresourceReference, out *autoscaling.CrossVersionObjectReference, s conversion.Scope) error {
+	out.Kind = in.Kind
+	out.Name = in.Name
+	out.APIVersion = in.APIVersion
+	return nil
+}
+
+func Convert_autoscaling_HorizontalPodAutoscalerSpec_To_v1beta1_HorizontalPodAutoscalerSpec(in *autoscaling.HorizontalPodAutoscalerSpec, out *HorizontalPodAutoscalerSpec, s conversion.Scope) error {
+	if err := Convert_autoscaling_CrossVersionObjectReference_To_v1beta1_SubresourceReference(&in.ScaleTargetRef, &out.ScaleRef, s); err != nil {
+		return err
+	}
+	if in.MinReplicas != nil {
+		out.MinReplicas = new(int32)
+		*out.MinReplicas = *in.MinReplicas
+	} else {
+		out.MinReplicas = nil
+	}
+	out.MaxReplicas = in.MaxReplicas
+	if in.TargetCPUUtilizationPercentage != nil {
+		out.CPUUtilization = &CPUTargetUtilization{TargetPercentage: *in.TargetCPUUtilizationPercentage}
+	}
+	return nil
+}
+
+func Convert_v1beta1_HorizontalPodAutoscalerSpec_To_autoscaling_HorizontalPodAutoscalerSpec(in *HorizontalPodAutoscalerSpec, out *autoscaling.HorizontalPodAutoscalerSpec, s conversion.Scope) error {
+	if err := Convert_v1beta1_SubresourceReference_To_autoscaling_CrossVersionObjectReference(&in.ScaleRef, &out.ScaleTargetRef, s); err != nil {
+		return err
+	}
+	if in.MinReplicas != nil {
+		out.MinReplicas = new(int32)
+		*out.MinReplicas = int32(*in.MinReplicas)
+	} else {
+		out.MinReplicas = nil
+	}
+	out.MaxReplicas = int32(in.MaxReplicas)
+	if in.CPUUtilization != nil {
+		out.TargetCPUUtilizationPercentage = new(int32)
+		*out.TargetCPUUtilizationPercentage = int32(in.CPUUtilization.TargetPercentage)
 	}
 	return nil
 }

@@ -56,6 +56,9 @@ type Resources struct {
 	// Kernel memory limit (in bytes)
 	KernelMemory int64 `json:"kernel_memory"`
 
+	// Kernel memory limit for TCP use (in bytes)
+	KernelMemoryTCP int64 `json:"kernel_memory_tcp"`
+
 	// CPU shares (relative weight vs. other containers)
 	CpuShares int64 `json:"cpu_shares"`
 
@@ -111,7 +114,7 @@ type Resources struct {
 	OomKillDisable bool `json:"oom_kill_disable"`
 
 	// Tuning swappiness behaviour per cgroup
-	MemorySwappiness int64 `json:"memory_swappiness"`
+	MemorySwappiness *int64 `json:"memory_swappiness"`
 
 	// Set priority of network traffic for container
 	NetPrioIfpriomap []*IfPrioMap `json:"net_prio_ifpriomap"`

@@ -8,7 +8,7 @@
 
 ![GoRethink Logo](https://raw.github.com/wiki/dancannon/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
 
-Current version: v1.4.1 (RethinkDB v2.2)
+Current version: v2.0.4 (RethinkDB v2.3)
 
 Please note that this version of the driver only supports versions of RethinkDB using the v0.4 protocol (any versions of the driver older than RethinkDB 2.0 will not work).
 
@@ -16,12 +16,13 @@ If you need any help you can find me on the [RethinkDB slack](http://slack.rethi
 
 ## Installation
 
-```sh
-go get -u github.com/dancannon/gorethink
+```
+go get gopkg.in/dancannon/gorethink.v2
 ```
 
-Or (pinned to the v1.x.x tag)
-```
+(Or v1)
+
+```sh
 go get gopkg.in/dancannon/gorethink.v1
 ```
 
@@ -91,6 +92,35 @@ if err != nil {
 
 When `DiscoverHosts` is true any nodes are added to the cluster after the initial connection then the new node will be added to the pool of available nodes used by GoRethink. Unfortunately the canonical address of each server in the cluster **MUST** be set as otherwise clients will try to connect to the database nodes locally. For more information about how to set a RethinkDB servers canonical address set this page http://www.rethinkdb.com/docs/config-file/.
 
+## User Authentication
+
+To login with a username and password you should first create a user, this can be done by writing to the `users` system table and then grant that user access to any tables or databases they need access to. This queries can also be executed in the RethinkDB admin console.
+
+```go
+err := r.DB("rethinkdb").Table("users").Insert(map[string]string{
+    "id": "john",
+    "password": "p455w0rd",
+}).Exec(session)
+...
+err = r.DB("blog").Table("posts").Grant("john", map[string]bool{
+    "read": true,
+    "write": true,
+}).Exec(session)
+...
+```
+
+Finally the username and password should be passed to `Connect` when creating your session, for example:
+
+```go
+session, err := r.Connect(r.ConnectOpts{
+    Address: "localhost:28015",
+    Database: "blog",
+    Username: "john",
+    Password: "p455w0rd",
+})
+```
+
+Please note that `DiscoverHosts` will not work with user authentication at this time due to the fact that RethinkDB restricts access to the required system tables.
 
 ## Query Functions
 

@@ -83,6 +83,11 @@ func (d *Date) InRange(start *Date, end *Date) bool {
 	return d.Equal(start) || d.Equal(end) || (start.Before(d) && d.Before(end))
 }
 
+// Add adds the given time to the d and returns a new Date.
+func (d *Date) Add(years int32, months int32, days int32) *Date {
+	return TimeToDate(d.GoTime().AddDate(int(years), int(months), int(days)))
+}
+
 // Dater provides the current date.
 type Dater interface {
 	Now() *Date

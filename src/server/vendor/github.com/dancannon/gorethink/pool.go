@@ -13,8 +13,6 @@ const maxBadConnRetries = 3
 
 var (
 	errPoolClosed = errors.New("gorethink: pool is closed")
-	errConnClosed = errors.New("gorethink: conn is closed")
-	errConnBusy   = errors.New("gorethink: conn is busy")
 )
 
 // A Pool is used to store a pool of connections to a single RethinkDB server
@@ -183,6 +181,9 @@ func (p *Pool) Query(q Query) (*Cursor, error) {
 
 		if err == nil {
 			cursor.releaseConn = releaseConn(c, pc)
+		} else if c.isBad() {
+			pc.MarkUnusable()
+			continue
 		}
 
 		break

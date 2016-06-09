@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
+	p "gopkg.in/dancannon/gorethink.v2/ql2"
 )
 
 // InnerJoin returns the inner product of two sequences (e.g. a table, a filter result)
@@ -21,7 +21,8 @@ func (t Term) OuterJoin(args ...interface{}) Term {
 
 // EqJoinOpts contains the optional arguments for the EqJoin term.
 type EqJoinOpts struct {
-	Index interface{} `gorethink:"index,omitempty"`
+	Index   interface{} `gorethink:"index,omitempty"`
+	Ordered interface{} `gorethink:"ordered,omitempty"`
 }
 
 func (o *EqJoinOpts) toMap() map[string]interface{} {
