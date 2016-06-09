@@ -45,8 +45,11 @@ type Command struct {
 	Long string
 	// Examples of how to use the command
 	Example string
-	// List of all valid non-flag arguments, used for bash completions *TODO* actually validate these
+	// List of all valid non-flag arguments that are accepted in bash completions
 	ValidArgs []string
+	// List of aliases for ValidArgs. These are not suggested to the user in the bash
+	// completion, but accepted if entered manually.
+	ArgAliases []string
 	// Custom functions used by the bash autocompletion generator
 	BashCompletionFunction string
 	// Is this command deprecated and should print this string when used?
@@ -117,6 +120,9 @@ type Command struct {
 	DisableSuggestions bool
 	// If displaying suggestions, allows to set the minimum levenshtein distance to display, must be > 0
 	SuggestionsMinimumDistance int
+
+	// Disable the flag parsing. If this is true all flags will be passed to the command as arguments.
+	DisableFlagParsing bool
 }
 
 // os.Args[1:] by default, if desired, can be overridden
@@ -132,9 +138,8 @@ func (c *Command) getOut(def io.Writer) io.Writer {
 
 	if c.HasParent() {
 		return c.parent.Out()
-	} else {
-		return def
 	}
+	return def
 }
 
 func (c *Command) Out() io.Writer {
@@ -194,14 +199,13 @@ func (c *Command) UsageFunc() (f func(*Command) error) {
 
 	if c.HasParent() {
 		return c.parent.UsageFunc()
-	} else {
-		return func(c *Command) error {
-			err := tmpl(c.Out(), c.UsageTemplate(), c)
-			if err != nil {
-				fmt.Print(err)
-			}
-			return err
+	}
+	return func(c *Command) error {
+		err := tmpl(c.Out(), c.UsageTemplate(), c)
+		if err != nil {
+			fmt.Print(err)
 		}
+		return err
 	}
 }
 
@@ -223,35 +227,32 @@ func (c *Command) HelpFunc() func(*Command, []string) {
 	}
 }
 
-var minUsagePadding int = 25
+var minUsagePadding = 25
 
 func (c *Command) UsagePadding() int {
 	if c.parent == nil || minUsagePadding > c.parent.commandsMaxUseLen {
 		return minUsagePadding
-	} else {
-		return c.parent.commandsMaxUseLen
 	}
+	return c.parent.commandsMaxUseLen
 }
 
-var minCommandPathPadding int = 11
+var minCommandPathPadding = 11
 
 //
 func (c *Command) CommandPathPadding() int {
 	if c.parent == nil || minCommandPathPadding > c.parent.commandsMaxCommandPathLen {
 		return minCommandPathPadding
-	} else {
-		return c.parent.commandsMaxCommandPathLen
 	}
+	return c.parent.commandsMaxCommandPathLen
 }
 
-var minNamePadding int = 11
+var minNamePadding = 11
 
 func (c *Command) NamePadding() int {
 	if c.parent == nil || minNamePadding > c.parent.commandsMaxNameLen {
 		return minNamePadding
-	} else {
-		return c.parent.commandsMaxNameLen
 	}
+	return c.parent.commandsMaxNameLen
 }
 
 func (c *Command) UsageTemplate() string {
@@ -261,9 +262,9 @@ func (c *Command) UsageTemplate() string {
 
 	if c.HasParent() {
 		return c.parent.UsageTemplate()
-	} else {
-		return `Usage:{{if .Runnable}}
-  {{.UseLine}}{{if .HasFlags}} [flags]{{end}}{{end}}{{if .HasSubCommands}}
+	}
+	return `Usage:{{if .Runnable}}
+  {{if .HasAvailableFlags}}{{appendIfNotPresent .UseLine "[flags]"}}{{else}}{{.UseLine}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
   {{ .CommandPath}} [command]{{end}}{{if gt .Aliases 0}}
 
 Aliases:
@@ -274,20 +275,19 @@ Examples:
 {{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
 
 Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasLocalFlags}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableLocalFlags}}
 
 Flags:
-{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{ if .HasInheritedFlags}}
+{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{ if .HasAvailableInheritedFlags}}
 
 Global Flags:
 {{.InheritedFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
 
 Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasSubCommands }}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableSubCommands }}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `
-	}
 }
 
 func (c *Command) HelpTemplate() string {
@@ -297,11 +297,10 @@ func (c *Command) HelpTemplate() string {
 
 	if c.HasParent() {
 		return c.parent.HelpTemplate()
-	} else {
-		return `{{with or .Long .Short }}{{. | trim}}
+	}
+	return `{{with or .Long .Short }}{{. | trim}}
 
 {{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
-	}
 }
 
 // Really only used when casting a command to a commander
@@ -540,7 +539,11 @@ func (c *Command) execute(a []string) (err error) {
 	}
 
 	c.preRun()
+
 	argWoFlags := c.Flags().Args()
+	if c.DisableFlagParsing {
+		argWoFlags = a
+	}
 
 	for p := c; p != nil; p = p.Parent() {
 		if p.PersistentPreRunE != nil {
@@ -603,9 +606,8 @@ func (c *Command) errorMsgFromParse() string {
 
 	if len(x) > 0 {
 		return x[0]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // Call execute to use the args (os.Args[1:] by default)
@@ -752,7 +754,7 @@ func (c *Command) AddCommand(cmds ...*Command) {
 	}
 }
 
-// AddCommand removes one or more commands from a parent command.
+// RemoveCommand removes one or more commands from a parent command.
 func (c *Command) RemoveCommand(cmds ...*Command) {
 	commands := []*Command{}
 main:
@@ -786,18 +788,18 @@ main:
 	}
 }
 
-// Convenience method to Print to the defined output
+// Print is a convenience method to Print to the defined output
 func (c *Command) Print(i ...interface{}) {
 	fmt.Fprint(c.Out(), i...)
 }
 
-// Convenience method to Println to the defined output
+// Println is a convenience method to Println to the defined output
 func (c *Command) Println(i ...interface{}) {
 	str := fmt.Sprintln(i...)
 	c.Print(str)
 }
 
-// Convenience method to Printf to the defined output
+// Printf is a convenience method to Printf to the defined output
 func (c *Command) Printf(format string, i ...interface{}) {
 	str := fmt.Sprintf(format, i...)
 	c.Print(str)
@@ -908,7 +910,7 @@ func (c *Command) Name() string {
 	return name
 }
 
-// Determine if a given string is an alias of the command.
+// HasAlias determines if a given string is an alias of the command.
 func (c *Command) HasAlias(s string) bool {
 	for _, a := range c.Aliases {
 		if a == s {
@@ -926,12 +928,12 @@ func (c *Command) HasExample() bool {
 	return len(c.Example) > 0
 }
 
-// Determine if the command is itself runnable
+// Runnable determines if the command is itself runnable
 func (c *Command) Runnable() bool {
 	return c.Run != nil || c.RunE != nil
 }
 
-// Determine if the command has children commands
+// HasSubCommands determines if the command has children commands
 func (c *Command) HasSubCommands() bool {
 	return len(c.commands) > 0
 }
@@ -1030,6 +1032,19 @@ func (c *Command) Flags() *flag.FlagSet {
 	return c.flags
 }
 
+// LocalNonPersistentFlags are flags specific to this command which will NOT persist to subcommands
+func (c *Command) LocalNonPersistentFlags() *flag.FlagSet {
+	persistentFlags := c.PersistentFlags()
+
+	out := flag.NewFlagSet(c.Name(), flag.ContinueOnError)
+	c.LocalFlags().VisitAll(func(f *flag.Flag) {
+		if persistentFlags.Lookup(f.Name) == nil {
+			out.AddFlag(f)
+		}
+	})
+	return out
+}
+
 // Get the local FlagSet specifically set in the current command
 func (c *Command) LocalFlags() *flag.FlagSet {
 	c.mergePersistentFlags()
@@ -1119,11 +1134,35 @@ func (c *Command) HasLocalFlags() bool {
 	return c.LocalFlags().HasFlags()
 }
 
+// Does the command have flags inherited from its parent command
 func (c *Command) HasInheritedFlags() bool {
 	return c.InheritedFlags().HasFlags()
 }
 
-// Climbs up the command tree looking for matching flag
+// Does the command contain any flags (local plus persistent from the entire
+// structure) which are not hidden or deprecated
+func (c *Command) HasAvailableFlags() bool {
+	return c.Flags().HasAvailableFlags()
+}
+
+// Does the command contain persistent flags which are not hidden or deprecated
+func (c *Command) HasAvailablePersistentFlags() bool {
+	return c.PersistentFlags().HasAvailableFlags()
+}
+
+// Does the command has flags specifically declared locally which are not hidden
+// or deprecated
+func (c *Command) HasAvailableLocalFlags() bool {
+	return c.LocalFlags().HasAvailableFlags()
+}
+
+// Does the command have flags inherited from its parent command which are
+// not hidden or deprecated
+func (c *Command) HasAvailableInheritedFlags() bool {
+	return c.InheritedFlags().HasAvailableFlags()
+}
+
+// Flag climbs up the command tree looking for matching flag
 func (c *Command) Flag(name string) (flag *flag.Flag) {
 	flag = c.Flags().Lookup(name)
 
@@ -1146,13 +1185,17 @@ func (c *Command) persistentFlag(name string) (flag *flag.Flag) {
 	return
 }
 
-// Parses persistent flag tree & local flags
+// ParseFlags parses persistent flag tree & local flags
 func (c *Command) ParseFlags(args []string) (err error) {
+	if c.DisableFlagParsing {
+		return nil
+	}
 	c.mergePersistentFlags()
 	err = c.Flags().Parse(args)
 	return
 }
 
+// Parent returns a commands parent command
 func (c *Command) Parent() *Command {
 	return c.parent
 }

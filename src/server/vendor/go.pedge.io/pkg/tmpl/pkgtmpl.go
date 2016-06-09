@@ -8,6 +8,7 @@ import (
 // Templater handles templates.
 type Templater interface {
 	WithFuncs(funcMap template.FuncMap) Templater
+	NoCache() Templater
 	Execute(writer io.Writer, name string, data interface{}) error
 }
 

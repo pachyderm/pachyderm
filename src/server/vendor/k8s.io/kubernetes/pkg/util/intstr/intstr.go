@@ -19,7 +19,9 @@ package intstr
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
+	"strings"
 
 	"github.com/google/gofuzz"
 )
@@ -33,9 +35,9 @@ import (
 // +protobuf=true
 // +protobuf.options.(gogoproto.goproto_stringer)=false
 type IntOrString struct {
-	Type   Type
-	IntVal int32
-	StrVal string
+	Type   Type   `protobuf:"varint,1,opt,name=type,casttype=Type"`
+	IntVal int32  `protobuf:"varint,2,opt,name=intVal"`
+	StrVal string `protobuf:"bytes,3,opt,name=strVal"`
 }
 
 // Type represents the stored type of IntOrString.
@@ -112,4 +114,34 @@ func (intstr *IntOrString) Fuzz(c fuzz.Continue) {
 		intstr.IntVal = 0
 		c.Fuzz(&intstr.StrVal)
 	}
+}
+
+func GetValueFromIntOrPercent(intOrPercent *IntOrString, total int, roundUp bool) (int, error) {
+	value, isPercent, err := getIntOrPercentValue(intOrPercent)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for IntOrString: %v", err)
+	}
+	if isPercent {
+		if roundUp {
+			value = int(math.Ceil(float64(value) * (float64(total)) / 100))
+		} else {
+			value = int(math.Floor(float64(value) * (float64(total)) / 100))
+		}
+	}
+	return value, nil
+}
+
+func getIntOrPercentValue(intOrStr *IntOrString) (int, bool, error) {
+	switch intOrStr.Type {
+	case Int:
+		return intOrStr.IntValue(), false, nil
+	case String:
+		s := strings.Replace(intOrStr.StrVal, "%", "", -1)
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return 0, false, fmt.Errorf("invalid value %q: %v", intOrStr.StrVal, err)
+		}
+		return int(v), true, nil
+	}
+	return 0, false, fmt.Errorf("invalid value: neither int nor percentage")
 }

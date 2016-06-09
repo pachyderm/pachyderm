@@ -7,10 +7,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
-	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/kubernetes/pkg/api/v1"
+	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 	volumeSuite            = "pachyderm-pps-storage"
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage           = "rethinkdb:2.2.6"
+	rethinkImage           = "rethinkdb:2.3.3"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
 	pachdName              = "pachd"
@@ -53,7 +53,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 //PachdRc TODO secrets is only necessary because dockerized kube chokes on them
-func PachdRc(shards uint64, backend backend) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationController {
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -80,6 +80,12 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 	var backendEnvVar string
 	switch backend {
 	case localBackend:
+		if hostPath == "" {
+			hostPath = "/tmp/pach"
+		}
+		volumes[0].HostPath = &api.HostPathVolumeSource{
+			Path: hostPath,
+		}
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
 		volumes = append(volumes, api.Volume{
@@ -109,6 +115,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			MountPath: "/" + googleSecretName,
 		})
 	}
+	replicas := int32(2)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -119,7 +126,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 2,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
@@ -210,6 +217,7 @@ func PachdService() *api.Service {
 }
 
 func EtcdRc() *api.ReplicationController {
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -220,7 +228,7 @@ func EtcdRc() *api.ReplicationController {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
@@ -295,6 +303,7 @@ func EtcdService() *api.Service {
 }
 
 func RethinkRc(backend backend, volume string) *api.ReplicationController {
+	replicas := int32(1)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -305,7 +314,7 @@ func RethinkRc(backend backend, volume string) *api.ReplicationController {
 			Labels: labels(rethinkName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": rethinkName,
 			},
@@ -410,7 +419,7 @@ func InitJob() *extensions.Job {
 			Labels: labels(initName),
 		},
 		Spec: extensions.JobSpec{
-			Selector: &unversioned.LabelSelector{
+			Selector: &extensions.LabelSelector{
 				MatchLabels: labels(initName),
 			},
 			Template: api.PodTemplateSpec{
@@ -542,7 +551,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 }
 
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int) {
+func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int, hostPath string) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -570,23 +579,23 @@ func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
-func WriteLocalAssets(w io.Writer, shards uint64) {
-	WriteAssets(w, shards, localBackend, "", 0)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath)
 }
 
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize)
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize)
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

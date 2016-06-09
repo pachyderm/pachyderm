@@ -5,11 +5,28 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"gopkg.in/dancannon/gorethink.v1/encoding"
+	"gopkg.in/dancannon/gorethink.v2/encoding"
 )
 
 var (
 	Log *logrus.Logger
+)
+
+const (
+	SystemDatabase = "rethinkdb"
+
+	TableConfigSystemTable   = "table_config"
+	ServerConfigSystemTable  = "server_config"
+	DBConfigSystemTable      = "db_config"
+	ClusterConfigSystemTable = "cluster_config"
+	TableStatusSystemTable   = "table_status"
+	ServerStatusSystemTable  = "server_status"
+	CurrentIssuesSystemTable = "current_issues"
+	UsersSystemTable         = "users"
+	PermissionsSystemTable   = "permissions"
+	JobsSystemTable          = "jobs"
+	StatsSystemTable         = "stats"
+	LogsSystemTable          = "logs"
 )
 
 func init() {

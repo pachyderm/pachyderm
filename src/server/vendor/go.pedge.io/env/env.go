@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // Decoder decodes an env file.
@@ -40,12 +41,17 @@ func Populate(object interface{}, decoders ...Decoder) error {
 // if there is an error, os.Exit(1) will be called.
 func Main(do func(interface{}) error, appEnv interface{}, decoders ...Decoder) {
 	if err := Populate(appEnv, decoders...); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
+		mainError(err)
 	}
 	if err := do(appEnv); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
+		mainError(err)
 	}
 	os.Exit(0)
+}
+
+func mainError(err error) {
+	if errString := strings.TrimSpace(err.Error()); errString != "" {
+		fmt.Fprintf(os.Stderr, "%s\n", errString)
+	}
+	os.Exit(1)
 }
