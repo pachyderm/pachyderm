@@ -47,6 +47,23 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
+			// Make sure that we call FinishJob even if something caused a panic
+			defer func() {
+				if r := recover(); r != nil {
+					if _, err := ppsClient.FinishJob(
+						context.Background(),
+						&ppsserver.FinishJobRequest{
+							Job: &ppsclient.Job{
+								ID: args[0],
+							},
+							Success: false,
+						},
+					); err != nil {
+						errorAndExit(err.Error())
+					}
+				}
+			}()
+
 			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())

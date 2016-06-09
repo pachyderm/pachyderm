@@ -1710,6 +1710,51 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
+func TestJobState(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+
+	// This job uses a nonexistent image; it's supposed to stay in the
+	// "pulling" state
+	job, err := c.CreateJob(
+		"nonexistent",
+		[]string{"bash"},
+		nil,
+		0,
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
+	jobInfo, err := c.InspectJob(job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_PULLING, jobInfo.State)
+
+	// This job sleeps for 20 secs
+	job, err = c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{"sleep 20"},
+		0,
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
+	jobInfo, err = c.InspectJob(job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_RUNNING, jobInfo.State)
+
+	// Wait for the job to complete
+	jobInfo, err = c.InspectJob(job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
 func TestScrubbedErrors(t *testing.T) {
 
 	if testing.Short() {
