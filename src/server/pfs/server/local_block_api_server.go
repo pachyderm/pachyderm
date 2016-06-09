@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"hash"
 	"io"
 	"io/ioutil"
 	"os"
@@ -251,7 +250,10 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 			err = decoder.Decode(&jsonValue)
 			value = jsonValue
 		} else if delimiter == pfsclient.Delimiter_NONE {
-			_, err = reader.Read(value)
+			value = make([]byte, 1000)
+			n, e := reader.Read(value)
+			err = e
+			value = value[:n]
 		} else {
 			value, err = reader.ReadBytes('\n')
 		}
@@ -265,7 +267,7 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 		buffer.Write(value)
 		hash.Write(value)
 		bytesWritten += len(value)
-		if bytesWritten > blockSize {
+		if bytesWritten > blockSize && delimiter != pfsclient.Delimiter_NONE {
 			break
 		}
 	}
