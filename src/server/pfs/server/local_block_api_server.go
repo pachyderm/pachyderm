@@ -237,77 +237,42 @@ func (s *localBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInf
 	return result, nil
 }
 
-func readBlockLineDelimited(buffer *bytes.Buffer, reader *bufio.Reader) (*hash.Hash, error) {
-
+func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
+	var buffer bytes.Buffer
 	var bytesWritten int
 	hash := newHash()
 	EOF := false
+	var value []byte
 
 	for !EOF {
-		bytes, err := reader.ReadBytes('\n')
+		var err error
+		if delimiter == pfsclient.Delimiter_JSON {
+			var jsonValue json.RawMessage
+			err = decoder.Decode(&jsonValue)
+			value = jsonValue
+		} else if delimiter == pfsclient.Delimiter_NONE {
+			_, err = reader.Read(value)
+		} else {
+			value, err = reader.ReadBytes('\n')
+		}
 		if err != nil {
 			if err == io.EOF {
 				EOF = true
 			} else {
-				return nil, err
-			}
-		}
-		buffer.Write(bytes)
-		hash.Write(bytes)
-		bytesWritten += len(bytes)
-		if bytesWritten > blockSize {
-			break
-		}
-	}
-
-	return &hash, nil
-}
-
-func readBlockJSONDelimited(buffer *bytes.Buffer, reader *bufio.Reader, decoder *json.Decoder) (*hash.Hash, error) {
-	hash := newHash()
-	var bytesWritten int
-	EOF := false
-
-	for !EOF {
-		var value json.RawMessage
-		err := decoder.Decode(&value)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Printf("!!! readJSON - found EOF\n")
-				EOF = true
-			} else {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		buffer.Write(value)
-		fmt.Printf("!!! Added to buffer, now w len: %v\n", buffer.Len())
 		hash.Write(value)
 		bytesWritten += len(value)
 		if bytesWritten > blockSize {
-			fmt.Printf("!!! Written %v bytes, crossed blocksize, breaking\n", bytesWritten)
 			break
 		}
 	}
-	return &hash, nil
-}
 
-func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
-	var buffer bytes.Buffer
-	var hash *hash.Hash
-	var err error
-
-	if delimiter == pfsclient.Delimiter_JSON {
-		hash, err = readBlockJSONDelimited(&buffer, reader, decoder)
-	} else {
-		hash, err = readBlockLineDelimited(&buffer, reader)
-	}
-
-	if err != nil {
-		return nil, nil, err
-	}
 	fmt.Printf("!!! JSON returning buffer, len=%v\n", buffer.Len())
 	return &pfsclient.BlockRef{
-		Block: getBlock(*hash),
+		Block: getBlock(hash),
 		Range: &pfsclient.ByteRange{
 			Lower: 0,
 			Upper: uint64(buffer.Len()),
