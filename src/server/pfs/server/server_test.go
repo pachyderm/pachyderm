@@ -1524,6 +1524,79 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	}
 }
 
+func TestPutFileWithNoDelimiter(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	wrotePastABlock := false
+	for !wrotePastABlock {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+		if len(expectedOutputA) > 9*1024*1024 {
+			wrotePastABlock = true
+		}
+	}
+	fmt.Printf("expectedOutput size: %v\n", len(expectedOutputA))
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputA))
+	require.NoError(t, err)
+
+	// Write another big block
+	var expectedOutputB []byte
+	wrotePastABlock = false
+	for !wrotePastABlock {
+		expectedOutputB = append(expectedOutputB, []byte(rawMessage)...)
+		if len(expectedOutputB) > 18*1024*1024 {
+			wrotePastABlock = true
+		}
+	}
+	fmt.Printf("expectedOutput size: %v\n", len(expectedOutputB))
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputB))
+	require.NoError(t, err)
+
+	// Finish the commit so I can read the data
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	// Make sure all the content is there
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	fmt.Printf("lenA %v, lenB %v, total %v, actual %v\n", len(expectedOutputA), len(expectedOutputB), len(expectedOutputA)+len(expectedOutputB), buffer.Len())
+	require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
+	require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
+
+	// Now verify that each block contains only valid JSON objects
+	bigModulus := 10 // Make it big to make it less likely that I return both blocks together
+	blockLengths := []interface{}{len(expectedOutputA), len(expectedOutputB)}
+	for b := 0; b < bigModulus; b++ {
+		blockFilter := &pfsclient.Shard{
+			FileNumber:   0,
+			FileModulus:  0,
+			BlockNumber:  uint64(b),
+			BlockModulus: uint64(bigModulus),
+		}
+
+		buffer.Reset()
+		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+
+		// If any single block returns content of size equal to the total, we
+		// got a block collision and we're not testing anything
+		require.NotEqual(t, buffer.Len(), len(expectedOutputA)+len(expectedOutputB))
+		if buffer.Len() == 0 {
+			continue
+		}
+		require.EqualOneOf(t, blockLengths, buffer.Len())
+	}
+
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
