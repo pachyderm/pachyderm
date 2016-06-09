@@ -384,7 +384,8 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard, request.Unsafe)
+	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes,
+		request.FromCommit, shard, request.Unsafe, request.Handle)
 	if err != nil {
 		return err
 	}
@@ -406,7 +407,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe)
+	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe, request.Handle)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -428,7 +429,8 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse, request.Unsafe)
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard,
+				request.FromCommit, shard, request.Recurse, request.Unsafe, request.Handle)
 			_, ok := err.(*pfsserver.ErrFileNotFound)
 			if err != nil && !ok {
 				select {
@@ -472,7 +474,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := a.driver.DeleteFile(request.File, shard)
+			err := a.driver.DeleteFile(request.File, shard, request.Unsafe, request.Handle)
 			// We are ignoring ErrFileNotFound because the file being
 			// deleted can be a directory, and directory is scattered
 			// across many DiffInfos across many shards.  Yet not all
