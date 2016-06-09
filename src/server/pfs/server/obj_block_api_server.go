@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -98,8 +99,9 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 	})
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
+	decoder := json.NewDecoder(reader)
 	for {
-		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader)
+		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader, decoder)
 		if err != nil {
 			return err
 		}
