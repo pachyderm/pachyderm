@@ -4,7 +4,7 @@
 results=`kubectl get pods \
   -l app=pachd \
   -o jsonpath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}' \
-  | tr ';' "\n"`
+  2>/dev/null | tr ';' "\n"`
 
 if [ -z "$results" ]; then
   echo "Empty result"
