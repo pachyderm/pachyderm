@@ -34,6 +34,7 @@ endif
 all: build
 
 version:
+	go get go.pedge.io/proto/version
 	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
 	go run /tmp/pachyderm_version.go
 
