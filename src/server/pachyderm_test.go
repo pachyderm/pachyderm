@@ -25,7 +25,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"k8s.io/kubernetes/pkg/api"
-	kuberestclient "k8s.io/kubernetes/pkg/client/restclient"
+	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -1781,7 +1781,7 @@ func scalePachd(t *testing.T, k *kube.Client) {
 	require.NoError(t, err)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas*2)) + 1)
+		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
 		if pachdRc.Spec.Replicas != originalReplicas {
 			break
 		}
@@ -1863,7 +1863,7 @@ func getPachClient(t *testing.T) *client.APIClient {
 }
 
 func getKubeClient(t *testing.T) *kube.Client {
-	config := &kuberestclient.Config{
+	config := &kube_client.Config{
 		Host:     "0.0.0.0:8080",
 		Insecure: false,
 	}
