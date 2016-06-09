@@ -556,6 +556,11 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
+	_, err = persistClient.StartJob(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+
 	jobInfo, err := persistClient.StartPod(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -1408,7 +1413,7 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 							Env:             jobEnv,
 						},
 					},
-					RestartPolicy: "OnFailure",
+					RestartPolicy: "Never",
 				},
 			},
 		},

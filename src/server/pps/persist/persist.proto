@@ -98,6 +98,10 @@ service API {
 
   // JobState rpcs
   rpc CreateJobState(JobState) returns (google.protobuf.Empty) {}
+  // StartJob sets the state of the job to "running" if the state
+  // is currently "pulling".
+  // This API updates the job state in a transactional manner.
+  rpc StartJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
