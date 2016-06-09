@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -28,6 +29,7 @@ import (
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
+	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -56,6 +58,13 @@ func main() {
 	env.Main(do, &appEnv{})
 }
 
+// isDBCreated is used to tell when we are trying to initialize a database,
+// whether we are getting an error because the database has already been
+// initialized.
+func isDBCreated(err error) bool {
+	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
+}
+
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
@@ -63,7 +72,7 @@ func do(appEnvObj interface{}) error {
 		if err := setClusterID(etcdClient); err != nil {
 			return err
 		}
-		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil {
+		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil && !isDBCreated(err) {
 			return err
 		}
 		return nil
@@ -80,7 +89,6 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 
-		fmt.Printf("ok\n")
 		os.Exit(0)
 
 		return nil
@@ -213,7 +221,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 	} else {
 		return kubeClient, err
 	}
-	config := &kube.Config{
+	config := &kube_client.Config{
 		Host:     fmt.Sprintf("%s:443", env.KubeAddress),
 		Insecure: true,
 	}

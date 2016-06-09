@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/client"
@@ -42,7 +43,7 @@ const DefaultUploadConcurrency = 5
 //     u := s3manager.NewUploader(opts)
 //     output, err := u.upload(input)
 //     if err != nil {
-//         if multierr, ok := err.(MultiUploadFailure); ok {
+//         if multierr, ok := err.(s3manager.MultiUploadFailure); ok {
 //             // Process error and its associated uploadID
 //             fmt.Println("Error:", multierr.Code(), multierr.Message(), multierr.UploadID())
 //         } else {
@@ -165,7 +166,7 @@ type UploadInput struct {
 	// requests for an object protected by AWS KMS will fail if not made via SSL
 	// or using SigV4. Documentation on configuring any of the officially supported
 	// AWS SDKs and CLI can be found at http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingAWSSDK.html#specify-signature-version
-	SSEKMSKeyID *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string"`
+	SSEKMSKeyId *string `location:"header" locationName:"x-amz-server-side-encryption-aws-kms-key-id" type:"string"`
 
 	// The Server-side encryption algorithm used when storing this object in S3
 	// (e.g., AES256, aws:kms).
@@ -208,7 +209,7 @@ type Uploader struct {
 	PartSize int64
 
 	// The number of goroutines to spin up in parallel when sending parts.
-	// If this is set to zero, the DefaultConcurrency value will be used.
+	// If this is set to zero, the DefaultUploadConcurrency value will be used.
 	Concurrency int
 
 	// Setting this value to true will cause the SDK to avoid calling
@@ -508,6 +509,7 @@ func (u *multiuploader) upload(firstBuf io.ReadSeeker) (*UploadOutput, error) {
 
 	// Read and queue the rest of the parts
 	for u.geterr() == nil {
+		num++
 		// This upload exceeded maximum number of supported parts, error now.
 		if num > int64(u.ctx.MaxUploadParts) || num > int64(MaxUploadParts) {
 			var msg string
@@ -521,7 +523,6 @@ func (u *multiuploader) upload(firstBuf io.ReadSeeker) (*UploadOutput, error) {
 			u.seterr(awserr.New("TotalPartsExceeded", msg, nil))
 			break
 		}
-		num++
 
 		buf, err := u.nextReader()
 		if err == io.EOF {
@@ -530,7 +531,9 @@ func (u *multiuploader) upload(firstBuf io.ReadSeeker) (*UploadOutput, error) {
 
 		ch <- chunk{buf: buf, num: num}
 
-		if err != nil && err != io.ErrUnexpectedEOF {
+		if err == io.ErrUnexpectedEOF {
+			break
+		} else if err != nil {
 			u.seterr(awserr.New(
 				"ReadRequestBody",
 				"read multipart upload data failed",
@@ -554,7 +557,7 @@ func (u *multiuploader) upload(firstBuf io.ReadSeeker) (*UploadOutput, error) {
 		}
 	}
 	return &UploadOutput{
-		Location:  *complete.Location,
+		Location:  aws.StringValue(complete.Location),
 		VersionID: complete.VersionId,
 		UploadID:  u.uploadID,
 	}, nil

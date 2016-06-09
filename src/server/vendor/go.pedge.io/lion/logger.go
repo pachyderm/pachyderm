@@ -60,6 +60,9 @@ func (l *logger) AtLevel(level Level) Logger {
 }
 
 func (l *logger) WithEntryMessageContext(context *EntryMessage) Logger {
+	if context == nil {
+		return l
+	}
 	return &logger{
 		l.pusher,
 		l.enableID,
@@ -239,6 +242,9 @@ func (l *logger) Println(args ...interface{}) {
 
 func (l *logger) LogEntryMessage(level Level, event *EntryMessage) {
 	if level < l.l {
+		return
+	}
+	if event == nil {
 		return
 	}
 	l.print(level, event, "", nil)
