@@ -25,10 +25,10 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
 	"k8s.io/kubernetes/pkg/api"
-	kube_api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/apis/batch"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
@@ -131,7 +131,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	if request.Parallelism == 0 {
-		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
+		nodeList, err := a.kubeClient.Nodes().List(api.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
 		}
@@ -287,7 +287,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 
@@ -494,7 +494,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	podList, err := a.kubeClient.Pods(a.namespace).List(kube_api.ListOptions{
+	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -519,7 +519,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		go func() {
 			defer wg.Done()
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &kube_api.PodLogOptions{}).Do()
+				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
 				select {
@@ -861,7 +861,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -1347,9 +1347,9 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func job(jobInfo *persist.JobInfo) *extensions.Job {
+func job(jobInfo *persist.JobInfo) *batch.Job {
 	app := jobInfo.JobID
-	parallelism := int(jobInfo.Parallelism)
+	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
@@ -1373,7 +1373,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 		)
 	}
 
-	return &extensions.Job{
+	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "v1",
@@ -1382,7 +1382,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Name:   jobInfo.JobID,
 			Labels: labels(app),
 		},
-		Spec: extensions.JobSpec{
+		Spec: batch.JobSpec{
+			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(app),
 			},
@@ -1420,7 +1421,7 @@ func labels(app string) map[string]string {
 	}
 }
 
-type podSlice []kube_api.Pod
+type podSlice []api.Pod
 
 func (s podSlice) Len() int {
 	return len(s)

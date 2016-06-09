@@ -34,14 +34,12 @@ endif
 all: build
 
 version:
+	go get go.pedge.io/proto/version
 	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
 	go run /tmp/pachyderm_version.go
 
 deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
-
-deps-client: 
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/client/...
 
 update-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
@@ -66,10 +64,10 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
-homebrew: deps-client
+homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-tag-release: deps-client
+tag-release: 
 	./etc/build/tag_release
 
 release-pachd:
@@ -175,13 +173,18 @@ pretest:
 
 test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
-test-client: deps-client
-	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
+test-client:
+	rm -rf src/client/vendor
+	rm -rf src/server/vendor/github.com/pachyderm
+	cp -R src/server/vendor src/client/
+	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
+	rm -rf src/client/vendor
+	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: deps-client
+test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local: deps-client
+test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
