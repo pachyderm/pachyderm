@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -1456,22 +1457,26 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 
 	rawMessage := `{
 		"level":"debug",
-		"timestamp":"%v",
+		"timestamp":"345",
 		"message":{
 			"thing":"foo"
 		},
 		"timing":[1,3,34,6,7]
 	}`
 	// Make sure we write slightly more than 8MBs so that we write into at least 2 blocks
-	numObjs := int((8.0 * 1024.0 * 1024.0) / float64(len(fmt.Sprintf(rawMessage, time.Now()))) * 1.2)
+	numObjs := int((8.0*1024.0*1024.0)/float64(len(fmt.Sprintf(rawMessage, time.Now())))) + 1
 	// 59968 - fail w mismatch
 	// 59967 - pass - size written = 8388464 --> 7.9998626708984375 MB
-	numObjs = 59975
+
 	var expectedOutput []byte
 	fmt.Printf("Number of objs to write: %v\n", numObjs)
-	for len(expectedOutput) < 9.0*1024.0*1024.0 {
-		msg := fmt.Sprintf(rawMessage, time.Now())
+	wrotePastABlock := false
+	for !wrotePastABlock {
+		msg := rawMessage //fmt.Sprintf(rawMessage, time.Now())
 		expectedOutput = append(expectedOutput, []byte(msg)...)
+		if len(expectedOutput) > 9*1024*1024 {
+			wrotePastABlock = true
+		}
 	}
 	fmt.Printf("expectedOutput size: %v\n", len(expectedOutput))
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_JSON, bytes.NewReader(expectedOutput))
@@ -1482,62 +1487,41 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	// Make sure all the content is there
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, len(expectedOutput), buffer.Len())
 	require.Equal(t, string(expectedOutput), buffer.String())
 
 	// Now verify that each block contains only valid JSON objects
-	/*
-		blockA := &pfsclient.Shard{
+	bigModulus := 10 // Make it big to make it less likely that I return both blocks together
+	for b := 0; b < bigModulus; b++ {
+		blockFilter := &pfsclient.Shard{
 			FileNumber:   0,
 			FileModulus:  0,
-			BlockNumber:  0,
-			BlockModulus: 2,
-		}
-
-		blockB := &pfsclient.Shard{
-			FileNumber:   0,
-			FileModulus:  0,
-			BlockNumber:  1,
-			BlockModulus: 2,
+			BlockNumber:  uint64(b),
+			BlockModulus: uint64(bigModulus),
 		}
 
 		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockA, &buffer))
+		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+
+		// If any single block returns content of size equal to the total, we
+		// got a block collision and we're not testing anything
+		require.NotEqual(t, buffer.Len(), len(expectedOutput))
+
 		var value json.RawMessage
 		decoder := json.NewDecoder(&buffer)
-		EOF := false
-		fmt.Printf("!!! blockA size: %v\n", buffer.Len())
-		for !EOF {
+		fmt.Printf("!!! returned block size: %v\n", buffer.Len())
+		for {
 			err = decoder.Decode(&value)
 			if err != nil {
 				if err == io.EOF {
-					EOF = true
+					break
 				} else {
 					require.NoError(t, err)
 				}
 			}
-			_, err = value.MarshalJSON()
-			require.NoError(t, err)
+			require.Equal(t, rawMessage, string(value))
 		}
-
-		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockB, &buffer))
-		decoder = json.NewDecoder(&buffer)
-		EOF = false
-
-		fmt.Printf("!!! blockB size: %v\n", buffer.Len())
-		for !EOF {
-			err = decoder.Decode(&value)
-			if err != nil {
-				if err == io.EOF {
-					EOF = true
-				} else {
-					require.NoError(t, err)
-				}
-			}
-			_, err = value.MarshalJSON()
-			require.NoError(t, err)
-		}
-	*/
+	}
 }
 
 func generateRandomString(n int) string {
