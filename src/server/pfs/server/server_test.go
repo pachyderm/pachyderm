@@ -1483,12 +1483,8 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	}`
 
 	var expectedOutput []byte
-	wrotePastABlock := false
-	for !wrotePastABlock {
+	for !( len(expectedOutput > 9*1024*1024) {
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
-		if len(expectedOutput) > 9*1024*1024 {
-			wrotePastABlock = true
-		}
 	}
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_JSON, bytes.NewReader(expectedOutput))
 	require.NoError(t, err)
@@ -1504,8 +1500,6 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	bigModulus := 10 // Make it big to make it less likely that I return both blocks together
 	for b := 0; b < bigModulus; b++ {
 		blockFilter := &pfsclient.Shard{
-			FileNumber:   0,
-			FileModulus:  0,
 			BlockNumber:  uint64(b),
 			BlockModulus: uint64(bigModulus),
 		}
@@ -1547,24 +1541,16 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 
 	// Write a big blob that would normally not fit in a block
 	var expectedOutputA []byte
-	wrotePastABlock := false
-	for !wrotePastABlock {
+	for !(len(expectedOutputB) > 9*1024*1024) {
 		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
-		if len(expectedOutputA) > 9*1024*1024 {
-			wrotePastABlock = true
-		}
 	}
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputA))
 	require.NoError(t, err)
 
 	// Write another big block
 	var expectedOutputB []byte
-	wrotePastABlock = false
-	for !wrotePastABlock {
+	for !(len(expectedOutputB) > 18*1024*1024) {
 		expectedOutputB = append(expectedOutputB, []byte(rawMessage)...)
-		if len(expectedOutputB) > 18*1024*1024 {
-			wrotePastABlock = true
-		}
 	}
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputB))
 	require.NoError(t, err)
@@ -1578,13 +1564,11 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 	require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 	require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
 
-	// Now verify that each block contains only valid JSON objects
+	// Now verify that each block only contains objects of the size we've written
 	bigModulus := 10 // Make it big to make it less likely that I return both blocks together
 	blockLengths := []interface{}{len(expectedOutputA), len(expectedOutputB)}
 	for b := 0; b < bigModulus; b++ {
 		blockFilter := &pfsclient.Shard{
-			FileNumber:   0,
-			FileModulus:  0,
 			BlockNumber:  uint64(b),
 			BlockModulus: uint64(bigModulus),
 		}
