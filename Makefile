@@ -99,10 +99,10 @@ docker-build-fruitstand:
 	docker build -t fruit_stand examples/fruit_stand
 
 docker-push-job-shim: docker-build-job-shim
-	docker push pachyderm/job-shim
+	docker push derekchiang/job-shim
 
 docker-push-pachd: docker-build-pachd
-	docker push pachyderm/pachd
+	docker push derekchiang/pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
