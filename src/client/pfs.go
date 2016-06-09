@@ -281,16 +281,15 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-
 	defer func() {
 		err := writer.Close()
 		if err != nil && retErr == nil {
 			retErr = err
-		} else {
+		}
+		if err != nil {
 			blockRefs = writer.blockRefs
 		}
 	}()
-
 	_, retErr = io.Copy(writer, reader)
 	return blockRefs, retErr
 }
