@@ -515,10 +515,6 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
-	fmt.Printf("!!! Creating append\n")
-	defer func() {
-		fmt.Printf("!!! End of Driver PutFile() append: %v\n", diffInfo.Appends[path.Clean(file.Path)])
-	}()
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = newAppend(pfs.FileType_FILE_TYPE_REGULAR)
@@ -982,7 +978,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	for commit != nil && (from == nil || commit.ID != from.ID) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
-		fmt.Printf("!!! inspectFile diffInfo: %v\n", diffInfo)
 		if !ok {
 			return nil, nil, pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
 		}
@@ -994,7 +989,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			if _append.FileType == pfs.FileType_FILE_TYPE_NONE && !_append.Delete && len(_append.HandleDeletes) == 0 {
 				return nil, nil, fmt.Errorf("the append for %s has file type NONE, this is likely a bug", path.Clean(file.Path))
 			}
-			fmt.Printf("!!! inspectFile append: %v\n", _append)
 			if _append.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
@@ -1004,7 +998,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					// the first time we find out it's a regular file we check
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
-					fmt.Printf("!!! Inside loop - FNF\n")
 					if !pfsserver.FileInShard(filterShard, file) {
 						return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 					}
@@ -1076,7 +1069,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		commit = diffInfo.ParentCommit
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
-		fmt.Printf("!!! end of inspect file - FNF\n")
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil

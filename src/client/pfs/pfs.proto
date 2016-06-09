@@ -212,7 +212,6 @@ enum Delimiter {
   NONE = 0;
   JSON = 1;
   LINE = 2;
-  USER = 3;
 }
 
 message PutFileRequest {

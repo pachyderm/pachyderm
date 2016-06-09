@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"math"
 
@@ -286,7 +285,6 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 	defer func() {
 		err := writer.Close()
 		if err != nil && retErr == nil {
-			fmt.Printf("!!!! Error closing the putblockwritecloser: %v\n", err)
 			retErr = err
 		} else {
 			blockRefs = writer.blockRefs
@@ -294,7 +292,6 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 	}()
 
 	_, retErr = io.Copy(writer, reader)
-	fmt.Printf("!!! client.PutBlock() ... blockrefs %v\n", writer.blockRefs)
 	return blockRefs, retErr
 }
 
@@ -620,7 +617,6 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 func (w *putBlockWriteCloser) Close() error {
 	var err error
 	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
-	fmt.Printf("!!! putBlockWriteCloser.Close() ... blockrefs = %v\n", w.blockRefs)
 	return sanitizeErr(err)
 }
 func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {
