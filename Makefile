@@ -34,14 +34,12 @@ endif
 all: build
 
 version:
+	go get go.pedge.io/proto/version
 	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
 	go run /tmp/pachyderm_version.go
 
 deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
-
-deps-client: 
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/client/...
 
 update-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
@@ -66,10 +64,10 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
-homebrew: deps-client
+homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-tag-release: deps-client
+tag-release: 
 	./etc/build/tag_release
 
 release-pachd:
@@ -106,7 +104,11 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube:
+check-kubectl:
+	# check that kubectl is installed
+	which kubectl
+
+launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
@@ -115,7 +117,7 @@ clean-launch-kube:
 kube-cluster-assets: install
 	pach-deploy -s 32 >etc/kube/pachyderm.json
 
-launch: install
+launch: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
@@ -124,16 +126,16 @@ launch: install
 
 launch-dev: launch-kube launch
 
-clean-launch:
+clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
 
-full-clean-launch:
+full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-clean-pps-storage:
+clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
@@ -175,13 +177,18 @@ pretest:
 
 test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
-test-client: deps-client
-	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
+test-client:
+	rm -rf src/client/vendor
+	rm -rf src/server/vendor/github.com/pachyderm
+	cp -R src/server/vendor src/client/
+	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
+	rm -rf src/client/vendor
+	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: deps-client
+test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local: deps-client
+test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
@@ -200,7 +207,7 @@ grep-data:
 grep-example:
 	sh examples/grep/run.sh
 
-logs:
+logs: check-kubectl
 	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
 
 kubectl:

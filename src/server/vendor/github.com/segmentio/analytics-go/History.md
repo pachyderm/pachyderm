@@ -1,4 +1,10 @@
 
+v2.1.1 / 2016-04-26
+===================
+
+ * Fix blocking the goroutine when Close is the first call.
+ * Fix blocking the goroutine when the message queue fills up.
+
 v2.1.0 / 2015-12-28
 ===================
 

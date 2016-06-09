@@ -47,6 +47,11 @@ func Run(args ...string) error {
 	return RunIO(IO{}, args...)
 }
 
+// RunDirPath runs the command with the given arguments in the given directory specified by dirPath.
+func RunDirPath(dirPath string, args ...string) error {
+	return RunIODirPath(IO{}, dirPath, args...)
+}
+
 // RunStdin runs the command with the given stdin and arguments.
 func RunStdin(stdin io.Reader, args ...string) error {
 	return RunIO(IO{Stdin: stdin}, args...)
@@ -69,8 +74,20 @@ func RunOutput(args ...string) ([]byte, error) {
 	return stdout.Bytes(), err
 }
 
+// RunOutputDirPath runs the command with the given arguments in the given directory and returns the output of stdout.
+func RunOutputDirPath(dirPath string, args ...string) ([]byte, error) {
+	stdout := bytes.NewBuffer(nil)
+	err := RunIODirPath(IO{Stdout: stdout}, dirPath, args...)
+	return stdout.Bytes(), err
+}
+
 // RunIO runs the command with the given IO and arguments.
 func RunIO(ioObj IO, args ...string) error {
+	return RunIODirPath(ioObj, "", args...)
+}
+
+// RunIODirPath runs the command with the given IO and arguments in the given directory specified by dirPath.
+func RunIODirPath(ioObj IO, dirPath string, args ...string) error {
 	if len(args) == 0 {
 		return ErrNoArgs
 	}
@@ -83,6 +100,7 @@ func RunIO(ioObj IO, args ...string) error {
 	cmd.Stdin = ioObj.Stdin
 	cmd.Stdout = ioObj.Stdout
 	cmd.Stderr = stderr
+	cmd.Dir = dirPath
 	if globalDebug {
 		protolion.Debug(&RunningCommand{Args: strings.Join(args, " ")})
 	}

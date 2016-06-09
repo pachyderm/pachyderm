@@ -178,8 +178,8 @@ func (b modelBuilder) buildProperty(field reflect.StructField, model *Model, mod
 		return jsonName, modelDescription, prop
 	case fieldKind == reflect.Map:
 		// if it's a map, it's unstructured, and swagger 1.2 can't handle it
-		anyt := "any"
-		prop.Type = &anyt
+		objectType := "object"
+		prop.Type = &objectType
 		return jsonName, modelDescription, prop
 	}
 

@@ -35,6 +35,7 @@ func (x NullValue) String() string {
 	return proto.EnumName(NullValue_name, int32(x))
 }
 func (NullValue) EnumDescriptor() ([]byte, []int) { return fileDescriptor6, []int{0} }
+func (NullValue) XXX_WellKnownType() string       { return "NullValue" }
 
 // `Struct` represents a structured data value, consisting of fields
 // which map to dynamically typed values. In some languages, `Struct`
@@ -53,6 +54,7 @@ func (m *Struct) Reset()                    { *m = Struct{} }
 func (m *Struct) String() string            { return proto.CompactTextString(m) }
 func (*Struct) ProtoMessage()               {}
 func (*Struct) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{0} }
+func (*Struct) XXX_WellKnownType() string   { return "Struct" }
 
 func (m *Struct) GetFields() map[string]*Value {
 	if m != nil {
@@ -84,6 +86,7 @@ func (m *Value) Reset()                    { *m = Value{} }
 func (m *Value) String() string            { return proto.CompactTextString(m) }
 func (*Value) ProtoMessage()               {}
 func (*Value) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{1} }
+func (*Value) XXX_WellKnownType() string   { return "Value" }
 
 type isValue_Kind interface {
 	isValue_Kind()
@@ -311,6 +314,7 @@ func (m *ListValue) Reset()                    { *m = ListValue{} }
 func (m *ListValue) String() string            { return proto.CompactTextString(m) }
 func (*ListValue) ProtoMessage()               {}
 func (*ListValue) Descriptor() ([]byte, []int) { return fileDescriptor6, []int{2} }
+func (*ListValue) XXX_WellKnownType() string   { return "ListValue" }
 
 func (m *ListValue) GetValues() []*Value {
 	if m != nil {

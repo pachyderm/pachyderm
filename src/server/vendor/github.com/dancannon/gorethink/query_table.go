@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
+	p "gopkg.in/dancannon/gorethink.v2/ql2"
 )
 
 // TableCreateOpts contains the optional arguments for the TableCreate term
@@ -152,6 +152,8 @@ type ChangesOpts struct {
 	Squash              interface{} `gorethink:"squash,omitempty"`
 	IncludeInitial      interface{} `gorethink:"include_initial,omitempty"`
 	IncludeStates       interface{} `gorethink:"include_states,omitempty"`
+	IncludeOffsets      interface{} `gorethink:"include_offsets,omitempty"`
+	IncludeTypes        interface{} `gorethink:"include_types,omitempty"`
 	ChangefeedQueueSize interface{} `gorethink:"changefeed_queue_size,omitempty"`
 }
 

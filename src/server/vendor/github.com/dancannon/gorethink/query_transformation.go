@@ -1,6 +1,6 @@
 package gorethink
 
-import p "gopkg.in/dancannon/gorethink.v1/ql2"
+import p "gopkg.in/dancannon/gorethink.v2/ql2"
 
 // Map transform each element of the sequence by applying the given mapping
 // function. It takes two arguments, a sequence and a function of type
@@ -151,6 +151,15 @@ func (t Term) IsEmpty(args ...interface{}) Term {
 	return constructMethodTerm(t, "IsEmpty", p.Term_IS_EMPTY, args, map[string]interface{}{})
 }
 
+// UnionOpts contains the optional arguments for the Slice term
+type UnionOpts struct {
+	Interleave interface{} `gorethink:"interleave,omitempty"`
+}
+
+func (o *UnionOpts) toMap() map[string]interface{} {
+	return optArgsToMap(o)
+}
+
 // Union concatenates two sequences.
 func Union(args ...interface{}) Term {
 	return constructRootTerm("Union", p.Term_UNION, args, map[string]interface{}{})
@@ -159,6 +168,18 @@ func Union(args ...interface{}) Term {
 // Union concatenates two sequences.
 func (t Term) Union(args ...interface{}) Term {
 	return constructMethodTerm(t, "Union", p.Term_UNION, args, map[string]interface{}{})
+}
+
+// UnionWithOpts like Union concatenates two sequences however allows for optional
+// arguments to be passed.
+func UnionWithOpts(optArgs UnionOpts, args ...interface{}) Term {
+	return constructRootTerm("Union", p.Term_UNION, args, optArgs.toMap())
+}
+
+// UnionWithOpts like Union concatenates two sequences however allows for optional
+// arguments to be passed.
+func (t Term) UnionWithOpts(optArgs UnionOpts, args ...interface{}) Term {
+	return constructMethodTerm(t, "Union", p.Term_UNION, args, optArgs.toMap())
 }
 
 // Sample selects a given number of elements from a sequence with uniform random
