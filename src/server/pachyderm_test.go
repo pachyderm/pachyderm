@@ -24,6 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+	"k8s.io/kubernetes/pkg/api"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 const (
@@ -1710,8 +1712,40 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
-func TestScrubbedErrors(t *testing.T) {
+func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 
+	k := getKubeClient(t)
+	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
+	TestJob(t)
+}
+
+// scalePachd scales the number of pachd nodes to anywhere from 1 to
+// twice the original number
+// It's guaranteed that the new replica number will be different from
+// the original
+func scalePachd(t *testing.T, k *kube.Client) {
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	pachdRc, err := rc.Get("pachd")
+	require.NoError(t, err)
+	originalReplicas := pachdRc.Spec.Replicas
+	for {
+		pachdRc.Spec.Replicas = rand.Intn(originalReplicas*2) + 1
+		if pachdRc.Spec.Replicas != originalReplicas {
+			break
+		}
+	}
+	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	_, err = rc.Update(pachdRc)
+	require.NoError(t, err)
+}
+
+func TestScrubbedErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1746,7 +1780,6 @@ func TestScrubbedErrors(t *testing.T) {
 	require.NoError(t, err)
 	err = c.GetLogs("bogusJobId", f)
 	require.Equal(t, "Job bogusJobId not found", err.Error())
-
 }
 
 func TestAcceptReturnCode(t *testing.T) {
@@ -1781,6 +1814,16 @@ func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
+}
+
+func getKubeClient(t *testing.T) *kube.Client {
+	config := &kube.Config{
+		Host:     "0.0.0.0:8080",
+		Insecure: false,
+	}
+	k, err := kube.New(config)
+	require.NoError(t, err)
+	return k
 }
 
 func uniqueString(prefix string) string {

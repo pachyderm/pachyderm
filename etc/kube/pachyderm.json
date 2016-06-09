@@ -254,8 +254,8 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -292,8 +292,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pachd"
+      "app": "pachd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -343,7 +343,10 @@
       "spec": {
         "volumes": [
           {
-            "name": "pach-disk"
+            "name": "pach-disk",
+            "hostPath": {
+              "path": "/tmp/pach"
+            }
           }
         ],
         "containers": [
