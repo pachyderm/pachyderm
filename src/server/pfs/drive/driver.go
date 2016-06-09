@@ -583,6 +583,8 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
 		_append = newAppend(pfs.FileType_FILE_TYPE_DIR)
+	} else {
+		_append.FileType = pfs.FileType_FILE_TYPE_DIR
 	}
 	if diffInfo.ParentCommit != nil {
 		_append.LastRef = d.lastRef(
