@@ -67,15 +67,12 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 	decoder := json.NewDecoder(reader)
 
 	for {
-		fmt.Printf("!!! Putting One Block\n")
 		blockRef, err := s.putOneBlock(putBlockRequest.Delimiter, reader, decoder)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("!!! Put one block returned: %v\n", blockRef.Range)
 		result.BlockRef = append(result.BlockRef, blockRef)
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
-			fmt.Printf("!!! This porridge is too cold! actual size: %v, blockSize: %v\n", (blockRef.Range.Upper - blockRef.Range.Lower), uint64(blockSize))
 			break
 		}
 	}
@@ -272,7 +269,6 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 		}
 	}
 
-	fmt.Printf("!!! JSON returning buffer, len=%v\n", buffer.Len())
 	return &pfsclient.BlockRef{
 		Block: getBlock(hash),
 		Range: &pfsclient.ByteRange{

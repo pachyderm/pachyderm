@@ -86,9 +86,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
 	if err != nil {
-		fmt.Printf("!!! Obj -- putBlockServer.Recv returned err: %v\n", err)
 		if err != io.EOF {
-			fmt.Printf("!!! Obj -- putBlockServer.Recv err is EOF\n")
 			return err
 		}
 		return putBlockServer.SendAndClose(result)

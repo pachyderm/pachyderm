@@ -1481,24 +1481,16 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 		},
 		"timing":[1,3,34,6,7]
 	}`
-	// Make sure we write slightly more than 8MBs so that we write into at least 2 blocks
-	numObjs := int((8.0*1024.0*1024.0)/float64(len(fmt.Sprintf(rawMessage, time.Now())))) + 1
-	// 59968 - fail w mismatch
-	// 59967 - pass - size written = 8388464 --> 7.9998626708984375 MB
 
 	var expectedOutput []byte
-	fmt.Printf("Number of objs to write: %v\n", numObjs)
 	wrotePastABlock := false
 	for !wrotePastABlock {
-		msg := rawMessage //fmt.Sprintf(rawMessage, time.Now())
-		expectedOutput = append(expectedOutput, []byte(msg)...)
+		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 		if len(expectedOutput) > 9*1024*1024 {
 			wrotePastABlock = true
 		}
 	}
-	fmt.Printf("expectedOutput size: %v\n", len(expectedOutput))
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_JSON, bytes.NewReader(expectedOutput))
-	//_, err = client.PutFile(repo, commit1.ID, "foo", bytes.NewReader(expectedOutput))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -1527,7 +1519,6 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 
 		var value json.RawMessage
 		decoder := json.NewDecoder(&buffer)
-		fmt.Printf("!!! returned block size: %v\n", buffer.Len())
 		for {
 			err = decoder.Decode(&value)
 			if err != nil {
@@ -1563,7 +1554,6 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 			wrotePastABlock = true
 		}
 	}
-	fmt.Printf("expectedOutput size: %v\n", len(expectedOutputA))
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputA))
 	require.NoError(t, err)
 
@@ -1576,7 +1566,6 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 			wrotePastABlock = true
 		}
 	}
-	fmt.Printf("expectedOutput size: %v\n", len(expectedOutputB))
 	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfsclient.Delimiter_NONE, bytes.NewReader(expectedOutputB))
 	require.NoError(t, err)
 
@@ -1586,7 +1575,6 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 	// Make sure all the content is there
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
-	fmt.Printf("lenA %v, lenB %v, total %v, actual %v\n", len(expectedOutputA), len(expectedOutputB), len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 	require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 	require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
 
