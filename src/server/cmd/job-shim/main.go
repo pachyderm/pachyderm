@@ -47,9 +47,14 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
+			// We want to make sure that we only send FinishJob once.
+			// The most bulletproof way would be to check that on server side,
+			// but this is easier.
+			var finished bool
 			// Make sure that we call FinishJob even if something caused a panic
 			defer func() {
-				if r := recover(); r != nil {
+				if r := recover(); r != nil && !finished {
+					fmt.Println("job shim crashed; this is like a bug in pachyderm")
 					if _, err := ppsClient.FinishJob(
 						context.Background(),
 						&ppsserver.FinishJobRequest{
@@ -102,6 +107,7 @@ func do(appEnvObj interface{}) error {
 				); err != nil {
 					errorAndExit(err.Error())
 				}
+				finished = true
 				return
 			}
 			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
@@ -133,6 +139,7 @@ func do(appEnvObj interface{}) error {
 			); err != nil {
 				errorAndExit(err.Error())
 			}
+			finished = true
 		},
 	}
 
