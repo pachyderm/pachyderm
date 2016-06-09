@@ -28,8 +28,9 @@ import (
 // of the factory methods that the time package offers.
 //
 // +protobuf.options.marshal=false
+// +protobuf.as=Timestamp
 type Time struct {
-	time.Time `protobuf:"Timestamp,1,req,name=time"`
+	time.Time `protobuf:"-"`
 }
 
 // NewTime returns a wrapped instance of the provided time
@@ -97,6 +98,27 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// UnmarshalQueryParameter converts from a URL query parameter value to an object
+func (t *Time) UnmarshalQueryParameter(str string) error {
+	if len(str) == 0 {
+		t.Time = time.Time{}
+		return nil
+	}
+	// Tolerate requests from older clients that used JSON serialization to build query params
+	if len(str) == 4 && str == "null" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	pt, err := time.Parse(time.RFC3339, str)
+	if err != nil {
+		return err
+	}
+
+	t.Time = pt.Local()
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 func (t Time) MarshalJSON() ([]byte, error) {
 	if t.IsZero() {
@@ -105,6 +127,16 @@ func (t Time) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(t.UTC().Format(time.RFC3339))
+}
+
+// MarshalQueryParameter converts to a URL query parameter value
+func (t Time) MarshalQueryParameter() (string, error) {
+	if t.IsZero() {
+		// Encode unset/nil objects as an empty string
+		return "", nil
+	}
+
+	return t.UTC().Format(time.RFC3339), nil
 }
 
 // Fuzz satisfies fuzz.Interface.

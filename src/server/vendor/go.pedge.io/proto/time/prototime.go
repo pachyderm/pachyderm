@@ -1,5 +1,7 @@
 package prototime // import "go.pedge.io/proto/time"
 
+// the functionality in here is moving directly to go.pedge.io/pb
+
 import (
 	"time"
 

@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	p "gopkg.in/dancannon/gorethink.v1/ql2"
+	p "gopkg.in/dancannon/gorethink.v2/ql2"
 )
 
 const (
@@ -63,16 +63,24 @@ func NewConnection(address string, opts *ConnectOpts) (*Connection, error) {
 		return nil, RQLConnectionError{rqlError(err.Error())}
 	}
 
-	// Send handshake request
-	if err = c.writeHandshakeReq(); err != nil {
-		c.Close()
-		return nil, RQLConnectionError{rqlError(err.Error())}
+	// Enable TCP Keepalives on TCP connections
+	if tc, ok := c.Conn.(*net.TCPConn); ok {
+		if err := tc.SetKeepAlive(true); err != nil {
+			// Don't send COM_QUIT before handshake.
+			c.Conn.Close()
+			c.Conn = nil
+			return nil, err
+		}
 	}
-	// Read handshake response
-	err = c.readHandshakeSuccess()
+
+	// Send handshake
+	handshake, err := c.handshake(opts.HandshakeVersion)
 	if err != nil {
-		c.Close()
-		return nil, RQLConnectionError{rqlError(err.Error())}
+		return nil, err
+	}
+
+	if err = handshake.Send(); err != nil {
+		return nil, err
 	}
 
 	return c, nil
@@ -112,6 +120,8 @@ func (c *Connection) Query(q Query) (*Response, *Cursor, error) {
 	// Add token if query is a START/NOREPLY_WAIT
 	if q.Type == p.Query_START || q.Type == p.Query_NOREPLY_WAIT || q.Type == p.Query_SERVER_INFO {
 		q.Token = c.nextToken()
+	}
+	if q.Type == p.Query_START || q.Type == p.Query_NOREPLY_WAIT {
 		if c.opts.Database != "" {
 			var err error
 			q.Opts["db"], err = DB(c.opts.Database).build()
