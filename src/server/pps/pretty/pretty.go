@@ -92,6 +92,8 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
 
 func jobState(jobInfo *ppsclient.JobInfo) string {
 	switch jobInfo.State {
+	case ppsclient.JobState_JOB_PULLING:
+		return color.New(color.FgYellow).SprintFunc()("pulling")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
 	case ppsclient.JobState_JOB_FAILURE:
