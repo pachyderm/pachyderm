@@ -80,7 +80,6 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 
-		fmt.Printf("ok\n")
 		os.Exit(0)
 
 		return nil
