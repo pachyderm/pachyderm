@@ -92,6 +92,7 @@ func do(appEnvObj interface{}) error {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
 			if len(response.Transform.Cmd) == 0 {
+				fmt.Println("unable to run; a cmd needs to be provided")
 				if _, err := ppsClient.FinishJob(
 					context.Background(),
 					&ppsserver.FinishJobRequest{
@@ -101,6 +102,7 @@ func do(appEnvObj interface{}) error {
 				); err != nil {
 					errorAndExit(err.Error())
 				}
+				return
 			}
 			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
 			cmd.Stdin = io.MultiReader(readers...)
