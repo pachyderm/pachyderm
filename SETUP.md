@@ -16,6 +16,7 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
 - [Kubectl (kubernetes CLI)](#kubectl) >= 1.2.2
 - [Pachyderm Repository](#pachyderm)
+- [pachctl and pach-deploy](#pachctl-and-pach-deploy)
 
 ### Go
 
@@ -52,6 +53,14 @@ Clone this repo under your `GOPATH`:
 $ go get github.com/pachyderm/pachyderm
 ```
 
+### pachctl and pach-deploy
+
+`pachctl` and `pach-deploy` and command-line utilities that Pachyderm provides.  You can install them directly from source:
+
+```shell
+$ cd $GOPATH/src/github.com/pachyderm/pachyderm
+$ make install
+```
 
 ## Local Deployment
 
