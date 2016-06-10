@@ -1462,6 +1462,38 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
+func TestATonOfPuts(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	rawMessage := `{
+		"level":"debug",
+		"message":{
+			"thing":"foo"
+		},
+		"timing":[1,3,34,6,7]
+	}`
+	numObjs := 5000
+	var expectedOutput []byte
+	for i := 0; i < numObjs; i++ {
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage))
+		require.NoError(t, err)
+		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, string(expectedOutput), buffer.String())
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
