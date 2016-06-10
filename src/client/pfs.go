@@ -286,7 +286,7 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 		if err != nil && retErr == nil {
 			retErr = err
 		}
-		if err == nil {
+		if retErr == nil {
 			blockRefs = writer.blockRefs
 		}
 	}()
