@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "wordcount-input"
+    "name": "wordcount_input"
   },
   "transform": {
     "image": "derekchiang/job-shim",
@@ -13,37 +13,37 @@
 }
 {
   "pipeline": {
-    "name": "wordcount-map"
+    "name": "wordcount_map"
   },
   "transform": {
-    "image": "wordcount-map",
-    "cmd": ["/map", "/pfs/wordcount-input/wikipedia_50GB", "/pfs/out"]
+    "image": "derekchiang/wordcount-map:latest",
+    "cmd": ["/map", "/pfs/wordcount_input/wikipedia_50GB", "/pfs/out"]
   },
   "inputs": [
     {
       "repo": {
-        "name": "wordcount-input"
+        "name": "wordcount_input"
       }
     }
   ]
 }
 {
   "pipeline": {
-    "name": "wordcount-reduce"
+    "name": "wordcount_reduce"
   },
   "transform": {
     "image": "derekchiang/job-shim",
     "cmd": ["sh"],
     "stdin": [
-        "find /pfs/wordcount-map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
+        "find /pfs/wordcount_map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
     ]
   },
   "inputs": [
     {
       "repo": {
-        "name": "wordcount-map"
+        "name": "wordcount_map"
       },
-	  "reduce": true
+	  "method": "reduce"
     }
   ]
 }
