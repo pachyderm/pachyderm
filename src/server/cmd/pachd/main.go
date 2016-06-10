@@ -70,7 +70,7 @@ func do(appEnvObj interface{}) error {
 	etcdClient := getEtcdClient(appEnv)
 	if appEnv.Init {
 		if err := setClusterID(etcdClient); err != nil {
-			return err
+			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
 		}
 		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil && !isDBCreated(err) {
 			return err
