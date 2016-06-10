@@ -25,6 +25,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"k8s.io/kubernetes/pkg/api"
+	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -1712,6 +1713,51 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
+func TestJobState(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+
+	// This job uses a nonexistent image; it's supposed to stay in the
+	// "pulling" state
+	job, err := c.CreateJob(
+		"nonexistent",
+		[]string{"bash"},
+		nil,
+		0,
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
+	jobInfo, err := c.InspectJob(job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_PULLING, jobInfo.State)
+
+	// This job sleeps for 20 secs
+	job, err = c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{"sleep 20"},
+		0,
+		nil,
+		"",
+	)
+	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
+	jobInfo, err = c.InspectJob(job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_RUNNING, jobInfo.State)
+
+	// Wait for the job to complete
+	jobInfo, err = c.InspectJob(job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
 func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1735,7 +1781,7 @@ func scalePachd(t *testing.T, k *kube.Client) {
 	require.NoError(t, err)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
-		pachdRc.Spec.Replicas = rand.Intn(originalReplicas*2) + 1
+		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
 		if pachdRc.Spec.Replicas != originalReplicas {
 			break
 		}
@@ -1817,7 +1863,7 @@ func getPachClient(t *testing.T) *client.APIClient {
 }
 
 func getKubeClient(t *testing.T) *kube.Client {
-	config := &kube.Config{
+	config := &kube_client.Config{
 		Host:     "0.0.0.0:8080",
 		Insecure: false,
 	}

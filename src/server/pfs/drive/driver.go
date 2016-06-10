@@ -113,6 +113,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 				case errCh <- err:
 				default:
 				}
+				return
 			}
 		}()
 	}
@@ -225,6 +226,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 				case errCh <- err:
 				default:
 				}
+				return
 			}
 		}()
 	}
@@ -352,6 +354,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				case errCh <- err:
 				default:
 				}
+				return
 			}
 		}()
 	}
