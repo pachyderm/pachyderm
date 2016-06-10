@@ -1474,7 +1474,6 @@ func TestATonOfPuts(t *testing.T) {
 
 	rawMessage := `{
 		"level":"debug",
-		"timestamp":"%v",
 		"message":{
 			"thing":"foo"
 		},
@@ -1483,19 +1482,16 @@ func TestATonOfPuts(t *testing.T) {
 	numObjs := 5000
 	var expectedOutput []byte
 	for i := 0; i < numObjs; i++ {
-		msg := fmt.Sprintf(rawMessage, time.Now())
-		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(msg))
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage))
 		require.NoError(t, err)
-		expectedOutput = append(expectedOutput, []byte(msg)...)
+		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	// Make sure all the content is there
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, string(expectedOutput), buffer.String())
-
 }
 
 func generateRandomString(n int) string {
