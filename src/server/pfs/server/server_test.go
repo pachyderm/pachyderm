@@ -1480,7 +1480,7 @@ func TestATonOfPuts(t *testing.T) {
 		},
 		"timing":[1,3,34,6,7]
 	}`
-	numObjs := 40000
+	numObjs := 5000
 	var expectedOutput []byte
 	for i := 0; i < numObjs; i++ {
 		msg := fmt.Sprintf(rawMessage, time.Now())
