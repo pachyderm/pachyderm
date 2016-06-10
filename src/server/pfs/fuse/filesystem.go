@@ -293,6 +293,7 @@ func (f *file) touch() error {
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
+		pfsclient.Delimiter_LINE,
 		f.fs.handleID,
 	)
 	if err != nil {
@@ -379,7 +380,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	}()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.fs.handleID)
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, pfsclient.Delimiter_LINE, h.f.fs.handleID)
 		if err != nil {
 			return err
 		}
