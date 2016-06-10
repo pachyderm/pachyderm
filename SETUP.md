@@ -5,7 +5,7 @@
 Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically Pachyderm can run on any platform that Kubernetes supports.  This guide covers the following commonly used platforms:
 
 * [Local](#local-deployment)
-* [Google Cloud Platform](#google-cloud-playform)
+* [Google Cloud Platform](#google-cloud-platform)
 * [AWS](#amazon-web-services-aws)
 
 Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
