@@ -87,7 +87,7 @@ GCS), so it has all the safety guarantees of those underlying systems.
 ##### How do I get data from other sources into Pachyderm?
 Pachyderm has three main methods for getting data into the system.
 
-1. A protobufs API (LINK to docs) that you can access through the Golang SDK. Other languages will be supported soon!
+1. A [protobufs API](https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto)  that you can access through the Golang SDK. Other languages will be supported soon!
 2. The [pachctl CLI](https://github.com/pachyderm/pachyderm/tree/master/doc/pachctl), which
 allows you to put files into Pachyderm.
 3. You can mount Pachyderm locally and add files directly to the filesystem
@@ -151,8 +151,8 @@ results, you can “productionize” it by turning it into a `pipeline`.
 Pipelines are data transformations that are “subscribed” to data changes on
 their input repo and create jobs to process the new data as it comes in. A
 pipeline is defined by a JSON spec that describes one or more transformations
-to execute when new input data is committed. All the details of a pipeline spec
-are outlined in our documentation (LINK).
+to execute when new input data is committed. All the details of a [pipeline spec](https://github.com/pachyderm/pachyderm/blob/master/doc/pipeline_spec.md)
+are outlined in our documentation.
 
 ##### How does Pachyderm manage pipeline dependencies?
 Dependencies for pipelines are handled explicitly in the pipeline spec.
