@@ -1,6 +1,3 @@
-TO DO:
-- SEARCH FOR “LINK”
-
 # FAQ
 [Data Storage:](#data-storage)
 * [How is data storage handled in Pachyderm?](#how-is-data-storage-handled-in-pachyderm)
