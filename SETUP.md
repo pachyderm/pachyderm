@@ -85,7 +85,7 @@ From the root of this repo you can deploy Kubernetes with:
 $ make launch-kube
 ```
 
-This step can take a while the first time you run it, since some Docker images need to be pulled. 
+This step can take a while the first time you run it, since some Docker images need to be pulled.
 
 ### Deploy Pachyderm
 
@@ -95,7 +95,7 @@ From the root of this repo you can deploy Pachyderm on Kubernetes with:
 $ make launch
 ```
 
-This step can take a while the first time you run it, since a lot of Docker images need to be pulled. 
+This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
 
 ## Google Cloud Platform
 
@@ -115,7 +115,7 @@ $ gcloud components install kubectl
 
 ### Set up the infrastructure
 
-Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you.
+Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
 
 First of all, set three environment variables:
 
@@ -183,7 +183,7 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 
 ### Prerequisites
 
-- [AWS CLI](https://aws.amazon.com/cli/) 
+- [AWS CLI](https://aws.amazon.com/cli/)
 
 ### Deploy Kubernetes
 
