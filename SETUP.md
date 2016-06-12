@@ -146,7 +146,7 @@ $ gcloud compute disks list
 
 ### Format Volume
 
-Unfortunately, your persistent disk is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](https://cloud.google.com/compute/docs/disks/add-persistent-disk#formatting), then clear all files on the disk by:
+Unfortunately, your persistent disk is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](https://cloud.google.com/compute/docs/disks/add-persistent-disk#before-you-begin), attaching the disk to an instance and formatting the disk, then clear all files on the disk by running:
 
 ```shell
 rm -rf [path-to-disk]/*
