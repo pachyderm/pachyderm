@@ -2,7 +2,9 @@ package fuse_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -483,9 +485,9 @@ func TestDelimitJSON(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
-		repoName := "abba"
-		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		repo := "abba"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		var expectedOutput []byte
 		rawMessage := `{
@@ -499,12 +501,12 @@ func TestDelimitJSON(t *testing.T) {
 		for !(len(expectedOutput) > 9*1024*1024) {
 			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 		}
-		filePath := filepath.Join(mountpoint, repoName, commit.ID, "foo.json")
+		filePath := filepath.Join(mountpoint, repo, commit.ID, "foo.json")
 		require.NoError(t, ioutil.WriteFile(filePath, expectedOutput, 0644))
-		require.NoError(t, c.FinishCommit(repoName, commit.ID))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		// Make sure all the content is there
 		var buffer bytes.Buffer
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", nil, &buffer))
 		require.Equal(t, len(expectedOutput), buffer.Len())
 		require.Equal(t, string(expectedOutput), buffer.String())
 
@@ -517,7 +519,7 @@ func TestDelimitJSON(t *testing.T) {
 			}
 
 			buffer.Reset()
-			require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+			require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", blockFilter, &buffer))
 
 			// If any single block returns content of size equal to the total, we
 			// got a block collision and we're not testing anything
