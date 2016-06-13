@@ -478,6 +478,68 @@ func TestOverwriteFile(t *testing.T) {
 	})
 }
 
+func TestDelimitJSON(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repoName := "abba"
+		require.NoError(t, c.CreateRepo(repoName))
+		commit, err := c.StartCommit(repoName, "", "")
+		require.NoError(t, err)
+		var expectedOutput []byte
+		rawMessage := `{
+		"level":"debug",
+		"timestamp":"345",
+		"message":{
+			"thing":"foo"
+		},
+		"timing":[1,3,34,6,7]
+	}`
+		for !(len(expectedOutput) > 9*1024*1024) {
+			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+		}
+		filePath := filepath.Join(mountpoint, repoName, commit.ID, "foo.json")
+		require.NoError(t, ioutil.WriteFile(filePath, expectedOutput, 0644))
+		require.NoError(t, c.FinishCommit(repoName, commit.ID))
+		// Make sure all the content is there
+		var buffer bytes.Buffer
+		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+		require.Equal(t, len(expectedOutput), buffer.Len())
+		require.Equal(t, string(expectedOutput), buffer.String())
+
+		// Now verify that each block contains only valid JSON objects
+		bigModulus := 10 // Make it big to make it less likely that I return both blocks together
+		for b := 0; b < bigModulus; b++ {
+			blockFilter := &pfsclient.Shard{
+				BlockNumber:  uint64(b),
+				BlockModulus: uint64(bigModulus),
+			}
+
+			buffer.Reset()
+			require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+
+			// If any single block returns content of size equal to the total, we
+			// got a block collision and we're not testing anything
+			require.NotEqual(t, buffer.Len(), len(expectedOutput))
+
+			var value json.RawMessage
+			decoder := json.NewDecoder(&buffer)
+			for {
+				err = decoder.Decode(&value)
+				if err != nil {
+					if err == io.EOF {
+						break
+					} else {
+						require.NoError(t, err)
+					}
+				}
+				require.Equal(t, rawMessage, string(value))
+			}
+		}
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
