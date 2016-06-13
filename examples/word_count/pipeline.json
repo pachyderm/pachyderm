@@ -3,7 +3,7 @@
     "name": "wordcount_input"
   },
   "transform": {
-    "image": "derekchiang/job-shim",
+    "image": "derekchiang/job-shim:latest",
     "cmd": ["sh"],
     "stdin": [
         "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 -C /pfs/out"
@@ -32,7 +32,7 @@
     "name": "wordcount_reduce"
   },
   "transform": {
-    "image": "derekchiang/job-shim",
+    "image": "derekchiang/job-shim:latest",
     "cmd": ["sh"],
     "stdin": [
         "find /pfs/wordcount_map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
