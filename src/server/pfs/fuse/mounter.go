@@ -33,11 +33,12 @@ func (m *mounter) MountAndCreate(
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	ready chan bool,
+	debug bool,
 ) error {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	return m.Mount(mountPoint, shard, commitMounts, ready)
+	return m.Mount(mountPoint, shard, commitMounts, ready, debug)
 }
 
 func (m *mounter) Mount(
@@ -45,6 +46,7 @@ func (m *mounter) Mount(
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	ready chan bool,
+	debug bool,
 ) (retErr error) {
 	var once sync.Once
 	defer once.Do(func() {
@@ -84,15 +86,14 @@ func (m *mounter) Mount(
 		}
 	})
 	config := &fs.Config{}
+	if debug {
+		config.Debug = func(msg interface{}) { lion.Printf("%+v", msg) }
+	}
 	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
 	<-conn.Ready
 	return conn.MountError
-}
-
-func debug(msg interface{}) {
-	lion.Printf("%+v", msg)
 }
 
 func (m *mounter) Unmount(mountPoint string) error {
