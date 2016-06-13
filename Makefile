@@ -20,8 +20,8 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
-MANIFEST = etc/kube/pachyderm.json
-
+MANIFEST = etc/kube/pachyderm-versioned.json
+DEV_MANIFEST = etc/kube/pachyderm.json
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -78,7 +78,7 @@ release-manifest: install
 		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
 		exit 1; \
 	else \
-		pach-deploy --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
+		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
 	fi
 
 
@@ -133,10 +133,18 @@ launch: check-kubectl install
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: launch-kube launch
+launch-dev: install
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
+
+clean-launch-dev: check-kubectl
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(DEV_MANIFEST)
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
