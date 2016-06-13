@@ -3,8 +3,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "app": "",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": ""
     }
   },
   "kind": "ServiceAccount",
@@ -29,8 +29,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -228,8 +228,8 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd-init",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
@@ -252,7 +252,7 @@
         "containers": [
           {
             "name": "pachd-init",
-            "image": "pachyderm/pachd",
+            "image": "pachyderm/pachd:v1.0.0-1397",
             "env": [
               {
                 "name": "PACH_ROOT",
@@ -339,7 +339,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd",
+            "image": "pachyderm/pachd:v1.0.0-1397",
             "ports": [
               {
                 "name": "api-grpc-port",
