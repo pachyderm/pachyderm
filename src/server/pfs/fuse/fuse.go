@@ -12,6 +12,7 @@ type Mounter interface {
 		shard *pfsclient.Shard,
 		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
+		debug bool,
 	) error
 
 	Mount(
@@ -19,6 +20,7 @@ type Mounter interface {
 		shard *pfsclient.Shard,
 		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
+		debug bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).
 	// There's nothing special about this unmount, it's just doing a syscall under the hood.
