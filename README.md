@@ -5,7 +5,7 @@
 * [News](#news)
 * [Getting Started](#getting-started)
 * [What is Pachyderm?](#what-is-pachyderm)
-* [What's new about Pachyderm? (How is it different from Hadoop?)](#-new-about-pachyderm-how-is-it-different-from-hadoop)
+* [What's new about Pachyderm? (How is it different from Hadoop?)](#whats-new-about-pachyderm-how-is-it-different-from-hadoop)
 * [Our Vision](#our-vision)
 * [Contributing](#contributing)
 * [Usage Metrics](#usage-metrics)

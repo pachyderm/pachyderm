@@ -2,7 +2,7 @@
 
 ## Filing issues
 
-If you have a question about Pachyderm or have a problem using Pachyderm, before filing an issue, please read the [FAQs](docs/faq.md) to see if it's been addressed.
+If you have a question about Pachyderm or have a problem using Pachyderm, before filing an issue, please read the [FAQs](doc/FAQ.md) to see if it's been addressed.
 
 ## Submitting patches (pull requests)
 
