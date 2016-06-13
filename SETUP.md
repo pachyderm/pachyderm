@@ -125,7 +125,7 @@ $ export STORAGE_NAME=pach-disk
 $ export STORAGE_SIZE=200
 ```
 
-Then, simply run:
+You may need to visit the [Console] to fully initialize Container Engine in a new project. Then, simply run the following command:
 
 ```shell
 $ make google-cluster
