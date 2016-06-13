@@ -276,15 +276,22 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 // Blocks are content addressed and are thus identified by hashes of the content.
 // NOTE: this is lower level function that's used internally and might not be
 // useful to users.
-func (c APIClient) PutBlock(reader io.Reader) (*pfs.BlockRefs, error) {
-	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
+func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRefs *pfs.BlockRefs, retErr error) {
+	writer, err := c.newPutBlockWriteCloser(delimiter)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	if _, err := io.Copy(protostream.NewStreamingBytesWriter(putBlockClient), reader); err != nil {
-		return nil, err
-	}
-	return putBlockClient.CloseAndRecv()
+	defer func() {
+		err := writer.Close()
+		if err != nil && retErr == nil {
+			retErr = err
+		}
+		if retErr == nil {
+			blockRefs = writer.blockRefs
+		}
+	}()
+	_, retErr = io.Copy(writer, reader)
+	return blockRefs, retErr
 }
 
 // GetBlock returns the content of a block using it's hash.
@@ -354,13 +361,19 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 // be needed in most use cases.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c APIClient) PutFileWriter(repoName string, commitID string, path string, handle string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, handle)
+func (c APIClient) PutFileWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, handle)
 }
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileWriter(repoName, commitID, path, "")
+	return c.PutFileWithDelimiter(repoName, commitID, path, pfs.Delimiter_LINE, reader)
+}
+
+//PutFileWithDelimiter writes a file to PFS from a reader
+// delimiter is used to tell PFS how to break the input into blocks
+func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path string, delimiter pfs.Delimiter, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter, "")
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -532,16 +545,17 @@ type putFileWriteCloser struct {
 	sent          bool
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, handle string) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
-			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_FILE_TYPE_REGULAR,
-			Handle:   handle,
+			File:      NewFile(repoName, commitID, path),
+			FileType:  pfs.FileType_FILE_TYPE_REGULAR,
+			Handle:    handle,
+			Delimiter: delimiter,
 		},
 		putFileClient: putFileClient,
 	}, nil
@@ -571,6 +585,39 @@ func (w *putFileWriteCloser) Close() error {
 	return sanitizeErr(err)
 }
 
+type putBlockWriteCloser struct {
+	request        *pfs.PutBlockRequest
+	putBlockClient pfs.BlockAPI_PutBlockClient
+	blockRefs      *pfs.BlockRefs
+}
+
+func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWriteCloser, error) {
+	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return &putBlockWriteCloser{
+		request: &pfs.PutBlockRequest{
+			Delimiter: delimiter,
+		},
+		putBlockClient: putBlockClient,
+		blockRefs:      &pfs.BlockRefs{},
+	}, nil
+}
+
+func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.putBlockClient.Send(w.request); err != nil {
+		return 0, sanitizeErr(err)
+	}
+	return len(p), nil
+}
+
+func (w *putBlockWriteCloser) Close() error {
+	var err error
+	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
+	return sanitizeErr(err)
+}
 func newFromCommit(repoName string, fromCommitID string) *pfs.Commit {
 	if fromCommitID != "" {
 		return NewCommit(repoName, fromCommitID)
