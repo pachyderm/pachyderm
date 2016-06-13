@@ -542,6 +542,71 @@ func TestDelimitJSON(t *testing.T) {
 	})
 }
 
+func TestNoDelimiter(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+
+		repo := "test"
+		name := "foo.blob"
+		require.NoError(t, c.CreateRepo(repo))
+		commit1, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+
+		rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+
+		// Write a big blob that would normally not fit in a block
+		var expectedOutputA []byte
+		for !(len(expectedOutputA) > 9*1024*1024) {
+			expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+		}
+		require.NoError(t, ioutil.WriteFile(filePath, expectedOutputA, 0644))
+
+		// Write another big block
+		var expectedOutputB []byte
+		for !(len(expectedOutputB) > 10*1024*1024) {
+			expectedOutputB = append(expectedOutputB, []byte(rawMessage)...)
+		}
+		require.NoError(t, ioutil.WriteFile("/tmp/b", expectedOutputB, 0644))
+		stdin := strings.NewReader(fmt.Sprintf("cat /tmp/b >>%s", filePath))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+
+		// Finish the commit so I can read the data
+		require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+		// Make sure all the content is there
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", nil, &buffer))
+		require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
+		require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
+
+		// Now verify that each block only contains objects of the size we've written
+		bigModulus := 10 // Make it big to make it less likely that I return both blocks together
+		blockLengths := []interface{}{len(expectedOutputA), len(expectedOutputB)}
+		for b := 0; b < bigModulus; b++ {
+			blockFilter := &pfsclient.Shard{
+				BlockNumber:  uint64(b),
+				BlockModulus: uint64(bigModulus),
+			}
+
+			buffer.Reset()
+			require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", blockFilter, &buffer))
+
+			// If any single block returns content of size equal to the total, we
+			// got a block collision and we're not testing anything
+			require.NotEqual(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
+			if buffer.Len() == 0 {
+				continue
+			}
+			require.EqualOneOf(t, blockLengths, buffer.Len())
+		}
+	})
+
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
