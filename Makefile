@@ -123,9 +123,6 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-kube-cluster-assets: install
-	pach-deploy -s 32 >etc/kube/pachyderm.json
-
 launch: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
