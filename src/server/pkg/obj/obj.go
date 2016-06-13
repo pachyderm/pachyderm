@@ -47,8 +47,8 @@ func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 }
 
 type RetryError struct {
-	err               error
-	timeTillNextRetry time.Duration
+	err               string
+	timeTillNextRetry string
 	bytesProcessed    int
 }
 
@@ -67,9 +67,19 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
+	// Basically, we want to stop retrying if we get an EOF.  But the retry
+	// library does not distinguish between EOF and other errors, so we have to
+	// use this boolean variable to record if the error was an EOF, and resetting
+	// the error to EOF outside of the retry function.
+	var eof bool
 	err := backoff.RetryNotify(func() error {
-		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
-			bytesRead += n
+		n, err := b.reader.Read(data[bytesRead:])
+		bytesRead += n
+		if err != nil {
+			if err == io.EOF {
+				eof = true
+				return nil
+			}
 			if bytesRead == len(data) {
 				return nil
 			}
@@ -77,12 +87,15 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error reading (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesRead,
 		})
 	})
+	if err == nil && eof {
+		err = io.EOF
+	}
 	return bytesRead, err
 }
 
@@ -106,8 +119,9 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
 	err := backoff.RetryNotify(func() error {
-		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
-			bytesWritten += n
+		n, err := b.writer.Write(data[bytesWritten:])
+		bytesWritten += n
+		if err != nil {
 			if bytesWritten == len(data) {
 				return nil
 			}
@@ -115,9 +129,9 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error writing (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesWritten,
 		})
 	})
