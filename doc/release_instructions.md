@@ -1,16 +1,5 @@
 # Release procedure
 
-
-## Pachctl
-
-1) Update the CLI docs in this repo by doing:
-
-```shell
-make doc
-```
-
-2) [Follow the release instructions for pachctl](https://github.com/pachyderm/homebrew-tap/blob/master/README.md)
-
 ## Pachd
 
 - [find the tag/release on github you want to release](https://github.com/pachyderm/pachyderm/releases)
@@ -21,7 +10,7 @@ make doc
 
 ```shell
     git fetch --tags
-    make release-pachd
+   make release-pachd
 ```
 
 3) Update the manifest
@@ -64,7 +53,14 @@ To do that:
 5. Repeat the verification steps above (from #3) using the manifest from the live url: `https://pachyderm.io/manifest.json`
 6. Once its verified to be working, merge your branch onto master
 
+## Pachctl
 
+1) Update the CLI docs in this repo by doing:
 
+```shell
+make doc
+```
+
+2) [Follow the release instructions for pachctl](https://github.com/pachyderm/homebrew-tap/blob/master/README.md)
 
 
