@@ -13,13 +13,14 @@ import (
 func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string
+	var version string
 	cmd := &cobra.Command{
 		Use:   os.Args[0] + " [amazon bucket id secret token region [volume-name volume-size-in-GB] | google bucket [volume-name volume-size-in-GB]]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
 			if len(args) == 0 {
-				assets.WriteLocalAssets(os.Stdout, uint64(shards), hostPath)
+				assets.WriteLocalAssets(os.Stdout, uint64(shards), hostPath, version)
 			} else {
 				var volumeName string
 				var volumeSize int
@@ -50,5 +51,6 @@ func DeployCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
 	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally; by default, a directory under /tmp is used")
+	cmd.Flags().StringVarP(&version, "version", "v", "", "The version of pachd images to use. E.g. v1.0.0-849")
 	return cmd
 }
