@@ -80,7 +80,7 @@ release-manifest: install
 	else \
 		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
 	fi
-
+	pach-deploy -s 32 > etc/kube/pachyderm.json
 
 docker-build-compile:
 	# Running locally, not on travis
