@@ -87,6 +87,14 @@ $ make launch-kube
 
 This step can take a while the first time you run it, since some Docker images need to be pulled.
 
+### Optional: Build Docker images
+
+It's very possible that your locally checked-out version of Pachyderm is not identical to the latest stable release. As such, it is highly recommended that you build `pachyderm/pachd` locally to avoid version mismatches. You can do this by running:
+
+```shell
+$ make docker-build-pachd
+```
+
 ### Deploy Pachyderm
 
 From the root of this repo you can deploy Pachyderm on Kubernetes with:
