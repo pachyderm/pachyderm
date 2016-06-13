@@ -73,6 +73,15 @@ tag-release:
 release-pachd:
 	./etc/build/release_pachd
 
+release-manifest: install
+	@if [ -z $$VERSION ]; then \
+		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
+		exit 1; \
+	else \
+		pach-deploy --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
+	fi
+
+
 docker-build-compile:
 	# Running locally, not on travis
 	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
