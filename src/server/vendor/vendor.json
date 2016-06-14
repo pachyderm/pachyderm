@@ -139,6 +139,18 @@
 			"revisionTime": "2016-06-07T21:17:11Z"
 		},
 		{
+			"checksumSHA1": "gHqZ41fSrCEUftkImHKGW+cKxFk=",
+			"path": "github.com/aws/aws-sdk-go/private/protocol/json/jsonutil",
+			"revision": "2e1a49c71fb7d8f6b7e8cca2259ed9b68d9b97ce",
+			"revisionTime": "2016-06-13T23:28:44+02:00"
+		},
+		{
+			"checksumSHA1": "MPzz1x/qt6f2R/JW6aELbm/qT4k=",
+			"path": "github.com/aws/aws-sdk-go/private/protocol/jsonrpc",
+			"revision": "2e1a49c71fb7d8f6b7e8cca2259ed9b68d9b97ce",
+			"revisionTime": "2016-06-13T23:28:44+02:00"
+		},
+		{
 			"checksumSHA1": "nHHyS4+VgZOV7F3Xu87crArmbds=",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/query",
 			"revision": "d2325e41fca90352e50602f08f7113348263bb5f",
@@ -197,6 +209,12 @@
 			"path": "github.com/aws/aws-sdk-go/service/s3/s3iface",
 			"revision": "d2325e41fca90352e50602f08f7113348263bb5f",
 			"revisionTime": "2016-06-07T21:17:11Z"
+		},
+		{
+			"checksumSHA1": "OQu7GowHzyjAay66fBt+SYFVvDY=",
+			"path": "github.com/aws/aws-sdk-go/service/storagegateway",
+			"revision": "2e1a49c71fb7d8f6b7e8cca2259ed9b68d9b97ce",
+			"revisionTime": "2016-06-13T23:28:44+02:00"
 		},
 		{
 			"checksumSHA1": "4QnLdmB1kG3N+KlDd1N+G9TWAGQ=",
