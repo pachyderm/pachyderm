@@ -13,13 +13,14 @@ clean-input-data:
 	rm dataset.tar
 
 load-input-data:
-	pachctl delete-repo tensor_ptb || true
-	pachctl create-repo tensor_ptb || true
+	pachctl create-repo tensor_ptb
 	pachctl start-commit tensor_ptb > commitID
+	umount ./mnt || true
 	rm -rf ./mnt
 	mkdir mnt
 	pachctl mount ./mnt &
-	cp -R data/data ./mnt/tensor_ptb/`cat commitID`/
+	sleep 5
+	cp -R data/data/* ./mnt/tensor_ptb/`cat commitID`/
 	pachctl finish-commit tensor_ptb `cat commitID`
 
 verify-pachctl:
