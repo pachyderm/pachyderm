@@ -448,6 +448,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
+	var debug bool
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally.",
@@ -459,7 +460,7 @@ Files can be read from finished commits with get-file.`,
 			}
 			mounter := fuse.NewMounter(address, client.PfsAPIClient)
 			mountPoint := args[0]
-			err = mounter.Mount(mountPoint, shard(), nil, nil)
+			err = mounter.Mount(mountPoint, shard(), nil, nil, debug)
 			if err != nil {
 				return err
 			}
@@ -467,6 +468,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(mount)
+	finishCommit.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
 
 	var result []*cobra.Command
 	result = append(result, repo)

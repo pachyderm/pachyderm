@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -48,9 +49,25 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
-	reader := bufio.NewReader(protostream.NewStreamingBytesReader(putBlockServer))
+
+	putBlockRequest, err := putBlockServer.Recv()
+	if err != nil {
+		if err != io.EOF {
+			return err
+		}
+		// Allow empty PutBlock requests, in this case we don't create any actual blockRefs
+		return putBlockServer.SendAndClose(result)
+	}
+
+	reader := bufio.NewReader(&putBlockReader{
+		server: putBlockServer,
+		buffer: bytes.NewBuffer(putBlockRequest.Value),
+	})
+
+	decoder := json.NewDecoder(reader)
+
 	for {
-		blockRef, err := s.putOneBlock(reader)
+		blockRef, err := s.putOneBlock(putBlockRequest.Delimiter, reader, decoder)
 		if err != nil {
 			return err
 		}
@@ -216,13 +233,27 @@ func (s *localBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInf
 	return result, nil
 }
 
-func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
+func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
 	var buffer bytes.Buffer
 	var bytesWritten int
 	hash := newHash()
 	EOF := false
+	var value []byte
+
 	for !EOF {
-		bytes, err := reader.ReadBytes('\n')
+		var err error
+		if delimiter == pfsclient.Delimiter_JSON {
+			var jsonValue json.RawMessage
+			err = decoder.Decode(&jsonValue)
+			value = jsonValue
+		} else if delimiter == pfsclient.Delimiter_NONE {
+			value = make([]byte, 1000)
+			n, e := reader.Read(value)
+			err = e
+			value = value[:n]
+		} else {
+			value, err = reader.ReadBytes('\n')
+		}
 		if err != nil {
 			if err == io.EOF {
 				EOF = true
@@ -230,13 +261,14 @@ func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 				return nil, nil, err
 			}
 		}
-		buffer.Write(bytes)
-		hash.Write(bytes)
-		bytesWritten += len(bytes)
-		if bytesWritten > blockSize {
+		buffer.Write(value)
+		hash.Write(value)
+		bytesWritten += len(value)
+		if bytesWritten > blockSize && delimiter != pfsclient.Delimiter_NONE {
 			break
 		}
 	}
+
 	return &pfsclient.BlockRef{
 		Block: getBlock(hash),
 		Range: &pfsclient.ByteRange{
@@ -246,8 +278,8 @@ func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 	}, buffer.Bytes(), nil
 }
 
-func (s *localBlockAPIServer) putOneBlock(reader *bufio.Reader) (*pfsclient.BlockRef, error) {
-	blockRef, data, err := readBlock(reader)
+func (s *localBlockAPIServer) putOneBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, error) {
+	blockRef, data, err := readBlock(delimiter, reader, decoder)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +291,23 @@ func (s *localBlockAPIServer) putOneBlock(reader *bufio.Reader) (*pfsclient.Bloc
 
 func (s *localBlockAPIServer) deleteBlock(block *pfsclient.Block) error {
 	return os.Remove(s.blockPath(block))
+}
+
+type putBlockReader struct {
+	server pfsclient.BlockAPI_PutBlockServer
+	buffer *bytes.Buffer
+}
+
+func (r *putBlockReader) Read(p []byte) (int, error) {
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		// Buffer.Write cannot error
+		r.buffer.Write(request.Value)
+	}
+	return r.buffer.Read(p)
 }
 
 func drainBlockServer(putBlockServer pfsclient.BlockAPI_PutBlockServer) {

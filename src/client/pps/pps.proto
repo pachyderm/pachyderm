@@ -14,6 +14,7 @@ message Transform {
   repeated string cmd = 2;
   repeated string stdin = 3;
   repeated int64 accept_return_code = 4;
+  bool debug = 5;
 }
 
 message Job {
