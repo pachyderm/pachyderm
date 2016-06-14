@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "scrape"
+    "name": "scraper"
   },
   "transform": {
     "cmd": [ "wget",
