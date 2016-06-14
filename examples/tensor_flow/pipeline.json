@@ -1,56 +1,21 @@
 {
   "pipeline": {
-    "name": "filter"
+    "name": "train"
   },
   "transform": {
-    "image": "fruit_stand",
+    "image": "tensor_flow_rnn",
     "cmd": [ "sh" ],
     "stdin": [
-        "grep apple  /pfs/data/sales >>/pfs/out/apple",
-        "grep banana /pfs/data/sales >>/pfs/out/banana",
-        "grep orange /pfs/data/sales >>/pfs/out/orange"
+      "cd /code && python ptb_word_lm.py --data_path=/data/data --model small > /pfs/out/model-results" 
     ]
   },
   "parallelism": "1",
   "inputs": [
     {
       "repo": {
-        "name": "data"
+        "name": "tensor_ptb"
       },
-      "method": "map"
-    }
-  ]
-}
-{
-  "pipeline": {
-    "name": "sum"
-  },
-  "transform": {
-    "image": "fruit_stand",
-    "cmd": [ "sh" ],
-    "stdin": [
-        "for fruit in apple orange banana; do",
-            "new_sum=`cat /pfs/filter/$fruit | awk '{s+=$2} END {print s}'`",
-            "if [ -d '/pfs/prev' ]; then",
-                "old_sum=`cat /pfs/prev/$fruit`",
-            "else",
-                "old_sum=0",
-            "fi",
-            "sum=$((new_sum + old_sum))",
-            "echo $sum > /pfs/out/$fruit",
-        "done"
-    ]
-  },
-  "parallelism": "1",
-  "inputs": [
-    {
-      "repo": {
-        "name": "filter"
-      },
-      "method": {
-        "partition": "file",
-        "incremental": true
-      }
+      "method": "global"
     }
   ]
 }
