@@ -124,9 +124,9 @@ transformations in it. The first transformation filters the sales logs into sepa
 oranges and bananas using `grep`. The second one uses `awk` to sum these sales numbers into a final sales count.
 
 ```
-+----------+     +------------+     +------------+
++----------+     +--------------+     +------------+
 |input data| --> |filter pipline| --> |sum pipeline|
-+----------+     +------------+     +------------+
++----------+     +--------------+     +------------+
 ```
 
 The `pipeline` we're creating can be found at [examples/fruit_stand/pipeline.json](pipeline.json).  Please open a new window to view the pipeline while we talk through it.
