@@ -202,7 +202,7 @@ Next, we need to add more data. We're going to append more purchases from set2.t
 $ cat examples/fruit_stand/set2.txt > ~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
-read "sales" from the latest commit to see all the puchases from `set1` and
+read "sales" from the latest commit to see all the purchases from `set1` and
 `set2`. We could also chose to read from the first commit to only see `set1`.
 
 ```shell
