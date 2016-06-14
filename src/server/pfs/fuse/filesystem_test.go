@@ -550,7 +550,7 @@ func TestNoDelimiter(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 
 		repo := "test"
-		name := "foo.blob"
+		name := "foo.bin"
 		require.NoError(t, c.CreateRepo(repo))
 		commit1, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
