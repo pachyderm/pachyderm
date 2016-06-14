@@ -494,7 +494,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 			require.NoError(t, err)
 		}()
 		data1 := []byte("something\nis\nrotten\n")
-		n, err := f.Write(data1)
+		_, err = f.Write(data1)
 		require.NoError(t, err)
 		data2 := []byte("in\nthe\nstate\nof\nDenmark\n")
 		_, err = f.Write(data2)
