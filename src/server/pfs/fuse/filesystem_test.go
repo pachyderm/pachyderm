@@ -487,7 +487,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 		commit1, err := c.StartCommit("repo", "", "")
 		require.NoError(t, err)
 		filePath := filepath.Join(mountpoint, "repo", commit1.ID, "foo")
-		f, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND, 0644)
+		f, err := os.OpenFile(filePath, os.O_CREATE, 0644)
 		require.NoError(t, err)
 		defer func() {
 			err = f.Close()
