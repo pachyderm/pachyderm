@@ -26,6 +26,8 @@ type Client interface {
 	Delete(name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
 	Walk(prefix string, fn func(name string) error) error
+	// IsRetryable determines if an operation should be retried given an error
+	IsRetryable(err error) bool
 }
 
 func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
@@ -47,19 +49,21 @@ func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 }
 
 type RetryError struct {
-	err               error
-	timeTillNextRetry time.Duration
+	err               string
+	timeTillNextRetry string
 	bytesProcessed    int
 }
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
+	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
+func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
+		client:        client,
 		reader:        reader,
 		backoffConfig: newExponentialBackOffConfig(),
 	}
@@ -67,19 +71,19 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	err := backoff.RetryNotify(func() error {
-		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
-			bytesRead += n
-			if bytesRead == len(data) {
-				return nil
-			}
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.reader.Read(data[bytesRead:])
+		bytesRead += n
+		if b.client.IsRetryable(err) {
 			return err
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error reading (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesRead,
 		})
 	})
@@ -92,12 +96,14 @@ func (b *BackoffReadCloser) Close() error {
 
 // BackoffWriteCloser retries with exponential backoff in the case of failures
 type BackoffWriteCloser struct {
+	client        Client
 	writer        io.WriteCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
+func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser {
 	return &BackoffWriteCloser{
+		client:        client,
 		writer:        writer,
 		backoffConfig: newExponentialBackOffConfig(),
 	}
@@ -105,19 +111,19 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
-	err := backoff.RetryNotify(func() error {
-		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
-			bytesWritten += n
-			if bytesWritten == len(data) {
-				return nil
-			}
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.writer.Write(data[bytesWritten:])
+		bytesWritten += n
+		if b.client.IsRetryable(err) {
 			return err
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error writing (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesWritten,
 		})
 	})
