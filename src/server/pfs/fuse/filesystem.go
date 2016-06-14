@@ -292,7 +292,7 @@ func (f *file) delimiter() pfsclient.Delimiter {
 	if strings.HasSuffix(f.File.Path, ".json") {
 		return pfsclient.Delimiter_JSON
 	}
-	if strings.HasSuffix(f.File.Path, ".blob") {
+	if strings.HasSuffix(f.File.Path, ".bin") {
 		return pfsclient.Delimiter_NONE
 	}
 	return pfsclient.Delimiter_LINE
