@@ -4,10 +4,32 @@ import (
 	"io"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
+	"google.golang.org/api/googleapi"
 )
+
+// isRetryable determines if an error is retryable.
+func isRetryable(err error) bool {
+	switch err := err.(type) {
+	case *googleapi.Error:
+		return err.Code >= 500
+	case awserr.Error:
+		for _, c := range []string{
+			storagegateway.ErrorCodeServiceUnavailable,
+			storagegateway.ErrorCodeInternalError,
+			storagegateway.ErrorCodeGatewayInternalError,
+		} {
+			if c == err.Code() {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Client is an interface to object storage.
 type Client interface {
@@ -67,22 +89,12 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	// Basically, we want to stop retrying if we get an EOF.  But the retry
-	// library does not distinguish between EOF and other errors, so we have to
-	// use this boolean variable to record if the error was an EOF, and resetting
-	// the error to EOF outside of the retry function.
-	var eof bool
-	err := backoff.RetryNotify(func() error {
-		n, err := b.reader.Read(data[bytesRead:])
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.reader.Read(data[bytesRead:])
 		bytesRead += n
-		if err != nil {
-			if err == io.EOF {
-				eof = true
-				return nil
-			}
-			if bytesRead == len(data) {
-				return nil
-			}
+		if isRetryable(err) {
 			return err
 		}
 		return nil
@@ -118,13 +130,12 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
-	err := backoff.RetryNotify(func() error {
-		n, err := b.writer.Write(data[bytesWritten:])
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.writer.Write(data[bytesWritten:])
 		bytesWritten += n
-		if err != nil {
-			if bytesWritten == len(data) {
-				return nil
-			}
+		if isRetryable(err) {
 			return err
 		}
 		return nil

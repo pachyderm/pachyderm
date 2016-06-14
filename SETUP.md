@@ -117,15 +117,15 @@ $ gcloud components install kubectl
 
 Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
 
-First of all, set three environment variables:
+First of all, set the required environment variables. Choose a name for both the bucket and disk, as well as a capacity for the disk (in GB):
 
 ```shell
-$ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire Google Cloud Storage namespace]
-$ export STORAGE_NAME=[the name of the persistent disk where your pipeline information will be stored]
-$ export STORAGE_SIZE=[the size of the persistent disk that you are going to create, in GBs]
+$ export BUCKET_NAME=some-unique-bucket-name
+$ export STORAGE_NAME=pach-disk
+$ export STORAGE_SIZE=200
 ```
 
-Then, simply run:
+You may need to visit the [Console] to fully initialize Container Engine in a new project. Then, simply run the following command:
 
 ```shell
 $ make google-cluster
@@ -297,3 +297,21 @@ pachctl list-repo
 ## Next Step
 
 Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
+
+## Trouble Shooting
+
+### pachd or pachd-init crash loop with "error connecting to etcd"
+
+This error normally occurs due to Kubernetes services not function because the
+kernel does not support iptables. Generally you can solve this with:
+
+```
+modprobe netfilter_xt_match_statistic netfilter_xt_match_recent
+```
+
+However in other cases it may require recompiling the kernel.  Please head to
+[this issue](https://github.com/pachyderm/pachyderm/issues/458) if you're
+having trouble with this so we can collect solutions to the problem in one
+place.
+
+We'll update this section of the guid as we learn more about this issue.
