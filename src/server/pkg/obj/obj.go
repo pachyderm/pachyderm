@@ -89,10 +89,6 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	// Basically, we want to stop retrying if we get an EOF.  But the retry
-	// library does not distinguish between EOF and other errors, so we have to
-	// use this boolean variable to record if the error was an EOF, and resetting
-	// the error to EOF outside of the retry function.
 	var n int
 	var err error
 	backoff.RetryNotify(func() error {
