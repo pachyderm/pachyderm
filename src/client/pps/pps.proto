@@ -82,7 +82,7 @@ enum PipelineState {
     // re-run.  This is when the exponential backoff is in effect.
     PIPELINE_RESTARTING = 2;
     // We have retried too many times and we have given up on this pipeline.
-    PIPELINE_FAILED = 3;
+    PIPELINE_FAILURE = 3;
 }
 
 message PipelineInfo {
