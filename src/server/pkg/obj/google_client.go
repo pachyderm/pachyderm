@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/cloud"
 	"google.golang.org/cloud/storage"
 )
@@ -27,7 +28,7 @@ func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) 
 }
 
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
-	return newBackoffWriteCloser(c.bucket.Object(name).NewWriter(c.ctx)), nil
+	return newBackoffWriteCloser(c, c.bucket.Object(name).NewWriter(c.ctx)), nil
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
@@ -59,9 +60,18 @@ func (c *googleClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffReadCloser(reader), nil
+	return newBackoffReadCloser(c, reader), nil
 }
 
 func (c *googleClient) Delete(name string) error {
 	return c.bucket.Object(name).Delete(c.ctx)
+}
+
+func (c *googleClient) IsRetryable(err error) bool {
+	switch err := err.(type) {
+	case *googleapi.Error:
+		return err.Code >= 500
+	default:
+		return false
+	}
 }
