@@ -784,7 +784,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
-		State:        ppsclient.PipelineState_PIPELINE_STARTING,
+		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -970,7 +970,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 					if err != nil {
 						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineChange.Pipeline.PipelineName,
-							State:        ppsclient.PipelineState_PIPELINE_FAILED,
+							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 							RecentError:  err.Error(),
 						}); err != nil {
 							protolion.Errorf("error updating pipeline state: %v", err)

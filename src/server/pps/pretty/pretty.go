@@ -106,14 +106,14 @@ func jobState(jobInfo *ppsclient.JobInfo) string {
 
 func pipelineState(pipelineInfo *ppsclient.PipelineInfo) string {
 	switch pipelineInfo.State {
-	case ppsclient.PipelineState_PIPELINE_STARTING:
-		return color.New(color.FgYellow).SprintFunc()("starting")
+	case ppsclient.PipelineState_PIPELINE_IDLE:
+		return color.New(color.FgYellow).SprintFunc()("idle")
 	case ppsclient.PipelineState_PIPELINE_RUNNING:
 		return color.New(color.FgGreen).SprintFunc()("running")
 	case ppsclient.PipelineState_PIPELINE_RESTARTING:
 		return color.New(color.FgYellow).SprintFunc()("restarting")
-	case ppsclient.PipelineState_PIPELINE_FAILED:
-		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.PipelineState_PIPELINE_FAILURE:
+		return color.New(color.FgRed).SprintFunc()("failure")
 	}
 	return "-"
 }
