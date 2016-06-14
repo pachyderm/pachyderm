@@ -4,10 +4,32 @@ import (
 	"io"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
+	"google.golang.org/api/googleapi"
 )
+
+// isRetryable determines if an error is retryable.
+func isRetryable(err error) bool {
+	switch err := err.(type) {
+	case *googleapi.Error:
+		return err.Code >= 500
+	case awserr.Error:
+		for _, c := range []string{
+			storagegateway.ErrorCodeServiceUnavailable,
+			storagegateway.ErrorCodeInternalError,
+			storagegateway.ErrorCodeGatewayInternalError,
+		} {
+			if c == err.Code() {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Client is an interface to object storage.
 type Client interface {
@@ -47,8 +69,8 @@ func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
 }
 
 type RetryError struct {
-	err               error
-	timeTillNextRetry time.Duration
+	err               string
+	timeTillNextRetry string
 	bytesProcessed    int
 }
 
@@ -67,19 +89,19 @@ func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	bytesRead := 0
-	err := backoff.RetryNotify(func() error {
-		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
-			bytesRead += n
-			if bytesRead == len(data) {
-				return nil
-			}
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.reader.Read(data[bytesRead:])
+		bytesRead += n
+		if isRetryable(err) {
 			return err
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error reading (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesRead,
 		})
 	})
@@ -105,19 +127,19 @@ func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	bytesWritten := 0
-	err := backoff.RetryNotify(func() error {
-		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
-			bytesWritten += n
-			if bytesWritten == len(data) {
-				return nil
-			}
+	var n int
+	var err error
+	backoff.RetryNotify(func() error {
+		n, err = b.writer.Write(data[bytesWritten:])
+		bytesWritten += n
+		if isRetryable(err) {
 			return err
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("%v", RetryError{
-			err:               err,
-			timeTillNextRetry: d,
+		protolion.Infof("Error writing (retrying): %#v", RetryError{
+			err:               err.Error(),
+			timeTillNextRetry: d.String(),
 			bytesProcessed:    bytesWritten,
 		})
 	})
