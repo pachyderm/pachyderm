@@ -14,6 +14,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
+	"go.pedge.io/lion"
 	"golang.org/x/net/context"
 )
 
@@ -45,6 +46,10 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 				os.Exit(0)
+			}
+
+			if response.Transform.Debug {
+				lion.SetLevel(lion.LevelDebug)
 			}
 
 			// We want to make sure that we only send FinishJob once.
@@ -82,6 +87,7 @@ func do(appEnvObj interface{}) error {
 					nil,
 					response.CommitMounts,
 					ready,
+					response.Transform.Debug,
 				); err != nil {
 					errorAndExit(err.Error())
 				}
