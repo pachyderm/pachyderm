@@ -20,7 +20,13 @@ ENV PATH /usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bi
 ENV GOPATH /go
 ENV GOROOT /usr/local/go
 
+# Add the code files
+
+ADD code /code
+ADD data /data
+
 # Install Pachyderm job-shim
 RUN go get github.com/pachyderm/pachyderm && \
 	go get github.com/pachyderm/pachyderm/src/server/cmd/job-shim && \
     cp $GOPATH/bin/job-shim /job-shim
+

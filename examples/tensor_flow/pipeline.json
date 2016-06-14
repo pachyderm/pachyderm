@@ -1,0 +1,56 @@
+{
+  "pipeline": {
+    "name": "filter"
+  },
+  "transform": {
+    "image": "fruit_stand",
+    "cmd": [ "sh" ],
+    "stdin": [
+        "grep apple  /pfs/data/sales >>/pfs/out/apple",
+        "grep banana /pfs/data/sales >>/pfs/out/banana",
+        "grep orange /pfs/data/sales >>/pfs/out/orange"
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "data"
+      },
+      "method": "map"
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "sum"
+  },
+  "transform": {
+    "image": "fruit_stand",
+    "cmd": [ "sh" ],
+    "stdin": [
+        "for fruit in apple orange banana; do",
+            "new_sum=`cat /pfs/filter/$fruit | awk '{s+=$2} END {print s}'`",
+            "if [ -d '/pfs/prev' ]; then",
+                "old_sum=`cat /pfs/prev/$fruit`",
+            "else",
+                "old_sum=0",
+            "fi",
+            "sum=$((new_sum + old_sum))",
+            "echo $sum > /pfs/out/$fruit",
+        "done"
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "filter"
+      },
+      "method": {
+        "partition": "file",
+        "incremental": true
+      }
+    }
+  ]
+}
