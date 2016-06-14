@@ -970,7 +970,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 					if err != nil {
 						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineChange.Pipeline.PipelineName,
-							State:        ppsclient.PipelineState_PIPELINE_FAILED,
+							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 							RecentError:  err.Error(),
 						}); err != nil {
 							protolion.Errorf("error updating pipeline state: %v", err)
