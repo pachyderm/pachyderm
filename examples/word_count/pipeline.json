@@ -6,8 +6,9 @@
     "image": "derekchiang/job-shim:latest",
     "cmd": ["sh"],
     "stdin": [
-        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 -C /pfs/out"
-    ]
+        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 && cp wikipedia_50GB/* /pfs/out/"
+    ],
+    "debug": true
   },
   "parallelism": "1"
 }
@@ -17,7 +18,8 @@
   },
   "transform": {
     "image": "derekchiang/wordcount-map:latest",
-    "cmd": ["/map", "/pfs/wordcount_input/wikipedia_50GB", "/pfs/out"]
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"],
+    "debug": true
   },
   "inputs": [
     {
@@ -36,7 +38,8 @@
     "cmd": ["sh"],
     "stdin": [
         "find /pfs/wordcount_map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
-    ]
+    ],
+    "debug": true
   },
   "inputs": [
     {
