@@ -1,9 +1,13 @@
 package pretty
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"text/tabwriter"
+	"text/template"
 
 	"github.com/Jeffail/gabs"
 	"github.com/fatih/color"
@@ -50,6 +54,28 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo))
 }
 
+func PrintPipelineInputHeader(w io.Writer) {
+	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
+}
+
+func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
+	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
+	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
+}
+
+func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintPipelineInputHeader(writer)
+	for _, input := range pipelineInfo.Inputs {
+		PrintPipelineInput(writer, input)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
 	bytes, err := json.Marshal(jobInfo)
 	if err != nil {
@@ -70,24 +96,30 @@ func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
 	fmt.Println(obj.StringIndent("", "    "))
 }
 
+var funcMap template.FuncMap = template.FuncMap{
+	"pipelineState":  pipelineState,
+	"pipelineInputs": pipelineInputs,
+}
+
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
-	bytes, err := json.Marshal(pipelineInfo)
+	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
+		`Name: {{.Pipeline.Name}}
+Created: {{.CreatedAt}}
+State: {{pipelineState .}}
+Parallelism: {{.Parallelism}}
+Inputs:
+{{pipelineInputs .}}
+Recent Error: {{.RecentError}}
+`)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
-
-	obj, err := gabs.ParseJSON(bytes)
+	err = template.Execute(os.Stdout, pipelineInfo)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
-
-	// state is an integer; we want to print a string
-	_, err = obj.Set(ppsclient.PipelineState_name[int32(pipelineInfo.State)], "state")
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	fmt.Println(obj.StringIndent("", "    "))
 }
 
 func jobState(jobInfo *ppsclient.JobInfo) string {
