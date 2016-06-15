@@ -1021,6 +1021,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Parallelism: persistPipelineInfo.Parallelism,
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
+		CreatedAt:   persistPipelineInfo.CreatedAt,
 		State:       persistPipelineInfo.State,
 		RecentError: persistPipelineInfo.RecentError,
 	}
