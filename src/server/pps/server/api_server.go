@@ -1024,6 +1024,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		CreatedAt:   persistPipelineInfo.CreatedAt,
 		State:       persistPipelineInfo.State,
 		RecentError: persistPipelineInfo.RecentError,
+		JobCounts:   persistPipelineInfo.JobCounts,
 	}
 }
 
