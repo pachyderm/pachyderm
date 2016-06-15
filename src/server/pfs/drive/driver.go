@@ -657,8 +657,6 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.RLock()
-	// We don't want to be able to delete files that are only added in the current
-	// commit, which is why we set unsafe to false.
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()

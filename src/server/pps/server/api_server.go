@@ -866,8 +866,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-			return nil, err
+		if a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil) != nil {
+			protolion.Debugf("unable to remove job %v jobInfo.JobID")
 		}
 	}
 
@@ -1409,7 +1409,7 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
-							ImagePullPolicy: "IfNotPresent",
+							ImagePullPolicy: "Always",
 							Env:             jobEnv,
 						},
 					},
