@@ -480,6 +480,35 @@ func TestOverwriteFile(t *testing.T) {
 	})
 }
 
+func TestOpenAndWriteFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit1, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+		filePath := filepath.Join(mountpoint, "repo", commit1.ID, "foo")
+		f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		require.NoError(t, err)
+		defer func() {
+			err = f.Close()
+			require.NoError(t, err)
+		}()
+		data1 := []byte("something\nis\nrotten\n")
+		_, err = f.Write(data1)
+		require.NoError(t, err)
+		data2 := []byte("in\nthe\nstate\nof\nDenmark\n")
+		_, err = f.Write(data2)
+		require.NoError(t, err)
+		require.NoError(t, f.Sync())
+		require.NoError(t, c.FinishCommit("repo", commit1.ID))
+		result, err := ioutil.ReadFile(filePath)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%v%v", string(data1), string(data2)), string(result))
+	})
+}
+
 func TestDelimitJSON(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -548,7 +577,6 @@ func TestNoDelimiter(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
-
 		repo := "test"
 		name := "foo.bin"
 		require.NoError(t, c.CreateRepo(repo))
@@ -604,7 +632,6 @@ func TestNoDelimiter(t *testing.T) {
 			require.EqualOneOf(t, blockLengths, buffer.Len())
 		}
 	})
-
 }
 
 func testFuse(
