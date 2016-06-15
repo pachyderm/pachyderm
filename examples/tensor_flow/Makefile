@@ -1,4 +1,4 @@
-
+all: setup run
 
 get-input-data:
 	curl -o dataset.tar.gz http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
@@ -22,6 +22,7 @@ load-input-data:
 	sleep 5
 	cp -R data/data/* ./mnt/tensor_ptb/`cat commitID`/
 	pachctl finish-commit tensor_ptb `cat commitID`
+	rm commitID
 
 verify-pachctl:
 	which pachctl
@@ -31,4 +32,11 @@ input-data: verify-pachctl get-input-data extract-input-data clean-input-data lo
 docker-build:
 	docker build -t tensor_flow_rnn .
 
+setup: docker-build input-data
 
+run: verify-pachctl
+	pachctl create-pipeline -f pipeline.json
+
+clean: verify-pachctl
+	pachctl delete-pipeline -f pipeline.json
+	pachctl delete-repo tensor_ptb
