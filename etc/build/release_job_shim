@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Need to set the build number appropriately
+
+tag=`git tag -l --points-at HEAD`
+
+if [ -z $tag ]
+then
+        echo "No tag found for this commit! Aborting release"
+        exit 1
+fi
+
+echo "--- Releasing job-shim w tag: $tag"
+
+build_number=`echo $tag | sed -En 's/(v[0-9]+\.[0-9]+\.[0-9]+)\((.*)\)/\2/p'`
+docker_tag=`echo $tag | sed -e 's/[\(]/-/g' | sed -e 's/[\)]//g'`
+
+
+TRAVIS_BUILD_NUMBER=$build_number make docker-push-job-shim
+docker tag pachyderm/job-shim:latest pachyderm/job-shim:$docker_tag
+docker push pachyderm/job-shim:$docker_tag
