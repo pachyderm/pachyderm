@@ -12,6 +12,7 @@ import (
 	"github.com/Jeffail/gabs"
 	"github.com/fatih/color"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
 func PrintJobHeader(w io.Writer) {
@@ -99,12 +100,13 @@ func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
 var funcMap template.FuncMap = template.FuncMap{
 	"pipelineState":  pipelineState,
 	"pipelineInputs": pipelineInputs,
+	"prettyDuration": pretty.PrettyDuration,
 }
 
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}
-Created: {{.CreatedAt}}
+Created: {{prettyDuration .CreatedAt}}
 State: {{pipelineState .}}
 Parallelism: {{.Parallelism}}
 Inputs:
