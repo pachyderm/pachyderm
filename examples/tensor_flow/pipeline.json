@@ -6,7 +6,7 @@
     "image": "tensor_flow_rnn",
     "cmd": [ "sh" ],
     "stdin": [
-      "cd /code && python ptb_word_lm.py --data_path=/data/data --model small > /pfs/out/model-results" 
+      "cd /code && python ptb_word_lm.py --data_path=/data/data --model=test > /pfs/out/model-results" 
     ]
   },
   "parallelism": "1",
