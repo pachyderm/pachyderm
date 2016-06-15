@@ -2,6 +2,8 @@
 
 ## Pachd
 
+1) Release Pachd
+
 - [find the tag/release on github you want to release](https://github.com/pachyderm/pachyderm/releases)
   - CI needs to pass
   - and it needs to be merged into master to generate a tag
@@ -11,6 +13,13 @@
 ```shell
     git fetch --tags
    make release-pachd
+```
+
+2) Release job-shim
+
+
+```shell
+   make release-job-shim
 ```
 
 3) Update the manifest
