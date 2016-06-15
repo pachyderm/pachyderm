@@ -87,9 +87,6 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 			bytesProcessed:    bytesRead,
 		})
 	})
-	if err == nil && eof {
-		err = io.EOF
-	}
 	return bytesRead, err
 }
 
