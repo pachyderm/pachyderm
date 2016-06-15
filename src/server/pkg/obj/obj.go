@@ -4,32 +4,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
-	"google.golang.org/api/googleapi"
 )
-
-// isRetryable determines if an error is retryable.
-func isRetryable(err error) bool {
-	switch err := err.(type) {
-	case *googleapi.Error:
-		return err.Code >= 500
-	case awserr.Error:
-		for _, c := range []string{
-			storagegateway.ErrorCodeServiceUnavailable,
-			storagegateway.ErrorCodeInternalError,
-			storagegateway.ErrorCodeGatewayInternalError,
-		} {
-			if c == err.Code() {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // Client is an interface to object storage.
 type Client interface {
@@ -48,6 +26,8 @@ type Client interface {
 	Delete(name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
 	Walk(prefix string, fn func(name string) error) error
+	// IsRetryable determines if an operation should be retried given an error
+	IsRetryable(err error) bool
 }
 
 func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
@@ -76,12 +56,14 @@ type RetryError struct {
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
+	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
+func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
+		client:        client,
 		reader:        reader,
 		backoffConfig: newExponentialBackOffConfig(),
 	}
@@ -94,7 +76,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	backoff.RetryNotify(func() error {
 		n, err = b.reader.Read(data[bytesRead:])
 		bytesRead += n
-		if isRetryable(err) {
+		if b.client.IsRetryable(err) {
 			return err
 		}
 		return nil
@@ -117,12 +99,14 @@ func (b *BackoffReadCloser) Close() error {
 
 // BackoffWriteCloser retries with exponential backoff in the case of failures
 type BackoffWriteCloser struct {
+	client        Client
 	writer        io.WriteCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
+func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser {
 	return &BackoffWriteCloser{
+		client:        client,
 		writer:        writer,
 		backoffConfig: newExponentialBackOffConfig(),
 	}
@@ -135,7 +119,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	backoff.RetryNotify(func() error {
 		n, err = b.writer.Write(data[bytesWritten:])
 		bytesWritten += n
-		if isRetryable(err) {
+		if b.client.IsRetryable(err) {
 			return err
 		}
 		return nil
