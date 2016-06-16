@@ -5,6 +5,7 @@ import (
 	"io"
 	"path"
 	"regexp"
+	"sort"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -722,6 +723,36 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	}
 	d.deleteFromDir(diffInfo, file, shard)
 
+	return nil
+}
+
+type byProvenance []*pfs.RepoInfo
+
+func (s byProvenance) Len() int {
+	return len(s)
+}
+func (s byProvenance) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s byProvenance) Less(i, j int) bool {
+	return len(s[i].Provenance) < len(s[j].Provenance)
+}
+
+func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	repoInfos, err := d.ListRepo(nil, shards)
+	if err != nil {
+		return err
+	}
+	// We want to make sure we delete repos before their provenance.
+	// Provenance has a nice invariant:
+	// A in Provenance(B) => len(Provenance(A)) < len(Provenance(B))
+	// Since Provenance is transitive
+	// Thus when we sort by length we guarantee that A will have a lower index than B
+	// Because we want to make sure we delete the higher indexes first we traverse in reverse
+	sort.Sort(byProvenance(repoInfos))
+	for i := range repoInfos {
+		d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards)
+	}
 	return nil
 }
 
