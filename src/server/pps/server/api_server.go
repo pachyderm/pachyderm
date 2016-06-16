@@ -889,6 +889,18 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := persistClient.DeleteAll(ctx, request); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) Version(version int64) error {
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()

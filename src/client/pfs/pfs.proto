@@ -378,9 +378,6 @@ service BlockAPI {
   rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
   rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
   rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
-
-  // DeleteAll deletes everything
-  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 

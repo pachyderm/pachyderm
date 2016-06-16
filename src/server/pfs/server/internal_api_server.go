@@ -501,6 +501,28 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	repoInfos, err := a.driver.ListRepo(nil, shards)
+	if err != nil {
+		return nil, err
+	}
+	for _, repoInfo := range repoInfos {
+		if err := a.driver.DeleteRepo(repoInfo.Repo, shards); err != nil {
+			return nil, err
+		}
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *internalAPIServer) AddShard(shard uint64) error {
 	return a.driver.AddShard(shard)
 }
