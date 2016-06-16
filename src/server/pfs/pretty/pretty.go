@@ -5,9 +5,6 @@ import (
 	"html/template"
 	"io"
 	"os"
-	"time"
-
-	"go.pedge.io/proto/time"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -22,13 +19,8 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
 	fmt.Fprintf(
 		w,
-		"%s ago\t", units.HumanDuration(
-			time.Since(
-				prototime.TimestampToTime(
-					repoInfo.Created,
-				),
-			),
-		),
+		"%s\t",
+		pretty.PrettyDuration(repoInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
@@ -65,23 +57,12 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	}
 	fmt.Fprintf(
 		w,
-		"%s ago\t", units.HumanDuration(
-			time.Since(
-				prototime.TimestampToTime(
-					commitInfo.Started,
-				),
-			),
-		),
+		"%s\t",
+		pretty.PrettyDuration(commitInfo.Started),
 	)
 	finished := "\t"
 	if commitInfo.Finished != nil {
-		finished = fmt.Sprintf("%s ago\t", units.HumanDuration(
-			time.Since(
-				prototime.TimestampToTime(
-					commitInfo.Finished,
-				),
-			),
-		))
+		finished = fmt.Sprintf("%s\t", pretty.PrettyDuration(commitInfo.Finished))
 	}
 	fmt.Fprintf(w, finished)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
@@ -100,13 +81,8 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	}
 	fmt.Fprintf(
 		w,
-		"%s ago\t", units.HumanDuration(
-			time.Since(
-				prototime.TimestampToTime(
-					fileInfo.Modified,
-				),
-			),
-		),
+		"%s\t",
+		pretty.PrettyDuration(fileInfo.Modified),
 	)
 	fmt.Fprint(w, "-\t")
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
@@ -120,13 +96,8 @@ func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
 	fmt.Fprintf(
 		w,
-		"%s ago\t", units.HumanDuration(
-			time.Since(
-				prototime.TimestampToTime(
-					blockInfo.Created,
-				),
-			),
-		),
+		"%s\t",
+		pretty.PrettyDuration(blockInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
 }
