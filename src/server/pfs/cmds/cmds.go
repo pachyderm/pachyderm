@@ -199,10 +199,8 @@ This layers the data in the commit over the data in the parent.`,
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			pretty.PrintCommitInfo(writer, commitInfo)
-			return writer.Flush()
+			pretty.PrintDetailedCommitInfo(commitInfo)
+			return nil
 		}),
 	}
 

@@ -68,6 +68,29 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
+func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) {
+	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
+		`Repo: {{.Commit.Repo.Name}}
+ID: {{.Commit.ID}}{{if .Branch}} {{if .ParentCommit}}
+Parent: {{.ParentCommit.ID}} {{end}}
+Branch: {{.Branch}} {{end}}
+Started: {{prettyDuration .Started}}{{if .Finished}}
+Finished: {{prettyDuration .Finished}} {{end}}
+Size: {{prettySize .SizeBytes}}{{if .Provenance}}
+Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}{{if .Cancelled}}
+CANCELLED {{end}}
+`)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	err = template.Execute(os.Stdout, commitInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+}
+
 func PrintFileInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\t\n")
 }

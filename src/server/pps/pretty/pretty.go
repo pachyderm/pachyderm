@@ -85,8 +85,8 @@ func PrintJobCountsHeader(w io.Writer) {
 
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}}
-Parent: {{if .ParentJob}} {{.ParentJob.ID}} {{else}} - {{end}}
+		`ID: {{.Job.ID}} {{if .ParentJob}}
+Parent: {{.ParentJob.ID}} {{end}}
 Created: {{prettyDuration .CreatedAt}}
 State: {{jobState .State}}
 Parallelism: {{.Parallelism}}
