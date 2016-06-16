@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -80,11 +81,8 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 	var backendEnvVar string
 	switch backend {
 	case localBackend:
-		if hostPath == "" {
-			hostPath = "/tmp/pach"
-		}
 		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: hostPath,
+			Path: filepath.Join(hostPath, "pachd"),
 		}
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
@@ -216,7 +214,7 @@ func PachdService() *api.Service {
 	}
 }
 
-func EtcdRc() *api.ReplicationController {
+func EtcdRc(hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -266,6 +264,11 @@ func EtcdRc() *api.ReplicationController {
 					Volumes: []api.Volume{
 						{
 							Name: "etcd-storage",
+							VolumeSource: api.VolumeSource{
+								HostPath: &api.HostPathVolumeSource{
+									Path: filepath.Join(hostPath, "etcd"),
+								},
+							},
 						},
 					},
 				},
@@ -302,7 +305,7 @@ func EtcdService() *api.Service {
 	}
 }
 
-func RethinkRc(backend backend, volume string) *api.ReplicationController {
+func RethinkRc(backend backend, volume string, hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -366,6 +369,10 @@ func RethinkRc(backend backend, volume string) *api.ReplicationController {
 	if backend != localBackend && volume != "" {
 		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
 			ClaimName: rethinkVolumeClaimName,
+		}
+	} else if backend == localBackend {
+		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
+			Path: filepath.Join(hostPath, "rethink"),
 		}
 	}
 
@@ -564,14 +571,14 @@ func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string,
 		fmt.Fprintf(w, "\n")
 	}
 
-	EtcdRc().CodecEncodeSelf(encoder)
+	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	EtcdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	RethinkRc(backend, volumeName).CodecEncodeSelf(encoder)
+	RethinkRc(backend, volumeName, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	InitJob().CodecEncodeSelf(encoder)

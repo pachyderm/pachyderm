@@ -50,7 +50,7 @@ func DeployCmd() *cobra.Command {
 		}),
 	}
 	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
-	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally; by default, a directory under /tmp is used")
+	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "The version of pachd images to use. E.g. v1.0.0-849")
 	return cmd
 }

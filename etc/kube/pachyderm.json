@@ -3,8 +3,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": ""
+      "app": "",
+      "suite": "pachyderm"
     }
   },
   "kind": "ServiceAccount",
@@ -29,14 +29,17 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
         "volumes": [
           {
-            "name": "etcd-storage"
+            "name": "etcd-storage",
+            "hostPath": {
+              "path": "/tmp/pach/etcd"
+            }
           }
         ],
         "containers": [
@@ -176,7 +179,10 @@
       "spec": {
         "volumes": [
           {
-            "name": "rethink-storage"
+            "name": "rethink-storage",
+            "hostPath": {
+              "path": "/tmp/pach/rethink"
+            }
           }
         ],
         "containers": [
@@ -228,8 +234,8 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd-init",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
@@ -309,8 +315,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd"
     }
   },
   "spec": {
@@ -332,7 +338,7 @@
           {
             "name": "pach-disk",
             "hostPath": {
-              "path": "/tmp/pach"
+              "path": "/tmp/pach/pachd"
             }
           }
         ],
