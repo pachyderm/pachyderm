@@ -511,14 +511,8 @@ func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_proto
 	if err != nil {
 		return nil, err
 	}
-	repoInfos, err := a.driver.ListRepo(nil, shards)
-	if err != nil {
+	if err := a.driver.DeleteAll(shards); err != nil {
 		return nil, err
-	}
-	for _, repoInfo := range repoInfos {
-		if err := a.driver.DeleteRepo(repoInfo.Repo, shards); err != nil {
-			return nil, err
-		}
 	}
 	return google_protobuf.EmptyInstance, nil
 }
