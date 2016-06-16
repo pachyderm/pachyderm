@@ -113,9 +113,10 @@ Parallelism: {{.Parallelism}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
-Recent Error: {{.RecentError}}
+{{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
 Job Counts:
-{{jobCounts .JobCounts}}`)
+{{jobCounts .JobCounts}}
+`)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -181,15 +182,9 @@ func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
 
 func jobCounts(counts map[int32]int32) string {
 	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
-	fmt.Fprintf(writer, "PULLING\tRUNNING\tFAILURE\tSUCCESS\t\n")
-
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_PULLING)])
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_RUNNING)])
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_FAILURE)])
-	fmt.Fprintf(writer, "%d\t\n", counts[int32(ppsclient.JobState_JOB_SUCCESS)])
-	// can't error because buffer can't error on Write
-	writer.Flush()
+	for i := int32(ppsclient.JobState_JOB_PULLING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
+		fmt.Fprintf(&buffer, "%s: %d\t", jobState(ppsclient.JobState(i)), counts[i])
+	}
 	return buffer.String()
 }
 
