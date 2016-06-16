@@ -3,11 +3,18 @@
     "name": "wordcount_input"
   },
   "transform": {
-    "image": "derekchiang/job-shim:latest",
-    "cmd": ["sh"],
-    "stdin": [
-        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 -C /pfs/out --strip-components=1"
+    "cmd": [ "wget",
+        "--recursive",
+        "-e", "robots=off",
+        "--level", "1",
+        "--adjust-extension",
+        "--no-check-certificate",
+        "--no-directories",
+        "--directory-prefix",
+        "/pfs/out",
+        "https://en.wikipedia.org/wiki/Main_Page"
     ],
+    "acceptReturnCode": [4,5,6,7,8],
     "debug": true
   },
   "parallelism": "1"
