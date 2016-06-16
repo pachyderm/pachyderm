@@ -70,8 +70,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Repo: {{.Commit.Repo.Name}}
-ID: {{.Commit.ID}}{{if .Branch}} {{if .ParentCommit}}
+		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}} {{end}}
 Branch: {{.Branch}} {{end}}
 Started: {{prettyDuration .Started}}{{if .Finished}}
@@ -111,6 +110,26 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
+func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) {
+	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
+		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
+Type: {{fileType .FileType}}
+Modifed: {{prettyDuration .Modified}}
+Size: {{prettySize .SizeBytes}}
+Commit Modified: {{.CommitModified.Repo.Name}}/{{.CommitModified.ID}}{{if .Children}}
+Children: {{range .Children}} {{.Path}} {{end}} {{end}}
+`)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	err = template.Execute(os.Stdout, fileInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+}
+
 func PrintBlockInfoHeader(w io.Writer) {
 	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
 }
@@ -131,7 +150,16 @@ func (s uint64Slice) Len() int           { return len(s) }
 func (s uint64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
+func fileType(fileType pfs.FileType) string {
+	if fileType == pfs.FileType_FILE_TYPE_REGULAR {
+		return "file"
+	} else {
+		return "dir"
+	}
+}
+
 var funcMap = template.FuncMap{
 	"prettyDuration": pretty.PrettyDuration,
 	"prettySize":     pretty.PrettySize,
+	"fileType":       fileType,
 }
