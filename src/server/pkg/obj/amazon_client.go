@@ -78,8 +78,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 
 func (c *amazonClient) Delete(name string) error {
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
-		Bucket: c.bucket,
-		Key:    name,
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
 	})
 	return err
 }
