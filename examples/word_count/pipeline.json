@@ -6,7 +6,7 @@
     "image": "derekchiang/job-shim:latest",
     "cmd": ["sh"],
     "stdin": [
-        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 && cp wikipedia_50GB/* /pfs/out/"
+        "wget ftp://ftp.ecn.purdue.edu/puma/wikipedia_50GB.tar.bz2 && tar xvjf wikipedia_50GB.tar.bz2 -C /pfs/out --strip-components=1"
     ],
     "debug": true
   },
