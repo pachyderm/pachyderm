@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"text/template"
 
@@ -26,7 +27,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
-	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo))
+	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
 func PrintPipelineHeader(w io.Writer) {
@@ -52,7 +53,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	} else {
 		fmt.Fprintf(w, "\t")
 	}
-	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo))
+	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
 func PrintPipelineInputHeader(w io.Writer) {
@@ -75,6 +76,27 @@ func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
 	// can't error because buffer can't error on Write
 	writer.Flush()
 	return buffer.String()
+}
+
+func jobCounts(counts map[int32]int32) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	fmt.Fprintf(writer, "PULLING\tRUNNING\tFAILURE\tSUCCESS\t\n")
+
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_PULLING)])
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_RUNNING)])
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_FAILURE)])
+	fmt.Fprintf(writer, "%d\t\n", counts[int32(ppsclient.JobState_JOB_SUCCESS)])
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func PrintJobCountsHeader(w io.Writer) {
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_PULLING))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_FAILURE))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
 }
 
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
@@ -101,17 +123,20 @@ var funcMap template.FuncMap = template.FuncMap{
 	"pipelineState":  pipelineState,
 	"pipelineInputs": pipelineInputs,
 	"prettyDuration": pretty.PrettyDuration,
+	"jobCounts":      jobCounts,
 }
 
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}
 Created: {{prettyDuration .CreatedAt}}
-State: {{pipelineState .}}
+State: {{pipelineState .State}}
 Parallelism: {{.Parallelism}}
 Inputs:
 {{pipelineInputs .}}
 Recent Error: {{.RecentError}}
+Job Counts:
+{{jobCounts .JobCounts}}
 `)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -124,8 +149,8 @@ Recent Error: {{.RecentError}}
 	}
 }
 
-func jobState(jobInfo *ppsclient.JobInfo) string {
-	switch jobInfo.State {
+func jobState(jobState ppsclient.JobState) string {
+	switch jobState {
 	case ppsclient.JobState_JOB_PULLING:
 		return color.New(color.FgYellow).SprintFunc()("pulling")
 	case ppsclient.JobState_JOB_RUNNING:
@@ -138,8 +163,8 @@ func jobState(jobInfo *ppsclient.JobInfo) string {
 	return "-"
 }
 
-func pipelineState(pipelineInfo *ppsclient.PipelineInfo) string {
-	switch pipelineInfo.State {
+func pipelineState(pipelineState ppsclient.PipelineState) string {
+	switch pipelineState {
 	case ppsclient.PipelineState_PIPELINE_STARTING:
 		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.PipelineState_PIPELINE_RUNNING:
