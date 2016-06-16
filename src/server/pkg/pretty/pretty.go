@@ -17,10 +17,10 @@ func UnescapeHTML(s string) string {
 	return s
 }
 
-func PrettyDuration(timestamp *google_protobuf.Timestamp) string {
+func Duration(timestamp *google_protobuf.Timestamp) string {
 	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(prototime.TimestampToTime(timestamp))))
 }
 
-func PrettySize(size uint64) string {
+func Size(size uint64) string {
 	return units.BytesSize(float64(size))
 }
