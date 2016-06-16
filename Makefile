@@ -73,6 +73,9 @@ tag-release:
 release-pachd:
 	./etc/build/release_pachd
 
+release-job-shim:
+	./etc/build/release_job_shim
+
 release-manifest: install
 	@if [ -z $$VERSION ]; then \
 		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \

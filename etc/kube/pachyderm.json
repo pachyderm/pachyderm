@@ -3,8 +3,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "app": "",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": ""
     }
   },
   "kind": "ServiceAccount",
