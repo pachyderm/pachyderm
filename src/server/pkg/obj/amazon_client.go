@@ -77,7 +77,11 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 }
 
 func (c *amazonClient) Delete(name string) error {
-	return nil
+	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	return err
 }
 
 func (c *amazonClient) IsRetryable(err error) bool {
