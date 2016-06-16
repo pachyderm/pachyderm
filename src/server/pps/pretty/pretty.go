@@ -196,7 +196,7 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	return pretty.UnescapeHTML(string(result)), nil
 }
 
-var funcMap template.FuncMap = template.FuncMap{
+var funcMap = template.FuncMap{
 	"pipelineState":   pipelineState,
 	"jobState":        jobState,
 	"pipelineInputs":  pipelineInputs,

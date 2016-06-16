@@ -78,10 +78,8 @@ Repos are created with create-repo.`,
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
-			pretty.PrintRepoInfo(writer, repoInfo)
-			return writer.Flush()
+			pretty.PrintDetailedRepoInfo(repoInfo)
+			return nil
 		}),
 	}
 
