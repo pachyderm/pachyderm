@@ -10,7 +10,6 @@ import (
 	"text/tabwriter"
 	"text/template"
 
-	"github.com/Jeffail/gabs"
 	"github.com/fatih/color"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
@@ -56,6 +55,17 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
+func PrintJobInputHeader(w io.Writer) {
+	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\t\n")
+}
+
+func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
+	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
+	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
+	fmt.Fprintf(w, "%s\t", jobInput.Method.Partition)
+	fmt.Fprintf(w, "%t\t\n", jobInput.Method.Incremental)
+}
+
 func PrintPipelineInputHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
 }
@@ -66,32 +76,6 @@ func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
 }
 
-func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
-	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
-	PrintPipelineInputHeader(writer)
-	for _, input := range pipelineInfo.Inputs {
-		PrintPipelineInput(writer, input)
-	}
-	// can't error because buffer can't error on Write
-	writer.Flush()
-	return buffer.String()
-}
-
-func jobCounts(counts map[int32]int32) string {
-	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
-	fmt.Fprintf(writer, "PULLING\tRUNNING\tFAILURE\tSUCCESS\t\n")
-
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_PULLING)])
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_RUNNING)])
-	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_FAILURE)])
-	fmt.Fprintf(writer, "%d\t\n", counts[int32(ppsclient.JobState_JOB_SUCCESS)])
-	// can't error because buffer can't error on Write
-	writer.Flush()
-	return buffer.String()
-}
-
 func PrintJobCountsHeader(w io.Writer) {
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_PULLING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
@@ -100,30 +84,24 @@ func PrintJobCountsHeader(w io.Writer) {
 }
 
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
-	bytes, err := json.Marshal(jobInfo)
+	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
+		`ID: {{.Job.ID}}
+Parent: {{if .ParentJob}} {{.ParentJob.ID}} {{else}} - {{end}}
+Created: {{prettyDuration .CreatedAt}}
+State: {{jobState .State}}
+Parallelism: {{.Parallelism}}
+Inputs:
+{{jobInputs .}}Transform:
+{{prettyTransform .Transform}}`)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
-
-	obj, err := gabs.ParseJSON(bytes)
+	err = template.Execute(os.Stdout, jobInfo)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
-
-	// state is an integer; we want to print a string
-	_, err = obj.Set(ppsclient.JobState_name[int32(jobInfo.State)], "state")
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	fmt.Println(obj.StringIndent("", "    "))
-}
-
-var funcMap template.FuncMap = template.FuncMap{
-	"pipelineState":  pipelineState,
-	"pipelineInputs": pipelineInputs,
-	"prettyDuration": pretty.PrettyDuration,
-	"jobCounts":      jobCounts,
 }
 
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
@@ -133,11 +111,11 @@ Created: {{prettyDuration .CreatedAt}}
 State: {{pipelineState .State}}
 Parallelism: {{.Parallelism}}
 Inputs:
-{{pipelineInputs .}}
+{{pipelineInputs .}}Transform:
+{{prettyTransform .Transform}}
 Recent Error: {{.RecentError}}
 Job Counts:
-{{jobCounts .JobCounts}}
-`)
+{{jobCounts .JobCounts}}`)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -175,4 +153,60 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 		return color.New(color.FgRed).SprintFunc()("failed")
 	}
 	return "-"
+}
+
+func jobInputs(jobInfo *ppsclient.JobInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintJobInputHeader(writer)
+	for _, input := range jobInfo.Inputs {
+		PrintJobInput(writer, input)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintPipelineInputHeader(writer)
+	for _, input := range pipelineInfo.Inputs {
+		PrintPipelineInput(writer, input)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func jobCounts(counts map[int32]int32) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	fmt.Fprintf(writer, "PULLING\tRUNNING\tFAILURE\tSUCCESS\t\n")
+
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_PULLING)])
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_RUNNING)])
+	fmt.Fprintf(writer, "%d\t", counts[int32(ppsclient.JobState_JOB_FAILURE)])
+	fmt.Fprintf(writer, "%d\t\n", counts[int32(ppsclient.JobState_JOB_SUCCESS)])
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func prettyTransform(transform *ppsclient.Transform) (string, error) {
+	result, err := json.MarshalIndent(transform, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return pretty.UnescapeHTML(string(result)), nil
+}
+
+var funcMap template.FuncMap = template.FuncMap{
+	"pipelineState":   pipelineState,
+	"jobState":        jobState,
+	"pipelineInputs":  pipelineInputs,
+	"jobInputs":       jobInputs,
+	"prettyDuration":  pretty.PrettyDuration,
+	"jobCounts":       jobCounts,
+	"prettyTransform": prettyTransform,
 }
