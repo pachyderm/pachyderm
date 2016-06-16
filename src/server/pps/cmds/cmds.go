@@ -279,6 +279,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				); err != nil {
 					pkgcmd.ErrorAndExit("Error from CreatePipeline: %v", err)
 				}
+				fmt.Printf("Successfully created pipeline %s\n", request.Pipeline.Name)
 			}
 		},
 	}
