@@ -20,7 +20,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.PrettyDuration(repoInfo.Created),
+		pretty.Duration(repoInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
@@ -58,11 +58,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.PrettyDuration(commitInfo.Started),
+		pretty.Duration(commitInfo.Started),
 	)
 	finished := "\t"
 	if commitInfo.Finished != nil {
-		finished = fmt.Sprintf("%s\t", pretty.PrettyDuration(commitInfo.Finished))
+		finished = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Finished))
 	}
 	fmt.Fprintf(w, finished)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
@@ -104,7 +104,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.PrettyDuration(fileInfo.Modified),
+		pretty.Duration(fileInfo.Modified),
 	)
 	fmt.Fprint(w, "-\t")
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
@@ -139,7 +139,7 @@ func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.PrettyDuration(blockInfo.Created),
+		pretty.Duration(blockInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
 }
@@ -159,7 +159,7 @@ func fileType(fileType pfs.FileType) string {
 }
 
 var funcMap = template.FuncMap{
-	"prettyDuration": pretty.PrettyDuration,
-	"prettySize":     pretty.PrettySize,
+	"prettyDuration": pretty.Duration,
+	"prettySize":     pretty.Size,
 	"fileType":       fileType,
 }

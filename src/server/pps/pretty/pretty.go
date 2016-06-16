@@ -202,7 +202,7 @@ var funcMap = template.FuncMap{
 	"jobState":        jobState,
 	"pipelineInputs":  pipelineInputs,
 	"jobInputs":       jobInputs,
-	"prettyDuration":  pretty.PrettyDuration,
+	"prettyDuration":  pretty.Duration,
 	"jobCounts":       jobCounts,
 	"prettyTransform": prettyTransform,
 }
