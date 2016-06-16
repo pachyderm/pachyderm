@@ -393,10 +393,8 @@ Files can be read from finished commits with get-file.`,
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			pretty.PrintFileInfo(writer, fileInfo)
-			return writer.Flush()
+			pretty.PrintDetailedFileInfo(fileInfo)
+			return nil
 		}),
 	}
 	addShardFlags(inspectFile)
