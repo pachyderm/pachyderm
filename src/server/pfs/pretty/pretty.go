@@ -153,9 +153,8 @@ func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
 func fileType(fileType pfs.FileType) string {
 	if fileType == pfs.FileType_FILE_TYPE_REGULAR {
 		return "file"
-	} else {
-		return "dir"
 	}
+	return "dir"
 }
 
 var funcMap = template.FuncMap{

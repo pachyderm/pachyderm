@@ -1296,7 +1296,7 @@ func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{fmt.Sprintf(``, repo)},
+		[]string{"true"},
 		1,
 		[]*ppsclient.PipelineInput{
 			{
