@@ -301,6 +301,17 @@ func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *per
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
+		return nil, err
+	}
+	if _, err := a.getTerm(pipelineInfosTable).Delete().Run(a.session); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
