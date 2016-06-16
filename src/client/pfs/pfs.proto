@@ -284,6 +284,9 @@ service API {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+
+  // DeleteAll deletes everything
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 service InternalAPI {
@@ -325,6 +328,9 @@ service InternalAPI {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+
+  // DeleteAll deletes everything
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutBlockRequest {
@@ -372,6 +378,9 @@ service BlockAPI {
   rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
   rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
   rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
+
+  // DeleteAll deletes everything
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 
