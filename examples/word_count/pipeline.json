@@ -3,9 +3,10 @@
     "name": "wordcount_input"
   },
   "transform": {
+    "image": "derekchiang/job-shim:latest",
     "cmd": [ "wget",
-        "--recursive",
         "-e", "robots=off",
+        "--recursive",
         "--level", "1",
         "--adjust-extension",
         "--no-check-certificate",

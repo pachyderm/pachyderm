@@ -17,9 +17,9 @@ var (
 	reg *regexp.Regexp
 )
 
-func sanitize(word string) string {
-	sanitized := reg.ReplaceAllString(word, "")
-	return strings.ToLower(sanitized)
+func sanitize(word string) []string {
+	sanitized := reg.ReplaceAllString(word, " ")
+	return strings.Split(strings.ToLower(sanitized), " ")
 }
 
 func shuffle(slice []os.FileInfo) {
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	var err error
-	reg, err = regexp.Compile("[^A-Za-z]+")
+	reg, err = regexp.Compile(`[^A-Za-z]+`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,8 +68,9 @@ func main() {
 		count := 0
 		for scanner.Scan() {
 			count += 1
-			word := sanitize(scanner.Text())
-			wordMap[word] = wordMap[word] + 1
+			for _, word := range sanitize(scanner.Text()) {
+				wordMap[word] = wordMap[word] + 1
+			}
 		}
 
 		if err := scanner.Err(); err != nil {
