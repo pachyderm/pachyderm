@@ -92,7 +92,8 @@ State: {{jobState .State}}
 Parallelism: {{.Parallelism}}
 Inputs:
 {{jobInputs .}}Transform:
-{{prettyTransform .Transform}}`)
+{{prettyTransform .Transform}}
+`)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
