@@ -2,13 +2,16 @@ package pretty
 
 import (
 	"fmt"
+	"html/template"
 	"io"
+	"os"
 	"time"
 
 	"go.pedge.io/proto/time"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
 func PrintRepoHeader(w io.Writer) {
@@ -28,6 +31,24 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 		),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
+}
+
+func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) {
+	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
+		`Name: {{.Repo.Name}}
+Created: {{prettyDuration .Created}}
+Size: {{prettySize .SizeBytes}}{{if .Provenance}}
+Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
+`)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	err = template.Execute(os.Stdout, repoInfo)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
@@ -115,3 +136,8 @@ type uint64Slice []uint64
 func (s uint64Slice) Len() int           { return len(s) }
 func (s uint64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
+
+var funcMap = template.FuncMap{
+	"prettyDuration": pretty.PrettyDuration,
+	"prettySize":     pretty.PrettySize,
+}
