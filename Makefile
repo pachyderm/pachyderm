@@ -20,8 +20,8 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
-MANIFEST = etc/kube/pachyderm.json
-
+MANIFEST = etc/kube/pachyderm-versioned.json
+DEV_MANIFEST = etc/kube/pachyderm.json
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -53,7 +53,7 @@ update-test-deps:
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
-build: 
+build:
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
@@ -67,11 +67,23 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-tag-release: 
+tag-release:
 	./etc/build/tag_release
 
 release-pachd:
 	./etc/build/release_pachd
+
+release-job-shim:
+	./etc/build/release_job_shim
+
+release-manifest: install
+	@if [ -z $$VERSION ]; then \
+		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
+		exit 1; \
+	else \
+		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
+	fi
+	pach-deploy -s 32 > etc/kube/pachyderm.json
 
 docker-build-compile:
 	# Running locally, not on travis
@@ -114,9 +126,6 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-kube-cluster-assets: install
-	pach-deploy -s 32 >etc/kube/pachyderm.json
-
 launch: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
@@ -124,10 +133,18 @@ launch: check-kubectl install
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: launch-kube launch
+launch-dev: check-kubectl install
+	$(eval STARTTIME := $(shell date +%s))
+	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
+
+clean-launch-dev: check-kubectl
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(DEV_MANIFEST)
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -246,35 +263,67 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/ 
+	go-bindata -o assets.go -pkg pachyderm doc/
+
+lint:
+	@for pkg in $$(go list ./src/... | grep -v '/vendor/' ) ; do \
+		if [ "`golint $$pkg | tee /dev/stderr`" ] ; then \
+			echo "golint errors!" && echo && exit 1; \
+		fi \
+	done
 
 
-.PHONY: \
-	doc \
+.PHONY:
 	all \
 	version \
 	deps \
+	deps-client \
 	update-deps \
 	test-deps \
 	update-test-deps \
-	vendor-update \
-	vendor-without-update \
-	vendor \
+	build-clean-vendored-client \
 	build \
 	install \
-	docker-build-test \
+	install-doc \
+	homebrew \
+	tag-release \
+	release-pachd \
 	docker-build-compile \
-	docker-build \
+	docker-build-job-shim \
 	docker-build-pachd \
-	docker-push \
+	docker-build \
+	docker-build-proto \
+	docker-build-fruitstand \
+	docker-push-job-shim \
 	docker-push-pachd \
-	run \
+	docker-push \
+	launch-kube \
+	clean-launch-kube \
+	kube-cluster-assets \
 	launch \
+	launch-dev \
+	clean-launch \
+	full-clean-launch \
+	clean-pps-storage \
+	integration-tests \
 	proto \
+	protofix \
 	pretest \
-	docker-clean-test \
-	go-test \
-	go-test-long \
 	test \
-	test-long \
-	clean
+	test-client \
+	test-fuse \
+	test-local \
+	clean \
+	doc \
+	grep-data \
+	grep-example \
+	logs \
+	kubectl \
+	google-cluster-manifest \
+	google-cluster \
+	clean-google-cluster \
+	amazon-cluster-manifest \
+	amazon-cluster \
+	clean-amazon-cluster \
+	install-go-bindata \
+	assets

@@ -8,7 +8,7 @@ added the pipeline will automatically process it and materialize the results.
 
 ## Setup
 
-We assume that you have set up a Pachyderm cluster and have configured `pachctl` to talk to the cluster.  [Detailed instructions can be found here](../../SETUP.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../SETUP.md).
 
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
@@ -40,10 +40,12 @@ yet. Let's make one.
 ## Create a Repo
 
 `Repo`s are the highest level primitive in `pfs`. Like all primitives in pfs, they share
-their name with a primitive in Git and are designed to behave analagously.
-Generally, `repo`s should be dedicated to a single source of data, for example log
+their name with a primitive in Git and are designed to behave analogously.
+Generally, `repo`s should be dedicated to a single source of data such as log
 messages from a particular service. `Repo`s are dirt cheap so don't be shy about
-making them very specific. For this demo we'll simply create a `repo` called
+making them very specific. 
+
+For this demo we'll simply create a `repo` called
 "data" to hold the data we want to process:
 
 ```shell
@@ -122,9 +124,9 @@ transformations in it. The first transformation filters the sales logs into sepa
 oranges and bananas using `grep`. The second one uses `awk` to sum these sales numbers into a final sales count.
 
 ```
-+----------+     +------------+     +------------+
++----------+     +--------------+     +------------+
 |input data| --> |filter pipline| --> |sum pipeline|
-+----------+     +------------+     +------------+
++----------+     +--------------+     +------------+
 ```
 
 The `pipeline` we're creating can be found at [examples/fruit_stand/pipeline.json](pipeline.json).  Please open a new window to view the pipeline while we talk through it.
@@ -200,7 +202,7 @@ Next, we need to add more data. We're going to append more purchases from set2.t
 $ cat examples/fruit_stand/set2.txt > ~/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
-read "sales" from the latest commit to see all the puchases from `set1` and
+read "sales" from the latest commit to see all the purchases from `set1` and
 `set2`. We could also chose to read from the first commit to only see `set1`.
 
 ```shell

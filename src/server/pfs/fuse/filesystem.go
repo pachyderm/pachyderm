@@ -236,7 +236,7 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			protolion.Error(&FileSetAttr{&f.Node, errorToString(retErr)})
 		}
 	}()
-	if req.Size == 0 {
+	if req.Size == 0 && (req.Valid&fuse.SetattrSize) > 0 {
 		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
 			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
 		if err != nil {
@@ -288,12 +288,22 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
+func (f *file) delimiter() pfsclient.Delimiter {
+	if strings.HasSuffix(f.File.Path, ".json") {
+		return pfsclient.Delimiter_JSON
+	}
+	if strings.HasSuffix(f.File.Path, ".bin") {
+		return pfsclient.Delimiter_NONE
+	}
+	return pfsclient.Delimiter_LINE
+}
+
 func (f *file) touch() error {
 	w, err := f.fs.apiClient.PutFileWriter(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
-		pfsclient.Delimiter_LINE,
+		f.delimiter(),
 		f.fs.handleID,
 	)
 	if err != nil {
@@ -380,7 +390,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	}()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, pfsclient.Delimiter_LINE, h.f.fs.handleID)
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), h.f.fs.handleID)
 		if err != nil {
 			return err
 		}
