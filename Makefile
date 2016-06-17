@@ -53,7 +53,7 @@ update-test-deps:
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
-build: 
+build:
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
@@ -67,7 +67,7 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-tag-release: 
+tag-release:
 	./etc/build/tag_release
 
 release-pachd:
@@ -263,35 +263,67 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/ 
+	go-bindata -o assets.go -pkg pachyderm doc/
+
+lint:
+	@for pkg in $$(go list ./src/... | grep -v '/vendor/' ) ; do \
+		if [ "`golint $$pkg | tee /dev/stderr`" ] ; then \
+			echo "golint errors!" && echo && exit 1; \
+		fi \
+	done
 
 
-.PHONY: \
-	doc \
+.PHONY:
 	all \
 	version \
 	deps \
+	deps-client \
 	update-deps \
 	test-deps \
 	update-test-deps \
-	vendor-update \
-	vendor-without-update \
-	vendor \
+	build-clean-vendored-client \
 	build \
 	install \
-	docker-build-test \
+	install-doc \
+	homebrew \
+	tag-release \
+	release-pachd \
 	docker-build-compile \
-	docker-build \
+	docker-build-job-shim \
 	docker-build-pachd \
-	docker-push \
+	docker-build \
+	docker-build-proto \
+	docker-build-fruitstand \
+	docker-push-job-shim \
 	docker-push-pachd \
-	run \
+	docker-push \
+	launch-kube \
+	clean-launch-kube \
+	kube-cluster-assets \
 	launch \
+	launch-dev \
+	clean-launch \
+	full-clean-launch \
+	clean-pps-storage \
+	integration-tests \
 	proto \
+	protofix \
 	pretest \
-	docker-clean-test \
-	go-test \
-	go-test-long \
 	test \
-	test-long \
-	clean
+	test-client \
+	test-fuse \
+	test-local \
+	clean \
+	doc \
+	grep-data \
+	grep-example \
+	logs \
+	kubectl \
+	google-cluster-manifest \
+	google-cluster \
+	clean-google-cluster \
+	amazon-cluster-manifest \
+	amazon-cluster \
+	clean-amazon-cluster \
+	install-go-bindata \
+	assets
