@@ -54,11 +54,19 @@ func NewInCluster() (*APIClient, error) {
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
-	_, err := c.PfsAPIClient.DeleteAll(
+	if _, err := c.PpsAPIClient.DeleteAll(
 		context.Background(),
 		google_protobuf.EmptyInstance,
-	)
-	return sanitizeErr(err)
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	if _, err := c.PfsAPIClient.DeleteAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
 }
 
 func sanitizeErr(err error) error {
