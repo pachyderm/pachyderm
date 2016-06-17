@@ -848,44 +848,9 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistClient, err := a.getPersistClient()
-	if err != nil {
+	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
-
-	if request.Pipeline == nil {
-		return nil, fmt.Errorf("Pipeline cannot be nil")
-	}
-
-	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
-	// the same IDs, since kubernetes jobs simply use these IDs as their names
-	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
-		Pipeline: request.Pipeline,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-			return nil, err
-		}
-	}
-
-	// The reason we need to do this, is that if we don't, then if the very same
-	// pipeline is recreated, we won't actually create new jobs due to the fact
-	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
-	// name + inputs.  So the jobs will already be in the database, resulting
-	// in no new jobs being created, even though the output of those existing
-	// jobs might have already being removed.
-	// Therefore, we delete the job infos.
-	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
-		return nil, err
-	}
-
-	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
-		return nil, err
-	}
-
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -894,6 +859,15 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
+	}
+	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
+		if err := a.deletePipeline(ctx, client.NewPipeline(persistPipelineInfo.PipelineName)); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := persistClient.DeleteAll(ctx, request); err != nil {
 		return nil, err
@@ -1430,6 +1404,48 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			},
 		},
 	}
+}
+
+func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+
+	if pipeline == nil {
+		return fmt.Errorf("Pipeline cannot be nil")
+	}
+
+	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
+	// the same IDs, since kubernetes jobs simply use these IDs as their names
+	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		Pipeline: pipeline,
+	})
+	if err != nil {
+		return err
+	}
+	for _, jobInfo := range jobInfos.JobInfo {
+		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			return err
+		}
+	}
+
+	// The reason we need to do this, is that if we don't, then if the very same
+	// pipeline is recreated, we won't actually create new jobs due to the fact
+	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
+	// name + inputs.  So the jobs will already be in the database, resulting
+	// in no new jobs being created, even though the output of those existing
+	// jobs might have already being removed.
+	// Therefore, we delete the job infos.
+	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, pipeline); err != nil {
+		return err
+	}
+
+	if _, err := persistClient.DeletePipelineInfo(ctx, pipeline); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func labels(app string) map[string]string {
