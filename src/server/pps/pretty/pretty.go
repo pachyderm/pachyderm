@@ -83,7 +83,7 @@ func PrintJobCountsHeader(w io.Writer) {
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
 }
 
-func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
+func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}
@@ -95,17 +95,16 @@ Inputs:
 {{prettyTransform .Transform}}
 `)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
 	err = template.Execute(os.Stdout, jobInfo)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
+	return nil
 }
 
-func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
+func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}
 Created: {{prettyDuration .CreatedAt}}
@@ -119,14 +118,13 @@ Job Counts:
 {{jobCounts .JobCounts}}
 `)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
 	err = template.Execute(os.Stdout, pipelineInfo)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
+	return nil
 }
 
 func jobState(jobState ppsclient.JobState) string {

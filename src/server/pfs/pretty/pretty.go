@@ -25,7 +25,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
 
-func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) {
+func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}
 Created: {{prettyDuration .Created}}
@@ -33,14 +33,13 @@ Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 `)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
 	err = template.Execute(os.Stdout, repoInfo)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
+	return nil
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
@@ -68,7 +67,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
-func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) {
+func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}} {{end}} {{if .Branch}}
@@ -80,14 +79,13 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}{{if .Ca
 CANCELLED {{end}}
 `)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
 	err = template.Execute(os.Stdout, commitInfo)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
+	return nil
 }
 
 func PrintFileInfoHeader(w io.Writer) {
@@ -110,7 +108,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
-func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) {
+func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
 Type: {{fileType .FileType}}
@@ -120,14 +118,12 @@ Commit Modified: {{.CommitModified.Repo.Name}}/{{.CommitModified.ID}}{{if .Child
 Children: {{range .Children}} {{.Path}} {{end}} {{end}}
 `)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		return err
 	}
-	err = template.Execute(os.Stdout, fileInfo)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
+	if err := template.Execute(os.Stdout, fileInfo); err != nil {
+		return err
 	}
+	return nil
 }
 
 func PrintBlockInfoHeader(w io.Writer) {
