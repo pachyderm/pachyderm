@@ -71,7 +71,8 @@ Envronment variables:
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
 		Short: "Delete everything.",
-		Long:  "Delete everything.",
+		Long: `Delete all repos, commits, files, pipelines and jobs.
+This resets the cluster to its initial state.`,
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
