@@ -456,6 +456,11 @@ func replaceMethodAliases(decoder *json.Decoder) (string, error) {
 		return "", err
 	}
 
+	// No need to do anything if the pipeline does not specify inputs
+	if !pipeline.ExistsP("inputs") {
+		return pipeline.String(), nil
+	}
+
 	inputs := pipeline.S("inputs")
 	children, err := inputs.Children()
 	if err != nil {
