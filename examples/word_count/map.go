@@ -69,7 +69,9 @@ func main() {
 		for scanner.Scan() {
 			count += 1
 			for _, word := range sanitize(scanner.Text()) {
-				wordMap[word] = wordMap[word] + 1
+				if word != "" {
+					wordMap[word] = wordMap[word] + 1
+				}
 			}
 		}
 
