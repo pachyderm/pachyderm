@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var (
@@ -86,10 +87,15 @@ func main() {
 		}
 	}
 
+	var wg sync.WaitGroup
 	for word, count := range wordMap {
-		err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
+		wg.Add(1)
+		go func() {
+			err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
+	wg.Wait()
 }
