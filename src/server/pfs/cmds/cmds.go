@@ -78,8 +78,7 @@ Repos are created with create-repo.`,
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
-			pretty.PrintDetailedRepoInfo(repoInfo)
-			return nil
+			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
 	}
 
@@ -199,8 +198,7 @@ This layers the data in the commit over the data in the parent.`,
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
-			pretty.PrintDetailedCommitInfo(commitInfo)
-			return nil
+			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
 	}
 
@@ -393,8 +391,7 @@ Files can be read from finished commits with get-file.`,
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
-			pretty.PrintDetailedFileInfo(fileInfo)
-			return nil
+			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
 	addShardFlags(inspectFile)
