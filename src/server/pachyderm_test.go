@@ -1836,6 +1836,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
+
 func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1870,6 +1871,9 @@ func TestRestartAll(t *testing.T) {
 	// Wait for the cluster to stablize... ideally we shouldn't have to
 	// do that.
 	time.Sleep(20 * time.Second)
+
+	// need a new client because the old one will have a defunct connection
+	c = getPachClient(t)
 
 	_, err = c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
