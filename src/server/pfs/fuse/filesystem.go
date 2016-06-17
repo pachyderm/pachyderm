@@ -236,7 +236,7 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			protolion.Error(&FileSetAttr{&f.Node, errorToString(retErr)})
 		}
 	}()
-	if req.Size == 0 {
+	if req.Size == 0 && (req.Valid&fuse.SetattrSize) > 0 {
 		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
 			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
 		if err != nil {
