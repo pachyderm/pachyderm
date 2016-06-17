@@ -71,7 +71,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}} {{end}}
+Parent: {{.ParentCommit.ID}} {{end}} {{if .Branch}}
 Branch: {{.Branch}} {{end}}
 Started: {{prettyDuration .Started}}{{if .Finished}}
 Finished: {{prettyDuration .Finished}} {{end}}
