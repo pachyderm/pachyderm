@@ -751,7 +751,9 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 	// Because we want to make sure we delete the higher indexes first we traverse in reverse
 	sort.Sort(byProvenance(repoInfos))
 	for i := range repoInfos {
-		d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards)
+		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards); err != nil {
+			return err
+		}
 	}
 	return nil
 }
