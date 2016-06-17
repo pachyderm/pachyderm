@@ -29,8 +29,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "etcd"
+          "app": "etcd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -49,7 +49,7 @@
             "command": [
               "/usr/local/bin/etcd",
               "--bind-addr=0.0.0.0:2379",
-              "--data-dir=/var/etcd/data"
+              "--data-dir=/var/data/etcd"
             ],
             "ports": [
               {
@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -241,8 +241,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "suite": "pachyderm",
-        "app": "pachd-init"
+        "app": "pachd-init",
+        "suite": "pachyderm"
       }
     },
     "template": {
@@ -315,8 +315,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pachd"
+      "app": "pachd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
