@@ -27,6 +27,8 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 const (
@@ -1789,6 +1791,19 @@ func scalePachd(t *testing.T, k *kube.Client) {
 	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
 	_, err = rc.Update(pachdRc)
 	require.NoError(t, err)
+}
+
+func restartAll(t *testing.T, k *kube.Client) {
+	podsInterface := k.Pods(api.NamespaceDefault)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labels.Everything(),
+			FieldSelector: fields.Everything(),
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, &api.DeleteOptions{}))
+	}
 }
 
 func TestScrubbedErrors(t *testing.T) {
