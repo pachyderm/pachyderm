@@ -361,7 +361,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			if filePath == "" {
+			if filePath == "" || filePath == "-" {
 				if len(args) < 3 {
 					return errors.New("either a path or the -f flag needs to be provided")
 				}
