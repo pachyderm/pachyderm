@@ -1841,8 +1841,7 @@ func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
-
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestRestartAll_data")
