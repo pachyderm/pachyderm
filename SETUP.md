@@ -87,14 +87,6 @@ $ make launch-kube
 
 This step can take a while the first time you run it, since some Docker images need to be pulled.
 
-### Optional: Build Docker images
-
-It's very possible that your locally checked-out version of Pachyderm is not identical to the latest stable release. As such, it is highly recommended that you build `pachyderm/pachd` locally to avoid version mismatches. You can do this by running:
-
-```shell
-$ make docker-build-pachd
-```
-
 ### Deploy Pachyderm
 
 From the root of this repo you can deploy Pachyderm on Kubernetes with:
@@ -302,6 +294,18 @@ pachctl list-repo
 # should see "test"
 ```
 
-## Next Step
+## Additional notes
 
-Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
+### Building from HEAD
+
+If you are developing against the `master` branch rather than a tagged release of Pachyderm, it is necessary to build your own Docker images in order to deploy. You can do this by running:
+
+```shell
+$ make docker-build-pachd
+```
+
+If you aren't deploying Pachyderm locally, you will also need to push your images to a Docker Registry and modify your Pipeline manifest files to point to the new images.
+
+### Next Steps
+
+Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md) which will guide you through submitting and running your first Pachyderm Pipeline.
