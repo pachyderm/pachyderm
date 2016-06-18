@@ -1,9 +1,11 @@
 package cmds
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -349,19 +351,45 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
+	var filePath string
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name commit-id path/to/file",
-		Short: "Put a file from stdin",
-		Long:  "Put a file from stdin. commit-id must be a writeable commit.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
+		Short: "Put a file",
+		Long:  "Put a file.  If the -f flag is not used, the data is read from stdin.  If the -f flag is used and a path is not provided, the base name of the file is used as the path.  commit-id must be an open commit.",
+		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+			if filePath == "" || filePath == "-" {
+				if len(args) < 3 {
+					return errors.New("either a path or the -f flag needs to be provided")
+				}
+				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+				return err
+			}
+			f, err := os.Open(filePath)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			var p string
+			if len(args) == 3 {
+				p = args[2]
+			} else {
+				// If a path is not provided,
+				// use the basename of the file as the path
+				p = filepath.Base(filePath)
+			}
+			_, err = client.PutFile(args[0], args[1], p, f)
 			return err
 		}),
 	}
+	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
 
 	var fromCommitID string
 	var unsafe bool
