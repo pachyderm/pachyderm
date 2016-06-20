@@ -1,13 +1,18 @@
 package pretty
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"strings"
+	"text/tabwriter"
+	"text/template"
 
-	"github.com/Jeffail/gabs"
 	"github.com/fatih/color"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
 func PrintJobHeader(w io.Writer) {
@@ -21,7 +26,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
-	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo))
+	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
 func PrintPipelineHeader(w io.Writer) {
@@ -47,51 +52,83 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	} else {
 		fmt.Fprintf(w, "\t")
 	}
-	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo))
+	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
-func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) {
-	bytes, err := json.Marshal(jobInfo)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	obj, err := gabs.ParseJSON(bytes)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	// state is an integer; we want to print a string
-	_, err = obj.Set(ppsclient.JobState_name[int32(jobInfo.State)], "state")
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	fmt.Println(obj.StringIndent("", "    "))
+func PrintJobInputHeader(w io.Writer) {
+	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\t\n")
 }
 
-func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) {
-	bytes, err := json.Marshal(pipelineInfo)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	obj, err := gabs.ParseJSON(bytes)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	// state is an integer; we want to print a string
-	_, err = obj.Set(ppsclient.PipelineState_name[int32(pipelineInfo.State)], "state")
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	fmt.Println(obj.StringIndent("", "    "))
+func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
+	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
+	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
+	fmt.Fprintf(w, "%s\t", jobInput.Method.Partition)
+	fmt.Fprintf(w, "%t\t\n", jobInput.Method.Incremental)
 }
 
-func jobState(jobInfo *ppsclient.JobInfo) string {
-	switch jobInfo.State {
+func PrintPipelineInputHeader(w io.Writer) {
+	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
+}
+
+func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
+	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
+	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
+}
+
+func PrintJobCountsHeader(w io.Writer) {
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_PULLING))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_FAILURE))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
+}
+
+func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
+	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
+		`ID: {{.Job.ID}} {{if .ParentJob}}
+Parent: {{.ParentJob.ID}} {{end}}
+Created: {{prettyDuration .CreatedAt}}
+State: {{jobState .State}}
+Parallelism: {{.Parallelism}}
+Inputs:
+{{jobInputs .}}Transform:
+{{prettyTransform .Transform}}
+`)
+	if err != nil {
+		return err
+	}
+	err = template.Execute(os.Stdout, jobInfo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
+	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
+		`Name: {{.Pipeline.Name}}
+Created: {{prettyDuration .CreatedAt}}
+State: {{pipelineState .State}}
+Parallelism: {{.Parallelism}}
+Inputs:
+{{pipelineInputs .}}Transform:
+{{prettyTransform .Transform}}
+{{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
+Job Counts:
+{{jobCounts .JobCounts}}
+`)
+	if err != nil {
+		return err
+	}
+	err = template.Execute(os.Stdout, pipelineInfo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func jobState(jobState ppsclient.JobState) string {
+	switch jobState {
 	case ppsclient.JobState_JOB_PULLING:
 		return color.New(color.FgYellow).SprintFunc()("pulling")
 	case ppsclient.JobState_JOB_RUNNING:
@@ -104,8 +141,8 @@ func jobState(jobInfo *ppsclient.JobInfo) string {
 	return "-"
 }
 
-func pipelineState(pipelineInfo *ppsclient.PipelineInfo) string {
-	switch pipelineInfo.State {
+func pipelineState(pipelineState ppsclient.PipelineState) string {
+	switch pipelineState {
 	case ppsclient.PipelineState_PIPELINE_IDLE:
 		return color.New(color.FgYellow).SprintFunc()("idle")
 	case ppsclient.PipelineState_PIPELINE_RUNNING:
@@ -116,4 +153,54 @@ func pipelineState(pipelineInfo *ppsclient.PipelineInfo) string {
 		return color.New(color.FgRed).SprintFunc()("failure")
 	}
 	return "-"
+}
+
+func jobInputs(jobInfo *ppsclient.JobInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintJobInputHeader(writer)
+	for _, input := range jobInfo.Inputs {
+		PrintJobInput(writer, input)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintPipelineInputHeader(writer)
+	for _, input := range pipelineInfo.Inputs {
+		PrintPipelineInput(writer, input)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
+func jobCounts(counts map[int32]int32) string {
+	var buffer bytes.Buffer
+	for i := int32(ppsclient.JobState_JOB_PULLING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
+		fmt.Fprintf(&buffer, "%s: %d\t", jobState(ppsclient.JobState(i)), counts[i])
+	}
+	return buffer.String()
+}
+
+func prettyTransform(transform *ppsclient.Transform) (string, error) {
+	result, err := json.MarshalIndent(transform, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return pretty.UnescapeHTML(string(result)), nil
+}
+
+var funcMap = template.FuncMap{
+	"pipelineState":   pipelineState,
+	"jobState":        jobState,
+	"pipelineInputs":  pipelineInputs,
+	"jobInputs":       jobInputs,
+	"prettyDuration":  pretty.Duration,
+	"jobCounts":       jobCounts,
+	"prettyTransform": prettyTransform,
 }
