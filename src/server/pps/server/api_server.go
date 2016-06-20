@@ -178,7 +178,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	jobID := getJobID(request)
 	if !request.Force {
 		_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
-			Job: &ppsclient.Job{jobID},
+			Job: client.NewJob(jobID),
 		})
 		if err == nil {
 			// the job already exists. we simply return
@@ -899,7 +899,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
 		IncludeInitial: true,
-		Shard:          &persist.Shard{shard},
+		Shard:          &persist.Shard{Number: shard},
 	})
 	if err != nil {
 		return err
@@ -1007,8 +1007,10 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Parallelism: persistPipelineInfo.Parallelism,
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
+		CreatedAt:   persistPipelineInfo.CreatedAt,
 		State:       persistPipelineInfo.State,
 		RecentError: persistPipelineInfo.RecentError,
+		JobCounts:   persistPipelineInfo.JobCounts,
 	}
 }
 

@@ -331,6 +331,24 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclie
 	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
+
+	cursor, err := a.getTerm(jobInfosTable).
+		GetAllByIndex(pipelineNameIndex, request.Name).
+		Group("State").
+		Count().
+		Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	var results []map[string]int32
+	if err := cursor.All(&results); err != nil {
+		return nil, err
+	}
+	pipelineInfo.JobCounts = make(map[int32]int32)
+	for _, result := range results {
+		pipelineInfo.JobCounts[result["group"]] = result["reduction"]
+	}
+
 	return pipelineInfo, nil
 }
 

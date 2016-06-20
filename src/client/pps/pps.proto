@@ -94,6 +94,7 @@ message PipelineInfo {
   google.protobuf.Timestamp created_at = 6;
   PipelineState state = 7;
   string recent_error = 8;
+  map<int32, int32> job_counts = 9;
 }
 
 message PipelineInfos {
