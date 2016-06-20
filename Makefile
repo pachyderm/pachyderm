@@ -192,7 +192,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
+test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
 test-client:
 	rm -rf src/client/vendor
