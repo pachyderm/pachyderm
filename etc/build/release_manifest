@@ -11,4 +11,5 @@ echo "--- Releasing manifest w version: $version"
 pach-deploy -s 32 --version `cat VERSION` > etc/kube/pachyderm-versioned.json
 pach-deploy -s 32 > etc/kube/pachyderm.json
 git commit -a -m "Updated manifest to version `cat VERSION`"
-
+# TODO
+# Clone www repo / copy manifest there / deploy
