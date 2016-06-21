@@ -61,7 +61,10 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.models.rnn.ptb import reader
+import sys
+import os
+sys.path.insert(0, os.path.abspath('..'))
+from code import reader
 
 flags = tf.flags
 logging = tf.logging
@@ -132,6 +135,8 @@ class PTBModel(object):
         [tf.ones([batch_size * num_steps])])
     self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
+    self.logits = logits
+    self.probs = tf.nn.softmax(logits)
 
     if not is_training:
       return
@@ -239,7 +244,7 @@ class TestConfig(object):
   vocab_size = 10000
 
 
-def run_epoch(session, m, data, eval_op, verbose=False):
+def run_epoch(session, m, data, eval_op, id_to_word, verbose=False):
   """Runs the model on the given data."""
   epoch_size = ((len(data) // m.batch_size) - 1) // m.num_steps
   start_time = time.time()
@@ -248,7 +253,7 @@ def run_epoch(session, m, data, eval_op, verbose=False):
   state = m.initial_state.eval()
   for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size,
                                                     m.num_steps)):
-    cost, state, _ = session.run([m.cost, m.final_state, eval_op],
+    cost, state, logits, probs, _ = session.run([m.cost, m.final_state, m.logits, m.probs, eval_op],
                                  {m.input_data: x,
                                   m.targets: y,
                                   m.initial_state: state})
@@ -259,6 +264,9 @@ def run_epoch(session, m, data, eval_op, verbose=False):
       print("%.3f perplexity: %.3f speed: %.0f wps" %
             (step * 1.0 / epoch_size, np.exp(costs / iters),
              iters * m.batch_size / (time.time() - start_time)))
+      chosen_word = np.argmax(probs, 1)
+      chosen_word = chosen_word[-1]
+      print("chosen word : %s" %(id_to_word[chosen_word]))
 
   return np.exp(costs / iters)
 
@@ -281,7 +289,7 @@ def main(_):
     raise ValueError("Must set --data_path to PTB data directory")
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
-  train_data, valid_data, test_data, _ = raw_data
+  train_data, valid_data, test_data, vocab, id_to_word = raw_data
 
   config = get_config()
   eval_config = get_config()
@@ -304,15 +312,17 @@ def main(_):
       m.assign_lr(session, config.learning_rate * lr_decay)
 
       print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-      train_perplexity = run_epoch(session, m, train_data, m.train_op,
+      train_perplexity = run_epoch(session, m, train_data, m.train_op, id_to_word,
                                    verbose=True)
       print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-      valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
+      valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op(), id_to_word)
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-    test_perplexity = run_epoch(session, mtest, test_data, tf.no_op())
+    test_perplexity = run_epoch(session, mtest, test_data, tf.no_op(), id_to_word)
     print("Test Perplexity: %.3f" % test_perplexity)
 
 
 if __name__ == "__main__":
   tf.app.run()
+
+

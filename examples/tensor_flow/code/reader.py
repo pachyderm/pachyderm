@@ -25,7 +25,6 @@ import os
 import numpy as np
 import tensorflow as tf
 
-
 def _read_words(filename):
   with tf.gfile.GFile(filename, "r") as f:
     return f.read().replace("\n", "<eos>").split()
@@ -39,8 +38,9 @@ def _build_vocab(filename):
 
   words, _ = list(zip(*count_pairs))
   word_to_id = dict(zip(words, range(len(words))))
+  id_to_word = dict(zip(range(len(words)), words))
 
-  return word_to_id
+  return word_to_id, id_to_word
 
 
 def _file_to_word_ids(filename, word_to_id):
@@ -66,17 +66,16 @@ def ptb_raw_data(data_path=None):
     tuple (train_data, valid_data, test_data, vocabulary)
     where each of the data objects can be passed to PTBIterator.
   """
-
   train_path = os.path.join(data_path, "ptb.train.txt")
   valid_path = os.path.join(data_path, "ptb.valid.txt")
   test_path = os.path.join(data_path, "ptb.test.txt")
 
-  word_to_id = _build_vocab(train_path)
+  word_to_id, id_to_word = _build_vocab(train_path)
   train_data = _file_to_word_ids(train_path, word_to_id)
   valid_data = _file_to_word_ids(valid_path, word_to_id)
   test_data = _file_to_word_ids(test_path, word_to_id)
   vocabulary = len(word_to_id)
-  return train_data, valid_data, test_data, vocabulary
+  return train_data, valid_data, test_data, vocabulary, id_to_word
 
 
 def ptb_iterator(raw_data, batch_size, num_steps):
