@@ -252,6 +252,7 @@ def run_epoch(session, m, data, eval_op, id_to_word, verbose=False):
   iters = 0
   state = m.initial_state.eval()
   final_chosen_word = ""
+  print("batch size: %s" % m.batch_size)
   for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size,
                                                     m.num_steps)):
     cost, state, logits, probs, _ = session.run([m.cost, m.final_state, m.logits, m.probs, eval_op],
@@ -324,6 +325,8 @@ def main(_):
       valid_perplexity, _ = run_epoch(session, mvalid, valid_data, tf.no_op(), id_to_word)
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
+    print("test model")
+    print(mtest)
     test_perplexity, _ = run_epoch(session, mtest, test_data, tf.no_op(), id_to_word)
     print("Test Perplexity: %.3f" % test_perplexity)
 
