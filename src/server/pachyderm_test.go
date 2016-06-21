@@ -1746,6 +1746,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
+	fmt.Printf("pipelineInfo.JobCounts: %+v", pipelineInfo.JobCounts)
 	require.Equal(t, pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)], int32(1))
 }
 
