@@ -1742,12 +1742,22 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
 
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	fmt.Printf("pipelineInfo.JobCounts: %+v", pipelineInfo.JobCounts)
-	require.Equal(t, pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)], int32(1))
+	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)])
 }
 
 func TestJobState(t *testing.T) {
