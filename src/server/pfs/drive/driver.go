@@ -1072,10 +1072,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
-	// We return NotFound if it's a regular file but we did not find any blocks.
-	// Note that even an empty file contains one (empty) block.  We did not find
-	// blocks because the blocks in this file did not match the filter shard.
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
+	// We return NotFound if it's a regular file but its blocks do not match the
+	// given filter shard
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && (filterShard != nil && filterShard.BlockNumber > 1) {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil
