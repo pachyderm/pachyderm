@@ -67,6 +67,23 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
+release:
+	if git diff-index --quiet HEAD --; then
+		@# No changes
+		make install
+		pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " " > VERSION
+		# Placeholder for 'make release-pachctl'
+		make release-pachd
+		make release-job-shim
+		make $$VERSION=`cat VERSION` release-manifest
+		# Todo - release-manifest should clone www and push it to s3
+		rm VERSION
+	else
+		@# Changes
+		@echo "Local changes not committed. Aborting."
+		exit 1
+	fi
+
 tag-release:
 	./etc/build/tag_release
 
