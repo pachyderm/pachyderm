@@ -1,0 +1,12 @@
+#!/bin/bash
+
+version=`cat VERSION`
+
+if [ -z $version ]
+then
+        echo "No version found for this commit! Aborting release"
+        exit 1
+fi
+
+echo "--- Releasing pachctl w version: $version"
+echo "PACHCTL Release Not yet implemented"

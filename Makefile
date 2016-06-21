@@ -67,25 +67,24 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-release:
+release: release-version release-pachd release-job-shim release-manifest release-pachctl
+	./etc/build/tag_release
+	rm VERSION
+
+release-version:
 	if git diff-index --quiet HEAD --; then
 		@# No changes
+		git log | head -n 1 | cut -f 2 -d " " > COMMITID
 		make install
 		pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " " > VERSION
-		# Placeholder for 'make release-pachctl'
-		make release-pachd
-		make release-job-shim
-		make $$VERSION=`cat VERSION` release-manifest
-		# Todo - release-manifest should clone www and push it to s3
-		rm VERSION
+		git tag | grep `cat VERSION`
+		# TODO(SJ)
+		# if found, exit 1 --- tag already exists
 	else
 		@# Changes
 		@echo "Local changes not committed. Aborting."
 		exit 1
 	fi
-
-tag-release:
-	./etc/build/tag_release
 
 release-pachd:
 	./etc/build/release_pachd
@@ -93,14 +92,11 @@ release-pachd:
 release-job-shim:
 	./etc/build/release_job_shim
 
-release-manifest: install
-	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
-		exit 1; \
-	else \
-		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
-	fi
-	pach-deploy -s 32 > etc/kube/pachyderm.json
+release-manifest:
+	./etc/build/release_manifest
+
+release-pachctl:
+	./etc/build/release_pachctl
 
 docker-build-compile:
 	# Running locally, not on travis
