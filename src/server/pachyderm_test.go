@@ -1807,6 +1807,27 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	TestJob(t)
 }
 
+func TestDeleteAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	repo := uniqueString("TestDeleteAfterMembershipChange")
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	k := getKubeClient(t)
+	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
+
+	c = getPachClient(t)
+	require.NoError(t, c.DeleteRepo(repo))
+}
+
 // scalePachd scales the number of pachd nodes to anywhere from 1 to
 // twice the original number
 // It's guaranteed that the new replica number will be different from
