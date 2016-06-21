@@ -10,3 +10,14 @@ fi
 
 echo "--- Releasing pachctl w version: $version"
 echo "PACHCTL Release Not yet implemented"
+
+# TODO:
+# Releasing pachctl should do the following:
+#
+# 1) cross compile for all supported targets
+# 2) clone pachyderm/homebrew-tap (and apt-get analogue)
+#    a) update the formala / checksums / URLs
+#    b) push the cross compiled binaries where they need to be to get valid URLs (probably a way to host these w github)
+#    c) commit and push these changes (to homebrew-tap / etc)
+
+
