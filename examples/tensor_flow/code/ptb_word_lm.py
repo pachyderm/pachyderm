@@ -273,6 +273,7 @@ def run_epoch(session, m, data, eval_op, verbose=False):
     chosen_word = np.argmax(probs, 1)
     chosen_word = chosen_word[-1]
     final_chosen_word = chosen_word
+    break
 
   return np.exp(costs / iters), final_chosen_word
 
@@ -295,7 +296,7 @@ def main(_):
     raise ValueError("Must set --data_path to PTB data directory")
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
-  train_data, valid_data, test_data, vocab = raw_data
+  train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
   print("Size of vocabulary: %d" % (vocab))
   config = get_config()
   eval_config = get_config()
@@ -329,14 +330,13 @@ def main(_):
     test_perplexity, _ = run_epoch(session, mtest, test_data, tf.no_op())
     print("Test Perplexity: %.3f" % test_perplexity)
 
-    new_sentence = []
-    cumulative_sentence = test_data
+    next_word = word_to_id["<bos>"]
+    cumulative_sentence = []
     for j in range(100):
         # Todo - think I need to adjust the batch size down?
-        perplexity, next_word = run_epoch(session, mtest, cumulative_sentence, tf.no_op())
-        print("p (%d), word (%s)" % (perplexity, next_word))
-        cumulative_sentence.append(next_word)
-        new_sentence.append(next_word)
+        perplexity, next_word = run_epoch(session, mtest, [[next_word]], tf.no_op())
+        print("p (%d), word (%s)" % (perplexity, id_to_word(next_word)))
+        cumulative_sentence.append(id_to_word(next_word))
     print("Generated sentence: %s" % (" ".join(cumulative_sentence)))
 
 if __name__ == "__main__":
