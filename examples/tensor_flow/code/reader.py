@@ -27,8 +27,8 @@ import tensorflow as tf
 
 def _read_words(filename):
   with tf.gfile.GFile(filename, "r") as f:
-    return f.read().replace("\n", "<eos>").split()
-
+    tokens = ["<bos> "] + f.read().replace("\n", "<eos> <bos>").split()
+    return tokens[0:-1] 
 
 def _build_vocab(filename):
   data = _read_words(filename)
