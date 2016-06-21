@@ -73,7 +73,7 @@ flags.DEFINE_string(
     "model", "small",
     "A type of model. Possible options are: small, medium, large.")
 flags.DEFINE_string("data_path", None, "data_path")
-
+flags.DEFINE_string("generate", False, "Whether or not to emit new sentence")
 FLAGS = flags.FLAGS
 
 
@@ -137,6 +137,7 @@ class PTBModel(object):
     self._final_state = state
     self.logits = logits
     self.probs = tf.nn.softmax(logits)
+    self.saver = tf.train.Saver(tf.all_variables())
 
     if not is_training:
       return
@@ -295,6 +296,13 @@ def main(_):
   if not FLAGS.data_path:
     raise ValueError("Must set --data_path to PTB data directory")
 
+  if not FLAGS.generate:
+    train()
+  else:
+    generate()
+
+def train():
+
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
   print("Size of vocabulary: %d" % (vocab))
@@ -324,20 +332,23 @@ def main(_):
       print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
       valid_perplexity, _ = run_epoch(session, mvalid, valid_data, tf.no_op())
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
+      m.saver.save(session, "checkpoints/ptb", global_step=i)
 
     print("test model")
     print(mtest)
     test_perplexity, _ = run_epoch(session, mtest, test_data, tf.no_op())
     print("Test Perplexity: %.3f" % test_perplexity)
 
-    next_word = word_to_id["<bos>"]
-    cumulative_sentence = []
-    for j in range(100):
-        # Todo - think I need to adjust the batch size down?
-        perplexity, next_word = run_epoch(session, mtest, [[next_word]], tf.no_op())
-        print("p (%d), word (%s)" % (perplexity, id_to_word(next_word)))
-        cumulative_sentence.append(id_to_word(next_word))
-    print("Generated sentence: %s" % (" ".join(cumulative_sentence)))
+def generate():
+  next_word = word_to_id["<bos>"]
+  cumulative_sentence = []
+  for j in range(100):
+    # Todo - think I need to adjust the batch size down?
+    perplexity, next_word = run_epoch(session, mtest, [[next_word]], tf.no_op())
+    print("p (%d), word (%s)" % (perplexity, id_to_word(next_word)))
+    cumulative_sentence.append(id_to_word(next_word))
+  print("Generated sentence: %s" % (" ".join(cumulative_sentence)))
+
 
 if __name__ == "__main__":
   tf.app.run()
