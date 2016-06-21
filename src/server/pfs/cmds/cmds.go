@@ -1,9 +1,11 @@
 package cmds
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -78,10 +80,7 @@ Repos are created with create-repo.`,
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
-			pretty.PrintRepoInfo(writer, repoInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
 	}
 
@@ -201,10 +200,7 @@ This layers the data in the commit over the data in the parent.`,
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			pretty.PrintCommitInfo(writer, commitInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
 	}
 
@@ -349,19 +345,45 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
+	var filePath string
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name commit-id path/to/file",
-		Short: "Put a file from stdin",
-		Long:  "Put a file from stdin. commit-id must be a writeable commit.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
+		Short: "Put a file",
+		Long:  "Put a file.  If the -f flag is not used, the data is read from stdin.  If the -f flag is used and a path is not provided, the base name of the file is used as the path.  commit-id must be an open commit.",
+		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+			if filePath == "" || filePath == "-" {
+				if len(args) < 3 {
+					return errors.New("either a path or the -f flag needs to be provided")
+				}
+				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+				return err
+			}
+			f, err := os.Open(filePath)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			var p string
+			if len(args) == 3 {
+				p = args[2]
+			} else {
+				// If a path is not provided,
+				// use the basename of the file as the path
+				p = filepath.Base(filePath)
+			}
+			_, err = client.PutFile(args[0], args[1], p, f)
 			return err
 		}),
 	}
+	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
 
 	var fromCommitID string
 	var unsafe bool
@@ -397,10 +419,7 @@ Files can be read from finished commits with get-file.`,
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			pretty.PrintFileInfo(writer, fileInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
 	addShardFlags(inspectFile)

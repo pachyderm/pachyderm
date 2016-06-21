@@ -144,8 +144,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			if jobInfo == nil {
 				pkgcmd.ErrorAndExit("Job %s not found.", args[0])
 			}
-			pretty.PrintDetailedJobInfo(jobInfo)
-			return nil
+			return pretty.PrintDetailedJobInfo(jobInfo)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -301,8 +300,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if pipelineInfo == nil {
 				pkgcmd.ErrorAndExit("Pipeline %s not found.", args[0])
 			}
-			pretty.PrintDetailedPipelineInfo(pipelineInfo)
-			return nil
+			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
 		}),
 	}
 

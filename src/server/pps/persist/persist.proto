@@ -50,6 +50,7 @@ message PipelineInfo {
   uint64 shard = 7;  // this is which shard the pipeline is assigned to
   pps.PipelineState state = 8;
   string recent_error = 9;
+  map<int32, int32> job_counts = 10;
 }
 
 message PipelineInfoChange {
