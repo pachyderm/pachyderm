@@ -296,16 +296,17 @@ def main(_):
   if not FLAGS.data_path:
     raise ValueError("Must set --data_path to PTB data directory")
 
-  if not FLAGS.generate:
-    train()
-  else:
-    generate()
-
-def train():
-
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
   print("Size of vocabulary: %d" % (vocab))
+
+  if not FLAGS.generate:
+    train(train_data, valid_data, test_data)
+  else:
+    generate(word_to_id, id_to_word)
+
+def train(train_data, valid_data, test_data):
+
   config = get_config()
   eval_config = get_config()
   eval_config.batch_size = 1
@@ -332,14 +333,57 @@ def train():
       print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
       valid_perplexity, _ = run_epoch(session, mvalid, valid_data, tf.no_op())
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
-      m.saver.save(session, "checkpoints/ptb", global_step=i)
+      m.saver.save(session, "ptb.ckpt")
 
     print("test model")
     print(mtest)
     test_perplexity, _ = run_epoch(session, mtest, test_data, tf.no_op())
     print("Test Perplexity: %.3f" % test_perplexity)
 
-def generate():
+def generate(word_to_id, id_to_word):
+
+  config = get_config()
+  config.num_steps = 1
+  config.batch_size = 1
+  with tf.Graph().as_default(), tf.Session() as session:
+
+      with tf.variable_scope("model"):
+          m = PTBModel(is_training=False, config=config)
+
+      m.saver.restore(session, "ptb.ckpt")
+
+      probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
+                                                {m.input_data: np.zeros((1, 1)),
+                                                 m.targets: np.zeros((1, 1)),
+                                                 m.initial_state: m.initial_state.eval()})
+      print("probs shape: ")
+      print(probs.shape)
+      print("initial state shape:")
+      print(final_state.shape)
+      # sample from our softmax probs
+      #next_letter = np.random.choice(27, p=probs[0])
+      next_word = word_to_id["<bos>"]
+      sentence = [next_word]
+      while next_word != word_to_id["<eos>"]:
+          print("---")
+          print("using input next_word: %d" % next_word)
+          probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
+                                                    {m.input_data: [[next_word]],
+                                                     m.targets: np.zeros((1, 1)),
+                                                     m.initial_state: final_state})
+          next_word = np.argmax(probs, 1)
+          print("word: %s" % id_to_word[next_word[0]])
+          print("next initial state shape:")
+          print(final_state.shape)
+          print("probs shape: ")
+          print(probs.shape)
+          #next_word = np.random.choice(27, p=probs[0])
+          sentence += [next_word[0]]
+
+      print(map(lambda x: id_to_word[x], sentence))
+
+
+"""
   next_word = word_to_id["<bos>"]
   cumulative_sentence = []
   for j in range(100):
@@ -348,7 +392,7 @@ def generate():
     print("p (%d), word (%s)" % (perplexity, id_to_word(next_word)))
     cumulative_sentence.append(id_to_word(next_word))
   print("Generated sentence: %s" % (" ".join(cumulative_sentence)))
-
+"""
 
 if __name__ == "__main__":
   tf.app.run()
