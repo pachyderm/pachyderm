@@ -647,7 +647,8 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 		}
 		if ok {
 			// how can a listed child return not found?
-			// regular files without any blocks in this shard count as not found
+			// regular files that don't match this shard or don't have any
+			// blocks in this shard count as not found
 			continue
 		}
 		result = append(result, fileInfo)
@@ -1069,6 +1070,12 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		commit = diffInfo.ParentCommit
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+	}
+	// We return NotFound if it's a regular file but we did not find any blocks.
+	// Note that even an empty file contains one (empty) block.  We did not find
+	// blocks because the blocks in this file did not match the filter shard.
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil
