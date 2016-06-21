@@ -30,6 +30,27 @@ func shuffle(slice []os.FileInfo) {
 	}
 }
 
+type Pair struct {
+	word       string
+	occurences int
+}
+
+func worker(outputDir string, wg *sync.WaitGroup, jobs chan Pair) {
+	for {
+		select {
+		case pair, ok := <-jobs:
+			if !ok {
+				wg.Done()
+				return
+			}
+			err := ioutil.WriteFile(filepath.Join(outputDir, pair.word), []byte(strconv.Itoa(pair.occurences)+"\n"), 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 	args := flag.Args()
@@ -87,15 +108,18 @@ func main() {
 		}
 	}
 
+	jobs := make(chan Pair, 1000)
 	var wg sync.WaitGroup
-	for word, count := range wordMap {
+	// one thousand goros to write files concurrently
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
-		go func() {
-			err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}()
+		go worker(outputDir, &wg, jobs)
 	}
+
+	for word, count := range wordMap {
+		jobs <- Pair{word, count}
+	}
+
+	close(jobs)
 	wg.Wait()
 }
