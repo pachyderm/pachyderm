@@ -113,6 +113,9 @@ service API {
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
   rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
 
+  // DeleteAll deletes everything
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
   // Shard rpcs
   // Returns the new job info
   rpc StartPod(pps.Job) returns (JobInfo) {}
