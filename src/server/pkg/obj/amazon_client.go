@@ -108,6 +108,10 @@ func (c *amazonClient) IsRetryable(err error) bool {
 	return false
 }
 
+func (c *amazonClient) IsBenevolent(err error) bool {
+	return false
+}
+
 type amazonWriter struct {
 	errChan chan error
 	pipe    *io.PipeWriter
