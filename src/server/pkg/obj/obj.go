@@ -28,6 +28,9 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
 	Exists(name string) bool
+	// IsBenevolent determines if an error is benevolent, i.e. that it
+	// can be ignored.
+	IsBenevolent(err error) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 }
@@ -133,5 +136,9 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 }
 
 func (b *BackoffWriteCloser) Close() error {
-	return b.writer.Close()
+	err := b.writer.Close()
+	if b.client.IsBenevolent(err) {
+		return nil
+	}
+	return err
 }
