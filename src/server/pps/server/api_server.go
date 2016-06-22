@@ -1428,7 +1428,10 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	}
 	for _, jobInfo := range jobInfos.JobInfo {
 		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-			return err
+			// we don't return on failure here because outside jobs may get
+			// deleted through other means and we don't want that to prevent
+			// users from deleting pipelines.
+			protolion.Errorf("error deleting job: %s", err.Error())
 		}
 	}
 
