@@ -6,14 +6,35 @@
     "image": "tensor_flow_rnn",
     "cmd": [ "sh" ],
     "stdin": [
-      "cd /code && python ptb_word_lm.py --data_path=/data/data --model=test > /pfs/out/model-results" 
+      "cd /code && python ptb_word_lm.py --data_path=/data/data --model=test --model_path_prefix=/pfs/out > /pfs/out/model-results" 
     ]
   },
   "parallelism": "1",
   "inputs": [
     {
       "repo": {
-        "name": "tensor_ptb"
+        "name": "tensor_ptb_data"
+      },
+      "method": "global"
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "generate"
+  },
+  "transform": {
+    "image": "tensor_flow_rnn",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "cd /code && python ptb_word_lm.py --generate=true --model_path_prefix=/pfs/train > /pfs/out/generate-results" 
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "train"
       },
       "method": "global"
     }

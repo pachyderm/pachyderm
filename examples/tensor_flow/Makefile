@@ -13,15 +13,15 @@ clean-input-data:
 	rm dataset.tar
 
 load-input-data:
-	pachctl create-repo tensor_ptb
-	pachctl start-commit tensor_ptb > commitID
+	pachctl create-repo tensor_ptb_data
+	pachctl start-commit tensor_ptb_data > commitID
 	umount ./mnt || true
 	rm -rf ./mnt
 	mkdir mnt
 	pachctl mount ./mnt &
 	sleep 5
-	cp -R data/data/* ./mnt/tensor_ptb/`cat commitID`/
-	pachctl finish-commit tensor_ptb `cat commitID`
+	cp -R data/data/* ./mnt/tensor_ptb_data/`cat commitID`/
+	pachctl finish-commit tensor_ptb_data `cat commitID`
 	rm commitID
 
 verify-pachctl:
@@ -34,9 +34,9 @@ docker-build:
 
 setup: docker-build input-data
 
-run: verify-pachctl
+run: verify-pachctl docker-build
 	pachctl create-pipeline -f pipeline.json
 
 clean: verify-pachctl
 	pachctl delete-pipeline -f pipeline.json
-	pachctl delete-repo tensor_ptb
+	pachctl delete-repo tensor_ptb_data
