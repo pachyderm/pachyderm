@@ -169,7 +169,7 @@ func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listD
 
 func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
+	return google_protobuf.EmptyInstance, os.RemoveAll(s.diffPath(request.Diff))
 }
 
 func (s *localBlockAPIServer) tmpDir() string {
@@ -290,7 +290,7 @@ func (s *localBlockAPIServer) putOneBlock(delimiter pfsclient.Delimiter, reader 
 }
 
 func (s *localBlockAPIServer) deleteBlock(block *pfsclient.Block) error {
-	return os.Remove(s.blockPath(block))
+	return os.RemoveAll(s.blockPath(block))
 }
 
 type putBlockReader struct {
