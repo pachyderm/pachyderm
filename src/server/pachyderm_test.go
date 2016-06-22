@@ -1619,7 +1619,7 @@ func TestFlushCommitWithFailure(t *testing.T) {
 	require.YesError(t, err)
 }
 
-// TestRecreatingPipeline tracks #432
+// TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1629,8 +1629,13 @@ func TestRecreatePipeline(t *testing.T) {
 	c := getPachClient(t)
 	repo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	pipeline := uniqueString("pipeline")
-	createPipelineAndRunJob := func() {
+	createPipeline := func() {
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
@@ -1639,13 +1644,6 @@ func TestRecreatePipeline(t *testing.T) {
 			1,
 			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
 		))
-
-		commit, err := c.StartCommit(repo, "", "")
-		require.NoError(t, err)
-		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(repo, commit.ID))
-
 		listCommitRequest := &pfsclient.ListCommitRequest{
 			Repo:       []*pfsclient.Repo{{pipeline}},
 			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
@@ -1663,10 +1661,10 @@ func TestRecreatePipeline(t *testing.T) {
 	}
 
 	// Do it twice.  We expect jobs to be created on both runs.
-	createPipelineAndRunJob()
+	createPipeline()
 	require.NoError(t, c.DeleteRepo(pipeline))
 	require.NoError(t, c.DeletePipeline(pipeline))
-	createPipelineAndRunJob()
+	createPipeline()
 }
 
 func TestPipelineState(t *testing.T) {
