@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
@@ -66,7 +68,30 @@ Envronment variables:
 			return writer.Flush()
 		}),
 	}
+	deleteAll := &cobra.Command{
+		Use:   "delete-all",
+		Short: "Delete everything.",
+		Long: `Delete all repos, commits, files, pipelines and jobs.
+This resets the cluster to its initial state.`,
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				return client.DeleteAll()
+			}
+			return nil
+		}),
+	}
 	rootCmd.AddCommand(version)
+	rootCmd.AddCommand(deleteAll)
 	return rootCmd, nil
 }
 
