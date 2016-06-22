@@ -1740,11 +1740,22 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
 
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)], int32(1))
+	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)])
 }
 
 func TestJobState(t *testing.T) {
@@ -1803,6 +1814,27 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	// do that.
 	time.Sleep(20 * time.Second)
 	TestJob(t)
+}
+
+func TestDeleteAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	repo := uniqueString("TestDeleteAfterMembershipChange")
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	k := getKubeClient(t)
+	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
+
+	c = getPachClient(t)
+	require.NoError(t, c.DeleteRepo(repo))
 }
 
 // scalePachd scales the number of pachd nodes to anywhere from 1 to
@@ -1934,6 +1966,45 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
+}
+
+func TestDeleteAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it deletes everything
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+	pipelineInfos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(pipelineInfos))
+	jobInfos, err := c.ListJob("", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobInfos))
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
