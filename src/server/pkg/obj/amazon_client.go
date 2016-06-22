@@ -84,6 +84,14 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
+func (c *amazonClient) Exists(name string) bool {
+	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	return err == nil
+}
+
 func (c *amazonClient) IsRetryable(err error) bool {
 	switch err := err.(type) {
 	case awserr.Error:
