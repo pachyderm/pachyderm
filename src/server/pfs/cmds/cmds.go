@@ -80,10 +80,7 @@ Repos are created with create-repo.`,
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
-			pretty.PrintRepoInfo(writer, repoInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
 	}
 
@@ -203,10 +200,7 @@ This layers the data in the commit over the data in the parent.`,
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			pretty.PrintCommitInfo(writer, commitInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
 	}
 
@@ -425,10 +419,7 @@ Files can be read from finished commits with get-file.`,
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			pretty.PrintFileInfo(writer, fileInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
 	addShardFlags(inspectFile)

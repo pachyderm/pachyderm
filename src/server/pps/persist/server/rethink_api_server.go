@@ -301,6 +301,17 @@ func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *per
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
+		return nil, err
+	}
+	if _, err := a.getTerm(pipelineInfosTable).Delete().Run(a.session); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
@@ -320,6 +331,24 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclie
 	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
+
+	cursor, err := a.getTerm(jobInfosTable).
+		GetAllByIndex(pipelineNameIndex, request.Name).
+		Group("State").
+		Count().
+		Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	var results []map[string]int32
+	if err := cursor.All(&results); err != nil {
+		return nil, err
+	}
+	pipelineInfo.JobCounts = make(map[int32]int32)
+	for _, result := range results {
+		pipelineInfo.JobCounts[result["group"]] = result["reduction"]
+	}
+
 	return pipelineInfo, nil
 }
 
