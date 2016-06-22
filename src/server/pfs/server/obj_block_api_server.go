@@ -107,7 +107,14 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			writer, err := s.objClient.Writer(s.localServer.blockPath(blockRef.Block))
+			path := s.localServer.blockPath(blockRef.Block)
+			// We don't want to overwrite blocks that already exist, since:
+			// 1) blocks are content-addressable, so it will be the same block
+			// 2) we risk exceeding the object store's rate limit
+			if s.objClient.Exists(path) {
+				return
+			}
+			writer, err := s.objClient.Writer(path)
 			if err != nil {
 				select {
 				case errCh <- err:
