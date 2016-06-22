@@ -1342,7 +1342,12 @@ func RepoNameToEnvString(repoName string) string {
 }
 
 func job(jobInfo *persist.JobInfo) *batch.Job {
-	app := jobInfo.JobID
+	labels := labels(jobInfo.JobID)
+	// we set "run" to a uuid because we sometimes delete jobs and pods that
+	// were created by a previous run of a job will count toward the current
+	// runs completion if the labels are identical. See
+	// https://github.com/pachyderm/pachyderm/issues/572 for more info.
+	labels["run"] = uuid.NewWithoutDashes()
 	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
@@ -1374,19 +1379,19 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   jobInfo.JobID,
-			Labels: labels(app),
+			Labels: labels,
 		},
 		Spec: batch.JobSpec{
 			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels(app),
+				MatchLabels: labels,
 			},
 			Parallelism: &parallelism,
 			Completions: &parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
-					Labels: labels(app),
+					Labels: labels,
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
