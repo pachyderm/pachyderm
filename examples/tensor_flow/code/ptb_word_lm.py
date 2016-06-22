@@ -74,6 +74,7 @@ flags.DEFINE_string(
     "A type of model. Possible options are: small, medium, large.")
 flags.DEFINE_string("data_path", None, "data_path")
 flags.DEFINE_string("generate", False, "Whether or not to emit new sentence")
+flags.DEFINE_string("model_path_prefix", None, "model_path_prefix")
 FLAGS = flags.FLAGS
 
 
@@ -288,6 +289,7 @@ def run_epoch(session, m, data, eval_op, verbose=False):
     chosen_word = np.argmax(probs, 1)
     chosen_word = chosen_word[-1]
     final_chosen_word = chosen_word
+    break
 
   return np.exp(costs / iters), final_chosen_word
 
@@ -346,7 +348,7 @@ def train(train_data, valid_data, test_data):
       print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
       valid_perplexity, _ = run_epoch(session, mvalid, valid_data, tf.no_op())
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
-      m.saver.save(session, "ptb.ckpt")
+      m.saver.save(session, os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"))
 
     print("test model")
     print(mtest)
@@ -363,7 +365,7 @@ def generate(word_to_id, id_to_word):
       with tf.variable_scope("model"):
           m = PTBModel(is_training=False, config=config)
 
-      m.saver.restore(session, "ptb.ckpt")
+      m.saver.restore(session, os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"))
 
       probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
                                                 {m.input_data: np.zeros((1, 1)),
