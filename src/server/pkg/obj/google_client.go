@@ -80,3 +80,13 @@ func (c *googleClient) IsRetryable(err error) bool {
 		return false
 	}
 }
+
+func (c *googleClient) IsBenevolent(err error) bool {
+	switch err := err.(type) {
+	case *googleapi.Error:
+		// 429 implies that the block already exists.
+		return err.Code == 429
+	default:
+		return false
+	}
+}
