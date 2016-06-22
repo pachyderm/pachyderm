@@ -88,6 +88,7 @@ class PTBModel(object):
 
     self._input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
     self._targets = tf.placeholder(tf.int32, [batch_size, num_steps])
+    self._weights = tf.placeholder(tf.float32, [batch_size * num_steps])
 
     # Slightly better results can be obtained with forget gate biases
     # initialized to 1 but the hyperparameters of the model would need to be
@@ -132,11 +133,11 @@ class PTBModel(object):
     loss = tf.nn.seq2seq.sequence_loss_by_example(
         [logits],
         [tf.reshape(self._targets, [-1])],
-        [tf.ones([batch_size * num_steps])])
+        [self._weights])
     self._cost = cost = tf.reduce_sum(loss) / batch_size
     self._final_state = state
-    self.logits = logits
-    self.probs = tf.nn.softmax(logits)
+    self._logits = logits
+    self._probs = tf.nn.softmax(logits)
     self.saver = tf.train.Saver(tf.all_variables())
 
     if not is_training:
@@ -159,6 +160,18 @@ class PTBModel(object):
   @property
   def targets(self):
     return self._targets
+
+  @property
+  def probs(self):
+    return self._probs
+
+  @property
+  def logits(self):
+    return self._logits
+
+  @property
+  def weights(self):
+    return self._weights
 
   @property
   def initial_state(self):
@@ -259,7 +272,8 @@ def run_epoch(session, m, data, eval_op, verbose=False):
     cost, state, logits, probs, _ = session.run([m.cost, m.final_state, m.logits, m.probs, eval_op],
                                  {m.input_data: x,
                                   m.targets: y,
-                                  m.initial_state: state})
+                                  m.initial_state: state,
+                                  m.weights: np.ones(m.batch_size * m.num_steps)})
     costs += cost
     iters += m.num_steps
 
@@ -274,7 +288,6 @@ def run_epoch(session, m, data, eval_op, verbose=False):
     chosen_word = np.argmax(probs, 1)
     chosen_word = chosen_word[-1]
     final_chosen_word = chosen_word
-    break
 
   return np.exp(costs / iters), final_chosen_word
 
@@ -355,7 +368,8 @@ def generate(word_to_id, id_to_word):
       probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
                                                 {m.input_data: np.zeros((1, 1)),
                                                  m.targets: np.zeros((1, 1)),
-                                                 m.initial_state: m.initial_state.eval()})
+                                                 m.initial_state: m.initial_state.eval(),
+                                                 m.weights: np.ones(1)})
       print("probs shape: ")
       print(probs.shape)
       print("initial state shape:")
@@ -363,25 +377,39 @@ def generate(word_to_id, id_to_word):
       # sample from our softmax probs
       #next_letter = np.random.choice(27, p=probs[0])
       next_word = word_to_id["<bos>"]
-      sentence = [next_word]
-      while next_word != word_to_id["<eos>"]:
+      sentence = []
+#      while next_word != word_to_id["<eos>"]:
+      for i in range(30):
           print("---")
           print("using input next_word: %d" % next_word)
+          print("shapes for: targets / init state / weights:")
+          print(np.zeros((1,1)).shape)
+          print(final_state.shape)
+          print(np.ones(1).shape)
+          print("shapes for probs / final_state")
+          print(m.probs.get_shape())
+          print(m.final_state.get_shape())
+          print(tf.no_op())
           probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
                                                     {m.input_data: [[next_word]],
                                                      m.targets: np.zeros((1, 1)),
-                                                     m.initial_state: final_state})
-          next_word = np.argmax(probs, 1)
-          print("word: %s" % id_to_word[next_word[0]])
+                                                     m.initial_state: final_state,
+                                                     m.weights: np.ones(1)})
+          next_word = np.random.choice(10002, p=probs[0])
+          #next_word = np.argmax(probs, 1)
+          #next_word = next_word[0]
+          print("next_word=%d" % next_word)
+          print(type(next_word))
+          print("word: %s" % id_to_word[next_word])
           print("next initial state shape:")
           print(final_state.shape)
           print("probs shape: ")
           print(probs.shape)
-          #next_word = np.random.choice(27, p=probs[0])
-          sentence += [next_word[0]]
+          sentence += [id_to_word[next_word]]
 
-      print(map(lambda x: id_to_word[x], sentence))
-
+      print("SENTENCE:")
+      
+      print(" ".join(sentence))
 
 """
   next_word = word_to_id["<bos>"]
