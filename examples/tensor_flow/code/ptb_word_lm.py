@@ -63,6 +63,7 @@ import tensorflow as tf
 
 import sys
 import os
+import json
 sys.path.insert(0, os.path.abspath('..'))
 from code import reader
 
@@ -308,24 +309,33 @@ def get_config():
 
 
 def main(_):
-  if not FLAGS.data_path:
+  if not FLAGS.data_path and not FLAGS.generate:
     raise ValueError("Must set --data_path to PTB data directory")
 
-  raw_data = reader.ptb_raw_data(FLAGS.data_path)
-  train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
-  print("Size of vocabulary: %d" % (vocab))
-
   if not FLAGS.generate:
-    train(train_data, valid_data, test_data)
+    train()
   else:
+    word_to_id_f = open(os.path.join(FLAGS.model_path_prefix, "word_to_id.json"), "r")
+    id_to_word_f = open(os.path.join(FLAGS.model_path_prefix, "id_to_word.json"), "r")
+    word_to_id = json.load(word_to_id_f)
+    id_to_word = json.load(id_to_word_f)
     generate(word_to_id, id_to_word)
 
-def train(train_data, valid_data, test_data):
+def train():
 
   config = get_config()
   eval_config = get_config()
   eval_config.batch_size = 1
   eval_config.num_steps = 1
+
+  raw_data = reader.ptb_raw_data(FLAGS.data_path)
+  train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
+  print("Size of vocabulary: %d" % (vocab))
+   
+  word_to_id_f = open(os.path.join(FLAGS.model_path_prefix, "word_to_id.json"), "w")
+  json.dump(word_to_id, word_to_id_f)
+  id_to_word_f = open(os.path.join(FLAGS.model_path_prefix, "id_to_word.json"), "w")
+  json.dump(id_to_word, id_to_word_f)
 
   with tf.Graph().as_default(), tf.Session() as session:
     initializer = tf.random_uniform_initializer(-config.init_scale,
@@ -365,6 +375,8 @@ def generate(word_to_id, id_to_word):
       with tf.variable_scope("model"):
           m = PTBModel(is_training=False, config=config)
 
+      f = open(os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"), "r")
+      print("opened checkpoint file")
       m.saver.restore(session, os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"))
 
       probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
@@ -378,7 +390,7 @@ def generate(word_to_id, id_to_word):
       print(final_state.shape)
       # sample from our softmax probs
       #next_letter = np.random.choice(27, p=probs[0])
-      next_word = word_to_id["<bos>"]
+      next_word = int(word_to_id["<bos>"])
       sentence = []
 #      while next_word != word_to_id["<eos>"]:
       for i in range(30):
@@ -402,12 +414,12 @@ def generate(word_to_id, id_to_word):
           #next_word = next_word[0]
           print("next_word=%d" % next_word)
           print(type(next_word))
-          print("word: %s" % id_to_word[next_word])
+          print("word: %s" % id_to_word[str(next_word)])
           print("next initial state shape:")
           print(final_state.shape)
           print("probs shape: ")
           print(probs.shape)
-          sentence += [id_to_word[next_word]]
+          sentence += [id_to_word[str(next_word)]]
 
       print("SENTENCE:")
       
