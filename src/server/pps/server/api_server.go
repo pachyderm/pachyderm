@@ -1342,7 +1342,11 @@ func RepoNameToEnvString(repoName string) string {
 }
 
 func job(jobInfo *persist.JobInfo) *batch.Job {
-	app := jobInfo.JobID
+	// we use a uuid for the app name instead of the job id because we
+	// sometimes delete jobs and pods that were created by a previous run of a
+	// job will count toward the current runs completion.
+	// See https://github.com/pachyderm/pachyderm/issues/572 for more info.
+	app := uuid.NewWithoutDashes()
 	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
