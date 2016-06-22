@@ -26,6 +26,8 @@ type Client interface {
 	Delete(name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
 	Walk(prefix string, fn func(name string) error) error
+	// Exsits checks if a given object already exists
+	Exists(name string) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 }
