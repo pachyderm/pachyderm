@@ -1869,7 +1869,7 @@ func TestRestartAll(t *testing.T) {
 	restartAll(t, kube)
 	// Wait for the cluster to stablize... ideally we shouldn't have to
 	// do that.
-	time.Sleep(20 * time.Second)
+	time.Sleep(40 * time.Second)
 
 	// need a new client because the old one will have a defunct connection
 	c = getPachClient(t)
