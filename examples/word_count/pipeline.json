@@ -24,7 +24,8 @@
   },
   "transform": {
     "image": "derekchiang/wordcount-map:latest",
-    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"],
+    "debug": true
   },
   "inputs": [
     {
@@ -44,7 +45,8 @@
     "cmd": ["sh"],
     "stdin": [
         "find /pfs/wordcount_map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
-    ]
+    ],
+    "debug": true
   },
   "inputs": [
     {

@@ -70,7 +70,7 @@ func (c *googleClient) Delete(name string) error {
 func (c *googleClient) IsRetryable(err error) bool {
 	switch err := err.(type) {
 	case *googleapi.Error:
-		return err.Code >= 500
+		return err.Code >= 500 || err.Code == 429
 	default:
 		return false
 	}

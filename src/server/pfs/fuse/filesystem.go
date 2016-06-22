@@ -416,7 +416,13 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	return nil
 }
 
-func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			protolion.Debugf("Flush error: %v", retErr)
+		}
+	}()
+
 	if h.w != nil {
 		w := h.w
 		h.w = nil
