@@ -178,7 +178,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	jobID := getJobID(request)
 	if !request.Force {
 		_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
-			Job: &ppsclient.Job{jobID},
+			Job: client.NewJob(jobID),
 		})
 		if err == nil {
 			// the job already exists. we simply return
@@ -848,44 +848,30 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
-
-	if request.Pipeline == nil {
-		return nil, fmt.Errorf("Pipeline cannot be nil")
-	}
-
-	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
-	// the same IDs, since kubernetes jobs simply use these IDs as their names
-	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
-		Pipeline: request.Pipeline,
-	})
+	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{})
 	if err != nil {
 		return nil, err
 	}
-	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+	for _, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
+		if err := a.deletePipeline(ctx, client.NewPipeline(persistPipelineInfo.PipelineName)); err != nil {
 			return nil, err
 		}
 	}
-
-	// The reason we need to do this, is that if we don't, then if the very same
-	// pipeline is recreated, we won't actually create new jobs due to the fact
-	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
-	// name + inputs.  So the jobs will already be in the database, resulting
-	// in no new jobs being created, even though the output of those existing
-	// jobs might have already being removed.
-	// Therefore, we delete the job infos.
-	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
+	if _, err := persistClient.DeleteAll(ctx, request); err != nil {
 		return nil, err
 	}
-
-	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
-		return nil, err
-	}
-
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -913,7 +899,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
 		IncludeInitial: true,
-		Shard:          &persist.Shard{shard},
+		Shard:          &persist.Shard{Number: shard},
 	})
 	if err != nil {
 		return err
@@ -1021,8 +1007,10 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Parallelism: persistPipelineInfo.Parallelism,
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
+		CreatedAt:   persistPipelineInfo.CreatedAt,
 		State:       persistPipelineInfo.State,
 		RecentError: persistPipelineInfo.RecentError,
+		JobCounts:   persistPipelineInfo.JobCounts,
 	}
 }
 
@@ -1354,7 +1342,12 @@ func RepoNameToEnvString(repoName string) string {
 }
 
 func job(jobInfo *persist.JobInfo) *batch.Job {
-	app := jobInfo.JobID
+	labels := labels(jobInfo.JobID)
+	// we set "run" to a uuid because we sometimes delete jobs and pods that
+	// were created by a previous run of a job will count toward the current
+	// runs completion if the labels are identical. See
+	// https://github.com/pachyderm/pachyderm/issues/572 for more info.
+	labels["run"] = uuid.NewWithoutDashes()
 	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
@@ -1386,19 +1379,19 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   jobInfo.JobID,
-			Labels: labels(app),
+			Labels: labels,
 		},
 		Spec: batch.JobSpec{
 			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels(app),
+				MatchLabels: labels,
 			},
 			Parallelism: &parallelism,
 			Completions: &parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
-					Labels: labels(app),
+					Labels: labels,
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -1418,6 +1411,51 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			},
 		},
 	}
+}
+
+func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+
+	if pipeline == nil {
+		return fmt.Errorf("Pipeline cannot be nil")
+	}
+
+	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
+	// the same IDs, since kubernetes jobs simply use these IDs as their names
+	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		Pipeline: pipeline,
+	})
+	if err != nil {
+		return err
+	}
+	for _, jobInfo := range jobInfos.JobInfo {
+		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			// we don't return on failure here because outside jobs may get
+			// deleted through other means and we don't want that to prevent
+			// users from deleting pipelines.
+			protolion.Errorf("error deleting job: %s", err.Error())
+		}
+	}
+
+	// The reason we need to do this, is that if we don't, then if the very same
+	// pipeline is recreated, we won't actually create new jobs due to the fact
+	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
+	// name + inputs.  So the jobs will already be in the database, resulting
+	// in no new jobs being created, even though the output of those existing
+	// jobs might have already being removed.
+	// Therefore, we delete the job infos.
+	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, pipeline); err != nil {
+		return err
+	}
+
+	if _, err := persistClient.DeletePipelineInfo(ctx, pipeline); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func labels(app string) map[string]string {

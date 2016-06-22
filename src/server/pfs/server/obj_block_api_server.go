@@ -160,7 +160,10 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.blockPath(request.Block))
+	if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
@@ -223,7 +226,10 @@ func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDif
 
 func (s *objBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.diffPath(request.Diff))
+	if err := s.objClient.Delete(s.localServer.diffPath(request.Diff)); err != nil && !s.objClient.IsNotExist(err) {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (s *objBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInfo, error) {
