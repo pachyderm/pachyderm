@@ -1838,26 +1838,6 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	require.NoError(t, c.DeleteRepo(repo))
 }
 
-// scalePachd scales the number of pachd nodes to anywhere from 1 to
-// twice the original number
-// It's guaranteed that the new replica number will be different from
-// the original
-func scalePachd(t *testing.T, k *kube.Client) {
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
-	originalReplicas := pachdRc.Spec.Replicas
-	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
-		if pachdRc.Spec.Replicas != originalReplicas {
-			break
-		}
-	}
-	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
-	_, err = rc.Update(pachdRc)
-	require.NoError(t, err)
-}
-
 func TestScrubbedErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
