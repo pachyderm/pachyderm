@@ -1811,6 +1811,9 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 
 	k := getKubeClient(t)
 	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
 	// getUsablePachClient has the side effect of blocking until the cluster is
 	// ready
 	getUsablePachClient(t)
@@ -1834,7 +1837,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	// do that.
 	time.Sleep(20 * time.Second)
 
-	c = getPachClient(t)
+	c = getUsablePachClient(t)
 	require.NoError(t, c.DeleteRepo(repo))
 }
 
