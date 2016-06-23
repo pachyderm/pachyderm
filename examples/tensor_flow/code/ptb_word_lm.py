@@ -373,8 +373,7 @@ def generate(word_to_id, id_to_word):
       next_word = int(word_to_id["<bos>"])
       sentence = []
       count = 0
-      while next_word != int(word_to_id["<eos>"]):
-#      for i in range(30):
+      while True:
           probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
                                                     {m.input_data: [[next_word]],
                                                      m.targets: np.zeros((1, 1)),
