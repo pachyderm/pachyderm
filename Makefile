@@ -286,6 +286,9 @@ goxc-release:
 	fi
 	goxc -pv=$(VERSION) -wd=./src/server/cmd/pachctl
 
+goxc-build:
+	goxc -tasks=xc -wd=./src/server/cmd/pachctl
+
 .PHONY:
 	all \
 	version \
@@ -342,4 +345,5 @@ goxc-release:
 	assets \
 	lint \
 	goxc-generate-local \
-	goxc-release
+	goxc-release \
+	goxc-build
