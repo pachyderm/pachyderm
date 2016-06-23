@@ -494,25 +494,19 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(request.Job.ID)),
-	})
+	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
 	}
-	if len(podList.Items) == 0 {
+	if len(pods) == 0 {
 		return NewErrJobNotFound(request.Job.ID)
 	}
 	// sort the pods to make sure that the indexes are stable
-	sort.Sort(podSlice(podList.Items))
-	logs := make([][]byte, len(podList.Items))
+	sort.Sort(podSlice(pods))
+	logs := make([][]byte, len(pods))
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
-	for i, pod := range podList.Items {
+	for i, pod := range pods {
 		i := i
 		pod := pod
 		wg.Add(1)
@@ -1343,11 +1337,6 @@ func RepoNameToEnvString(repoName string) string {
 
 func job(jobInfo *persist.JobInfo) *batch.Job {
 	labels := labels(jobInfo.JobID)
-	// we set "run" to a uuid because we sometimes delete jobs and pods that
-	// were created by a previous run of a job will count toward the current
-	// runs completion if the labels are identical. See
-	// https://github.com/pachyderm/pachyderm/issues/572 for more info.
-	labels["run"] = uuid.NewWithoutDashes()
 	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
@@ -1413,6 +1402,20 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 	}
 }
 
+func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
+	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: kube_labels.SelectorFromSet(labels(job.ID)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return podList.Items, nil
+}
+
 func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1431,13 +1434,41 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	if err != nil {
 		return err
 	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
 	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-			// we don't return on failure here because outside jobs may get
-			// deleted through other means and we don't want that to prevent
-			// users from deleting pipelines.
-			protolion.Errorf("error deleting job: %s", err.Error())
-		}
+		jobInfo := jobInfo
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+				// we don't return on failure here because jobs may get deleted
+				// through other means and we don't want that to prevent users from
+				// deleting pipelines.
+				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
+			}
+			pods, err := a.jobPods(client.NewJob(jobInfo.JobID))
+			if err != nil {
+				select {
+				case errCh <- err:
+				default:
+				}
+			}
+			for _, pod := range pods {
+				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+					// we don't return on failure here because pods may get deleted
+					// through other means and we don't want that to prevent users from
+					// deleting pipelines.
+					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 
 	// The reason we need to do this, is that if we don't, then if the very same
