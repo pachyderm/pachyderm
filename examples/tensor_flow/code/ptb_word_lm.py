@@ -267,8 +267,6 @@ def run_epoch(session, m, data, eval_op, verbose=False):
   costs = 0.0
   iters = 0
   state = m.initial_state.eval()
-  final_chosen_word = ""
-  print("batch size: %s" % m.batch_size)
   for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size,
                                                     m.num_steps)):
     cost, state, logits, probs, _ = session.run([m.cost, m.final_state, m.logits, m.probs, eval_op],
@@ -283,16 +281,9 @@ def run_epoch(session, m, data, eval_op, verbose=False):
       print("%.3f perplexity: %.3f speed: %.0f wps" %
             (step * 1.0 / epoch_size, np.exp(costs / iters),
              iters * m.batch_size / (time.time() - start_time)))
-      chosen_word = np.argmax(probs, 1)
-      chosen_word = chosen_word[-1]
-      #print("chosen word : %s" %(id_to_word[chosen_word]))
-
-    chosen_word = np.argmax(probs, 1)
-    chosen_word = chosen_word[-1]
-    final_chosen_word = chosen_word
     break
 
-  return np.exp(costs / iters), final_chosen_word
+  return np.exp(costs / iters)
 
 
 def get_config():
@@ -330,7 +321,6 @@ def train():
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
-  print("Size of vocabulary: %d" % (vocab))
    
   word_to_id_f = open(os.path.join(FLAGS.model_path_prefix, "word_to_id.json"), "w")
   json.dump(word_to_id, word_to_id_f)
@@ -353,16 +343,14 @@ def train():
       m.assign_lr(session, config.learning_rate * lr_decay)
 
       print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-      train_perplexity, _ = run_epoch(session, m, train_data, m.train_op,
+      train_perplexity = run_epoch(session, m, train_data, m.train_op,
                                    verbose=True)
       print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-      valid_perplexity, _ = run_epoch(session, mvalid, valid_data, tf.no_op())
+      valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
       print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
       m.saver.save(session, os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"))
 
-    print("test model")
-    print(mtest)
-    test_perplexity, _ = run_epoch(session, mtest, test_data, tf.no_op())
+    test_perplexity = run_epoch(session, mtest, test_data, tf.no_op())
     print("Test Perplexity: %.3f" % test_perplexity)
 
 def generate(word_to_id, id_to_word):
@@ -376,7 +364,6 @@ def generate(word_to_id, id_to_word):
           m = PTBModel(is_training=False, config=config)
 
       f = open(os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"), "r")
-      print("opened checkpoint file")
       m.saver.restore(session, os.path.join(FLAGS.model_path_prefix, "ptb.ckpt"))
 
       probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
@@ -384,57 +371,25 @@ def generate(word_to_id, id_to_word):
                                                  m.targets: np.zeros((1, 1)),
                                                  m.initial_state: m.initial_state.eval(),
                                                  m.weights: np.ones(1)})
-      print("probs shape: ")
-      print(probs.shape)
-      print("initial state shape:")
-      print(final_state.shape)
-      # sample from our softmax probs
-      #next_letter = np.random.choice(27, p=probs[0])
       next_word = int(word_to_id["<bos>"])
       sentence = []
-#      while next_word != word_to_id["<eos>"]:
-      for i in range(30):
-          print("---")
-          print("using input next_word: %d" % next_word)
-          print("shapes for: targets / init state / weights:")
-          print(np.zeros((1,1)).shape)
-          print(final_state.shape)
-          print(np.ones(1).shape)
-          print("shapes for probs / final_state")
-          print(m.probs.get_shape())
-          print(m.final_state.get_shape())
-          print(tf.no_op())
+      count = 0
+      while next_word != int(word_to_id["<eos>"]):
+#      for i in range(30):
           probs, final_state, _ = session.run([m.probs, m.final_state, tf.no_op()],
                                                     {m.input_data: [[next_word]],
                                                      m.targets: np.zeros((1, 1)),
                                                      m.initial_state: final_state,
                                                      m.weights: np.ones(1)})
           next_word = np.random.choice(10002, p=probs[0])
-          #next_word = np.argmax(probs, 1)
-          #next_word = next_word[0]
-          print("next_word=%d" % next_word)
-          print(type(next_word))
-          print("word: %s" % id_to_word[str(next_word)])
-          print("next initial state shape:")
-          print(final_state.shape)
-          print("probs shape: ")
-          print(probs.shape)
           sentence += [id_to_word[str(next_word)]]
+          count += 1
+          if count > 1000:
+              break
 
-      print("SENTENCE:")
       
       print(" ".join(sentence))
 
-"""
-  next_word = word_to_id["<bos>"]
-  cumulative_sentence = []
-  for j in range(100):
-    # Todo - think I need to adjust the batch size down?
-    perplexity, next_word = run_epoch(session, mtest, [[next_word]], tf.no_op())
-    print("p (%d), word (%s)" % (perplexity, id_to_word(next_word)))
-    cumulative_sentence.append(id_to_word(next_word))
-  print("Generated sentence: %s" % (" ".join(cumulative_sentence)))
-"""
 
 if __name__ == "__main__":
   tf.app.run()

@@ -24,10 +24,12 @@ load-input-data:
 	pachctl finish-commit tensor_ptb_data `cat commitID`
 	rm commitID
 
+gather-input-data: get-input-data extract-input-data clean-input-data
+
 verify-pachctl:
 	which pachctl
 
-input-data: verify-pachctl get-input-data extract-input-data clean-input-data load-input-data
+input-data: verify-pachctl gather-input-data load-input-data
 
 docker-build:
 	docker build -t tensor_flow_rnn .
