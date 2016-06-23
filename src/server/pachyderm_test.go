@@ -1933,12 +1933,9 @@ func TestRestartAll(t *testing.T) {
 
 	kube := getKubeClient(t)
 	restartAll(t, kube)
-	// Wait for the cluster to stablize... ideally we shouldn't have to
-	// do that.
-	time.Sleep(40 * time.Second)
 
 	// need a new client because the old one will have a defunct connection
-	c = getPachClient(t)
+	c = getUsablePachClient(t)
 
 	_, err = c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
@@ -2037,6 +2034,26 @@ func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
+}
+
+const (
+	retries = 10
+)
+
+// getUsablePachClient is like getPachClient except it blocks until it gets a
+// connection that actually works
+func getUsablePachClient(t *testing.T) *client.APIClient {
+	for i := 0; i < retries; i++ {
+		client := getPachClient(t)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel() //cleanup resources
+		_, err := client.PfsAPIClient.ListRepo(ctx, &pfsclient.ListRepoRequest{})
+		if err == nil {
+			return client
+		}
+	}
+	t.Fatalf("failed to connect after %d tries", retries)
+	return nil
 }
 
 func getKubeClient(t *testing.T) *kube.Client {
