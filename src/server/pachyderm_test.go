@@ -1956,7 +1956,7 @@ func TestPrettyPrinting(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline_data")
+	dataRepo := uniqueString("TestPrettyPrinting_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -2001,7 +2001,7 @@ func TestDeleteAll(t *testing.T) {
 	// this test cannot be run in parallel because it deletes everything
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline_data")
+	dataRepo := uniqueString("TestDeleteAll_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -2031,6 +2031,48 @@ func TestDeleteAll(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobInfos))
+}
+
+func TestRecursiveCp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it deletes everything
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRecursiveCp_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("TestRecursiveCp")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("mkdir /inputs"),
+			fmt.Sprintf("cp -r /pfs/%s /inputs", dataRepo),
+		},
+		1,
+		[]*ppsclient.PipelineInput{{
+			Repo:   client.NewRepo(dataRepo),
+			Method: client.IncrementalReduceMethod,
+		}},
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = c.PutFile(
+			dataRepo,
+			commit.ID,
+			fmt.Sprintf("file%d", i),
+			strings.NewReader(strings.Repeat("foo\n", 10000)),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
