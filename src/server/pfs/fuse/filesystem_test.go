@@ -634,6 +634,25 @@ func TestNoDelimiter(t *testing.T) {
 	})
 }
 
+func TestWriteManyFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestWriteManyFiles"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+
+		for i := 0; i < 10000; i++ {
+			fileName := fmt.Sprintf("file-%d", i)
+			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
+			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
+		}
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
