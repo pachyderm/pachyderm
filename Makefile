@@ -76,14 +76,16 @@ release-pachd:
 release-job-shim:
 	./etc/build/release_job_shim
 
-release-manifest: install
+dev-manifest: install
+	pach-deploy -s 32 > $(DEV_MANIFEST)
+
+release-manifest: install dev-manifest
 	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
+		echo "Missing version. Please run via: 'VERSION=v1.2.3-4567 make release-manifest'"; \
 		exit 1; \
 	else \
-		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
+		pach-deploy -s 32 --version ${VERSION} > $(MANIFEST); \
 	fi
-	pach-deploy -s 32 > etc/kube/pachyderm.json
 
 docker-build-compile:
 	# Running locally, not on travis

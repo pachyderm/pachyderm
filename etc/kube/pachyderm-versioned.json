@@ -15,8 +15,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -36,7 +36,10 @@
       "spec": {
         "volumes": [
           {
-            "name": "etcd-storage"
+            "name": "etcd-storage",
+            "hostPath": {
+              "path": "/tmp/pach/etcd"
+            }
           }
         ],
         "containers": [
@@ -46,7 +49,7 @@
             "command": [
               "/usr/local/bin/etcd",
               "--bind-addr=0.0.0.0:2379",
-              "--data-dir=/var/etcd/data"
+              "--data-dir=/var/data/etcd"
             ],
             "ports": [
               {
@@ -82,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -176,7 +179,10 @@
       "spec": {
         "volumes": [
           {
-            "name": "rethink-storage"
+            "name": "rethink-storage",
+            "hostPath": {
+              "path": "/tmp/pach/rethink"
+            }
           }
         ],
         "containers": [
@@ -323,8 +329,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd"
+          "app": "pachd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -332,7 +338,7 @@
           {
             "name": "pach-disk",
             "hostPath": {
-              "path": "/tmp/pach"
+              "path": "/tmp/pach/pachd"
             }
           }
         ],
