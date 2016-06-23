@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 const (
@@ -1813,6 +1814,9 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	// Wait for the cluster to stablize... ideally we shouldn't have to
 	// do that.
 	time.Sleep(20 * time.Second)
+	// getUsablePachClient has the side effect of blocking until the cluster is
+	// ready
+	getUsablePachClient(t)
 	TestJob(t)
 }
 
@@ -1833,28 +1837,8 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	// do that.
 	time.Sleep(20 * time.Second)
 
-	c = getPachClient(t)
+	c = getUsablePachClient(t)
 	require.NoError(t, c.DeleteRepo(repo))
-}
-
-// scalePachd scales the number of pachd nodes to anywhere from 1 to
-// twice the original number
-// It's guaranteed that the new replica number will be different from
-// the original
-func scalePachd(t *testing.T, k *kube.Client) {
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
-	originalReplicas := pachdRc.Spec.Replicas
-	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
-		if pachdRc.Spec.Replicas != originalReplicas {
-			break
-		}
-	}
-	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
-	_, err = rc.Update(pachdRc)
-	require.NoError(t, err)
 }
 
 func TestScrubbedErrors(t *testing.T) {
@@ -1920,6 +1904,48 @@ func TestAcceptReturnCode(t *testing.T) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+}
+
+func TestRestartAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRestartAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+
+	kube := getKubeClient(t)
+	restartAll(t, kube)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	_, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	_, err = c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	_, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
 }
 
 func TestPrettyPrinting(t *testing.T) {
@@ -2013,6 +2039,26 @@ func getPachClient(t *testing.T) *client.APIClient {
 	return client
 }
 
+const (
+	retries = 10
+)
+
+// getUsablePachClient is like getPachClient except it blocks until it gets a
+// connection that actually works
+func getUsablePachClient(t *testing.T) *client.APIClient {
+	for i := 0; i < retries; i++ {
+		client := getPachClient(t)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel() //cleanup resources
+		_, err := client.PfsAPIClient.ListRepo(ctx, &pfsclient.ListRepoRequest{})
+		if err == nil {
+			return client
+		}
+	}
+	t.Fatalf("failed to connect after %d tries", retries)
+	return nil
+}
+
 func getKubeClient(t *testing.T) *kube.Client {
 	config := &kube_client.Config{
 		Host:     "0.0.0.0:8080",
@@ -2025,4 +2071,38 @@ func getKubeClient(t *testing.T) *kube.Client {
 
 func uniqueString(prefix string) string {
 	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
+}
+
+// scalePachd scales the number of pachd nodes to anywhere from 1 to
+// twice the original number
+// It's guaranteed that the new replica number will be different from
+// the original
+func scalePachd(t *testing.T, k *kube.Client) {
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	pachdRc, err := rc.Get("pachd")
+	require.NoError(t, err)
+	originalReplicas := pachdRc.Spec.Replicas
+	for {
+		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
+		if pachdRc.Spec.Replicas != originalReplicas {
+			break
+		}
+	}
+	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	_, err = rc.Update(pachdRc)
+	require.NoError(t, err)
+}
+
+func restartAll(t *testing.T, k *kube.Client) {
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse("suite=pachyderm")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
+	}
 }
