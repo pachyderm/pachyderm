@@ -29,12 +29,9 @@
     "image": "tensor_flow_rnn",
     "cmd": [ "sh" ],
     "stdin": [
-      "ls /pfs/train > /pfs/out/input-data-provided",
-      "sha256sum /pfs/train/ptb.ckpt > /pfs/out/ckpt-checksum",
       "cp /pfs/train/ptb.ckpt* /data",
       "cp /pfs/train/*.json /data",
-      "sha256sum /data/ptb.ckpt > /pfs/out/ckpt-checksum-2",
-      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/data > /pfs/out/generate-results" 
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/data > /pfs/out/sentence" 
     ]
   },
   "parallelism": "1",
