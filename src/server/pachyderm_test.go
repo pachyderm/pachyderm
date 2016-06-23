@@ -2037,7 +2037,9 @@ func TestRecursiveCp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	// this test cannot be run in parallel because it deletes everything
+
+	t.Parallel()
+
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestRecursiveCp_data")
