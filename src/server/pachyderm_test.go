@@ -1809,14 +1809,7 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	k := getKubeClient(t)
-	scalePachd(t, k)
-	// Wait for the cluster to stablize... ideally we shouldn't have to
-	// do that.
-	time.Sleep(20 * time.Second)
-	// getUsablePachClient has the side effect of blocking until the cluster is
-	// ready
-	getUsablePachClient(t)
+	scalePachd(t)
 	TestJob(t)
 }
 
@@ -1831,12 +1824,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	_, err := c.StartCommit(repo, "", "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
-	k := getKubeClient(t)
-	scalePachd(t, k)
-	// Wait for the cluster to stablize... ideally we shouldn't have to
-	// do that.
-	time.Sleep(20 * time.Second)
-
+	scalePachd(t)
 	c = getUsablePachClient(t)
 	require.NoError(t, c.DeleteRepo(repo))
 }
@@ -1934,8 +1922,7 @@ func TestRestartAll(t *testing.T) {
 	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	kube := getKubeClient(t)
-	restartAll(t, kube)
+	restartAll(t)
 
 	// need a new client because the old one will have a defunct connection
 	c = getUsablePachClient(t)
@@ -2073,14 +2060,21 @@ func uniqueString(prefix string) string {
 	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
 }
 
+func pachdRc(t *testing.T) *api.ReplicationController {
+	k := getKubeClient(t)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get("pachd")
+	require.NoError(t, err)
+	return result
+}
+
 // scalePachd scales the number of pachd nodes to anywhere from 1 to
 // twice the original number
 // It's guaranteed that the new replica number will be different from
 // the original
-func scalePachd(t *testing.T, k *kube.Client) {
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
+func scalePachd(t *testing.T) {
+	k := getKubeClient(t)
+	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
 		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
@@ -2089,11 +2083,26 @@ func scalePachd(t *testing.T, k *kube.Client) {
 		}
 	}
 	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
-	_, err = rc.Update(pachdRc)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
+	waitForReadiness(t)
 }
 
-func restartAll(t *testing.T, k *kube.Client) {
+func waitForReadiness(t *testing.T) {
+	k := getKubeClient(t)
+	for {
+		has, err := kube.ControllerHasDesiredReplicas(k, pachdRc(t))()
+		require.NoError(t, err)
+		if has {
+			break
+		}
+		time.Sleep(time.Second * 30)
+	}
+}
+
+func restartAll(t *testing.T) {
+	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
 	labelSelector, err := labels.Parse("suite=pachyderm")
 	require.NoError(t, err)
@@ -2105,4 +2114,5 @@ func restartAll(t *testing.T, k *kube.Client) {
 	for _, pod := range podList.Items {
 		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
 	}
+	waitForReadiness(t)
 }
