@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"go.pedge.io/pb/go/google/protobuf"
+	"golang.org/x/net/context"
+
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -46,6 +49,24 @@ func NewInCluster() (*APIClient, error) {
 	}
 
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
+}
+
+// DeleteAll deletes everything in the cluster.
+// Use with caution, there is no undo.
+func (c APIClient) DeleteAll() error {
+	if _, err := c.PpsAPIClient.DeleteAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	if _, err := c.PfsAPIClient.DeleteAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
 }
 
 func sanitizeErr(err error) error {

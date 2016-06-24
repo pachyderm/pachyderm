@@ -779,6 +779,28 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	for _, clientConn := range clientConns {
+		defer clientConn.Close()
+		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteAll(ctx, request); err != nil {
+			return nil, err
+		}
+	}
+
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) Version(version int64) error {
 	func() {
 		a.versionLock.RLock()

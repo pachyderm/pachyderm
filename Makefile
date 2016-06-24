@@ -274,6 +274,22 @@ lint:
 		fi \
 	done
 
+goxc-generate-local:
+	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
+		echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
+		exit 1; \
+	fi
+	goxc -wlc default publish-github -apikey=$(GITHUB_OAUTH_TOKEN)
+
+goxc-release:
+	@if [ -z $$VERSION ]; then \
+		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 goxc-release'"; \
+		exit 1; \
+	fi
+	goxc -pv=$(VERSION) -wd=./src/server/cmd/pachctl
+
+goxc-build:
+	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY:
 	all \
@@ -332,4 +348,8 @@ lint:
 	amazon-cluster \
 	clean-amazon-cluster \
 	install-go-bindata \
-	assets
+	assets \
+	lint \
+	goxc-generate-local \
+	goxc-release \
+	goxc-build

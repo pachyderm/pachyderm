@@ -84,7 +84,14 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 
-		_, err = c.ListRepo(nil)
+		// We want to use a PPS API instead of a PFS API because PFS APIs
+		// typically talk to every node, but the point of the readiness probe
+		// is that it checks to see if this particular node is functioning,
+		// and removing it from the service if it's not.  So if we use a PFS
+		// API such as ListRepo for readiness probe, then the failure of any
+		// node will result in the failures of all readiness probes, causing
+		// all nodes to be removed from the pachd service.
+		_, err = c.ListPipeline()
 		if err != nil {
 			return err
 		}
