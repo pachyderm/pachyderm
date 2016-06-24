@@ -39,7 +39,7 @@ echo "--- Updating homebrew formula to use binaries at version `cat VERSION`"
 
 git clone git@github.com:pachyderm/homebrew-tap
 
-
+cd homebrew-tap && make VERSION="`cat VERSION`" update-formula
 
 
 
