@@ -53,7 +53,7 @@ update-test-deps:
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
-build:
+build: 
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
@@ -67,39 +67,20 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-release: release-version release-pachd release-job-shim release-manifest release-pachctl
+tag-release: 
 	./etc/build/tag_release
-	rm VERSION
-
-release-version:
-	if git diff-index --quiet HEAD --; then
-		@# No changes
-		git log | head -n 1 | cut -f 2 -d " " > COMMITID
-		make install
-		$(eval VERSION := $(shell pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " "))
-		git tag | grep "$(VERSION)"
-		if [ $? -eq 0 ]
-		then
-			@echo "Tag $(VERSION) already exists. Exiting"
-			exit 1
-		fi
-	else
-		@# Changes
-		@echo "Local changes not committed. Aborting."
-		exit 1
-	fi
 
 release-pachd:
-	VERSION=$(VERSION) ./etc/build/release_pachd
-
-release-job-shim:
-	VERSION=$(VERSION) ./etc/build/release_job_shim
+	./etc/build/release_pachd
 
 release-manifest: install
-	VERSION=$(VERSION) ./etc/build/release_manifest
-
-release-pachctl:
-	VERSION=$(VERSION) ./etc/build/release_pachctl
+	@if [ -z $$VERSION ]; then \
+		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
+		exit 1; \
+	else \
+		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
+	fi
+	pach-deploy -s 32 > etc/kube/pachyderm.json
 
 docker-build-compile:
 	# Running locally, not on travis
@@ -208,7 +189,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
 test-client:
 	rm -rf src/client/vendor
@@ -279,67 +260,35 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/
-
-lint:
-	@for pkg in $$(go list ./src/... | grep -v '/vendor/' ) ; do \
-		if [ "`golint $$pkg | tee /dev/stderr`" ] ; then \
-			echo "golint errors!" && echo && exit 1; \
-		fi \
-	done
+	go-bindata -o assets.go -pkg pachyderm doc/ 
 
 
-.PHONY:
+.PHONY: \
+	doc \
 	all \
 	version \
 	deps \
-	deps-client \
 	update-deps \
 	test-deps \
 	update-test-deps \
-	build-clean-vendored-client \
+	vendor-update \
+	vendor-without-update \
+	vendor \
 	build \
 	install \
-	install-doc \
-	homebrew \
-	tag-release \
-	release-pachd \
+	docker-build-test \
 	docker-build-compile \
-	docker-build-job-shim \
-	docker-build-pachd \
 	docker-build \
-	docker-build-proto \
-	docker-build-fruitstand \
-	docker-push-job-shim \
-	docker-push-pachd \
+	docker-build-pachd \
 	docker-push \
-	launch-kube \
-	clean-launch-kube \
-	kube-cluster-assets \
+	docker-push-pachd \
+	run \
 	launch \
-	launch-dev \
-	clean-launch \
-	full-clean-launch \
-	clean-pps-storage \
-	integration-tests \
 	proto \
-	protofix \
 	pretest \
+	docker-clean-test \
+	go-test \
+	go-test-long \
 	test \
-	test-client \
-	test-fuse \
-	test-local \
-	clean \
-	doc \
-	grep-data \
-	grep-example \
-	logs \
-	kubectl \
-	google-cluster-manifest \
-	google-cluster \
-	clean-google-cluster \
-	amazon-cluster-manifest \
-	amazon-cluster \
-	clean-amazon-cluster \
-	install-go-bindata \
-	assets
+	test-long \
+	clean
