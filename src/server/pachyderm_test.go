@@ -2097,7 +2097,7 @@ func waitForReadiness(t *testing.T) {
 		if has {
 			break
 		}
-		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * 10)
 	}
 }
 
