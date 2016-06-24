@@ -19,5 +19,27 @@ echo "PACHCTL Release Not yet implemented"
 #    a) update the formala / checksums / URLs
 #    b) push the cross compiled binaries where they need to be to get valid URLs (probably a way to host these w github)
 #    c) commit and push these changes (to homebrew-tap / etc)
+which goxc
+
+if [ $? -ne 0 ]
+then
+    echo "You need to install goxc. Do so by running: `go get github.com/laher/goxc`" 
+fi
+
+if [ ! -f .goxc.local.json ]
+then
+    echo "You haven't configured goxc. Please run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`"
+    echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+fi
+
+echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
+make VERSION=`cat VERSION` goxc-release
+
+echo "--- Updating homebrew formula to use binaries at version `cat VERSION`"
+
+git clone git@github.com:pachyderm/homebrew-tap
+
+
+
 
 

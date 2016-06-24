@@ -77,9 +77,12 @@ release-version:
 		git log | head -n 1 | cut -f 2 -d " " > COMMITID
 		make install
 		pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " " > VERSION
-		git tag | grep `cat VERSION`
-		# TODO(SJ)
-		# if found, exit 1 --- tag already exists
+		git tag | grep "`cat VERSION`"
+		if [ $? -eq 0 ]
+		then
+			@echo "Tag `cat VERSION` already exists. Exiting"
+			exit 1
+		fi
 	else
 		@# Changes
 		@echo "Local changes not committed. Aborting."
