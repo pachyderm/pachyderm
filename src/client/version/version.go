@@ -3,6 +3,8 @@ package version
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"go.pedge.io/proto/version"
 )
@@ -14,6 +16,8 @@ const (
 	MinorVersion = 0
 	// MicroVersion is the patch number for pachyderm.
 	MicroVersion = 1
+	// AdditionalVersion is the string provided at release time
+	AdditionalVersion = "RC"
 )
 
 var (
@@ -22,7 +26,7 @@ var (
 		Major:      MajorVersion,
 		Minor:      MinorVersion,
 		Micro:      MicroVersion,
-		Additional: getBuildNumber(),
+		Additional: getAdditionalVersion(),
 	}
 )
 
@@ -34,10 +38,18 @@ func PrettyPrintVersion(version *protoversion.Version) string {
 	return result
 }
 
-func getBuildNumber() string {
-	value := os.Getenv("PACH_BUILD_NUMBER")
+func getAdditionalVersion() string {
+	value := os.Getenv("VERSION_ADDITIONAL")
 	if value == "" {
-		value = "dirty"
+		out, err := exec.Command("git", "log", "--pretty=format:%H").Output()
+		if err != nil {
+			panic(err)
+		}
+		lines := strings.SplitAfterN(string(out), "\n", 2)
+		if len(lines) < 2 {
+			panic("Couldn't determine current commit hash")
+		}
+		value = strings.TrimSpace(lines[0])
 	}
 	return value
 }

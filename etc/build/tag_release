@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
 
-
-version=`cat VERSION`
-commit=`cat COMMITID`
-
-if [ -z $version ]
+if [ -z $VERSION ]
 then
         echo "No version found for this commit! Aborting release"
         exit 1
 fi
 
-if [ -z $commit ]
-then
-        echo "No commit found for this release! Aborting release"
-        exit 1
-fi
-
-echo "--- Tagging release at ($commit)  w version: $version"
-echo "Tagging this build as: v$version"
-git tag "v$version" $commit
+echo "--- Tagging release w version: $VERSION"
+echo "Tagging this build as: v$VERSION"
+git tag "v$VERSION"
 echo "Pushing tags ..."
 git push --quiet --tags > /dev/null 2>&1

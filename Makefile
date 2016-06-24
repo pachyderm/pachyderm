@@ -67,39 +67,25 @@ install-doc:
 homebrew:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
+# Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
 	./etc/build/tag_release
 	rm VERSION
 
-release-version:
-	if git diff-index --quiet HEAD --; then
-		@# No changes
-		git log | head -n 1 | cut -f 2 -d " " > COMMITID
-		make install
-		$(eval VERSION := $(shell pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " "))
-		git tag | grep "$(VERSION)"
-		if [ $? -eq 0 ]
-		then
-			@echo "Tag $(VERSION) already exists. Exiting"
-			exit 1
-		fi
-	else
-		@# Changes
-		@echo "Local changes not committed. Aborting."
-		exit 1
-	fi
+release-version: install
+	@./etc/build/release_version
 
 release-pachd:
-	VERSION=$(VERSION) ./etc/build/release_pachd
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
 
 release-job-shim:
-	VERSION=$(VERSION) ./etc/build/release_job_shim
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
 
-release-manifest: install
-	VERSION=$(VERSION) ./etc/build/release_manifest
+release-manifest:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
 
 release-pachctl:
-	VERSION=$(VERSION) ./etc/build/release_pachctl
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
 	# Running locally, not on travis
@@ -303,7 +289,11 @@ lint:
 	install-doc \
 	homebrew \
 	tag-release \
+	release \
+	release-job-shim \
+	release-manifest \
 	release-pachd \
+	release-version \
 	docker-build-compile \
 	docker-build-job-shim \
 	docker-build-pachd \
