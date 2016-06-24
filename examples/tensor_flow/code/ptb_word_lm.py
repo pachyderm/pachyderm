@@ -210,7 +210,7 @@ class SmallConfig(object):
   keep_prob = 1.0
   lr_decay = 0.5
   batch_size = 20
-  vocab_size = 10002
+  vocab_size = 10000
 
 
 class MediumConfig(object):
@@ -226,7 +226,7 @@ class MediumConfig(object):
   keep_prob = 0.5
   lr_decay = 0.8
   batch_size = 20
-  vocab_size = 10002
+  vocab_size = 10000
 
 
 class LargeConfig(object):
@@ -242,7 +242,7 @@ class LargeConfig(object):
   keep_prob = 0.35
   lr_decay = 1 / 1.15
   batch_size = 20
-  vocab_size = 10002
+  vocab_size = 10000
 
 
 class TestConfig(object):
@@ -258,7 +258,7 @@ class TestConfig(object):
   keep_prob = 1.0
   lr_decay = 0.5
   batch_size = 20
-  vocab_size = 10002
+  vocab_size = 10000
 
 
 def run_epoch(session, m, data, eval_op, verbose=False):
@@ -371,7 +371,7 @@ def generate(word_to_id, id_to_word):
                                                  m.targets: np.zeros((1, 1)),
                                                  m.initial_state: m.initial_state.eval(),
                                                  m.weights: np.ones(1)})
-      next_word = int(word_to_id["<bos>"])
+      next_word = int(word_to_id["<eos>"])
       sentence = []
       count = 0
       while True:
