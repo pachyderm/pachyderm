@@ -22,6 +22,7 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -59,20 +60,20 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
-
-homebrew:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
 	./etc/build/tag_release
 	rm VERSION
 
-release-version: install
+release-version:
+	@# Need to blow away pachctl binary if its already there
+	@rm $(GOPATH)/bin/pachctl
+	@make install
 	@./etc/build/release_version
 
 release-pachd:
@@ -286,7 +287,7 @@ goxc-release:
 		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 goxc-release'"; \
 		exit 1; \
 	fi
-	goxc -pv=$(VERSION) -wd=./src/server/cmd/pachctl
+	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
