@@ -1,15 +1,25 @@
 #!/bin/bash
-version=`cat VERSION`
+MANIFEST=etc/kube/pachyderm-versioned.json
+DEV_MANIFEST=etc/kube/pachyderm.json
 
-if [ -z $version ]
+if [ -z $VERSION ]
 then
         echo "No version found for this commit! Aborting release"
         exit 1
 fi
 
-echo "--- Releasing manifest w version: $version"
-pach-deploy -s 32 --version `cat VERSION` > etc/kube/pachyderm-versioned.json
-pach-deploy -s 32 > etc/kube/pachyderm.json
-git commit -a -m "Updated manifest to version `cat VERSION`"
-# TODO
-# Clone www repo / copy manifest there / deploy
+echo "--- Releasing manifests w version: $VERSION"
+
+pach-deploy -s 32 > $(DEV_MANIFEST)
+pach-deploy -s 32 --version $(VERSION) > $(MANIFEST)
+
+# Now upload the stable manifest to the corp site
+
+git clone git@github.com:pachyderm/www
+cp MANIFEST www/manifest.json
+cd www && \
+       git commit -a -m "[Automated] Update manifest.json to release version $VERSION" && \
+       git push origin master && \
+       make
+rm -rf www
+
