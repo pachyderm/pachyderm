@@ -64,6 +64,7 @@ import tensorflow as tf
 import sys
 import os
 import json
+import random
 sys.path.insert(0, os.path.abspath('..'))
 from code import reader
 
@@ -379,7 +380,11 @@ def generate(word_to_id, id_to_word):
                                                      m.targets: np.zeros((1, 1)),
                                                      m.initial_state: final_state,
                                                      m.weights: np.ones(1)})
-          next_word = np.random.choice(10002, p=probs[0])
+          # Saw some precision errors (w 1e-6 p didn't sum to 1)
+          # So renormalize:
+          p = np.array(probs[0])
+          p /= p.sum().astype(np.float64)
+          next_word = non_uniform_randomly_sample(p)
           sentence += [id_to_word[str(next_word)]]
           count += 1
           if count > 1000:
@@ -388,6 +393,17 @@ def generate(word_to_id, id_to_word):
       
       print(" ".join(sentence))
 
+def non_uniform_randomly_sample(p):
+
+  rn = random.random()
+  cnt=0.0
+  for i in range(len(p)):
+    cnt+=p[i]
+    if rn <= cnt:
+      return i
+
+  # in cases where sum(p) is close but not equal to zero, we may walk through the whole vector ... in this case, just compromise and take the element that had the largest probability
+  return np.argmax(p)
 
 if __name__ == "__main__":
   tf.app.run()
