@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 const (
@@ -1619,7 +1620,7 @@ func TestFlushCommitWithFailure(t *testing.T) {
 	require.YesError(t, err)
 }
 
-// TestRecreatingPipeline tracks #432
+// TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1629,8 +1630,13 @@ func TestRecreatePipeline(t *testing.T) {
 	c := getPachClient(t)
 	repo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	pipeline := uniqueString("pipeline")
-	createPipelineAndRunJob := func() {
+	createPipeline := func() {
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
@@ -1639,13 +1645,6 @@ func TestRecreatePipeline(t *testing.T) {
 			1,
 			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
 		))
-
-		commit, err := c.StartCommit(repo, "", "")
-		require.NoError(t, err)
-		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(repo, commit.ID))
-
 		listCommitRequest := &pfsclient.ListCommitRequest{
 			Repo:       []*pfsclient.Repo{{pipeline}},
 			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
@@ -1663,10 +1662,10 @@ func TestRecreatePipeline(t *testing.T) {
 	}
 
 	// Do it twice.  We expect jobs to be created on both runs.
-	createPipelineAndRunJob()
+	createPipeline()
 	require.NoError(t, c.DeleteRepo(pipeline))
 	require.NoError(t, c.DeletePipeline(pipeline))
-	createPipelineAndRunJob()
+	createPipeline()
 }
 
 func TestPipelineState(t *testing.T) {
@@ -1742,11 +1741,22 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
 
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)], int32(1))
+	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)])
 }
 
 func TestJobState(t *testing.T) {
@@ -1804,27 +1814,31 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	// Wait for the cluster to stablize... ideally we shouldn't have to
 	// do that.
 	time.Sleep(20 * time.Second)
+	// getUsablePachClient has the side effect of blocking until the cluster is
+	// ready
+	getUsablePachClient(t)
 	TestJob(t)
 }
 
-// scalePachd scales the number of pachd nodes to anywhere from 1 to
-// twice the original number
-// It's guaranteed that the new replica number will be different from
-// the original
-func scalePachd(t *testing.T, k *kube.Client) {
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
-	originalReplicas := pachdRc.Spec.Replicas
-	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
-		if pachdRc.Spec.Replicas != originalReplicas {
-			break
-		}
+func TestDeleteAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
 	}
-	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
-	_, err = rc.Update(pachdRc)
+
+	repo := uniqueString("TestDeleteAfterMembershipChange")
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
 	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	k := getKubeClient(t)
+	scalePachd(t, k)
+	// Wait for the cluster to stablize... ideally we shouldn't have to
+	// do that.
+	time.Sleep(20 * time.Second)
+
+	c = getUsablePachClient(t)
+	require.NoError(t, c.DeleteRepo(repo))
 }
 
 func TestScrubbedErrors(t *testing.T) {
@@ -1892,6 +1906,48 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
+func TestRestartAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRestartAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+
+	kube := getKubeClient(t)
+	restartAll(t, kube)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	_, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	_, err = c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	_, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+}
+
 func TestPrettyPrinting(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1900,7 +1956,7 @@ func TestPrettyPrinting(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline_data")
+	dataRepo := uniqueString("TestPrettyPrinting_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -1938,10 +1994,113 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
 }
 
+func TestDeleteAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it deletes everything
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestDeleteAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+	pipelineInfos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(pipelineInfos))
+	jobInfos, err := c.ListJob("", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobInfos))
+}
+
+func TestRecursiveCp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRecursiveCp_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("TestRecursiveCp")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("mkdir /inputs"),
+			fmt.Sprintf("cp -r /pfs/%s /inputs", dataRepo),
+		},
+		1,
+		[]*ppsclient.PipelineInput{{
+			Repo:   client.NewRepo(dataRepo),
+			Method: client.IncrementalReduceMethod,
+		}},
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = c.PutFile(
+			dataRepo,
+			commit.ID,
+			fmt.Sprintf("file%d", i),
+			strings.NewReader(strings.Repeat("foo\n", 10000)),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
+}
+
+const (
+	retries = 10
+)
+
+// getUsablePachClient is like getPachClient except it blocks until it gets a
+// connection that actually works
+func getUsablePachClient(t *testing.T) *client.APIClient {
+	for i := 0; i < retries; i++ {
+		client := getPachClient(t)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel() //cleanup resources
+		_, err := client.PfsAPIClient.ListRepo(ctx, &pfsclient.ListRepoRequest{})
+		if err == nil {
+			return client
+		}
+	}
+	t.Fatalf("failed to connect after %d tries", retries)
+	return nil
 }
 
 func getKubeClient(t *testing.T) *kube.Client {
@@ -1956,4 +2115,38 @@ func getKubeClient(t *testing.T) *kube.Client {
 
 func uniqueString(prefix string) string {
 	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
+}
+
+// scalePachd scales the number of pachd nodes to anywhere from 1 to
+// twice the original number
+// It's guaranteed that the new replica number will be different from
+// the original
+func scalePachd(t *testing.T, k *kube.Client) {
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	pachdRc, err := rc.Get("pachd")
+	require.NoError(t, err)
+	originalReplicas := pachdRc.Spec.Replicas
+	for {
+		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
+		if pachdRc.Spec.Replicas != originalReplicas {
+			break
+		}
+	}
+	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	_, err = rc.Update(pachdRc)
+	require.NoError(t, err)
+}
+
+func restartAll(t *testing.T, k *kube.Client) {
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse("suite=pachyderm")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
+	}
 }

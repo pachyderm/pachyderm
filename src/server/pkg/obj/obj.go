@@ -28,6 +28,8 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
+	// IsNotExist returns true if err is a non existence error
+	IsNotExist(err error) bool
 }
 
 func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
