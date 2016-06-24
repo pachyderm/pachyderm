@@ -2,8 +2,6 @@
 MANIFEST=etc/kube/pachyderm-versioned.json
 DEV_MANIFEST=etc/kube/pachyderm.json
 
-VERSION=`cat VERSION`
-
 if [ -z $VERSION ]
 then
         echo "No version found for this commit! Aborting release"

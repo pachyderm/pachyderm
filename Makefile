@@ -76,11 +76,11 @@ release-version:
 		@# No changes
 		git log | head -n 1 | cut -f 2 -d " " > COMMITID
 		make install
-		pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " " > VERSION
-		git tag | grep "`cat VERSION`"
+		$(eval VERSION := $(shell pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " "))
+		git tag | grep "$(VERSION)"
 		if [ $? -eq 0 ]
 		then
-			@echo "Tag `cat VERSION` already exists. Exiting"
+			@echo "Tag $(VERSION) already exists. Exiting"
 			exit 1
 		fi
 	else
@@ -90,16 +90,16 @@ release-version:
 	fi
 
 release-pachd:
-	./etc/build/release_pachd
+	VERSION=$(VERSION) ./etc/build/release_pachd
 
 release-job-shim:
-	./etc/build/release_job_shim
+	VERSION=$(VERSION) ./etc/build/release_job_shim
 
 release-manifest: install
-	./etc/build/release_manifest
+	VERSION=$(VERSION) ./etc/build/release_manifest
 
 release-pachctl:
-	./etc/build/release_pachctl
+	VERSION=$(VERSION) ./etc/build/release_pachctl
 
 docker-build-compile:
 	# Running locally, not on travis
