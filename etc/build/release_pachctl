@@ -1,0 +1,38 @@
+#!/bin/bash
+
+version=`cat VERSION`
+
+if [ -z $version ]
+then
+        echo "No version found for this commit! Aborting release"
+        exit 1
+fi
+
+echo "--- Releasing pachctl w version: $version"
+
+which goxc
+
+if [ $? -ne 0 ]
+then
+    echo "You need to install goxc. Do so by running: `go get github.com/laher/goxc`" 
+fi
+
+if [ ! -f .goxc.local.json ]
+then
+    echo "You haven't configured goxc. Please run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`"
+    echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+fi
+
+echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
+make VERSION=`cat VERSION` goxc-release
+
+echo "--- Updating homebrew formula to use binaries at version `cat VERSION`"
+
+git clone git@github.com:pachyderm/homebrew-tap
+cd homebrew-tap && \
+    make VERSION="`cat VERSION`" update-formula && \
+    git commit -a -m "[Automated] Update formula to release version `cat VERSION`" && \
+    git push origin master
+rm -rf homebrew-tap
+
+# TODO: Add apt-get compilation / registering here
