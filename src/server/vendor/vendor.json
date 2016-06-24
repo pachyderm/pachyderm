@@ -17,26 +17,26 @@
 		{
 			"checksumSHA1": "xCAVewAtJpNeqReS0fRzarfwfjA=",
 			"path": "bazil.org/fuse",
-			"revision": "0dfaa72ce1313ab5a43f1cb501fd87e2f367283f",
-			"revisionTime": "2015-11-25T17:25:30Z"
+			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
+			"revisionTime": "2016-06-23T20:17:38-07:00"
 		},
 		{
 			"checksumSHA1": "389JFJTJADMtZkTIfdSnsmHVOUs=",
 			"path": "bazil.org/fuse/fs",
-			"revision": "0dfaa72ce1313ab5a43f1cb501fd87e2f367283f",
-			"revisionTime": "2015-11-25T17:25:30Z"
+			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
+			"revisionTime": "2016-06-23T20:17:38-07:00"
 		},
 		{
 			"checksumSHA1": "wy8DrEJ4Al2iZk5hKQEbIqaghGM=",
 			"path": "bazil.org/fuse/fs/fstestutil",
-			"revision": "0dfaa72ce1313ab5a43f1cb501fd87e2f367283f",
-			"revisionTime": "2015-11-25T17:25:30Z"
+			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
+			"revisionTime": "2016-06-23T20:17:38-07:00"
 		},
 		{
 			"checksumSHA1": "NPgkh9UWMsaTtsAAs3kPrclHT9Y=",
 			"path": "bazil.org/fuse/fuseutil",
-			"revision": "0dfaa72ce1313ab5a43f1cb501fd87e2f367283f",
-			"revisionTime": "2015-11-25T17:25:30Z"
+			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
+			"revisionTime": "2016-06-23T20:17:38-07:00"
 		},
 		{
 			"path": "context",
