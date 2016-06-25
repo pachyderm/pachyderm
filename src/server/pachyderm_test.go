@@ -30,6 +30,7 @@ import (
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
+	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
 
 const (
@@ -2091,13 +2092,34 @@ func scalePachd(t *testing.T) {
 
 func waitForReadiness(t *testing.T) {
 	k := getKubeClient(t)
+	rc := pachdRc(t)
 	for {
-		has, err := kube.ControllerHasDesiredReplicas(k, pachdRc(t))()
+		has, err := kube.ControllerHasDesiredReplicas(k, rc)()
 		require.NoError(t, err)
 		if has {
 			break
 		}
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 5)
+	}
+	watch, err := k.Pods(api.NamespaceDefault).Watch(api.ListOptions{
+		LabelSelector: kube_labels.SelectorFromSet(map[string]string{"app": "pachd"}),
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	readyPods := make(map[string]bool)
+	for event := range watch.ResultChan() {
+		ready, err := kube.PodRunningAndReady(event)
+		require.NoError(t, err)
+		if ready {
+			pod, ok := event.Object.(*api.Pod)
+			if !ok {
+				t.Fatal("event.Object should be an object")
+			}
+			readyPods[pod.Name] = true
+			if len(readyPods) == int(rc.Spec.Replicas) {
+				break
+			}
+		}
 	}
 }
 
