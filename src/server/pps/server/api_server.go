@@ -1325,7 +1325,8 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Parallelism:  persistJobInfo.Parallelism,
 		Inputs:       persistJobInfo.Inputs,
 		ParentJob:    persistJobInfo.ParentJob,
-		CreatedAt:    persistJobInfo.CreatedAt,
+		Started:      persistJobInfo.Started,
+		Finished:     persistJobInfo.Finished,
 		OutputCommit: persistJobInfo.OutputCommit,
 		State:        persistJobInfo.State,
 	}, nil

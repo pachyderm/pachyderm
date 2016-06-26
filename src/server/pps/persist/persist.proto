@@ -39,6 +39,7 @@ message JobOutput {
 message JobState {
 	string job_id = 1;
 	pps.JobState state = 2;
+    google.protobuf.Timestamp finished = 3; // set when state == FINISHED
 }
 
 message PipelineInfo {
