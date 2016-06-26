@@ -51,9 +51,10 @@ message JobInfo {
   uint64 parallelism = 4;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
-  google.protobuf.Timestamp created_at = 7;
-  pfs.Commit output_commit = 8;
-  JobState state = 9;
+  google.protobuf.Timestamp started = 7;
+  google.protobuf.Timestamp finished = 8;
+  pfs.Commit output_commit = 9;
+  JobState state = 10;
 }
 
 message JobInfos {
