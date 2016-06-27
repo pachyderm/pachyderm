@@ -92,3 +92,7 @@ func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
 	}
 	return result, nil
 }
+
+func (r *router) CloseClientConns() error {
+	return r.dialer.CloseConns()
+}
