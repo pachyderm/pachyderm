@@ -365,6 +365,7 @@ Files can be read from finished commits with get-file.`,
 
 	var fromCommitID string
 	var unsafe bool
+	var handle string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -374,12 +375,17 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			if unsafe {
+				return client.GetFileUnsafe(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), handle, os.Stdout)
+			} else {
+				return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			}
 		}),
 	}
 	addShardFlags(getFile)
 	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
+	getFile.Flags().StringVarP(&handle, "handle", "d", "", "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes; handle ID can be found from api log lines")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
