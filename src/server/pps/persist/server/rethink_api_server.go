@@ -164,13 +164,13 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if request.JobID == "" {
 		return nil, fmt.Errorf("request.JobID should be set")
 	}
-	if request.CreatedAt != nil {
-		return nil, fmt.Errorf("request.CreatedAt should be unset")
+	if request.Started != nil {
+		return nil, fmt.Errorf("request.Started should be unset")
 	}
 	if request.CommitIndex != "" {
 		return nil, fmt.Errorf("request.CommitIndex should be unset")
 	}
-	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
+	request.Started = prototime.TimeToTimestamp(time.Now())
 	var commits []*pfs.Commit
 	for _, input := range request.Inputs {
 		commits = append(commits, input.Commit)
@@ -287,6 +287,13 @@ func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist
 
 func (a *rethinkAPIServer) CreateJobState(ctx context.Context, request *persist.JobState) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.Finished != nil {
+		return nil, fmt.Errorf("request.Finished should be unset")
+	}
+	if request.State == ppsclient.JobState_JOB_SUCCESS ||
+		request.State == ppsclient.JobState_JOB_FAILURE {
+		request.Finished = prototime.TimeToTimestamp(time.Now())
+	}
 	if err := a.updateMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
