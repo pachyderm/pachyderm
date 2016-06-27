@@ -73,20 +73,25 @@ func (c *googleClient) Delete(name string) error {
 }
 
 func (c *googleClient) IsRetryable(err error) bool {
-	switch err := err.(type) {
-	case *googleapi.Error:
-		return err.Code >= 500
-	default:
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
 		return false
 	}
+	return googleErr.Code >= 500
+}
+
+func (c *googleClient) IsNotExist(err error) bool {
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return googleErr.Code == 404
 }
 
 func (c *googleClient) IsIgnorable(err error) bool {
-	switch err := err.(type) {
-	case *googleapi.Error:
-		// 429 implies that the block already exists.
-		return err.Code == 429
-	default:
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
 		return false
 	}
+	return googleErr.Code == 429
 }

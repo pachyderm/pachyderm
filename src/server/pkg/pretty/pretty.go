@@ -17,8 +17,12 @@ func UnescapeHTML(s string) string {
 	return s
 }
 
-func Duration(timestamp *google_protobuf.Timestamp) string {
+func Ago(timestamp *google_protobuf.Timestamp) string {
 	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(prototime.TimestampToTime(timestamp))))
+}
+
+func Duration(from *google_protobuf.Timestamp, to *google_protobuf.Timestamp) string {
+	return units.HumanDuration(prototime.TimestampToTime(to).Sub(prototime.TimestampToTime(from)))
 }
 
 func Size(size uint64) string {

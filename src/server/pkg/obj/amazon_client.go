@@ -93,22 +93,34 @@ func (c *amazonClient) Exists(name string) bool {
 }
 
 func (c *amazonClient) IsRetryable(err error) bool {
-	switch err := err.(type) {
-	case awserr.Error:
-		for _, c := range []string{
-			storagegateway.ErrorCodeServiceUnavailable,
-			storagegateway.ErrorCodeInternalError,
-			storagegateway.ErrorCodeGatewayInternalError,
-		} {
-			if c == err.Code() {
-				return true
-			}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return false
+	}
+	for _, c := range []string{
+		storagegateway.ErrorCodeServiceUnavailable,
+		storagegateway.ErrorCodeInternalError,
+		storagegateway.ErrorCodeGatewayInternalError,
+	} {
+		if c == awsErr.Code() {
+			return true
 		}
 	}
 	return false
 }
 
-func (c *amazonClient) IsBenevolent(err error) bool {
+func (c *amazonClient) IsIgnorable(err error) bool {
+	return false
+}
+
+func (c *amazonClient) IsNotExist(err error) bool {
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return false
+	}
+	if awsErr.Code() == storagegateway.ErrorCodeTargetNotFound {
+		return true
+	}
 	return false
 }
 
