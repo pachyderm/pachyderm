@@ -1810,7 +1810,9 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	scalePachd(t)
+	scalePachd(t, true)
+	TestJob(t)
+	scalePachd(t, false)
 	TestJob(t)
 }
 
@@ -1819,15 +1821,19 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	repo := uniqueString("TestDeleteAfterMembershipChange")
-	c := getPachClient(t)
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.StartCommit(repo, "", "master")
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, "master"))
-	scalePachd(t)
-	c = getUsablePachClient(t)
-	require.NoError(t, c.DeleteRepo(repo))
+	test := func(up bool) {
+		repo := uniqueString("TestDeleteAfterMembershipChange")
+		c := getPachClient(t)
+		require.NoError(t, c.CreateRepo(repo))
+		_, err := c.StartCommit(repo, "", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, "master"))
+		scalePachd(t, up)
+		c = getUsablePachClient(t)
+		require.NoError(t, c.DeleteRepo(repo))
+	}
+	test(true)
+	test(false)
 }
 
 func TestScrubbedErrors(t *testing.T) {
@@ -2113,16 +2119,20 @@ func pachdRc(t *testing.T) *api.ReplicationController {
 	return result
 }
 
-// scalePachd scales the number of pachd nodes to anywhere from 1 to
-// twice the original number
-// It's guaranteed that the new replica number will be different from
-// the original
-func scalePachd(t *testing.T) {
+// scalePachd scales the number of pachd nodes up or down.
+// If up is true, then the number of nodes will be within (n, 2n]
+// If up is false, then the number of nodes will be within [1, n)
+func scalePachd(t *testing.T, up bool) {
 	k := getKubeClient(t)
 	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
+		if up {
+			pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
+		} else {
+			pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
+		}
+
 		if pachdRc.Spec.Replicas != originalReplicas {
 			break
 		}
@@ -2132,6 +2142,14 @@ func scalePachd(t *testing.T) {
 	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
 	waitForReadiness(t)
+}
+
+func scalePachdUp(t *testing.T) {
+	scalePachd(t, true)
+}
+
+func scalePachdDown(t *testing.T) {
+	scalePachd(t, false)
 }
 
 func waitForReadiness(t *testing.T) {
