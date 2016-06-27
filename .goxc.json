@@ -1,0 +1,15 @@
+{
+	"ArtifactsDest": "build",
+	"Tasks": [
+		"default",
+		"publish-github"
+	],
+	"BuildConstraints": "linux,amd64 darwin,amd64",
+	"TaskSettings": {
+		"publish-github": {
+			"owner": "pachyderm",
+			"repository": "pachyderm"
+		}
+	},
+	"ConfigVersion": "0.9"
+}

@@ -16,13 +16,19 @@ import (
 )
 
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tOUTPUT\tSTATE\t\n")
+	fmt.Fprint(w, "ID\tOUTPUT\tSTARTED\tDURATION\tSTATE\t\n")
 }
 
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+	if jobInfo.Finished != nil {
+		fmt.Fprintf(w, "%s\t", pretty.Duration(jobInfo.Started, jobInfo.Finished))
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
@@ -87,7 +93,8 @@ func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}
-Created: {{prettyDuration .CreatedAt}}
+Started: {{prettyAgo .Started}} {{if .Finished}}
+Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Parallelism: {{.Parallelism}}
 Inputs:
@@ -107,7 +114,7 @@ Inputs:
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}
-Created: {{prettyDuration .CreatedAt}}
+Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Parallelism: {{.Parallelism}}
 Inputs:
@@ -200,6 +207,7 @@ var funcMap = template.FuncMap{
 	"jobState":        jobState,
 	"pipelineInputs":  pipelineInputs,
 	"jobInputs":       jobInputs,
+	"prettyAgo":       pretty.Ago,
 	"prettyDuration":  pretty.Duration,
 	"jobCounts":       jobCounts,
 	"prettyTransform": prettyTransform,
