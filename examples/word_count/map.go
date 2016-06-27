@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 )
@@ -86,9 +88,19 @@ func main() {
 		}
 	}
 
+	var i int
 	for word, count := range wordMap {
+		i++
 		if err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644); err != nil {
 			log.Fatal(err)
+		}
+		if i%1000 == 0 {
+			memprofile, err := os.Create(fmt.Sprintf("/tmp/memprofile-%d", i/1000))
+			if err != nil {
+				panic(err)
+			}
+			pprof.WriteHeapProfile(memprofile)
+			memprofile.Close()
 		}
 	}
 }
