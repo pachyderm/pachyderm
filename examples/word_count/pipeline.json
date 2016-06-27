@@ -7,7 +7,7 @@
     "cmd": [ "wget",
         "-e", "robots=off",
         "--recursive",
-        "--level", "1",
+        "--level", "2",
         "--adjust-extension",
         "--no-check-certificate",
         "--no-directories",
