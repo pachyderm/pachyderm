@@ -3,7 +3,6 @@
 *#*
 
 # Build artifacts
-Dockerfile.pachd
 /protofix
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
