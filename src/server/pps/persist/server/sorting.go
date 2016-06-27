@@ -25,7 +25,7 @@ type jobInfosByTimestampDesc []*persist.JobInfo
 func (s jobInfosByTimestampDesc) Len() int          { return len(s) }
 func (s jobInfosByTimestampDesc) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
 func (s jobInfosByTimestampDesc) Less(i int, j int) bool {
-	return prototime.TimestampLess(s[j].CreatedAt, s[i].CreatedAt)
+	return prototime.TimestampLess(s[j].Started, s[i].Started)
 }
 
 func sortPipelineInfosByTimestampDesc(s []*persist.PipelineInfo) {

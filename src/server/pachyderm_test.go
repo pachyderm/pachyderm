@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -26,6 +24,8 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+	"go.pedge.io/proto/time"
+	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -90,6 +90,9 @@ func testJob(t *testing.T, shards int) {
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.NotNil(t, jobInfo.Started)
+	require.NotNil(t, jobInfo.Finished)
+	require.True(t, prototime.TimestampToTime(jobInfo.Finished).After(prototime.TimestampToTime(jobInfo.Started)))
 	for i := 0; i < numFiles; i++ {
 		var buffer bytes.Buffer
 		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", nil, &buffer))
