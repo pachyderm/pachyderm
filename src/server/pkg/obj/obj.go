@@ -30,6 +30,9 @@ type Client interface {
 	Exists(name string) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
+	// IsNotExist returns true if err is a non existence error
+	IsNotExist(err error) bool
+	// IsIgnorable returns true if the error can be ignored
 	IsIgnorable(err error) bool
 }
 

@@ -20,7 +20,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.Duration(repoInfo.Created),
+		pretty.Ago(repoInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
@@ -28,7 +28,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}
-Created: {{prettyDuration .Created}}
+Created: {{prettyAgo .Created}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 `)
@@ -57,11 +57,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.Duration(commitInfo.Started),
+		pretty.Ago(commitInfo.Started),
 	)
 	finished := "\t"
 	if commitInfo.Finished != nil {
-		finished = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Finished))
+		finished = fmt.Sprintf("%s\t", pretty.Ago(commitInfo.Finished))
 	}
 	fmt.Fprintf(w, finished)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
@@ -72,8 +72,8 @@ func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}} {{end}} {{if .Branch}}
 Branch: {{.Branch}} {{end}}
-Started: {{prettyDuration .Started}}{{if .Finished}}
-Finished: {{prettyDuration .Finished}} {{end}}
+Started: {{prettyAgo .Started}}{{if .Finished}}
+Finished: {{prettyAgo .Finished}} {{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}{{if .Cancelled}}
 CANCELLED {{end}}
@@ -102,7 +102,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.Duration(fileInfo.Modified),
+		pretty.Ago(fileInfo.Modified),
 	)
 	fmt.Fprint(w, "-\t")
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
@@ -112,7 +112,7 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
 Type: {{fileType .FileType}}
-Modifed: {{prettyDuration .Modified}}
+Modifed: {{prettyAgo .Modified}}
 Size: {{prettySize .SizeBytes}}
 Commit Modified: {{.CommitModified.Repo.Name}}/{{.CommitModified.ID}}{{if .Children}}
 Children: {{range .Children}} {{.Path}} {{end}} {{end}}
@@ -135,7 +135,7 @@ func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(
 		w,
 		"%s\t",
-		pretty.Duration(blockInfo.Created),
+		pretty.Ago(blockInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
 }
@@ -154,7 +154,7 @@ func fileType(fileType pfs.FileType) string {
 }
 
 var funcMap = template.FuncMap{
-	"prettyDuration": pretty.Duration,
-	"prettySize":     pretty.Size,
-	"fileType":       fileType,
+	"prettyAgo":  pretty.Ago,
+	"prettySize": pretty.Size,
+	"fileType":   fileType,
 }

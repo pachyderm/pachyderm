@@ -31,14 +31,14 @@ func (arr ByCreationTime) Len() int { return len(arr) }
 func (arr ByCreationTime) Swap(i, j int) { arr[i], arr[j] = arr[j], arr[i] }
 
 func (arr ByCreationTime) Less(i, j int) bool {
-	if arr[i].CreatedAt == nil || arr[j].CreatedAt == nil {
+	if arr[i].Started == nil || arr[j].Started == nil {
 		return false
 	}
 
-	if arr[i].CreatedAt.Seconds < arr[j].CreatedAt.Seconds {
+	if arr[i].Started.Seconds < arr[j].Started.Seconds {
 		return true
-	} else if arr[i].CreatedAt.Seconds == arr[j].CreatedAt.Seconds {
-		return arr[i].CreatedAt.Nanos < arr[j].CreatedAt.Nanos
+	} else if arr[i].Started.Seconds == arr[j].Started.Seconds {
+		return arr[i].Started.Nanos < arr[j].Started.Nanos
 	}
 
 	return false
