@@ -83,7 +83,6 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 
 	request.Created = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
 			return nil, err
 		}
@@ -109,7 +108,6 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	var repoInfos []*pfs.RepoInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -161,9 +159,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	var repoInfos []*pfs.RepoInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		clientConn := clientConn
-		defer clientConn.Close()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -202,7 +198,6 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteRepo(ctx, request); err != nil {
 			return nil, err
 		}
@@ -233,7 +228,6 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	request.ID = uuid.NewWithoutDashes()
 	request.Started = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
@@ -255,7 +249,6 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	}
 	request.Finished = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).FinishCommit(ctx, request); err != nil {
 			return nil, err
 		}
@@ -281,7 +274,6 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	var commitInfos []*pfs.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -333,7 +325,6 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	var commitInfos []*pfs.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -378,7 +369,6 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	var commitInfos []*pfs.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -419,7 +409,6 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteCommit(ctx, request); err != nil {
 			return nil, err
 		}
@@ -444,7 +433,6 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	var commitInfos []*pfs.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -531,7 +519,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		if err != nil {
 			return err
 		}
-		defer clientConn.Close()
 		putFileClient, err := pfs.NewInternalAPIClient(clientConn).PutFile(ctx)
 		if err != nil {
 			return err
@@ -622,7 +609,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	if err != nil {
 		return err
 	}
-	defer clientConn.Close()
 
 	fileGetClient, err := pfs.NewInternalAPIClient(clientConn).GetFile(ctx, request)
 	if err != nil {
@@ -644,7 +630,6 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	if err != nil {
 		return nil, err
 	}
-	defer clientConn.Close()
 
 	fileInfo, err := pfs.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
 	if err != nil {
@@ -681,7 +666,6 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	seenDirectories := make(map[string]bool)
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
@@ -741,7 +725,6 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 		if err != nil {
 			return nil, err
 		}
-		defer clientConn.Close()
 		return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
 	}
 
@@ -753,7 +736,6 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		wg.Add(1)
 		clientConn := clientConn
 		go func() {
@@ -796,14 +778,13 @@ func (a *apiServer) Version(version int64) error {
 		a.versionChans[version] = make(chan struct{})
 	}()
 
-	func() {
+	return func() error {
 		a.versionLock.Lock()
 		defer a.versionLock.Unlock()
 
 		a.version = version
+		return a.router.CloseClientConns()
 	}()
-
-	return nil
 }
 
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
