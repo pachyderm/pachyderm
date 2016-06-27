@@ -24,8 +24,7 @@
   },
   "transform": {
     "image": "derekchiang/wordcount-map:latest",
-    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"],
-    "debug": true
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
   },
   "inputs": [
     {
