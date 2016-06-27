@@ -89,12 +89,6 @@ release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
-	# Running locally, not on travis
-	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
-		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	else \
-		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
