@@ -29,7 +29,7 @@ echo "--- Updating homebrew formula to use binaries at version $VERSION"
 rm -rf homebrew-tap || true
 git clone git@github.com:pachyderm/homebrew-tap
 cd homebrew-tap && \
-    make VERSION=$VERSION update-formula # && \
+    make VERSION=$VERSION update-formula && \
     git commit -a -m "[Automated] Update formula to release version $VERSION" && \
     git pull origin master && \
     git push origin master
