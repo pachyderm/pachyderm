@@ -68,9 +68,8 @@ install-doc:
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
+	git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
 	rm VERSION
-	git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)"
-	@VERSION="$(shell cat VERSION)" ./etc/build/tag_release
 	#	git pull origin master && \
 	#	git push origin master
 
