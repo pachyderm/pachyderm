@@ -76,21 +76,29 @@ release: release-version release-pachd release-job-shim release-manifest release
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
-	@rm $(GOPATH)/bin/pachctl
+	@rm $(GOPATH)/bin/pachctl || true
 	@make install
 	@./etc/build/release_version
 
 release-pachd:
+	@echo "- Releasing pachd ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
+	@echo "- Successfully released pachd"
 
 release-job-shim:
+	@echo "- Releasing job-shim ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
+	@echo "- Successfully released job-shim"
 
 release-manifest:
+	@echo "- Releasing manifests ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
+	@echo "- Successfully released manifests"
 
 release-pachctl:
+	@echo "- Releasing pachctl ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
+	@echo "- Successfully released pachctl"
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
