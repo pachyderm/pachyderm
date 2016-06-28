@@ -95,10 +95,10 @@ docker-build-compile:
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
 docker-build-pachd: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
