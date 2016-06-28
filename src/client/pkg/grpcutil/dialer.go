@@ -10,14 +10,13 @@ type dialer struct {
 	opts []grpc.DialOption
 	// A map from addresses to connections
 	connMap map[string]*grpc.ClientConn
-	lock    *sync.Mutex
+	lock    sync.Mutex
 }
 
 func newDialer(opts ...grpc.DialOption) *dialer {
 	return &dialer{
 		opts:    opts,
 		connMap: make(map[string]*grpc.ClientConn),
-		lock:    &sync.Mutex{},
 	}
 }
 
