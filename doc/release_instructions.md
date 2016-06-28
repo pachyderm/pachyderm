@@ -29,7 +29,7 @@ make VERSION_ADDITIONAL=RC1 release
 Otherwise,
 
 ```shell
-make release
+make point-release
 ```
 
 Afterwards, you'll be prompted to push your changes to master. Please do so.
