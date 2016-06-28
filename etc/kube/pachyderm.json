@@ -29,8 +29,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -158,8 +158,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -234,15 +234,15 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd-init",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
     "selector": {
       "matchLabels": {
-        "suite": "pachyderm",
-        "app": "pachd-init"
+        "app": "pachd-init",
+        "suite": "pachyderm"
       }
     },
     "template": {
@@ -286,8 +286,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pachd"
+      "app": "pachd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -329,8 +329,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd"
+          "app": "pachd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
