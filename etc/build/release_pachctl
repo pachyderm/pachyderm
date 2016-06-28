@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ -z $VERSION ]
 then
         echo "No version found for this commit! Aborting release"
@@ -19,6 +21,7 @@ if [ ! -f .goxc.local.json ]
 then
     echo "You haven't configured goxc. Please run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+    exit 1
 fi
 
 echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
@@ -28,10 +31,10 @@ echo "--- Updating homebrew formula to use binaries at version $VERSION"
 
 rm -rf homebrew-tap || true
 git clone git@github.com:pachyderm/homebrew-tap
-cd homebrew-tap && \
-    make VERSION=$VERSION update-formula && \
-    git commit -a -m "[Automated] Update formula to release version $VERSION" && \
-    git pull origin master && \
+cd homebrew-tap
+    make VERSION=$VERSION update-formula
+    git commit -a -m "[Automated] Update formula to release version $VERSION"
+    git pull origin master
     git push origin master
 cd ..
 rm -rf homebrew-tap
