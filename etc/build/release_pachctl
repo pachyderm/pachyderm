@@ -41,7 +41,7 @@ curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/dow
 git clone git@github.com:pachyderm/www
 cp /tmp/pachctl.deb www/pachctl.deb
 cd www && \
-    git add pachctl.deb # && \
+    git add pachctl.deb && \
     make && \
     git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION" &&\
     git pull origin master && \
