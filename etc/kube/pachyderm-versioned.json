@@ -29,8 +29,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "etcd"
+          "app": "etcd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -258,7 +258,7 @@
         "containers": [
           {
             "name": "pachd-init",
-            "image": "pachyderm/pachd:v0.0.999999",
+            "image": "pachyderm/pachd:v1.0.1-1433",
             "env": [
               {
                 "name": "PACH_ROOT",
@@ -345,7 +345,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:v0.0.999999",
+            "image": "pachyderm/pachd:v1.0.1-1433",
             "ports": [
               {
                 "name": "api-grpc-port",
