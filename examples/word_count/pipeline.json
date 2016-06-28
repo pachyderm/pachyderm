@@ -25,7 +25,7 @@
   },
   "transform": {
     "image": "derekchiang/wordcount-map:latest",
-    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
+    "cmd": ["/map", "/pfs/wordcount_input2", "/pfs/out"]
   },
   "inputs": [
     {
@@ -55,5 +55,5 @@
 	  "method": "reduce"
     }
   ],
-  "parallelism": 3
+  "parallelism": 9
 }
