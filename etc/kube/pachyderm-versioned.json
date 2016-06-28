@@ -117,8 +117,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -250,15 +250,15 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
         "containers": [
           {
             "name": "pachd-init",
-            "image": "pachyderm/pachd:v1.0.1-RCX17",
+            "image": "pachyderm/pachd:v0.0.999",
             "env": [
               {
                 "name": "PACH_ROOT",
@@ -345,7 +345,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:v1.0.1-RCX17",
+            "image": "pachyderm/pachd:v0.0.999",
             "ports": [
               {
                 "name": "api-grpc-port",
