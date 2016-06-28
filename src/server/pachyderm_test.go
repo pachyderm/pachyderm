@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -26,10 +24,13 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+	"go.pedge.io/proto/time"
+	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
+	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
 
 const (
@@ -89,6 +90,9 @@ func testJob(t *testing.T, shards int) {
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.NotNil(t, jobInfo.Started)
+	require.NotNil(t, jobInfo.Finished)
+	require.True(t, prototime.TimestampToTime(jobInfo.Finished).After(prototime.TimestampToTime(jobInfo.Started)))
 	for i := 0; i < numFiles; i++ {
 		var buffer bytes.Buffer
 		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", nil, &buffer))
@@ -1809,14 +1813,7 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	k := getKubeClient(t)
-	scalePachd(t, k)
-	// Wait for the cluster to stablize... ideally we shouldn't have to
-	// do that.
-	time.Sleep(20 * time.Second)
-	// getUsablePachClient has the side effect of blocking until the cluster is
-	// ready
-	getUsablePachClient(t)
+	scalePachd(t)
 	TestJob(t)
 }
 
@@ -1831,12 +1828,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	_, err := c.StartCommit(repo, "", "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
-	k := getKubeClient(t)
-	scalePachd(t, k)
-	// Wait for the cluster to stablize... ideally we shouldn't have to
-	// do that.
-	time.Sleep(20 * time.Second)
-
+	scalePachd(t)
 	c = getUsablePachClient(t)
 	require.NoError(t, c.DeleteRepo(repo))
 }
@@ -1934,8 +1926,7 @@ func TestRestartAll(t *testing.T) {
 	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	kube := getKubeClient(t)
-	restartAll(t, kube)
+	restartAll(t)
 
 	// need a new client because the old one will have a defunct connection
 	c = getUsablePachClient(t)
@@ -2117,14 +2108,21 @@ func uniqueString(prefix string) string {
 	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
 }
 
+func pachdRc(t *testing.T) *api.ReplicationController {
+	k := getKubeClient(t)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get("pachd")
+	require.NoError(t, err)
+	return result
+}
+
 // scalePachd scales the number of pachd nodes to anywhere from 1 to
 // twice the original number
 // It's guaranteed that the new replica number will be different from
 // the original
-func scalePachd(t *testing.T, k *kube.Client) {
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	pachdRc, err := rc.Get("pachd")
-	require.NoError(t, err)
+func scalePachd(t *testing.T) {
+	k := getKubeClient(t)
+	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
 		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
@@ -2133,11 +2131,47 @@ func scalePachd(t *testing.T, k *kube.Client) {
 		}
 	}
 	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
-	_, err = rc.Update(pachdRc)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
+	waitForReadiness(t)
 }
 
-func restartAll(t *testing.T, k *kube.Client) {
+func waitForReadiness(t *testing.T) {
+	k := getKubeClient(t)
+	rc := pachdRc(t)
+	for {
+		has, err := kube.ControllerHasDesiredReplicas(k, rc)()
+		require.NoError(t, err)
+		if has {
+			break
+		}
+		time.Sleep(time.Second * 5)
+	}
+	watch, err := k.Pods(api.NamespaceDefault).Watch(api.ListOptions{
+		LabelSelector: kube_labels.SelectorFromSet(map[string]string{"app": "pachd"}),
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	readyPods := make(map[string]bool)
+	for event := range watch.ResultChan() {
+		ready, err := kube.PodRunningAndReady(event)
+		require.NoError(t, err)
+		if ready {
+			pod, ok := event.Object.(*api.Pod)
+			if !ok {
+				t.Fatal("event.Object should be an object")
+			}
+			readyPods[pod.Name] = true
+			if len(readyPods) == int(rc.Spec.Replicas) {
+				break
+			}
+		}
+	}
+}
+
+func restartAll(t *testing.T) {
+	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
 	labelSelector, err := labels.Parse("suite=pachyderm")
 	require.NoError(t, err)
@@ -2149,4 +2183,5 @@ func restartAll(t *testing.T, k *kube.Client) {
 	for _, pod := range podList.Items {
 		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
 	}
+	waitForReadiness(t)
 }
