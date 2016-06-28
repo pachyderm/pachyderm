@@ -3,6 +3,7 @@
 *#*
 
 # Build artifacts
+.goxc.json
 /protofix
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)

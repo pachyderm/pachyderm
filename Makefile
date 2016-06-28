@@ -22,6 +22,7 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
+VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 ifndef TRAVIS_BUILD_NUMBER
@@ -69,6 +70,9 @@ install-doc:
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
 	./etc/build/tag_release
 	rm VERSION
+	#git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)" && \
+		git pull origin master && \
+		git push origin master
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -278,12 +282,24 @@ goxc-generate-local:
 
 goxc-release:
 	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 goxc-release'"; \
-		exit 1; \
+		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
+		@exit 1; \
+	fi
+	if [ -z $$VERSION_ADDITIONAL ]; then \
+		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
+		@exit 1; \
+	else \
+		sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json; \
 	fi
 	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
+	if [ -z $$VERSION_ADDITIONAL ]; then \
+		@echo "Missing version. Please run via: 'make VERSION_ADDITIONAL=4567 goxc-build'"; \
+		@exit 1; \
+	else \
+		sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json; \
+	fi
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY:
