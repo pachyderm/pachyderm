@@ -2187,6 +2187,10 @@ func scalePachd(t *testing.T, up bool) {
 	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
 	waitForReadiness(t)
+	// Unfortunately, even when all pods are ready, the cluster membership
+	// protocol might still be running, thus PFS API calls might fail.  So
+	// we wait a little bit for membership to stablize.
+	time.Sleep(15 * time.Second)
 }
 
 func scalePachdUp(t *testing.T) {
