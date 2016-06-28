@@ -286,21 +286,11 @@ goxc-release:
 		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
 		@exit 1; \
 	fi
-	@if [ -z $$VERSION_ADDITIONAL ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
-		exit 1; \
-	else \
-		sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json; \
-	fi
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
-	@if [ -z $$VERSION_ADDITIONAL ]; then \
-		echo "Missing version. Please run via: 'make VERSION_ADDITIONAL=4567 goxc-build'"; \
-		exit 1; \
-	else \
-		sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json; \
-	fi
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY:

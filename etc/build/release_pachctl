@@ -43,11 +43,11 @@ rm -rf www || true
 curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
 git clone git@github.com:pachyderm/www
 cp /tmp/pachctl.deb www/pachctl.deb
-cd www && \
-    git add pachctl.deb && \
-    make && \
-    git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION" &&\
-    git pull origin master && \
+cd www 
+    git add pachctl.deb
+    make upload-pachctl.deb
+    git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION"
+    git pull origin master
     git push origin master
 cd ..
 rm -rf www
