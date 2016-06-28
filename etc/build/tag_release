@@ -9,5 +9,5 @@ fi
 echo "--- Tagging release w version: $VERSION"
 echo "Tagging this build as: v$VERSION"
 git tag "v$VERSION"
-echo "Pushing tags ..."
+echo "--- Pushing tags ..."
 git push --quiet --tags > /dev/null 2>&1
