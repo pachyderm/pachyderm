@@ -39,10 +39,12 @@ const (
 )
 
 func TestJob(t *testing.T) {
+	t.Parallel()
 	testJob(t, 4)
 }
 
 func TestJobNoShard(t *testing.T) {
+	t.Parallel()
 	testJob(t, 0)
 }
 
@@ -50,7 +52,6 @@ func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1814,9 +1815,9 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	}
 
 	scalePachd(t, true)
-	TestJob(t)
+	testJob(t, 4)
 	scalePachd(t, false)
-	TestJob(t)
+	testJob(t, 4)
 }
 
 func TestDeleteAfterMembershipChange(t *testing.T) {
