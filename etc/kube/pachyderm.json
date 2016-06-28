@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -117,8 +117,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
