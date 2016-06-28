@@ -20,28 +20,28 @@ func newDialer(opts ...grpc.DialOption) *dialer {
 	}
 }
 
-func (d *dialer) Dial(address string) (*grpc.ClientConn, error) {
+func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if conn, ok := d.connMap[address]; ok {
+	if conn, ok := d.connMap[addr]; ok {
 		return conn, nil
 	}
-	conn, err := grpc.Dial(address, d.opts...)
+	conn, err := grpc.Dial(addr, d.opts...)
 	if err != nil {
 		return nil, err
 	}
-	d.connMap[address] = conn
+	d.connMap[addr] = conn
 	return conn, nil
 }
 
 func (d *dialer) CloseConns() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	for address, conn := range d.connMap {
+	for addr, conn := range d.connMap {
 		if err := conn.Close(); err != nil {
 			return err
 		}
-		delete(d.connMap, address)
+		delete(d.connMap, addr)
 	}
 	return nil
 }

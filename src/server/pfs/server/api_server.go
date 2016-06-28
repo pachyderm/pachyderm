@@ -774,7 +774,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		defer clientConn.Close()
 		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteAll(ctx, request); err != nil {
 			return nil, err
 		}
