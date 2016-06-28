@@ -314,7 +314,6 @@ goxc-build:
 	install \
 	install-doc \
 	homebrew \
-	tag-release \
 	release \
 	release-job-shim \
 	release-manifest \
