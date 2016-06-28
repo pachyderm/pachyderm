@@ -8,16 +8,17 @@ import (
 
 const (
 	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 1
+	MajorVersion = 0
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 0
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 1
+	MicroVersion = 999
 )
 
 var (
 	// AdditionalVersion is the string provided at release time
 	// The value is passed to the linker at build time
+	// DO NOT set the value of this variable here
 	AdditionalVersion string
 	// Version is the current version for pachyderm.
 	Version = &protoversion.Version{
