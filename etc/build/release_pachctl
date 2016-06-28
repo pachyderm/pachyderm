@@ -49,5 +49,4 @@ cd www && \
 cd ..
 rm -rf www
 
-
-
+echo "--- Successfully released pachctl"

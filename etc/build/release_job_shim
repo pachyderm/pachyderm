@@ -6,8 +6,10 @@ then
         exit 1
 fi
 
-echo "--- Releasing pachd w version: $VERSION"
+echo "--- Releasing job-shim w version: $VERSION"
 
 make docker-push-job-shim
 docker tag pachyderm/job-shim:latest pachyderm/job-shim:v$VERSION
 docker push pachyderm/job-shim:v$VERSION
+
+echo "--- Successfully released job-shim"

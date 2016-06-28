@@ -24,3 +24,5 @@ cd www && \
        git push origin master
 cd ..
 rm -rf www
+
+echo "--- Successfully released manifests"

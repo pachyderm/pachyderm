@@ -68,11 +68,11 @@ install-doc:
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
-	./etc/build/tag_release
 	rm VERSION
-	git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)" #&& \
-		git pull origin master && \
-		git push origin master
+	git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)"
+	@VERSION="$(shell cat VERSION)" ./etc/build/tag_release
+	#	git pull origin master && \
+	#	git push origin master
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -81,24 +81,16 @@ release-version:
 	@./etc/build/release_version
 
 release-pachd:
-	@echo "- Releasing pachd ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
-	@echo "- Successfully released pachd"
 
 release-job-shim:
-	@echo "- Releasing job-shim ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
-	@echo "- Successfully released job-shim"
 
 release-manifest:
-	@echo "- Releasing manifests ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
-	@echo "- Successfully released manifests"
 
 release-pachctl:
-	@echo "- Releasing pachctl ..."
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
-	@echo "- Successfully released pachctl"
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
