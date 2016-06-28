@@ -2,8 +2,6 @@ package version
 
 import (
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"go.pedge.io/proto/version"
 )
@@ -18,15 +16,16 @@ const (
 )
 
 var (
+	// AdditionalVersion is the string provided at release time
+	// The value is passed to the linker at build time
+	AdditionalVersion string
 	// Version is the current version for pachyderm.
 	Version = &protoversion.Version{
 		Major:      MajorVersion,
 		Minor:      MinorVersion,
 		Micro:      MicroVersion,
-		Additional: getAdditionalVersion(),
+		Additional: AdditionalVersion,
 	}
-	// AdditionalVersion is the string provided at release time
-	AdditionalVersion string
 )
 
 func PrettyPrintVersion(version *protoversion.Version) string {
@@ -35,24 +34,4 @@ func PrettyPrintVersion(version *protoversion.Version) string {
 		result += fmt.Sprintf("-%s", version.Additional)
 	}
 	return result
-}
-
-func getAdditionalVersion() string {
-	value := AdditionalVersion
-	if value == "" {
-		_, err := exec.LookPath("git")
-		if err != nil {
-			return "dirty"
-		}
-		out, err := exec.Command("git", "log", "--pretty=format:%H").Output()
-		if err != nil {
-			panic(err)
-		}
-		lines := strings.SplitAfterN(string(out), "\n", 2)
-		if len(lines) < 2 {
-			panic("Couldn't determine current commit hash")
-		}
-		value = strings.TrimSpace(lines[0])
-	}
-	return value
 }
