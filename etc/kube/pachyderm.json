@@ -158,8 +158,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "app": "rethink",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "rethink"
     }
   },
   "spec": {
@@ -241,8 +241,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "app": "pachd-init",
-        "suite": "pachyderm"
+        "suite": "pachyderm",
+        "app": "pachd-init"
       }
     },
     "template": {
@@ -250,8 +250,8 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -286,8 +286,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd"
     }
   },
   "spec": {
@@ -329,8 +329,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "app": "pachd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "pachd"
         }
       },
       "spec": {
