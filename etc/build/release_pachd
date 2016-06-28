@@ -11,3 +11,5 @@ echo "--- Releasing pachd w version: $VERSION"
 make docker-push-pachd
 docker tag pachyderm/pachd:latest pachyderm/pachd:v$VERSION
 docker push pachyderm/pachd:v$VERSION
+
+echo "--- Successfully released pachd"
