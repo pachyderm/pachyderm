@@ -250,8 +250,8 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
