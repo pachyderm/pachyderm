@@ -8,11 +8,11 @@ import (
 
 const (
 	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 0
+	MajorVersion = 1
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 0
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 112358
+	MicroVersion = 1
 )
 
 var (
