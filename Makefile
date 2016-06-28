@@ -68,10 +68,9 @@ install-doc:
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
-	git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
-	rm VERSION
-	#	git pull origin master && \
-	#	git push origin master
+	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+	@rm VERSION
+	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
