@@ -2248,7 +2248,7 @@ func restartAll(t *testing.T) {
 func restartOne(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
-	labelSelector, err := labels.Parse("suite=pachyderm")
+	labelSelector, err := labels.Parse("app=pachd")
 	require.NoError(t, err)
 	podList, err := podsInterface.List(
 		api.ListOptions{
