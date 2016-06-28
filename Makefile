@@ -70,7 +70,7 @@ install-doc:
 release: release-version release-pachd release-job-shim release-manifest release-pachctl
 	./etc/build/tag_release
 	rm VERSION
-	#git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)" && \
+	git commit -a -m "[Automated] Released $(VERSION). Updated manifests to release version $(VERSION)" #&& \
 		git pull origin master && \
 		git push origin master
 
