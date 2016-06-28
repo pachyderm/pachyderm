@@ -5,10 +5,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime/pprof"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -123,20 +121,6 @@ func do(appEnvObj interface{}) error {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			success := true
-			go func() {
-				var i int
-				tick := time.Tick(time.Second * 10)
-				for {
-					<-tick
-					i++
-					memprofile, err := os.Create(fmt.Sprintf("/tmp/jobshim-profile-%d", i))
-					if err != nil {
-						panic(err)
-					}
-					pprof.WriteHeapProfile(memprofile)
-					memprofile.Close()
-				}
-			}()
 			if err := cmd.Run(); err != nil {
 				success = false
 				if exiterr, ok := err.(*exec.ExitError); ok {
