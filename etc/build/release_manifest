@@ -16,11 +16,11 @@ pach-deploy -s 32 --version $VERSION > $MANIFEST
 # Now upload the stable manifest to the corp site
 
 git clone git@github.com:pachyderm/www
-cp MANIFEST www/manifest.json
+cp $MANIFEST www/manifest.json
 cd www && \
+       make && \
        git commit -a -m "[Automated] Update manifest.json to release version $VERSION" && \
        git pull origin master && \
-       git push origin master && \
-       make
+       git push origin master
+cd ..
 rm -rf www
-
