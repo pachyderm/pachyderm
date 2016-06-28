@@ -4,7 +4,6 @@ git diff-index --quiet HEAD --
 
 if [ $? -eq 0 ]; then
 	# No changes
-	git log | head -n 1 | cut -f 2 -d " " > COMMITID
 	VERSION=`$GOPATH/bin/pachctl version 2>/dev/null | tail -n +2 | head -n 1 | cut -f 14 -d " "`
 	if [ -z $VERSION ]
 	then
