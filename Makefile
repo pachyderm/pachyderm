@@ -128,7 +128,7 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-launch: check-kubectl install
+launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
