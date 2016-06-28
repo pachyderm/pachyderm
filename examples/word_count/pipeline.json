@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "wordcount_input"
+    "name": "wordcount_input2"
   },
   "transform": {
     "image": "derekchiang/job-shim:latest",
@@ -16,11 +16,12 @@
         "https://en.wikipedia.org/wiki/Main_Page"
     ],
     "acceptReturnCode": [4,5,6,7,8]
-  }
+  },
+  "parallelism": 1
 }
 {
   "pipeline": {
-    "name": "wordcount_map"
+    "name": "wordcount_map2"
   },
   "transform": {
     "image": "derekchiang/wordcount-map:latest",
@@ -29,31 +30,30 @@
   "inputs": [
     {
       "repo": {
-        "name": "wordcount_input"
+        "name": "wordcount_input2"
       }
     }
   ],
-  "parallelism": 4
+  "parallelism": 3
 }
 {
   "pipeline": {
-    "name": "wordcount_reduce"
+    "name": "wordcount_reduce2"
   },
   "transform": {
     "image": "derekchiang/job-shim:latest",
     "cmd": ["sh"],
     "stdin": [
         "find /pfs/wordcount_map/* | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
-    ],
-    "debug": true
+    ]
   },
   "inputs": [
     {
       "repo": {
-        "name": "wordcount_map"
+        "name": "wordcount_map2"
       },
 	  "method": "reduce"
     }
   ],
-  "parallelism": 4
+  "parallelism": 3
 }
