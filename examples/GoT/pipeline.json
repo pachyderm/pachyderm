@@ -8,7 +8,7 @@
     "stdin": [
       "mkdir /data",
       "cp /pfs/GoT_scripts/* /data",
-      "cd /code && python ptb_word_lm.py --data_path=/data --model=test --model_path_prefix=/data > /pfs/out/model-results",
+      "cd /code && python ptb_word_lm.py --data_path=/data --model=small --model_path_prefix=/data > /pfs/out/model-results",
       "cp /data/ptb.ckpt* /pfs/out",
       "cp /data/*.json /pfs/out"
     ]
@@ -34,7 +34,7 @@
       "mkdir /training_data",
       "cp /pfs/GoT_train/ptb.ckpt* /training_data",
       "cp /pfs/GoT_train/*.json /training_data",
-      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/sentence" 
+      "cd /code && python ptb_word_lm.py --model=small --generate=true --model_path_prefix=/training_data > /pfs/out/sentence" 
     ]
   },
   "parallelism": "1",
