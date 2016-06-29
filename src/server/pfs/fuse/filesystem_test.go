@@ -634,6 +634,34 @@ func TestNoDelimiter(t *testing.T) {
 	})
 }
 
+func TestRename(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit1, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+
+		rawMessage := "Some\nreal\ncontent.\n"
+		filePath := filepath.Join(mountpoint, repo, commit1.ID, "foo")
+
+		require.NoError(t, ioutil.WriteFile(filePath, []byte(rawMessage), 0644))
+		newFilePath := filepath.Join(mountpoint, repo, commit1.ID, "bar")
+		stdin := strings.NewReader(fmt.Sprintf("mv %v %v", filePath, newFilePath))
+		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+		_, err = ioutil.ReadFile(filePath)
+		require.YesError(t, err)
+		result, err := ioutil.ReadFile(newFilePath)
+		require.NoError(t, err)
+		require.Equal(t, rawMessage, string(result))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
