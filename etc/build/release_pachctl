@@ -23,6 +23,7 @@ if [ ! -f .goxc.local.json ]
 then
     echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+    echo "You should only need 'repo' level scope access"
     exit 1
 fi
 
@@ -32,6 +33,7 @@ if [ $? -ne 0 ]
 then
     echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+    echo "You should only need 'repo' level scope access"
     exit 1
 fi
 
