@@ -21,7 +21,7 @@ fi
 
 if [ ! -f .goxc.local.json ]
 then
-    echo "You haven't configured goxc. Please run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`"
+    echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
     exit 1
 fi
@@ -30,7 +30,7 @@ cat .goxc.local.json | grep "apikey"
 
 if [ $? -ne 0 ]
 then
-    echo "You haven't configured goxc. Please run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`"
+    echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
     echo "You can get your personal oauth token here: https://github.com/settings/tokens"
     exit 1
 fi
