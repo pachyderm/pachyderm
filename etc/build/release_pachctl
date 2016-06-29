@@ -10,11 +10,13 @@ fi
 
 echo "--- Releasing pachctl w version: $VERSION"
 
+set +e
 which goxc
 
 if [ $? -ne 0 ]
 then
     echo "You need to install goxc. Do so by running: `go get github.com/laher/goxc`" 
+	exit 1
 fi
 
 if [ ! -f .goxc.local.json ]
@@ -33,6 +35,7 @@ then
     exit 1
 fi
 
+set -e
 echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
 make VERSION=$VERSION goxc-release
 
