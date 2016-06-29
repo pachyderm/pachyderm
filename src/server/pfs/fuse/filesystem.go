@@ -404,6 +404,12 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	if repeated < 0 {
 		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
 	}
+	if repeated > len(request.Data) {
+		// it's currently unclear under which conditions fuse sends us a
+		// request with only repeated data. This prevents us from getting an
+		// array bounds error when it does though.
+		return nil
+	}
 	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
 		return err
