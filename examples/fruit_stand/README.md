@@ -218,7 +218,7 @@ $ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since `grep` is a command that is completely parallelizable (i.e. it's a `map`), Pachyderm will only `grep` the new data from set2.txt. If you look back at the pipeline, you'll notice that there is a `"reduce": true` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. 
 
 ## Next Steps
-You've now got a working Pachyderm cluster with data and a pipelines! You can continue to generate more data and commits and the Fruit Stand pipeline with automatically run to completion. Here are a few ideas for next steps that you can expand on your working setup. 
+You've now got a working Pachyderm cluster with data and a pipelines! You can continue to generate more data and commits and the Fruit Stand pipeline will automatically run to completion. Here are a few ideas for next steps that you can expand on your working setup. 
 
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
 - Add your own data set and `grep` for different terms. This example can be generalized to generic word count. 

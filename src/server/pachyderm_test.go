@@ -39,10 +39,12 @@ const (
 )
 
 func TestJob(t *testing.T) {
+	t.Parallel()
 	testJob(t, 4)
 }
 
 func TestJobNoShard(t *testing.T) {
+	t.Parallel()
 	testJob(t, 0)
 }
 
@@ -50,7 +52,6 @@ func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1813,8 +1814,10 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	scalePachd(t)
-	TestJob(t)
+	scalePachd(t, true)
+	testJob(t, 4)
+	scalePachd(t, false)
+	testJob(t, 4)
 }
 
 func TestDeleteAfterMembershipChange(t *testing.T) {
@@ -1822,15 +1825,19 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	repo := uniqueString("TestDeleteAfterMembershipChange")
-	c := getPachClient(t)
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.StartCommit(repo, "", "master")
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, "master"))
-	scalePachd(t)
-	c = getUsablePachClient(t)
-	require.NoError(t, c.DeleteRepo(repo))
+	test := func(up bool) {
+		repo := uniqueString("TestDeleteAfterMembershipChange")
+		c := getPachClient(t)
+		require.NoError(t, c.CreateRepo(repo))
+		_, err := c.StartCommit(repo, "", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, "master"))
+		scalePachd(t, up)
+		c = getUsablePachClient(t)
+		require.NoError(t, c.DeleteRepo(repo))
+	}
+	test(true)
+	test(false)
 }
 
 func TestScrubbedErrors(t *testing.T) {
@@ -1927,6 +1934,47 @@ func TestRestartAll(t *testing.T) {
 	require.NoError(t, err)
 
 	restartAll(t)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	_, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	_, err = c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	_, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+}
+
+func TestRestartOne(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRestartOne_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+
+	restartOne(t)
 
 	// need a new client because the old one will have a defunct connection
 	c = getUsablePachClient(t)
@@ -2116,16 +2164,20 @@ func pachdRc(t *testing.T) *api.ReplicationController {
 	return result
 }
 
-// scalePachd scales the number of pachd nodes to anywhere from 1 to
-// twice the original number
-// It's guaranteed that the new replica number will be different from
-// the original
-func scalePachd(t *testing.T) {
+// scalePachd scales the number of pachd nodes up or down.
+// If up is true, then the number of nodes will be within (n, 2n]
+// If up is false, then the number of nodes will be within [1, n)
+func scalePachd(t *testing.T, up bool) {
 	k := getKubeClient(t)
 	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
-		pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)*2) + 1)
+		if up {
+			pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
+		} else {
+			pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
+		}
+
 		if pachdRc.Spec.Replicas != originalReplicas {
 			break
 		}
@@ -2139,6 +2191,14 @@ func scalePachd(t *testing.T) {
 	// protocol might still be running, thus PFS API calls might fail.  So
 	// we wait a little bit for membership to stablize.
 	time.Sleep(15 * time.Second)
+}
+
+func scalePachdUp(t *testing.T) {
+	scalePachd(t, true)
+}
+
+func scalePachdDown(t *testing.T) {
+	scalePachd(t, false)
 }
 
 func waitForReadiness(t *testing.T) {
@@ -2187,5 +2247,19 @@ func restartAll(t *testing.T) {
 	for _, pod := range podList.Items {
 		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
 	}
+	waitForReadiness(t)
+}
+
+func restartOne(t *testing.T) {
+	k := getKubeClient(t)
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse("app=pachd")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	require.NoError(t, podsInterface.Delete(podList.Items[rand.Intn(len(podList.Items))].Name, api.NewDeleteOptions(0)))
 	waitForReadiness(t)
 }
