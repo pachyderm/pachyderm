@@ -842,34 +842,34 @@
 			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
-			"checksumSHA1": "NcDKDDap94Z6GTntEyHh6slSgdk=",
+			"checksumSHA1": "VkEkGu35DN26D3OvUKxgmCtVKAY=",
 			"path": "go.pedge.io/proto/rpclog",
-			"revision": "bf6261346dd4152af8b33609aeaf9193eda0c886",
-			"revisionTime": "2016-06-07T23:20:19Z"
+			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
+			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
-			"checksumSHA1": "+HuRjA4vSc/XlURxzFrHW27hIsk=",
+			"checksumSHA1": "AIu0maSyTisUWqEoQMcdcYmioHU=",
 			"path": "go.pedge.io/proto/server",
-			"revision": "bf6261346dd4152af8b33609aeaf9193eda0c886",
-			"revisionTime": "2016-06-07T23:20:19Z"
+			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
+			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
 			"checksumSHA1": "NVElCVKCtIjKcfj+8pSJSicdRq0=",
 			"path": "go.pedge.io/proto/stream",
-			"revision": "bf6261346dd4152af8b33609aeaf9193eda0c886",
-			"revisionTime": "2016-06-07T23:20:19Z"
+			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
+			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
 			"checksumSHA1": "uXz44b5xJsjD1Mj4xH3099H+OLw=",
 			"path": "go.pedge.io/proto/time",
-			"revision": "bf6261346dd4152af8b33609aeaf9193eda0c886",
-			"revisionTime": "2016-06-07T23:20:19Z"
+			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
+			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
-			"checksumSHA1": "nertS2qE5o1lcZ3MRGW/ppKRQes=",
+			"checksumSHA1": "KKutJuyaEeI/fmFSzvWCeEM3TpM=",
 			"path": "go.pedge.io/proto/version",
-			"revision": "bf6261346dd4152af8b33609aeaf9193eda0c886",
-			"revisionTime": "2016-06-07T23:20:19Z"
+			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
+			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
 			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
