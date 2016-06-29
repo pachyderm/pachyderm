@@ -931,13 +931,11 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// on it.
 					b.MaxElapsedTime = 0
 					err = backoff.RetryNotify(func() error {
-						protolion.Infof("running pipeline %v", pipelineChange.Pipeline.PipelineName)
 						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
 							return err
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
-						protolion.Infof("retrying pipeline %v in %s", pipelineChange.Pipeline.PipelineName, d)
 						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineChange.Pipeline.PipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
