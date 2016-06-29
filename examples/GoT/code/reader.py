@@ -27,7 +27,7 @@ import tensorflow as tf
 
 def _read_words(filename):
   with tf.gfile.GFile(filename, "r") as f:
-    return ["<eos>"] + f.read().replace("\n", "<eos>").split()
+    return ["<eos>"] + f.read().replace("\n", " <eos>").split()
 
 def _build_vocab(filename):
   data = _read_words(filename)
@@ -68,8 +68,9 @@ def ptb_raw_data(data_path=None):
   train_path = os.path.join(data_path, "ptb.train.txt")
   valid_path = os.path.join(data_path, "ptb.valid.txt")
   test_path = os.path.join(data_path, "ptb.test.txt")
+  all_path = os.path.join(data_path, "all.txt")
 
-  word_to_id, id_to_word = _build_vocab(train_path)
+  word_to_id, id_to_word = _build_vocab(all_path)
   train_data = _file_to_word_ids(train_path, word_to_id)
   valid_data = _file_to_word_ids(valid_path, word_to_id)
   test_data = _file_to_word_ids(test_path, word_to_id)
