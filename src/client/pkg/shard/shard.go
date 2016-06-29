@@ -50,6 +50,7 @@ type Router interface {
 	GetShards(version int64) (map[uint64]bool, error)
 	GetClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
 	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
+	CloseClientConns() error // close all outstanding client connections
 }
 
 func NewRouter(
