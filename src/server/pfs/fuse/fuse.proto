@@ -95,6 +95,11 @@ message FileOpen {
   string error = 2;
 }
 
+message FileRename {
+  Node file = 1;
+  string error = 2;
+}
+
 message FileWrite {
   Node file = 1;
   string data = 2;

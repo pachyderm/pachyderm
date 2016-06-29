@@ -288,6 +288,17 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
+func (f *file) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			protolion.Debug(&FileRename{&f.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileRename{&f.Node, errorToString(retErr)})
+		}
+	}()
+
+}
+
 func (f *file) delimiter() pfsclient.Delimiter {
 	if strings.HasSuffix(f.File.Path, ".json") {
 		return pfsclient.Delimiter_JSON
