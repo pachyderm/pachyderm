@@ -911,7 +911,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 				cancel, ok := a.cancelFuncs[pipelineChange.Pipeline.PipelineName]
 				if ok {
 					cancel()
-					delete(a.cancelFuncs, pipelineChange.Pipeline.PipelineName)
 				} else {
 					protolion.Printf("trying to cancel a pipeline that we are not assigned to; this is likely a bug")
 				}
@@ -972,15 +971,14 @@ func isContextCancelled(err error) bool {
 
 func (a *apiServer) DeleteShard(shard uint64) error {
 	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
 	for pipeline, cancelFunc := range a.cancelFuncs {
 		if a.hasher.HashPipeline(&ppsclient.Pipeline{
 			Name: pipeline,
 		}) == shard {
 			cancelFunc()
-			delete(a.cancelFuncs, pipeline)
 		}
 	}
+	a.cancelFuncsLock.Unlock()
 
 	a.shardCancelFuncsLock.Lock()
 	defer a.shardCancelFuncsLock.Unlock()
@@ -1030,6 +1028,13 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	if returnNil {
 		return nil
 	}
+
+	defer func() {
+		// Clean up state
+		a.cancelFuncsLock.Lock()
+		defer a.cancelFuncsLock.Unlock()
+		delete(a.cancelFuncs, pipelineInfo.Pipeline.Name)
+	}()
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
