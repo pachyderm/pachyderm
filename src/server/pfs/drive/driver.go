@@ -1108,7 +1108,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	// We return NotFound if it's a regular file with no blocks.  Currently this
 	// only happens if the file's blocks got filtered out.  Even an empty file
 	// has one block.
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && (filterShard != nil && filterShard.BlockNumber > 1) {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil
