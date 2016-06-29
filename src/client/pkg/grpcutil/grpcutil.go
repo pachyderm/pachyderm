@@ -6,6 +6,7 @@ import (
 
 type Dialer interface {
 	Dial(address string) (*grpc.ClientConn, error)
+	CloseConns() error
 }
 
 func NewDialer(opts ...grpc.DialOption) Dialer {
