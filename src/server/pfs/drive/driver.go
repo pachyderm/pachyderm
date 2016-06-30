@@ -1108,6 +1108,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	// We return NotFound if all blocks have been filtered out.  However, we want
 	// to ensure that an empty file is seen by one shard, so we don't return
 	// NotFound if the filename happens to match the block filter.
+	// This does have the unfortunate consequence that given a non-empty file
+	// and and a number of parallel jobs, each with a different filter shard,
+	// one of the jobs can see an entirely empty version of the file.
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && !pfsserver.BlockInShard(filterShard, file, nil) {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
