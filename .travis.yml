@@ -25,7 +25,5 @@ before_script:
 - docker version
 script:
 - make test
-after_success:
-- make tag-release
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

@@ -6,10 +6,7 @@ DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
 cd "${DIR}"
 
 BINARY="${1}"
-IMAGE="${2}"
-if [ -z "${IMAGE}" ]; then
-  IMAGE="${1}"
-fi
+LD_FLAGS="${2}"
 
 mkdir -p _tmp
 go build \
@@ -17,6 +14,7 @@ go build \
   -installsuffix netgo \
   -tags netgo \
   -o _tmp/${BINARY} \
+  -ldflags "${LD_FLAGS}" \
   src/server/cmd/${BINARY}/main.go
-docker-compose build ${IMAGE}
-docker tag -f pachyderm_${IMAGE}:latest pachyderm/${IMAGE}:latest
+docker-compose build ${BINARY}
+docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
