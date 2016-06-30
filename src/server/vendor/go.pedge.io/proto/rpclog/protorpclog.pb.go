@@ -45,6 +45,8 @@ func init() {
 	proto.RegisterType((*Call)(nil), "protorpclog.Call")
 }
 
+func init() { proto.RegisterFile("rpclog/protorpclog.proto", fileDescriptor0) }
+
 var fileDescriptor0 = []byte{
 	// 192 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x4c, 0x8e, 0x4d, 0x8e, 0x82, 0x40,
