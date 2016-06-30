@@ -1941,8 +1941,11 @@ func TestRestartAll(t *testing.T) {
 	// need a new client because the old one will have a defunct connection
 	c = getUsablePachClient(t)
 
-	_, err = c.InspectPipeline(pipelineName)
+	// Wait a little for pipelines to restart
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
+	require.Equal(t, ppsclient.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 	_, err = c.InspectRepo(dataRepo)
 	require.NoError(t, err)
 	_, err = c.InspectCommit(dataRepo, commit.ID)

@@ -905,18 +905,27 @@ func (a *apiServer) AddShard(shard uint64) error {
 			if err != nil {
 				return
 			}
+			pipelineName := pipelineChange.Pipeline.PipelineName
 
 			if pipelineChange.Removed {
 				a.cancelFuncsLock.Lock()
-				cancel, ok := a.cancelFuncs[pipelineChange.Pipeline.PipelineName]
+				cancel, ok := a.cancelFuncs[pipelineName]
 				if ok {
 					cancel()
-					delete(a.cancelFuncs, pipelineChange.Pipeline.PipelineName)
+					delete(a.cancelFuncs, pipelineName)
 				} else {
-					protolion.Printf("trying to cancel a pipeline that we are not assigned to; this is likely a bug")
+					protolion.Printf("trying to cancel a pipeline that has not been started; this is likely a bug")
 				}
 				a.cancelFuncsLock.Unlock()
 			} else {
+				a.cancelFuncsLock.Lock()
+				pipelineCtx, cancel := context.WithCancel(ctx)
+				if _, ok := a.cancelFuncs[pipelineName]; ok {
+					a.cancelFuncsLock.Unlock()
+					continue
+				}
+				a.cancelFuncs[pipelineName] = cancel
+				a.cancelFuncsLock.Unlock()
 				// We only want to start a goro to run the pipeline if the
 				// pipeline has more than one inputs
 				go func() {
@@ -932,13 +941,14 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// on it.
 					b.MaxElapsedTime = 0
 					err = backoff.RetryNotify(func() error {
-						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
+						if err := a.runPipeline(pipelineCtx, newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
 							return err
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineChange.Pipeline.PipelineName,
+						protolion.Errorf("error running pipeline: %v; retrying in %s", err, d)
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
 							RecentError:  err.Error(),
 						}); err != nil {
@@ -948,8 +958,8 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// At this point we stop retrying and update the pipeline state
 					// to FAILED
 					if err != nil {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineChange.Pipeline.PipelineName,
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 							RecentError:  err.Error(),
 						}); err != nil {
@@ -969,17 +979,6 @@ func isContextCancelled(err error) bool {
 }
 
 func (a *apiServer) DeleteShard(shard uint64) error {
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	for pipeline, cancelFunc := range a.cancelFuncs {
-		if a.hasher.HashPipeline(&ppsclient.Pipeline{
-			Name: pipeline,
-		}) == shard {
-			cancelFunc()
-			delete(a.cancelFuncs, pipeline)
-		}
-	}
-
 	a.shardCancelFuncsLock.Lock()
 	defer a.shardCancelFuncsLock.Unlock()
 	cancel, ok := a.shardCancelFuncs[shard]
@@ -1008,26 +1007,12 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 	}
 }
 
-func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	returnNil := func() bool {
-		a.cancelFuncsLock.Lock()
-		defer a.cancelFuncsLock.Unlock()
-		if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
-			// The pipeline is already being run
-			return true
-		}
-		if len(pipelineInfo.Inputs) == 0 {
-			// this pipeline does not have inputs; there is nothing to be done
-			return true
-		}
-
-		a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
-		return false
-	}()
-	if returnNil {
+func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) error {
+	if len(pipelineInfo.Inputs) == 0 {
+		// this pipeline does not have inputs; there is nothing to be done
 		return nil
 	}
+	protolion.Infof("running pipeline %s", pipelineInfo.Pipeline.Name)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
