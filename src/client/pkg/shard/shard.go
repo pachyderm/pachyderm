@@ -16,16 +16,7 @@ type Sharder interface {
 	AssignRoles(address string, cancel chan bool) error
 }
 
-type TestSharder interface {
-	Sharder
-	WaitForAvailability(frontendIds []string, serverIds []string) error
-}
-
 func NewSharder(discoveryClient discovery.Client, numShards uint64, namespace string) Sharder {
-	return newSharder(discoveryClient, numShards, namespace)
-}
-
-func NewTestSharder(discoveryClient discovery.Client, numShards uint64, namespace string) TestSharder {
 	return newSharder(discoveryClient, numShards, namespace)
 }
 
