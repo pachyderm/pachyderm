@@ -288,14 +288,14 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
-//             Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error
-func (f *file) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error {
-	fmt.Printf("!!!! IN RENAME FUNCTION")
-	return nil
-}
+var _ fs.NodeRenamer = (*directory)(nil)
 
-func (d *directory) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error {
-	fmt.Printf("!!!! IN RENAME FUNCTION (DIR)")
+func (d *directory) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+	// Needs to rename the file so that the new dir starts responding to lookups for it
+	// That means the following:
+	// 1 - call a new PFS call for renaming
+	// 2 - write tests for bad moves (to repo/commit dirs)
+	// 3 - checking that the newDir is valid (not a repo / commit)
 	return nil
 }
 
