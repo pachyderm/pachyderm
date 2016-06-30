@@ -288,15 +288,15 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
-func (f *file) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) (retErr error) {
-	defer func() {
-		if retErr == nil {
-			protolion.Debug(&FileRename{&f.Node, errorToString(retErr)})
-		} else {
-			protolion.Error(&FileRename{&f.Node, errorToString(retErr)})
-		}
-	}()
+//             Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error
+func (f *file) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error {
+	fmt.Printf("!!!! IN RENAME FUNCTION")
+	return nil
+}
 
+func (d *directory) Rename(ctx context.Context, req *fuse.RenameRequest, newDir Node) error {
+	fmt.Printf("!!!! IN RENAME FUNCTION (DIR)")
+	return nil
 }
 
 func (f *file) delimiter() pfsclient.Delimiter {

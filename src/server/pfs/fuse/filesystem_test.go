@@ -651,7 +651,9 @@ func TestRename(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(rawMessage), 0644))
 		newFilePath := filepath.Join(mountpoint, repo, commit1.ID, "bar")
 		stdin := strings.NewReader(fmt.Sprintf("mv %v %v", filePath, newFilePath))
+		fmt.Printf("### Moving the File\n")
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		fmt.Printf("### Done moving the file\n")
 		require.NoError(t, c.FinishCommit(repo, commit1.ID))
 
 		_, err = ioutil.ReadFile(filePath)
@@ -673,6 +675,7 @@ func testFuse(
 	tmp, err := ioutil.TempDir("", "pachyderm-test-")
 	require.NoError(t, err)
 	defer func() {
+		fmt.Printf("### CLEANUP - removing all files\n")
 		_ = os.RemoveAll(tmp)
 	}()
 
@@ -753,6 +756,7 @@ func testFuse(
 	<-ready
 
 	defer func() {
+		fmt.Printf("### CLEANUP unmounting\n")
 		_ = mounter.Unmount(mountpoint)
 	}()
 	test(client.APIClient{PfsAPIClient: apiClient}, mountpoint)
