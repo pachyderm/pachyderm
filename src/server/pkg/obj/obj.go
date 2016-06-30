@@ -26,10 +26,14 @@ type Client interface {
 	Delete(name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
 	Walk(prefix string, fn func(name string) error) error
+	// Exsits checks if a given object already exists
+	Exists(name string) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
 	IsNotExist(err error) bool
+	// IsIgnorable returns true if the error can be ignored
+	IsIgnorable(err error) bool
 }
 
 func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
@@ -133,5 +137,9 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 }
 
 func (b *BackoffWriteCloser) Close() error {
-	return b.writer.Close()
+	err := b.writer.Close()
+	if b.client.IsIgnorable(err) {
+		return nil
+	}
+	return err
 }

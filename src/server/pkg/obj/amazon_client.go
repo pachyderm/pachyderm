@@ -84,6 +84,14 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
+func (c *amazonClient) Exists(name string) bool {
+	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	return err == nil
+}
+
 func (c *amazonClient) IsRetryable(err error) bool {
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
@@ -98,6 +106,10 @@ func (c *amazonClient) IsRetryable(err error) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func (c *amazonClient) IsIgnorable(err error) bool {
 	return false
 }
 
