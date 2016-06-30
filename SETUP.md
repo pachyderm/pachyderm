@@ -257,7 +257,15 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 #### Homebrew
 
 ```shell
-$brew tap pachyderm/tap && brew install pachctl
+$ brew tap pachyderm/tap && brew install pachctl
+```
+
+#### Deb Package
+
+If you're on linux 64 bit amd, you can use our pre-built deb package like so:
+
+```shell
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
 #### From Source
