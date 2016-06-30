@@ -152,6 +152,8 @@ Unfortunately, your persistent disk is not immediately available for use upon cr
 rm -rf [path-to-disk]/*
 ```
 
+Afterwards, you need to detach the volume so Kubernetes can use it.  Follow [basically the same instructions as above](https://cloud.google.com/compute/docs/disks/add-persistent-disk#create_disk) except that this time you remove the disk from `Additional disks`.
+
 ### Deploy Pachyderm
 
 First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
