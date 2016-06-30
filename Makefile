@@ -22,6 +22,8 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
+VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -59,48 +61,46 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
-homebrew:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
+point-release:
+	@make VERSION_ADDITIONAL= release
 
-tag-release:
-	./etc/build/tag_release
+# Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
+release: release-version release-pachd release-job-shim release-manifest release-pachctl doc
+	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+	@rm VERSION
+	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
+
+release-version:
+	@# Need to blow away pachctl binary if its already there
+	@rm $(GOPATH)/bin/pachctl || true
+	@make install
+	@./etc/build/release_version
 
 release-pachd:
-	./etc/build/release_pachd
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
 
 release-job-shim:
-	./etc/build/release_job_shim
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
 
-dev-manifest: install
-	pach-deploy -s 32 > $(DEV_MANIFEST)
+release-manifest:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
 
-release-manifest: install dev-manifest
-	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'VERSION=v1.2.3-4567 make release-manifest'"; \
-		exit 1; \
-	else \
-		pach-deploy -s 32 --version ${VERSION} > $(MANIFEST); \
-	fi
+release-pachctl:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
-	# Running locally, not on travis
-	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
-		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	else \
-		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
 docker-build-pachd: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
@@ -128,7 +128,7 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-launch: check-kubectl install
+launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
@@ -283,12 +283,14 @@ goxc-generate-local:
 
 goxc-release:
 	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 goxc-release'"; \
-		exit 1; \
+		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
+		@exit 1; \
 	fi
-	goxc -pv=$(VERSION) -wd=./src/server/cmd/pachctl
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
+	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY:
@@ -304,8 +306,11 @@ goxc-build:
 	install \
 	install-doc \
 	homebrew \
-	tag-release \
+	release \
+	release-job-shim \
+	release-manifest \
 	release-pachd \
+	release-version \
 	docker-build-compile \
 	docker-build-job-shim \
 	docker-build-pachd \

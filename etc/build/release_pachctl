@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+
+if [ -z $VERSION ]
+then
+        echo "No version found for this commit! Aborting release"
+        exit 1
+fi
+
+echo "--- Releasing pachctl w version: $VERSION"
+
+set +e
+which goxc
+
+if [ $? -ne 0 ]
+then
+    echo "You need to install goxc. Do so by running: `go get github.com/laher/goxc`" 
+	exit 1
+fi
+
+if [ ! -f .goxc.local.json ]
+then
+    echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
+    echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+    echo "You should only need 'repo' level scope access"
+    exit 1
+fi
+
+cat .goxc.local.json | grep "apikey"
+
+if [ $? -ne 0 ]
+then
+    echo "You haven't configured goxc. Please run: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"
+    echo "You can get your personal oauth token here: https://github.com/settings/tokens"
+    echo "You should only need 'repo' level scope access"
+    exit 1
+fi
+
+set -e
+echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
+make VERSION=$VERSION goxc-release
+
+echo "--- Updating homebrew formula to use binaries at version $VERSION"
+
+rm -rf homebrew-tap || true
+git clone git@github.com:pachyderm/homebrew-tap
+cd homebrew-tap
+    make VERSION=$VERSION update-formula
+    git commit -a -m "[Automated] Update formula to release version $VERSION"
+    git pull origin master
+    git push origin master
+cd ..
+rm -rf homebrew-tap
+
+rm -rf www || true
+curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
+git clone git@github.com:pachyderm/www
+cp /tmp/pachctl.deb www/pachctl.deb
+cd www 
+    git add pachctl.deb
+    make # Cannot upload single file ... see: https://github.com/pachyderm/www/issues/9
+    git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION"
+    git pull origin master
+    git push origin master
+cd ..
+rm -rf www
+
+echo "--- Successfully released pachctl"

@@ -27,6 +27,11 @@ func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) 
 	return &googleClient{ctx, client.Bucket(bucket)}, nil
 }
 
+func (c *googleClient) Exists(name string) bool {
+	_, err := c.bucket.Object(name).Attrs(c.ctx)
+	return err == nil
+}
+
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
 	return newBackoffWriteCloser(c, c.bucket.Object(name).NewWriter(c.ctx)), nil
 }
@@ -81,4 +86,12 @@ func (c *googleClient) IsNotExist(err error) bool {
 		return false
 	}
 	return googleErr.Code == 404
+}
+
+func (c *googleClient) IsIgnorable(err error) bool {
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return googleErr.Code == 429
 }
