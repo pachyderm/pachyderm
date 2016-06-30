@@ -920,6 +920,10 @@ func (a *apiServer) AddShard(shard uint64) error {
 			} else {
 				a.cancelFuncsLock.Lock()
 				pipelineCtx, cancel := context.WithCancel(ctx)
+				if _, ok := a.cancelFuncs[pipelineName]; ok {
+					a.cancelFuncsLock.Unlock()
+					continue
+				}
 				a.cancelFuncs[pipelineName] = cancel
 				a.cancelFuncsLock.Unlock()
 				// We only want to start a goro to run the pipeline if the
@@ -942,6 +946,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
+						protolion.Errorf("error running pipeline: %v; retrying in %s", err, d)
 						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
@@ -1007,6 +1012,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		// this pipeline does not have inputs; there is nothing to be done
 		return nil
 	}
+	protolion.Infof("running pipeline %s", pipelineInfo.Pipeline.Name)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
