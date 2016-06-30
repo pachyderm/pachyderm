@@ -49,7 +49,7 @@ Also note any dependencies that are marked 'e' for external
 3) To add / update dependencies
 
 - `govendor add somepkg` adds it to the repo
-- `govendor updated somepkg` is local
+- `govendor update somepkg` is local
   - it uses whatever version of the pkg is available on $GOPATH/src
   - it DOES NOT ever use the network to get a package
 - `govendor fetch somepkg` is non local

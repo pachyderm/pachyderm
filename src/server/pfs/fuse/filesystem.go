@@ -44,7 +44,6 @@ func newFilesystem(
 			commitMounts,
 		},
 		inodes:   make(map[string]uint64),
-		lock:     sync.RWMutex{},
 		handleID: uuid.NewWithoutDashes(),
 	}
 }
@@ -198,6 +197,7 @@ type file struct {
 	directory
 	size    int64
 	handles []*handle
+	lock    sync.Mutex
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -246,7 +246,9 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			return err
 		}
 		for _, handle := range f.handles {
+			handle.lock.Lock()
 			handle.cursor = 0
+			handle.lock.Unlock()
 		}
 	}
 	return nil
@@ -276,6 +278,8 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	for _, h := range f.handles {
 		if h.w != nil {
 			w := h.w
@@ -344,6 +348,9 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 }
 
 func (f *file) newHandle(cursor int) *handle {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
 	h := &handle{
 		f:      f,
 		cursor: cursor,
@@ -358,6 +365,7 @@ type handle struct {
 	f      *file
 	w      io.WriteCloser
 	cursor int
+	lock   sync.Mutex
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -399,6 +407,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 			protolion.Error(&FileWrite{&h.f.Node, string(request.Data), request.Offset, errorToString(retErr)})
 		}
 	}()
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
 			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), h.f.fs.handleID)
@@ -434,6 +444,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 }
 
 func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	if h.w != nil {
 		w := h.w
 		h.w = nil
