@@ -942,7 +942,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
 							RecentError:  err.Error(),
@@ -953,7 +953,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// At this point we stop retrying and update the pipeline state
 					// to FAILED
 					if err != nil {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 							RecentError:  err.Error(),
