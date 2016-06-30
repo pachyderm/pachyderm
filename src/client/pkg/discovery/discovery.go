@@ -4,8 +4,10 @@ import (
 	"fmt"
 )
 
+// ErrCancelled is returned when an action is cancelled by the user
 var ErrCancelled = fmt.Errorf("pachyderm: cancelled by user")
 
+// Client defines Pachyderm's interface to key-value stores such as etcd.
 type Client interface {
 	// Close closes the underlying connection.
 	Close() error
@@ -38,6 +40,7 @@ type Client interface {
 	CheckAndSet(key string, value string, ttl uint64, oldValue string) error
 }
 
+// NewEtcdClient creates an etcdClient with the given addresses.
 func NewEtcdClient(addresses ...string) Client {
 	return newEtcdClient(addresses...)
 }
