@@ -3,53 +3,55 @@ package client
 import (
 	"io"
 
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// NewJob creates a pps.Job.
 func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
 
 var (
+	// MapMethod defines a pps.Method for mapper pipelines.
 	MapMethod = &pps.Method{
 		Partition:   pps.Partition_BLOCK,
 		Incremental: true,
 	}
-
+	// ReduceMethod defines a pps.Method for non-incremental reducer pipelines.
 	ReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
 		Incremental: false,
 	}
-
+	// IncrementalReduceMethod defines a pps.Method for incremental reducer pipelines.
 	IncrementalReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
 		Incremental: true,
 	}
-
+	// GlobalMethod defines a pps.Method for non-incremental, non-partitioned pipelines.
 	GlobalMethod = &pps.Method{
 		Partition:   pps.Partition_REPO,
 		Incremental: false,
 	}
-
+	// DefaultMethod defines the default pps.Method for a pipeline.
 	DefaultMethod = MapMethod
-
+	// MethodAliasMap maps a string to a pps.Method for JSON decoding.
 	MethodAliasMap = map[string]*pps.Method{
 		"map":                MapMethod,
 		"reduce":             ReduceMethod,
 		"incremental_reduce": IncrementalReduceMethod,
 		"global":             GlobalMethod,
 	}
-
+	// ReservedRepoNames defines a set of reserved repo names for internal use.
 	ReservedRepoNames = map[string]bool{
 		"out":  true,
 		"prev": true,
 	}
 )
 
+// NewJobInput creates a pps.JobInput.
 func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
@@ -57,10 +59,12 @@ func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobI
 	}
 }
 
+// NewPipeline creates a pps.Pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
 }
 
+// NewPipelineInput creates a new pps.PipelineInput
 func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
 	return &pps.PipelineInput{
 		Repo:   NewRepo(repoName),
