@@ -969,10 +969,10 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
+func filterBlockRefs(filterShard *pfs.Shard, file *pfs.File, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
 	var result []*pfs.BlockRef
 	for _, blockRef := range blockRefs {
-		if pfsserver.BlockInShard(filterShard, blockRef.Block) {
+		if pfsserver.BlockInShard(filterShard, file, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
@@ -1041,14 +1041,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				filtered := filterBlockRefs(filterShard, file, _append.BlockRefs)
 				if handle == "" {
 					for _, handleBlockRefs := range _append.Handles {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						filtered = append(filtered, filterBlockRefs(filterShard, file, handleBlockRefs.BlockRef)...)
 					}
 				} else {
 					if handleBlockRefs, ok := _append.Handles[handle]; ok {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						filtered = append(filtered, filterBlockRefs(filterShard, file, handleBlockRefs.BlockRef)...)
 					}
 				}
 				blockRefs = append(filtered, blockRefs...)
@@ -1105,8 +1105,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
-	// We return NotFound if all blocks have been filtered out.
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && (filterShard != nil && filterShard.BlockNumber > 1) {
+	// We return NotFound if all blocks have been filtered out.  However, we want
+	// to ensure that an empty file is seen by one shard, so we don't return
+	// NotFound if the filename happens to match the block filter.
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && !pfsserver.BlockInShard(filterShard, file, nil) {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 	return fileInfo, blockRefs, nil
