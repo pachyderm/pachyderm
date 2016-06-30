@@ -518,6 +518,22 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string, uns
 	return err
 }
 
+func (c APIClient) MoveFile(repoName string, commitID string, oldPath string, newPath string, fromCommitID string, unsafe bool) (retErr error) {
+	_, err := c.PfsAPIClient.MoveFile(
+		context.Background(),
+		&pfs.MoveFileRequest{
+			File:       NewFile(repoName, commitID, oldPath),
+			NewFile:    NewFile(repoName, commitID, newPath),
+			FromCommit: newFromCommit(repoName, fromCommitID),
+			Unsafe:     unsafe,
+		},
+	)
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
 // MakeDirectory creates a directory in PFS.
 // Note directories are created implicitly by PutFile, so you technically never
 // need this function unless you want to create an empty directory.

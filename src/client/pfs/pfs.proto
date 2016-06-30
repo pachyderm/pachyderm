@@ -230,6 +230,13 @@ message InspectFileRequest {
   string handle = 5;
 }
 
+message MoveFileRequest {
+  File file = 1;
+  File new_file = 2;
+  Commit from_commit = 3;
+  bool unsafe = 4;
+}
+
 message ListFileRequest {
   File file = 1;
   Shard shard = 2;
@@ -280,6 +287,8 @@ service API {
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // MoveFile moves a file.
+  rpc MoveFile(MoveFileRequest) returns (google.protobuf.Empty) {}
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.

@@ -95,7 +95,7 @@ message FileOpen {
   string error = 2;
 }
 
-message FileRename {
+message FileMove {
   Node file = 1;
   string error = 2;
 }

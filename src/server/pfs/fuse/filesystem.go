@@ -294,12 +294,34 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 
 var _ fs.NodeRenamer = (*directory)(nil)
 
-func (d *directory) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
+func (d *directory) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) (retErr error) {
 	// Needs to rename the file so that the new dir starts responding to lookups for it
 	// That means the following:
 	// 1 - call a new PFS call for renaming
 	// 2 - write tests for bad moves (to repo/commit dirs)
-	// 3 - checking that the newDir is valid (not a repo / commit)
+	//   a - write tests for bad moves (to repo/commit dirs)
+	//   b - write tests for move in parallel
+	//   c - write test for move and move back (and do this in parallel)
+	//   d - do a commit w a write, second commit move it, then read it .. should have all file contents
+	//   e - doing the ApiServer abc method to move is racy. How do we make it atomic?
+	defer func() {
+		if retErr == nil {
+			protolion.Debug(&FileMove{&d.Node, errorToString(retErr)})
+		} else {
+			protolion.Error(&FileMove{&d.Node, errorToString(retErr)})
+		}
+	}()
+
+	newDirNode := getNode(newDir)
+
+	d.fs.apiClient.MoveFile(
+		d.File.Commit.Repo.Name,
+		d.File.Commit.ID,
+		path.Join(d.File.Path, req.OldName),
+		path.Join(newDirNode.File.Path, req.NewName),
+		d.fs.getFromCommitID(d.getRepoOrAliasName()),
+		true,
+	)
 	return nil
 }
 

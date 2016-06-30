@@ -648,6 +648,29 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	return fileInfo, nil
 }
 
+func (a *apiServer) MoveFile(ctx context.Context, request *pfs.MoveFileRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	/*
+		ctx, done := a.getVersionContext(ctx)
+		defer close(done)
+	/*
+		clientConn, err := a.getClientConnForFile(request.File, a.version)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	fmt.Printf("!!! In ApiServer.MoveFile()\n")
+	fmt.Printf("Req: %v\n", request)
+	/*
+		fileInfo, err := pfs.NewInternalAPIClient(clientConn).MoveFile(ctx, request)
+		if err != nil {
+			return nil, err
+		}*/
+
+	return nil, nil
+}
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
