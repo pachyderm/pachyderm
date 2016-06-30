@@ -1329,8 +1329,6 @@ func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode,
 			return fuse.EIO
 		}
 		n, ok := node.(NodeRenamer)
-		fmt.Printf("!!! Checking for NodeRenamer? %v\n", ok)
-		fmt.Printf("!!! Node: %v\n", node)
 		if !ok {
 			return fuse.EIO // XXX or EPERM like Mkdir?
 		}
