@@ -1810,6 +1810,7 @@ func TestJobState(t *testing.T) {
 }
 
 func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
+	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1821,6 +1822,7 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 }
 
 func TestDeleteAfterMembershipChange(t *testing.T) {
+	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1906,6 +1908,7 @@ func TestAcceptReturnCode(t *testing.T) {
 }
 
 func TestRestartAll(t *testing.T) {
+	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1947,6 +1950,7 @@ func TestRestartAll(t *testing.T) {
 }
 
 func TestRestartOne(t *testing.T) {
+	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
