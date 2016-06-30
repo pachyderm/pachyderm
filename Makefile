@@ -268,11 +268,12 @@ assets: install-go-bindata
 	go-bindata -o assets.go -pkg pachyderm doc/
 
 lint:
-	@for pkg in $$(go list ./src/... | grep -v '/vendor/' ) ; do \
-		if [ "`golint $$pkg | tee /dev/stderr`" ] ; then \
+	@for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
+		golint $$file; \
+		if [ -n "$$(golint $$file)" ]; then \
 			echo "golint errors!" && echo && exit 1; \
-		fi \
-	done
+		fi; \
+	done;
 
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
