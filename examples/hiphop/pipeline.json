@@ -1,0 +1,49 @@
+{
+  "pipeline": {
+    "name": "hiphop_train"
+  },
+  "transform": {
+    "image": "tensor_flow_rnn_hiphop",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "mkdir /data",
+      "cp /pfs/hiphop_lyrics/* /data",
+      "cd /code && python ptb_word_lm.py --data_path=/data --model=test --model_path_prefix=/data > /pfs/out/model-results",
+      "cp /data/ptb.ckpt* /pfs/out",
+      "cp /data/*.json /pfs/out"
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "hiphop_lyrics"
+      },
+      "method": "global"
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "hiphop_generate"
+  },
+  "transform": {
+    "image": "tensor_flow_rnn_hiphop",
+    "cmd": [ "sh" ],
+    "stdin": [
+      "mkdir /training_data",
+      "cp /pfs/hiphop_train/ptb.ckpt* /training_data",
+      "cp /pfs/hiphop_train/*.json /training_data",
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/sentence" 
+    ]
+  },
+  "parallelism": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "hiphop_train"
+      },
+      "method": "global"
+    }
+  ]
+}
