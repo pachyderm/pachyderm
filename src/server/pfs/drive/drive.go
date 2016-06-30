@@ -37,6 +37,7 @@ type Driver interface {
 	Dump()
 }
 
+// NewDriver creates a Driver.
 func NewDriver(blockAddress string) (Driver, error) {
 	return newDriver(blockAddress)
 }

@@ -8,11 +8,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+// A Hasher represents a file/block hasher.
 type Hasher struct {
 	FileModulus  uint64
 	BlockModulus uint64
 }
 
+// NewHasher creates a Hasher.
 func NewHasher(fileModulus uint64, blockModulus uint64) *Hasher {
 	return &Hasher{
 		FileModulus:  fileModulus,
@@ -20,10 +22,12 @@ func NewHasher(fileModulus uint64, blockModulus uint64) *Hasher {
 	}
 }
 
+// HashFile computes and returns a hash of a file.
 func (s *Hasher) HashFile(file *pfs.File) uint64 {
 	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.FileModulus
 }
 
+// HashBlock computes and returns a hash of a block.
 func (s *Hasher) HashBlock(file *pfs.File, block *pfs.Block) uint64 {
 	var str string
 	if file != nil {
@@ -53,6 +57,7 @@ func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
 	return sharder.HashFile(f) == shard.FileNumber
 }
 
+// BlockInShard returns true if the block is in the given shard.
 func BlockInShard(shard *pfs.Shard, file *pfs.File, block *pfs.Block) bool {
 	if shard == nil || shard.BlockModulus == 0 {
 		// this lets us default to no filtering

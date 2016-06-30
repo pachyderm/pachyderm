@@ -11,10 +11,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
+// PrintRepoHeader prints a repo header.
 func PrintRepoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
+// PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
 	fmt.Fprintf(
@@ -25,6 +27,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
 
+// PrintDetailedRepoInfo pretty-prints detailed repo info.
 func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}
@@ -42,10 +45,12 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 	return nil
 }
 
+// PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "BRANCH\tID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
 }
 
+// PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
@@ -67,6 +72,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
+// PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
@@ -88,10 +94,12 @@ CANCELLED {{end}}
 	return nil
 }
 
+// PrintFileInfoHeader prints a file info header.
 func PrintFileInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\t\n")
 }
 
+// PrintFileInfo pretty-prints file info.
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
@@ -108,6 +116,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
+// PrintDetailedFileInfo pretty-prints detailed file info.
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
@@ -126,10 +135,12 @@ Children: {{range .Children}} {{.Path}} {{end}} {{end}}
 	return nil
 }
 
+// PrintBlockInfoHeader prints a block info header.
 func PrintBlockInfoHeader(w io.Writer) {
 	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
 }
 
+// PrintBlockInfo pretty-prints block info.
 func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
 	fmt.Fprintf(
