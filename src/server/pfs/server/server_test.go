@@ -594,7 +594,7 @@ func TestInspectFile(t *testing.T) {
 	var numNotFound int
 	for _, err := range []error{err1, err2, err3} {
 		if err != nil && strings.Contains(err.Error(), "not found") {
-			numNotFound += 1
+			numNotFound++
 		}
 	}
 	require.True(t, numNotFound == 1 || numNotFound == 2)
