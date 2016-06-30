@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// Matches checks that a string matches a regular-expression.
 func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...interface{}) {
 	r, err := regexp.Compile(expectedMatch)
 	if err != nil {
@@ -17,6 +18,7 @@ func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...i
 	}
 }
 
+// Equal checks equality of two values.
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	if !reflect.DeepEqual(expected, actual) {
 		fatal(
@@ -27,6 +29,7 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 	}
 }
 
+// NotEqual checks inequality of two values.
 func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	if reflect.DeepEqual(expected, actual) {
 		fatal(
@@ -37,6 +40,7 @@ func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArg
 	}
 }
 
+// EqualOneOf checks if a value is equal to one of the elements of a slice.
 func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	equal := false
 	for _, expected := range expecteds {
@@ -54,6 +58,7 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 	}
 }
 
+// OneOfEquals checks one element of a slice equals a value.
 func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
 	equal := false
 	for _, actual := range actuals {
@@ -71,18 +76,21 @@ func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msg
 	}
 }
 
+// NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
 		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
 	}
 }
 
+// YesError checks for an error.
 func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err == nil {
 		fatal(tb, msgAndArgs, "Error is expected but got %v", err)
 	}
 }
 
+// NotNil checks a value is non-nil.
 func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	success := true
 
@@ -101,6 +109,7 @@ func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	}
 }
 
+// Nil checks a value is nil.
 func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	if object == nil {
 		return
@@ -114,12 +123,14 @@ func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	fatal(tb, msgAndArgs, "Expected value to be nil.")
 }
 
+// True checks a value is true.
 func True(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if !value {
 		fatal(tb, msgAndArgs, "Should be true.")
 	}
 }
 
+// False checks a value is false.
 func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if value {
 		fatal(tb, msgAndArgs, "Should be false.")
