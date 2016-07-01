@@ -6,6 +6,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// CreateJobRequest creates an example job request.
 func CreateJobRequest() *ppsclient.CreateJobRequest {
 	return &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
@@ -28,6 +29,7 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 	}
 }
 
+// CreatePipelineRequest creates an example pipeline request.
 func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 	return &ppsclient.CreatePipelineRequest{
 		Pipeline: &ppsclient.Pipeline{
@@ -47,6 +49,7 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 	}
 }
 
+// RunPipelineSpec creates an example run pipeline request.
 func RunPipelineSpec() *ppsclient.CreateJobRequest {
 	return &ppsclient.CreateJobRequest{
 		Inputs: []*ppsclient.JobInput{

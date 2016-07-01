@@ -31,8 +31,13 @@ const (
 	connectTimeoutSeconds = 5
 )
 
+// A Table is a rethinkdb table name.
 type Table string
+
+// A PrimaryKey is a rethinkdb primary key identifier.
 type PrimaryKey string
+
+// An Index is a rethinkdb index.
 type Index string
 
 var (
@@ -396,6 +401,7 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
+// PipelineChangeFeed is used to subscribe to rethinkdb's changefeed
 type PipelineChangeFeed struct {
 	OldVal *persist.PipelineInfo `gorethink:"old_val,omitempty"`
 	NewVal *persist.PipelineInfo `gorethink:"new_val,omitempty"`

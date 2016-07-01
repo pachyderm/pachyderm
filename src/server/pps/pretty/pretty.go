@@ -15,10 +15,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
+// PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
 	fmt.Fprint(w, "ID\tOUTPUT\tSTARTED\tDURATION\tSTATE\t\n")
 }
 
+// PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
@@ -35,10 +37,12 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
+// PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
 }
 
+// PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	if len(pipelineInfo.Inputs) == 0 {
@@ -61,10 +65,12 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
+// PrintJobInputHeader pretty prints a job input header.
 func PrintJobInputHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\t\n")
 }
 
+// PrintJobInput pretty-prints a job input.
 func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
@@ -72,16 +78,19 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%t\t\n", jobInput.Method.Incremental)
 }
 
+// PrintPipelineInputHeader prints a pipeline input header.
 func PrintPipelineInputHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
 }
 
+// PrintPipelineInput pretty-prints a pipeline input.
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
 	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
 }
 
+// PrintJobCountsHeader prints a job counts header.
 func PrintJobCountsHeader(w io.Writer) {
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_PULLING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
@@ -89,6 +98,7 @@ func PrintJobCountsHeader(w io.Writer) {
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
 }
 
+// PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .ParentJob}}
@@ -111,6 +121,7 @@ Inputs:
 	return nil
 }
 
+// PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}
