@@ -575,7 +575,7 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 
-	// We inspect the file with three filter shards that have different block
+	// We inspect the file with two filter shards that have different block
 	// numbers, so that only one of the filter shards should match the file
 	// since the file only contains one block.
 	_, err1 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
