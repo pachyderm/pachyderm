@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RunFixedArgs wraps a function in a function
+// that checks its exact argument count.
 func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) != numArgs {
@@ -22,6 +24,8 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 	}
 }
 
+// RunBoundedArgs wraps a function in a function
+// that checks its argument count is within a range.
 func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
@@ -69,6 +73,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return commits, nil
 }
 
+// RepeatedStringArg is an alias for []string
 type RepeatedStringArg []string
 
 func (r *RepeatedStringArg) String() string {
@@ -82,11 +87,13 @@ func (r *RepeatedStringArg) String() string {
 	return result + "]"
 }
 
+// Set adds a string to r
 func (r *RepeatedStringArg) Set(s string) error {
 	*r = append(*r, s)
 	return nil
 }
 
+// Type returns the string representation of the type of r
 func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
