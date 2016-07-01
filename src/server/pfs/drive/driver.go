@@ -1008,6 +1008,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	from *pfs.Commit, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
+	var blocksSeen bool // whether this file contains any blocks at all
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
@@ -1041,17 +1042,19 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-				filtered := filterBlockRefs(filterShard, file, _append.BlockRefs)
+				allRefs := _append.BlockRefs
 				if handle == "" {
 					for _, handleBlockRefs := range _append.Handles {
-						filtered = append(filtered, filterBlockRefs(filterShard, file, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				} else {
 					if handleBlockRefs, ok := _append.Handles[handle]; ok {
-						filtered = append(filtered, filterBlockRefs(filterShard, file, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				}
-				blockRefs = append(filtered, blockRefs...)
+				blocksSeen = blocksSeen || len(allRefs) > 0
+				filtered := filterBlockRefs(filterShard, file, allRefs)
+				blockRefs = append(blockRefs, filtered...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
@@ -1108,11 +1111,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	// We return NotFound if all blocks have been filtered out.  However, we want
 	// to ensure that an empty file is seen by one shard, so we don't return
 	// NotFound if the filename happens to match the block filter.
-	// This does have the unfortunate consequence that given a non-empty file
-	// and and a number of parallel jobs, each with a different filter shard,
-	// one of the jobs can see an entirely empty version of the file.
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 && !pfsserver.BlockInShard(filterShard, file, nil) {
-		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
+		if blocksSeen || !pfsserver.BlockInShard(filterShard, file, nil) {
+			return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
 	}
 	return fileInfo, blockRefs, nil
 }
