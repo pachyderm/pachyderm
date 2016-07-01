@@ -457,8 +457,10 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	}, nil
 }
 
-func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *pfs.BlockRefs, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	response = nil
+	fmt.Printf("!!! Start of intApi DeleteFile()\n")
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -498,7 +500,9 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		return nil, err
 	default:
 	}
-	return google_protobuf.EmptyInstance, nil
+	fmt.Printf("!!! End of intApi DeleteFile()\n")
+	response = &pfs.BlockRefs{}
+	return response, nil
 }
 
 func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {

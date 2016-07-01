@@ -653,13 +653,13 @@ func (a *apiServer) MoveFile(ctx context.Context, request *pfs.MoveFileRequest) 
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	/*
-		ctx, done := a.getVersionContext(ctx)
-		defer close(done)
-	/*
-		clientConn, err := a.getClientConnForFile(request.File, a.version)
-		if err != nil {
-			return nil, err
-		}
+			ctx, done := a.getVersionContext(ctx)
+			defer close(done)
+		/*
+			clientConn, err := a.getClientConnForFile(request.File, a.version)
+			if err != nil {
+				return nil, err
+			}
 	*/
 	fmt.Printf("!!! In ApiServer.MoveFile()\n")
 	fmt.Printf("Req: %v\n", request)
@@ -726,11 +726,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	}, nil
 }
 
-func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *pfs.BlockRefs, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-
+	fmt.Printf("!!! Start of apiserv.DeleteFile\n")
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
@@ -781,7 +781,9 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 		return nil, err
 	default:
 	}
-	return google_protobuf.EmptyInstance, nil
+	fmt.Printf("!!! End of apiServer.DeleteFile()\n")
+	response = &pfs.BlockRefs{}
+	return response, nil
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {

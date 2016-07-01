@@ -250,6 +250,7 @@ message DeleteFileRequest {
   File file = 1;
   bool unsafe = 2;
   string handle = 3;
+  bool drainBlockrefs = 4;
 }
 
 service API {
@@ -292,7 +293,7 @@ service API {
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
-  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteFile(DeleteFileRequest) returns (BlockRefs) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
@@ -336,7 +337,7 @@ service InternalAPI {
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
-  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteFile(DeleteFileRequest) returns (BlockRefs) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}

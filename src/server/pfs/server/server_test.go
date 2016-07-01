@@ -659,7 +659,8 @@ func TestDeleteFile(t *testing.T) {
 
 	// The deletion should fail because the file did not exist before this commit,
 	// and files written in the current commit should not be visible yet.
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "foo", false, ""))
+	_, err = client.DeleteFile(repo, commit1.ID, "foo", false, "")
+	require.YesError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -686,7 +687,8 @@ func TestDeleteFile(t *testing.T) {
 	// Delete foo
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "foo", false, ""))
+	_, err = client.DeleteFile(repo, commit3.ID, "foo", false, "")
+	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see one file
@@ -748,7 +750,8 @@ func TestDeleteDir(t *testing.T) {
 	require.NoError(t, err)
 
 	// Since the directory did not exist before this commit, this should error
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "dir", false, ""))
+	_, err = client.DeleteFile(repo, commit1.ID, "dir", false, "")
+	require.YesError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -766,7 +769,8 @@ func TestDeleteDir(t *testing.T) {
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit2.ID, "dir", false, ""))
+	_, err = client.DeleteFile(repo, commit2.ID, "dir", false, "")
+	require.NoError(t, err)
 
 	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
 	require.NoError(t, err)
@@ -793,7 +797,8 @@ func TestDeleteDir(t *testing.T) {
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir", false, ""))
+	_, err = client.DeleteFile(repo, commit3.ID, "dir", false, "")
+	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
@@ -1617,6 +1622,29 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 		require.EqualOneOf(t, blockLengths, buffer.Len())
 	}
 
+}
+
+func TestDeleteReturnsBlockRefs(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+	blockrefs, err := client.DeleteFile(repo, commit2.ID, "foo", false, "")
+	require.NoError(t, err)
+	require.NotNil(t, blockrefs)
+	require.Equal(t, 1, len(blockrefs.BlockRef))
+	// REQUIRE blockref == block that contains 'foo\n'
+	err = client.FinishCommit(repo, commit2.ID)
+	require.NoError(t, err)
 }
 
 func generateRandomString(n int) string {
