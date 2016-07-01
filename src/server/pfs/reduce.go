@@ -17,11 +17,11 @@ func ReduceRepoInfos(repoInfos []*pfs.RepoInfo) []*pfs.RepoInfo {
 		if !ok {
 			// Repo name not yet seen, just add the repoInfo directly
 			reducedRepoInfos[repoInfo.Repo.Name] = repoInfo
-		} else {
-			// Repo name already seen, add instead of overwriting
-			reducedRepoInfo.SizeBytes += repoInfo.SizeBytes
-			reducedRepoInfo.Provenance = repoInfo.Provenance
+			continue
 		}
+		// Repo name already seen, add instead of overwriting
+		reducedRepoInfo.SizeBytes += repoInfo.SizeBytes
+		reducedRepoInfo.Provenance = repoInfo.Provenance
 	}
 	// Convert the map back to a slice and sort it before returning
 	var result []*pfs.RepoInfo
@@ -42,15 +42,15 @@ func ReduceCommitInfos(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
 		if !ok {
 			// Commit id not yet seen, just add the commitInfo directly
 			reducedCommitInfos[commitInfo.Commit.ID] = commitInfo
-		} else {
-			// Commit id already seen, check for write and add instead of overwriting
-			if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
-				// (WRITE && READ) => WRITE
-				reducedCommitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
-			}
-			reducedCommitInfo.SizeBytes += commitInfo.SizeBytes
-			reducedCommitInfo.Provenance = commitInfo.Provenance
+			continue
 		}
+		// Commit id already seen, check for write and add instead of overwriting
+		if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
+			// (WRITE && READ) => WRITE
+			reducedCommitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+		}
+		reducedCommitInfo.SizeBytes += commitInfo.SizeBytes
+		reducedCommitInfo.Provenance = commitInfo.Provenance
 	}
 	// Convert the map back to a slice and sort it before returning
 	var result []*pfs.CommitInfo
@@ -72,16 +72,14 @@ func ReduceFileInfos(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
 			// File path not yet seen, just add the fileInfo directly
 			reducedFileInfos[fileInfo.File.Path] = fileInfo
 			continue
-		} else {
-			// File path already seen, compare modification dates and update children
-			if prototime.TimestampToTime(fileInfo.Modified).
-				After(prototime.TimestampToTime(reducedFileInfo.Modified)) {
-				reducedFileInfo.Modified = fileInfo.Modified
-				reducedFileInfo.CommitModified = fileInfo.CommitModified
-			}
-			reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
 		}
-
+		// File path already seen, compare modification dates and update children
+		if prototime.TimestampToTime(fileInfo.Modified).
+			After(prototime.TimestampToTime(reducedFileInfo.Modified)) {
+			reducedFileInfo.Modified = fileInfo.Modified
+			reducedFileInfo.CommitModified = fileInfo.CommitModified
+		}
+		reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
 	}
 	// Convert the map back to a slice and return it
 	var result []*pfs.FileInfo
