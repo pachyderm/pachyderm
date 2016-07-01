@@ -30,7 +30,7 @@ type Driver interface {
 		size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error)
 	InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error)
 	ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
-	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error
+	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string, drainBlockRefs bool) (*pfs.BlockRefs, error)
 	DeleteAll(shards map[uint64]bool) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error

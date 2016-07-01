@@ -459,8 +459,6 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *pfs.BlockRefs, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	response = nil
-	fmt.Printf("!!! Start of intApi DeleteFile()\n")
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -471,12 +469,13 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	}
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
+	responseCh := make(chan *pfs.BlockRefs, 1)
 	for shard := range shards {
 		shard := shard
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := a.driver.DeleteFile(request.File, shard, request.Unsafe, request.Handle)
+			response, err := a.driver.DeleteFile(request.File, shard, request.Unsafe, request.Handle, request.DrainBlockRefs)
 			// We are ignoring ErrFileNotFound because the file being
 			// deleted can be a directory, and directory is scattered
 			// across many DiffInfos across many shards.  Yet not all
@@ -490,8 +489,18 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 				default:
 					// not the first error
 				}
+			} else if ok {
+				// this shard didn't find the file
 				return
+			} else {
+				select {
+				case responseCh <- response:
+					// got BlockRef values
+				default:
+					// not the first error
+				}
 			}
+			return
 		}()
 	}
 	wg.Wait()
@@ -500,8 +509,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		return nil, err
 	default:
 	}
-	fmt.Printf("!!! End of intApi DeleteFile()\n")
-	response = &pfs.BlockRefs{}
+	response = <-responseCh
 	return response, nil
 }
 

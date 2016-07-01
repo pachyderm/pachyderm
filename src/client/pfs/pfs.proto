@@ -250,7 +250,7 @@ message DeleteFileRequest {
   File file = 1;
   bool unsafe = 2;
   string handle = 3;
-  bool drainBlockrefs = 4;
+  bool drainBlockRefs = 4;
 }
 
 service API {

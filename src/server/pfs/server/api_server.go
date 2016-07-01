@@ -661,7 +661,6 @@ func (a *apiServer) MoveFile(ctx context.Context, request *pfs.MoveFileRequest) 
 				return nil, err
 			}
 	*/
-	fmt.Printf("!!! In ApiServer.MoveFile()\n")
 	fmt.Printf("Req: %v\n", request)
 	/*
 		fileInfo, err := pfs.NewInternalAPIClient(clientConn).MoveFile(ctx, request)
@@ -730,7 +729,6 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
-	fmt.Printf("!!! Start of apiserv.DeleteFile\n")
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
@@ -781,7 +779,6 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 		return nil, err
 	default:
 	}
-	fmt.Printf("!!! End of apiServer.DeleteFile()\n")
 	response = &pfs.BlockRefs{}
 	return response, nil
 }

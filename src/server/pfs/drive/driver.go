@@ -656,34 +656,36 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	return result, nil
 }
 
-func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
+func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string, drainBlockRefs bool) (*pfs.BlockRefs, error) {
 	d.lock.RLock()
 	// We don't want to be able to delete files that are only added in the current
 	// commit, which is why we set unsafe to false.
-	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
+	fileInfo, blockRefsSlice, err := d.inspectFile(file, nil, shard, nil, drainBlockRefs, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
-		return err
+		return nil, err
 	}
 	d.lock.RUnlock()
 
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		fileInfos, err := d.ListFile(file, nil, nil, shard, false, unsafe, handle)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, info := range fileInfos {
 			// We are deleting the file from the current commit, not whatever
 			// commit they were last modified in
 			info.File.Commit = file.Commit
-			if err := d.DeleteFile(info.File, shard, unsafe, handle); err != nil {
-				return err
+			// Reporting the blockrefs for directory's child files doesn't make sense
+			// So hardcode drainBlockRefs to false
+			if _, err := d.DeleteFile(info.File, shard, unsafe, handle, false); err != nil {
+				return nil, err
 			}
 		}
 	}
-
-	return d.deleteFile(file, shard, unsafe, handle)
+	blockRefs := &pfs.BlockRefs{BlockRef: blockRefsSlice}
+	return blockRefs, d.deleteFile(file, shard, unsafe, handle)
 }
 
 func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
