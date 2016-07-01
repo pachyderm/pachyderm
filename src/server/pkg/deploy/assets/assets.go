@@ -354,7 +354,7 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 							VolumeMounts: []api.VolumeMount{
 								{
 									Name:      "rethink-storage",
-									MountPath: "/var/rethinkdb/data",
+									MountPath: "/var/rethinkdb/",
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
