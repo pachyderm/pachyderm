@@ -903,9 +903,7 @@ func TestSharding(t *testing.T) {
 			shard.BlockModulus = 4
 			for blockNumber := uint64(0); blockNumber < 4; blockNumber++ {
 				shard.BlockNumber = blockNumber
-				err := c.GetFile(repo, commit.ID,
-					fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer4Shard)
-				require.NoError(t, err)
+				c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer4Shard)
 			}
 			require.Equal(t, buffer1Shard.Len(), buffer4Shard.Len())
 		}()
