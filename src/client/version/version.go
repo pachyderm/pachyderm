@@ -1,6 +1,10 @@
 package version
 
-import "fmt"
+import (
+	"fmt"
+
+	protoversion "go.pedge.io/proto/version"
+)
 
 const (
 	// MajorVersion is the current major version for pachyderm.
