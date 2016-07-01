@@ -268,7 +268,7 @@ assets: install-go-bindata
 	go-bindata -o assets.go -pkg pachyderm doc/
 
 lint:
-	@for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
+	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' |grep -v '\.pb\.go'); do \
 		golint $$file; \
 		if [ -n "$$(golint $$file)" ]; then \
 			echo "golint errors!" && echo && exit 1; \
