@@ -10,6 +10,7 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+// APIServer represents an api server.
 type APIServer interface {
 	ppsclient.APIServer
 	ppsserver.InternalJobAPIServer
@@ -17,6 +18,7 @@ type APIServer interface {
 	shard.Server
 }
 
+// NewAPIServer creates an APIServer.
 func NewAPIServer(
 	hasher *ppsserver.Hasher,
 	address string,
