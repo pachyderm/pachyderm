@@ -36,10 +36,17 @@ type Client interface {
 	IsIgnorable(err error) bool
 }
 
+// NewGoogleClient creates a google client with the given bucket name.
 func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
 }
 
+// NewAmazonClient creates an amazon client with the following credentials:
+//   bucket - S3 bucket name
+//   id     - AWS access key id
+//   secret - AWS secret access key
+//   token  - AWS access token
+//   region - AWS region
 func NewAmazonClient(bucket string, id string, secret string, token string,
 	region string) (Client, error) {
 	return newAmazonClient(bucket, id, secret, token, region)
@@ -54,6 +61,7 @@ func NewExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	return config
 }
 
+// RetryError is used to log retry attempts.
 type RetryError struct {
 	Err               string
 	TimeTillNextRetry string
@@ -96,6 +104,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	return bytesRead, err
 }
 
+// Close closes the ReaderCloser contained in b.
 func (b *BackoffReadCloser) Close() error {
 	return b.reader.Close()
 }
@@ -136,6 +145,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	return bytesWritten, err
 }
 
+// Close closes the WriteCloser contained in b.
 func (b *BackoffWriteCloser) Close() error {
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {

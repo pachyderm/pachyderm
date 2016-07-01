@@ -10,6 +10,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+// DeployCmd returns a cobra command for deploying a pachyderm cluster.
 func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string

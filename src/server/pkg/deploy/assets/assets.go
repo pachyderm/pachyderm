@@ -40,6 +40,7 @@ const (
 	googleBackend
 )
 
+// ServiceAccount returns a kubernetes service account for use with Pachyderm.
 func ServiceAccount() *api.ServiceAccount {
 	return &api.ServiceAccount{
 		TypeMeta: unversioned.TypeMeta{
@@ -53,6 +54,7 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
+// PachdRc returns a pachd replication controller.
 func PachdRc(shards uint64, backend backend, hostPath string, version string) *api.ReplicationController {
 	image := pachdImage
 	if version != "" {
@@ -201,6 +203,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 	}
 }
 
+// PachdService returns a pachd service.
 func PachdService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -227,6 +230,7 @@ func PachdService() *api.Service {
 	}
 }
 
+// EtcdRc returns an etcd replication controller.
 func EtcdRc(hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	return &api.ReplicationController{
@@ -294,6 +298,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 	}
 }
 
+// EtcdService returns an etcd service.
 func EtcdService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -322,6 +327,7 @@ func EtcdService() *api.Service {
 	}
 }
 
+// RethinkRc returns a rethinkdb replication controller.
 func RethinkRc(backend backend, volume string, hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	spec := &api.ReplicationController{
@@ -396,6 +402,7 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 	return spec
 }
 
+// RethinkService returns a rethinkdb service.
 func RethinkService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -432,6 +439,7 @@ func RethinkService() *api.Service {
 	}
 }
 
+// InitJob returns a pachd-init job.
 func InitJob(version string) *extensions.Job {
 	image := pachdImage
 	if version != "" {
@@ -480,6 +488,12 @@ func InitJob(version string) *extensions.Job {
 	}
 }
 
+// AmazonSecret creates an amazon secret with the following parameters:
+//   bucket - S3 bucket name
+//   id     - AWS access key id
+//   secret - AWS secret access key
+//   token  - AWS access token
+//   region - AWS region
 func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
@@ -500,6 +514,7 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 	}
 }
 
+// GoogleSecret creates a google secret with a bucket name.
 func GoogleSecret(bucket string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
@@ -516,6 +531,8 @@ func GoogleSecret(bucket string) *api.Secret {
 	}
 }
 
+// RethinkVolume creates a persistent volume with a backend
+// (local, amazon, google), a name, and a size in gigabytes.
 func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume {
 	spec := &api.PersistentVolume{
 		TypeMeta: unversioned.TypeMeta{
@@ -557,6 +574,7 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 	return spec
 }
 
+// RethinkVolumeClaim creates a persistent volume claim with a size in gigabytes.
 func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	return &api.PersistentVolumeClaim{
 		TypeMeta: unversioned.TypeMeta{
@@ -612,10 +630,12 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 	fmt.Fprintf(w, "\n")
 }
 
+// WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version string) {
 	WriteAssets(w, shards, localBackend, "", 0, hostPath, version)
 }
 
+// WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
 	region string, volumeName string, volumeSize int, version string) {
 	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
@@ -624,6 +644,7 @@ func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, sec
 	fmt.Fprintf(w, "\n")
 }
 
+// WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 	volumeName string, volumeSize int, version string) {
 	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
