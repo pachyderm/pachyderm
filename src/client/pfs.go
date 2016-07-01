@@ -6,6 +6,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"golang.org/x/net/context"
+
+	protostream "go.pedge.io/proto/stream"
 )
 
 // NewRepo creates a pfs.Repo.

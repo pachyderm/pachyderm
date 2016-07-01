@@ -11,6 +11,8 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+
+	protolion "go.pedge.io/lion/proto"
 )
 
 // InvalidVersion is defined as -1 since valid versions are non-negative.

@@ -11,6 +11,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.

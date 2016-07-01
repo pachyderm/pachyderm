@@ -7,6 +7,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	protostream "go.pedge.io/proto/stream"
 )
 
 // NewJob creates a pps.Job.
