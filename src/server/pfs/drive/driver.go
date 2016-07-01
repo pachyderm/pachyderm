@@ -1054,7 +1054,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 				blocksSeen = blocksSeen || len(allRefs) > 0
 				filtered := filterBlockRefs(filterShard, file, allRefs)
-				blockRefs = append(blockRefs, filtered...)
+				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
