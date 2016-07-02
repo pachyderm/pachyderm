@@ -1642,7 +1642,32 @@ func TestDeleteReturnsBlockRefs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, blockrefs)
 	require.Equal(t, 1, len(blockrefs.BlockRef))
-	// REQUIRE blockref == block that contains 'foo\n'
+	err = client.FinishCommit(repo, commit2.ID)
+	require.NoError(t, err)
+}
+
+func TestDeleteDirDoesNotReturnBlockRefs(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	require.NoError(t, client.MakeDirectory(repo, commit1.ID, "dir1"))
+	/*
+		_, err = client.PutFile(repo, commit1.ID, "dir1/foo", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "dir1/bar", strings.NewReader("baz\n"))
+		require.NoError(t, err)
+	*/
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+	blockrefs, err := client.DeleteFile(repo, commit2.ID, "dir1", false, "")
+	require.NoError(t, err)
+	require.Nil(t, blockrefs)
 	err = client.FinishCommit(repo, commit2.ID)
 	require.NoError(t, err)
 }

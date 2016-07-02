@@ -459,6 +459,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *pfs.BlockRefs, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	fmt.Printf("!!! In intapi DeleteFile()\n")
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -504,6 +505,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		}()
 	}
 	wg.Wait()
+	fmt.Printf("!!! returning from intapi deletefile()\n")
 	select {
 	case err := <-errCh:
 		return nil, err

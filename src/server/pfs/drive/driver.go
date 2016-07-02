@@ -660,13 +660,14 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	d.lock.RLock()
 	// We don't want to be able to delete files that are only added in the current
 	// commit, which is why we set unsafe to false.
+	fmt.Printf("!!! In driver DeleteFile\n")
 	fileInfo, blockRefsSlice, err := d.inspectFile(file, nil, shard, nil, drainBlockRefs, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
 		return nil, err
 	}
 	d.lock.RUnlock()
-
+	fmt.Printf("!!! driver.DeleteFile() ... got inspect file contents w/o erring\n")
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		fileInfos, err := d.ListFile(file, nil, nil, shard, false, unsafe, handle)
 		if err != nil {
@@ -679,12 +680,14 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 			info.File.Commit = file.Commit
 			// Reporting the blockrefs for directory's child files doesn't make sense
 			// So hardcode drainBlockRefs to false
+			fmt.Printf("!!! Calling delete file recursively\n")
 			if _, err := d.DeleteFile(info.File, shard, unsafe, handle, false); err != nil {
 				return nil, err
 			}
 		}
 	}
 	blockRefs := &pfs.BlockRefs{BlockRef: blockRefsSlice}
+	fmt.Printf("!!! Returning driver.DeleteFile()\n")
 	return blockRefs, d.deleteFile(file, shard, unsafe, handle)
 }
 
