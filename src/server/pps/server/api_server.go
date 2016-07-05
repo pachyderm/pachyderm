@@ -742,7 +742,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 
-	setDefaultPipelineInputMethod(request.Inputs)
+	existingPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
+
+	// First time called, we expect a not found error
+	if err != nil {
+		notFound := strings.Contains(err.Error(), "not found")
+		if !notFound {
+			return nil, err
+		}
+	}
+
+	// Second call, err here once we realize the pipeline already exists
+	if existingPipelineInfo != nil {
+		return nil, fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+	}
 
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
