@@ -15,8 +15,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -214,7 +214,7 @@
             "volumeMounts": [
               {
                 "name": "rethink-storage",
-                "mountPath": "/var/rethinkdb/data"
+                "mountPath": "/var/rethinkdb/"
               }
             ],
             "imagePullPolicy": "IfNotPresent"
