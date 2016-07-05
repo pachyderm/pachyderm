@@ -39,11 +39,11 @@ var (
 )
 
 func NewErrJobNotFound(job string) error {
-	return fmt.Errorf("Job %v not found", job)
+	return fmt.Errorf("job %v not found", job)
 }
 
 func NewErrPipelineNotFound(pipeline string) error {
-	return fmt.Errorf("Pipeline %v not found", pipeline)
+	return fmt.Errorf("pipeline %v not found", pipeline)
 }
 
 type ErrEmptyInput struct {
@@ -52,12 +52,12 @@ type ErrEmptyInput struct {
 
 func NewErrEmptyInput(commitID string) *ErrEmptyInput {
 	return &ErrEmptyInput{
-		error: fmt.Errorf("Job was not started due to empty input at commit %v", commitID),
+		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
 }
 
 func NewErrParentInputsMismatch(parent string) error {
-	return fmt.Errorf("Job does not have the same set of inputs as its parent %v", parent)
+	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
 type apiServer struct {
@@ -196,7 +196,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if request.Pipeline != nil {
 		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
 		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
-			return nil, fmt.Errorf("Parent job was not part of the same pipeline; this is likely a bug")
+			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
 	} else {
 		// If parent is set, use the parent's repo
@@ -1409,7 +1409,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	}
 
 	if pipeline == nil {
-		return fmt.Errorf("Pipeline cannot be nil")
+		return fmt.Errorf("pipeline cannot be nil")
 	}
 
 	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with

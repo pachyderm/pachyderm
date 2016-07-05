@@ -598,7 +598,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	case pfsclient.FileType_FILE_TYPE_DIR:
 		return directory, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized FileType.")
+		return nil, fmt.Errorf("unrecognized file type")
 	}
 }
 
