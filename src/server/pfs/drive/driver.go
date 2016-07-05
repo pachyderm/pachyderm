@@ -173,19 +173,12 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 	return result, nil
 }
 
-func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
-	// Make sure that this repo is not the provenance of any other repo
-	repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
-	if err != nil {
-		return err
-	}
-
-	var diffInfos []*pfs.DiffInfo
-	err = func() error {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		if _, ok := d.diffs[repo.Name]; !ok {
-			return pfsserver.NewErrRepoNotFound(repo.Name)
+func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+	if !force {
+		// Make sure that this repo is not the provenance of any other repo
+		repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+		if err != nil {
+			return err
 		}
 		if len(repoInfos) > 0 {
 			var repoNames []string
@@ -193,6 +186,15 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 				repoNames = append(repoNames, repoInfo.Repo.Name)
 			}
 			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
+		}
+	}
+
+	var diffInfos []*pfs.DiffInfo
+	err := func() error {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if _, ok := d.diffs[repo.Name]; !ok {
+			return pfsserver.NewErrRepoNotFound(repo.Name)
 		}
 
 		for shard := range shards {
@@ -752,7 +754,7 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 	// Because we want to make sure we delete the higher indexes first we traverse in reverse
 	sort.Sort(byProvenance(repoInfos))
 	for i := range repoInfos {
-		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards); err != nil {
+		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards, false); err != nil {
 			return err
 		}
 	}
@@ -890,7 +892,7 @@ func (d *driver) fullCommitProvenance(commit *pfs.Commit, repoSet map[string]boo
 		}
 		diffInfo, ok := diffInfos[commit.ID]
 		if !ok {
-			return nil, fmt.Errorf("missing \"%s\" diff (this is likely a bug)", commit.ID)
+			return nil, fmt.Errorf("missing \"%s\" diff in repo \"%s\" (this is likely a bug; you may recover from this by force deleting the repo \"pachctl delete-repo %s --force\")", commit.ID, commit.Repo.Name, commit.Repo.Name)
 		}
 		for _, provCommit := range diffInfo.Provenance {
 			if !repoSet[provCommit.Repo.Name] {
