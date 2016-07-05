@@ -336,7 +336,7 @@ func TestDeleteRepo(t *testing.T) {
 	for i := 0; i < reposToRemove; i++ {
 		// Pick one random element from repoNames
 		for repoName := range repoNames {
-			require.NoError(t, client.DeleteRepo(repoName))
+			require.NoError(t, client.DeleteRepo(repoName, false))
 			delete(repoNames, repoName)
 			break
 		}
