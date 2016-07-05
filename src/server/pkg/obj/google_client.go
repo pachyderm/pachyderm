@@ -2,6 +2,9 @@ package obj
 
 import (
 	"io"
+	"reflect"
+
+	"go.pedge.io/lion/proto"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
@@ -72,7 +75,10 @@ func (c *googleClient) Delete(name string) error {
 	return c.bucket.Object(name).Delete(c.ctx)
 }
 
-func (c *googleClient) IsRetryable(err error) bool {
+func (c *googleClient) IsRetryable(err error) (ret bool) {
+	defer func() {
+		protolion.Infof("retryable: %v; type of err: %s; err: %v", ret, reflect.TypeOf(err).String(), err)
+	}()
 	googleErr, ok := err.(*googleapi.Error)
 	if !ok {
 		return false
