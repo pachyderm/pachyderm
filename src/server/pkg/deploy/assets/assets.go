@@ -602,16 +602,16 @@ func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version strin
 }
 
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
 	fmt.Fprintf(w, "\n")
 }
 
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
 	fmt.Fprintf(w, "\n")
 }
 
