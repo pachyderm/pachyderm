@@ -73,7 +73,7 @@ Envronment variables:
 			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
 
 			if err != nil {
-				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server: %v\n", sanitizeErr(err))
+				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
 				return writer.Flush()
 			}
 
