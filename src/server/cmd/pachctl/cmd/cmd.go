@@ -25,12 +25,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-func init() {
-	// Silence any grpc logs
-	grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
-}
-
 func PachctlCmd(address string) (*cobra.Command, error) {
+	var verbose bool
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -38,7 +34,15 @@ func PachctlCmd(address string) (*cobra.Command, error) {
 Envronment variables:
   ADDRESS=0.0.0.0:30650, the server to connect to.
 `,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if !verbose {
+				// Silence any grpc logs
+				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+			}
+		},
 	}
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+
 	pfsCmds := pfscmds.Cmds(address)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
