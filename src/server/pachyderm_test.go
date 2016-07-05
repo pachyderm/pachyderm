@@ -2123,6 +2123,43 @@ func TestRecursiveCp(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPipelineUniqueness(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo: &pfsclient.Repo{Name: repo},
+			},
+		},
+	))
+	err := c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo: &pfsclient.Repo{Name: repo},
+			},
+		},
+	)
+	fmt.Printf("Error from second pipeline create: %v\n", err)
+	require.YesError(t, err)
+}
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
