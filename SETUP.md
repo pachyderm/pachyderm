@@ -144,16 +144,6 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Format Volume
-
-Unfortunately, your persistent disk is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](https://cloud.google.com/compute/docs/disks/add-persistent-disk#before-you-begin), attaching the disk to an instance and formatting the disk, then clear all files on the disk by running:
-
-```shell
-rm -rf [path-to-disk]/*
-```
-
-Afterwards, you need to detach the disk so Kubernetes can use it.  Follow [basically the same instructions as above](https://cloud.google.com/compute/docs/disks/add-persistent-disk#create_disk) except that this time you remove the disk from `Additional disks`.
-
 ### Deploy Pachyderm
 
 First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
@@ -223,14 +213,6 @@ Now you should be able to see the bucket and the EBS volume that are just create
 ```shell
 aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
-```
-
-### Format Volume
-
-Unfortunately, your EBS volume is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html), then clear all files on the volume by:
-
-```shell
-rm -rf [path-to-disk]/*
 ```
 
 ### Deploy Pachyderm
