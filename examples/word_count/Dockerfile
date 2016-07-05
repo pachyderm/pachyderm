@@ -1,4 +1,4 @@
-FROM derekchiang/job-shim:latest
+FROM pachyderm/job-shim:latest
 
 # Install Go
 RUN apt-get update && apt-get install -y --no-install-recommends \
