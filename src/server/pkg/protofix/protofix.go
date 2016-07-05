@@ -38,7 +38,7 @@ func RevertAllPBGOFilesInDirectory(rootPath string) {
 			args := []string{"checkout", path}
 			_, err := exec.Command("git", args...).Output()
 			if err != nil {
-				fmt.Printf("Error reverting %v : %v\n", path, err)
+				fmt.Printf("error reverting %v : %v\n", path, err)
 				os.Exit(1)
 			}
 		}

@@ -36,13 +36,13 @@ func DeployCmd() *cobra.Command {
 				switch args[0] {
 				case "amazon":
 					if len(args) != 6 && len(args) != 8 {
-						return fmt.Errorf("Expected 6 or 8 args, got %d", len(args))
+						return fmt.Errorf("expected 6 or 8 args, got %d", len(args))
 					}
 					assets.WriteAmazonAssets(os.Stdout, uint64(shards), args[1], args[2], args[3], args[4],
 						args[5], volumeName, volumeSize, version)
 				case "google":
 					if len(args) != 2 && len(args) != 4 {
-						return fmt.Errorf("Expected 2 or 4 args, got %d", len(args))
+						return fmt.Errorf("expected 2 or 4 args, got %d", len(args))
 					}
 					assets.WriteGoogleAssets(os.Stdout, uint64(shards), args[1], volumeName, volumeSize, version)
 				}
