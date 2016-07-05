@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"text/tabwriter"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -21,6 +24,11 @@ import (
 	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
 )
+
+func init() {
+	// Silence any grpc logs
+	grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+}
 
 func PachctlCmd(address string) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
