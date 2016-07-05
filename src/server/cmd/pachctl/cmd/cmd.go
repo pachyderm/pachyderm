@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,7 +37,7 @@ Envronment variables:
 	}
 	ppsCmds, err := ppscmds.Cmds(address)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
@@ -54,13 +55,13 @@ Envronment variables:
 
 			versionClient, err := getVersionAPIClient(address)
 			if err != nil {
-				return err
+				return sanitizeErr(err)
 			}
 			ctx, _ := context.WithTimeout(context.Background(), time.Second)
 			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
 
 			if err != nil {
-				fmt.Fprintf(writer, "pachd\tUNKNOWN: Error %v\n", err)
+				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server: %v\n", sanitizeErr(err))
 				return writer.Flush()
 			}
 
@@ -76,7 +77,7 @@ This resets the cluster to its initial state.`,
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
-				return err
+				return sanitizeErr(err)
 			}
 			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
 			r := bufio.NewReader(os.Stdin)
@@ -109,4 +110,12 @@ func printVersionHeader(w io.Writer) {
 
 func printVersion(w io.Writer, component string, v *protoversion.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
+}
+
+func sanitizeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return errors.New(grpc.ErrorDesc(err))
 }
