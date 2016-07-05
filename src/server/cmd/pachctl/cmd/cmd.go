@@ -19,6 +19,7 @@ import (
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/proto/version"
@@ -38,6 +39,8 @@ Envronment variables:
 			if !verbose {
 				// Silence any grpc logs
 				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+				// Silence our FUSE logs
+				lion.SetLevel(lion.LevelNone)
 			}
 		},
 	}
