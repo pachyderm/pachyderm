@@ -53,8 +53,17 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-//PachdRc TODO secrets is only necessary because dockerized kube chokes on them
-func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string, version string) *api.ReplicationController {
+	image := pachdImage
+	if version != "" {
+		image += ":" + version
+	}
+	// we turn metrics on only if we have a static version this prevents dev
+	// clusters from reporting metrics
+	metrics := "true"
+	if version == "" {
+		metrics = "false"
+	}
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -137,7 +146,7 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 					Containers: []api.Container{
 						{
 							Name:  pachdName,
-							Image: pachdImage,
+							Image: image,
 							Env: []api.EnvVar{
 								{
 									Name:  "PACH_ROOT",
@@ -159,6 +168,10 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 											FieldPath:  "metadata.namespace",
 										},
 									},
+								},
+								{
+									Name:  "METRICS",
+									Value: metrics,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -419,7 +432,11 @@ func RethinkService() *api.Service {
 	}
 }
 
-func InitJob() *extensions.Job {
+func InitJob(version string) *extensions.Job {
+	image := pachdImage
+	if version != "" {
+		image += ":" + version
+	}
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -442,7 +459,7 @@ func InitJob() *extensions.Job {
 					Containers: []api.Container{
 						{
 							Name:  initName,
-							Image: pachdImage,
+							Image: image,
 							Env: []api.EnvVar{
 								{
 									Name:  "PACH_ROOT",
@@ -562,7 +579,8 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 }
 
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int, hostPath string) {
+func WriteAssets(w io.Writer, shards uint64, backend backend,
+	volumeName string, volumeSize int, hostPath string, version string) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -585,33 +603,32 @@ func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string,
 	RethinkRc(backend, volumeName, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	InitJob().CodecEncodeSelf(encoder)
+	InitJob(version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend, hostPath).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version string) {
-	if version != "" {
-		pachdImage = fmt.Sprintf("%v:%v", pachdImage, version)
-	}
-	WriteAssets(w, shards, localBackend, "", 0, hostPath)
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, version)
 }
 
-func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
+func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
+	region string, volumeName string, volumeSize int, version string) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
 	fmt.Fprintf(w, "\n")
 }
 
-func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
+func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
+	volumeName string, volumeSize int, version string) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
 	fmt.Fprintf(w, "\n")
 }
 
