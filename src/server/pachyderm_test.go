@@ -1861,10 +1861,10 @@ func TestScrubbedErrors(t *testing.T) {
 		1,
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: "test"}}},
 	)
-	require.Equal(t, "Repo test not found", err.Error())
+	require.Equal(t, "repo test not found", err.Error())
 
 	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
-	require.Matches(t, "Repo job_.* not found", err.Error())
+	require.Matches(t, "repo job_.* not found", err.Error())
 
 	_, err = c.InspectJob("blah", true)
 	require.Equal(t, "JobInfos blah not found", err.Error())
@@ -1876,7 +1876,7 @@ func TestScrubbedErrors(t *testing.T) {
 	}()
 	require.NoError(t, err)
 	err = c.GetLogs("bogusJobId", f)
-	require.Equal(t, "Job bogusJobId not found", err.Error())
+	require.Equal(t, "job bogusJobId not found", err.Error())
 }
 
 func TestAcceptReturnCode(t *testing.T) {
