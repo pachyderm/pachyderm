@@ -757,6 +757,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
 	}
 
+	setDefaultPipelineInputMethod(request.Inputs)
+
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
