@@ -14,9 +14,9 @@ This guide assumes you already have a [working pachyderm cluster](../../SETUP.md
 
 Getting this neural net running on Pachyderm will require a few steps:
 
-1) Creating the data repo, and initializing it with some GoT scripts
-2) Creating the Docker image that includes the TF library and our code
-3) Creating the Pachyderm Pipeline that trains the neural net, and generates the new script
+1. Creating the data repo, and initializing it with some GoT scripts
+2. Creating the Docker image that includes the TF library and our code
+3. Creating the Pachyderm Pipeline that trains the neural net, and generates the new script
 
 ---
 
@@ -30,13 +30,13 @@ make input-data
 
 This task does 2 things:
 
-1) It grabs the data set in the form of a tarball from a URL, and extracts the data
-2) It inputs this data into pachyderm by:
-  - creating a new repo `GoT_scripts`
-  - starting a commit
-  - mounting the Pachyderm File System at `./mnt`
-  - copying the data over to the `./mnt/GoT_scripts/{commitID}/` path
-  - finishing the commit
+1. It grabs the data set in the form of a tarball from a URL, and extracts the data
+2. It inputs this data into pachyderm by:
+    - creating a new repo `GoT_scripts`
+    - starting a commit
+    - mounting the Pachyderm File System at `./mnt`
+    - copying the data over to the `./mnt/GoT_scripts/{commitID}/` path
+    - finishing the commit
 
 The result is a new repo w all the data we need stored inside. To confirm the setup, you can do:
 
@@ -55,10 +55,10 @@ Using Tensor Flow with Pachyderm is easy! Since Pachyderm Processing System (PPS
 
 To construct the image, we need to:
 
-1) Make sure we use an image w the Tensor Flow library installed
-2) Make sure the image includes our code
-3) Update the image to include Pachyderm's job shim
-4) Actually compile the image
+1. Make sure we use an image w the Tensor Flow library installed
+2. Make sure the image includes our code
+3. Update the image to include Pachyderm's job shim
+4. Actually compile the image
 
 If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll notice a couple things.
 
@@ -108,7 +108,7 @@ Now that we have the data and the image ready, we can specify how we want to pro
 
 #### Training:
 
-We've specified two pipelines here. The first is `GoT_train`, which represents the processing needed to train the neural net on the input data. You can see that it takes `GoT_scritps` as its input.
+We've specified two pipelines here. The first is `GoT_train`, which represents the processing needed to train the neural net on the input data. You can see that it takes `GoT_scripts` as its input.
 
 Now note that we've specified the `tensor_flow_rnn_got` image, and we specify an entry point by specifying the command and the stdin we pass. In our case, the meat boils down to this line:
 
