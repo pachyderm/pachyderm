@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	"go.pedge.io/proto/version"
+	protoversion "go.pedge.io/proto/version"
 )
 
 const (
@@ -29,6 +29,8 @@ var (
 	}
 )
 
+// PrettyPrintVersion returns a version string optionally tagged with metadata.
+// For example: "1.2.3", or "1.2.3-rc1" if version.Additional is "rc1".
 func PrettyPrintVersion(version *protoversion.Version) string {
 	result := fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
 	if version.Additional != "" {

@@ -21,6 +21,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+// PachctlCmd takes a pachd host-address and creates a cobra.Command
+// which may interact with the host.
 func PachctlCmd(address string) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],

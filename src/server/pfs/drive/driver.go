@@ -441,11 +441,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	return result, nil
 }
 
+// MatchProvenance checks if all the commits we want exist in the commits we have.
 func MatchProvenance(want []*pfs.Commit, have []*pfs.Commit) bool {
+	// Get a map of repo names to commits we have
 	repoToCommit := make(map[string]*pfs.Commit)
 	for _, haveCommit := range have {
 		repoToCommit[haveCommit.Repo.Name] = haveCommit
 	}
+	// And check that all of the commits we want are in the map
 	for _, wantCommit := range want {
 		haveCommit, ok := repoToCommit[wantCommit.Repo.Name]
 		if !ok || wantCommit.ID != haveCommit.ID {

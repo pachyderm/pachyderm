@@ -38,24 +38,29 @@ var (
 	suite   = "pachyderm"
 )
 
+// NewErrJobNotFound creates a job-not-found error.
 func NewErrJobNotFound(job string) error {
 	return fmt.Errorf("Job %v not found", job)
 }
 
+// NewErrPipelineNotFound creates a pipeline-not-found error.
 func NewErrPipelineNotFound(pipeline string) error {
 	return fmt.Errorf("Pipeline %v not found", pipeline)
 }
 
+// ErrEmptyInput is an input returned for empty inputs.
 type ErrEmptyInput struct {
 	error
 }
 
+// NewErrEmptyInput creates a new ErrEmptyInput
 func NewErrEmptyInput(commitID string) *ErrEmptyInput {
 	return &ErrEmptyInput{
 		error: fmt.Errorf("Job was not started due to empty input at commit %v", commitID),
 	}
 }
 
+// NewErrParentInputsMismatch creates an error for mismatched job parents.
 func NewErrParentInputsMismatch(parent string) error {
 	return fmt.Errorf("Job does not have the same set of inputs as its parent %v", parent)
 }
@@ -1317,6 +1322,8 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 	}, nil
 }
 
+// RepoNameToEnvString is a helper which uppercases a repo name for
+// use in environment variable names.
 func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }

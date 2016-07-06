@@ -5,14 +5,17 @@ import (
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+
+	protostream "go.pedge.io/proto/stream"
 )
 
+// NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
 }
 
+// NewCommit creates a pfs.Commit.
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo: NewRepo(repoName),
@@ -20,6 +23,7 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewFile creates a pfs.File.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
 		Commit: NewCommit(repoName, commitID),
@@ -27,12 +31,14 @@ func NewFile(repoName string, commitID string, path string) *pfs.File {
 	}
 }
 
+// NewBlock creates a pfs.Block.
 func NewBlock(hash string) *pfs.Block {
 	return &pfs.Block{
 		Hash: hash,
 	}
 }
 
+// NewDiff creates a pfs.Diff.
 func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
 	return &pfs.Diff{
 		Commit: NewCommit(repoName, commitID),
@@ -40,6 +46,7 @@ func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
 	}
 }
 
+// CommitTypes alias pfs.CommitType_*
 const (
 	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE
 	CommitTypeRead  = pfs.CommitType_COMMIT_TYPE_READ
@@ -402,6 +409,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, false, "", writer)
 }
 
+// GetFileUnsafe is identical to GetFile except that it will consider files in unfinished commits.
 func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, shard *pfs.Shard, handle string, writer io.Writer) error {
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, shard, true, handle, writer)
@@ -443,6 +451,7 @@ func (c APIClient) InspectFile(repoName string, commitID string, path string,
 	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, false, "")
 }
 
+// InspectFileUnsafe is identical to InspectFile except that it will consider files in unfinished commits.
 func (c APIClient) InspectFileUnsafe(repoName string, commitID string, path string,
 	fromCommitID string, shard *pfs.Shard, handle string) (*pfs.FileInfo, error) {
 	return c.inspectFile(repoName, commitID, path, fromCommitID, shard, true, handle)

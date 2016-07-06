@@ -11,16 +11,19 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
-	"go.pedge.io/lion/proto"
+
+	protolion "go.pedge.io/lion/proto"
 )
 
+// InvalidVersion is defined as -1 since valid versions are non-negative.
 const InvalidVersion int64 = -1
 
 var (
-	holdTTL      uint64 = 20
-	marshaler           = &jsonpb.Marshaler{}
-	ErrCancelled        = fmt.Errorf("cancelled by user")
-	errComplete         = fmt.Errorf("COMPLETE")
+	holdTTL   uint64 = 20
+	marshaler        = &jsonpb.Marshaler{}
+	// ErrCancelled is returned when an action is cancelled by the user
+	ErrCancelled = fmt.Errorf("cancelled by user")
+	errComplete  = fmt.Errorf("COMPLETE")
 )
 
 type sharder struct {
