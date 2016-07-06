@@ -52,6 +52,8 @@ func NewAmazonClient(bucket string, id string, secret string, token string,
 	return newAmazonClient(bucket, id, secret, token, region)
 }
 
+// NewExponentialBackOffConfig creates an exponential back-off config with
+// longer wait times than the default.
 func NewExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	config := backoff.NewExponentialBackOff()
 	// We want to backoff more aggressively (i.e. wait longer) than the default
