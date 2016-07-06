@@ -2158,6 +2158,37 @@ func TestPipelineUniqueness(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "pipeline .*? already exists", err.Error())
 }
+
+func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreateRepo(pipelineName))
+	err := c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		1,
+		[]*ppsclient.PipelineInput{
+			{
+				Repo: &pfsclient.Repo{Name: repo},
+			},
+		},
+	)
+	require.YesError(t, err)
+	require.Matches(t, err.Error(), "repo .* exists")
+	_, err = c.InspectPipeline(pipelineName)
+	require.YesError(t, err)
+	require.Matches(t, err.Error(), "not found")
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
