@@ -7,6 +7,7 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically
 * [Local](#local-deployment)
 * [Google Cloud Platform](#google-cloud-platform)
 * [AWS](#amazon-web-services-aws)
+* [OpenShift](#openshift)
 
 Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
 
@@ -231,6 +232,15 @@ $ make MANIFEST=manifest launch
 ```
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
+
+## OpenShift
+
+[OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
+
+1. Make sure that priviledge containers are allowed (they are not allowed by default):  `oc edit scc` and set `allowPrivilegedContainer: true` everywhere.
+2. Remove `hostPath` everywhere from your cluster manifest (e.g. `etc/kube/pachyderm-versioned.json` if you are deploying locally).
+
+Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
 
 ## pachctl
 
