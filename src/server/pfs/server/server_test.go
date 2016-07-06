@@ -336,7 +336,7 @@ func TestDeleteRepo(t *testing.T) {
 	for i := 0; i < reposToRemove; i++ {
 		// Pick one random element from repoNames
 		for repoName := range repoNames {
-			require.NoError(t, client.DeleteRepo(repoName))
+			require.NoError(t, client.DeleteRepo(repoName, false))
 			delete(repoNames, repoName)
 			break
 		}
@@ -574,6 +574,19 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, commit1, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+
+	// We inspect the file with two filter shards that have different block
+	// numbers, so that only one of the filter shards should match the file
+	// since the file only contains one block.
+	_, err1 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+		BlockNumber:  0,
+		BlockModulus: 2,
+	})
+	_, err2 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+		BlockNumber:  1,
+		BlockModulus: 2,
+	})
+	require.True(t, (err1 == nil && err2 != nil) || (err1 != nil && err2 == nil))
 
 	fileContent2 := "barbar\n"
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
@@ -1537,7 +1550,9 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 		}
 
 		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+			continue
+		}
 
 		// If any single block returns content of size equal to the total, we
 		// got a block collision and we're not testing anything
@@ -1606,7 +1621,9 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 		}
 
 		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+			continue
+		}
 
 		// If any single block returns content of size equal to the total, we
 		// got a block collision and we're not testing anything

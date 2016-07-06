@@ -15,8 +15,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -29,8 +29,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -214,7 +214,7 @@
             "volumeMounts": [
               {
                 "name": "rethink-storage",
-                "mountPath": "/var/rethinkdb/data"
+                "mountPath": "/var/rethinkdb/"
               }
             ],
             "imagePullPolicy": "IfNotPresent"
@@ -250,8 +250,8 @@
         "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd-init"
+          "app": "pachd-init",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -286,8 +286,8 @@
     "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd"
     }
   },
   "spec": {
@@ -377,6 +377,10 @@
                     "fieldPath": "metadata.namespace"
                   }
                 }
+              },
+              {
+                "name": "METRICS",
+                "value": "false"
               }
             ],
             "resources": {},

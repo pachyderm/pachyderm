@@ -548,7 +548,10 @@ func TestDelimitJSON(t *testing.T) {
 			}
 
 			buffer.Reset()
-			require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", blockFilter, &buffer))
+			if c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", blockFilter, &buffer) != nil {
+				// ignore file not found
+				continue
+			}
 
 			// If any single block returns content of size equal to the total, we
 			// got a block collision and we're not testing anything
@@ -621,7 +624,9 @@ func TestNoDelimiter(t *testing.T) {
 			}
 
 			buffer.Reset()
-			require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", blockFilter, &buffer))
+			if c.GetFile(repo, commit1.ID, name, 0, 0, "", blockFilter, &buffer) != nil {
+				continue
+			}
 
 			// If any single block returns content of size equal to the total, we
 			// got a block collision and we're not testing anything
@@ -652,6 +657,25 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 		err = pkgexec.RunStdin(stdin, "sh")
 		require.YesError(t, err)
 		require.Matches(t, "Operation not permitted", err.Error())
+	})
+}
+
+func TestWriteManyFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestWriteManyFiles"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+
+		for i := 0; i < 10000; i++ {
+			fileName := fmt.Sprintf("file-%d", i)
+			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
+			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
+		}
 	})
 }
 

@@ -24,8 +24,15 @@ func (s *Hasher) HashFile(file *pfs.File) uint64 {
 	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.FileModulus
 }
 
-func (s *Hasher) HashBlock(block *pfs.Block) uint64 {
-	return uint64(adler32.Checksum([]byte(block.Hash))) % s.BlockModulus
+func (s *Hasher) HashBlock(file *pfs.File, block *pfs.Block) uint64 {
+	var str string
+	if file != nil {
+		str += file.Path
+	}
+	if block != nil {
+		str += block.Hash
+	}
+	return uint64(adler32.Checksum([]byte(str))) % s.BlockModulus
 }
 
 // FileInShard checks if a given file belongs in a given shard, using only the
@@ -46,11 +53,11 @@ func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
 	return sharder.HashFile(f) == shard.FileNumber
 }
 
-func BlockInShard(shard *pfs.Shard, block *pfs.Block) bool {
+func BlockInShard(shard *pfs.Shard, file *pfs.File, block *pfs.Block) bool {
 	if shard == nil || shard.BlockModulus == 0 {
 		// this lets us default to no filtering
 		return true
 	}
 	sharder := &Hasher{BlockModulus: shard.BlockModulus}
-	return sharder.HashBlock(block) == shard.BlockNumber
+	return sharder.HashBlock(file, block) == shard.BlockNumber
 }
