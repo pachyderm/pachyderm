@@ -13,8 +13,8 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	// passing empty addresses for pfsd and ppsd, that's fine because we're not
-	// going to execute the command but print docs with it
+	// passing an empty address but that's fine because we're not going to
+	// execute the command but print docs with it
 	rootCmd, err := cmd.PachctlCmd("")
 	if err != nil {
 		return err
