@@ -56,6 +56,7 @@ Bug fixes:
 - Getting files from non existant commits gives a nicer error message
 - RunPipeline would fail to create a new job if the pipeline had already run
 - FUSE no longer chokes if a commit is closed after the mount happened
+- GCE/AWS backends have been made a lot more reliable
 
 Tests:
 
