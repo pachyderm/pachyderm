@@ -634,6 +634,27 @@ func TestNoDelimiter(t *testing.T) {
 	})
 }
 
+func TestWriteToReadOnlyPath(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		name := "foo"
+		require.NoError(t, c.CreateRepo(repo))
+		commit1, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+		stdin := strings.NewReader(fmt.Sprintf("echo 'oh hai' > %s", filePath))
+		err = pkgexec.RunStdin(stdin, "sh")
+		require.YesError(t, err)
+		require.Matches(t, "Operation not permitted", err.Error())
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
