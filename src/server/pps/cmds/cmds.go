@@ -24,6 +24,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+// ByCreationTime is an implementation of sort.Interface which
+// sorts pps job info by creation time, ascending.
 type ByCreationTime []*ppsclient.JobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
@@ -44,6 +46,7 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	return false
 }
 
+// Cmds returns a slice containing pps commands.
 func Cmds(address string) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 

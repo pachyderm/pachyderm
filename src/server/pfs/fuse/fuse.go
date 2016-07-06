@@ -4,6 +4,7 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+// A Mounter mounts fuse filesystems.
 type Mounter interface {
 	// Mount mounts a repository available as a fuse filesystem at mountPoint.
 	// Mount blocks and will return once the volume is unmounted.

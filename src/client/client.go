@@ -5,19 +5,26 @@ import (
 	"fmt"
 	"os"
 
-	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
+// PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
+
+// PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
+
+// BlockAPIClient is an alias for pfs.BlockAPIClient.
 type BlockAPIClient pfs.BlockAPIClient
 
+// An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient

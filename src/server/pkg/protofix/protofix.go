@@ -15,8 +15,8 @@ import (
 	"strings"
 )
 
+// FixAllPBGOFilesInDirectory fixes all *.pb.go files in rootPath.
 func FixAllPBGOFilesInDirectory(rootPath string) {
-
 	filepath.Walk(rootPath, func(path string, f os.FileInfo, err error) error {
 		if strings.HasSuffix(f.Name(), ".pb.go") {
 			fmt.Printf("Repairing %v\n", path)
@@ -24,11 +24,10 @@ func FixAllPBGOFilesInDirectory(rootPath string) {
 		}
 		return nil
 	})
-
 }
 
+// RevertAllPBGOFilesInDirectory reverts all *.pb.go files in rootPath.
 func RevertAllPBGOFilesInDirectory(rootPath string) {
-
 	filepath.Walk(rootPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return nil
@@ -44,7 +43,6 @@ func RevertAllPBGOFilesInDirectory(rootPath string) {
 		}
 		return nil
 	})
-
 }
 
 func repairedFileBytes(filename string) []byte {
