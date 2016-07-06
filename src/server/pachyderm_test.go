@@ -2156,6 +2156,7 @@ func TestPipelineUniqueness(t *testing.T) {
 		},
 	)
 	require.YesError(t, err)
+	require.Matches(t, "pipeline .*? already exists", err.Error())
 }
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
