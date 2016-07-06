@@ -66,6 +66,9 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
+install-completion:
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-completion
+
 point-release:
 	@make VERSION_ADDITIONAL= release
 
@@ -217,6 +220,12 @@ doc: install-doc
 	cp $(GOPATH)/bin/pachctl-doc ./pachctl
 	rm -rf doc/pachctl && mkdir doc/pachctl
 	./pachctl
+	rm ./pachctl
+
+completion: install-completion
+	# we rename to pachctl because the program name is used in generating docs
+	cp $(GOPATH)/bin/pachctl-completion ./pachctl
+	./pachctl > etc/bash/completion.sh
 	rm ./pachctl
 
 grep-data:
