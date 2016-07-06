@@ -2157,7 +2157,6 @@ func TestPipelineUniqueness(t *testing.T) {
 			},
 		},
 	)
-	fmt.Printf("Error from second pipeline create: %v\n", err)
 	require.YesError(t, err)
 }
 func getPachClient(t *testing.T) *client.APIClient {
