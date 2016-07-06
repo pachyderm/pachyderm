@@ -29,6 +29,7 @@ Features:
 - Transforms now have a `Debug` field which turns on debug logging for the job
 - Pachctl can now be installed via Homebrew on macOS or apt on Ubuntu
 - ListJob now orders jobs by creation time
+- Openshift Origin is now supported as a deployment platform
 
 Content:
 
