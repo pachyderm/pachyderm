@@ -2183,10 +2183,10 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 		},
 	)
 	require.YesError(t, err)
-	require.Matches(t, err.Error(), "repo .* exists")
+	require.Matches(t, "repo .* exists", err.Error())
 	_, err = c.InspectPipeline(pipelineName)
 	require.YesError(t, err)
-	require.Matches(t, err.Error(), "not found")
+	require.Matches(t, "not found", err.Error())
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
