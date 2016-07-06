@@ -658,6 +658,29 @@ func TestWriteManyFiles(t *testing.T) {
 	})
 }
 
+func TestReadCancelledCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestReadCancelledCommit"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.CancelCommit(repo, commit.ID))
+		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(dirs))
+		require.Equal(t, commit.ID, dirs[0].Name())
+		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo\n", string(data))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
