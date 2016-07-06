@@ -784,6 +784,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			Repo:       repo,
 			Provenance: provenance,
 		}); err != nil {
+		if _, err := persistClient.DeletePipelineInfo(ctx, &ppsclient.Pipeline{Name: request.Pipeline.Name}); err != nil {
+			return nil, fmt.Errorf("could not delete PipelineInfo, this is likely a bug: %v\n", err)
+		}
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil

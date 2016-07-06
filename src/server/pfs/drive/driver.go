@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -17,6 +18,17 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
+
+func newPermissionError(repo string, commitID string) error {
+	return fmt.Errorf("commit %s/%s has already been finished", repo, commitID)
+}
+
+func IsPermissionError(err error) bool {
+	if readOnly := strings.Contains(err.Error(), "has already been finished"); readOnly {
+		return true
+	}
+	return false
+}
 
 type driver struct {
 	blockAddress    string
@@ -519,7 +531,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -580,7 +592,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -701,7 +713,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
 	cleanPath := path.Clean(file.Path)

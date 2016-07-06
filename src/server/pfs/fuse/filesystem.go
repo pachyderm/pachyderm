@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -156,7 +157,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	}
 	if err := localResult.touch(); err != nil {
 		// Check if its a write on a finished commit:
-		if readOnly := strings.Contains(err.Error(), "has already been finished"); readOnly {
+		if drive.IsPermissionError(err) {
 			err = fuse.EPERM
 		}
 		return nil, 0, err
