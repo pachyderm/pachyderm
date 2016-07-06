@@ -8,7 +8,7 @@ In this example, you'll generate a new Game of Thrones script based on a bunch o
 
 To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensor Flow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
 
-This guide assumes you already have a [working pachyderm cluster](../../SETUP.md), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start w the [fruit stand](../fruit-stand/README.md) example.
+This guide assumes you already have a [working pachyderm cluster](../../SETUP.md), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](../fruit-stand/README.md) example.
 
 ## How
 
@@ -31,19 +31,19 @@ make input-data
 This task does 2 things:
 
 1. It grabs the data set in the form of a tarball from a URL, and extracts the data
-2. It inputs this data into pachyderm by:
+2. It inputs this data into Pachyderm by:
     - creating a new repo `GoT_scripts`
     - starting a commit
-    - mounting the Pachyderm File System at `./mnt`
+    - mounting the [Pachyderm File System (PFS)](http://pachyderm.io/pfs.html) at `./mnt`
     - copying the data over to the `./mnt/GoT_scripts/{commitID}/` path
     - finishing the commit
 
-The result is a new repo w all the data we need stored inside. To confirm the setup, you can do:
+The result is a new repo with all the data we need stored inside. To confirm the setup, you can do:
 
 ```shell
 pachctl list-repo
-# you should see 'GoT_scripts' w a nonzero size
-pachctl list-commit
+# you should see 'GoT_scripts' with a nonzero size
+pachctl list-commit GoT_scripts
 # you should see a single commit
 ```
 
@@ -51,11 +51,11 @@ pachctl list-commit
 
 ### Creating the Transformation Image
 
-Using Tensor Flow with Pachyderm is easy! Since Pachyderm Processing System (PPS) allows you to use any Docker image, getting the code in place is straightforward. In fact, since Tensor Flow provides a docker image to work with, they've done most of the work for us!
+Using Tensor Flow with Pachyderm is easy! Since [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) allows you to use any Docker image, getting the code in place is straightforward. In fact, since Tensor Flow provides a docker image to work with, they've done most of the work for us!
 
 To construct the image, we need to:
 
-1. Make sure we use an image w the Tensor Flow library installed
+1. Make sure we use an image with the Tensor Flow library installed
 2. Make sure the image includes our code
 3. Update the image to include Pachyderm's job shim
 4. Actually compile the image
@@ -93,34 +93,34 @@ It will compile the Docker image above and name it `tensor_flow_rnn_got`
 
 #### A few things to note:
 
-This represents one of two ways to construct a custom image to run on pachyderm. In this example, we use the `FROM` directive to base our image off of a 3rd party image of our choosing. This works well - we just need to add the dependencies that pachyderm needs to run. This is the more common use case when constructing custom images with complicated dependencies -- you probably have an image in mind that has the dependencies you need.
+This represents one of two ways to construct a custom image to run on [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html). In this example, we use the `FROM` directive to base our image off of a 3rd party image of our choosing. This works well - we just need to add the dependencies that [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) needs to run. This is the more common use case when constructing custom images with complicated dependencies -- in this case you probably have an image in mind that has the dependencies you need.
 
-The alternative is using the `FROM` directive to base the image off of Pachyderm's standard image. [You can see an example here](./TODO). This usage pattern is more helpful for simple dependencies, or if you don't already have a Docker image you need to use.
+The alternative is using the `FROM` directive to base the image off of Pachyderm's standard image. [You can see an example here](../word_count/Dockerfile). This usage pattern is more helpful for simple dependencies, or if you don't already have a Docker image you need to use.
 
-If you're familiar w Dockerfiles, one thing that seems noticeably absent is an `ENTRYPOINT` command to tell the image what to run. In Pachyderm Processing System you specify this when creating a pipeline, as we'll see in a moment.
+If you're familiar with Dockerfiles, one thing that seems noticeably absent is an `ENTRYPOINT` command to tell the image what to run. In [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) you specify this when creating a pipeline, as we'll see in a moment.
 
 
 ---
 
 ### Creating the Pipeline
 
-Now that we have the data and the image ready, we can specify how we want to process the data. To do that, we use a pipeline manifest. Take a look at `pipeline.json` in this directory. Here you'll see a lot of information.
+Now that we have the data and the image ready, we can specify how we want to process the data. To do that, we use a pipeline manifest. Take a look at `pipeline.json` in this directory.
 
 #### Training:
 
 We've specified two pipelines here. The first is `GoT_train`, which represents the processing needed to train the neural net on the input data. You can see that it takes `GoT_scripts` as its input.
 
-Now note that we've specified the `tensor_flow_rnn_got` image, and we specify an entry point by specifying the command and the stdin we pass. In our case, the meat boils down to this line:
+Note that we've specified the `tensor_flow_rnn_got` image, and we specify an entry point by providing a command and its stdin:
 
 ```
 cd /code && python ptb_word_lm.py --data_path=/data --model=small --model_path_prefix=/data > /pfs/out/model-results
 ```
 
-This line tells Pachyderm Processing System (PPS) how to run the job. Here you can see we specify how to run the code w the arguments we want.
+This line tells [Pachyderm Pipeline System (PPS)](http://pachyderm.io/pps.html) how to run the job. Here you can see we specify how to run the code with the arguments we want.
 
-You'll also notice we have a few different kinds of output. The first one is we redirect the stdout of running the script to a logfile. That's handy if we want to see some of the debug output of the script being run. We will find that useful in a moment.
+You'll also notice we have a few different kinds of output. The first comes from redirecting the stdout of the script to a file. That's handy if we want to see some of the output of the script being run. We will find that useful in a moment.
 
-The other outputs are dictated by the script. In this case its really two types of files -- the training model weights output into a Tensor Flow `checkpoint` file, and two `.json` files containing a map of ID -> word and vice versa. These files will be output to the repo matching the pipeline name: `GoT_train`. We'll use these files in the next pipeline.
+The other outputs are dictated by the script. In this case its really two types of files -- the script outputs the training model weights into a Tensor Flow `checkpoint` file, and also outputs two `.json` files containing a map of ID -> word and vice versa. These files will be output to the repo matching the pipeline name: `GoT_train`. We'll use these files in the next pipeline.
 
 
 #### Generating:
@@ -132,7 +132,7 @@ Notice that we specify the same image as above, just a different entrypoint via 
 
 #### Running:
 
-Now that we have all of the pieces, we can run the pipeline. Do so by running:
+Now that we have all of the pieces in place, we can run the pipeline. Do so by running:
 
 `make run`
 
@@ -160,7 +160,7 @@ And you should see some text!
 
 Keep in mind, the model we just trained was very simplistic. Doing the 'test' model suffices as a proof of concept that we can train and use a neural net using Tensor Flow on Pachyderm. That said, the test model is dumb, and the output won't be that readable.
 
-Actually, you can see how 'dumb' the model is. If you [read through the Tensor Flow example](todo) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
+Actually, you can see how 'dumb' the model is. If you [read through the Tensor Flow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
 
 ```
 pachctl list-commit GoT_trian
@@ -173,7 +173,7 @@ That's not great. As a next step, you can improve that measure, and the readabil
 
 #### Next Iteration
 
-As they reference in their example, a 'perplexity' of less than 100 starts to get pretty good / readable. Running the 'small' model on the GoT data set should produce a perplexity lower than 100.
+As referenced in the [Tensor Flow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code), a 'perplexity' of less than 100 starts to get pretty good / readable. Running the 'small' model on the GoT data set should produce a perplexity lower than 100.
 
 To do this, you'll need to tear down this pipeline and re-create it. Specifically:
 

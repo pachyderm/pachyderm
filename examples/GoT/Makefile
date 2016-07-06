@@ -1,7 +1,7 @@
 all: setup run
 
 get-input-data:
-	curl -o dataset.tar.gz https://dl.dropboxusercontent.com/u/3940085/scratch/GoT-scripts.tar.gz
+	curl -o dataset.tar.gz https://pachyderm.io/data/GoT-scripts.tar.gz
 
 extract-input-data:
 	gunzip dataset.tar.gz
