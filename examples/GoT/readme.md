@@ -167,7 +167,7 @@ pachctl list-commit GoT_trian
 pachctl get-file GoT_train {commit from command above} model_results
 ```
 
-Remember, this file is the stdout from the python script while its training the model. It outputs the 'perplexity' at standard intervals on the training set, as well as outputs the 'perplexity' for the validation and test sets. You should see a perplexity of about XXX
+Remember, this file is the stdout from the python script while its training the model. It outputs the 'perplexity' at standard intervals on the training set, as well as outputs the 'perplexity' for the validation and test sets. You should see a perplexity of about 600 or less.
 
 That's not great. As a next step, you can improve that measure, and the readability of the output script!
 
