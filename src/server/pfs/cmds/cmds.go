@@ -108,6 +108,7 @@ Repos are created with create-repo.`,
 	}
 	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 
+	var force bool
 	deleteRepo := &cobra.Command{
 		Use:   "delete-repo repo-name",
 		Short: "Delete a repo.",
@@ -117,9 +118,10 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			return client.DeleteRepo(args[0])
+			return client.DeleteRepo(args[0], force)
 		}),
 	}
+	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 
 	commit := &cobra.Command{
 		Use:   "commit",

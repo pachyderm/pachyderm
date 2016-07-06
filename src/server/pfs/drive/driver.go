@@ -173,19 +173,12 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 	return result, nil
 }
 
-func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
-	// Make sure that this repo is not the provenance of any other repo
-	repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
-	if err != nil {
-		return err
-	}
-
-	var diffInfos []*pfs.DiffInfo
-	err = func() error {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		if _, ok := d.diffs[repo.Name]; !ok {
-			return pfsserver.NewErrRepoNotFound(repo.Name)
+func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+	if !force {
+		// Make sure that this repo is not the provenance of any other repo
+		repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+		if err != nil {
+			return err
 		}
 		if len(repoInfos) > 0 {
 			var repoNames []string
@@ -193,6 +186,15 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 				repoNames = append(repoNames, repoInfo.Repo.Name)
 			}
 			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
+		}
+	}
+
+	var diffInfos []*pfs.DiffInfo
+	err := func() error {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if _, ok := d.diffs[repo.Name]; !ok {
+			return pfsserver.NewErrRepoNotFound(repo.Name)
 		}
 
 		for shard := range shards {
@@ -648,7 +650,8 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 		}
 		if ok {
 			// how can a listed child return not found?
-			// regular files without any blocks in this shard count as not found
+			// regular files that don't match this shard or don't have any
+			// blocks in this shard count as not found
 			continue
 		}
 		result = append(result, fileInfo)
@@ -658,8 +661,6 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.RLock()
-	// We don't want to be able to delete files that are only added in the current
-	// commit, which is why we set unsafe to false.
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
@@ -751,7 +752,7 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 	// Because we want to make sure we delete the higher indexes first we traverse in reverse
 	sort.Sort(byProvenance(repoInfos))
 	for i := range repoInfos {
-		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards); err != nil {
+		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards, false); err != nil {
 			return err
 		}
 	}
@@ -889,7 +890,7 @@ func (d *driver) fullCommitProvenance(commit *pfs.Commit, repoSet map[string]boo
 		}
 		diffInfo, ok := diffInfos[commit.ID]
 		if !ok {
-			return nil, fmt.Errorf("missing \"%s\" diff (this is likely a bug)", commit.ID)
+			return nil, fmt.Errorf("missing \"%s\" diff in repo \"%s\" (this is likely a bug; you may recover from this by force deleting the repo \"pachctl delete-repo %s --force\")", commit.ID, commit.Repo.Name, commit.Repo.Name)
 		}
 		for _, provCommit := range diffInfo.Provenance {
 			if !repoSet[provCommit.Repo.Name] {
@@ -968,10 +969,10 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
+func filterBlockRefs(filterShard *pfs.Shard, file *pfs.File, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
 	var result []*pfs.BlockRef
 	for _, blockRef := range blockRefs {
-		if pfsserver.BlockInShard(filterShard, blockRef.Block) {
+		if pfsserver.BlockInShard(filterShard, file, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
@@ -1007,6 +1008,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	from *pfs.Commit, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
+	var blocksSeen bool // whether this file contains any blocks at all
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
@@ -1040,16 +1042,18 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				allRefs := _append.BlockRefs
 				if handle == "" {
 					for _, handleBlockRefs := range _append.Handles {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				} else {
 					if handleBlockRefs, ok := _append.Handles[handle]; ok {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				}
+				blocksSeen = blocksSeen || len(allRefs) > 0
+				filtered := filterBlockRefs(filterShard, file, allRefs)
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
@@ -1103,6 +1107,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+	}
+	// We return NotFound if all blocks have been filtered out.  However, we want
+	// to ensure that an empty file is seen by one shard, so we don't return
+	// NotFound if the filename happens to match the block filter.
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
+		if blocksSeen || !pfsserver.BlockInShard(filterShard, file, nil) {
+			return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
 	}
 	return fileInfo, blockRefs, nil
 }

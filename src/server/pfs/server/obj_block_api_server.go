@@ -10,11 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -153,7 +155,20 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 
 func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	reader, err := s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
+	var reader io.ReadCloser
+	var err error
+	backoff.RetryNotify(func() error {
+		reader, err = s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
+		if err != nil && s.objClient.IsRetryable(err) {
+			return err
+		}
+		return nil
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+			Err:               err.Error(),
+			TimeTillNextRetry: d.String(),
+		})
+	})
 	if err != nil {
 		return err
 	}

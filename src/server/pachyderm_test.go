@@ -903,9 +903,7 @@ func TestSharding(t *testing.T) {
 			shard.BlockModulus = 4
 			for blockNumber := uint64(0); blockNumber < 4; blockNumber++ {
 				shard.BlockNumber = blockNumber
-				err := c.GetFile(repo, commit.ID,
-					fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer4Shard)
-				require.NoError(t, err)
+				c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer4Shard)
 			}
 			require.Equal(t, buffer1Shard.Len(), buffer4Shard.Len())
 		}()
@@ -1315,12 +1313,12 @@ func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 
 	// Shouldn't be able to delete the input repo because the pipeline
 	// is still running
-	require.YesError(t, c.DeleteRepo(repo))
+	require.YesError(t, c.DeleteRepo(repo, false))
 
 	// The correct flow to delete the input repo
 	require.NoError(t, c.DeletePipeline(pipelineName))
-	require.NoError(t, c.DeleteRepo(pipelineName))
-	require.NoError(t, c.DeleteRepo(repo))
+	require.NoError(t, c.DeleteRepo(pipelineName, false))
+	require.NoError(t, c.DeleteRepo(repo, false))
 }
 
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)
@@ -1668,7 +1666,7 @@ func TestRecreatePipeline(t *testing.T) {
 
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
-	require.NoError(t, c.DeleteRepo(pipeline))
+	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline))
 	createPipeline()
 }
@@ -1699,7 +1697,7 @@ func TestPipelineState(t *testing.T) {
 
 	// Now we introduce an error to the pipeline by removing its output repo
 	// and starting a job
-	require.NoError(t, c.DeleteRepo(pipeline))
+	require.NoError(t, c.DeleteRepo(pipeline, false))
 	commit, err := c.StartCommit(repo, "", "")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
@@ -1836,7 +1834,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, "master"))
 		scalePachd(t, up)
 		c = getUsablePachClient(t)
-		require.NoError(t, c.DeleteRepo(repo))
+		require.NoError(t, c.DeleteRepo(repo, false))
 	}
 	test(true)
 	test(false)

@@ -98,11 +98,14 @@ func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 // this is because they may also be referenced by other Repos and deleting them
 // would make those Repos inaccessible. This will be resolved in later
 // versions.
-func (c APIClient) DeleteRepo(repoName string) error {
+// If "force" is set to true, the repo will be removed regardless of errors.
+// This argument should be used with care.
+func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteRepo(
 		context.Background(),
 		&pfs.DeleteRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo:  NewRepo(repoName),
+			Force: force,
 		},
 	)
 	return err
