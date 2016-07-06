@@ -155,6 +155,10 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 	}
 	if err := localResult.touch(); err != nil {
+		// Check if its a write on a finished commit:
+		if readOnly := strings.Contains(err.Error(), "has already been finished"); readOnly {
+			err = fuse.EPERM
+		}
 		return nil, 0, err
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
