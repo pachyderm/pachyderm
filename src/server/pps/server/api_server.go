@@ -742,21 +742,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, err
 	}
 
-	existingPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
-
-	// First time called, we expect a not found error
-	if err != nil {
-		notFound := strings.Contains(err.Error(), "not found")
-		if !notFound {
-			return nil, err
-		}
-	}
-
-	// Second call, err here once we realize the pipeline already exists
-	if existingPipelineInfo != nil {
-		return nil, fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
-	}
-
 	setDefaultPipelineInputMethod(request.Inputs)
 
 	if request.Pipeline == nil {
@@ -778,14 +763,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		return nil, err
-	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -796,6 +773,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+		if alreadyExists := strings.Contains(err.Error(), "Duplicate primary key `PipelineName`"); alreadyExists {
+			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+		}
+		return nil, err
+	}
+	if _, err := pfsAPIClient.CreateRepo(
+		ctx,
+		&pfsclient.CreateRepoRequest{
+			Repo:       repo,
+			Provenance: provenance,
+		}); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
