@@ -24,10 +24,7 @@ func newPermissionError(repo string, commitID string) error {
 }
 
 func IsPermissionError(err error) bool {
-	if readOnly := strings.Contains(err.Error(), "has already been finished"); readOnly {
-		return true
-	}
-	return false
+	return strings.Contains(err.Error(), "has already been finished")
 }
 
 type driver struct {
