@@ -16,11 +16,6 @@ clean-input-data:
 load-input-data:
 	pachctl create-repo GoT_scripts
 	pachctl start-commit GoT_scripts > commitID
-	umount ./mnt || true
-	rm -rf ./mnt
-	mkdir mnt
-	pachctl mount ./mnt &
-	sleep 5
 	# For now, use the CLI to input the data because of OS X Fuse bug (https://github.com/pachyderm/pachyderm/issues/629)
 	# this is a heavy handed way to do a copy:
 	ls -1 data/* | while read -r file; do cat $$file | pachctl put-file GoT_scripts `cat commitID` `basename $$file`; done
