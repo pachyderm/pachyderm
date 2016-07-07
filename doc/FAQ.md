@@ -54,7 +54,7 @@ storage backends? Check out the [GH issue](https://github.com/pachyderm/pachyder
 We’ve all used version control for code before — Pachyderm gives you the same
 semantics for petabytes of data. We even borrow our terminology from Git. In
 Pachyderm, data is organized into `repos`. If you want to add or change data in
-a repo, you simple `start` a `commit` make your changes, and then `finish` the
+a repo, you simply `start` a `commit` make your changes, and then `finish` the
 `commit`. This will create an immutable snapshot of the data that you can
 reference later. Just like in Git, only the diff of the data is saved so
 there is no duplication. Pachyderm exposes data as a set of diffs so you can
@@ -93,7 +93,7 @@ allows you to put files into Pachyderm.
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also
 use pipelines. Users often want to move the final results of a pipeline into
-another tool such as Redshift or MySQL so that it can by easily queried through
+another tool such as Redshift or MySQL so that it can be easily queried through
 BI tools. To accomplish this, it’s common to add a final stage to your pipeline
 which reads data from Pachyderm and writes it directly to whatever other tool
 you want. Redshift for example, can load data directly from an S3 bucket so the
@@ -197,9 +197,9 @@ previous run. This currently only works for `map`-style jobs — reduce jobs
 needs to process all the data each time.
 
 ##### Is there a SQL interface for Pachyderm?
-Not yet, but it’s coming soon! If you want query your data using SQL, you can
-easily create a pipeline that pushes data from Pachyderm into your favorite SQL
-tool.
+Not yet, but it’s coming soon! If you want to query your data using SQL, you
+can easily create a pipeline that pushes data from Pachyderm into your favorite
+SQL tool.
 
 ### Product/Misc
 ##### How does Pachyderm compare to Hadoop?
@@ -218,7 +218,7 @@ of data is somewhat similar to how Spark uses RDD’s to speed up computation.
 Spark is a fantastic interface for exploring your data or running queries. In
 our opinion, Spark is one of the best parts of the Hadoop ecosystem and in the
 near future, we’ll be offering a connector that lets you use the Spark
-interface on top Pachyderm.
+interface on top of Pachyderm.
 
 ##### What are the major use cases for Pachyderm?
 __Data Lake__:

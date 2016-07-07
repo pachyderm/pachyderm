@@ -22,6 +22,8 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
+VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
+LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -53,49 +55,52 @@ update-test-deps:
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
-build: 
+build:
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
-homebrew:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
+point-release:
+	@make VERSION_ADDITIONAL= release
 
-tag-release: 
-	./etc/build/tag_release
+# Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
+release: release-version release-pachd release-job-shim release-manifest release-pachctl doc
+	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+	@rm VERSION
+	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
+
+release-version:
+	@# Need to blow away pachctl binary if its already there
+	@rm $(GOPATH)/bin/pachctl || true
+	@make install
+	@./etc/build/release_version
 
 release-pachd:
-	./etc/build/release_pachd
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
 
-release-manifest: install
-	@if [ -z $$VERSION ]; then \
-		echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 release-manifest'"; \
-		exit 1; \
-	else \
-		pach-deploy -s 32 --version ${VERSION} > etc/kube/pachyderm-versioned.json; \
-	fi
-	pach-deploy -s 32 > etc/kube/pachyderm.json
+release-job-shim:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
+
+release-manifest:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
+
+release-pachctl:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
-	# Running locally, not on travis
-	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
-		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	else \
-		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
-	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
 docker-build-pachd: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
 
@@ -123,7 +128,7 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-launch: check-kubectl install
+launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
@@ -171,14 +176,7 @@ protofix:
 
 pretest:
 	go get -v github.com/kisielk/errcheck
-	go get -v github.com/golang/lint/golint
 	rm -rf src/server/vendor
-	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go'); do \
-		golint $$file | grep -v unexported; \
-		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
-		exit 1; \
-		fi; \
-		done;
 	go vet -n ./src/... | while read line; do \
 		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
 		$$modified; \
@@ -189,7 +187,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
+test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
 test-client:
 	rm -rf src/client/vendor
@@ -260,35 +258,93 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/ 
+	go-bindata -o assets.go -pkg pachyderm doc/
 
+lint:
+	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' |grep -v '\.pb\.go'); do \
+		golint $$file; \
+		if [ -n "$$(golint $$file)" ]; then \
+			echo "golint errors!" && echo && exit 1; \
+		fi; \
+	done;
 
-.PHONY: \
-	doc \
+goxc-generate-local:
+	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
+		echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
+		exit 1; \
+	fi
+	goxc -wlc default publish-github -apikey=$(GITHUB_OAUTH_TOKEN)
+
+goxc-release:
+	@if [ -z $$VERSION ]; then \
+		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
+		@exit 1; \
+	fi
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
+	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
+
+goxc-build:
+	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
+	goxc -tasks=xc -wd=./src/server/cmd/pachctl
+
+.PHONY:
 	all \
 	version \
 	deps \
+	deps-client \
 	update-deps \
 	test-deps \
 	update-test-deps \
-	vendor-update \
-	vendor-without-update \
-	vendor \
+	build-clean-vendored-client \
 	build \
 	install \
-	docker-build-test \
+	install-doc \
+	homebrew \
+	release \
+	release-job-shim \
+	release-manifest \
+	release-pachd \
+	release-version \
 	docker-build-compile \
-	docker-build \
+	docker-build-job-shim \
 	docker-build-pachd \
-	docker-push \
+	docker-build \
+	docker-build-proto \
+	docker-build-fruitstand \
+	docker-push-job-shim \
 	docker-push-pachd \
-	run \
+	docker-push \
+	launch-kube \
+	clean-launch-kube \
+	kube-cluster-assets \
 	launch \
+	launch-dev \
+	clean-launch \
+	full-clean-launch \
+	clean-pps-storage \
+	integration-tests \
 	proto \
+	protofix \
 	pretest \
-	docker-clean-test \
-	go-test \
-	go-test-long \
 	test \
-	test-long \
-	clean
+	test-client \
+	test-fuse \
+	test-local \
+	clean \
+	doc \
+	grep-data \
+	grep-example \
+	logs \
+	kubectl \
+	google-cluster-manifest \
+	google-cluster \
+	clean-google-cluster \
+	amazon-cluster-manifest \
+	amazon-cluster \
+	clean-amazon-cluster \
+	install-go-bindata \
+	assets \
+	lint \
+	goxc-generate-local \
+	goxc-release \
+	goxc-build

@@ -7,6 +7,7 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically
 * [Local](#local-deployment)
 * [Google Cloud Platform](#google-cloud-platform)
 * [AWS](#amazon-web-services-aws)
+* [OpenShift](#openshift)
 
 Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
 
@@ -144,14 +145,6 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Format Volume
-
-Unfortunately, your persistent disk is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](https://cloud.google.com/compute/docs/disks/add-persistent-disk#before-you-begin), attaching the disk to an instance and formatting the disk, then clear all files on the disk by running:
-
-```shell
-rm -rf [path-to-disk]/*
-```
-
 ### Deploy Pachyderm
 
 First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
@@ -223,14 +216,6 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-### Format Volume
-
-Unfortunately, your EBS volume is not immediately available for use upon creation.  You will need to manually format it.  Follow [these instructions](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-using-volumes.html), then clear all files on the volume by:
-
-```shell
-rm -rf [path-to-disk]/*
-```
-
 ### Deploy Pachyderm
 
 First of all, get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
@@ -248,6 +233,15 @@ $ make MANIFEST=manifest launch
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
+## OpenShift
+
+[OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
+
+1. Make sure that priviledge containers are allowed (they are not allowed by default):  `oc edit scc` and set `allowPrivilegedContainer: true` everywhere.
+2. Remove `hostPath` everywhere from your cluster manifest (e.g. `etc/kube/pachyderm-versioned.json` if you are deploying locally).
+
+Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
+
 ## pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
@@ -257,7 +251,15 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 #### Homebrew
 
 ```shell
-$brew tap pachyderm/tap && brew install pachctl
+$ brew tap pachyderm/tap && brew install pachctl
+```
+
+#### Deb Package
+
+If you're on linux 64 bit amd, you can use our pre-built deb package like so:
+
+```shell
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
 #### From Source

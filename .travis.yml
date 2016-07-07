@@ -25,7 +25,6 @@ before_script:
 - docker version
 script:
 - make test
-after_success:
-- make tag-release
+- make lint
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

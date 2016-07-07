@@ -19,6 +19,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+// Cmds returns a slice containing pfs commands.
 func Cmds(address string) []*cobra.Command {
 	var fileNumber int
 	var fileModulus int

@@ -10,11 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -107,7 +109,14 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			writer, err := s.objClient.Writer(s.localServer.blockPath(blockRef.Block))
+			path := s.localServer.blockPath(blockRef.Block)
+			// We don't want to overwrite blocks that already exist, since:
+			// 1) blocks are content-addressable, so it will be the same block
+			// 2) we risk exceeding the object store's rate limit
+			if s.objClient.Exists(path) {
+				return
+			}
+			writer, err := s.objClient.Writer(path)
 			if err != nil {
 				select {
 				case errCh <- err:
@@ -146,7 +155,20 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 
 func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	reader, err := s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
+	var reader io.ReadCloser
+	var err error
+	backoff.RetryNotify(func() error {
+		reader, err = s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
+		if err != nil && s.objClient.IsRetryable(err) {
+			return err
+		}
+		return nil
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+			Err:               err.Error(),
+			TimeTillNextRetry: d.String(),
+		})
+	})
 	if err != nil {
 		return err
 	}
@@ -160,7 +182,10 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.blockPath(request.Block))
+	if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
@@ -223,7 +248,10 @@ func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDif
 
 func (s *objBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.diffPath(request.Diff))
+	if err := s.objClient.Delete(s.localServer.diffPath(request.Diff)); err != nil && !s.objClient.IsNotExist(err) {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (s *objBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInfo, error) {

@@ -1,25 +1,35 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"text/tabwriter"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
 )
 
+// PachctlCmd takes a pachd host-address and creates a cobra.Command
+// which may interact with the host.
 func PachctlCmd(address string) (*cobra.Command, error) {
+	var verbose bool
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -27,14 +37,24 @@ func PachctlCmd(address string) (*cobra.Command, error) {
 Envronment variables:
   ADDRESS=0.0.0.0:30650, the server to connect to.
 `,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if !verbose {
+				// Silence any grpc logs
+				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+				// Silence our FUSE logs
+				lion.SetLevel(lion.LevelNone)
+			}
+		},
 	}
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+
 	pfsCmds := pfscmds.Cmds(address)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
 	ppsCmds, err := ppscmds.Cmds(address)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
@@ -52,13 +72,13 @@ Envronment variables:
 
 			versionClient, err := getVersionAPIClient(address)
 			if err != nil {
-				return err
+				return sanitizeErr(err)
 			}
 			ctx, _ := context.WithTimeout(context.Background(), time.Second)
 			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
 
 			if err != nil {
-				fmt.Fprintf(writer, "pachd\tUNKNOWN: Error %v\n", err)
+				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
 				return writer.Flush()
 			}
 
@@ -66,7 +86,30 @@ Envronment variables:
 			return writer.Flush()
 		}),
 	}
+	deleteAll := &cobra.Command{
+		Use:   "delete-all",
+		Short: "Delete everything.",
+		Long: `Delete all repos, commits, files, pipelines and jobs.
+This resets the cluster to its initial state.`,
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return sanitizeErr(err)
+			}
+			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				return client.DeleteAll()
+			}
+			return nil
+		}),
+	}
 	rootCmd.AddCommand(version)
+	rootCmd.AddCommand(deleteAll)
 	return rootCmd, nil
 }
 
@@ -84,4 +127,12 @@ func printVersionHeader(w io.Writer) {
 
 func printVersion(w io.Writer, component string, v *protoversion.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
+}
+
+func sanitizeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return errors.New(grpc.ErrorDesc(err))
 }

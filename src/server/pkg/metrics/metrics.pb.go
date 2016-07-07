@@ -24,7 +24,9 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.ProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Metrics struct {
 	ID        string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
@@ -47,6 +49,8 @@ func (*Metrics) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} 
 func init() {
 	proto.RegisterType((*Metrics)(nil), "Metrics")
 }
+
+func init() { proto.RegisterFile("server/pkg/metrics/metrics.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
 	// 202 bytes of a gzipped FileDescriptorProto

@@ -2,9 +2,13 @@ package obj
 
 import (
 	"io"
+	"reflect"
+
+	"go.pedge.io/lion/proto"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/cloud"
 	"google.golang.org/cloud/storage"
 )
@@ -26,8 +30,13 @@ func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) 
 	return &googleClient{ctx, client.Bucket(bucket)}, nil
 }
 
+func (c *googleClient) Exists(name string) bool {
+	_, err := c.bucket.Object(name).Attrs(c.ctx)
+	return err == nil
+}
+
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
-	return newBackoffWriteCloser(c.bucket.Object(name).NewWriter(c.ctx)), nil
+	return newBackoffWriteCloser(c, c.bucket.Object(name).NewWriter(c.ctx)), nil
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
@@ -59,9 +68,36 @@ func (c *googleClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffReadCloser(reader), nil
+	return newBackoffReadCloser(c, reader), nil
 }
 
 func (c *googleClient) Delete(name string) error {
 	return c.bucket.Object(name).Delete(c.ctx)
+}
+
+func (c *googleClient) IsRetryable(err error) (ret bool) {
+	defer func() {
+		protolion.Infof("retryable: %v; type of err: %s; err: %v", ret, reflect.TypeOf(err).String(), err)
+	}()
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return googleErr.Code >= 500
+}
+
+func (c *googleClient) IsNotExist(err error) bool {
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return googleErr.Code == 404
+}
+
+func (c *googleClient) IsIgnorable(err error) bool {
+	googleErr, ok := err.(*googleapi.Error)
+	if !ok {
+		return false
+	}
+	return googleErr.Code == 429
 }

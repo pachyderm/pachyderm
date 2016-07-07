@@ -6,9 +6,9 @@
     "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
-        "grep apple  /pfs/data/sales >>/pfs/out/apple",
-        "grep banana /pfs/data/sales >>/pfs/out/banana",
-        "grep orange /pfs/data/sales >>/pfs/out/orange"
+        "for fruit in apple orange banana; do",
+        "   grep $fruit /pfs/data/sales | awk '{print $2}' >>/pfs/out/$fruit",
+        "done"
     ]
   },
   "parallelism": "1",
@@ -30,14 +30,7 @@
     "cmd": [ "sh" ],
     "stdin": [
         "for fruit in apple orange banana; do",
-            "new_sum=`cat /pfs/filter/$fruit | awk '{s+=$2} END {print s}'`",
-            "if [ -d '/pfs/prev' ]; then",
-                "old_sum=`cat /pfs/prev/$fruit`",
-            "else",
-                "old_sum=0",
-            "fi",
-            "sum=$((new_sum + old_sum))",
-            "echo $sum > /pfs/out/$fruit",
+        "   { cat /pfs/prev/$fruit || echo 0; cat /pfs/filter/$fruit; } | awk '{s+=$1} END {print s}' > /pfs/out/$fruit",
         "done"
     ]
   },
