@@ -161,3 +161,14 @@ This pipeline runs when the repo `my-input` gets a new commit.  The pipeline wil
 ## Accessing the output of a job's parent
 
 Sometimes in a job, you might want to use the output of the job's parent.  See the "sum" part of the [fruit stand demo](../examples/fruit_stand/README.md) as an example.  If the job does have a parent, the output of its parent will be available under `/pfs/prev`. 
+
+## Environment Variables
+
+When the pipeline runs, the input and output commit IDs are exposed via environment variables:
+
+- `$PACH_OUTPUT_COMMIT_ID` contains the output commit of the job itself
+- For each of the job's input repositories, there will be a corresponding environment variable w the input commid ID:
+  - e.g. if there are two input repos `foo` and `bar, the following will be populated:
+    - `$PACH_FOO_COMMIT_ID`
+    - `$PACH_BAR_COMMIT_ID`
+
