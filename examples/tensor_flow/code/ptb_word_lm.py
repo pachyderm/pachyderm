@@ -391,13 +391,33 @@ def generate(word_to_id, id_to_word):
           p = np.array(probs[0])
           p /= p.sum().astype(np.float64)
           next_word = non_uniform_randomly_sample(p)
-          sentence += [id_to_word[str(next_word)]]
+          sentence += [token_to_string(id_to_word[str(next_word)])]
           count += 1
           if count > 1000:
               break
 
       
       print(" ".join(sentence))
+
+def token_to_string(token):
+    ts = {
+            "<eos>" : ".",
+            "<question>" : "?",
+            "<exclamation>" : "!", 
+            "<open-brack>" : "[", 
+            "<close-brack>" : "]", 
+            "<ellipsis>" : "...",
+            "<boquote>" : "'",
+            "<eoquote>" : "'",
+            "<boname>" : "\n[",
+            "<eoname>" : "]: ",
+            "<open-exp>" : "\n{{",
+            "<close-exp>" : "}}"
+            }
+    if token in ts:
+        return ts[token]
+
+    return token
 
 def non_uniform_randomly_sample(p):
 
