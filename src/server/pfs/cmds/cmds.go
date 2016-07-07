@@ -1,9 +1,11 @@
 package cmds
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -78,10 +80,7 @@ Repos are created with create-repo.`,
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
-			pretty.PrintRepoInfo(writer, repoInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
 	}
 
@@ -109,6 +108,7 @@ Repos are created with create-repo.`,
 	}
 	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 
+	var force bool
 	deleteRepo := &cobra.Command{
 		Use:   "delete-repo repo-name",
 		Short: "Delete a repo.",
@@ -118,9 +118,10 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			return client.DeleteRepo(args[0])
+			return client.DeleteRepo(args[0], force)
 		}),
 	}
+	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 
 	commit := &cobra.Command{
 		Use:   "commit",
@@ -201,10 +202,7 @@ This layers the data in the commit over the data in the parent.`,
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			pretty.PrintCommitInfo(writer, commitInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
 	}
 
@@ -349,23 +347,48 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
+	var filePath string
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name commit-id path/to/file",
-		Short: "Put a file from stdin",
-		Long:  "Put a file from stdin. commit-id must be a writeable commit.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
+		Short: "Put a file",
+		Long:  "Put a file.  If the -f flag is not used, the data is read from stdin.  If the -f flag is used and a path is not provided, the base name of the file is used as the path.  commit-id must be an open commit.",
+		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+			if filePath == "" || filePath == "-" {
+				if len(args) < 3 {
+					return errors.New("either a path or the -f flag needs to be provided")
+				}
+				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
+				return err
+			}
+			f, err := os.Open(filePath)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			var p string
+			if len(args) == 3 {
+				p = args[2]
+			} else {
+				// If a path is not provided,
+				// use the basename of the file as the path
+				p = filepath.Base(filePath)
+			}
+			_, err = client.PutFile(args[0], args[1], p, f)
 			return err
 		}),
 	}
+	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
 
 	var fromCommitID string
 	var unsafe bool
-	var handle string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -375,17 +398,12 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			if unsafe {
-				return client.GetFileUnsafe(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), handle, os.Stdout)
-			} else {
-				return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
-			}
+			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
 	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
-	getFile.Flags().StringVarP(&handle, "handle", "d", "", "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes; handle ID can be found from api log lines")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -403,10 +421,7 @@ Files can be read from finished commits with get-file.`,
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			pretty.PrintFileInfo(writer, fileInfo)
-			return writer.Flush()
+			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
 	addShardFlags(inspectFile)
