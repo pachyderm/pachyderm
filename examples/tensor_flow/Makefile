@@ -1,27 +1,30 @@
 all: setup run
 
 get-input-data:
-	curl -o dataset.tar.gz http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
+	curl -o dataset.tar.gz https://pachyderm.io/data/GoT-scripts.tar.gz
 
 extract-input-data:
 	gunzip dataset.tar.gz
 	tar -xvf dataset.tar
 	rm -rf data
-	mv simple-examples data
+	mkdir data
+	mv *.txt data
 
 clean-input-data:
 	rm dataset.tar
 
 load-input-data:
-	pachctl create-repo tensor_ptb_data
-	pachctl start-commit tensor_ptb_data > commitID
+	pachctl create-repo GoT_scripts
+	pachctl start-commit GoT_scripts > commitID
 	umount ./mnt || true
 	rm -rf ./mnt
 	mkdir mnt
 	pachctl mount ./mnt &
 	sleep 5
-	cp -R data/data/* ./mnt/tensor_ptb_data/`cat commitID`/
-	pachctl finish-commit tensor_ptb_data `cat commitID`
+	# For now, use the CLI to input the data because of OS X Fuse bug (https://github.com/pachyderm/pachyderm/issues/629)
+	# this is a heavy handed way to do a copy:
+	ls -1 data/* | while read -r file; do cat $$file | pachctl put-file GoT_scripts `cat commitID` `basename $$file`; done
+	pachctl finish-commit GoT_scripts `cat commitID`
 	rm commitID
 
 gather-input-data: get-input-data extract-input-data clean-input-data
@@ -32,7 +35,7 @@ verify-pachctl:
 input-data: verify-pachctl gather-input-data load-input-data
 
 docker-build:
-	docker build -t tensor_flow_rnn .
+	docker build -t tensor_flow_rnn_got .
 
 setup: docker-build input-data
 
@@ -41,4 +44,4 @@ run: verify-pachctl docker-build
 
 clean: verify-pachctl
 	pachctl delete-pipeline -f pipeline.json
-	pachctl delete-repo tensor_ptb_data
+	pachctl delete-repo GoT_scripts 
