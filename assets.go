@@ -24,7 +24,7 @@ import (
 func bindataRead(data []byte, name string) ([]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewBuffer(data))
 	if err != nil {
-		return nil, fmt.Errorf("Read %q: %v", name, err)
+		return nil, fmt.Errorf("read %q: %v", name, err)
 	}
 
 	var buf bytes.Buffer
@@ -32,7 +32,7 @@ func bindataRead(data []byte, name string) ([]byte, error) {
 	clErr := gz.Close()
 
 	if err != nil {
-		return nil, fmt.Errorf("Read %q: %v", name, err)
+		return nil, fmt.Errorf("read %q: %v", name, err)
 	}
 	if clErr != nil {
 		return nil, err
@@ -180,11 +180,11 @@ func Asset(name string) ([]byte, error) {
 	if f, ok := _bindata[cannonicalName]; ok {
 		a, err := f()
 		if err != nil {
-			return nil, fmt.Errorf("Asset %s can't read by error: %v", name, err)
+			return nil, fmt.Errorf("asset %s can't read by error: %v", name, err)
 		}
 		return a.bytes, nil
 	}
-	return nil, fmt.Errorf("Asset %s not found", name)
+	return nil, fmt.Errorf("asset %s not found", name)
 }
 
 // MustAsset is like Asset but panics when Asset would return an error.
@@ -206,11 +206,11 @@ func AssetInfo(name string) (os.FileInfo, error) {
 	if f, ok := _bindata[cannonicalName]; ok {
 		a, err := f()
 		if err != nil {
-			return nil, fmt.Errorf("AssetInfo %s can't read by error: %v", name, err)
+			return nil, fmt.Errorf("asset info %s can't read by error: %v", name, err)
 		}
 		return a.info, nil
 	}
-	return nil, fmt.Errorf("AssetInfo %s not found", name)
+	return nil, fmt.Errorf("asset info %s not found", name)
 }
 
 // AssetNames returns the names of the assets.
@@ -224,10 +224,10 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"doc/FAQ.md": docFaqMd,
-	"doc/README.md": docReadmeMd,
-	"doc/miscellaneous.md": docMiscellaneousMd,
-	"doc/pipeline_spec.md": docPipeline_specMd,
+	"doc/FAQ.md":                  docFaqMd,
+	"doc/README.md":               docReadmeMd,
+	"doc/miscellaneous.md":        docMiscellaneousMd,
+	"doc/pipeline_spec.md":        docPipeline_specMd,
 	"doc/release_instructions.md": docRelease_instructionsMd,
 }
 
@@ -252,12 +252,12 @@ func AssetDir(name string) ([]string, error) {
 		for _, p := range pathList {
 			node = node.Children[p]
 			if node == nil {
-				return nil, fmt.Errorf("Asset %s not found", name)
+				return nil, fmt.Errorf("asset %s not found", name)
 			}
 		}
 	}
 	if node.Func != nil {
-		return nil, fmt.Errorf("Asset %s not found", name)
+		return nil, fmt.Errorf("asset %s not found", name)
 	}
 	rv := make([]string, 0, len(node.Children))
 	for childName := range node.Children {
@@ -270,12 +270,13 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"doc": &bintree{nil, map[string]*bintree{
-		"FAQ.md": &bintree{docFaqMd, map[string]*bintree{}},
-		"README.md": &bintree{docReadmeMd, map[string]*bintree{}},
-		"miscellaneous.md": &bintree{docMiscellaneousMd, map[string]*bintree{}},
-		"pipeline_spec.md": &bintree{docPipeline_specMd, map[string]*bintree{}},
+		"FAQ.md":                  &bintree{docFaqMd, map[string]*bintree{}},
+		"README.md":               &bintree{docReadmeMd, map[string]*bintree{}},
+		"miscellaneous.md":        &bintree{docMiscellaneousMd, map[string]*bintree{}},
+		"pipeline_spec.md":        &bintree{docPipeline_specMd, map[string]*bintree{}},
 		"release_instructions.md": &bintree{docRelease_instructionsMd, map[string]*bintree{}},
 	}},
 }}
@@ -326,4 +327,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

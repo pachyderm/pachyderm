@@ -40,12 +40,12 @@ var (
 
 // NewErrJobNotFound creates a job-not-found error.
 func NewErrJobNotFound(job string) error {
-	return fmt.Errorf("Job %v not found", job)
+	return fmt.Errorf("job %v not found", job)
 }
 
 // NewErrPipelineNotFound creates a pipeline-not-found error.
 func NewErrPipelineNotFound(pipeline string) error {
-	return fmt.Errorf("Pipeline %v not found", pipeline)
+	return fmt.Errorf("pipeline %v not found", pipeline)
 }
 
 // ErrEmptyInput is an input returned for empty inputs.
@@ -56,13 +56,13 @@ type ErrEmptyInput struct {
 // NewErrEmptyInput creates a new ErrEmptyInput
 func NewErrEmptyInput(commitID string) *ErrEmptyInput {
 	return &ErrEmptyInput{
-		error: fmt.Errorf("Job was not started due to empty input at commit %v", commitID),
+		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
 }
 
 // NewErrParentInputsMismatch creates an error for mismatched job parents.
 func NewErrParentInputsMismatch(parent string) error {
-	return fmt.Errorf("Job does not have the same set of inputs as its parent %v", parent)
+	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
 type apiServer struct {
@@ -201,7 +201,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if request.Pipeline != nil {
 		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
 		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
-			return nil, fmt.Errorf("Parent job was not part of the same pipeline; this is likely a bug")
+			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
 	} else {
 		// If parent is set, use the parent's repo
@@ -768,14 +768,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		return nil, err
-	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -786,6 +778,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+		if alreadyExists := strings.Contains(err.Error(), "Duplicate primary key `PipelineName`"); alreadyExists {
+			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+		}
+		return nil, err
+	}
+	if _, err := pfsAPIClient.CreateRepo(
+		ctx,
+		&pfsclient.CreateRepoRequest{
+			Repo:       repo,
+			Provenance: provenance,
+		}); err != nil {
+		if _, err := persistClient.DeletePipelineInfo(ctx, &ppsclient.Pipeline{Name: request.Pipeline.Name}); err != nil {
+			return nil, fmt.Errorf("could not delete PipelineInfo, this is likely a bug: %v\n", err)
+		}
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -1416,7 +1422,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	}
 
 	if pipeline == nil {
-		return fmt.Errorf("Pipeline cannot be nil")
+		return fmt.Errorf("pipeline cannot be nil")
 	}
 
 	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
