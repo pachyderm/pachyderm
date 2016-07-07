@@ -22,6 +22,8 @@ Getting this neural net running on Pachyderm will require a few steps:
 
 ### Initializing the Data
 
+#### Loading the data
+
 Since this data set isn't tiny, we've included some helpers to create the repos we need and input the data. To initialize the data set, just run:
 
 ```shell
@@ -41,11 +43,41 @@ This task does 2 things:
 The result is a new repo with all the data we need stored inside. To confirm the setup, you can do:
 
 ```shell
-pachctl list-repo
-# you should see 'GoT_scripts' with a nonzero size
-pachctl list-commit GoT_scripts
-# you should see a single commit
+$ pachctl list-repo
+NAME                CREATED             SIZE
+GoT_scripts         15 seconds ago      2.625 MiB
+$ pachctl list-commit GoT_scripts
+BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE
+                    45dbfd84085e4e8d9586c7c88cffad53   <none>              24 seconds ago      24 seconds ago      2.625 MiB
 ```
+
+
+#### Understanding the Data
+
+For our neural net, we collected a bunch of Game of Thrones scripts and
+pre-processed them to normalize them. If you take a look at one of the files:
+
+```
+$ cat data/all.txt | head -n 10
+ <open-exp> First scene opens with three Rangers riding through a tunnel , leaving the Wall , and going into the woods <eos> (Eerie music in background) One Ranger splits off and finds a campsite full of mutilated bodies , including a child hanging from a tree branch <eos> A birds-eye view shows the bodies arranged in a shield-like pattern <eos> The Ranger rides back to the other two <eos> <close-exp>
+ <boname> WAYMAR_ROYCE <eoname> What d 'you expect <question> They 're savages <eos> One lot steals a goat from another lot and before you know it , they 're ripping each other to pieces <eos>
+ <boname> WILL <eoname> I 've never seen wildlings do a thing like this <eos> I 've never seen a thing like this , not ever in my life <eos>
+ <boname> WAYMAR_ROYCE <eoname> How close did you get <question>
+ <boname> WILL <eoname> Close as any man would <eos>
+ <boname> GARED <eoname> We should head back to the wall <eos>
+ <boname> ROYCE <eoname> Do the dead frighten you <question>
+ <boname> GARED <eoname> Our orders were to track the wildlings <eos> We tracked them <eos> They won 't trouble us no more <eos>
+ <boname> ROYCE <eoname> You don 't think he 'll ask us how they died <question> Get back on your horse <eos>
+ <open-exp> GARED grumbles <eos> <close-exp>
+```
+
+You'll notice a bunch of funny tokens. Since the raw scripts had different ways
+of denoting structure (some used capitalization and colons to denote who was
+speaking .. others didn't), we normalized them so the the punctuation and
+structure was consistently represented. You'll also noticed open/closing tokens
+for non speaking 'exposition' lines. Don't worry too much about these tokens
+right now. Once you see the output, you'll appreciate how the neural net has learned some
+of this structure.
 
 ---
 
@@ -136,13 +168,23 @@ Now that we have all of the pieces in place, we can run the pipeline. Do so by r
 
 This creates a pipeline from `pipeline.json`, and since a commit exists on the very first input repo `GoT_scripts`, the pipeline runs automatically. To see what's happening, you can run:
 
-`pachctl list-job`
+```
+$ pachctl list-job
+ID                                 OUTPUT                                       STARTED             DURATION            STATE               
+8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359   9 seconds ago       -                   running   
+```
 
-and
+and once the jobs have completed you'll see the output commit on the `GoT_generate` repo:
 
-`pachctl list-commit GoT_generate`
-
-The first command will show you the current status of the jobs. In our case, we expect the training pipeline to run for much longer than the generate step.
+```
+$ pachctl list-job
+ID                                 OUTPUT                                          STARTED             DURATION            STATE               
+8f137e20299c85d1f0326be6e8c1bca6   GoT_generate/dcc8ba9984d442ababc75ddff42a055b   4 minutes ago       16 seconds          success    
+8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359      6 minutes ago       2 minutes           success    
+$ pachctl list-commit GoT_generate
+BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE                
+                    dcc8ba9984d442ababc75ddff42a055b   <none>              5 minutes ago       5 minutes ago       4.354 KiB 
+```
 
 #### Results:
 
@@ -161,9 +203,26 @@ Keep in mind, the model we just trained was very simplistic. Doing the 'test' mo
 Actually, you can see how 'dumb' the model is. If you [read through the Tensor Flow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
 
 ```
-pachctl list-job
-pachctl get-logs {job ID from GoT_generate job}
+$pachctl list-job
+$pachctl get-logs {job ID from GoT_generate job}
+0 | Epoch: 1 Learning rate: 1.000
+0 | 0.002 perplexity: 8526.820 speed: 1558 wps
+0 | 0.102 perplexity: 880.494 speed: 1598 wps
+0 | 0.202 perplexity: 674.214 speed: 1604 wps
+0 | 0.302 perplexity: 597.037 speed: 1604 wps
+0 | 0.402 perplexity: 561.110 speed: 1604 wps
+0 | 0.501 perplexity: 535.682 speed: 1599 wps
+0 | 0.601 perplexity: 518.105 speed: 1601 wps
+0 | 0.701 perplexity: 504.523 speed: 1600 wps
+0 | 0.801 perplexity: 498.718 speed: 1601 wps
+0 | 0.901 perplexity: 491.138 speed: 1604 wps
+0 | Epoch: 1 Train Perplexity: 486.294
+0 | Epoch: 1 Valid Perplexity: 458.257
+0 | Test Perplexity: 433.468
+...
 ```
+
+(You can ignore any FUSE errors in the logs. Most of these are innocuous)
 
 Remember, this file is the stdout from the python script while its training the model. It outputs the 'perplexity' at standard intervals on the training set, as well as outputs the 'perplexity' for the validation and test sets. You should see a perplexity of about 600 or less.
 
