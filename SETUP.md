@@ -13,15 +13,10 @@ Each section starts with deploying Kubernetes on the said platform, and then mov
 
 ## Common Prerequisites
 
-- [Go](#go) >= 1.6
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
 - [Kubectl (kubernetes CLI)](#kubectl) >= 1.2.2
+- [pachctl](#pachctl)
 - [Pachyderm Repository](#pachyderm)
-- [pachctl and pach-deploy](#pachctl-and-pach-deploy)
-
-### Go
-
-Find Go 1.6 [here](https://golang.org/doc/install).
 
 ### FUSE (optional)
 
@@ -45,22 +40,50 @@ chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
 
-### Pachyderm
+### pachctl
 
-Clone this repo under your `GOPATH`:
+`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
+
+#### Installation
+
+##### Homebrew
 
 ```shell
-# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
-$ go get github.com/pachyderm/pachyderm
+$ brew tap pachyderm/tap && brew install pachctl
 ```
 
-### pachctl and pach-deploy
+##### Deb Package
 
-`pachctl` and `pach-deploy` and command-line utilities that Pachyderm provides.  You can install them directly from source:
+If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
 ```shell
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+```
+
+##### From Source
+
+You'll need Go 1.6, which you can find [here](https://golang.org/doc/install).
+
+To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
+
+```shell
+$ go get github.com/pachyderm/pachyderm
 $ cd $GOPATH/src/github.com/pachyderm/pachyderm
 $ make install
+```
+
+Make sure you add `GOPATH/bin` to your `PATH` env variable:
+
+```shell
+$ export PATH=$PATH:$GOPATH/bin
+```
+
+### Pachyderm
+
+Even if you haven't installed `pachctl` from source, you'll need some make tasks located in the pachyderm repositoriy. If you haven't already cloned the repo, do so:
+
+```shell
+$ git clone  git@github.com:pachyderm/pachyderm
 ```
 
 ## Local Deployment
@@ -243,40 +266,6 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
 
 ## pachctl
-
-`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
-
-### Installation
-
-#### Homebrew
-
-```shell
-$ brew tap pachyderm/tap && brew install pachctl
-```
-
-#### Deb Package
-
-If you're on linux 64 bit amd, you can use our pre-built deb package like so:
-
-```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
-```
-
-#### From Source
-
-To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
-
-```shell
-$ go get github.com/pachyderm/pachyderm
-$ cd $GOPATH/src/github.com/pachyderm/pachyderm
-$ make install
-```
-
-Make sure you add `GOPATH/bin` to your `PATH` env variable:
-
-```shell
-$ export PATH=$PATH:$GOPATH/bin
-```
 
 ### Usage
 
