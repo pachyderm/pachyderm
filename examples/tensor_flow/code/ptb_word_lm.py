@@ -303,6 +303,7 @@ def main(_):
   if not FLAGS.data_path and not FLAGS.generate:
     raise ValueError("Must set --data_path to PTB data directory")
 
+
   if not FLAGS.generate:
     train()
   else:
@@ -321,7 +322,10 @@ def train():
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
-   
+  
+  config.vocab_size = vocab
+  eval_config.vocab_size = vocab
+
   word_to_id_f = open(os.path.join(FLAGS.model_path_prefix, "word_to_id.json"), "w")
   json.dump(word_to_id, word_to_id_f)
   id_to_word_f = open(os.path.join(FLAGS.model_path_prefix, "id_to_word.json"), "w")
@@ -355,9 +359,11 @@ def train():
 
 def generate(word_to_id, id_to_word):
 
+  vocab = len(word_to_id)
   config = get_config()
   config.num_steps = 1
   config.batch_size = 1
+  config.vocab_size = vocab
   with tf.Graph().as_default(), tf.Session() as session:
 
       with tf.variable_scope("model"):

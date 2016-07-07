@@ -23,7 +23,6 @@ ENV GOROOT /usr/local/go
 # Add the code files
 
 ADD code /code
-ADD data /data
 
 # Install Pachyderm job-shim
 RUN go get github.com/pachyderm/pachyderm && \

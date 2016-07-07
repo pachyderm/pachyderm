@@ -1,12 +1,14 @@
 {
   "pipeline": {
-    "name": "train"
+    "name": "GoT_train"
   },
   "transform": {
-    "image": "tensor_flow_rnn",
+    "image": "tensor_flow_rnn_got",
     "cmd": [ "sh" ],
     "stdin": [
-      "cd /code && python ptb_word_lm.py --data_path=/data/data --model=large --model_path_prefix=/data > /pfs/out/model-results",
+      "mkdir /data",
+      "cp /pfs/GoT_scripts/* /data",
+      "cd /code && python ptb_word_lm.py --data_path=/data --model=test --model_path_prefix=/data > /pfs/out/model-results",
       "cp /data/ptb.ckpt* /pfs/out",
       "cp /data/*.json /pfs/out"
     ]
@@ -15,7 +17,7 @@
   "inputs": [
     {
       "repo": {
-        "name": "tensor_ptb_data"
+        "name": "GoT_scripts"
       },
       "method": "global"
     }
@@ -23,22 +25,23 @@
 }
 {
   "pipeline": {
-    "name": "generate"
+    "name": "GoT_generate"
   },
   "transform": {
-    "image": "tensor_flow_rnn",
+    "image": "tensor_flow_rnn_got",
     "cmd": [ "sh" ],
     "stdin": [
-      "cp /pfs/train/ptb.ckpt* /data",
-      "cp /pfs/train/*.json /data",
-      "cd /code && python ptb_word_lm.py --model=large --generate=true --model_path_prefix=/data > /pfs/out/sentence" 
+      "mkdir /training_data",
+      "cp /pfs/GoT_train/ptb.ckpt* /training_data",
+      "cp /pfs/GoT_train/*.json /training_data",
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/new_script.txt" 
     ]
   },
   "parallelism": "1",
   "inputs": [
     {
       "repo": {
-        "name": "train"
+        "name": "GoT_train"
       },
       "method": "global"
     }
