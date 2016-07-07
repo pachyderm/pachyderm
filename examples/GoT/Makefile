@@ -21,7 +21,9 @@ load-input-data:
 	mkdir mnt
 	pachctl mount ./mnt &
 	sleep 5
-	cp data/* ./mnt/GoT_scripts/`cat commitID`/
+	# For now, use the CLI to input the data because of OS X Fuse bug (https://github.com/pachyderm/pachyderm/issues/629)
+	# this is a heavy handed way to do a copy:
+	ls -1 data/* | while read -r file; do cat $$file | pachctl put-file GoT_scripts `cat commitID` `basename $$file`; done
 	pachctl finish-commit GoT_scripts `cat commitID`
 	rm commitID
 
