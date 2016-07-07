@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -17,6 +18,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
+
+func newPermissionError(repo string, commitID string) error {
+	return fmt.Errorf("commit %s/%s has already been finished", repo, commitID)
+}
+
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already been finished")
+}
 
 type driver struct {
 	blockAddress    string
@@ -64,7 +73,7 @@ func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
 
 	if !match {
-		return fmt.Errorf("Repo name (%v) invalid. Only alphanumeric and underscore characters allowed.", name)
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
 	}
 
 	return nil
@@ -399,7 +408,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
-			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.ID)
+			return nil, fmt.Errorf("commit %s/%s is from a repo that isn't being listed", commit.Repo.Name, commit.ID)
 		}
 		breakCommitIDs[commit.ID] = true
 	}
@@ -522,7 +531,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -583,7 +592,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -704,7 +713,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
 	cleanPath := path.Clean(file.Path)

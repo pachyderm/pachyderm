@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -155,6 +156,10 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 	}
 	if err := localResult.touch(); err != nil {
+		// Check if its a write on a finished commit:
+		if drive.IsPermissionError(err) {
+			err = fuse.EPERM
+		}
 		return nil, 0, err
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
@@ -598,7 +603,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	case pfsclient.FileType_FILE_TYPE_DIR:
 		return directory, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized FileType.")
+		return nil, fmt.Errorf("unrecognized file type")
 	}
 }
 

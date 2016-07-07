@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -128,7 +129,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.AssignRoles(address, nil); err != nil {
-			protolion.Printf("Error from sharder.AssignRoles: %s", err.Error())
+			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
 	driver, err := drive.NewDriver(address)
@@ -150,7 +151,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{apiServer}); err != nil {
-			protolion.Printf("Error from sharder.RegisterFrontend %s", err.Error())
+			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
 	internalAPIServer := pfs_server.NewInternalAPIServer(
@@ -175,7 +176,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer}); err != nil {
-			protolion.Printf("Error from sharder.Register %s", err.Error())
+			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
 	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
@@ -224,7 +225,7 @@ func getClusterID(client discovery.Client) (string, error) {
 func getKubeClient(env *appEnv) (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		protolion.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
+		protolion.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", sanitizeErr(err))
 	} else {
 		return kubeClient, err
 	}
@@ -249,4 +250,12 @@ func getNamespace() string {
 		return namespace
 	}
 	return api.NamespaceDefault
+}
+
+func sanitizeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return errors.New(grpc.ErrorDesc(err))
 }
