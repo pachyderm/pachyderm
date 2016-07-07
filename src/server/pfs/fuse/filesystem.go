@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -44,7 +45,6 @@ func newFilesystem(
 			commitMounts,
 		},
 		inodes:   make(map[string]uint64),
-		lock:     sync.RWMutex{},
 		handleID: uuid.NewWithoutDashes(),
 	}
 }
@@ -156,6 +156,10 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 	}
 	if err := localResult.touch(); err != nil {
+		// Check if its a write on a finished commit:
+		if drive.IsPermissionError(err) {
+			err = fuse.EPERM
+		}
 		return nil, 0, err
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
@@ -198,6 +202,7 @@ type file struct {
 	directory
 	size    int64
 	handles []*handle
+	lock    sync.Mutex
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -236,7 +241,7 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			protolion.Error(&FileSetAttr{&f.Node, errorToString(retErr)})
 		}
 	}()
-	if req.Size == 0 {
+	if req.Size == 0 && (req.Valid&fuse.SetattrSize) > 0 {
 		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
 			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
 		if err != nil {
@@ -246,7 +251,9 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 			return err
 		}
 		for _, handle := range f.handles {
+			handle.lock.Lock()
 			handle.cursor = 0
+			handle.lock.Unlock()
 		}
 	}
 	return nil
@@ -276,6 +283,8 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	for _, h := range f.handles {
 		if h.w != nil {
 			w := h.w
@@ -288,12 +297,22 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 	return nil
 }
 
+func (f *file) delimiter() pfsclient.Delimiter {
+	if strings.HasSuffix(f.File.Path, ".json") {
+		return pfsclient.Delimiter_JSON
+	}
+	if strings.HasSuffix(f.File.Path, ".bin") {
+		return pfsclient.Delimiter_NONE
+	}
+	return pfsclient.Delimiter_LINE
+}
+
 func (f *file) touch() error {
 	w, err := f.fs.apiClient.PutFileWriter(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
-		pfsclient.Delimiter_LINE,
+		f.delimiter(),
 		f.fs.handleID,
 	)
 	if err != nil {
@@ -323,6 +342,9 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 }
 
 func (f *file) newHandle(cursor int) *handle {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
 	h := &handle{
 		f:      f,
 		cursor: cursor,
@@ -337,6 +359,7 @@ type handle struct {
 	f      *file
 	w      io.WriteCloser
 	cursor int
+	lock   sync.Mutex
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -378,9 +401,11 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 			protolion.Error(&FileWrite{&h.f.Node, string(request.Data), request.Offset, errorToString(retErr)})
 		}
 	}()
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, pfsclient.Delimiter_LINE, h.f.fs.handleID)
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), h.f.fs.handleID)
 		if err != nil {
 			return err
 		}
@@ -393,6 +418,12 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	repeated := h.cursor - int(request.Offset)
 	if repeated < 0 {
 		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+	}
+	if repeated > len(request.Data) {
+		// it's currently unclear under which conditions fuse sends us a
+		// request with only repeated data. This prevents us from getting an
+		// array bounds error when it does though.
+		return nil
 	}
 	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
@@ -407,6 +438,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 }
 
 func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	if h.w != nil {
 		w := h.w
 		h.w = nil
@@ -570,7 +603,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	case pfsclient.FileType_FILE_TYPE_DIR:
 		return directory, nil
 	default:
-		return nil, fmt.Errorf("Unrecognized FileType.")
+		return nil, fmt.Errorf("unrecognized file type")
 	}
 }
 
@@ -598,7 +631,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-		nil, client.CommitTypeNone, false, false, nil)
+		nil, client.CommitTypeNone, false, true, nil)
 	if err != nil {
 		return nil, err
 	}

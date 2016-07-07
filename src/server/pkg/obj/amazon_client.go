@@ -5,10 +5,12 @@ import (
 	"io"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3Manager"
+	"github.com/aws/aws-sdk-go/service/storagegateway"
 )
 
 type amazonClient struct {
@@ -30,7 +32,7 @@ func newAmazonClient(bucket string, id string, secret string, token string, regi
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
-	return newBackoffWriteCloser(newWriter(c, name)), nil
+	return newBackoffWriteCloser(c, newWriter(c, name)), nil
 }
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
@@ -71,11 +73,55 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffReadCloser(getObjectOutput.Body), nil
+	return newBackoffReadCloser(c, getObjectOutput.Body), nil
 }
 
 func (c *amazonClient) Delete(name string) error {
-	return nil
+	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	return err
+}
+
+func (c *amazonClient) Exists(name string) bool {
+	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	return err == nil
+}
+
+func (c *amazonClient) IsRetryable(err error) bool {
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return false
+	}
+	for _, c := range []string{
+		storagegateway.ErrorCodeServiceUnavailable,
+		storagegateway.ErrorCodeInternalError,
+		storagegateway.ErrorCodeGatewayInternalError,
+	} {
+		if c == awsErr.Code() {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *amazonClient) IsIgnorable(err error) bool {
+	return false
+}
+
+func (c *amazonClient) IsNotExist(err error) bool {
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return false
+	}
+	if awsErr.Code() == storagegateway.ErrorCodeTargetNotFound {
+		return true
+	}
+	return false
 }
 
 type amazonWriter struct {

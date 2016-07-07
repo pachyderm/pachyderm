@@ -336,7 +336,7 @@ func TestDeleteRepo(t *testing.T) {
 	for i := 0; i < reposToRemove; i++ {
 		// Pick one random element from repoNames
 		for repoName := range repoNames {
-			require.NoError(t, client.DeleteRepo(repoName))
+			require.NoError(t, client.DeleteRepo(repoName, false))
 			delete(repoNames, repoName)
 			break
 		}
@@ -574,6 +574,19 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, commit1, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+
+	// We inspect the file with two filter shards that have different block
+	// numbers, so that only one of the filter shards should match the file
+	// since the file only contains one block.
+	_, err1 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+		BlockNumber:  0,
+		BlockModulus: 2,
+	})
+	_, err2 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+		BlockNumber:  1,
+		BlockModulus: 2,
+	})
+	require.True(t, (err1 == nil && err2 != nil) || (err1 != nil && err2 == nil))
 
 	fileContent2 := "barbar\n"
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
@@ -1400,7 +1413,7 @@ func TestGetFileInvalidCommit(t *testing.T) {
 	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
 	require.YesError(t, err)
 
-	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
+	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
 func TestScrubbedErrorStrings(t *testing.T) {
@@ -1409,16 +1422,16 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	client, _ := getClientAndServer(t)
 
 	err := client.CreateRepo("foo||@&#$TYX")
-	require.Equal(t, "Repo name (foo||@&#$TYX) invalid. Only alphanumeric and underscore characters allowed.", err.Error())
+	require.Equal(t, "repo name (foo||@&#$TYX) invalid: only alphanumeric and underscore characters allowed", err.Error())
 
 	_, err = client.StartCommit("zzzzz", "", "")
-	require.Equal(t, "Repo zzzzz not found", err.Error())
+	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, true, []*pfsclient.Commit{})
-	require.Equal(t, "Repo zzzzz not found", err.Error())
+	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.InspectRepo("bogusrepo")
-	require.Equal(t, "Repo bogusrepo not found", err.Error())
+	require.Equal(t, "repo bogusrepo not found", err.Error())
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1426,31 +1439,31 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.PutFile("sdf", commit1.ID, "file", strings.NewReader("foo\n"))
-	require.Equal(t, "Repo sdf not found", err.Error())
+	require.Equal(t, "repo sdf not found", err.Error())
 
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 
 	err = client.FinishCommit("zzzzzz", commit1.ID)
-	require.Equal(t, "Repo zzzzzz not found", err.Error())
+	require.Equal(t, "repo zzzzzz not found", err.Error())
 
 	err = client.FinishCommit(repo, "bogus")
-	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+	require.Equal(t, "commit bogus not found in repo test", err.Error())
 
 	err = client.CancelCommit(repo, "bogus")
-	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+	require.Equal(t, "commit bogus not found in repo test", err.Error())
 
 	_, err = client.InspectCommit(repo, "bogus")
-	require.Equal(t, "Commit bogus not found in repo test", err.Error())
+	require.Equal(t, "commit bogus not found in repo test", err.Error())
 
 	_, err = client.ListBranch("blah")
-	require.Equal(t, "Repo blah not found", err.Error())
+	require.Equal(t, "repo blah not found", err.Error())
 
 	_, err = client.InspectFile(repo, commit1.ID, "file", "", nil)
-	require.Equal(t, fmt.Sprintf("File file not found in repo %v at commit %v", repo, commit1.ID), err.Error())
+	require.Equal(t, fmt.Sprintf("file file not found in repo %v at commit %v", repo, commit1.ID), err.Error())
 
 	err = client.MakeDirectory(repo, "sdf", "foo")
-	require.Equal(t, "Commit sdf not found in repo test", err.Error())
+	require.Equal(t, "commit sdf not found in repo test", err.Error())
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -1460,7 +1473,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
 	require.YesError(t, err)
 
-	require.Equal(t, fmt.Sprintf("Commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
+	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
 func TestATonOfPuts(t *testing.T) {
@@ -1537,7 +1550,9 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 		}
 
 		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+			continue
+		}
 
 		// If any single block returns content of size equal to the total, we
 		// got a block collision and we're not testing anything
@@ -1606,7 +1621,9 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 		}
 
 		buffer.Reset()
-		require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer))
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+			continue
+		}
 
 		// If any single block returns content of size equal to the total, we
 		// got a block collision and we're not testing anything

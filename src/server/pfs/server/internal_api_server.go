@@ -104,7 +104,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 		return nil, err
 	}
 
-	err = a.driver.DeleteRepo(request.Repo, shards)
+	err = a.driver.DeleteRepo(request.Repo, shards, request.Force)
 	_, ok := err.(*pfsserver.ErrRepoNotFound)
 
 	if err != nil && !ok {
@@ -497,6 +497,22 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	case err := <-errCh:
 		return nil, err
 	default:
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.DeleteAll(shards); err != nil {
+		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }

@@ -5,6 +5,8 @@ import (
 	"io"
 	"path"
 	"regexp"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -16,6 +18,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
+
+func newPermissionError(repo string, commitID string) error {
+	return fmt.Errorf("commit %s/%s has already been finished", repo, commitID)
+}
+
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already been finished")
+}
 
 type driver struct {
 	blockAddress    string
@@ -63,7 +73,7 @@ func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
 
 	if !match {
-		return fmt.Errorf("Repo name (%v) invalid. Only alphanumeric and underscore characters allowed.", name)
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
 	}
 
 	return nil
@@ -172,19 +182,12 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 	return result, nil
 }
 
-func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
-	// Make sure that this repo is not the provenance of any other repo
-	repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
-	if err != nil {
-		return err
-	}
-
-	var diffInfos []*pfs.DiffInfo
-	err = func() error {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		if _, ok := d.diffs[repo.Name]; !ok {
-			return pfsserver.NewErrRepoNotFound(repo.Name)
+func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+	if !force {
+		// Make sure that this repo is not the provenance of any other repo
+		repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+		if err != nil {
+			return err
 		}
 		if len(repoInfos) > 0 {
 			var repoNames []string
@@ -192,6 +195,15 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 				repoNames = append(repoNames, repoInfo.Repo.Name)
 			}
 			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
+		}
+	}
+
+	var diffInfos []*pfs.DiffInfo
+	err := func() error {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if _, ok := d.diffs[repo.Name]; !ok {
+			return pfsserver.NewErrRepoNotFound(repo.Name)
 		}
 
 		for shard := range shards {
@@ -396,7 +408,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
-			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.ID)
+			return nil, fmt.Errorf("commit %s/%s is from a repo that isn't being listed", commit.Repo.Name, commit.ID)
 		}
 		breakCommitIDs[commit.ID] = true
 	}
@@ -438,11 +450,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	return result, nil
 }
 
+// MatchProvenance checks if all the commits we want exist in the commits we have.
 func MatchProvenance(want []*pfs.Commit, have []*pfs.Commit) bool {
+	// Get a map of repo names to commits we have
 	repoToCommit := make(map[string]*pfs.Commit)
 	for _, haveCommit := range have {
 		repoToCommit[haveCommit.Repo.Name] = haveCommit
 	}
+	// And check that all of the commits we want are in the map
 	for _, wantCommit := range want {
 		haveCommit, ok := repoToCommit[wantCommit.Repo.Name]
 		if !ok || wantCommit.ID != haveCommit.ID {
@@ -516,7 +531,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -577,7 +592,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	d.addDirs(diffInfo, file, shard)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -647,7 +662,8 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 		}
 		if ok {
 			// how can a listed child return not found?
-			// regular files without any blocks in this shard count as not found
+			// regular files that don't match this shard or don't have any
+			// blocks in this shard count as not found
 			continue
 		}
 		result = append(result, fileInfo)
@@ -657,8 +673,6 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	d.lock.RLock()
-	// We don't want to be able to delete files that are only added in the current
-	// commit, which is why we set unsafe to false.
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, unsafe, handle)
 	if err != nil {
 		d.lock.RUnlock()
@@ -699,7 +713,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 		return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+		return newPermissionError(canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 
 	cleanPath := path.Clean(file.Path)
@@ -722,6 +736,38 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	}
 	d.deleteFromDir(diffInfo, file, shard)
 
+	return nil
+}
+
+type byProvenance []*pfs.RepoInfo
+
+func (s byProvenance) Len() int {
+	return len(s)
+}
+func (s byProvenance) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s byProvenance) Less(i, j int) bool {
+	return len(s[i].Provenance) < len(s[j].Provenance)
+}
+
+func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	repoInfos, err := d.ListRepo(nil, shards)
+	if err != nil {
+		return err
+	}
+	// We want to make sure we delete repos before their provenance.
+	// Provenance has a nice invariant:
+	// A in Provenance(B) => len(Provenance(A)) < len(Provenance(B))
+	// Since Provenance is transitive
+	// Thus when we sort by length we guarantee that A will have a lower index than B
+	// Because we want to make sure we delete the higher indexes first we traverse in reverse
+	sort.Sort(byProvenance(repoInfos))
+	for i := range repoInfos {
+		if err := d.DeleteRepo(repoInfos[len(repoInfos)-i-1].Repo, shards, false); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -856,7 +902,7 @@ func (d *driver) fullCommitProvenance(commit *pfs.Commit, repoSet map[string]boo
 		}
 		diffInfo, ok := diffInfos[commit.ID]
 		if !ok {
-			return nil, fmt.Errorf("missing \"%s\" diff (this is likely a bug)", commit.ID)
+			return nil, fmt.Errorf("missing \"%s\" diff in repo \"%s\" (this is likely a bug; you may recover from this by force deleting the repo \"pachctl delete-repo %s --force\")", commit.ID, commit.Repo.Name, commit.Repo.Name)
 		}
 		for _, provCommit := range diffInfo.Provenance {
 			if !repoSet[provCommit.Repo.Name] {
@@ -935,10 +981,10 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
+func filterBlockRefs(filterShard *pfs.Shard, file *pfs.File, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
 	var result []*pfs.BlockRef
 	for _, blockRef := range blockRefs {
-		if pfsserver.BlockInShard(filterShard, blockRef.Block) {
+		if pfsserver.BlockInShard(filterShard, file, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
@@ -974,6 +1020,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	from *pfs.Commit, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
+	var blocksSeen bool // whether this file contains any blocks at all
 	children := make(map[string]bool)
 	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
@@ -1007,16 +1054,18 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					}
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				allRefs := _append.BlockRefs
 				if handle == "" {
 					for _, handleBlockRefs := range _append.Handles {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				} else {
 					if handleBlockRefs, ok := _append.Handles[handle]; ok {
-						filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+						allRefs = append(allRefs, handleBlockRefs.BlockRef...)
 					}
 				}
+				blocksSeen = blocksSeen || len(allRefs) > 0
+				filtered := filterBlockRefs(filterShard, file, allRefs)
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
@@ -1070,6 +1119,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+	}
+	// We return NotFound if all blocks have been filtered out.  However, we want
+	// to ensure that an empty file is seen by one shard, so we don't return
+	// NotFound if the filename happens to match the block filter.
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0 {
+		if blocksSeen || !pfsserver.BlockInShard(filterShard, file, nil) {
+			return nil, nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
 	}
 	return fileInfo, blockRefs, nil
 }

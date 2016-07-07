@@ -9,10 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RunFixedArgs wraps a function in a function
+// that checks its exact argument count.
 func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) != numArgs {
-			fmt.Printf("Expected %d arguments, got %d.\n\n", numArgs, len(args))
+			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
@@ -22,10 +24,12 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 	}
 }
 
+// RunBoundedArgs wraps a function in a function
+// that checks its argument count is within a range.
 func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
-			fmt.Printf("Expected %d to %d arguments, got %d.\n\n", min, max, len(args))
+			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
@@ -51,7 +55,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	for _, arg := range args {
 		parts := strings.Split(arg, "/")
 		if len(parts) > 2 {
-			return nil, fmt.Errorf("Invalid argument: %s", arg)
+			return nil, fmt.Errorf("invalid argument: %s", arg)
 		}
 		commit := &pfs.Commit{
 			Repo: &pfs.Repo{
@@ -69,6 +73,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return commits, nil
 }
 
+// RepeatedStringArg is an alias for []string
 type RepeatedStringArg []string
 
 func (r *RepeatedStringArg) String() string {
@@ -82,11 +87,13 @@ func (r *RepeatedStringArg) String() string {
 	return result + "]"
 }
 
+// Set adds a string to r
 func (r *RepeatedStringArg) Set(s string) error {
 	*r = append(*r, s)
 	return nil
 }
 
+// Type returns the string representation of the type of r
 func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }

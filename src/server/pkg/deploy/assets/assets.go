@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -39,6 +40,7 @@ const (
 	googleBackend
 )
 
+// ServiceAccount returns a kubernetes service account for use with Pachyderm.
 func ServiceAccount() *api.ServiceAccount {
 	return &api.ServiceAccount{
 		TypeMeta: unversioned.TypeMeta{
@@ -52,8 +54,18 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-//PachdRc TODO secrets is only necessary because dockerized kube chokes on them
-func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationController {
+// PachdRc returns a pachd replication controller.
+func PachdRc(shards uint64, backend backend, hostPath string, version string) *api.ReplicationController {
+	image := pachdImage
+	if version != "" {
+		image += ":" + version
+	}
+	// we turn metrics on only if we have a static version this prevents dev
+	// clusters from reporting metrics
+	metrics := "true"
+	if version == "" {
+		metrics = "false"
+	}
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -80,11 +92,8 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 	var backendEnvVar string
 	switch backend {
 	case localBackend:
-		if hostPath == "" {
-			hostPath = "/tmp/pach"
-		}
 		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: hostPath,
+			Path: filepath.Join(hostPath, "pachd"),
 		}
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
@@ -139,7 +148,7 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 					Containers: []api.Container{
 						{
 							Name:  pachdName,
-							Image: pachdImage,
+							Image: image,
 							Env: []api.EnvVar{
 								{
 									Name:  "PACH_ROOT",
@@ -161,6 +170,10 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 											FieldPath:  "metadata.namespace",
 										},
 									},
+								},
+								{
+									Name:  "METRICS",
+									Value: metrics,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -190,6 +203,7 @@ func PachdRc(shards uint64, backend backend, hostPath string) *api.ReplicationCo
 	}
 }
 
+// PachdService returns a pachd service.
 func PachdService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -216,7 +230,8 @@ func PachdService() *api.Service {
 	}
 }
 
-func EtcdRc() *api.ReplicationController {
+// EtcdRc returns an etcd replication controller.
+func EtcdRc(hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -243,7 +258,11 @@ func EtcdRc() *api.ReplicationController {
 							Name:  etcdName,
 							Image: etcdImage,
 							//TODO figure out how to get a cluster of these to talk to each other
-							Command: []string{"/usr/local/bin/etcd", "--bind-addr=0.0.0.0:2379", "--data-dir=/var/etcd/data"},
+							Command: []string{
+								"/usr/local/bin/etcd",
+								"--bind-addr=0.0.0.0:2379",
+								"--data-dir=/var/data/etcd",
+							},
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 2379,
@@ -266,6 +285,11 @@ func EtcdRc() *api.ReplicationController {
 					Volumes: []api.Volume{
 						{
 							Name: "etcd-storage",
+							VolumeSource: api.VolumeSource{
+								HostPath: &api.HostPathVolumeSource{
+									Path: filepath.Join(hostPath, "etcd"),
+								},
+							},
 						},
 					},
 				},
@@ -274,6 +298,7 @@ func EtcdRc() *api.ReplicationController {
 	}
 }
 
+// EtcdService returns an etcd service.
 func EtcdService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -302,7 +327,8 @@ func EtcdService() *api.Service {
 	}
 }
 
-func RethinkRc(backend backend, volume string) *api.ReplicationController {
+// RethinkRc returns a rethinkdb replication controller.
+func RethinkRc(backend backend, volume string, hostPath string) *api.ReplicationController {
 	replicas := int32(1)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -347,7 +373,7 @@ func RethinkRc(backend backend, volume string) *api.ReplicationController {
 							VolumeMounts: []api.VolumeMount{
 								{
 									Name:      "rethink-storage",
-									MountPath: "/var/rethinkdb/data",
+									MountPath: "/var/rethinkdb/",
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
@@ -367,11 +393,16 @@ func RethinkRc(backend backend, volume string) *api.ReplicationController {
 		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
 			ClaimName: rethinkVolumeClaimName,
 		}
+	} else if backend == localBackend {
+		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
+			Path: filepath.Join(hostPath, "rethink"),
+		}
 	}
 
 	return spec
 }
 
+// RethinkService returns a rethinkdb service.
 func RethinkService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -408,7 +439,12 @@ func RethinkService() *api.Service {
 	}
 }
 
-func InitJob() *extensions.Job {
+// InitJob returns a pachd-init job.
+func InitJob(version string) *extensions.Job {
+	image := pachdImage
+	if version != "" {
+		image += ":" + version
+	}
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -431,7 +467,7 @@ func InitJob() *extensions.Job {
 					Containers: []api.Container{
 						{
 							Name:  initName,
-							Image: pachdImage,
+							Image: image,
 							Env: []api.EnvVar{
 								{
 									Name:  "PACH_ROOT",
@@ -452,6 +488,12 @@ func InitJob() *extensions.Job {
 	}
 }
 
+// AmazonSecret creates an amazon secret with the following parameters:
+//   bucket - S3 bucket name
+//   id     - AWS access key id
+//   secret - AWS secret access key
+//   token  - AWS access token
+//   region - AWS region
 func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
@@ -472,6 +514,7 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 	}
 }
 
+// GoogleSecret creates a google secret with a bucket name.
 func GoogleSecret(bucket string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
@@ -488,6 +531,8 @@ func GoogleSecret(bucket string) *api.Secret {
 	}
 }
 
+// RethinkVolume creates a persistent volume with a backend
+// (local, amazon, google), a name, and a size in gigabytes.
 func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume {
 	spec := &api.PersistentVolume{
 		TypeMeta: unversioned.TypeMeta{
@@ -529,6 +574,7 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 	return spec
 }
 
+// RethinkVolumeClaim creates a persistent volume claim with a size in gigabytes.
 func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	return &api.PersistentVolumeClaim{
 		TypeMeta: unversioned.TypeMeta{
@@ -551,7 +597,8 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 }
 
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string, volumeSize int, hostPath string) {
+func WriteAssets(w io.Writer, shards uint64, backend backend,
+	volumeName string, volumeSize int, hostPath string, version string) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -564,41 +611,43 @@ func WriteAssets(w io.Writer, shards uint64, backend backend, volumeName string,
 		fmt.Fprintf(w, "\n")
 	}
 
-	EtcdRc().CodecEncodeSelf(encoder)
+	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	EtcdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	RethinkRc(backend, volumeName).CodecEncodeSelf(encoder)
+	RethinkRc(backend, volumeName, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	InitJob().CodecEncodeSelf(encoder)
+	InitJob(version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend, hostPath).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
+// WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version string) {
-	if version != "" {
-		pachdImage = fmt.Sprintf("%v:%v", pachdImage, version)
-	}
-	WriteAssets(w, shards, localBackend, "", 0, hostPath)
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, version)
 }
 
-func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "")
+// WriteAmazonAssets writes assets to an amazon backend.
+func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
+	region string, volumeName string, volumeSize int, version string) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
-func WriteGoogleAssets(w io.Writer, shards uint64, bucket string, volumeName string, volumeSize int) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "")
+// WriteGoogleAssets writes assets to a google backend.
+func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
+	volumeName string, volumeSize int, version string) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

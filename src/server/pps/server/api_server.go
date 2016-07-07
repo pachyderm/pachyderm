@@ -38,26 +38,31 @@ var (
 	suite   = "pachyderm"
 )
 
+// NewErrJobNotFound creates a job-not-found error.
 func NewErrJobNotFound(job string) error {
-	return fmt.Errorf("Job %v not found", job)
+	return fmt.Errorf("job %v not found", job)
 }
 
+// NewErrPipelineNotFound creates a pipeline-not-found error.
 func NewErrPipelineNotFound(pipeline string) error {
-	return fmt.Errorf("Pipeline %v not found", pipeline)
+	return fmt.Errorf("pipeline %v not found", pipeline)
 }
 
+// ErrEmptyInput is an input returned for empty inputs.
 type ErrEmptyInput struct {
 	error
 }
 
+// NewErrEmptyInput creates a new ErrEmptyInput
 func NewErrEmptyInput(commitID string) *ErrEmptyInput {
 	return &ErrEmptyInput{
-		error: fmt.Errorf("Job was not started due to empty input at commit %v", commitID),
+		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
 }
 
+// NewErrParentInputsMismatch creates an error for mismatched job parents.
 func NewErrParentInputsMismatch(parent string) error {
-	return fmt.Errorf("Job does not have the same set of inputs as its parent %v", parent)
+	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
 type apiServer struct {
@@ -178,7 +183,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	jobID := getJobID(request)
 	if !request.Force {
 		_, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
-			Job: &ppsclient.Job{jobID},
+			Job: client.NewJob(jobID),
 		})
 		if err == nil {
 			// the job already exists. we simply return
@@ -196,7 +201,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if request.Pipeline != nil {
 		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
 		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
-			return nil, fmt.Errorf("Parent job was not part of the same pipeline; this is likely a bug")
+			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
 	} else {
 		// If parent is set, use the parent's repo
@@ -494,25 +499,19 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(request.Job.ID)),
-	})
+	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
 	}
-	if len(podList.Items) == 0 {
+	if len(pods) == 0 {
 		return NewErrJobNotFound(request.Job.ID)
 	}
 	// sort the pods to make sure that the indexes are stable
-	sort.Sort(podSlice(podList.Items))
-	logs := make([][]byte, len(podList.Items))
+	sort.Sort(podSlice(pods))
+	logs := make([][]byte, len(pods))
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
-	for i, pod := range podList.Items {
+	for i, pod := range pods {
 		i := i
 		pod := pod
 		wg.Add(1)
@@ -769,14 +768,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		return nil, err
-	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -784,9 +775,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
-		State:        ppsclient.PipelineState_PIPELINE_STARTING,
+		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+		if alreadyExists := strings.Contains(err.Error(), "Duplicate primary key `PipelineName`"); alreadyExists {
+			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+		}
+		return nil, err
+	}
+	if _, err := pfsAPIClient.CreateRepo(
+		ctx,
+		&pfsclient.CreateRepoRequest{
+			Repo:       repo,
+			Provenance: provenance,
+		}); err != nil {
+		if _, err := persistClient.DeletePipelineInfo(ctx, &ppsclient.Pipeline{Name: request.Pipeline.Name}); err != nil {
+			return nil, fmt.Errorf("could not delete PipelineInfo, this is likely a bug: %v\n", err)
+		}
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -848,44 +853,30 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
-
-	if request.Pipeline == nil {
-		return nil, fmt.Errorf("Pipeline cannot be nil")
-	}
-
-	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
-	// the same IDs, since kubernetes jobs simply use these IDs as their names
-	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
-		Pipeline: request.Pipeline,
-	})
+	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{})
 	if err != nil {
 		return nil, err
 	}
-	for _, jobInfo := range jobInfos.JobInfo {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+	for _, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
+		if err := a.deletePipeline(ctx, client.NewPipeline(persistPipelineInfo.PipelineName)); err != nil {
 			return nil, err
 		}
 	}
-
-	// The reason we need to do this, is that if we don't, then if the very same
-	// pipeline is recreated, we won't actually create new jobs due to the fact
-	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
-	// name + inputs.  So the jobs will already be in the database, resulting
-	// in no new jobs being created, even though the output of those existing
-	// jobs might have already being removed.
-	// Therefore, we delete the job infos.
-	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, request.Pipeline); err != nil {
+	if _, err := persistClient.DeleteAll(ctx, request); err != nil {
 		return nil, err
 	}
-
-	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
-		return nil, err
-	}
-
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -913,7 +904,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
 		IncludeInitial: true,
-		Shard:          &persist.Shard{shard},
+		Shard:          &persist.Shard{Number: shard},
 	})
 	if err != nil {
 		return err
@@ -925,18 +916,27 @@ func (a *apiServer) AddShard(shard uint64) error {
 			if err != nil {
 				return
 			}
+			pipelineName := pipelineChange.Pipeline.PipelineName
 
 			if pipelineChange.Removed {
 				a.cancelFuncsLock.Lock()
-				cancel, ok := a.cancelFuncs[pipelineChange.Pipeline.PipelineName]
+				cancel, ok := a.cancelFuncs[pipelineName]
 				if ok {
 					cancel()
-					delete(a.cancelFuncs, pipelineChange.Pipeline.PipelineName)
+					delete(a.cancelFuncs, pipelineName)
 				} else {
-					protolion.Printf("trying to cancel a pipeline that we are not assigned to; this is likely a bug")
+					protolion.Printf("trying to cancel a pipeline that has not been started; this is likely a bug")
 				}
 				a.cancelFuncsLock.Unlock()
 			} else {
+				a.cancelFuncsLock.Lock()
+				pipelineCtx, cancel := context.WithCancel(ctx)
+				if _, ok := a.cancelFuncs[pipelineName]; ok {
+					a.cancelFuncsLock.Unlock()
+					continue
+				}
+				a.cancelFuncs[pipelineName] = cancel
+				a.cancelFuncsLock.Unlock()
 				// We only want to start a goro to run the pipeline if the
 				// pipeline has more than one inputs
 				go func() {
@@ -952,13 +952,14 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// on it.
 					b.MaxElapsedTime = 0
 					err = backoff.RetryNotify(func() error {
-						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
+						if err := a.runPipeline(pipelineCtx, newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
 							return err
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineChange.Pipeline.PipelineName,
+						protolion.Errorf("error running pipeline: %v; retrying in %s", err, d)
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
 							RecentError:  err.Error(),
 						}); err != nil {
@@ -968,9 +969,9 @@ func (a *apiServer) AddShard(shard uint64) error {
 					// At this point we stop retrying and update the pipeline state
 					// to FAILED
 					if err != nil {
-						if _, err = persistClient.UpdatePipelineState(context.Background(), &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineChange.Pipeline.PipelineName,
-							State:        ppsclient.PipelineState_PIPELINE_FAILED,
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 							RecentError:  err.Error(),
 						}); err != nil {
 							protolion.Errorf("error updating pipeline state: %v", err)
@@ -989,17 +990,6 @@ func isContextCancelled(err error) bool {
 }
 
 func (a *apiServer) DeleteShard(shard uint64) error {
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	for pipeline, cancelFunc := range a.cancelFuncs {
-		if a.hasher.HashPipeline(&ppsclient.Pipeline{
-			Name: pipeline,
-		}) == shard {
-			cancelFunc()
-			delete(a.cancelFuncs, pipeline)
-		}
-	}
-
 	a.shardCancelFuncsLock.Lock()
 	defer a.shardCancelFuncsLock.Unlock()
 	cancel, ok := a.shardCancelFuncs[shard]
@@ -1021,31 +1011,19 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Parallelism: persistPipelineInfo.Parallelism,
 		Inputs:      persistPipelineInfo.Inputs,
 		OutputRepo:  persistPipelineInfo.OutputRepo,
+		CreatedAt:   persistPipelineInfo.CreatedAt,
 		State:       persistPipelineInfo.State,
 		RecentError: persistPipelineInfo.RecentError,
+		JobCounts:   persistPipelineInfo.JobCounts,
 	}
 }
 
-func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	returnNil := func() bool {
-		a.cancelFuncsLock.Lock()
-		defer a.cancelFuncsLock.Unlock()
-		if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
-			// The pipeline is already being run
-			return true
-		}
-		if len(pipelineInfo.Inputs) == 0 {
-			// this pipeline does not have inputs; there is nothing to be done
-			return true
-		}
-
-		a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
-		return false
-	}()
-	if returnNil {
+func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) error {
+	if len(pipelineInfo.Inputs) == 0 {
+		// this pipeline does not have inputs; there is nothing to be done
 		return nil
 	}
+	protolion.Infof("running pipeline %s", pipelineInfo.Pipeline.Name)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1141,7 +1119,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						ParentJob:   parentJob,
 					},
 				)
-				_, ok := err.(ErrEmptyInput)
+				_, ok := err.(*ErrEmptyInput)
 				if err != nil && !ok {
 					return err
 				}
@@ -1343,18 +1321,21 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Parallelism:  persistJobInfo.Parallelism,
 		Inputs:       persistJobInfo.Inputs,
 		ParentJob:    persistJobInfo.ParentJob,
-		CreatedAt:    persistJobInfo.CreatedAt,
+		Started:      persistJobInfo.Started,
+		Finished:     persistJobInfo.Finished,
 		OutputCommit: persistJobInfo.OutputCommit,
 		State:        persistJobInfo.State,
 	}, nil
 }
 
+// RepoNameToEnvString is a helper which uppercases a repo name for
+// use in environment variable names.
 func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
 func job(jobInfo *persist.JobInfo) *batch.Job {
-	app := jobInfo.JobID
+	labels := labels(jobInfo.JobID)
 	parallelism := int32(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
@@ -1386,19 +1367,19 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   jobInfo.JobID,
-			Labels: labels(app),
+			Labels: labels,
 		},
 		Spec: batch.JobSpec{
 			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels(app),
+				MatchLabels: labels,
 			},
 			Parallelism: &parallelism,
 			Completions: &parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
-					Labels: labels(app),
+					Labels: labels,
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -1418,6 +1399,93 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			},
 		},
 	}
+}
+
+func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
+	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: kube_labels.SelectorFromSet(labels(job.ID)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return podList.Items, nil
+}
+
+func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+
+	if pipeline == nil {
+		return fmt.Errorf("pipeline cannot be nil")
+	}
+
+	// Delete kubernetes jobs.  Otherwise we won't be able to create jobs with
+	// the same IDs, since kubernetes jobs simply use these IDs as their names
+	jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		Pipeline: pipeline,
+	})
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	for _, jobInfo := range jobInfos.JobInfo {
+		jobInfo := jobInfo
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+				// we don't return on failure here because jobs may get deleted
+				// through other means and we don't want that to prevent users from
+				// deleting pipelines.
+				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
+			}
+			pods, err := a.jobPods(client.NewJob(jobInfo.JobID))
+			if err != nil {
+				select {
+				case errCh <- err:
+				default:
+				}
+			}
+			for _, pod := range pods {
+				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+					// we don't return on failure here because pods may get deleted
+					// through other means and we don't want that to prevent users from
+					// deleting pipelines.
+					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+
+	// The reason we need to do this, is that if we don't, then if the very same
+	// pipeline is recreated, we won't actually create new jobs due to the fact
+	// that we de-duplicate jobs by obtaining JobIDs through hashing pipeline
+	// name + inputs.  So the jobs will already be in the database, resulting
+	// in no new jobs being created, even though the output of those existing
+	// jobs might have already being removed.
+	// Therefore, we delete the job infos.
+	if _, err := persistClient.DeleteJobInfosForPipeline(ctx, pipeline); err != nil {
+		return err
+	}
+
+	if _, err := persistClient.DeletePipelineInfo(ctx, pipeline); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func labels(app string) map[string]string {

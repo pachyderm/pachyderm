@@ -12,33 +12,40 @@ var (
 	blockSize = 8 * 1024 * 1024 // 8 Megabytes
 )
 
+// Valid backends
 const (
 	AmazonBackendEnvVar = "AMAZON"
 	GoogleBackendEnvVar = "GOOGLE"
 )
 
+// APIServer represents an api server.
 type APIServer interface {
 	pfsclient.APIServer // SJ: WOW this is bad naming
 	shard.Frontend
 }
 
+// InternalAPIServer represents and internal api server.
 type InternalAPIServer interface {
 	pfsclient.InternalAPIServer // SJ: also bad naming
 	shard.Server
 }
 
+// NewAPIServer creates an APIServer.
 func NewAPIServer(hasher *pfsserver.Hasher, router shard.Router) APIServer {
 	return newAPIServer(hasher, router)
 }
 
+// NewInternalAPIServer creates an InternalAPIServer.
 func NewInternalAPIServer(hasher *pfsserver.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
 	return newInternalAPIServer(hasher, router, driver)
 }
 
+// NewLocalBlockAPIServer creates a BlockAPIServer.
 func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) { // SJ: also bad naming
 	return newLocalBlockAPIServer(dir)
 }
 
+// NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
 func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
 	return newObjBlockAPIServer(dir, objClient)
 }

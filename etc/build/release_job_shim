@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ -z $VERSION ]
+then
+        echo "No version found for this commit! Aborting release"
+        exit 1
+fi
+
+echo "--- Releasing job-shim w version: $VERSION"
+
+make docker-push-job-shim
+docker tag pachyderm/job-shim:latest pachyderm/job-shim:v$VERSION
+docker push pachyderm/job-shim:v$VERSION
+
+echo "--- Successfully released job-shim"

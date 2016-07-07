@@ -22,8 +22,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
+// ByCreationTime is an implementation of sort.Interface which
+// sorts pps job info by creation time, ascending.
 type ByCreationTime []*ppsclient.JobInfo
 
 func (arr ByCreationTime) Len() int { return len(arr) }
@@ -31,19 +34,20 @@ func (arr ByCreationTime) Len() int { return len(arr) }
 func (arr ByCreationTime) Swap(i, j int) { arr[i], arr[j] = arr[j], arr[i] }
 
 func (arr ByCreationTime) Less(i, j int) bool {
-	if arr[i].CreatedAt == nil || arr[j].CreatedAt == nil {
+	if arr[i].Started == nil || arr[j].Started == nil {
 		return false
 	}
 
-	if arr[i].CreatedAt.Seconds < arr[j].CreatedAt.Seconds {
+	if arr[i].Started.Seconds < arr[j].Started.Seconds {
 		return true
-	} else if arr[i].CreatedAt.Seconds == arr[j].CreatedAt.Seconds {
-		return arr[i].CreatedAt.Nanos < arr[j].CreatedAt.Nanos
+	} else if arr[i].Started.Seconds == arr[j].Started.Seconds {
+		return arr[i].Started.Nanos < arr[j].Started.Nanos
 	}
 
 	return false
 }
 
+// Cmds returns a slice containing pps commands.
 func Cmds(address string) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
@@ -86,7 +90,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error connecting to pps: %v", err)
+				pkgcmd.ErrorAndExit("error connecting to pps: %v", sanitizeErr(err))
 			}
 			var buf bytes.Buffer
 			var jobReader io.Reader
@@ -96,11 +100,11 @@ The increase the throughput of a job increase the Shard paremeter.
 			} else {
 				jobFile, err := os.Open(jobPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error opening %s: %v", jobPath, err)
+					pkgcmd.ErrorAndExit("error opening %s: %v", jobPath, err)
 				}
 				defer func() {
 					if err := jobFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("Error closing%s: %v", jobPath, err)
+						pkgcmd.ErrorAndExit("error closing%s: %v", jobPath, err)
 					}
 				}()
 				jobReader = io.TeeReader(jobFile, &buf)
@@ -110,17 +114,17 @@ The increase the throughput of a job increase the Shard paremeter.
 			s, err := replaceMethodAliases(decoder)
 			if err != nil {
 				err = describeSyntaxError(err, buf)
-				pkgcmd.ErrorAndExit("Error parsing job spec: %v", err)
+				pkgcmd.ErrorAndExit("error parsing job spec: %v", err)
 			}
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
-				pkgcmd.ErrorAndExit("Error reading from stdin: %v", err)
+				pkgcmd.ErrorAndExit("error reading from stdin: %v", err)
 			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from CreateJob: %v", err)
+				pkgcmd.ErrorAndExit("error from CreateJob: %v", sanitizeErr(err))
 			}
 			fmt.Println(job.ID)
 		},
@@ -139,13 +143,12 @@ The increase the throughput of a job increase the Shard paremeter.
 			}
 			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from InspectJob: %s", err.Error())
+				pkgcmd.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
 			if jobInfo == nil {
-				pkgcmd.ErrorAndExit("Job %s not found.", args[0])
+				pkgcmd.ErrorAndExit("job %s not found.", args[0])
 			}
-			pretty.PrintDetailedJobInfo(jobInfo)
-			return nil
+			return pretty.PrintDetailedJobInfo(jobInfo)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
@@ -174,18 +177,18 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
 			commits, err := pkgcmd.ParseCommits(args)
 			if err != nil {
 				cmd.Usage()
-				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
 			jobInfos, err := client.ListJob(pipelineName, commits)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
 			// Display newest jobs first
@@ -198,7 +201,7 @@ Examples:
 			}
 
 			if err := writer.Flush(); err != nil {
-				pkgcmd.ErrorAndExit("Error from InspectJob: %v", err)
+				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 		},
 	}
@@ -244,7 +247,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error connecting to pps: %s", err.Error())
+				pkgcmd.ErrorAndExit("error connecting to pps: %s", err.Error())
 			}
 			var buf bytes.Buffer
 			var pipelineReader io.Reader
@@ -254,7 +257,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else {
 				rawBytes, err := ioutil.ReadFile(pipelinePath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error reading file %s", pipelinePath)
+					pkgcmd.ErrorAndExit("error reading file %s", pipelinePath)
 				}
 
 				pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &buf)
@@ -268,16 +271,16 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 						break
 					}
 					err = describeSyntaxError(err, buf)
-					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
+					pkgcmd.ErrorAndExit("error parsing pipeline spec: %v", err)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
-					pkgcmd.ErrorAndExit("Error marshalling JSON into protobuf: %v", err)
+					pkgcmd.ErrorAndExit("error marshalling JSON into protobuf: %v", err)
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					&request,
 				); err != nil {
-					pkgcmd.ErrorAndExit("Error from CreatePipeline: %v", err)
+					pkgcmd.ErrorAndExit("error from CreatePipeline: %v", sanitizeErr(err))
 				}
 			}
 		},
@@ -295,13 +298,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from InspectPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("error from InspectPipeline: %s", err.Error())
 			}
 			if pipelineInfo == nil {
-				pkgcmd.ErrorAndExit("Pipeline %s not found.", args[0])
+				pkgcmd.ErrorAndExit("pipeline %s not found.", args[0])
 			}
-			pretty.PrintDetailedPipelineInfo(pipelineInfo)
-			return nil
+			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
 		}),
 	}
 
@@ -316,7 +318,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from ListPipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("error from ListPipeline: %s", err.Error())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
@@ -337,7 +339,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return err
 			}
 			if err := client.DeletePipeline(args[0]); err != nil {
-				pkgcmd.ErrorAndExit("Error from DeletePipeline: %s", err.Error())
+				pkgcmd.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
@@ -369,12 +371,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("Error opening %s: %v", specPath, err)
+					pkgcmd.ErrorAndExit("error opening %s: %v", specPath, err)
 				}
 
 				defer func() {
 					if err := specFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("Error closing%s: %v", specPath, err)
+						pkgcmd.ErrorAndExit("error closing%s: %v", specPath, err)
 					}
 				}()
 
@@ -383,11 +385,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				s, err := replaceMethodAliases(decoder)
 				if err != nil {
 					err = describeSyntaxError(err, buf)
-					pkgcmd.ErrorAndExit("Error parsing pipeline spec: %v", err)
+					pkgcmd.ErrorAndExit("error parsing pipeline spec: %v", err)
 				}
 
 				if err := jsonpb.UnmarshalString(s, request); err != nil {
-					pkgcmd.ErrorAndExit("Error reading from stdin: %v", err)
+					pkgcmd.ErrorAndExit("error reading from stdin: %v", err)
 				}
 			}
 
@@ -396,7 +398,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("Error from RunPipeline: %v", err)
+				pkgcmd.ErrorAndExit("error from RunPipeline: %v", err)
 			}
 			fmt.Println(job.ID)
 			return nil
@@ -503,4 +505,12 @@ func replaceMethodAliases(decoder *json.Decoder) (string, error) {
 	}
 
 	return pipeline.String(), nil
+}
+
+func sanitizeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return errors.New(grpc.ErrorDesc(err))
 }

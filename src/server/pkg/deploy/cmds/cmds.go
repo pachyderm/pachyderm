@@ -10,6 +10,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+// DeployCmd returns a cobra command for deploying a pachyderm cluster.
 func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string
@@ -36,21 +37,22 @@ func DeployCmd() *cobra.Command {
 				switch args[0] {
 				case "amazon":
 					if len(args) != 6 && len(args) != 8 {
-						return fmt.Errorf("Expected 6 or 8 args, got %d", len(args))
+						return fmt.Errorf("expected 6 or 8 args, got %d", len(args))
 					}
-					assets.WriteAmazonAssets(os.Stdout, uint64(shards), args[1], args[2], args[3], args[4], args[5], volumeName, volumeSize)
+					assets.WriteAmazonAssets(os.Stdout, uint64(shards), args[1], args[2], args[3], args[4],
+						args[5], volumeName, volumeSize, version)
 				case "google":
 					if len(args) != 2 && len(args) != 4 {
-						return fmt.Errorf("Expected 2 or 4 args, got %d", len(args))
+						return fmt.Errorf("expected 2 or 4 args, got %d", len(args))
 					}
-					assets.WriteGoogleAssets(os.Stdout, uint64(shards), args[1], volumeName, volumeSize)
+					assets.WriteGoogleAssets(os.Stdout, uint64(shards), args[1], volumeName, volumeSize, version)
 				}
 			}
 			return nil
 		}),
 	}
 	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
-	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally; by default, a directory under /tmp is used")
+	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "The version of pachd images to use. E.g. v1.0.0-849")
 	return cmd
 }

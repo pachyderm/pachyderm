@@ -5,16 +5,26 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/net/context"
+
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
+// PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
+
+// PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
+
+// BlockAPIClient is an alias for pfs.BlockAPIClient.
 type BlockAPIClient pfs.BlockAPIClient
 
+// An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
@@ -46,6 +56,24 @@ func NewInCluster() (*APIClient, error) {
 	}
 
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
+}
+
+// DeleteAll deletes everything in the cluster.
+// Use with caution, there is no undo.
+func (c APIClient) DeleteAll() error {
+	if _, err := c.PpsAPIClient.DeleteAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	if _, err := c.PfsAPIClient.DeleteAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
 }
 
 func sanitizeErr(err error) error {

@@ -10,6 +10,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+// RunWorkload runs a test workload against a Pachyderm cluster.
 func RunWorkload(
 	client *client.APIClient,
 	rand *rand.Rand,
@@ -202,6 +203,7 @@ type reader struct {
 	bytes int
 }
 
+// NewReader returns a Reader which generates strings of characters.
 func NewReader(rand *rand.Rand, bytes int) io.Reader {
 	return &reader{
 		rand:  rand,

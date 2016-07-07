@@ -7,6 +7,7 @@ type DAG struct {
 	leaves   map[string]bool
 }
 
+// NewDAG creates a DAG and populates it with the given nodes.
 func NewDAG(nodes map[string][]string) *DAG {
 	result := &DAG{
 		parents:  make(map[string][]string),
@@ -19,6 +20,7 @@ func NewDAG(nodes map[string][]string) *DAG {
 	return result
 }
 
+// NewNode adds a node to d.
 func (d *DAG) NewNode(id string, parents []string) {
 	d.parents[id] = parents
 	for _, parentID := range parents {
@@ -40,6 +42,7 @@ func (d *DAG) Sorted() []string {
 	return result
 }
 
+// Leaves returns a slice containing all leaves in d.
 func (d *DAG) Leaves() []string {
 	var result []string
 	for id, isLeaf := range d.leaves {
@@ -51,6 +54,8 @@ func (d *DAG) Leaves() []string {
 	return result
 }
 
+// Ancestors returns a slice containing all ancestors of a node, 'id',
+// in d which are a descendant of at least one of the nodes in 'from'.
 func (d *DAG) Ancestors(id string, from []string) []string {
 	seen := make(map[string]bool)
 	for _, fromID := range from {
@@ -59,6 +64,8 @@ func (d *DAG) Ancestors(id string, from []string) []string {
 	return dfs(id, d.parents, seen)
 }
 
+// Descendants returns a slice containing all descendants of a node, 'id',
+// in d which are an ancestor of at least one of the nodes in 'to'.
 func (d *DAG) Descendants(id string, to []string) []string {
 	seen := make(map[string]bool)
 	for _, toID := range to {
