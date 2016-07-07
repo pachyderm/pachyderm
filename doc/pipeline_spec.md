@@ -172,3 +172,40 @@ When the pipeline runs, the input and output commit IDs are exposed via environm
     - `$PACH_FOO_COMMIT_ID`
     - `$PACH_BAR_COMMIT_ID`
 
+## Custom Chunked Data
+
+Data is exposed to each job via the FUSE mount at `/pfs`. Your job will write its output to `/pfs/out`
+
+By default, the data is line delimited and stored internally as a block of no more than ~8MBs. This means that your data will never be broken up within any line.
+
+This is important because this also determines the granularity of how the data is exposed as an input. Specifically, during a `map` job, each container will see a slice of your data file. That slice will be one or more Blocks.
+
+But line delimiting doesn't make sense for JSON or binary data.
+
+### JSON Delimiting
+
+For JSON data, you might have input like this:
+
+```
+{
+    "foo": "bar",
+    "bax": "baz"
+}
+{
+    "foo": "cat",
+    "bax": "dog"
+}
+```
+
+You can see quickly how line delimiting will not work. If a block happens to terminate not at the end of a JSON object, the result during a `map` job will be a partial / invalid JSON object.
+
+To enable delimiting by JSON, just add the suffix `.json` to your filename when you write the output to `/pfs/out`. Supplying the suffix tells PFS to delimit by JSON objects, and guarantees that blocks won't truncate any JSON object.
+
+### Binary Delimiting
+
+Another common use case is writing binary data. In this case, in addition to not wanting to delimit by line (because that may truncate the binary data in a way that makes it invalid), you may want to store binary data of size larger than 8MB.
+
+To enable delimiting by binary blob, just add the `.bin` suffix to your filename you write to `/pfs/out`.
+
+We enable this by treating every single write to that file as a separate block, no matter what the size. E.g. if you open `/pfs/out/foo.bin` and within your code write to it several times, each time you write the data will be treated as a separate block. This guarantees that a `map` job consuming your data will always see it at least at the granularity you have provided by your writes.
+
