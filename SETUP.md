@@ -302,6 +302,14 @@ Ready to jump into data analytics with Pachyderm?  Head to our [quick start guid
 
 ## Trouble Shooting
 
+### On first deployment of pachd, see CrashLoopBackoff errors
+
+This is usually normal. Until the rethink service comes up and the `pachd` pods can connect, they will crash and backoff. It usually takes about a minute for the cluster to come up. The first time may be longer since docker will need to download some new images.
+
+### Using a custom manifest you see out of date features
+
+It's likely that you need to update the `imagePullPolicy` field(s) for `pachyderm/pachd`. The new default is `Always` so if you're trying to use newly compiled versions, it will pull the version released on Docker Hub (almost certainly older than what is in the repo), so you should set it to `IfNotPresent`
+
 ### pachd or pachd-init crash loop with "error connecting to etcd"
 
 This error normally occurs due to Kubernetes services not function because the
