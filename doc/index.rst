@@ -11,7 +11,23 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+* :ref:`installation`
+* :ref:`deployment`
+* :ref:`pachctl`
+* :ref:`go-client`
+* :ref:`examples`
+* :ref:`changelog`
+* :ref:`faq`
+* :ref:`troubleshooting`
 
+
+.. _installation:
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Getting Started
+
+    installation
 
 Indices and tables
 ==================
