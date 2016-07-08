@@ -1,36 +1,10 @@
 ## Schema
 
-### CommitInfo
+`table` means a database table.
+`object` means a JSON object.
+`set<string>` can be simulated with map<string, bool> in JSON.
 
-message CommitInfo {
-  Commit commit = 1;
-  string branch = 2;
-  CommitType commit_type = 3;
-  Commit parent_commit = 4;
-  google.protobuf.Timestamp started = 5;
-  google.protobuf.Timestamp finished = 6;
-  uint64 size_bytes = 7;
-  bool cancelled = 8;
-  repeated Commit provenance = 9;
-}
-
-message DiffInfo {
-  Diff diff = 1;
-  Commit parent_commit = 2;
-  string branch = 3;
-  google.protobuf.Timestamp started = 4;
-  google.protobuf.Timestamp finished = 5;
-  // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, Append> appends = 6;
-  uint64 size_bytes = 7;
-  bool cancelled = 8;
-  repeated Commit provenance = 9;
-}
-
----------------------
-
-## Schema
-
+```
 object DirAppend {
   set<string> children;
   bool delete;
@@ -75,8 +49,11 @@ table Commit {
   Timestamp finished;
   arr<string> provenance;  // commit IDs, topologically sorted
 }
+```
 
 ## Code
+
+`Table.Put` means putting a document into the table.
 
 ### StartCommit(repoName, parentCommitID = null, branch = null)
 
