@@ -6,8 +6,7 @@
 Pachyderm Developer Documentation
 =================================
 
-.. _pachctl: pachctl
-
+.. _Go Client: https://godoc.org/github.com/pachyderm/pachyderm/src/client
 .. Example Links:
 .. _Fruit Stand: https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand
 .. _Web Scraper: https://github.com/pachyderm/pachyderm/tree/master/examples/scraper
@@ -18,13 +17,13 @@ Getting Started
 ---------------
 
 * :doc:`installation`
-* :ref:`deployment`
+* :ref:`deploying`
 * :ref:`examples`
 * :ref:`troubleshooting`
-* :ref:`faq`
+* :doc:`FAQ`
 * :doc:`pachctl`
-* :ref:`go-client`
-* :ref:`changelog`
+* `Go Client`_
+* :doc:`../CHANGELOG`
 
 .. _deploying:
 
