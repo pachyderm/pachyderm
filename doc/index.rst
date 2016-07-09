@@ -6,30 +6,25 @@
 Pachyderm Developer Documentation
 =================================
 
+.. _pachctl: pachctl
+
+.. Example Links:
 .. _Fruit Stand: https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand
-.. _Web Scraper: https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand
-.. _Tensor Flow: https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand
-.. _Word Count: https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand
+.. _Web Scraper: https://github.com/pachyderm/pachyderm/tree/master/examples/scraper
+.. _Tensor Flow: https://github.com/pachyderm/pachyderm/tree/master/examples/tensor_flow
+.. _Word Count: https://github.com/pachyderm/pachyderm/tree/master/examples/word_count
 
 Getting Started
 ---------------
 
-* :ref:`installation`
+* :doc:`installation`
 * :ref:`deployment`
 * :ref:`examples`
 * :ref:`troubleshooting`
 * :ref:`faq`
-* :ref:`pachctl`
+* :doc:`pachctl`
 * :ref:`go-client`
 * :ref:`changelog`
-
-.. _installation:
-
-.. toctree::
-    :maxdepth: 2
-    :caption: Installation
-
-    installation
 
 .. _deploying:
 
@@ -49,6 +44,7 @@ Getting Started
 - `Web Scraper`_
 - `Word Count`_
 - `Tensor Flow`_
+
 
 Indices and tables
 ==================
