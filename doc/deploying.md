@@ -1,4 +1,6 @@
-# Setup
+# Deploying
+
+If you're evaluating Pachyderm and want the quickest hosting option, we recommend using Google's GCE. You already have credentials (if you have a gmail account), and our setup script is quick.
 
 ## Intro
 
@@ -9,61 +11,12 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically
 * [AWS](#amazon-web-services-aws)
 * [OpenShift](#openshift)
 
-Each section starts with deploying Kubernetes on the said platform, and then moves on to deploying Pachyderm on Kubernetes.  If you have already set up Kubernetes on your platform, you may directly skip to the second part.
-
-## Common Prerequisites
-
-- [Go](#go) >= 1.6
-- [FUSE (optional)](#fuse-optional) >= 2.8.2
-- [Kubectl (kubernetes CLI)](#kubectl) >= 1.2.2
-- [Pachyderm Repository](#pachyderm)
-- [pachctl and pach-deploy](#pachctl-and-pach-deploy)
-
-### Go
-
-Find Go 1.6 [here](https://golang.org/doc/install).
-
-### FUSE (optional)
-
-Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS.
-
-FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X FUSE](https://osxfuse.github.io/)
-
-### Kubectl
-
-Make sure you have version 1.2.2 or higher.
-
-```shell
-### Darwin (OS X)
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/darwin/amd64/kubectl
-
-### Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linux/amd64/kubectl
-
-### Copy kubectl to your path
-chmod +x kubectl
-mv kubectl /usr/local/bin/
-```
-
-### Pachyderm
-
-Clone this repo under your `GOPATH`:
-
-```shell
-# this will put the repo under $GOPATH/src/github.com/pachyderm/pachyderm
-$ go get github.com/pachyderm/pachyderm
-```
-
-### pachctl and pach-deploy
-
-`pachctl` and `pach-deploy` and command-line utilities that Pachyderm provides.  You can install them directly from source:
-
-```shell
-$ cd $GOPATH/src/github.com/pachyderm/pachyderm
-$ make install
-```
-
 ## Local Deployment
+
+If you have docker running, you can run kubernetes right off of docker. If you don't, consider checking out:
+
+- minikube (TODO / link)
+- or use one of the [Deployment Options](./deploying.md) to host the Docker daemon.
 
 ### Prerequisites
 
@@ -97,6 +50,7 @@ $ make launch
 ```
 
 This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
+
 
 ## Google Cloud Platform
 
@@ -241,60 +195,6 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 2. Remove `hostPath` everywhere from your cluster manifest (e.g. `etc/kube/pachyderm-versioned.json` if you are deploying locally).
 
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
-
-## pachctl
-
-`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
-
-### Installation
-
-#### Homebrew
-
-```shell
-$ brew tap pachyderm/tap && brew install pachctl
-```
-
-#### Deb Package
-
-If you're on linux 64 bit amd, you can use our pre-built deb package like so:
-
-```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
-```
-
-#### From Source
-
-To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
-
-```shell
-$ go get github.com/pachyderm/pachyderm
-$ cd $GOPATH/src/github.com/pachyderm/pachyderm
-$ make install
-```
-
-Make sure you add `GOPATH/bin` to your `PATH` env variable:
-
-```shell
-$ export PATH=$PATH:$GOPATH/bin
-```
-
-### Usage
-
-If Pachyderm is running locally, you are good to go.  Otherwise, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
-
-```shell
-$ export ADDRESS=[the IP address of the node where Pachyderm runs]:30650
-# for example:
-# export ADDRESS=104.197.179.185:30650
-```
-
-Now, create an empty repo to make sure that everything has been set up correctly:
-
-```shell
-pachctl create-repo test
-pachctl list-repo
-# should see "test"
-```
 
 ## Next Step
 
