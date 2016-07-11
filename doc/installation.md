@@ -7,13 +7,15 @@
 - [pachctl Command Line Interface](#pachctl)
 - [Pachyderm Repository](#pachyderm)
 
-### FUSE (optional)
+## FUSE (optional)
 
 Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS.
 
 FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X FUSE](https://osxfuse.github.io/)
 
-### Kubectl
+---
+
+## Kubectl
 
 Make sure you have version 1.2.2 or higher.
 
@@ -29,7 +31,9 @@ chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
 
-### pachctl
+---
+
+## pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -83,7 +87,9 @@ pachctl list-repo
 # should see "test"
 ```
 
-### Pachyderm
+---
+
+## Pachyderm
 
 Even if you haven't installed pachctl from source, you'll need some make tasks located in the pachyderm repositoriy. If you haven't already cloned the repo, do so:
 

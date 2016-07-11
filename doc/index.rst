@@ -19,7 +19,7 @@ Getting Started
 * :doc:`installation`
 * :ref:`deploying`
 * :ref:`examples`
-* :ref:`troubleshooting`
+* :doc:`troubleshooting`
 * :doc:`FAQ`
 * :doc:`pachctl`
 * `Go Client`_
