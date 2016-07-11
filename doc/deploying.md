@@ -1,8 +1,7 @@
-# Deploying
 
 If you're evaluating Pachyderm and want the quickest hosting option, we recommend using Google's GCE. You already have credentials (if you have a gmail account), and our setup script is quick.
 
-## Intro
+# Intro
 
 Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically Pachyderm can run on any platform that Kubernetes supports.  This guide covers the following commonly used platforms:
 
@@ -11,18 +10,18 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically
 * [AWS](#amazon-web-services-aws)
 * [OpenShift](#openshift)
 
-## Local Deployment
+# Local Deployment
 
 If you have docker running, you can run kubernetes right off of docker. If you don't, consider checking out:
 
 - minikube (TODO / link)
 - or use one of the [Deployment Options](./deploying.md) to host the Docker daemon.
 
-### Prerequisites
+## Prerequisites
 
 - [Docker](https://docs.docker.com/engine/installation) >= 1.10
 
-### Port Forwarding
+## Port Forwarding
 
 Both kubectl and pachctl need a port forwarded so they can talk with their servers.  If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
 
@@ -31,7 +30,7 @@ Both kubectl and pachctl need a port forwarded so they can talk with their serve
 $ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
 ```
 
-### Deploy Kubernetes
+## Deploy Kubernetes
 
 From the root of this repo you can deploy Kubernetes with:
 
@@ -41,7 +40,7 @@ $ make launch-kube
 
 This step can take a while the first time you run it, since some Docker images need to be pulled.
 
-### Deploy Pachyderm
+## Deploy Pachyderm
 
 From the root of this repo you can deploy Pachyderm on Kubernetes with:
 
@@ -52,11 +51,11 @@ $ make launch
 This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
 
 
-## Google Cloud Platform
+# Google Cloud Platform
 
 Google Cloud Platform has excellent support for Kubernetes through the [Google Container Engine](https://cloud.google.com/container-engine/).
 
-### Prerequisites
+## Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 106.0.0
 
@@ -68,7 +67,7 @@ After the SDK is installed, run:
 $ gcloud components install kubectl
 ```
 
-### Set up the infrastructure
+## Set up the infrastructure
 
 Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
 
@@ -99,7 +98,7 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Deploy Pachyderm
+## Deploy Pachyderm
 
 First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
 
@@ -126,20 +125,20 @@ $ make MANIFEST=manifest launch
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
-## Amazon Web Services (AWS)
+# Amazon Web Services (AWS)
 
-### Prerequisites
+## Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/)
 
-### Deploy Kubernetes
+## Deploy Kubernetes
 
 Deploying Kubernetes on AWS is still a relatively lengthy and manual process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
 
 * http://kubernetes.io/docs/getting-started-guides/aws/
 * https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
 
-### Set up the infrastructure
+## Set up the infrastructure
 
 First of all, set these environment variables:
 
@@ -170,7 +169,7 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-### Deploy Pachyderm
+## Deploy Pachyderm
 
 First of all, get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
 
@@ -187,7 +186,7 @@ $ make MANIFEST=manifest launch
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
-## OpenShift
+# OpenShift
 
 [OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
 
@@ -196,13 +195,13 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
 
-## Next Step
+# Next Step
 
 Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
 
-## Trouble Shooting
+# Trouble Shooting
 
-### pachd or pachd-init crash loop with "error connecting to etcd"
+## pachd or pachd-init crash loop with "error connecting to etcd"
 
 This error normally occurs due to Kubernetes services not function because the
 kernel does not support iptables. Generally you can solve this with:

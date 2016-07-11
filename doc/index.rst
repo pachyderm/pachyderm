@@ -17,15 +17,15 @@ Getting Started
 ---------------
 
 * :doc:`installation`
-* :ref:`deploying`
-* :ref:`examples`
+* :ref:`deploying_section`
+* :ref:`examples_section`
 * :doc:`troubleshooting`
 * :doc:`FAQ`
 * :doc:`pachctl`
 * `Go Client`_
-* :doc:`../CHANGELOG`
+* :doc:`CHANGELOG`
 
-.. _deploying:
+.. _deploying_section:
 
 .. toctree::
     :maxdepth: 3
@@ -33,7 +33,7 @@ Getting Started
 
     deploying
 
-.. _examples:
+.. _examples_section:
 
 .. toctree::
     :maxdepth: 1
