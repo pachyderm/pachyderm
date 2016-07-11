@@ -94,7 +94,16 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 			retErr = err
 		}
 	}()
-	reader := io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
+	var reader io.Reader
+	if request.SizeBytes == 0 {
+		_, err = file.Seek(request.OffsetBytes, 0)
+		if err != nil {
+			return err
+		}
+		reader = file
+	} else {
+		reader = io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
+	}
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
