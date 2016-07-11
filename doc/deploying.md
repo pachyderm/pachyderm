@@ -195,24 +195,14 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
 
-# Next Step
+# Usage Metrics
+
+Pachyderm automatically reports anonymized usage metrics. These metrics help us
+understand how people are using Pachyderm and make it better.  They can be
+disabled by setting the env variable `METRICS` to `false` in the pachd
+container.
+
+# Next
 
 Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
 
-# Trouble Shooting
-
-## pachd or pachd-init crash loop with "error connecting to etcd"
-
-This error normally occurs due to Kubernetes services not function because the
-kernel does not support iptables. Generally you can solve this with:
-
-```
-modprobe netfilter_xt_match_statistic netfilter_xt_match_recent
-```
-
-However in other cases it may require recompiling the kernel.  Please head to
-[this issue](https://github.com/pachyderm/pachyderm/issues/458) if you're
-having trouble with this so we can collect solutions to the problem in one
-place.
-
-We'll update this section of the guid as we learn more about this issue.
