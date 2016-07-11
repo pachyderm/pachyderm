@@ -16,6 +16,21 @@ Pachyderm Developer Documentation
 Getting Started
 ---------------
 
+Already got a kubernetes cluster? Use it to create a pachyderm cluster:
+
+```sh
+$ kubectl create -f https://pachyderm.io/manifest.json
+```
+
+(You'll still need to install :doc:`pachctl`, our CLI)
+
+If you don't have a kubernetes cluster setup, check out our :doc:`installation` instructions.
+
+If you've never used Pachyderm before you should look at the `Fruit Stand`_ example. 
+
+---
+
+* :ref:`about_section`
 * :doc:`installation`
 * :ref:`deploying_section`
 * :ref:`examples_section`
@@ -24,6 +39,14 @@ Getting Started
 * :doc:`pachctl`
 * `Go Client`_
 * :doc:`CHANGELOG`
+
+.. _about_section:
+
+.. toctree::
+    :maxdepth: 2
+    :caption: About
+
+    about
 
 .. _deploying_section:
 

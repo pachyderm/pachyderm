@@ -97,3 +97,8 @@ Even if you haven't installed pachctl from source, you'll need some make tasks l
 $ git clone git@github.com:pachyderm/pachyderm
 ```
 
+---
+
+## Next
+
+Now that you have the command line interface installed, [deploy your pachyderm cluster](./deploying.html)
