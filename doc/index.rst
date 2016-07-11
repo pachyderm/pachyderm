@@ -28,25 +28,27 @@ If you don't have a kubernetes cluster setup, check out our :doc:`installation` 
 
 If you've never used Pachyderm before you should look at the `Fruit Stand`_ example. 
 
----
+__
 
-* :ref:`about_section`
+
+User Documentation
+******************
+
+* :doc:`about`
 * :doc:`installation`
 * :ref:`deploying_section`
 * :ref:`examples_section`
 * :doc:`troubleshooting`
 * :doc:`FAQ`
+
+Feature Documentation
+*********************
+
+* :doc:`pachyderm_file_system`
+* :doc:`pachyderm_pipeline_system`
 * :doc:`pachctl`
 * `Go Client`_
 * :doc:`CHANGELOG`
-
-.. _about_section:
-
-.. toctree::
-    :maxdepth: 2
-    :caption: About
-
-    about
 
 .. _deploying_section:
 
