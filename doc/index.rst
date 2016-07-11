@@ -18,11 +18,9 @@ Getting Started
 
 Already got a kubernetes cluster? Use it to create a pachyderm cluster:
 
-```sh
-$ kubectl create -f https://pachyderm.io/manifest.json
-```
+``$ kubectl create -f https://pachyderm.io/manifest.json``
 
-(You'll still need to install :doc:`pachctl`, our CLI)
+(You'll still need to install :doc:`pachctl`)
 
 If you don't have a kubernetes cluster setup, check out our :doc:`installation` instructions.
 
