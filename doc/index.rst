@@ -70,10 +70,3 @@ Feature Documentation
 - `Tensor Flow`_
 
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
