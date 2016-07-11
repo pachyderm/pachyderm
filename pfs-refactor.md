@@ -65,9 +65,11 @@ The code is all pseudocode.
 
 * `Table.Operation` means a database operation on a table.
 
-### GetHistory(commitID, fromCommitID = null)
+### Histroy(toCommit, fromCommit = null)
 
-Given a commitID and a fromCommitID, `GetHistory` returns all commits between the two commits.
+`History(to, from)` returns all commits between the two commits, including both commits themselves.
+
+To motivate the design of `History`, let's talk about what a trivial design would look like.  We could have a `parentCommit` field in the `Commit` table.  Then, `History` can be trivially implemented by following the `parentCommit` pointer.  However, this would result in O(N) queries to the database, where N is the number of commits in the history.  Furthermore, these queries can't be parallelized since you need to get your immediate parent before you can get the parent's parent.
 
 In our schema, each commit carries an immutable `branch_vector`, which is similar to a [vector clock](https://en.wikipedia.org/wiki/Vector_clock) of branches.  Concretely, we assign `branch_vector` to commits using the following rules:
 
@@ -99,6 +101,8 @@ func extract(bv):
 Define E(X) as extract(bv) where bv is x's branch vector.  The following property holds:
 
     The ancestors of X are simply all the commits whose `branch_vector`s are smaller than at least one element in E(x).  
+
+`extract` returns O(M) `branch_vector`s where M is the number of branches in the history.  We can then construct O(M) queries where each query is for a branch.  These queries can be executed in parallel.
 
 ### StartCommit(repoName, parentCommitID = null, branch = null)
 
@@ -134,7 +138,7 @@ TODO
 ### InspectFile(commitID, path, fromCommitID = null)
 
 ```
-history = GetHistory(commitID, fromCommitID)
+history = History(commitID, fromCommitID)
 for commit in history:
   query += getDiff(commit, path)
 diffs = query()
