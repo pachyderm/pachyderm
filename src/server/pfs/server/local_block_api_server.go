@@ -96,7 +96,7 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 	}()
 	var reader io.Reader
 	if request.SizeBytes == 0 {
-		_, err = file.Seek(request.OffsetBytes, 0)
+		_, err = file.Seek(int64(request.OffsetBytes), 0)
 		if err != nil {
 			return err
 		}
