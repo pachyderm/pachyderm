@@ -6,7 +6,6 @@
 * `object` means a JSON object.
 * `set<string>` can be simulated with map<string, bool> in JSON.
 * `typeA | typeB` means either `typeA` or `typeB`.
-* `Table.Operation` means a database operation on a table.
 
 ### Schema
 
@@ -59,6 +58,12 @@ table Commit {
 ```
 
 ## Code
+
+### Notation
+
+The code is all pseudocode.
+
+* `Table.Operation` means a database operation on a table.
 
 ### GetHistory(commitID, fromCommitID = null)
 
