@@ -2,7 +2,6 @@ package client
 
 import (
 	"io"
-	"math"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"golang.org/x/net/context"
@@ -417,9 +416,6 @@ func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, 
 
 func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, shard *pfs.Shard, unsafe bool, handle string, writer io.Writer) error {
-	if size == 0 {
-		size = math.MaxInt64
-	}
 	apiGetFileClient, err := c.PfsAPIClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
