@@ -16,7 +16,23 @@ Pachyderm Pipeline System (PPS)
 
 ___
 
+Pachyderm Pipeline System is a parallel containerized analysis platform
 
+It is designed to:
+
+- write your analysis in any language of your choosing ([enabling Accessibility](https://pachyderm.io/dsbor.html)).
+- allow you to compose your analyses
+- allow you to reproduce your input data, your processing step, and your output data ([enabling Reproducibility](https://pachyderm.io/dsbor.html))
+- allow you to understand the [Provenance](#provenance) of your data
+
+# Primitives
+
+Pachyderm
+
+
+
+
+###################################################
 
 # Strategy
 
