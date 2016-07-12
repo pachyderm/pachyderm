@@ -25,19 +25,27 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/server/pfs/persist"
 )
 
 const (
 	shards  = 32
 	servers = 4
 
-	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+	ALPHABET       = "abcdefghijklmnopqrstuvwxyz"
+	RethinkAddress = "localhost:28015"
+	RethinkTestDB  = "pachyderm_test"
 )
 
 var (
 	port int32 = 30651
 )
+
+func Init() {
+	if err := persist.InitDB(RethinkAddress, RethinkTestDB); err != nil {
+		panic(err)
+	}
+}
 
 func TestBlock(t *testing.T) {
 	t.Parallel()
@@ -1702,7 +1710,7 @@ func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) 
 	var internalAPIServers []*internalAPIServer
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := drive.NewDriver(address)
+		driver, err := persist.NewRethinkDriver(address, RethinkAddress, RethinkTestDB)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
