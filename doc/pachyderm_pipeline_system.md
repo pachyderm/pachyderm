@@ -1,17 +1,19 @@
 Pachyderm Pipeline System (PPS)
 ===============================
 
+## Get Started
+
 To get started using Pipelines, [refer to the Pipeline Spec](./pipeline_spec.html)
 
-# Overview
+## Overview
 
 Pachyderm Pipeline System is a parallel containerized analysis platform
 
 It is designed to:
 
-1. [Write your analysis in any language of your choosing](#write-your-transform) ([enabling Accessibility](https://pachyderm.io/dsbor.html)).
-2. [Allow you to compose your analyses](#compose)
-3. [Allow you to reproduce your input data, your processing step, and your output data](#reproducing-your-analysis) ([enabling Reproducibility](https://pachyderm.io/dsbor.html))
+1. Write your analysis in any language of your choosing ([enabling Accessibility](https://pachyderm.io/dsbor.html)).
+2. Allow you to compose your analyses
+3. Allow you to reproduce your input data, your processing step, and your output data ([enabling Reproducibility](https://pachyderm.io/dsbor.html))
 4. Allow you to understand the [Provenance](#provenance) of your data
 
 ## Components
