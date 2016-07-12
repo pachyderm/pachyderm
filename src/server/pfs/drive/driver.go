@@ -23,6 +23,7 @@ func newPermissionError(repo string, commitID string) error {
 	return fmt.Errorf("commit %s/%s has already been finished", repo, commitID)
 }
 
+// IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already been finished")
 }
