@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -214,7 +214,7 @@
             "volumeMounts": [
               {
                 "name": "rethink-storage",
-                "mountPath": "/var/rethinkdb/data"
+                "mountPath": "/var/rethinkdb/"
               }
             ],
             "imagePullPolicy": "IfNotPresent"
@@ -258,7 +258,7 @@
         "containers": [
           {
             "name": "pachd-init",
-            "image": "pachyderm/pachd:v1.0.1-1433",
+            "image": "pachyderm/pachd:v1.1.0",
             "env": [
               {
                 "name": "PACH_ROOT",
@@ -345,7 +345,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:v1.0.1-1433",
+            "image": "pachyderm/pachd:v1.1.0",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -377,6 +377,10 @@
                     "fieldPath": "metadata.namespace"
                   }
                 }
+              },
+              {
+                "name": "METRICS",
+                "value": "true"
               }
             ],
             "resources": {},
