@@ -41,6 +41,7 @@ Under the hood, we store your files in sets of `Block`s. These are smaller (usua
 
 `Block`s also determine the smallest indivisible chunk of your data. When performing a `map` job, each `File` is seen by multiple containers. Each container sees one or more `Block`s of a file.
 
+This is important because this also determines the granularity of how the data is exposed as an input. Specifically, during a `map` job, each container will see a slice of your data file. That slice will be one or more Blocks.
 ## Block Delimiters
 
 For certain data types (binary blobs or JSON objects), making sure that your data is divided _correctly_ into indivisible chunks is important. Doing this with PFS is straightforward. 
@@ -49,7 +50,23 @@ For certain data types (binary blobs or JSON objects), making sure that your dat
 
 By default, data is line delimited and a single Block consists of 8MBs worth of lines.
 
+By default, the data is line delimited and stored internally as a block of no more than ~8MBs. This means that your data will never be broken up within any line.
 ### JSON
+
+For JSON data, you might have input like this:
+
+```
+{
+    "foo": "bar",
+    "bax": "baz"
+}
+{
+    "foo": "cat",
+    "bax": "dog"
+}
+```
+
+You can see quickly how line delimiting will not work. If a block happens to terminate not at the end of a JSON object, the result during a `map` job will be a partial / invalid JSON object.
 
 To make sure your JSON data is delimited correctly, just make sure the file in question has a `.json` suffix. This tells PFS that the data being stored is JSON, and each `Block` consists of whole JSON objects and can be up to 8MB
 
@@ -57,7 +74,7 @@ To make sure your JSON data is delimited correctly, just make sure the file in q
 
 Since binary data doesn't always have a static size, and can be quite large, delimiting binary data works a bit different.
 
-This time, each write you do to a file (either via the CLI or literally a write syscall to the PFS mount) will determine a whole `Block` no matter what the size.
+We enable this by treating every single write to that file as a separate block, no matter what the size. E.g. if you open `/pfs/out/foo.bin` and within your code write to it several times, each time you write the data will be treated as a separate block. This guarantees that a `map` job consuming your data will always see it at least at the granularity you have provided by your writes.
 
 To require PFS to delimit blocks in this fashion, make sure your file as the `.bin` suffix.
 
