@@ -2,14 +2,11 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-message DirAppend {
-  map<string, bool> children = 1;
-  bool delete = 2;
-}
-
-message FileAppend {
+message Append {
+  // only one of these fields can be non-null
   repeated string blockrefs = 1;
-  bool delete = 2;
+  map<string, bool> children = 2;
+  bool delete = 3;
 }
 
 message BranchClock {
@@ -34,9 +31,8 @@ message Diff {
   string commit_id = 2;
   string path = 3;
   FileType file_type = 4;
-  repeated DirAppend dir_appends = 5;
-  repeated FileAppend file_appends = 6;
-  uint64 size = 7;
+  repeated Append appends = 5;
+  uint64 size = 6;
 }
 
 message Commit {
