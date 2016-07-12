@@ -1,65 +1,57 @@
 Pachyderm Pipeline System (PPS)
 ===============================
 
-- Primitives
-  - job
-    - mounting settings / access
-      - mounting repo -- incremental vs noy
-    - environment variables
-  - pipeline
-    - images / hosting / private / etc
-    - parallelism
-    - strategies / partitn w examples!
-- Provenance
-- Debugging tools
-- Scaling
+To get started using Pipelines, [refer to the Pipeline Spec](./pipeline_spec.html)
 
-___
+# Overview
 
 Pachyderm Pipeline System is a parallel containerized analysis platform
 
 It is designed to:
 
-- write your analysis in any language of your choosing ([enabling Accessibility](https://pachyderm.io/dsbor.html)).
-- allow you to compose your analyses
-- allow you to reproduce your input data, your processing step, and your output data ([enabling Reproducibility](https://pachyderm.io/dsbor.html))
-- allow you to understand the [Provenance](#provenance) of your data
+1. [Write your analysis in any language of your choosing](#write-your-transform) ([enabling Accessibility](https://pachyderm.io/dsbor.html)).
+2. [Allow you to compose your analyses](#compose)
+3. [Allow you to reproduce your input data, your processing step, and your output data](#reproducing-your-analysis) ([enabling Reproducibility](https://pachyderm.io/dsbor.html))
+4. Allow you to understand the [Provenance](#provenance) of your data
 
-# Primitives
+## Components
 
-Pachyderm
+PPS has two components, and understand each gives you a full picture of PPS.
 
+### Job
 
+Jobs are transformations that are only run once.
 
+Broadly, they take the following inputs:
 
-###################################################
+- a transformation image ([refer here](./deploying.html#generating-your-custom-image) for instructions on creating your own image)
+  - and an entry point to run the transformation
+  - some other configuration options about how to run the job (parallelism / partitioning strategy)
+- at least one PFS `Repo` containing some data
+  - a `Commit` ID per input repo
 
-# Strategy
+When creating a job, PPS:
 
-Map vs Reduce
+- creates an output `Repo` w the same name as the job
+- uses kubernetes to spin up containers w the image you specify, in the configuration you specify
+- mounts the input `Repo` at the `Commit` specified at `/pfs/your_repo_name` for use by your code on that container
+- mounts `/pfs/out` for writing output, which is connected to the newly created output `Repo`
+- runs the containers w the entry point you provided
+- the output is stored in a new commit on the new output `Repo`
 
-# Incrementality
+### Pipeline
 
-Determines how the input repo is mounted. 
+Pipelines are configured once, but run every time new data is present in the form of a new `Commit` on any of their input `Repo`s. You can think of them as long running jobs.
 
+For detailed instructions on pipelines, [refer to the pipeline spec](./pipeline_spec.html)
 
+## Provenance
 
+You'll be using and composing pipelines frequently with PPS. Quickly, you're going to want to understand how your outputs are related to the inputs.
 
-### On a PPS Job
+[Refer to the flush-commit](./pachctl/pachctl_flush-commit.html) docs for specifics on how to track provenance.
 
-On a [PPS Job](#pachyderm_pipeline_system.html#Job) your files are mounted a bit differently.
+## Debugging tools
 
-
-- where its mounted
-- conventions about output/input
-- how your data is exposed
-
-
-## Flash-crowd behavior
-
-In distributed systems, a flash-crowd behavior occurs when a large number of nodes send traffic to a particular node in an uncoordinated fashion, causing the node to become a hotspot, resulting in performance degradation.
-
-To understand how such a behavior can occur in Pachyderm, it's important to understand the way requests are sharded in a Pachyderm cluster.  Pachyderm currently employs a simple sharding scheme that shards based on file names.  That is, requests pertaining to a certain file will be sent to a specific node.  As a result, if you have a number of nodes processing a large dataset in parallel, it's advantageous for them to process files in a random order.
-
-For instance, imagine that you have a dataset that contains `file_A`, `file_B`, and `file_C`, each of of which is 1TB in size.  Now, each of your nodes will get a portion of each of these files.  If your nodes independently start processing files in alphanumeric order, they will all start with `file_A`, causing all traffic to be sent to the node that handles `file_A`.  In contrast, if your nodes process files in a random order, traffic will be distributed between three nodes.
+Beyond provenance, your primary triaging tool is [pachctl's logs](./pachctl/pachctl_get-logs.html). This allows you to see the output per `Job` / `Pipeline`
 
