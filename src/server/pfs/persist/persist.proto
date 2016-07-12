@@ -3,15 +3,17 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 
 message Append {
-  // only one of these fields can be non-null
+  // a document only has one of these fields
   repeated string blockrefs = 1;
   map<string, bool> children = 2;
   bool delete = 3;
 }
 
 message BranchClock {
+  // a document either has these two fields 
   string name = 1;
   uint64 clock = 2;
+  // or this field, but not both
   repeated BranchClock clock = 3;
 }
 
