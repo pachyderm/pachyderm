@@ -1284,7 +1284,7 @@ type fileReader struct {
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
-	size_read   int64 // how much data has been read
+	sizeRead    int64 // how much data has been read
 	ctx         context.Context
 	cancel      context.CancelFunc
 }
@@ -1328,11 +1328,11 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	if err == io.EOF {
 		r.reader = nil
 	}
-	r.size_read += int64(size)
-	if r.size_read == r.size {
+	r.sizeRead += int64(size)
+	if r.sizeRead == r.size {
 		return size, io.EOF
 	}
-	if r.size > 0 && r.size_read > r.size {
+	if r.size > 0 && r.sizeRead > r.size {
 		return 0, fmt.Errorf("read more than we need; this is likely a bug")
 	}
 	return size, nil
