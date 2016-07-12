@@ -3,6 +3,11 @@ package persist
 import (
 	"time"
 
+	"google.golang.org/grpc"
+
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+
 	"github.com/dancannon/gorethink"
 )
 
@@ -26,6 +31,8 @@ const (
 	diffTable         Table = "Diffs"
 	diffCommitIDIndex Index = "DiffCommitIDIndex"
 	diffPathIndex     Index = "DiffPathIndex"
+
+	connectTimeoutSeconds = 5
 )
 
 var (
@@ -60,8 +67,37 @@ var (
 	}
 )
 
+type driver struct {
+	blockAddress string
+	blockClient  pfs.BlockAPIClient
+
+	dbAddress string
+	dbName    string
+	dbClient  *gorethink.Session
+}
+
+func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
+	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	dbClient, err := dbConnect(dbAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return &driver{
+		blockAddress: blockAddress,
+		blockClient:  pfs.NewBlockAPIClient(clientConn),
+		dbAddress:    dbAddress,
+		dbName:       dbName,
+		dbClient:     dbClient,
+	}, nil
+}
+
 func InitDB(address string, databaseName string) error {
-	session, err := connect(address)
+	session, err := dbConnect(address)
 	if err != nil {
 		return err
 	}
@@ -96,7 +132,7 @@ func InitDB(address string, databaseName string) error {
 	return nil
 }
 
-func connect(address string) (*gorethink.Session, error) {
+func dbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,

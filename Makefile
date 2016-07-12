@@ -287,6 +287,13 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
+run-rethinkdb:
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 rethinkdb:2.2.6 
+	sleep 10  # wait for rethinkdb to start up
+
+stop-rethinkdb:
+	docker stop  pachyderm-test-rethinkdb
+
 .PHONY:
 	all \
 	version \
@@ -347,4 +354,6 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build
+	goxc-build \
+	run-rethinkdb \
+	stop-rethinkdb
