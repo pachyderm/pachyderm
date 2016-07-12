@@ -1,5 +1,11 @@
 # Release procedure
 
+NOTE! At the moment, we require the release script to be run on an ubuntu machine.
+
+This is because of a dependency on CGO via [this bug](https://github.com/opencontainers/runc/issues/841)
+
+(We don't want to enable CGO in part because it doesn't play nice w OSX for us)
+
 ## Requirements:
 
 You'll need the following credentials / tools:

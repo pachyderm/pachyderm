@@ -10,7 +10,7 @@ if [ $? -eq 0 ]; then
 		echo "Missing version information. Exiting."
 		exit 1
 	fi
-	git tag | grep "$VERSION"
+	git tag | grep "v$VERSION\$"
 	if [ $? -eq 0 ]
 	then
 		echo "Tag $VERSION already exists. Exiting"
