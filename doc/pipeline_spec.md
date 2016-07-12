@@ -1,6 +1,8 @@
 # Pipeline Specification
 
-## Format
+This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](./pachctl/pachctl_create-pipeline.html) doc.
+
+## JSON Manifest Format
 
 ```
 {
@@ -31,7 +33,11 @@
 }
 ```
 
+### Name
+
 `pipeline.name` is the name of the pipeline that you are creating.  Each pipeline needs to have a unique name.
+
+### Transform
 
 `transform.image` is the name of the Docker image that your jobs run in.  Currently, this image needs to [inherit from a Pachyderm-provided image known as `job-shim`](https://github.com/pachyderm/pachyderm/blob/fae98e54af0d6932e258e4b0df4ea784414c921e/examples/fruit_stand/Dockerfile#L1).
 
@@ -39,7 +45,11 @@
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
 
+### Parallelism
+
 `parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
+
+### Inputs
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
