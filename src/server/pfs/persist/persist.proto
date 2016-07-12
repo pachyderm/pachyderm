@@ -11,10 +11,10 @@ message Append {
 
 message BranchClock {
   // a document either has these two fields 
-  string name = 1;
+  string branch = 1;
   uint64 clock = 2;
   // or this field, but not both
-  repeated BranchClock clock = 3;
+  repeated BranchClock intersection  = 3;
 }
 
 message Repo {
@@ -32,9 +32,8 @@ message Diff {
   string id = 1;  // commit_id + path
   string commit_id = 2;
   string path = 3;
-  FileType file_type = 4;
-  repeated Append appends = 5;
-  uint64 size = 6;
+  repeated Append appends = 4;
+  uint64 size = 5;
 }
 
 message Commit {
