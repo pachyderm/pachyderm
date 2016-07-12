@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message DirAppend {
+  map<string, bool> children = 1;
+  bool delete = 2;
+}
+
+message FileAppend {
+  repeated string blockrefs = 1;
+  bool delete = 2;
+}
+
+message BranchClock {
+  string name = 1;
+  uint64 clock = 2;
+  repeated BranchClock clock = 3;
+}
+
+message Repo {
+  string name = 1;
+  google.protobuf.Timestamp created = 2;
+}
+
+message Branch {
+  string id = 1;  // repo name + branch name
+  string repo = 2;
+  string name = 3;
+}
+
+message Diff {
+  string id = 1;  // commit_id + path
+  string commit_id = 2;
+  string path = 3;
+  FileType file_type = 4;
+  repeated DirAppend dir_appends = 5;
+  repeated FileAppend file_appends = 6;
+  uint64 size = 7;
+}
+
+message Commit {
+  string id = 1;
+  string repo = 2;
+  repeated BranchClock clock = 3;
+  google.protobuf.Timestamp started = 4;
+  google.protobuf.Timestamp finished = 5;
+  repeated string provenance = 6;
+}
+
+
