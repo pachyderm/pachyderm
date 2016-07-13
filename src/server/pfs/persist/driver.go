@@ -229,7 +229,8 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoI
 }
 
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
-	return nil
+	_, err := gorethink.DB(d.dbName).Table(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
+	return err
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
