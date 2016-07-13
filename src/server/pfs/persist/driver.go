@@ -1,7 +1,12 @@
 package persist
 
 import (
+	"fmt"
+	"io"
+	"regexp"
 	"time"
+
+	"go.pedge.io/pb/go/google/protobuf"
 
 	"google.golang.org/grpc"
 
@@ -46,7 +51,7 @@ var (
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
 		repoTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: "name",
+				PrimaryKey: "Name",
 			},
 		},
 		branchTable: []gorethink.TableCreateOpts{
@@ -101,6 +106,7 @@ func InitDB(address string, databaseName string) error {
 	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	// Create the database
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
@@ -132,9 +138,145 @@ func InitDB(address string, databaseName string) error {
 	return nil
 }
 
+func RemoveDB(address string, databaseName string) error {
+	session, err := dbConnect(address)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	// Create the database
+	if _, err := gorethink.DBDrop(databaseName).RunWrite(session); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func dbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
 	})
+}
+
+func validateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+
+	if !match {
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
+	}
+
+	return nil
+}
+
+func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
+	provenance []*pfs.Repo, shards map[uint64]bool) error {
+	_, err := gorethink.DB(d.dbName).Table(repoTable).Insert(&Repo{
+		Name:    repo.Name,
+		Created: created,
+	}).RunWrite(d.dbClient)
+	return err
+}
+
+func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
+	cursor, err := gorethink.DB(d.dbName).Table(repoTable).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	for {
+		repo := &Repo{}
+		if !cursor.Next(repo) {
+			break
+		}
+		repoInfos = append(repoInfos, &pfs.RepoInfo{
+			Repo:    &pfs.Repo{repo.Name},
+			Created: repo.Created,
+		})
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return repoInfos, nil
+}
+
+func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+	return nil
+}
+
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
+	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
+	return nil
+}
+
+// FinishCommit blocks until its parent has been finished/cancelled
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
+	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) PutFile(file *pfs.File, handle string,
+	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
+	return nil
+}
+
+func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
+	return nil
+}
+
+func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
+	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
+	return nil
+}
+
+func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) AddShard(shard uint64) error {
+	return nil
+}
+
+func (d *driver) DeleteShard(shard uint64) error {
+	return nil
+}
+
+func (d *driver) Dump() {
 }
