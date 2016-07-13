@@ -253,19 +253,59 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
-	_, err := gorethink.DB(d.dbName).Table(commitTable).Insert(
-		&Commit{
-			ID:       commit.ID,
-			Finished: finished,
+	_, err := gorethink.DB(d.dbName).Table(commitTable).Get(commit.ID).Update(
+		map[string]interface{}{
+			"Finished": finished,
 		},
-		gorethink.InsertOpts{Conflict: "update"},
 	).RunWrite(d.dbClient)
 
 	return err
 }
 
-func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
-	return nil, nil
+func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
+	cursor, err := gorethink.DB(d.dbName).Table(commitTable).Get(commit.ID).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+
+	rawCommit := &Commit{}
+	cursor.Next(rawCommit)
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	/*
+		pfs.CommitInfo{
+			  Commit commit = 1;
+			  string branch = 2;
+			  CommitType commit_type = 3;
+			  Commit parent_commit = 4;
+			  google.protobuf.Timestamp started = 5;
+			  google.protobuf.Timestamp finished = 6;
+			  uint64 size_bytes = 7;
+			  bool cancelled = 8;
+			  repeated Commit provenance = 9;
+		  }
+	*/
+	commitType := pfs.CommitType_COMMIT_TYPE_READ
+	if rawCommit.Finished == nil {
+		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
+	}
+	commitInfo = &pfs.CommitInfo{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{rawCommit.Repo},
+			ID:   rawCommit.ID,
+		},
+		Started:    rawCommit.Started,
+		Finished:   rawCommit.Finished,
+		CommitType: commitType,
+	}
+
+	return commitInfo, nil
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
