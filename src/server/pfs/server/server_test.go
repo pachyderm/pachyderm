@@ -893,6 +893,45 @@ func TestDeleteDir(t *testing.T) {
 	// TODO: test deleting "."
 }
 
+func TestListCommitBasic(t *testing.T) {
+	t.Parallel()
+	client, server := getClientAndServer(t)
+
+	require.NoError(t, client.CreateRepo("test"))
+	numCommits := 10
+	var commitIDs []string
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit("test", "", "")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("test", commit.ID))
+		commitIDs = append(commitIDs, commit.ID)
+	}
+
+	test := func() {
+		commitInfos, err := client.ListCommit(
+			[]string{"test"},
+			nil,
+			pclient.CommitTypeNone,
+			false,
+			false,
+			nil,
+		)
+		require.NoError(t, err)
+
+		for i, commitInfo := range commitInfos {
+			require.Equal(t, commitIDs[len(commitIDs)-i-1], commitInfo.Commit.ID)
+		}
+
+		require.Equal(t, len(commitInfos), numCommits)
+	}
+
+	test()
+
+	restartServer(server, t)
+
+	test()
+}
+
 func TestListCommit(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
