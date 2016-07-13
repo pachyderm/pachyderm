@@ -62,7 +62,9 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if size == 0 {
 		byteRange = fmt.Sprintf("bytes=%d-", offset)
 	} else {
-		byteRange = fmt.Sprintf("bytes=%d-%d", offset, offset+size)
+		// we substract 1 one from the right bound because http byte ranges are
+		// inclusive rather than clopen
+		byteRange = fmt.Sprintf("bytes=%d-%d", offset, offset+size-1)
 	}
 
 	getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
