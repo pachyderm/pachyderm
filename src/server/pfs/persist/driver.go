@@ -170,6 +170,10 @@ func validateRepoName(name string) error {
 	return nil
 }
 
+func (d *driver) getTerm(table Table) gorethink.Term {
+	return gorethink.DB(d.dbName).Table(table)
+}
+
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	provenance []*pfs.Repo, shards map[uint64]bool) error {
 
@@ -178,7 +182,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		return err
 	}
 
-	_, err = gorethink.DB(d.dbName).Table(repoTable).Insert(&Repo{
+	_, err = d.getTerm(repoTable).Insert(&Repo{
 		Name:    repo.Name,
 		Created: created,
 	}).RunWrite(d.dbClient)
@@ -186,8 +190,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *pfs.RepoInfo, retErr error) {
-
-	cursor, err := gorethink.DB(d.dbName).Table(repoTable).Get(repo.Name).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	cursor, err := d.getTerm(repoTable).Get(repo.Name).Default(gorethink.Error("value not found")).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +212,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *
 }
 
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
-	cursor, err := gorethink.DB(d.dbName).Table(repoTable).Run(d.dbClient)
+	cursor, err := d.getTerm(repoTable).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -235,13 +238,13 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoI
 }
 
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
-	_, err := gorethink.DB(d.dbName).Table(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
+	_, err := d.getTerm(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
 	return err
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
-	_, err := gorethink.DB(d.dbName).Table(commitTable).Insert(&Commit{
+	_, err := d.getTerm(commitTable).Insert(&Commit{
 		ID:         commitID,
 		Repo:       repo.Name,
 		Started:    started,
@@ -253,7 +256,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
-	_, err := gorethink.DB(d.dbName).Table(commitTable).Get(commit.ID).Update(
+	_, err := d.getTerm(commitTable).Get(commit.ID).Update(
 		map[string]interface{}{
 			"Finished": finished,
 		},
@@ -263,7 +266,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
-	cursor, err := gorethink.DB(d.dbName).Table(commitTable).Get(commit.ID).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	cursor, err := d.getTerm(commitTable).Get(commit.ID).Default(gorethink.Error("value not found")).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -278,24 +281,16 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (comm
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
-	/*
-		pfs.CommitInfo{
-			  Commit commit = 1;
-			  string branch = 2;
-			  CommitType commit_type = 3;
-			  Commit parent_commit = 4;
-			  google.protobuf.Timestamp started = 5;
-			  google.protobuf.Timestamp finished = 6;
-			  uint64 size_bytes = 7;
-			  bool cancelled = 8;
-			  repeated Commit provenance = 9;
-		  }
-	*/
+
+	return rawCommitToCommitInfo(rawCommit), nil
+}
+
+func rawCommitToCommitInfo(rawCommit *Commit) *pfs.CommitInfo {
 	commitType := pfs.CommitType_COMMIT_TYPE_READ
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
 	}
-	commitInfo = &pfs.CommitInfo{
+	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{rawCommit.Repo},
 			ID:   rawCommit.ID,
@@ -304,13 +299,36 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (comm
 		Finished:   rawCommit.Finished,
 		CommitType: commitType,
 	}
-
-	return commitInfo, nil
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	return nil, nil
+	provenance []*pfs.Commit, all bool, shards map[uint64]bool) (commitInfos []*pfs.CommitInfo, retErr error) {
+	cursor, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		var predicates []interface{}
+		for _, repo := range repos {
+			predicates = append(predicates, commit.Field("Repo").Eq(repo.Name))
+		}
+		return gorethink.Or(predicates...)
+	}).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	for {
+		rawCommit := &Commit{}
+		if !cursor.Next(rawCommit) {
+			break
+		}
+		commitInfos = append(commitInfos, rawCommitToCommitInfo(rawCommit))
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return commitInfos, nil
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
