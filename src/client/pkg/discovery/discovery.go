@@ -13,7 +13,7 @@ type Client interface {
 	Close() error
 	// Get gets the value of a key
 	// Keys can be directories of the form a/b/c, see etcd for details.
-	// the bool will be false if the key does not exist.
+	// the error will be non-nil if the key does not exist.
 	Get(key string) (string, error)
 	// GetAll returns all of the keys in a directory and its subdirectories as
 	// a map from absolute keys to values.
