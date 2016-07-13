@@ -172,7 +172,13 @@ func validateRepoName(name string) error {
 
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	provenance []*pfs.Repo, shards map[uint64]bool) error {
-	_, err := gorethink.DB(d.dbName).Table(repoTable).Insert(&Repo{
+
+	err := validateRepoName(repo.Name)
+	if err != nil {
+		return err
+	}
+
+	_, err = gorethink.DB(d.dbName).Table(repoTable).Insert(&Repo{
 		Name:    repo.Name,
 		Created: created,
 	}).RunWrite(d.dbClient)
