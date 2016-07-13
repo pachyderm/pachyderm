@@ -322,7 +322,6 @@ func TestListRepo(t *testing.T) {
 		repoInfos, err := client.ListRepo(nil)
 		require.NoError(t, err)
 
-		fmt.Printf("repoInfos: %v\n", repoInfos)
 		for i, repoInfo := range repoInfos {
 			require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
 		}
