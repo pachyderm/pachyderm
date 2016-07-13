@@ -241,12 +241,27 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
-	return nil
+	_, err := gorethink.DB(d.dbName).Table(commitTable).Insert(&Commit{
+		ID:         commitID,
+		Repo:       repo.Name,
+		Started:    started,
+		Provenance: []string{parentID}, // Incorrect. Need all ancestors
+	}).RunWrite(d.dbClient)
+
+	return err
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
-	return nil
+	_, err := gorethink.DB(d.dbName).Table(commitTable).Insert(
+		&Commit{
+			ID:       commit.ID,
+			Finished: finished,
+		},
+		gorethink.InsertOpts{Conflict: "update"},
+	).RunWrite(d.dbClient)
+
+	return err
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
