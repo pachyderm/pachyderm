@@ -181,11 +181,13 @@ func TestListBranch(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	commit2, err := client.StartCommit(repo, commit1.ID, "branchA")
+	// Don't specify a branch because we already should have it from parent
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
+	// Specify branch, because branching off of commit1
 	commit3, err := client.StartCommit(repo, commit1.ID, "branchB")
 	require.NoError(t, err)
 
@@ -197,6 +199,30 @@ func TestListBranch(t *testing.T) {
 	branchNames := []interface{}{"branchA", "branchB"}
 	require.EqualOneOf(t, branchNames, branches[0])
 	require.EqualOneOf(t, branchNames, branches[1])
+}
+
+func TestListBranchRedundant(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID, "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "branchA", branches[0])
 }
 
 func TestBranch(t *testing.T) {
