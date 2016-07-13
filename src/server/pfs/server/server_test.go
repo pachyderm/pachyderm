@@ -3,9 +3,11 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,8 +31,8 @@ import (
 )
 
 const (
-	shards  = 32
-	servers = 4
+	shards  = 1
+	servers = 1
 
 	ALPHABET       = "abcdefghijklmnopqrstuvwxyz"
 	RethinkAddress = "localhost:28015"
@@ -41,10 +43,16 @@ var (
 	port int32 = 30651
 )
 
-func Init() {
+func TestMain(m *testing.M) {
+	flag.Parse()
 	if err := persist.InitDB(RethinkAddress, RethinkTestDB); err != nil {
 		panic(err)
 	}
+	code := m.Run()
+	if err := persist.RemoveDB(RethinkAddress, RethinkTestDB); err != nil {
+		panic(err)
+	}
+	os.Exit(code)
 }
 
 func TestBlock(t *testing.T) {
@@ -314,6 +322,7 @@ func TestListRepo(t *testing.T) {
 		repoInfos, err := client.ListRepo(nil)
 		require.NoError(t, err)
 
+		fmt.Printf("repoInfos: %v\n", repoInfos)
 		for i, repoInfo := range repoInfos {
 			require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
 		}
@@ -1710,7 +1719,7 @@ func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) 
 	var internalAPIServers []*internalAPIServer
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := persist.NewRethinkDriver(address, RethinkAddress, RethinkTestDB)
+		driver, err := persist.NewDriver(address, RethinkAddress, RethinkTestDB)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
