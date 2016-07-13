@@ -6,14 +6,14 @@ import (
 	"regexp"
 	"time"
 
-	"go.pedge.io/pb/go/google/protobuf"
-
-	"google.golang.org/grpc"
-
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
 	"github.com/dancannon/gorethink"
+	"go.pedge.io/pb/go/google/protobuf"
+	"go.pedge.io/proto/time"
+	"google.golang.org/grpc"
 )
 
 // A Table is a rethinkdb table name.
@@ -244,10 +244,13 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
+	if commitID == "" {
+		commitID = uuid.NewWithoutDashes()
+	}
 	_, err := d.getTerm(commitTable).Insert(&Commit{
 		ID:         commitID,
 		Repo:       repo.Name,
-		Started:    started,
+		Started:    prototime.TimeToTimestamp(time.Now()),
 		Provenance: []string{parentID}, // Incorrect. Need all ancestors
 	}).RunWrite(d.dbClient)
 
