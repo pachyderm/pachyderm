@@ -240,6 +240,19 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
+func TestInspectRepoMostBasic(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	repoInfo, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, int(repoInfo.SizeBytes), 0)
+}
+
 func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
