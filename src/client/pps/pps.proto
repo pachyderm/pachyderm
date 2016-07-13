@@ -34,9 +34,15 @@ enum Partition {
   REPO = 2;
 }
 
+enum Incremental {
+    NONE = 0; // all data will be shown
+    DIFF = 1; // a minimal diff is shown
+    FULL = 2; // full objects will be shown (granularity is specified by partition)
+}
+
 message Method {
   Partition partition = 1;
-  bool incremental = 2;
+  Incremental incremental = 2;
 }
 
 message JobInput {
