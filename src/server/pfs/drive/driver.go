@@ -492,6 +492,9 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 
 func (d *driver) PutFile(file *pfs.File, handle string,
 	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
+	if err := validatePath(file.Path); err != nil {
+		return err
+	}
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
@@ -1426,4 +1429,11 @@ func newAppend(filetype pfs.FileType) *pfs.Append {
 		HandleDeletes: make(map[string]bool),
 		FileType:      filetype,
 	}
+}
+
+func validatePath(path string) error {
+	if strings.IndexByte(path, '\x00') != -1 {
+		return fmt.Errorf("file paths cannot contain null characters")
+	}
+	return nil
 }
