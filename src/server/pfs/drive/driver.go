@@ -70,16 +70,6 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
-func validateRepoName(name string) error {
-	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
-
-	if !match {
-		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
-	}
-
-	return nil
-}
-
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	provenance []*pfs.Repo, shards map[uint64]bool) error {
 	d.lock.Lock()
@@ -1434,6 +1424,20 @@ func newAppend(filetype pfs.FileType) *pfs.Append {
 func validatePath(path string) error {
 	if strings.IndexByte(path, '\x00') != -1 {
 		return fmt.Errorf("file paths cannot contain null characters")
+	}
+	return nil
+}
+
+func validateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+	if !match {
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
+	}
+	if strings.Contains(name, "/") {
+		fmt.Errorf("repo names cannot contain /")
+	}
+	if client.ReservedRepoNames[name] {
+		fmt.Errorf("repo name %s is a reserved keyword")
 	}
 	return nil
 }
