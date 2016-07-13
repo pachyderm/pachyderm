@@ -394,6 +394,39 @@ func TestStartAndFinishCommit(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 }
 
+func TestInspectCommitBasic(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	started := time.Now()
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	commitInfo, err := client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, commit, commitInfo.Commit)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
+	require.Equal(t, 0, int(commitInfo.SizeBytes))
+	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.Nil(t, commitInfo.Finished)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	finished := time.Now()
+
+	commitInfo, err = client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, commit.ID, commitInfo.Commit.ID)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, 0, int(commitInfo.SizeBytes))
+	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+}
+
 func TestInspectCommit(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
