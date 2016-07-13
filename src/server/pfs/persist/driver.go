@@ -179,8 +179,27 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	return err
 }
 
-func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
-	return nil, nil
+func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *pfs.RepoInfo, retErr error) {
+
+	cursor, err := gorethink.DB(d.dbName).Table(repoTable).Get(repo.Name).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	rawRepo := &Repo{}
+	cursor.Next(rawRepo)
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	repoInfo = &pfs.RepoInfo{
+		Repo:    &pfs.Repo{rawRepo.Name},
+		Created: rawRepo.Created,
+	}
+	return repoInfo, nil
 }
 
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
