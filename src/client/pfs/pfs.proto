@@ -199,14 +199,19 @@ message FlushCommitRequest {
   repeated Repo to_repo = 2;
 }
 
+message DiffMethod {
+    Commit from_commit = 1;
+    bool full_file = 2;
+}
+
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
   Shard shard = 4;
-  Commit from_commit = 5;
-  bool unsafe = 6;
-  string handle = 7;
+  DiffMethod diff_method = 5;
+  bool unsafe = 7;
+  string handle = 8;
 }
 
 enum Delimiter {
@@ -226,7 +231,7 @@ message PutFileRequest {
 message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
-  Commit from_commit = 3;
+  DiffMethod diff_method = 3;
   bool unsafe = 4;
   string handle = 5;
 }
@@ -234,7 +239,7 @@ message InspectFileRequest {
 message ListFileRequest {
   File file = 1;
   Shard shard = 2;
-  Commit from_commit = 3;
+  DiffMethod diff_method = 3;
   bool recurse = 4;
   bool unsafe = 5;
   string handle = 6;
