@@ -225,6 +225,29 @@ func TestListBranchRedundant(t *testing.T) {
 	require.Equal(t, "branchA", branches[0])
 }
 
+func TestStartCommitBranchOnly(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit2Info, err := client.InspectCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	require.NotNil(t, commit2Info.ParentCommit)
+	require.Equal(t, commit2Info.ParentCommit.ID, commit1.ID)
+}
+
 func TestBranch(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
