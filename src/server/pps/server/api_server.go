@@ -233,8 +233,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -584,8 +583,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -1178,7 +1176,8 @@ func inputsAreParental(
 	sort.Sort(JobInputs(parentTrueInputs))
 	for i, trueInput := range trueInputs {
 		parentTrueInput := parentTrueInputs[i]
-		if trueInput.Commit.ID != parentTrueInput.Commit.ID && !trueInput.Method.Incremental {
+		if trueInput.Commit.ID != parentTrueInput.Commit.ID &&
+			trueInput.Method.Incremental == ppsclient.Incremental_NONE {
 			return false, nil
 		}
 	}
