@@ -404,7 +404,10 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 		}
 		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
 		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
-			listFileRequest.FromCommit = parentInputCommit
+			listFileRequest.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentInputCommit,
+				FullFile:   input.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch input.Method.Partition {
@@ -605,7 +608,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// repo than our parent.
 			// This means that only the commit that triggered this pipeline will be
 			// done incrementally, the other repos will be shown in full
-			commitMount.FromCommit = parentJobCommit
+			commitMount.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentJobCommit,
+				FullFile:   jobInput.Method != nil && jobInput.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch jobInput.Method.Partition {
