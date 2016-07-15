@@ -1,6 +1,6 @@
 # Pachyderm Documentation #
 
-[Deploying Pachyderm](../deploying_setup.md)
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/doc/deploying_setup.md)
 
 [Quickstart Guide](../examples/fruit_stand/README.md)
 
