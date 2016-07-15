@@ -499,6 +499,12 @@
 			"revisionTime": "2016-06-01T15:17:05Z"
 		},
 		{
+			"checksumSHA1": "oaouHajYS5GL6OFrAn3MGqj/Z04=",
+			"path": "github.com/golang/protobuf/protoc-gen-go/generator",
+			"revision": "3852dcfda249c2097355a6aabb199a28d97b30df",
+			"revisionTime": "2016-06-29T21:10:53Z"
+		},
+		{
 			"checksumSHA1": "lVAyYXsBkm8nojYVsA20KULd+pI=",
 			"path": "github.com/google/cadvisor/info/v1",
 			"revision": "1c8d7896a5225400df51b47330b50368e548eb94",
