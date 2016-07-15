@@ -59,7 +59,7 @@ func Example_pps() {
 	for _, commitInfo := range commits {
 		// Read output from the pipeline
 		var buffer bytes.Buffer
-		if err := c.GetFile("reduce", commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer); err != nil {
+		if err := c.GetFile("reduce", commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer); err != nil {
 			return //handle error
 		}
 	}
