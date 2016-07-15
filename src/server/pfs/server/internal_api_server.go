@@ -385,7 +385,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 		return err
 	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes,
-		request.FromCommit, shard, request.Unsafe, request.Handle)
+		request.DiffMethod, shard, request.Unsafe, request.Handle)
 	if err != nil {
 		return err
 	}
@@ -407,7 +407,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe, request.Handle)
+	return a.driver.InspectFile(request.File, request.Shard, request.DiffMethod, shard, request.Unsafe, request.Handle)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -430,7 +430,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		go func() {
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard,
-				request.FromCommit, shard, request.Recurse, request.Unsafe, request.Handle)
+				request.DiffMethod, shard, request.Recurse, request.Unsafe, request.Handle)
 			_, ok := err.(*pfsserver.ErrFileNotFound)
 			if err != nil && !ok {
 				select {
