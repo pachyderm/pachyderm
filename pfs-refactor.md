@@ -10,47 +10,43 @@
 ### Schema
 
 ```
-object DirAppend {
+object Append {
   set<string> children;
-  bool delete;
-}
-
-object FileAppend {
   arr<string> blockrefs;
   bool delete;
 }
 
-object BranchClock {
-  string name;
-  int clock;
+object Clock {
+  int branch;
+  int commit;
 }
 
 table Repo {
   string name;  // primary key
+  int branch_ID;  // monotonically increasing
   Timestamp created;
 }
 
 table Branch {
-  string ID;  // primary key; repo name + branch name
+  string ID; // repo + name
+  int branch_ID;
   string repo;
-  string name;
+  string name; // a human readable name
 }
 
 table Diff {
   string ID;  // primary key; commitID + path
   string commitID;
   string path;
-  // If file_type == dir
-  FileType file_type;
-  arr<DirAppend> dir_appends;
-  arr<FileAppend> file_appends;
+  arr<Clock> clocks;
+  arr<Append> appends;
   int size;
 }
 
 table Commit {
   string ID;  // primary key; UUID
   string repo;
-  arr<BranchClock | arr<BranchClock>> branch_vector;
+  arr<Clock> clocks;
   Timestamp started;
   Timestamp finished;
   arr<string> provenance;  // commit IDs, topologically sorted
@@ -64,90 +60,60 @@ table Commit {
 The code is all pseudocode.
 
 * `Table.Operation` means a database operation on a table.
+* `causedBy` is the vector clock comparison function.
 
-### Histroy(toCommit, fromCommit = null)
-
-`History(to, from)` returns all commits between the two commits, including both commits themselves.
-
-To motivate the design of `History`, let's talk about what a trivial design would look like.  We could have a `parentCommit` field in the `Commit` table.  Then, `History` can be trivially implemented by following the `parentCommit` pointer.  However, this would result in O(N) queries to the database, where N is the number of commits in the history.  Furthermore, these queries can't be parallelized since you need to get your immediate parent before you can get the parent's parent.
-
-In our schema, each commit carries an immutable `branch_vector`, which is similar to a [vector clock](https://en.wikipedia.org/wiki/Vector_clock) of branches.  Concretely, we assign `branch_vector` to commits using the following rules:
-
-1. If the commit has no parent, its `branch_vector` is `[(new_branch_name, 0)]`, where `new_branch_name` can be specified by the user, or can be just a UUID.
-
-2. If the commit has a parent, its `branch_vector` is the same as its parent's `branch_vector`, with the last element incremented by 1.
-
-    For example, if the parent is `[(x, 1), (y, 0), (z, 1)]`, the new commit is `[(x, 1), (y, 0), (z, 2)]`. 
-
-3. If the commit is the result of merging multiple commits, whose `branch_vector`s are `V1, V2, ... Vn` respectively, then its branch vector is `[[V1, V2, ..., Vn], (new_branch_name, 0)]`.
-
-    For example, if we are merging commit `[(x, 1), (y, 0)]` and `[(x, 1), (z, 1)]` , the new commit is `[[[(x, 1), (y, 0)], [(x, 1), (z, 1)]], (new_branch_name, 0)]`
-
-Note that `branch_vector` is not strictly a vector clock itself.  Rather, it's a compact representation of many smaller `branch_vector`s.  We define `extract()` as a function that extracts `branch_vector`s from a `branch_vector`.  `extract` works as follows:
-
-```
-func extract(bv):
-  result = []
-  last = lastElement(bv)
-  if last is not an array:
-    result += bv
-    bv.pop()  // remove the last element
-  else:
-    bv.pop()  // remove the last element
-    for element in last:
-      result += bv + extract(element)
-```
-
-Define E(X) as extract(bv) where bv is x's branch vector.  The following property holds:
-
-    The ancestors of X are simply all the commits whose `branch_vector`s are smaller than at least one element in E(x).  
-
-`extract` returns O(M) `branch_vector`s where M is the number of branches in the history.  We can then construct O(M) queries where each query is for a branch.  These queries can be executed in parallel.
-
-### StartCommit(repoName, parentCommitID = null, branch = null)
+### StartCommit(repoName, parentCommitID = null, branchName = null)
 
 ```
 if parentCommit is null:
-  if branch is null:
-    branch = uuid()
-  Branch.create_if_not_exist(repoName+branch, repoName, branch)
-  commit = newCommit(repoName)
-  commit.branch_vector += BranchClock(branch, 0)
+  if branchName is null:
+    branchName = uuid()
+  BranchTable.CreateIfNotExist(repoName+branchName, repoName, branch)
+  commit = CommitTable.New()
+  repo = RepoTable.Get(repoName)
+  repo.BranchCounter += 1
+  commit.Clocks += BranchClock(repo.BranchCounter, 0)
 else:
-  parentCommit = getCommit(parentCommitID)
-  commit = newCommit()
-  commit.branch_vector = parentCommit.branch_vector
+  parentCommit = CommitTable.Get(parentCommitID)
+  commit = parentCommit.Clone()
   if branch is null:
-    commit.branch_vector.lastElement.clock += 1
+    commit.Clocks.lastElement.Clock += 1
   else:
-    Branch.create_if_not_exist(repoName+branch, repoName, branch)
-    commit.branch_vector += BranchClock(branch, 0)
+    BranchTable.CreateIfNotExist(repoName+branchName, repoName, branch)
+    repo = RepoTable.Get(repoName)
+    repo.BranchCounter += 1
+    commit.Clocks += BranchClock(repo.BranchCounter, 0)
 return commit
 ```
 
-### MergeCommits(repoName, fromCommits, parentCommitId = null, branch = null)
-
-`MergeCommit` creates a new commit whose parents are `fromCommits`.  Note that the commits in `fromCommits` can be open or closed.
-
-Here we only describe the merging of `branch_vector`s which is the only interesting part.
+### History(toCommit, fromCommit)
 
 ```
-TODO
+commitIndex = commitTable.CreateIndex(repo+vector)
+
+History(toCommit, fromCommit):
+    clocksTo = CommitTable.Get(toCommit).Clocks
+    clocksFrom = CommitTable.Get(fromCommit).Clocks
+    return Between(clocksTo, clocksFrom)  // this can be done mathematically
 ```
 
-### InspectFile(commitID, path, fromCommitID = null)
+### MergeCommits(repoName, fromCommits, parentCommitId = null, branch = null, squash = false)
+
+### InspectFile(path, toCommit, fromCommit = null)
 
 ```
-history = History(commitID, fromCommitID)
-for commit in history:
-  query += getDiff(commit, path)
-diffs = query()
-return coalesce(diffs)
+diffIndex = diffTable.CreateIndex(repo+delete+path+vector)
+
+InspectFile(path, toCommit, fromCommit):
+    clocksTo = CommitTable.Get(toCommit).Clocks
+    clocksFrom = CommitTable.Get(fromCommit).Clocks
+    newClocksFrom = diffIndex.Between(repo+true+path+clocksFrom, repo+true+path+clocksTo).filter(caused_by).first().Clocks
+    return Between(clocksTo, newClocksFrom)  // start streaming blocks as soon as we get the first diff; can be done mathematically
 ```
 
 ### GetFile(commitID, path, fromCommitID)
 
-the same as InspectFile
+same thing as InspectFile
 
 ### PutFile(commitID, path, reader)
 
@@ -169,5 +135,5 @@ for shard in shards:
     commit = StartCommit(repo, parentOutputCommit)
     runJob(commit)
     fromCommits += commit
-MergeCommits(repo, fromCommits, parentOutputCommit)
+MergeCommits(repo, fromCommits, parentOutputCommit, squash = true)
 ```
