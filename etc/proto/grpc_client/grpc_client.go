@@ -30,7 +30,7 @@ func init() {
 // grpc is an implementation of the Go protocol buffer compiler's
 // plugin architecture.  It generates bindings for gRPC support.
 type grpcClient struct {
-	*generator.Generator
+	gen *generator.Generator
 }
 
 // Name returns the name of this plugin, "grpc".
@@ -63,6 +63,10 @@ func (g *grpcClient) objectNamed(name string) generator.Object {
 // Given a type name defined in a .proto, return its name as we will print it.
 func (g *grpcClient) typeName(str string) string {
 	return g.gen.TypeName(g.objectNamed(str))
+}
+
+func (g *grpcClient) P(args ...interface{}) {
+	g.gen.P(args...)
 }
 
 // Generate generates code for the services in the given file.
@@ -127,13 +131,13 @@ func (g *grpcClient) generateService(file *generator.FileDescriptor, service *pb
 	g.P()
 
 	// Define the option types for each service
-	for i, method := range service.Method {
+	for _, method := range service.Method {
 		methodName := generator.CamelCase(method.GetName())
 		g.P("// Interface for ", methodName, " opts.")
 		g.P("type ", methodName, "Opt interface {")
-		g.In()
+		g.gen.In()
 		g.P("apply(", method.InputType, ") ", method.InputType)
-		g.Out()
+		g.gen.Out()
 		g.P("}")
 		g.P("// Options for ", generator.CamelCase(method.GetName()))
 	}
