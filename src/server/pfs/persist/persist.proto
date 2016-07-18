@@ -9,12 +9,14 @@ message Append {
   bool delete = 3;
 }
 
-message BranchClock {
+message Clock {
   // a document either has these two fields 
   string branch = 1;
   uint64 clock = 2;
-  // or this field, but not both
-  repeated BranchClock intersection  = 3;
+}
+
+message BranchClock {
+    repeated Clock clocks = 1;
 }
 
 message Repo {
@@ -39,10 +41,11 @@ message Diff {
 message Commit {
   string id = 1;
   string repo = 2;
-  repeated BranchClock clocks = 3;
-  google.protobuf.Timestamp started = 4;
-  google.protobuf.Timestamp finished = 5;
-  repeated string provenance = 6;
+  repeated BranchClock branch_clocks = 3;
+  // true means append
+  // false means removal
+  map<string, bool> modifications = 4;
+  google.protobuf.Timestamp started = 5;
+  google.protobuf.Timestamp finished = 6;
+  repeated string provenance = 7;
 }
-
-
