@@ -8,10 +8,14 @@ RUN wget https://github.com/google/protobuf/releases/download/v3.0.0-beta-2/prot
 RUN unzip protoc.zip -d /bin
 
 RUN go get -u -v github.com/golang/protobuf/proto
-RUN go get -u -v github.com/golang/protobuf/protoc-gen-go
 RUN go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
 RUN go get -v go.pedge.io/protoeasy/cmd/protoeasy
 RUN go get -v github.com/pachyderm/pachyderm/src/server/cmd/protofix
+
+RUN go get -u -v -d github.com/golang/protobuf/protoc-gen-go
+ADD grpc_client $GOPATH/src/github.com/golang/protobuf/proto-gen-go/
+ADD link_grpc_client.go $GOPATH/src/github.com/golang/protobuf/proto-gen-go/link_grpc_client.go
+RUN go install github.com/golang/protobuf/protoc-gen-go
 
 ADD run /
 ENTRYPOINT ["/run"]
