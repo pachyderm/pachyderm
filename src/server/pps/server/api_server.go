@@ -1359,6 +1359,15 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			},
 		)
 	}
+	for name, value := range jobInfo.Transform.Env {
+		jobEnv = append(
+			jobEnv,
+			api.EnvVar{
+				Name:  name,
+				Value: value,
+			},
+		)
+	}
 
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
