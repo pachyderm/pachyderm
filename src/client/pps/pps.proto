@@ -12,9 +12,10 @@ option go_package = "pps";
 message Transform {
   string image = 1;
   repeated string cmd = 2;
-  repeated string stdin = 3;
-  repeated int64 accept_return_code = 4;
-  bool debug = 5;
+  map<string, string> env = 3;
+  repeated string stdin = 4;
+  repeated int64 accept_return_code = 5;
+  bool debug = 6;
 }
 
 message Job {
