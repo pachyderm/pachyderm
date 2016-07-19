@@ -15,6 +15,10 @@ message Clock {
   uint64 clock = 2;
 }
 
+message ClockID {
+  string id = 1;  // branch + clock
+}
+
 message BranchClock {
     repeated Clock clocks = 1;
 }
