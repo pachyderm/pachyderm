@@ -3,7 +3,7 @@ package clock
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/server/pfs/persist"
+	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 )
 
 type ErrBranchExists struct {
@@ -13,6 +13,8 @@ type ErrBranchExists struct {
 type ErrBranchNotFound struct {
 	error
 }
+
+type BranchClocks []*persist.BranchClock
 
 // NewBranchClocks creates a new BranchClocks given a branch name
 // "master" -> [[(master, 0)]]
@@ -73,6 +75,7 @@ func NewChildOfBranchClocks(parent persist.BranchClocks, branch string) (persist
 }
 
 // AddClock adds a BranchClock to a BranchClocks.
+//
 // Returns an error if the branch already exists in the BranchClocks
 //
 // Args: [[(foo, 1), (bar, 1)], [(master, 1)]], [(buzz, 2)]
@@ -91,4 +94,28 @@ func AddClock(b persist.BranchClocks, c *persist.BranchClock) (persist.BranchClo
 	}
 
 	return append(b, c), nil
+}
+
+// GetClockForBranch takes a BranchClocks and a branch name, and return the clock
+// that specifies the position on that branch.
+//
+// Returns an error if the branch is not found
+//
+// Args: [[(foo, 1), (bar, 1)], [(master, 1)]], "bar"
+// Return: (bar, 1)
+func GetClockForBranch(clocks persist.BranchClocks, branch string) (*persist.Clock, error) {
+	for _, bc := range clocks {
+		clock := lastComponent(bc)
+		if clock.Branch == branch {
+			return clock, nil
+		}
+	}
+	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks")}
+}
+
+func lastComponent(bc *persist.BranchClock) *persist.Clock {
+	if len(bc.Clocks) == 0 {
+		return nil
+	}
+	return bc.Clocks[len(bc.Clocks)-1]
 }

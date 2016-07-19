@@ -8,6 +8,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	libclock "github.com/pachyderm/pachyderm/src/server/pfs/db/clock"
+	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
 	"github.com/dancannon/gorethink"
@@ -28,17 +30,15 @@ type Index string
 const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
+	diffTable   Table = "Diffs"
+	clockTable  Table = "Clocks"
 
 	commitTable Table = "Commits"
 	// commitBranchIndex maps commits to branches
 	commitBranchIndex Index = "CommitBranchIndex"
 
-	diffTable Table = "Diffs"
-
 	connectTimeoutSeconds = 5
 )
-
-type BranchClocks []*BranchClock
 
 var (
 	tables = []Table{
@@ -65,6 +65,11 @@ var (
 			},
 		},
 		diffTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: "ID",
+			},
+		},
+		clockTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: "ID",
 			},
@@ -166,6 +171,10 @@ func dbConnect(address string) (*gorethink.Session, error) {
 	})
 }
 
+func clockToID(c *persist.Clock) *persist.ClockID {
+	return &persist.ClockID{fmt.Sprintf("%s/%d", c.Branch, c.Clock)}
+}
+
 func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
 
@@ -188,7 +197,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		return err
 	}
 
-	_, err = d.getTerm(repoTable).Insert(&Repo{
+	_, err = d.getTerm(repoTable).Insert(&persist.Repo{
 		Name:    repo.Name,
 		Created: created,
 	}).RunWrite(d.dbClient)
@@ -200,7 +209,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *
 	if err != nil {
 		return nil, err
 	}
-	rawRepo := &Repo{}
+	rawRepo := &persist.Repo{}
 	if err := cursor.One(rawRepo); err != nil {
 		return nil, err
 	}
@@ -222,7 +231,7 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoI
 		}
 	}()
 	for {
-		repo := &Repo{}
+		repo := &persist.Repo{}
 		if !cursor.Next(repo) {
 			break
 		}
@@ -247,7 +256,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	for _, c := range provenance {
 		_provenance = append(_provenance, c.ID)
 	}
-	commit := &Commit{
+	commit := &persist.Commit{
 		ID:         commitID,
 		Repo:       repo.Name,
 		Started:    prototime.TimeToTimestamp(time.Now()),
@@ -259,7 +268,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			branch = uuid.NewWithoutDashes()
 		}
 
-		_, err := d.getTerm(branchTable).Insert(&Branch{
+		_, err := d.getTerm(branchTable).Insert(&persist.Branch{
 			ID: branchID(repo.Name, branch),
 		}, gorethink.InsertOpts{
 			// Set conflict to "replace" because we don't want to get an error
@@ -281,33 +290,21 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		}
 
 		// The last commit on this branch will be our parent commit
-		parentCommit := &Commit{}
+		parentCommit := &persist.Commit{}
 		if err := cursor.One(parentCommit); err != nil && err != gorethink.ErrEmptyResult {
 			return err
 		}
 		if err == gorethink.ErrEmptyResult {
 			// we don't have a parent :(
 			// so we create a new BranchClock
-			commit.BranchClocks = []*BranchClock{{
-				Clocks: []*Clock{{
-					Branch: branch,
-					Clock:  0,
-				}},
-			}}
+			commit.BranchClocks = libclock.NewBranchClocks(branch)
 		} else {
 			// we do have a parent :D
 			// so we inherit our parent's branch clock for this particular branch,
 			// and increment the last component by 1
-			var set bool
-			for _, branchClock := range parentCommit.BranchClocks {
-				if branchClock.Clocks[len(branchClock.Clocks)-1].Branch == branch {
-					branchClock.Clocks[len(branchClock.Clocks)-1].Clock += 1
-					commit.BranchClocks = []*BranchClock{branchClock}
-					set = true
-				}
-			}
-			if !set {
-				return fmt.Errorf("commitBranchIndex returned a parent commit, but the parent commit is not on the branch that we are operating on; this is a bug")
+			commit.BranchClocks, err = libclock.NewChildOfBranchClocks(parentCommit.BranchClocks, branch)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -338,7 +335,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (comm
 		return nil, err
 	}
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	if err := cursor.One(rawCommit); err != nil {
 		return nil, err
 	}
@@ -346,7 +343,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (comm
 	return rawCommitToCommitInfo(rawCommit), nil
 }
 
-func rawCommitToCommitInfo(rawCommit *Commit) *pfs.CommitInfo {
+func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	commitType := pfs.CommitType_COMMIT_TYPE_READ
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
@@ -380,7 +377,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		}
 	}()
 	for {
-		rawCommit := &Commit{}
+		rawCommit := &persist.Commit{}
 		if !cursor.Next(rawCommit) {
 			break
 		}
