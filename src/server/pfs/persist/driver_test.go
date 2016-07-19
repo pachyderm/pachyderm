@@ -67,4 +67,7 @@ func TestStartCommit(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
+	require.Equal(t, 1, len(rawCommit.BranchClocks))
+	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+
 }
