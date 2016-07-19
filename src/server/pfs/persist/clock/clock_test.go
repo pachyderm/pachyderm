@@ -87,4 +87,50 @@ func TestNewChildOfBranchClocks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
+	actual, err = NewChildOfBranchClocks(input, "abba")
+	require.YesError(t, err)
+	require.Nil(t, actual)
+}
+
+func TestAddClock(t *testing.T) {
+	// AddClock adds a BranchClock to a BranchClocks.
+	// Returns an error if the BranchClock already exists in the BranchClocks
+	input := persist.BranchClocks{
+		{
+			Clocks: []*persist.Clock{
+				{
+					Branch: "foo",
+					Clock:  1,
+				},
+				{
+					Branch: "bar",
+					Clock:  1,
+				},
+			},
+		},
+		{
+			Clocks: []*persist.Clock{
+				{
+					Branch: "master",
+					Clock:  1,
+				},
+			},
+		},
+	}
+	newClock := &persist.BranchClock{
+		Clocks: []*persist.Clock{
+			{
+				Branch: "bar",
+				Clock:  4,
+			},
+		},
+	}
+	b, err := AddClock(input, newClock)
+	require.NoError(t, err)
+	expected := append(input, newClock)
+	require.Equal(t, expected, b)
+
+	b2, err := AddClock(b, newClock)
+	require.YesError(t, err)
+	require.Nil(t, b2)
 }
