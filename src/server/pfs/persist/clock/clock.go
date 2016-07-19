@@ -62,7 +62,7 @@ func NewBranch(parent *persist.BranchClock, branch string) (*persist.BranchClock
 // Returns an error if the branch is not found
 //
 // Args: [[(foo, 1), (bar, 1)], [(master, 1)]], "master"
-// Return: [[(master, 2)]], true
+// Return: [[(master, 2)]]
 func NewChildOfBranchClocks(parent persist.BranchClocks, branch string) (persist.BranchClocks, error) {
 	for _, branchClock := range parent {
 		if len(branchClock.Clocks) > 0 && branchClock.Clocks[len(branchClock.Clocks)-1].Branch == branch {
