@@ -134,6 +134,11 @@ func InitDB(address string, databaseName string) error {
 		return err
 	}
 
+	// Wait for indexes to be ready
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
+		return err
+	}
+
 	return nil
 }
 
