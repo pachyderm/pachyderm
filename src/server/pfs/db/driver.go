@@ -279,33 +279,51 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			return err
 		}
 
-		cursor, err := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-			Index: gorethink.Desc(commitBranchIndex),
-		}).Between(
-			[]interface{}{branch, 0},
-			[]interface{}{branch, gorethink.MaxVal},
-		).Run(d.dbClient)
-		if err != nil {
-			return err
-		}
-
-		// The last commit on this branch will be our parent commit
-		parentCommit := &persist.Commit{}
-		if err := cursor.One(parentCommit); err != nil && err != gorethink.ErrEmptyResult {
-			return err
-		}
-		if err == gorethink.ErrEmptyResult {
-			// we don't have a parent :(
-			// so we create a new BranchClock
-			commit.BranchClocks = libclock.NewBranchClocks(branch)
-		} else {
-			// we do have a parent :D
-			// so we inherit our parent's branch clock for this particular branch,
-			// and increment the last component by 1
-			commit.BranchClocks, err = libclock.NewChildOfBranchClocks(parentCommit.BranchClocks, branch)
+		for {
+			cursor, err := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+				Index: gorethink.Desc(commitBranchIndex),
+			}).Between(
+				[]interface{}{branch, 0},
+				[]interface{}{branch, gorethink.MaxVal},
+			).Run(d.dbClient)
 			if err != nil {
 				return err
 			}
+
+			// The last commit on this branch will be our parent commit
+			parentCommit := &persist.Commit{}
+			if err := cursor.One(parentCommit); err != nil && err != gorethink.ErrEmptyResult {
+				return err
+			}
+			if err == gorethink.ErrEmptyResult {
+				// we don't have a parent :(
+				// so we create a new BranchClock
+				commit.BranchClocks = libclock.NewBranchClocks(branch)
+			} else {
+				// we do have a parent :D
+				// so we inherit our parent's branch clock for this particular branch,
+				// and increment the last component by 1
+				commit.BranchClocks, err = libclock.NewChildOfBranchClocks(parentCommit.BranchClocks, branch)
+				if err != nil {
+					return err
+				}
+			}
+			clock, err := libclock.GetClockForBranch(commit.BranchClocks, branch)
+			if err != nil {
+				return err
+			}
+			clockID := clockToID(clock)
+			_, err = d.getTerm(clockTable).Insert(clockID, gorethink.InsertOpts{
+				// we want to return an error in case the clock already exists
+				Conflict: "error",
+			}).RunWrite(d.dbClient)
+			if gorethink.IsConflictErr(err) {
+				// Try again with a new clock
+				continue
+			} else if err != nil {
+				return err
+			}
+			break
 		}
 	}
 
