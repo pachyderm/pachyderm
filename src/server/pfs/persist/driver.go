@@ -241,8 +241,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return err
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
-	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (retErr error) {
 	if commitID == "" {
 		commitID = uuid.NewWithoutDashes()
 	}
@@ -281,7 +280,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			[]interface{}{branch, gorethink.MaxVal},
 		).Run(d.dbClient)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		defer func() {
 			if err := cursor.Close(); err != nil && retErr == nil {
@@ -293,17 +292,17 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		parentCommit := &Commit{}
 		found := cursor.Next(parentCommit)
 		if err := cursor.Err(); err != nil {
-			return nil, err
+			return err
 		}
 		if !found {
 			// we don't have a parent :(
 			// so we create a new BranchClock
-			commit.BranchClocks = []*BranchClock{
-				&BranchClock{
+			commit.BranchClocks = []*BranchClock{{
+				Clocks: []*Clock{{
 					Branch: branch,
 					Clock:  0,
-				},
-			}
+				}},
+			}}
 		} else {
 			// we do have a parent :D
 			// so we inherit our parent's branch clock for this particular branch,
@@ -320,15 +319,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return fmt.Errorf("commitBranchIndex returned a parent commit, but the parent commit is not on the branch that we are operating on; this is a bug")
 			}
 		}
-		return rawCommitToCommitInfo(rawCommit), nil
 	}
 
-	_, err := d.getTerm(commitTable).Insert(&Commit{
-		ID:         commitID,
-		Repo:       repo.Name,
-		Started:    prototime.TimeToTimestamp(time.Now()),
-		Provenance: []string{parentID}, // Incorrect. Need all ancestors
-	}).RunWrite(d.dbClient)
+	_, err := d.getTerm(commitTable).Insert(commit).RunWrite(d.dbClient)
 
 	return err
 }
