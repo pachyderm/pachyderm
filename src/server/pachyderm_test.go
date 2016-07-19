@@ -2189,6 +2189,20 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 	require.Matches(t, "not found", err.Error())
 }
 
+func TestFlushNonExistantCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit("fake-repo", "fake-commit")}, nil)
+	require.YesError(t, err)
+	repo := uniqueString("FlushNonExistantCommit")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "fake-commit")}, nil)
+	require.YesError(t, err)
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
