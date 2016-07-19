@@ -29,13 +29,11 @@ const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
 
-	commitTable       Table = "Commits"
-	commitClocksIndex Index = "CommitClocksIndex"
-	commitRepoIndex   Index = "CommitRepoIndex"
+	commitTable Table = "Commits"
+	// commitBranchIndex maps commits to branches
+	commitBranchIndex Index = "CommitBranchIndex"
 
-	diffTable         Table = "Diffs"
-	diffCommitIDIndex Index = "DiffCommitIDIndex"
-	diffPathIndex     Index = "DiffPathIndex"
+	diffTable Table = "Diffs"
 
 	connectTimeoutSeconds = 5
 )
@@ -122,16 +120,17 @@ func InitDB(address string, databaseName string) error {
 	}
 
 	// Create indexes
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreate(commitClocksIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreate(commitRepoIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreate(diffCommitIDIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreate(diffPathIndex).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitBranchIndex, func(row gorethink.Term) interface{} {
+		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+			lastClock := branchClock.Field("Clocks").Nth(-1)
+			return []interface{}{
+				lastClock.Field("Branch"),
+				lastClock.Field("Clock"),
+			}
+		})
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
 		return err
 	}
 
