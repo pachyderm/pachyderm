@@ -187,6 +187,7 @@ func (c APIClient) GetLogs(
 // on availabe resources.
 // inputs specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
+// update indicates that you want to update an existing pipeline
 func (c APIClient) CreatePipeline(
 	name string,
 	image string,
@@ -194,6 +195,7 @@ func (c APIClient) CreatePipeline(
 	stdin []string,
 	parallelism uint64,
 	inputs []*pps.PipelineInput,
+	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -206,6 +208,7 @@ func (c APIClient) CreatePipeline(
 			},
 			Parallelism: parallelism,
 			Inputs:      inputs,
+			Update:      update,
 		},
 	)
 	return sanitizeErr(err)
