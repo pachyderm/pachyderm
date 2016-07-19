@@ -125,16 +125,16 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
 	require.NoError(t, err)
 
-	commit2ID := uuid.NewWithoutDashes()
+	commitID = uuid.NewWithoutDashes()
 	err = d.StartCommit(
 		&pfs.Repo{Name: "foo"},
-		commit2ID,
+		commitID,
 		"",
 		"master",
 		timestampNow(),
@@ -145,19 +145,15 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
 
-	rawCommit2 := &Commit{}
-	cursor.Next(rawCommit2)
+	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
-	fmt.Printf("Commit info: %v\n", rawCommit2)
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit.BranchClocks[0].Clocks[0])
 
-	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
-	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
-	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[0].Clocks[1])
-
-	commit2 := persistCommitToPFSCommit(rawCommit2)
-	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
+	commit = persistCommitToPFSCommit(rawCommit)
+	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
 	require.NoError(t, err)
 
 }
