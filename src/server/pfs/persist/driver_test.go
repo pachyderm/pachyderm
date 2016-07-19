@@ -52,7 +52,9 @@ CASES:
 - start commit - no parent ID, branch name = master --> creates first commit on master
 - do this and repeate start commit call pattern -> new commit should have first as parent
 - start commit w parent ID
+- when branch and parent nil, make a new branch
 
+- check uniqueness -- see if creating branch w same id results in rethink error
 */
 
 func TestStartCommit(t *testing.T) {
@@ -92,4 +94,72 @@ func TestStartCommit(t *testing.T) {
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
 	require.NoError(t, err)
+}
+
+func TestStartCommitJustByBranch(t *testing.T) {
+	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
+	require.NoError(t, err)
+	fmt.Printf("got a driver")
+
+	dbClient, err := dbConnect(RethinkAddress)
+	require.NoError(t, err)
+
+	commitID := uuid.NewWithoutDashes()
+	err = d.StartCommit(
+		&pfs.Repo{},
+		commitID,
+		"",
+		"master",
+		timestampNow(),
+		make([]*pfs.Commit, 0),
+		make(map[uint64]bool),
+	)
+	require.NoError(t, err)
+
+	cursor, err := gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+	defer func() {
+		require.NoError(t, cursor.Close())
+	}()
+
+	rawCommit := &Commit{}
+	cursor.Next(rawCommit)
+	require.NoError(t, cursor.Err())
+
+	fmt.Printf("Commit info: %v\n", rawCommit)
+
+	require.Equal(t, 1, len(rawCommit.BranchClocks))
+	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+
+	commit := persistCommitToPFSCommit(rawCommit)
+	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
+	require.NoError(t, err)
+
+	commit2ID := uuid.NewWithoutDashes()
+	err = d.StartCommit(
+		&pfs.Repo{},
+		commit2ID,
+		"",
+		"master",
+		timestampNow(),
+		make([]*pfs.Commit, 0),
+		make(map[uint64]bool),
+	)
+	require.NoError(t, err)
+
+	cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+
+	rawCommit2 := &Commit{}
+	cursor.Next(rawCommit2)
+	require.NoError(t, cursor.Err())
+
+	fmt.Printf("Commit info: %v\n", rawCommit2)
+
+	require.Equal(t, 2, len(rawCommit2.BranchClocks))
+	require.Equal(t, rawCommit2.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, rawCommit2.BranchClocks[1], &Clock{Branch: "master", Clock: 1})
+
+	commit2 := persistCommitToPFSCommit(rawCommit2)
+	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
+	require.NoError(t, err)
+
 }
