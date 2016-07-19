@@ -246,6 +246,83 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	if commitID == "" {
 		commitID = uuid.NewWithoutDashes()
 	}
+
+	var _provenance []string
+	for _, c := range provenance {
+		_provenance = append(_provenance, c.ID)
+	}
+	commit := &Commit{
+		ID:         commitID,
+		Repo:       repo.Name,
+		Started:    prototime.TimeToTimestamp(time.Now()),
+		Provenance: _provenance,
+	}
+
+	if parentID == "" {
+		if branch == "" {
+			branch = uuid.NewWithoutDashes()
+		}
+
+		_, err := d.getTerm(branchTable).Insert(&Branch{
+			ID: branchID(repo.Name, branch),
+		}, gorethink.InsertOpts{
+			// Set conflict to "replace" because we don't want to get an error
+			// when the branch already exists.
+			Conflict: "replace",
+		}).RunWrite(d.dbClient)
+		if err != nil {
+			return err
+		}
+
+		cursor, err := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+			Index: gorethink.Desc(commitBranchIndex),
+		}).Between(
+			[]interface{}{branch, 0},
+			[]interface{}{branch, gorethink.MaxVal},
+		).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := cursor.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+
+		// The last commit on this branch will be our parent commit
+		parentCommit := &Commit{}
+		found := cursor.Next(parentCommit)
+		if err := cursor.Err(); err != nil {
+			return nil, err
+		}
+		if !found {
+			// we don't have a parent :(
+			// so we create a new BranchClock
+			commit.BranchClocks = []*BranchClock{
+				&BranchClock{
+					Branch: branch,
+					Clock:  0,
+				},
+			}
+		} else {
+			// we do have a parent :D
+			// so we inherit our parent's branch clock for this particular branch,
+			// and increment the last component by 1
+			var set bool
+			for _, branchClock := range parentCommit.BranchClocks {
+				if branchClock.Clocks[len(branchClock.Clocks)-1].Branch == branch {
+					branchClock.Clocks[len(branchClock.Clocks)-1].Clock += 1
+					commit.BranchClocks = []*BranchClock{branchClock}
+					set = true
+				}
+			}
+			if !set {
+				return fmt.Errorf("commitBranchIndex returned a parent commit, but the parent commit is not on the branch that we are operating on; this is a bug")
+			}
+		}
+		return rawCommitToCommitInfo(rawCommit), nil
+	}
+
 	_, err := d.getTerm(commitTable).Insert(&Commit{
 		ID:         commitID,
 		Repo:       repo.Name,
@@ -254,6 +331,10 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	}).RunWrite(d.dbClient)
 
 	return err
+}
+
+func branchID(repo string, name string) string {
+	return fmt.Sprintf("%s/%s", repo, name)
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
