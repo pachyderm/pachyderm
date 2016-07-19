@@ -47,12 +47,7 @@ func persistCommitToPFSCommit(rawCommit *Commit) *pfs.Commit {
 
 /*
 
-CASES:
-
-- start commit - no parent ID, branch name = master --> creates first commit on master
-- do this and repeate start commit call pattern -> new commit should have first as parent
-- start commit w parent ID
-- when branch and parent nil, make a new branch
+TODO, write these cases:
 
 - check uniqueness -- see if creating branch w same id results in rethink error
 */
@@ -67,7 +62,7 @@ func TestStartCommit(t *testing.T) {
 
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commitID,
 		"",
 		"master",
@@ -88,8 +83,9 @@ func TestStartCommit(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -106,7 +102,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commitID,
 		"",
 		"master",
@@ -127,8 +123,9 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -136,7 +133,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	commit2ID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commit2ID,
 		"",
 		"master",
@@ -154,9 +151,10 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
-	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
-	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[1])
+	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
+	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[0].Clocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -174,7 +172,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commitID,
 		"",
 		"master",
@@ -195,8 +193,9 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -204,7 +203,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	commit2ID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commit2ID,
 		commitID,
 		"master",
@@ -222,9 +221,10 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
-	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
-	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[1])
+	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
+	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[0].Clocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -242,7 +242,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commitID,
 		"",
 		"master",
@@ -263,8 +263,9 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -272,7 +273,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	commit2ID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commit2ID,
 		commitID,
 		"foo",
@@ -290,9 +291,11 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
-	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
-	require.Equal(t, &Clock{Branch: "foo", Clock: 0}, rawCommit2.BranchClocks[1])
+	require.Equal(t, 2, len(rawCommit2.BranchClocks))          // Belongs to 2 branches
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // Has 1 commit on this branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[1].Clocks)) // Has 1 commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &Clock{Branch: "foo", Clock: 0}, rawCommit2.BranchClocks[1].Clocks[0])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -310,7 +313,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commitID,
 		"",
 		"master",
@@ -331,8 +334,9 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -340,7 +344,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	commit2ID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{},
+		&pfs.Repo{Name: "foo"},
 		commit2ID,
 		commitID,
 		"",
@@ -358,13 +362,50 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
-	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
-	require.NotNil(t, rawCommit2.BranchClocks[1].Branch)
-	require.Equal(t, 0, rawCommit2.BranchClocks[1].Clock)
+	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
+	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
 	require.NoError(t, err)
 
+}
+
+func TestStartCommitNoParentOrBranch(t *testing.T) {
+	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
+	require.NoError(t, err)
+	fmt.Printf("got a driver")
+
+	dbClient, err := dbConnect(RethinkAddress)
+	require.NoError(t, err)
+
+	commitID := uuid.NewWithoutDashes()
+	err = d.StartCommit(
+		&pfs.Repo{Name: "foo"},
+		commitID,
+		"",
+		"",
+		timestampNow(),
+		make([]*pfs.Commit, 0),
+		make(map[uint64]bool),
+	)
+	require.NoError(t, err)
+
+	cursor, err := gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+	defer func() {
+		require.NoError(t, cursor.Close())
+	}()
+
+	rawCommit := &Commit{}
+	cursor.Next(rawCommit)
+	require.NoError(t, cursor.Err())
+
+	fmt.Printf("Commit info: %v\n", rawCommit)
+
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Matches(t, "foo", rawCommit.BranchClocks[0].Clocks[0].Branch)
+	require.Equal(t, 0, rawCommit.BranchClocks[0].Clocks[0].Clock)
 }
