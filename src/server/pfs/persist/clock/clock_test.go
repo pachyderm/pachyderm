@@ -13,7 +13,7 @@ func TestNewBranchClocks(t *testing.T) {
 	require.Equal(t, 1, len(b))           // Only one branch
 	require.Equal(t, 1, len(b[0].Clocks)) // Only one commit
 	require.Equal(t, "master", b[0].Clocks[0].Branch)
-	require.Equal(t, 0, b[0].Clocks[0].Clock)
+	require.Equal(t, uint64(0), b[0].Clocks[0].Clock)
 }
 
 func TestNewChild(t *testing.T) {
@@ -35,17 +35,15 @@ func TestNewChild(t *testing.T) {
 		},
 	}
 
-	expected := persist.BranchClocks{
-		{
-			Clocks: []*persist.Clock{
-				{
-					Branch: "master",
-					Clock:  0,
-				},
-				{
-					Branch: "foo",
-					Clock:  1,
-				},
+	expected := &persist.BranchClock{
+		Clocks: []*persist.Clock{
+			{
+				Branch: "master",
+				Clock:  0,
+			},
+			{
+				Branch: "foo",
+				Clock:  1,
 			},
 		},
 	}
@@ -120,7 +118,7 @@ func TestAddClock(t *testing.T) {
 	newClock := &persist.BranchClock{
 		Clocks: []*persist.Clock{
 			{
-				Branch: "bar",
+				Branch: "zappa",
 				Clock:  4,
 			},
 		},
