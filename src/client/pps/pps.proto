@@ -130,6 +130,7 @@ message CreatePipelineRequest {
   Transform transform = 2;
   uint64 parallelism = 3;
   repeated PipelineInput inputs = 4;
+  bool update = 5;
 }
 
 message InspectPipelineRequest {
