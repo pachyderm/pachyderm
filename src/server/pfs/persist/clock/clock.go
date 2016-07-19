@@ -38,6 +38,6 @@ func NewChildOfBranchClocks(parent persist.BranchClocks, branch string) (persist
 
 // AddClock adds a BranchClock to a BranchClocks.
 // Returns an error if the BranchClock already exists in the BranchClocks
-func AddClock(b persist.BranchClocks, c *persist.BranchClock) persist.BranchClocks {
-	return nil
+func AddClock(b persist.BranchClocks, c *persist.BranchClock) (persist.BranchClocks, error) {
+	return nil, nil
 }
