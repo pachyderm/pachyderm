@@ -196,18 +196,12 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *pfs.RepoInfo, retErr error) {
-	cursor, err := d.getTerm(repoTable).Get(repo.Name).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := cursor.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
 	rawRepo := &Repo{}
-	cursor.Next(rawRepo)
-	if err := cursor.Err(); err != nil {
+	if err := cursor.One(rawRepo); err != nil {
 		return nil, err
 	}
 	repoInfo = &pfs.RepoInfo{
@@ -285,19 +279,13 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := cursor.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
 
 		// The last commit on this branch will be our parent commit
 		parentCommit := &Commit{}
-		found := cursor.Next(parentCommit)
-		if err := cursor.Err(); err != nil {
+		if err := cursor.One(parentCommit); err != nil && err != gorethink.ErrEmptyResult {
 			return err
 		}
-		if !found {
+		if err == gorethink.ErrEmptyResult {
 			// we don't have a parent :(
 			// so we create a new BranchClock
 			commit.BranchClocks = []*BranchClock{{
@@ -345,19 +333,13 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
-	cursor, err := d.getTerm(commitTable).Get(commit.ID).Default(gorethink.Error("value not found")).Run(d.dbClient)
+	cursor, err := d.getTerm(commitTable).Get(commit.ID).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := cursor.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
 
 	rawCommit := &Commit{}
-	cursor.Next(rawCommit)
-	if err := cursor.Err(); err != nil {
+	if err := cursor.One(rawCommit); err != nil {
 		return nil, err
 	}
 
