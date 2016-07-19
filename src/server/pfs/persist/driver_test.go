@@ -89,7 +89,7 @@ func TestStartCommit(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -128,7 +128,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -155,8 +155,8 @@ func TestStartCommitJustByBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
 	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, rawCommit2.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
-	require.Equal(t, rawCommit2.BranchClocks[1], &Clock{Branch: "master", Clock: 1})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
+	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -196,7 +196,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -223,8 +223,8 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
 	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, rawCommit2.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
-	require.Equal(t, rawCommit2.BranchClocks[1], &Clock{Branch: "master", Clock: 1})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
+	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -264,7 +264,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -291,8 +291,8 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
 	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, rawCommit2.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
-	require.Equal(t, rawCommit2.BranchClocks[1], &Clock{Branch: "foo", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
+	require.Equal(t, &Clock{Branch: "foo", Clock: 0}, rawCommit2.BranchClocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -332,7 +332,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit)
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
-	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -359,9 +359,9 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 	fmt.Printf("Commit info: %v\n", rawCommit2)
 
 	require.Equal(t, 2, len(rawCommit2.BranchClocks))
-	require.Equal(t, rawCommit2.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
-	require.Matches(t, rawCommit2.BranchClocks[1].Branch)
-	require.Equal(t, rawCommit2.BranchClocks[1].Clock, 0)
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0])
+	require.NotNil(t, rawCommit2.BranchClocks[1].Branch)
+	require.Equal(t, 0, rawCommit2.BranchClocks[1].Clock)
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
