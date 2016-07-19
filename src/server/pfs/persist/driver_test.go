@@ -405,3 +405,97 @@ func TestStartCommitNoParentOrBranch(t *testing.T) {
 	require.Matches(t, "foo", rawCommit.BranchClocks[0].Clocks[0].Branch)
 	require.Equal(t, 0, rawCommit.BranchClocks[0].Clocks[0].Clock)
 }
+
+func TestStartCommitRace(t *testing.T) {
+	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
+	require.NoError(t, err)
+
+	dbClient, err := dbConnect(RethinkAddress)
+	require.NoError(t, err)
+
+	commitID := uuid.NewWithoutDashes()
+	err = d.StartCommit(
+		&pfs.Repo{Name: "foo"},
+		commitID,
+		"",
+		"master",
+		timestampNow(),
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	cursor, err := gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+	defer func() {
+		require.NoError(t, cursor.Close())
+	}()
+
+	rawCommit := &Commit{}
+	cursor.Next(rawCommit)
+	require.NoError(t, cursor.Err())
+
+	fmt.Printf("Commit info: %v\n", rawCommit)
+
+	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
+	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
+	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
+
+	commit := persistCommitToPFSCommit(rawCommit)
+	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
+	require.NoError(t, err)
+
+	ch := make(chan int, 100)
+	errCh := make(chan error, 100)
+	startCommitOnHead := func() {
+		newCommitID := uuid.NewWithoutDashes()
+		err = d.StartCommit(
+			&pfs.Repo{Name: "foo"},
+			newCommitID,
+			"",
+			"master",
+			timestampNow(),
+			make([]*pfs.Commit, 0),
+			make(map[uint64]bool),
+		)
+
+		cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+
+		cursor.Next(rawCommit)
+
+		if len(rawCommit.BranchClocks) != 1 {
+			errCh <- fmt.Errorf("RawCommit %v has incorrect number of BranchClocks", rawCommit)
+			ch <- -1
+			return
+		}
+		bc := rawCommit.BranchClocks[0]
+		if len(bc.Clocks) != 1 {
+			errCh <- fmt.Errorf("BranchClock %v has incorrect number of Clocks", bc)
+			ch <- -1
+			return
+		}
+		fmt.Printf("Got clock: %v\n", bc.Clocks[0].Clock)
+		ch <- int(bc.Clocks[len(bc.Clocks)-1].Clock)
+		errCh <- nil
+	}
+
+	for i := 0; i < 100; i++ {
+		go startCommitOnHead()
+	}
+
+	results := make(map[int]bool)
+	for j := 0; j < 100; j++ {
+		value := <-ch
+		if value != -1 {
+			results[value] = true
+		}
+	}
+
+	// There should be a bunch of new commits and no collisions
+	require.Equal(t, 100, len(results))
+
+	for k := 0; k < 100; k++ {
+		e := <-errCh
+		require.NoError(t, e)
+	}
+
+}
