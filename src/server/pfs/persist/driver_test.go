@@ -36,6 +36,25 @@ func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
 }
 
+func persistCommitToPFSCommit(rawCommit *Commit) *pfs.Commit {
+	return &pfs.Commit{
+		Repo: &pfs.Repo{
+			Name: rawCommit.Repo,
+		},
+		ID: rawCommit.ID,
+	}
+}
+
+/*
+
+CASES:
+
+- start commit - no parent ID, branch name = master --> creates first commit on master
+- do this and repeate start commit call pattern -> new commit should have first as parent
+- start commit w parent ID
+
+*/
+
 func TestStartCommit(t *testing.T) {
 	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
 	require.NoError(t, err)
@@ -70,4 +89,7 @@ func TestStartCommit(t *testing.T) {
 	require.Equal(t, 1, len(rawCommit.BranchClocks))
 	require.Equal(t, rawCommit.BranchClocks[0], &Clock{Branch: "master", Clock: 0})
 
+	commit := persistCommitToPFSCommit(rawCommit)
+	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
+	require.NoError(t, err)
 }
