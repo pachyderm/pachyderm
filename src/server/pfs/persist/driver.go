@@ -38,6 +38,8 @@ const (
 	connectTimeoutSeconds = 5
 )
 
+type BranchClocks []*BranchClock
+
 var (
 	tables = []Table{
 		repoTable,
@@ -247,10 +249,6 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (retErr error) {
-	if commitID == "" {
-		commitID = uuid.NewWithoutDashes()
-	}
-
 	var _provenance []string
 	for _, c := range provenance {
 		_provenance = append(_provenance, c.ID)
