@@ -51,8 +51,8 @@ func TestStartCommit(t *testing.T) {
 		"",
 		"master",
 		timestampNow(),
-		make([]*pfs.Commit, 0),
-		make(map[uint64]bool),
+		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
