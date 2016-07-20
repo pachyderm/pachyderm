@@ -214,7 +214,7 @@ func TestPFSRefactorListBranchRedundant(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	// Can't create branch if it exists
-	commit2, err := client.StartCommit(repo, commit1.ID, "branchA")
+	_, err = client.StartCommit(repo, commit1.ID, "branchA")
 	require.YesError(t, err)
 
 	branches, err := client.ListBranch(repo)
