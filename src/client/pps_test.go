@@ -28,6 +28,7 @@ func Example_pps() {
 			// map over "repo"
 			client.NewPipelineInput("repo", client.MapMethod),
 		},
+		false, // not an update
 	); err != nil {
 		return // handle error
 	}
@@ -41,6 +42,7 @@ func Example_pps() {
 			// reduce over "map"
 			client.NewPipelineInput("map", client.ReduceMethod),
 		},
+		false, // not an update
 	); err != nil {
 		return // handle error
 	}
