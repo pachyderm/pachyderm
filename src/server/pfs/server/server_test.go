@@ -150,7 +150,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestBranchSimple(t *testing.T) {
+func TestPFSRefactorBranchSimple(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -169,7 +169,7 @@ func TestBranchSimple(t *testing.T) {
 
 }
 
-func TestListBranch(t *testing.T) {
+func TestPFSRefactorListBranch(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -201,7 +201,7 @@ func TestListBranch(t *testing.T) {
 	require.EqualOneOf(t, branchNames, branches[1])
 }
 
-func TestListBranchRedundant(t *testing.T) {
+func TestPFSRefactorListBranchRedundant(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -224,7 +224,7 @@ func TestListBranchRedundant(t *testing.T) {
 	require.Equal(t, "branchA", branches[0])
 }
 
-func TestStartCommitLatestOnBranch(t *testing.T) {
+func TestPFSRefactorStartCommitLatestOnBranch(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -343,7 +343,7 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestInspectRepoMostBasic(t *testing.T) {
+func TestPFSRefactorInspectRepoMostBasic(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -356,7 +356,7 @@ func TestInspectRepoMostBasic(t *testing.T) {
 	require.Equal(t, int(repoInfo.SizeBytes), 0)
 }
 
-func TestInspectRepoSimple(t *testing.T) {
+func TestPFSRefactorInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -484,7 +484,7 @@ func TestDeleteRepo(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
-func TestStartCommitFromParentID(t *testing.T) {
+func TestPFSRefactorStartCommitFromParentID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := getClientAndServer(t)
@@ -549,7 +549,7 @@ func TestStartCommitFromParentID(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 }
 
-func TestStartAndFinishCommit(t *testing.T) {
+func TestPFSRefactorStartAndFinishCommit(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -562,7 +562,7 @@ func TestStartAndFinishCommit(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 }
 
-func TestInspectCommitBasic(t *testing.T) {
+func TestPFSRefactorInspectCommitBasic(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1061,7 +1061,7 @@ func TestDeleteDir(t *testing.T) {
 	// TODO: test deleting "."
 }
 
-func TestListCommitBasic(t *testing.T) {
+func TestPFSRefactorListCommitBasic(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 
