@@ -4,12 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 
 	"github.com/dancannon/gorethink"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -36,7 +38,7 @@ func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
 }
 
-func persistCommitToPFSCommit(rawCommit *Commit) *pfs.Commit {
+func persistCommitToPFSCommit(rawCommit *persist.Commit) *pfs.Commit {
 	return &pfs.Commit{
 		Repo: &pfs.Repo{
 			Name: rawCommit.Repo,
@@ -77,7 +79,7 @@ func TestStartCommit(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -85,7 +87,7 @@ func TestStartCommit(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -117,7 +119,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -125,7 +127,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -150,7 +152,7 @@ func TestStartCommitJustByBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 1}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit = persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -183,7 +185,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -191,7 +193,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -211,7 +213,7 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
 
-	rawCommit2 := &Commit{}
+	rawCommit2 := &persist.Commit{}
 	cursor.Next(rawCommit2)
 	require.NoError(t, cursor.Err())
 
@@ -219,8 +221,8 @@ func TestStartCommitSpecifyParentAndBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
 	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
-	require.Equal(t, &Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[0].Clocks[1])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 1}, rawCommit2.BranchClocks[0].Clocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -253,7 +255,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -261,7 +263,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -281,7 +283,7 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 
 	cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
 
-	rawCommit2 := &Commit{}
+	rawCommit2 := &persist.Commit{}
 	cursor.Next(rawCommit2)
 	require.NoError(t, cursor.Err())
 
@@ -290,8 +292,8 @@ func TestStartCommitSpecifyParentAndNewBranch(t *testing.T) {
 	require.Equal(t, 2, len(rawCommit2.BranchClocks))          // Belongs to 2 branches
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // Has 1 commit on this branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[1].Clocks)) // Has 1 commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
-	require.Equal(t, &Clock{Branch: "foo", Clock: 0}, rawCommit2.BranchClocks[1].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "foo", Clock: 0}, rawCommit2.BranchClocks[1].Clocks[0])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -324,7 +326,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -332,7 +334,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0].Clock)
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -352,7 +354,7 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
 
-	rawCommit2 := &Commit{}
+	rawCommit2 := &persist.Commit{}
 	cursor.Next(rawCommit2)
 	require.NoError(t, cursor.Err())
 
@@ -360,8 +362,8 @@ func TestStartCommitSpecifyParentAndNoBranch(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit2.BranchClocks))          // Only belongs to one branch
 	require.Equal(t, 2, len(rawCommit.BranchClocks[0].Clocks)) // Has 2 commits on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[1])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit2.BranchClocks[0].Clocks[1])
 
 	commit2 := persistCommitToPFSCommit(rawCommit2)
 	err = d.FinishCommit(commit2, timestampNow(), false, make(map[uint64]bool))
@@ -394,7 +396,7 @@ func TestStartCommitNoParentOrBranch(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -430,7 +432,7 @@ func TestStartCommitRace(t *testing.T) {
 		require.NoError(t, cursor.Close())
 	}()
 
-	rawCommit := &Commit{}
+	rawCommit := &persist.Commit{}
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
@@ -438,17 +440,20 @@ func TestStartCommitRace(t *testing.T) {
 
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
 	require.NoError(t, err)
 
+	var wg sync.WaitGroup
 	ch := make(chan int, 100)
-	errCh := make(chan error, 100)
+	errCh := make(chan error, 1)
 	startCommitOnHead := func() {
+		defer wg.Done()
+		var bc *persist.BranchClock
 		newCommitID := uuid.NewWithoutDashes()
-		err = d.StartCommit(
+		err := d.StartCommit(
 			&pfs.Repo{Name: "foo"},
 			newCommitID,
 			"",
@@ -457,45 +462,57 @@ func TestStartCommitRace(t *testing.T) {
 			make([]*pfs.Commit, 0),
 			make(map[uint64]bool),
 		)
+		if err != nil {
+			goto SendError
+		}
 
-		cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
+		cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Run(dbClient)
+		if err != nil {
+			goto SendError
+		}
 
-		cursor.Next(rawCommit)
+		if err = cursor.One(rawCommit); err != nil {
+			goto SendError
+		}
 
 		if len(rawCommit.BranchClocks) != 1 {
-			errCh <- fmt.Errorf("RawCommit %v has incorrect number of BranchClocks", rawCommit)
-			ch <- -1
-			return
+			err = fmt.Errorf("RawCommit %v has incorrect number of BranchClocks", rawCommit)
+			goto SendError
 		}
-		bc := rawCommit.BranchClocks[0]
+
+		bc = rawCommit.BranchClocks[0]
 		if len(bc.Clocks) != 1 {
-			errCh <- fmt.Errorf("BranchClock %v has incorrect number of Clocks", bc)
-			ch <- -1
-			return
+			err = fmt.Errorf("BranchClock %v has incorrect number of Clocks", bc)
+			goto SendError
 		}
-		fmt.Printf("Got clock: %v\n", bc.Clocks[0].Clock)
 		ch <- int(bc.Clocks[len(bc.Clocks)-1].Clock)
-		errCh <- nil
+
+	SendError:
+		if err != nil {
+			select {
+			case errCh <- err:
+			default:
+			}
+		}
 	}
 
 	for i := 0; i < 100; i++ {
+		wg.Add(1)
 		go startCommitOnHead()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	default:
 	}
 
 	results := make(map[int]bool)
 	for j := 0; j < 100; j++ {
 		value := <-ch
-		if value != -1 {
-			results[value] = true
-		}
+		results[value] = true
 	}
 
 	// There should be a bunch of new commits and no collisions
 	require.Equal(t, 100, len(results))
-
-	for k := 0; k < 100; k++ {
-		e := <-errCh
-		require.NoError(t, e)
-	}
-
 }
