@@ -27,6 +27,15 @@ type PrimaryKey string
 // An Index is a rethinkdb index.
 type Index string
 
+// Errors
+type ErrCommitNotFound struct {
+	error
+}
+
+type ErrBranchExists struct {
+	error
+}
+
 const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
@@ -301,7 +310,6 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				// so we create a new BranchClock
 				commit.BranchClocks = libclock.NewBranchClocks(branch)
 			} else {
-				fmt.Println("got a parent!")
 				// we do have a parent :D
 				// so we inherit our parent's branch clock for this particular branch,
 				// and increment the last component by 1
@@ -315,21 +323,57 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 			clockID := clockToID(clock)
-			fmt.Printf("branch clocks: %v\n", commit.BranchClocks)
-			_, err = d.getTerm(clockTable).Insert(clockID, gorethink.InsertOpts{
-				// we want to return an error in case the clock already exists
-				Conflict: "error",
-			}).RunWrite(d.dbClient)
+			_, err = d.getTerm(clockTable).Insert(clockID).RunWrite(d.dbClient)
 			if gorethink.IsConflictErr(err) {
-				// Try again with a new clock
-				fmt.Println("retrying")
 				continue
 			} else if err != nil {
 				return err
 			}
 			break
 		}
+	} else {
+		cursor, err := d.getTerm(commitTable).GetAllByIndex(commitBranchIndex, parentID).Run(d.dbClient)
+		if err != nil {
+			return err
+		}
+
+		parentCommit := &persist.Commit{}
+		err = cursor.One(parentCommit)
+		if err != nil && err != gorethink.ErrEmptyResult {
+			return err
+		} else if err == gorethink.ErrEmptyResult {
+			return ErrCommitNotFound{fmt.Errorf("commit %d not found", parentID)}
+		} else {
+			_, err := d.getTerm(branchTable).Insert(&persist.Branch{
+				ID: branchID(repo.Name, branch),
+			}).RunWrite(d.dbClient)
+			if err != nil {
+				if gorethink.IsConflictErr(err) {
+					return ErrBranchExists(fmt.Errorf("branch %s already exists", branch))
+				} else {
+					return err
+				}
+			}
+			commit.BranchClocks = libclock.NewBranchClocks(branch)
+			clock, err := libclock.GetClockForBranch(commit.BranchClocks, branch)
+			if err != nil {
+				return err
+			}
+			clockID := clockToID(clock)
+			_, err = d.getTerm(clockTable).Insert(clockID).RunWrite(d.dbClient)
+			if gorethink.IsConflictErr(err) {
+				// This should only happen if there's another process creating the
+				// very same branch at the same time, and we lost the race.
+				return ErrBranchExists(fmt.Errorf("branch %s already exists", branch))
+			} else if err != nil {
+				return err
+			}
+		}
 	}
+
+	// TODO: what if the program exits here?  There will be an entry in the Clocks
+	// table, but not in the Commits table.  Now you won't be able to create this
+	// commit anymore.
 
 	_, err := d.getTerm(commitTable).Insert(commit).RunWrite(d.dbClient)
 

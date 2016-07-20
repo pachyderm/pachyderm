@@ -14,6 +14,11 @@ type ErrBranchNotFound struct {
 	error
 }
 
+// NewClock returns a new clock for a given branch
+func NewClock(branch string) *persist.Clock {
+	return &persist.Clock{branch, 0}
+}
+
 // NewBranchClocks creates a new BranchClocks given a branch name
 // "master" -> [[(master, 0)]]
 func NewBranchClocks(branch string) persist.BranchClocks {
