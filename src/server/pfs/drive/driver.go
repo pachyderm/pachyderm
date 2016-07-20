@@ -379,6 +379,24 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return nil
 }
 
+// FinishCommit blocks until its parent has been finished/cancelled
+func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	canonicalCommit, err := d.canonicalCommit(commit)
+	if err != nil {
+		return err
+	}
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	for shard := range shards {
+		diffInfo, ok := d.diffs.get(client.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
+		if !ok {
+			return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
+		}
+		diffInfo.Archived = true
+	}
+	return nil
+}
+
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -425,6 +443,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 				}
 				commit = commitInfo.ParentCommit
 				if commitInfo.Cancelled && !all {
+					continue
+				}
+				if commitInfo.Archived && !all {
 					continue
 				}
 				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
@@ -956,6 +977,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.Finished = diffInfo.Finished
 		commitInfo.SizeBytes = diffInfo.SizeBytes
 		commitInfo.Cancelled = diffInfo.Cancelled
+		commitInfo.Archived = diffInfo.Archived
 		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)

@@ -19,6 +19,7 @@ type Driver interface {
 	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error
 	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error
 	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error
+	ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 		provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error)

@@ -1652,6 +1652,26 @@ func TestPutFileNullCharacter(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestArchiveCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "TestArchiveCommit"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	require.NoError(t, client.ArchiveCommit(repo, commit.ID))
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
