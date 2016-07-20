@@ -14,8 +14,6 @@ type ErrBranchNotFound struct {
 	error
 }
 
-type BranchClocks []*persist.BranchClock
-
 // NewBranchClocks creates a new BranchClocks given a branch name
 // "master" -> [[(master, 0)]]
 func NewBranchClocks(branch string) persist.BranchClocks {
@@ -71,7 +69,7 @@ func NewChildOfBranchClocks(parent persist.BranchClocks, branch string) (persist
 			return persist.BranchClocks{NewChild(branchClock)}, nil
 		}
 	}
-	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks")}
+	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks", branch)}
 }
 
 // AddClock adds a BranchClock to a BranchClocks.
