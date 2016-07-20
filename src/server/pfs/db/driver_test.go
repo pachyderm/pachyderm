@@ -415,9 +415,12 @@ func TestStartCommitRace(t *testing.T) {
 	dbClient, err := dbConnect(RethinkAddress)
 	require.NoError(t, err)
 
+	repo := &pfs.Repo{Name: "foo"}
+	require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
+
 	commitID := uuid.NewWithoutDashes()
 	err = d.StartCommit(
-		&pfs.Repo{Name: "foo"},
+		repo,
 		commitID,
 		"",
 		"master",
