@@ -16,7 +16,10 @@ message Clock {
 }
 
 message ClockID {
-  string id = 1;  // branch + clock
+  string id = 1;  // repo + branch + clock
+  string repo = 2;
+  string branch = 3;
+  uint64 clock = 4;
 }
 
 message BranchClock {
