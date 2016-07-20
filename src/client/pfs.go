@@ -159,6 +159,16 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
+func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
+	_, err := c.PfsAPIClient.ArchiveCommit(
+		context.Background(),
+		&pfs.ArchiveCommitRequest{
+			Commit: NewCommit(repoName, commitID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // CancelCommit ends the process of committing data to a repo. It differs from
 // FinishCommit in that the Commit will not be used as a source for downstream
 // pipelines. CancelCommit is used primarily by PPS for the output commits of
