@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -320,15 +322,26 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			break
 		}
 	} else {
-		parentCommit := &persist.Commit{}
-		if err := d.getMessageByIndex(commitTable, commitBranchIndex, parentID, parentCommit); err != nil {
+		parentClock, err := parseClock(parentID)
+		if err != nil {
 			return err
 		}
-		commit.BranchClocks = libclock.NewBranchClocks(branch)
+
+		parentCommit := &persist.Commit{}
+		if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
+			return err
+		}
+
+		commit.BranchClocks, err = libclock.NewBranchOffBranchClocks(parentCommit.BranchClocks, parentClock.Branch, branch)
+		if err != nil {
+			return err
+		}
+
 		clock, err := libclock.GetClockForBranch(commit.BranchClocks, branch)
 		if err != nil {
 			return err
 		}
+
 		clockID = getClockID(repo.Name, clock)
 		if err := d.insertMessage(clockTable, clockID); err != nil {
 			if gorethink.IsConflictErr(err) {
@@ -360,6 +373,25 @@ func getClockID(repo string, c *persist.Clock) *persist.ClockID {
 		Branch: c.Branch,
 		Clock:  c.Clock,
 	}
+}
+
+// parseClock takes a string of the form "branch/clock"
+// and returns a Clock object.
+// For example:
+// "master/0" -> Clock{"master", 0}
+func parseClock(clock string) (*persist.Clock, error) {
+	parts := strings.Split(clock, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid commit ID %s")
+	}
+	c, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid commit ID %s")
+	}
+	return &persist.Clock{
+		Branch: parts[0],
+		Clock:  uint64(c),
+	}, nil
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
