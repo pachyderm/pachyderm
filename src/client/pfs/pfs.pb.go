@@ -858,6 +858,12 @@ func (m *FlushCommitRequest) GetToRepo() []*Repo {
 	return nil
 }
 
+// DiffMethod specifies how file operations represent changes to files.
+// If FromCommit is nil then the whole file will be returned.
+// If FromCommit is not nil and FullFile is false then only the changes since
+// FromCommit will be returned.
+// If FromCommit is not nil and FullFile is true then the whole file will be
+// returned if there have been changes since FromCommit.
 type DiffMethod struct {
 	FromCommit *Commit `protobuf:"bytes,1,opt,name=from_commit,json=fromCommit" json:"from_commit,omitempty"`
 	FullFile   bool    `protobuf:"varint,2,opt,name=full_file,json=fullFile" json:"full_file,omitempty"`
