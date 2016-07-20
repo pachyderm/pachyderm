@@ -43,8 +43,11 @@ func NewChild(parent *persist.BranchClock) *persist.BranchClock {
 
 // NewBranch takes a BranchClock and a branch name, and returns a new BranchClock
 // that contains the new Branch
+//
 // Returns an error if the branch already exists on the BranchClock
-// [(master, 0), (foo, 1)], "bar" -> [(master, 0), (foo, 1), (bar, 0)]
+//
+// Args: [(master, 0), (foo, 1)], "bar"
+// Return: [(master, 0), (foo, 1), (bar, 0)]
 func NewBranch(parent *persist.BranchClock, branch string) (*persist.BranchClock, error) {
 	for _, clock := range parent.Clocks {
 		if clock.Branch == branch {
@@ -58,6 +61,24 @@ func NewBranch(parent *persist.BranchClock, branch string) (*persist.BranchClock
 		Clock:  0,
 	})
 	return parent, nil
+}
+
+// NewBranchOffBranchClocks takes a BranchClocks, a branch name A, a branch name B,
+// and returns a BranchClocks that contains one BranchClock corresponding to A
+// branching off to B.
+
+// Returns an error if the branch is not found
+//
+// Args: [[(foo, 1), (bar, 1)], [(master, 1)]], "master", "buzz"
+// Return: [[(master, 2), (buzz, 0)]]
+func NewBranchOffBranchClocks(parent persist.BranchClocks, branchA string, branchB string) (persist.BranchClocks, error) {
+	for _, branchClock := range parent {
+		if len(branchClock.Clocks) > 0 && branchClock.Clocks[len(branchClock.Clocks)-1].Branch == branchA {
+			branchClock.Clocks = append(branchClock.Clocks, NewClock(branchB))
+			return persist.BranchClocks{branchClock}, nil
+		}
+	}
+	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks %v", branchA, parent)}
 }
 
 // NewChildOfBranchClocks takes a BranchClocks and a branch name, and returns a
