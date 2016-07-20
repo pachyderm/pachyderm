@@ -27,7 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/persist"
+	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 )
 
 const (
@@ -506,6 +506,37 @@ func TestDeleteRepo(t *testing.T) {
 	}
 
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
+}
+
+func TestStartCommitFromParentID(t *testing.T) {
+	t.Parallel()
+
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	// Should create commit off of parent on a new branch
+	commit1, err := client.StartCommit(repo, commit.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	// TODO(pfs-refactor): Now check to make sure that commit is on a new branch w a random name
+	// This imitates the existing PFS behavior
+
+	// Should create commit off of parent on a new branch by name
+	commit2, err := client.StartCommit(repo, commit.ID, "foo")
+	require.NoError(t, err)
+
+	// TODO(pfs-refactor): Check that new commit is on newly created branch
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
 }
 
 func TestStartAndFinishCommit(t *testing.T) {
