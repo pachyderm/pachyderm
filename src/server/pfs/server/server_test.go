@@ -213,10 +213,9 @@ func TestListBranchRedundant(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
+	// Can't create branch if it exists
 	commit2, err := client.StartCommit(repo, commit1.ID, "branchA")
-	require.NoError(t, err)
-
-	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+	require.YesError(t, err)
 
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
@@ -237,7 +236,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	commit2, err := client.StartCommit(repo, commit1.ID, "branchA")
+	commit2, err := client.StartCommit(repo, "", "branchA")
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
@@ -252,29 +251,6 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 
 	require.NotNil(t, commit3Info.ParentCommit)
 	require.Equal(t, commit3Info.ParentCommit.ID, commit2.ID)
-}
-
-func TestStartCommitBranchOnly(t *testing.T) {
-	t.Parallel()
-	client, _ := getClientAndServer(t)
-
-	repo := "test"
-	require.NoError(t, client.CreateRepo(repo))
-
-	commit1, err := client.StartCommit(repo, "", "branchA")
-	require.NoError(t, err)
-
-	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-
-	commit2, err := client.StartCommit(repo, "", "branchA")
-	require.NoError(t, err)
-
-	require.NoError(t, client.FinishCommit(repo, commit2.ID))
-
-	commit2Info, err := client.InspectCommit(repo, commit2.ID)
-	require.NoError(t, err)
-	require.NotNil(t, commit2Info.ParentCommit)
-	require.Equal(t, commit2Info.ParentCommit.ID, commit1.ID)
 }
 
 func TestBranch(t *testing.T) {
@@ -521,22 +497,56 @@ func TestStartCommitFromParentID(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+
 	// Should create commit off of parent on a new branch
 	commit1, err := client.StartCommit(repo, commit.ID, "")
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	// TODO(pfs-refactor): Now check to make sure that commit is on a new branch w a random name
+	// Now check to make sure that commit is on a new branch w a random name
 	// This imitates the existing PFS behavior
+	existingBranch := branches[0].Branch
+	branches2, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	uniqueBranches := make(map[string]bool)
+
+	for _, thisBranch := range branches2 {
+		uniqueBranches[thisBranch.Branch] = true
+	}
+
+	require.Equal(t, 2, len(uniqueBranches))
+	delete(uniqueBranches, existingBranch)
+	require.Equal(t, 1, len(uniqueBranches))
+	var existingBranch2 string
+	for name, _ := range uniqueBranches {
+		existingBranch2 = name
+	}
 
 	// Should create commit off of parent on a new branch by name
 	commit2, err := client.StartCommit(repo, commit.ID, "foo")
 	require.NoError(t, err)
 
-	// TODO(pfs-refactor): Check that new commit is on newly created branch
+	branches3, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	uniqueBranches = make(map[string]bool)
+
+	for _, thisBranch := range branches3 {
+		uniqueBranches[thisBranch.Branch] = true
+	}
+
+	require.Equal(t, 3, len(uniqueBranches))
+	delete(uniqueBranches, existingBranch)
+	require.Equal(t, 2, len(uniqueBranches))
+	delete(uniqueBranches, existingBranch2)
+	require.Equal(t, 1, len(uniqueBranches))
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
-
 }
 
 func TestStartAndFinishCommit(t *testing.T) {
