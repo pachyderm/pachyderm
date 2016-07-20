@@ -199,6 +199,12 @@ message FlushCommitRequest {
   repeated Repo to_repo = 2;
 }
 
+// DiffMethod specifies how file operations represent changes to files.
+// If FromCommit is nil then the whole file will be returned.
+// If FromCommit is not nil and FullFile is false then only the changes since
+// FromCommit will be returned.
+// If FromCommit is not nil and FullFile is true then the whole file will be
+// returned if there have been changes since FromCommit.
 message DiffMethod {
     Commit from_commit = 1;
     bool full_file = 2;
