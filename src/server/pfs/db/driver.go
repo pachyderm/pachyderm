@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	libclock "github.com/pachyderm/pachyderm/src/server/pfs/db/clock"
@@ -278,24 +279,17 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			branch = uuid.NewWithoutDashes()
 		}
 
-		_, err := d.getTerm(branchTable).Insert(&persist.Branch{
+		if err := d.updateMessage(branchTable, &persist.Branch{
 			ID: branchID(repo.Name, branch),
-		}, gorethink.InsertOpts{
-			// Set conflict to "replace" because we don't want to get an error
-			// when the branch already exists.
-			Conflict: "replace",
-		}).RunWrite(d.dbClient)
-		if err != nil {
+		}); err != nil {
 			return err
 		}
 
 		for {
-			cursor, err := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(commitBranchIndex),
-			}).Between(
+			cursor, err := d.betweenIndex(
+				commitTable, commitBranchIndex,
 				[]interface{}{branch, 0},
-				[]interface{}{branch, gorethink.MaxVal},
-			).Run(d.dbClient)
+				[]interface{}{branch, gorethink.MaxVal})
 			if err != nil {
 				return err
 			}
@@ -323,8 +317,10 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 			clockID := clockToID(clock)
-			_, err = d.getTerm(clockTable).Insert(clockID).RunWrite(d.dbClient)
+			err = d.insertMessage(clockTable, clockID)
 			if gorethink.IsConflictErr(err) {
+				// There is another process creating a commit on this branch
+				// at the same time.  We lost the race, but we can try again
 				continue
 			} else if err != nil {
 				return err
@@ -332,27 +328,20 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			break
 		}
 	} else {
-		cursor, err := d.getTerm(commitTable).GetAllByIndex(commitBranchIndex, parentID).Run(d.dbClient)
-		if err != nil {
-			return err
-		}
-
 		parentCommit := &persist.Commit{}
-		err = cursor.One(parentCommit)
-		if err != nil && err != gorethink.ErrEmptyResult {
-			return err
-		} else if err == gorethink.ErrEmptyResult {
+		err := d.getMessageByIndex(commitTable, commitBranchIndex, parentID, parentCommit)
+		if err == gorethink.ErrEmptyResult {
 			return ErrCommitNotFound{fmt.Errorf("commit %d not found", parentID)}
+		} else if err != nil {
+			return err
 		} else {
-			_, err := d.getTerm(branchTable).Insert(&persist.Branch{
+			if err := d.insertMessage(branchTable, &persist.Branch{
 				ID: branchID(repo.Name, branch),
-			}).RunWrite(d.dbClient)
-			if err != nil {
+			}); err != nil {
 				if gorethink.IsConflictErr(err) {
-					return ErrBranchExists(fmt.Errorf("branch %s already exists", branch))
-				} else {
-					return err
+					return ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
 				}
+				return err
 			}
 			commit.BranchClocks = libclock.NewBranchClocks(branch)
 			clock, err := libclock.GetClockForBranch(commit.BranchClocks, branch)
@@ -360,12 +349,12 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 			clockID := clockToID(clock)
-			_, err = d.getTerm(clockTable).Insert(clockID).RunWrite(d.dbClient)
-			if gorethink.IsConflictErr(err) {
-				// This should only happen if there's another process creating the
-				// very same branch at the same time, and we lost the race.
-				return ErrBranchExists(fmt.Errorf("branch %s already exists", branch))
-			} else if err != nil {
+			if err := d.insertMessage(clockTable, clockID); err != nil {
+				if gorethink.IsConflictErr(err) {
+					// This should only happen if there's another process creating the
+					// very same branch at the same time, and we lost the race.
+					return ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
+				}
 				return err
 			}
 		}
@@ -374,10 +363,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	// TODO: what if the program exits here?  There will be an entry in the Clocks
 	// table, but not in the Commits table.  Now you won't be able to create this
 	// commit anymore.
-
-	_, err := d.getTerm(commitTable).Insert(commit).RunWrite(d.dbClient)
-
-	return err
+	return d.insertMessage(commitTable, commit)
 }
 
 func branchID(repo string, name string) string {
@@ -502,4 +488,40 @@ func (d *driver) DeleteShard(shard uint64) error {
 }
 
 func (d *driver) Dump() {
+}
+
+func (d *driver) insertMessage(table Table, message proto.Message) error {
+	_, err := d.getTerm(table).Insert(message).RunWrite(d.dbClient)
+	return err
+}
+
+func (d *driver) updateMessage(table Table, message proto.Message) error {
+	_, err := d.getTerm(table).Insert(message, gorethink.InsertOpts{Conflict: "update"}).RunWrite(d.dbClient)
+	return err
+}
+
+func (d *driver) getMessageByPrimaryKey(table Table, key interface{}, message proto.Message) error {
+	cursor, err := d.getTerm(table).Get(key).Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+	err = cursor.One(message)
+	if err == gorethink.ErrEmptyResult {
+		return fmt.Errorf("%v %v not found", table, key)
+	}
+	return err
+}
+
+func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, message proto.Message) error {
+	cursor, err := d.getTerm(table).GetAllByIndex(index, key).Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+	return cursor.One(message)
+}
+
+func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}) (*gorethink.Cursor, error) {
+	return d.getTerm(table).OrderBy(gorethink.OrderByOpts{
+		Index: gorethink.Desc(index),
+	}).Between(minVal, maxVal).Run(d.dbClient)
 }
