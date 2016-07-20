@@ -271,12 +271,12 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Provenance: _provenance,
 	}
 
+	if branch == "" {
+		branch = uuid.NewWithoutDashes()
+	}
+
 	var clockID *persist.ClockID
 	if parentID == "" {
-		if branch == "" {
-			branch = uuid.NewWithoutDashes()
-		}
-
 		for {
 			cursor, err := d.betweenIndex(
 				commitTable, commitBranchIndex,
