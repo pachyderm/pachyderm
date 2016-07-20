@@ -129,7 +129,8 @@ message DiffInfo {
   map<string, Append> appends = 6;
   uint64 size_bytes = 7;
   bool cancelled = 8;
-  repeated Commit provenance = 9;
+  bool archived = 9;
+  repeated Commit provenance = 10;
 }
 
 message Shard {
@@ -171,6 +172,10 @@ message FinishCommitRequest {
   Commit commit = 1;
   bool cancel = 2;
   google.protobuf.Timestamp finished = 3;
+}
+
+message ArchiveCommitRequest {
+  Commit commit = 1;
 }
 
 message InspectCommitRequest {
@@ -263,6 +268,8 @@ service API {
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ArchiveCommit marks a commit as archived, it will be excluded from ListCommit.
+  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -307,6 +314,8 @@ service InternalAPI {
   rpc StartCommit(StartCommitRequest) returns (google.protobuf.Empty) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ArchiveCommit marks a commit as archived, it will be excluded from ListCommit.
+  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
