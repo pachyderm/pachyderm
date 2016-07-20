@@ -46,6 +46,7 @@ var (
 		branchTable,
 		commitTable,
 		diffTable,
+		clockTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
@@ -292,14 +293,15 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 
 			// The last commit on this branch will be our parent commit
 			parentCommit := &persist.Commit{}
-			if err := cursor.One(parentCommit); err != nil && err != gorethink.ErrEmptyResult {
+			err = cursor.One(parentCommit)
+			if err != nil && err != gorethink.ErrEmptyResult {
 				return err
-			}
-			if err == gorethink.ErrEmptyResult {
+			} else if err == gorethink.ErrEmptyResult {
 				// we don't have a parent :(
 				// so we create a new BranchClock
 				commit.BranchClocks = libclock.NewBranchClocks(branch)
 			} else {
+				fmt.Println("got a parent!")
 				// we do have a parent :D
 				// so we inherit our parent's branch clock for this particular branch,
 				// and increment the last component by 1
@@ -313,12 +315,14 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 			clockID := clockToID(clock)
+			fmt.Printf("branch clocks: %v\n", commit.BranchClocks)
 			_, err = d.getTerm(clockTable).Insert(clockID, gorethink.InsertOpts{
 				// we want to return an error in case the clock already exists
 				Conflict: "error",
 			}).RunWrite(d.dbClient)
 			if gorethink.IsConflictErr(err) {
 				// Try again with a new clock
+				fmt.Println("retrying")
 				continue
 			} else if err != nil {
 				return err

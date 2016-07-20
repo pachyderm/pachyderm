@@ -69,7 +69,7 @@ func NewChildOfBranchClocks(parent persist.BranchClocks, branch string) (persist
 			return persist.BranchClocks{NewChild(branchClock)}, nil
 		}
 	}
-	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks", branch)}
+	return nil, ErrBranchNotFound{fmt.Errorf("branch %s not found in branch clocks %v", branch, parent)}
 }
 
 // AddClock adds a BranchClock to a BranchClocks.

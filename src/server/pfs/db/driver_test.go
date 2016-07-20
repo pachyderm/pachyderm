@@ -436,8 +436,6 @@ func TestStartCommitRace(t *testing.T) {
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
-	fmt.Printf("Commit info: %v\n", rawCommit)
-
 	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
 	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
 	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
@@ -466,7 +464,7 @@ func TestStartCommitRace(t *testing.T) {
 			goto SendError
 		}
 
-		cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Run(dbClient)
+		cursor, err = gorethink.DB(RethinkTestDB).Table(commitTable).Get(newCommitID).Run(dbClient)
 		if err != nil {
 			goto SendError
 		}
