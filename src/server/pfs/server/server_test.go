@@ -94,7 +94,7 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(diffInfos))
 }
 
-func TestInvalidRepo(t *testing.T) {
+func TestInvalidRepoRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	require.YesError(t, client.CreateRepo("/repo"))
@@ -150,7 +150,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestPFSRefactorBranchSimple(t *testing.T) {
+func TestPFSRefactorBranchSimpleRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -343,7 +343,7 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestPFSRefactorInspectRepoMostBasic(t *testing.T) {
+func TestPFSRefactorInspectRepoMostBasicRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -356,7 +356,7 @@ func TestPFSRefactorInspectRepoMostBasic(t *testing.T) {
 	require.Equal(t, int(repoInfo.SizeBytes), 0)
 }
 
-func TestPFSRefactorInspectRepoSimple(t *testing.T) {
+func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -422,7 +422,7 @@ func TestInspectRepoComplex(t *testing.T) {
 	require.Equal(t, int(info.SizeBytes), totalSize)
 }
 
-func TestListRepo(t *testing.T) {
+func TestListRepoRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 
@@ -452,7 +452,7 @@ func TestListRepo(t *testing.T) {
 	test()
 }
 
-func TestDeleteRepo(t *testing.T) {
+func TestDeleteRepoRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -549,7 +549,7 @@ func TestPFSRefactorStartCommitFromParentID(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 }
 
-func TestPFSRefactorStartAndFinishCommit(t *testing.T) {
+func TestPFSRefactorStartAndFinishCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -562,7 +562,7 @@ func TestPFSRefactorStartAndFinishCommit(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 }
 
-func TestPFSRefactorInspectCommitBasic(t *testing.T) {
+func TestPFSRefactorInspectCommitBasicRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1061,7 +1061,7 @@ func TestDeleteDir(t *testing.T) {
 	// TODO: test deleting "."
 }
 
-func TestPFSRefactorListCommitBasic(t *testing.T) {
+func TestPFSRefactorListCommitBasicRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 
@@ -1970,6 +1970,14 @@ func runServers(t *testing.T, port int32, apiServer pfsclient.APIServer,
 }
 
 func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) {
+	if err := persist.RemoveDB(RethinkAddress, RethinkTestDB); err != nil {
+		panic(err)
+	}
+
+	if err := persist.InitDB(RethinkAddress, RethinkTestDB); err != nil {
+		panic(err)
+	}
+
 	root := uniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
 	var ports []int32
