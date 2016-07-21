@@ -40,7 +40,7 @@ type Driver interface {
 type CommitID string // master/0
 
 // Driver represents a low-level pfs storage driver.
-type NewDriver interface {
+type PfsRefactorDriver interface {
 	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
 	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
