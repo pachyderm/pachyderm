@@ -44,7 +44,9 @@ const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
 	diffTable   Table = "Diffs"
-	clockTable  Table = "Clocks"
+
+	clockTable       Table = "Clocks"
+	clockBranchIndex Index = "ClockBranchIndex"
 
 	commitTable Table = "Commits"
 	// commitBranchIndex maps commits to branches
@@ -154,9 +156,22 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
+		clockBranchIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("Repo"),
+				row.Field("Branch"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
 
 	// Wait for indexes to be ready
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -473,7 +488,26 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	return nil, nil
+	cursor, err := d.getTerm(clockTable).Distinct(gorethink.DistinctOpts{clockBranchIndex}).Filter(map[string]interface{}{
+		"Repo": repo.Name,
+	}).Field("Branch").Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+
+	var branches []string
+	if err := cursor.All(&branches); err != nil {
+		return nil, err
+	}
+
+	var commitInfos []*pfs.CommitInfo
+	for _, branch := range branches {
+		commitInfos = append(commitInfos, &pfs.CommitInfo{
+			Branch: branch,
+		})
+	}
+	return commitInfos, nil
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
