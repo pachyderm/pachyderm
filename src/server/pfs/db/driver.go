@@ -498,6 +498,7 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 		},
 		Started:    rawCommit.Started,
 		Finished:   rawCommit.Finished,
+		Cancelled:  rawCommit.Cancelled,
 		CommitType: commitType,
 	}
 }
