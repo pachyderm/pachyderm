@@ -170,7 +170,7 @@ func TestPFSRefactorBranchSimpleRF(t *testing.T) {
 
 }
 
-func TestPFSRefactorListBranch(t *testing.T) {
+func TestPFSRefactorListBranchRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -203,11 +203,11 @@ func TestPFSRefactorListBranch(t *testing.T) {
 		branches[2].Branch,
 	}
 
-	require.EqualOneOf(t, branches, "branchA")
-	require.EqualOneOf(t, branches, "branchB")
+	require.EqualOneOf(t, branchNames, "branchA")
+	require.EqualOneOf(t, branchNames, "branchB")
 }
 
-func TestPFSRefactorListBranchRedundant(t *testing.T) {
+func TestPFSRefactorListBranchRedundantRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
