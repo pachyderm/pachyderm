@@ -1270,7 +1270,7 @@ func TestStartCommitWithNonexistentParent(t *testing.T) {
 }
 
 // If a commit's parent has been cancelled, the commit should be cancelled too
-func TestFinishCommitParentCancelled(t *testing.T) {
+func TestFinishCommitParentCancelledRF(t *testing.T) {
 	t.Parallel()
 
 	client, _ := getClientAndServer(t)
