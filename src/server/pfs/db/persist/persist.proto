@@ -54,5 +54,6 @@ message Commit {
   map<string, bool> modifications = 4;
   google.protobuf.Timestamp started = 5;
   google.protobuf.Timestamp finished = 6;
-  repeated string provenance = 7;
+  bool cancelled = 7;
+  repeated string provenance = 8;
 }
