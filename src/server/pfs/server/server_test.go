@@ -230,7 +230,7 @@ func TestPFSRefactorListBranchRedundantRF(t *testing.T) {
 	require.Equal(t, "branchA", branches[0].Branch)
 }
 
-func TestPFSRefactorStartCommitLatestOnBranch(t *testing.T) {
+func TestPFSRefactorStartCommitLatestOnBranchRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -488,7 +488,7 @@ func TestDeleteRepoRF(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
-func TestPFSRefactorStartCommitFromParentID(t *testing.T) {
+func TestPFSRefactorStartCommitFromParentIDRF(t *testing.T) {
 	t.Parallel()
 
 	client, _ := getClientAndServer(t)
