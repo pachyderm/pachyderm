@@ -322,14 +322,21 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			break
 		}
 	} else {
-		parentClock, err := parseClock(parentID)
-		if err != nil {
-			return err
-		}
-
 		parentCommit := &persist.Commit{}
-		if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
-			return err
+		parentClock, err := parseClock(parentID)
+		if err == nil {
+			if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
+				return err
+			}
+		} else {
+			// This logic is here to make the implementation compatible with the
+			// old API where parentID can be a UUID, instead of a semantically
+			// meaningful ID such as "master/0".
+			// This logic should be removed eventually once we migrate to the
+			// new API.
+			if err := d.getMessageByPrimaryKey(commitTable, parentID, parentCommit); err != nil {
+				return err
+			}
 		}
 
 		commit.BranchClocks, err = libclock.NewBranchOffBranchClocks(parentCommit.BranchClocks, parentClock.Branch, branch)
