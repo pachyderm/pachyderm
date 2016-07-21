@@ -627,3 +627,20 @@ func (d *driver) deleteMessageByPrimaryKey(table Table, key interface{}) error {
 	_, err := d.getTerm(table).Get(key).Delete().RunWrite(d.dbClient)
 	return err
 }
+
+// OBSOLETE
+// Under the new scheme, the parent ID of a commit is self evident:
+// The parent of foo/3 is foo/2, for instance.
+func (d *driver) getIDOfParentCommit(commitID string) (string, error) {
+	commit := &persist.Commit{}
+	if err := d.getMessageByPrimaryKey(commitTable, commitID, commit); err != nil {
+		return "", err
+	}
+	clock := commit.BranchClocks[0].Clocks[len(commit.BranchClocks[0].Clocks)-1]
+
+	parentCommit := &persist.Commit{}
+	if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{clock.Branch, clock.Clock - 1}, parentCommit); err != nil {
+		return "", err
+	}
+	return parentCommit.ID, nil
+}
