@@ -37,6 +37,34 @@ type Driver interface {
 	Dump()
 }
 
+type CommitID string // master/0
+
+// Driver represents a low-level pfs storage driver.
+type NewDriver interface {
+	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
+	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
+	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
+	DeleteRepo(repo *pfs.Repo, force bool) error
+	StartCommit(repo *pfs.Repo, branch string, provenance []*pfs.Commit) (CommitID, error)
+	StartCommitNewBranch(repo *pfs.Repo, parentID string, branch string, provenance []*pfs.Commit) (CommitID, error)
+	FinishCommit(commit CommitID, cancel bool) error
+	InspectCommit(commit CommitID) (*pfs.CommitInfo, error)
+	ListCommit(repo *pfs.Repo, branch string, commitType pfs.CommitType, fromCommit *pfs.Commit, provenance []*pfs.Commit, all bool) ([]*pfs.CommitInfo, error)
+	ListBranch(repo *pfs.Repo) ([]string, error)
+	DeleteCommit(commit CommitID) error
+	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
+	MakeDirectory(file *pfs.File) error
+	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
+		size int64, from CommitID, unsafe bool) (io.ReadCloser, error)
+	InspectFile(file *pfs.File, filterShard *pfs.Shard, from CommitID, unsafe bool) (*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, from CommitID, recurse bool, unsafe bool) ([]*pfs.FileInfo, error)
+	DeleteFile(file *pfs.File, unsafe bool) error
+	DeleteAll() error
+	AddShard() error
+	DeleteShard() error
+	Dump()
+}
+
 // NewDriver creates a Driver.
 func NewDriver(blockAddress string) (Driver, error) {
 	return newDriver(blockAddress)
