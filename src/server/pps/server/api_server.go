@@ -233,8 +233,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -405,7 +404,10 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 		}
 		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
 		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
-			listFileRequest.FromCommit = parentInputCommit
+			listFileRequest.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentInputCommit,
+				FullFile:   input.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch input.Method.Partition {
@@ -584,8 +586,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -607,7 +608,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// repo than our parent.
 			// This means that only the commit that triggered this pipeline will be
 			// done incrementally, the other repos will be shown in full
-			commitMount.FromCommit = parentJobCommit
+			commitMount.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentJobCommit,
+				FullFile:   jobInput.Method != nil && jobInput.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch jobInput.Method.Partition {
@@ -1178,7 +1182,8 @@ func inputsAreParental(
 	sort.Sort(JobInputs(parentTrueInputs))
 	for i, trueInput := range trueInputs {
 		parentTrueInput := parentTrueInputs[i]
-		if trueInput.Commit.ID != parentTrueInput.Commit.ID && !trueInput.Method.Incremental {
+		if trueInput.Commit.ID != parentTrueInput.Commit.ID &&
+			trueInput.Method.Incremental == ppsclient.Incremental_NONE {
 			return false, nil
 		}
 	}
