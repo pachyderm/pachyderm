@@ -429,46 +429,43 @@ func parseClock(clock string) (*persist.Clock, error) {
 	}, nil
 }
 
-func getUUIDOfParentCommit(childCommit string) string {
-
-}
-
 type CommitChangeFeed struct {
-	OldVal *persist.Commit `gorethink:"old_val,omitempty"`
 	NewVal *persist.Commit `gorethink:"new_val,omitempty"`
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 
-	parentID := getUUIDOfParentCommit(commit.ID)
-
-	cursor, err := d.getTerm(commitTable).Get(parentID).Changes(gorethink.ChangesOpts{
-		IncludeInitial: true,
-	}).Run(d.dbClient)
-
+	parentID, err := d.getIDOfParentCommit(commit.ID)
 	if err != nil {
 		return err
 	}
 
-	var change CommitChangeFeed
-	for cursor.Next(&change) {
-		fmt.Printf("Changes: %v\n", change)
-		if change.NewVal != nil && change.NewVal.Finished != nil {
-			if !change.NewVal.Cancelled {
+	var parentCancelled bool
+	if parentID != "" {
+		cursor, err := d.getTerm(commitTable).Get(parentID).Changes(gorethink.ChangesOpts{
+			IncludeInitial: true,
+		}).Run(d.dbClient)
+
+		if err != nil {
+			return err
+		}
+
+		var change CommitChangeFeed
+		for cursor.Next(&change) {
+			if change.NewVal != nil && change.NewVal.Finished != nil {
+				parentCancelled = change.NewVal.Cancelled
 				break
-			} else {
-				return fmt.Errorf("Cannot finish commit %v, parent commit %v has been cancelled", commit, parentID)
 			}
 		}
+		if err = cursor.Err(); err != nil {
+			return err
+		}
 	}
-	if err = cursor.Err(); err != nil {
-		return err
-	}
-
 	_, err = d.getTerm(commitTable).Get(commit.ID).Update(
 		map[string]interface{}{
-			"Finished": finished,
+			"Finished":  finished,
+			"Cancelled": parentCancelled || cancel,
 		},
 	).RunWrite(d.dbClient)
 
@@ -671,10 +668,20 @@ func (d *driver) getIDOfParentCommit(commitID string) (string, error) {
 	if err := d.getMessageByPrimaryKey(commitTable, commitID, commit); err != nil {
 		return "", err
 	}
-	clock := commit.BranchClocks[0].Clocks[len(commit.BranchClocks[0].Clocks)-1]
+	onlyBranch := commit.BranchClocks[0]
+	numClocks := len(onlyBranch.Clocks)
+	clock := onlyBranch.Clocks[numClocks-1]
+	if clock.Clock == 0 {
+		if numClocks < 2 {
+			return "", nil
+		}
+		clock = onlyBranch.Clocks[numClocks-2]
+	} else {
+		clock.Clock -= 1
+	}
 
 	parentCommit := &persist.Commit{}
-	if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{clock.Branch, clock.Clock - 1}, parentCommit); err != nil {
+	if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{commit.Repo, clock.Branch, clock.Clock}, parentCommit); err != nil {
 		return "", err
 	}
 	return parentCommit.ID, nil
