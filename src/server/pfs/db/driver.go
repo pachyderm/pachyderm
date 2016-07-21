@@ -347,7 +347,8 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 		}
-
+		fmt.Printf("parentCommit %v\n", parentCommit)
+		fmt.Printf("parentClock %v\n", parentClock)
 		commit.BranchClocks, err = libclock.NewBranchOffBranchClocks(parentCommit.BranchClocks, parentClock.Branch, branch)
 		if err != nil {
 			return err
