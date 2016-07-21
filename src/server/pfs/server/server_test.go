@@ -252,11 +252,9 @@ func TestPFSRefactorStartCommitLatestOnBranch(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	commit3Info, err := client.InspectCommit(repo, commit3.ID)
-	require.NoError(t, err)
-
-	require.NotNil(t, commit3Info.ParentCommit)
-	require.Equal(t, commit3Info.ParentCommit.ID, commit2.ID)
+	branches, err := client.ListBranch(repo)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, commit3.ID, branches[0].Commit.ID)
 }
 
 func TestBranch(t *testing.T) {
