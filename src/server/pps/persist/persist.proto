@@ -55,9 +55,15 @@ message PipelineInfo {
   map<int32, int32> job_counts = 10;
 }
 
+enum ChangeType {
+  CREATE = 0;
+  UPDATE = 1;
+  DELETE = 2;
+}
+
 message PipelineInfoChange {
   PipelineInfo pipeline = 1;
-  bool removed = 2;
+  ChangeType type = 2;
 }
 
 message PipelineInfos {
