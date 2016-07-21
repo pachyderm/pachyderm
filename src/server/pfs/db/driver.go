@@ -147,6 +147,7 @@ func InitDB(address string, databaseName string) error {
 		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
 			lastClock := branchClock.Field("Clocks").Nth(-1)
 			return []interface{}{
+				row.Field("Repo"),
 				lastClock.Field("Branch"),
 				lastClock.Field("Clock"),
 			}
@@ -171,7 +172,7 @@ func InitDB(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -295,17 +296,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	var clockID *persist.ClockID
 	if parentID == "" {
 		for {
-			cursor, err := d.betweenIndex(
-				commitTable, commitBranchIndex,
-				[]interface{}{branch, 0},
-				[]interface{}{branch, gorethink.MaxVal})
-			if err != nil {
-				return err
-			}
-
-			// The last commit on this branch will be our parent commit
+			// The head of this branch will be our parent commit
 			parentCommit := &persist.Commit{}
-			err = cursor.One(parentCommit)
+			err := d.getHeadOfBranch(repo.Name, branch, parentCommit)
 			if err != nil && err != gorethink.ErrEmptyResult {
 				return err
 			} else if err == gorethink.ErrEmptyResult {
@@ -344,6 +337,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				return err
 			}
 		} else {
+			// OBSOLETE
 			// This logic is here to make the implementation compatible with the
 			// old API where parentID can be a UUID, instead of a semantically
 			// meaningful ID such as "master/0".
@@ -386,6 +380,17 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	// table, but not in the Commits table.  Now you won't be able to create this
 	// commit anymore.
 	return d.insertMessage(commitTable, commit)
+}
+
+func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Commit) error {
+	cursor, err := d.betweenIndex(
+		commitTable, commitBranchIndex,
+		[]interface{}{repo, branch, 0},
+		[]interface{}{repo, branch, gorethink.MaxVal})
+	if err != nil {
+		return err
+	}
+	return cursor.One(commit)
 }
 
 func getClockID(repo string, c *persist.Clock) *persist.ClockID {
@@ -488,9 +493,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	cursor, err := d.getTerm(clockTable).Distinct(gorethink.DistinctOpts{clockBranchIndex}).Filter(map[string]interface{}{
-		"Repo": repo.Name,
-	}).Field("Branch").Run(d.dbClient)
+	// Get all branches
+	cursor, err := d.getTerm(clockTable).Between(
+		[]interface{}{repo.Name, gorethink.MinVal},
+		[]interface{}{repo.Name, gorethink.MaxVal},
+		gorethink.BetweenOpts{
+			Index: clockBranchIndex,
+		},
+	).Distinct().Field("Branch").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -501,9 +511,19 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 		return nil, err
 	}
 
+	// OBSOLETE
+	// To maintain API compatibility, we return the heads of the branches
 	var commitInfos []*pfs.CommitInfo
 	for _, branch := range branches {
+		commit := &persist.Commit{}
+		if err := d.getHeadOfBranch(repo.Name, branch, commit); err != nil {
+			return nil, err
+		}
 		commitInfos = append(commitInfos, &pfs.CommitInfo{
+			Commit: &pfs.Commit{
+				Repo: repo,
+				ID:   commit.ID,
+			},
 			Branch: branch,
 		})
 	}

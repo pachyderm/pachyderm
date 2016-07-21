@@ -161,11 +161,11 @@ func TestPFSRefactorBranchSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
-	branches, err := client.ListBranch(repo)
+	heads, err := client.ListBranch(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, len(branches))
-	require.Equal(t, "branchA", branches[0])
+	require.Equal(t, 1, len(heads))
+	require.Equal(t, "branchA", heads[0].Branch)
 
 }
 
