@@ -429,9 +429,44 @@ func parseClock(clock string) (*persist.Clock, error) {
 	}, nil
 }
 
+func getUUIDOfParentCommit(childCommit string) string {
+
+}
+
+type CommitChangeFeed struct {
+	OldVal *persist.Commit `gorethink:"old_val,omitempty"`
+	NewVal *persist.Commit `gorethink:"new_val,omitempty"`
+}
+
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
-	_, err := d.getTerm(commitTable).Get(commit.ID).Update(
+
+	parentID := getUUIDOfParentCommit(commit.ID)
+
+	cursor, err := d.getTerm(commitTable).Get(parentID).Changes(gorethink.ChangesOpts{
+		IncludeInitial: true,
+	}).Run(d.dbClient)
+
+	if err != nil {
+		return err
+	}
+
+	var change CommitChangeFeed
+	for cursor.Next(&change) {
+		fmt.Printf("Changes: %v\n", change)
+		if change.NewVal != nil && change.NewVal.Finished != nil {
+			if !change.NewVal.Cancelled {
+				break
+			} else {
+				return fmt.Errorf("Cannot finish commit %v, parent commit %v has been cancelled", commit, parentID)
+			}
+		}
+	}
+	if err = cursor.Err(); err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(commitTable).Get(commit.ID).Update(
 		map[string]interface{}{
 			"Finished": finished,
 		},
