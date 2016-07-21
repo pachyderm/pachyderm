@@ -43,14 +43,15 @@ var (
 	port int32 = 30651
 )
 
+var testDBs []string
+
 func TestMain(m *testing.M) {
 	flag.Parse()
-	if err := persist.InitDB(RethinkAddress, RethinkTestDB); err != nil {
-		panic(err)
-	}
 	code := m.Run()
-	if err := persist.RemoveDB(RethinkAddress, RethinkTestDB); err != nil {
-		panic(err)
+	for _, name := range testDBs {
+		if err := persist.RemoveDB(RethinkAddress, name); err != nil {
+			panic(err)
+		}
 	}
 	os.Exit(code)
 }
@@ -1970,11 +1971,10 @@ func runServers(t *testing.T, port int32, apiServer pfsclient.APIServer,
 }
 
 func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) {
-	if err := persist.RemoveDB(RethinkAddress, RethinkTestDB); err != nil {
-		panic(err)
-	}
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	testDBs = append(testDBs, dbName)
 
-	if err := persist.InitDB(RethinkAddress, RethinkTestDB); err != nil {
+	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
 		panic(err)
 	}
 
@@ -1992,7 +1992,7 @@ func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) 
 	var internalAPIServers []*internalAPIServer
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := persist.NewDriver(address, RethinkAddress, RethinkTestDB)
+		driver, err := persist.NewDriver(address, RethinkAddress, dbName)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
