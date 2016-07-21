@@ -196,10 +196,15 @@ func TestPFSRefactorListBranch(t *testing.T) {
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, 2, len(branches))
-	branchNames := []interface{}{"branchA", "branchB"}
-	require.EqualOneOf(t, branchNames, branches[0])
-	require.EqualOneOf(t, branchNames, branches[1])
+	require.Equal(t, 3, len(branches))
+	branchNames := []interface{}{
+		branches[0].Branch,
+		branches[1].Branch,
+		branches[2].Branch,
+	}
+
+	require.EqualOneOf(t, branches, "branchA")
+	require.EqualOneOf(t, branches, "branchB")
 }
 
 func TestPFSRefactorListBranchRedundant(t *testing.T) {
@@ -222,7 +227,7 @@ func TestPFSRefactorListBranchRedundant(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(branches))
-	require.Equal(t, "branchA", branches[0])
+	require.Equal(t, "branchA", branches[0].Branch)
 }
 
 func TestPFSRefactorStartCommitLatestOnBranch(t *testing.T) {
