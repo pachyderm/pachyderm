@@ -893,6 +893,11 @@ func (a *apiServer) AddShard(shard uint64) error {
 		return err
 	}
 
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	a.shardCancelFuncsLock.Lock()
@@ -914,29 +919,62 @@ func (a *apiServer) AddShard(shard uint64) error {
 		for {
 			pipelineChange, err := client.Recv()
 			if err != nil {
+				protolion.Errorf("error from receive: %s", err.Error())
 				return
 			}
 			pipelineName := pipelineChange.Pipeline.PipelineName
 
-			if pipelineChange.Removed {
+			if pipelineChange.Type == persist.ChangeType_DELETE {
 				a.cancelFuncsLock.Lock()
 				cancel, ok := a.cancelFuncs[pipelineName]
 				if ok {
 					cancel()
 					delete(a.cancelFuncs, pipelineName)
 				} else {
-					protolion.Printf("trying to cancel a pipeline that has not been started; this is likely a bug")
+					protolion.Errorf("trying to cancel a pipeline that has not been started; this is likely a bug")
 				}
 				a.cancelFuncsLock.Unlock()
 			} else {
 				a.cancelFuncsLock.Lock()
 				pipelineCtx, cancel := context.WithCancel(ctx)
-				if _, ok := a.cancelFuncs[pipelineName]; ok {
+				cancel, ok := a.cancelFuncs[pipelineName]
+				if ok && pipelineChange.Type == persist.ChangeType_CREATE {
 					a.cancelFuncsLock.Unlock()
 					continue
 				}
+				if !ok && pipelineChange.Type == persist.ChangeType_UPDATE {
+					protolion.Errorf("trying to update a pipeline that has not been started; this is likely a bug")
+				} else {
+					// cancel the previous run of the pipeline so we can update it
+					// with the new version of the pipeline
+					cancel()
+					delete(a.cancelFuncs, pipelineName)
+				}
 				a.cancelFuncs[pipelineName] = cancel
 				a.cancelFuncsLock.Unlock()
+				if pipelineChange.Type == persist.ChangeType_UPDATE {
+					commitInfos, err := pfsAPIClient.ListCommit(
+						pipelineCtx,
+						&pfsclient.ListCommitRequest{
+							Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: pipelineName})},
+							All:  true,
+						})
+					if err != nil {
+						protolion.Errorf("error from ListCommit: %s", err.Error())
+						return
+					}
+					for _, commitInfo := range commitInfos.CommitInfo {
+						_, err := pfsAPIClient.ArchiveCommit(
+							pipelineCtx,
+							&pfsclient.ArchiveCommitRequest{
+								Commit: commitInfo.Commit,
+							})
+						if err != nil {
+							protolion.Errorf("error from ListCommit: %s", err.Error())
+							return
+						}
+					}
+				}
 				// We only want to start a goro to run the pipeline if the
 				// pipeline has more than one inputs
 				go func() {

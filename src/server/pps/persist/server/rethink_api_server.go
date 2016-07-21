@@ -423,14 +423,21 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 
 	var change PipelineChangeFeed
 	for cursor.Next(&change) {
+		if change.NewVal != nil && change.OldVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_UPDATE,
+			})
+		}
 		if change.NewVal != nil {
 			server.Send(&persist.PipelineInfoChange{
 				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_CREATE,
 			})
 		} else if change.OldVal != nil {
 			server.Send(&persist.PipelineInfoChange{
 				Pipeline: change.OldVal,
-				Removed:  true,
+				Type:     persist.ChangeType_DELETE,
 			})
 		} else {
 			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
