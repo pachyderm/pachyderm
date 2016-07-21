@@ -389,7 +389,13 @@ Files can be read from finished commits with get-file.`,
 	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
 
 	var fromCommitID string
+	var fullFile bool
 	var unsafe bool
+	addFileFlags := func(cmd *cobra.Command) {
+		cmd.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
+		cmd.Flags().BoolVar(&fullFile, "full-file", false, "if there has been data since the from commit return the full file")
+		cmd.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
+	}
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -399,12 +405,11 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, fullFile, shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
-	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
-	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(getFile)
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -415,7 +420,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			fileInfo, err := client.InspectFile(args[0], args[1], args[2], "", shard())
+			fileInfo, err := client.InspectFile(args[0], args[1], args[2], fromCommitID, fullFile, shard())
 			if err != nil {
 				return err
 			}
@@ -426,7 +431,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(inspectFile)
-	inspectFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to inspect files written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(inspectFile)
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -441,7 +446,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, shard(), true)
+			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), true)
 			if err != nil {
 				return err
 			}
@@ -454,8 +459,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
-	listFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only list files that are written since this commit")
-	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(listFile)
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
