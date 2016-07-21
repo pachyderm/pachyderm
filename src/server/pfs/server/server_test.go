@@ -1223,7 +1223,7 @@ func TestUnsafeOperations(t *testing.T) {
 }
 
 // FinishCommit should block until the parent has been finished
-func TestFinishCommit(t *testing.T) {
+func TestFinishCommitRF(t *testing.T) {
 	t.Parallel()
 
 	client, _ := getClientAndServer(t)
