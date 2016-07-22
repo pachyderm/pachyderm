@@ -356,5 +356,5 @@ clean-launch-rethinkdb:
 	goxc-generate-local \
 	goxc-release \
 	goxc-build \
-	run-rethinkdb \
-	stop-rethinkdb
+	launch-rethinkdb \
+	clean-launch-rethinkdb
