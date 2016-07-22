@@ -436,7 +436,7 @@ type CommitChangeFeed struct {
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 
-	parentID, err := d.getIDOfParentCommit(commit.ID)
+	parentID, err := d.getIDOfParentCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return err
 	}
@@ -462,32 +462,35 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			return err
 		}
 	}
-	_, err = d.getTerm(commitTable).Get(commit.ID).Update(
+	return d.updateCommitWithAmbiguousID(
+		commit.Repo.Name,
+		commit.ID,
 		map[string]interface{}{
 			"Finished":  finished,
 			"Cancelled": parentCancelled || cancel,
 		},
-	).RunWrite(d.dbClient)
+	)
 
-	return err
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
-	cursor, err := d.getTerm(commitTable).Get(commit.ID).Run(d.dbClient)
+	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
-
-	rawCommit := &persist.Commit{}
-	if err := cursor.One(rawCommit); err != nil {
-		return nil, err
-	}
-
-	return rawCommitToCommitInfo(rawCommit), nil
+	commitInfo = rawCommitToCommitInfo(rawCommit)
+	// OBSOLETE
+	// Old API Server expects request commit ID to match results commit ID
+	commitInfo.Commit.ID = commit.ID
+	return commitInfo, nil
 }
 
 func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	commitType := pfs.CommitType_COMMIT_TYPE_READ
+	var branch string
+	if len(rawCommit.BranchClocks) > 0 {
+		branch = libclock.GetBranchNameFromBranchClock(rawCommit.BranchClocks[0])
+	}
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
 	}
@@ -496,6 +499,7 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 			Repo: &pfs.Repo{rawCommit.Repo},
 			ID:   rawCommit.ID,
 		},
+		Branch:     branch,
 		Started:    rawCommit.Started,
 		Finished:   rawCommit.Finished,
 		Cancelled:  rawCommit.Cancelled,
@@ -664,9 +668,9 @@ func (d *driver) deleteMessageByPrimaryKey(table Table, key interface{}) error {
 // OBSOLETE
 // Under the new scheme, the parent ID of a commit is self evident:
 // The parent of foo/3 is foo/2, for instance.
-func (d *driver) getIDOfParentCommit(commitID string) (string, error) {
-	commit := &persist.Commit{}
-	if err := d.getMessageByPrimaryKey(commitTable, commitID, commit); err != nil {
+func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, error) {
+	commit, err := d.getCommitByAmbiguousID(repo, commitID)
+	if err != nil {
 		return "", err
 	}
 	onlyBranch := commit.BranchClocks[0]
@@ -686,4 +690,36 @@ func (d *driver) getIDOfParentCommit(commitID string) (string, error) {
 		return "", err
 	}
 	return parentCommit.ID, nil
+}
+
+func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *persist.Commit, err error) {
+	alias, err := parseClock(commitID)
+
+	commit = &persist.Commit{}
+	if err != nil {
+		cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := cursor.One(commit); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{repo, alias.Branch, alias.Clock}, commit); err != nil {
+			return nil, err
+		}
+	}
+	return commit, nil
+}
+
+func (d *driver) updateCommitWithAmbiguousID(repo string, commitID string, values map[string]interface{}) (err error) {
+	alias, err := parseClock(commitID)
+	if err != nil {
+		_, err = d.getTerm(commitTable).Get(commitID).Update(values).RunWrite(d.dbClient)
+	} else {
+		key := []interface{}{repo, alias.Branch, alias.Clock}
+		_, err = d.getTerm(commitTable).GetAllByIndex(commitBranchIndex, key).Update(values).RunWrite(d.dbClient)
+	}
+	return err
 }
