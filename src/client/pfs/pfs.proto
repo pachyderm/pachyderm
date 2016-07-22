@@ -158,6 +158,19 @@ message DeleteRepoRequest {
   bool force = 2;
 }
 
+message CommitFsck {
+    Commit commit = 1;
+    repeated uint64 missing_shards = 2;
+}
+
+message FsckRepoRequest {
+    Repo repo = 1;
+}
+
+message FsckRepoResponse {
+    repeated CommitFsck commit_fscks = 1;
+}
+
 message StartCommitRequest {
   Repo repo = 1;
   string id = 2;
@@ -268,6 +281,8 @@ service API {
   rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  // FsckRepo checks a repo for inconsistencies
+  rpc FsckRepo(FsckRepoRequest) returns (FsckRepoResponse) {}
 
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
@@ -312,6 +327,8 @@ service InternalAPI {
   rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+  // FsckRepo checks a repo for inconsistencies
+  rpc FsckRepo(FsckRepoRequest) returns (FsckRepoResponse) {}
 
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
