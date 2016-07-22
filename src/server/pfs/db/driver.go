@@ -174,8 +174,12 @@ func InitDB(address string, databaseName string) error {
 		return row.Field("Path").Split("/").Fold([]interface{}{0}, func(acc, part gorethink.Term) gorethink.Term {
 			return acc.Append(part).ChangeAt(0, acc.Nth(0).Add(1))
 		}, gorethink.FoldOpts{
-			Emit: func(acc, row, newAcc gorethink.Term) []interface{} {
-				return []interface{}{newAcc}
+			Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
+				return gorethink.Branch(
+					row.Field("Path").Split("/").Count().Eq(newAcc.Count()),
+					[]interface{}{row.Field("Delete"), newAcc},
+					[]interface{}{false, newAcc},
+				)
 			},
 		})
 	}, gorethink.IndexCreateOpts{
@@ -612,22 +616,22 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		return err
 	}
 
-	var appends []string
+	var refs []string
 	var size uint64
 	for _, blockref := range blockrefs.BlockRef {
-		appends = append(appends, blockref.Block.Hash)
+		refs = append(refs, blockref.Block.Hash)
 		size += blockref.Range.Upper - blockref.Range.Lower
 	}
 
 	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
-		ID:       getDiffID(commit.ID, file.Path),
-		CommitID: commit.ID,
-		Path:     file.Path,
-		Appends:  appends,
-		Size:     size,
+		ID:        getDiffID(commit.ID, file.Path),
+		CommitID:  commit.ID,
+		Path:      file.Path,
+		BlockRefs: refs,
+		Size:      size,
 	}, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
-			return newDoc.Merge(map[string]interface{}{
+			return oldDoc.Merge(map[string]interface{}{
 				"Appends": oldDoc.Field("Appends").Add(newDoc.Field("Appends")),
 				"Size":    oldDoc.Field("Size").Add(newDoc.Field("Size")),
 			})
@@ -658,7 +662,22 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
-	return nil
+	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
+		ID:        getDiffID(commit.ID, file.Path),
+		CommitID:  commit.ID,
+		Path:      file.Path,
+		BlockRefs: nil,
+		Delete:    true,
+		Size:      0,
+	}, gorethink.InsertOpts{
+		Conflict: "replace",
+	}).RunWrite(d.dbClient)
+	return err
 }
 
 func (d *driver) DeleteAll(shards map[uint64]bool) error {
