@@ -117,6 +117,20 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	return err
 }
 
+// FsckRepo checks a repo for consistency.
+func (c APIClient) FsckRepo(repoName string) ([]*pfs.CommitFsck, error) {
+	response, err := c.PfsAPIClient.FsckRepo(
+		context.Background(),
+		&pfs.FsckRepoRequest{
+			Repo: NewRepo(repoName),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.CommitFsck, nil
+}
+
 // StartCommit begins the process of committing data to a Repo. Once started
 // you can write to the Commit with PutFile and when all the data has been
 // written you must finish the Commit with FinishCommit. NOTE, data is not

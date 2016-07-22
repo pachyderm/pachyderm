@@ -72,6 +72,18 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
+func PrintCommitFsckHeader(w io.Writer) {
+	fmt.Fprintf(w, "ID\tSHARDS\t\n")
+}
+
+func PrintCommitFsck(w io.Writer, commitFsck *pfs.CommitFsck) {
+	fmt.Fprintf(w, "%s\t", commitFsck.Commit.ID)
+	for _, shard := range commitFsck.Shards {
+		fmt.Fprintf(w, "%d ", shard)
+	}
+	fmt.Fprintf(w, "\t\n")
+}
+
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(

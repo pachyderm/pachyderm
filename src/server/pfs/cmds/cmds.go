@@ -124,6 +124,28 @@ Repos are created with create-repo.`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 
+	fsckRepo := &cobra.Command{
+		Use:   "fsck-repo repo-name",
+		Short: "Check a repo for errors.",
+		Long:  "Check a repo for errors.",
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			commitFscks, err := client.FsckRepo(args[0])
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitFsckHeader(writer)
+			for _, commitFsck := range commitFscks {
+				pretty.PrintCommitFsck(writer, commitFsck)
+			}
+			return writer.Flush()
+		}),
+	}
+
 	commit := &cobra.Command{
 		Use:   "commit",
 		Short: "Docs for commits.",
@@ -502,6 +524,7 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, inspectRepo)
 	result = append(result, listRepo)
 	result = append(result, deleteRepo)
+	result = append(result, fsckRepo)
 	result = append(result, commit)
 	result = append(result, startCommit)
 	result = append(result, finishCommit)
