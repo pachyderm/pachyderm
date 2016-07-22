@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	libclock "github.com/pachyderm/pachyderm/src/server/pfs/db/clock"
@@ -55,6 +56,11 @@ const (
 	commitBranchIndex Index = "CommitBranchIndex"
 
 	connectTimeoutSeconds = 5
+)
+
+const (
+	// this is used in the "appends" field to signify deletion
+	DeleteAppend = "delete"
 )
 
 var (
@@ -593,7 +599,45 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 
 func (d *driver) PutFile(file *pfs.File, handle string,
 	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
-	return nil
+	// TODO: eventually optimize this with a cache so that we don't have to
+	// go to the database to figure out if the commit exists
+	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
+	if err != nil {
+		return err
+	}
+
+	_client := client.APIClient{BlockAPIClient: d.blockClient}
+	blockrefs, err := _client.PutBlock(delimiter, reader)
+	if err != nil {
+		return err
+	}
+
+	var appends []string
+	var size uint64
+	for _, blockref := range blockrefs.BlockRef {
+		appends = append(appends, blockref.Block.Hash)
+		size += blockref.Range.Upper - blockref.Range.Lower
+	}
+
+	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
+		ID:       getDiffID(commit.ID, file.Path),
+		CommitID: commit.ID,
+		Path:     file.Path,
+		Appends:  appends,
+		Size:     size,
+	}, gorethink.InsertOpts{
+		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+			return newDoc.Merge(map[string]interface{}{
+				"Appends": oldDoc.Field("Appends").Add(newDoc.Field("Appends")),
+				"Size":    oldDoc.Field("Size").Add(newDoc.Field("Size")),
+			})
+		},
+	}).RunWrite(d.dbClient)
+	return err
+}
+
+func getDiffID(commitID string, path string) string {
+	return fmt.Sprintf("%s:%s", commitID, path)
 }
 
 func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
