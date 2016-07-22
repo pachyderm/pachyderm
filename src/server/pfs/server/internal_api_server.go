@@ -113,6 +113,23 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) FsckRepo(ctx context.Context, request *pfs.FsckRepoRequest) (response *pfs.CommitFscks, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	commitFscks, err := a.driver.FsckRepo(request.Repo, shards)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CommitFscks{CommitFsck: commitFscks}, nil
+}
+
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)

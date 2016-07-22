@@ -241,6 +241,35 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return nil
 }
 
+func (d *driver) FsckRepo(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	shardToDiffInfo, ok := d.diffs[repo.Name]
+	if !ok {
+		return nil, pfsserver.NewErrRepoNotFound(repo.Name)
+	}
+	idToFsck := make(map[string]*pfs.CommitFsck)
+	for shard := range shards {
+		idToDiff, ok := shardToDiffInfo[shard]
+		if !ok {
+			continue
+		}
+		for id := range idToDiff {
+			commitFsck, ok := idToFsck[id]
+			if !ok {
+				commitFsck = &pfs.CommitFsck{Commit: client.NewCommit(repo.Name, id)}
+				idToFsck[id] = commitFsck
+			}
+			commitFsck.Shards = append(commitFsck.Shards, shard)
+		}
+	}
+	var result []*pfs.CommitFsck
+	for _, commitFsck := range result {
+		result = append(result, commitFsck)
+	}
+	return result, nil
+}
+
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()

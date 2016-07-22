@@ -198,6 +198,30 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) FsckRepo(ctx context.Context, request *pfs.FsckRepoRequest) (response *pfs.CommitFscks, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	result := &pfs.CommitFscks{}
+	for _, clientConn := range clientConns {
+		response, err := pfs.NewInternalAPIClient(clientConn).FsckRepo(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		result.CommitFsck = append(result.CommitFsck, response.CommitFsck...)
+	}
+	result.CommitFsck = pfsserver.ReduceCommitFscks(result.CommitFsck)
+	return result, nil
+}
+
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()

@@ -61,6 +61,25 @@ func ReduceCommitInfos(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
 	return result
 }
 
+func ReduceCommitFscks(commitFscks []*pfs.CommitFsck) []*pfs.CommitFsck {
+	reducedCommitFscks := make(map[string]*pfs.CommitFsck)
+	for _, commitFsck := range commitFscks {
+		reducedCommitFsck, ok := reducedCommitFscks[commitFsck.Commit.ID]
+		if !ok {
+			// Commit id not yet seen, just add the commitInfo directly
+			reducedCommitFscks[commitFsck.Commit.ID] = commitFsck
+			continue
+		}
+		reducedCommitFsck.Shards = append(reducedCommitFsck.Shards, commitFsck.Shards...)
+	}
+	var result []*pfs.CommitFsck
+	for _, commitFsck := range reducedCommitFscks {
+		sort.Sort(sortShards(commitFsck.Shards))
+		result = append(result, commitFsck)
+	}
+	return result
+}
+
 // ReduceFileInfos combines file info for each file path, taking the
 // latest modification time for each path and combining their children.
 func ReduceFileInfos(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
@@ -121,6 +140,21 @@ func (a sortCommitInfos) Less(i, j int) bool {
 	return prototime.TimestampToTime(a[i].Started).After(prototime.TimestampToTime(a[j].Started))
 }
 func (a sortCommitInfos) Swap(i, j int) {
+	tmp := a[i]
+	a[i] = a[j]
+	a[j] = tmp
+}
+
+type sortShards []uint64
+
+func (a sortShards) Len() int {
+	return len(a)
+}
+
+func (a sortShards) Less(i, j int) bool {
+	return a[i] < a[j]
+}
+func (a sortShards) Swap(i, j int) {
 	tmp := a[i]
 	a[i] = a[j]
 	a[j] = tmp
