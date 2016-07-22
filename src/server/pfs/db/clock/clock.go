@@ -143,3 +143,11 @@ func lastComponent(bc *persist.BranchClock) *persist.Clock {
 	}
 	return bc.Clocks[len(bc.Clocks)-1]
 }
+
+// GetBranchNameFromBranchClock takes a BranchClock and returns the branch name
+// Args: [(foo,0), (bar, 1)]
+// Return: bar
+func GetBranchNameFromBranchClock(b *persist.BranchClock) string {
+	clock := lastComponent(b)
+	return clock.Branch
+}
