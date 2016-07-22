@@ -2,13 +2,6 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-message Append {
-  // a document only has one of these fields
-  repeated string blockrefs = 1;
-  map<string, bool> children = 2;
-  bool delete = 3;
-}
-
 message Clock {
   // a document either has these two fields 
   string branch = 1;
@@ -41,7 +34,9 @@ message Diff {
   string id = 1;  // commit_id + path
   string commit_id = 2;
   string path = 3;
-  repeated Append appends = 4;
+  // appends can either be blockrefs, or a special
+  // constant "delete", which means deleting the file
+  repeated string appends = 4;
   uint64 size = 5;
 }
 

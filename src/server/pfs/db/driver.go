@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	libclock "github.com/pachyderm/pachyderm/src/server/pfs/db/clock"
@@ -16,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
 	"github.com/dancannon/gorethink"
+	"github.com/gogo/protobuf/proto"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
@@ -43,7 +43,9 @@ type ErrBranchExists struct {
 const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
-	diffTable   Table = "Diffs"
+
+	diffTable     Table = "Diffs"
+	diffPathIndex Index = "DiffPathIndex"
 
 	clockTable       Table = "Clocks"
 	clockBranchIndex Index = "ClockBranchIndex"
@@ -94,12 +96,9 @@ var (
 )
 
 type driver struct {
-	blockAddress string
-	blockClient  pfs.BlockAPIClient
-
-	dbAddress string
-	dbName    string
-	dbClient  *gorethink.Session
+	blockClient pfs.BlockAPIClient
+	dbName      string
+	dbClient    *gorethink.Session
 }
 
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
@@ -114,11 +113,9 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 	}
 
 	return &driver{
-		blockAddress: blockAddress,
-		blockClient:  pfs.NewBlockAPIClient(clientConn),
-		dbAddress:    dbAddress,
-		dbName:       dbName,
-		dbClient:     dbClient,
+		blockClient: pfs.NewBlockAPIClient(clientConn),
+		dbName:      dbName,
+		dbClient:    dbClient,
 	}, nil
 }
 
@@ -165,6 +162,19 @@ func InitDB(address string, databaseName string) error {
 				row.Field("Branch"),
 			}
 		}).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex, func(row gorethink.Term) interface{} {
+		return row.Field("Path").Split("/").Fold([]interface{}{0}, func(acc, part gorethink.Term) gorethink.Term {
+			return acc.Append(part).ChangeAt(0, acc.Nth(0).Add(1))
+		}, gorethink.FoldOpts{
+			Emit: func(acc, row, newAcc gorethink.Term) []interface{} {
+				return []interface{}{newAcc}
+			},
+		})
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -435,7 +445,9 @@ type CommitChangeFeed struct {
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
-
+	// OBSOLETE
+	// Once we move to the new implementation, we should be able to directly
+	// Infer the parentID using the given commit ID.
 	parentID, err := d.getIDOfParentCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return err
