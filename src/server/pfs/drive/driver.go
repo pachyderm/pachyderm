@@ -264,7 +264,7 @@ func (d *driver) FsckRepo(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Commit
 		}
 	}
 	var result []*pfs.CommitFsck
-	for _, commitFsck := range result {
+	for _, commitFsck := range idToFsck {
 		result = append(result, commitFsck)
 	}
 	return result, nil

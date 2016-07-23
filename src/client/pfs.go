@@ -114,7 +114,7 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 			Force: force,
 		},
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 // FsckRepo checks a repo for consistency.
@@ -126,7 +126,7 @@ func (c APIClient) FsckRepo(repoName string) ([]*pfs.CommitFsck, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return response.CommitFsck, nil
 }
