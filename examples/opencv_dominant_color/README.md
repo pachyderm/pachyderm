@@ -143,7 +143,7 @@ from `/pfs/images/images` (/pfs/[input_repo_name]) and write data to `/pfs/out/o
 Now let's create the pipeline in Pachyderm:
 
 ```shell
-$ pachctl create-pipeline -f examples/scraper/scraper.json
+$ pachctl create-pipeline -f examples/opencv_dominant_color/opencv-pipeline.json
 ```
 
 ## What Happens When You Create a Pipeline
@@ -174,7 +174,7 @@ JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR 
 A good way to check on the pipeline
 
 Every `pipeline` creates a corresponding `repo` with the same
-name where it stores its output results. In our example, the pipeline was named “scraper” so it created a `repo` called “scraper” which contains the final output.
+name where it stores its output results. In our example, the pipeline was named “opencv” so it created a `repo` called “opencv” which contains the final output.
 
 
 ## Reading the Output
@@ -185,7 +185,7 @@ $ pachctl list-file opencv 09a7eb68995c43979cba2b0d29432073 opencv
 $ pachctl get-file opencv 09a7eb68995c43979cba2b0d29432073 opencv
 ```
 
-Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around.
+Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see the top 5 most dominant color for each image. One great way to do this is to mount the distributed file system locally and then just poke around.
 
 ## Mount the Filesystem
 First create the mount point:
@@ -210,9 +210,7 @@ images opencv
 ```
 You should see the images repo that we created or the `opencv` repo that pachyderm created as part of the pipeline.
 
-Now you can simply `ls` and `cd` around the file system. Try pointing your browser at the scraped output files!
-
-
+Now you can simply `ls` and `cd` around the file system. You can read the top 5 dominant colors in HSV space (from right to left in this case).
 Looking at the results:
 ```shell
 $ head ~/pfs/opencv/09a7eb68995c43979cba2b0d29432073/opencv
