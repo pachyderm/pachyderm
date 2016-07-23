@@ -45,11 +45,10 @@ message Commit {
   string id = 1;
   string repo = 2;
   repeated BranchClock branch_clocks = 3;
-  // true means append
-  // false means removal
-  map<string, bool> modifications = 4;
-  google.protobuf.Timestamp started = 5;
-  google.protobuf.Timestamp finished = 6;
-  bool cancelled = 7;
-  repeated string provenance = 8;
+  repeated string modified_paths = 4;
+  repeated string deleted_paths = 5;
+  google.protobuf.Timestamp started = 6;
+  google.protobuf.Timestamp finished = 7;
+  bool cancelled = 8;
+  repeated string provenance = 9;
 }

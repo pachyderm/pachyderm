@@ -45,15 +45,18 @@ const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
 
-	diffTable     Table = "Diffs"
-	diffPathIndex Index = "DiffPathIndex"
+	diffTable       Table = "Diffs"
+	diffPathIndex   Index = "DiffPathIndex"
+	diffCommitIndex Index = "DiffCommitIndex"
 
 	clockTable       Table = "Clocks"
 	clockBranchIndex Index = "ClockBranchIndex"
 
 	commitTable Table = "Commits"
 	// commitBranchIndex maps commits to branches
-	commitBranchIndex Index = "CommitBranchIndex"
+	commitBranchIndex        Index = "CommitBranchIndex"
+	commitModifiedPathsIndex Index = "CommitModifiedPathsIndex"
+	commitDeletedPathsIndex  Index = "CommitDeletedPathsIndex"
 
 	connectTimeoutSeconds = 5
 )
@@ -160,6 +163,21 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitModifiedPathsIndex, func(row gorethink.Term) interface{} {
+		return row.Field("ModifiedPaths")
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitDeletedPathsIndex, func(row gorethink.Term) interface{} {
+		return row.Field("DeletedPaths")
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
+		return err
+	}
+
 	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
 		clockBranchIndex,
 		func(row gorethink.Term) interface{} {
@@ -187,12 +205,29 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex, func(row gorethink.Term) interface{} {
+		return row.Field("CommitID")
+	}).RunWrite(session); err != nil {
+		return err
+	}
 
 	// Wait for indexes to be ready
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitModifiedPathsIndex).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitDeletedPathsIndex).RunWrite(session); err != nil {
+		return err
+	}
 	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPathIndex).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -463,6 +498,29 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 
+	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+	if err != nil {
+		return err
+	}
+	cursor, err := d.getTerm(diffTable).GetAllByIndex(diffCommitIndex, rawCommit.ID).Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+
+	diff := &persist.Diff{}
+	for cursor.Next(diff) {
+		if len(diff.BlockRefs) > 0 {
+			rawCommit.ModifiedPaths = append(rawCommit.ModifiedPaths, diff.Path)
+		}
+		if diff.Delete {
+			rawCommit.DeletedPaths = append(rawCommit.DeletedPaths, diff.Path)
+		}
+	}
+	if cursor.Err() != nil {
+		return cursor.Err()
+	}
+
 	var parentCancelled bool
 	if parentID != "" {
 		cursor, err := d.getTerm(commitTable).Get(parentID).Changes(gorethink.ChangesOpts{
@@ -484,15 +542,11 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			return err
 		}
 	}
-	return d.updateCommitWithAmbiguousID(
-		commit.Repo.Name,
-		commit.ID,
-		map[string]interface{}{
-			"Finished":  finished,
-			"Cancelled": parentCancelled || cancel,
-		},
-	)
 
+	rawCommit.Finished = finished
+	rawCommit.Cancelled = parentCancelled || cancel
+	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
+	return err
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
@@ -632,8 +686,8 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	}, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
 			return oldDoc.Merge(map[string]interface{}{
-				"Appends": oldDoc.Field("Appends").Add(newDoc.Field("Appends")),
-				"Size":    oldDoc.Field("Size").Add(newDoc.Field("Size")),
+				"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
+				"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
 			})
 		},
 	}).RunWrite(d.dbClient)
