@@ -225,12 +225,16 @@ func (s *objBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.
 
 func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	if err := s.objClient.Walk(s.localServer.diffDir(), func(path string) error {
+	walkPath := s.localServer.diffDir()
+	if request.Repo != nil {
+		walkPath = s.localServer.repoDiffDir(request.Repo)
+	}
+	if err := s.objClient.Walk(walkPath, func(path string) error {
 		diff := s.localServer.pathToDiff(path)
 		if diff == nil {
 			return fmt.Errorf("couldn't parse %s", path)
 		}
-		if diff.Shard == request.Shard {
+		if diff.Shard == request.Shard || request.AllShards {
 			diffInfo, err := s.readDiff(diff)
 			if err != nil {
 				return err

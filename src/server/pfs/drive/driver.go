@@ -14,6 +14,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -241,9 +242,9 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return nil
 }
 
-func (d *driver) FsckRepo(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
+func (d *driver) FsckRepo(repo *pfs.Repo, repair bool, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	shardToDiffInfo, ok := d.diffs[repo.Name]
 	if !ok {
 		return nil, pfsserver.NewErrRepoNotFound(repo.Name)
@@ -266,6 +267,58 @@ func (d *driver) FsckRepo(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Commit
 	var result []*pfs.CommitFsck
 	for _, commitFsck := range idToFsck {
 		result = append(result, commitFsck)
+	}
+	if repair {
+		blockClient, err := d.getBlockClient()
+		if err != nil {
+			return nil, err
+		}
+		listDiffClient, err := blockClient.ListDiff(
+			context.Background(),
+			&pfs.ListDiffRequest{
+				Repo:      repo,
+				AllShards: true,
+			})
+		if err != nil {
+			return nil, err
+		}
+		for {
+			diffInfo, err := listDiffClient.Recv()
+			if err != nil && err != io.EOF {
+				return nil, err
+			}
+			if err == io.EOF {
+				break
+			}
+			lion.Printf("got diff: %s %s %d", diffInfo.Diff.Commit.Repo.Name, diffInfo.Diff.Commit.ID, diffInfo.Diff.Shard)
+			if diffInfo.Diff == nil || diffInfo.Diff.Commit == nil || diffInfo.Diff.Commit.Repo == nil {
+				return nil, fmt.Errorf("broken diff info: %v; this is likely a bug", diffInfo)
+			}
+			for shard := range shards {
+				diff := &pfs.Diff{
+					Commit: diffInfo.Diff.Commit,
+					Shard:  shard,
+				}
+				_, ok := d.diffs.get(diff)
+				if !ok {
+					diffInfo := &pfs.DiffInfo{
+						Diff:         diff,
+						ParentCommit: diffInfo.ParentCommit,
+						Branch:       diffInfo.Branch,
+						Started:      diffInfo.Started,
+						Finished:     diffInfo.Finished,
+						Cancelled:    diffInfo.Cancelled,
+						Provenance:   diffInfo.Provenance,
+					}
+					// if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+					// 	return nil, err
+					// }
+					if err := d.diffs.insert(diffInfo); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 	}
 	return result, nil
 }

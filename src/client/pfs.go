@@ -118,11 +118,12 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 }
 
 // FsckRepo checks a repo for consistency.
-func (c APIClient) FsckRepo(repoName string) ([]*pfs.CommitFsck, error) {
+func (c APIClient) FsckRepo(repoName string, repair bool) ([]*pfs.CommitFsck, error) {
 	response, err := c.PfsAPIClient.FsckRepo(
 		context.Background(),
 		&pfs.FsckRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo:   NewRepo(repoName),
+			Repair: repair,
 		},
 	)
 	if err != nil {

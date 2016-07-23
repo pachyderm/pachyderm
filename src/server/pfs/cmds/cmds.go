@@ -124,6 +124,7 @@ Repos are created with create-repo.`,
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 
+	var repair bool
 	fsckRepo := &cobra.Command{
 		Use:   "fsck-repo repo-name",
 		Short: "Check a repo for errors.",
@@ -133,7 +134,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			commitFscks, err := client.FsckRepo(args[0])
+			commitFscks, err := client.FsckRepo(args[0], repair)
 			if err != nil {
 				return err
 			}
@@ -145,6 +146,7 @@ Repos are created with create-repo.`,
 			return writer.Flush()
 		}),
 	}
+	fsckRepo.Flags().BoolVarP(&repair, "repair", "r", false, "attempt to repair the repo")
 
 	commit := &cobra.Command{
 		Use:   "commit",

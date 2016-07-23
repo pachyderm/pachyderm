@@ -154,13 +154,17 @@ func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclien
 
 func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
+	walkPath := s.diffDir()
+	if request.Repo != nil {
+		walkPath = s.repoDiffDir(request.Repo)
+	}
+	if err := filepath.Walk(walkPath, func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
 		if diff == nil {
 			// likely a directory
 			return nil
 		}
-		if diff.Shard == request.Shard {
+		if diff.Shard == request.Shard || request.AllShards {
 			diffInfo, err := s.readDiff(diff)
 			if err != nil {
 				return err
@@ -197,6 +201,10 @@ func (s *localBlockAPIServer) diffDir() string {
 	return filepath.Join(s.dir, "diff")
 }
 
+func (s *localBlockAPIServer) repoDiffDir(repo *pfsclient.Repo) string {
+	return filepath.Join(s.diffDir(), repo.Name)
+}
+
 func (s *localBlockAPIServer) diffPath(diff *pfsclient.Diff) string {
 	commitID := diff.Commit.ID
 	if commitID == "" {
@@ -204,7 +212,7 @@ func (s *localBlockAPIServer) diffPath(diff *pfsclient.Diff) string {
 		// so it works as a path we make that an underscore
 		commitID = "_"
 	}
-	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, strconv.FormatUint(diff.Shard, 10), commitID)
+	return filepath.Join(s.repoDiffDir(diff.Commit.Repo), strconv.FormatUint(diff.Shard, 10), commitID)
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
