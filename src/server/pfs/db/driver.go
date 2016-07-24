@@ -53,10 +53,18 @@ const (
 	clockBranchIndex Index = "ClockBranchIndex"
 
 	commitTable Table = "Commits"
-	// commitBranchIndex maps commits to branches
-	commitBranchIndex        Index = "CommitBranchIndex"
+	// commitBranchIndex maps branch positions to commits
+	// Format: repo + clock
+	// Example: ["repo", "master", 0]
+	commitBranchIndex Index = "CommitBranchIndex"
+	// commitModifiedPathsIndex maps modified paths to commits
+	// Format: repo + path + clocks
+	// Example: ["repo", "/file", ["master", 1, "foo", 2]]
 	commitModifiedPathsIndex Index = "CommitModifiedPathsIndex"
-	commitDeletedPathsIndex  Index = "CommitDeletedPathsIndex"
+	// commitDeletedPathsIndex maps deleted paths to commits
+	// Format: repo + path + clocks
+	// Example: ["repo", "/file", ["master", 1, "foo", 2]]
+	commitDeletedPathsIndex Index = "CommitDeletedPathsIndex"
 
 	connectTimeoutSeconds = 5
 )
@@ -164,14 +172,35 @@ func InitDB(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitModifiedPathsIndex, func(row gorethink.Term) interface{} {
-		return row.Field("ModifiedPaths")
+		return row.Field("ModifiedPaths").ConcatMap(func(path gorethink.Term) gorethink.Term {
+			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+				return []interface{}{
+					row.Field("Repo"),
+					path,
+					// Note that branchClock is an object containing an array of
+					// Clock objects.
+					// Here we are taking advantage of an under-documented feature
+					// of RethinkDB where objects are compared with their attributes
+					// in lexicographical order.
+					branchClock,
+				}
+			})
+		})
 	}, gorethink.IndexCreateOpts{
 		Multi: true,
 	}).RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitDeletedPathsIndex, func(row gorethink.Term) interface{} {
-		return row.Field("DeletedPaths")
+		return row.Field("DeletedPaths").ConcatMap(func(path gorethink.Term) gorethink.Term {
+			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+				return []interface{}{
+					row.Field("Repo"),
+					path,
+					branchClock,
+				}
+			})
+		})
 	}, gorethink.IndexCreateOpts{
 		Multi: true,
 	}).RunWrite(session); err != nil {
