@@ -219,6 +219,38 @@ func (a *apiServer) FsckRepo(ctx context.Context, request *pfs.FsckRepoRequest) 
 		result.CommitFsck = append(result.CommitFsck, response.CommitFsck...)
 	}
 	result.CommitFsck = pfsserver.ReduceCommitFscks(result.CommitFsck)
+	if request.Repair {
+		// If request.Repair is set we resend the request with some extra info
+		// about which commits need repairs and which shards do exist for those
+		// commits. This helps to make the repair process much faster.
+		for _, commitFsck := range result.CommitFsck {
+			if len(commitFsck.Shards) < int(a.hasher.FileModulus) {
+				request.CommitsToRepair = append(request.CommitsToRepair, commitFsck)
+			}
+		}
+		var wg sync.WaitGroup
+		errCh := make(chan error, 1)
+		for _, clientConn := range clientConns {
+			clientConn := clientConn
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, err := pfs.NewInternalAPIClient(clientConn).FsckRepo(ctx, request)
+				if err != nil {
+					select {
+					case errCh <- err:
+					default:
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		select {
+		case err := <-errCh:
+			return nil, err
+		default:
+		}
+	}
 	return result, nil
 }
 

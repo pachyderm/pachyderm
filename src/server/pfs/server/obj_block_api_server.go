@@ -234,7 +234,7 @@ func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDif
 		if diff == nil {
 			return fmt.Errorf("couldn't parse %s", path)
 		}
-		if diff.Shard == request.Shard || request.AllShards {
+		if diff.Shard == request.Shard {
 			diffInfo, err := s.readDiff(diff)
 			if err != nil {
 				return err

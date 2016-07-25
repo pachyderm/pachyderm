@@ -170,6 +170,7 @@ message CommitFscks {
 message FsckRepoRequest {
     Repo repo = 1;
     bool repair = 2;
+    repeated CommitFsck commits_to_repair = 3;
 }
 
 message StartCommitRequest {
@@ -392,7 +393,6 @@ message InspectDiffRequest {
 message ListDiffRequest {
   Repo repo = 1;
   uint64 shard = 2;
-  bool all_shards = 3;
 }
 
 message DeleteDiffRequest {

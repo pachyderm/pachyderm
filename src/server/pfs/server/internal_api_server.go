@@ -123,7 +123,7 @@ func (a *internalAPIServer) FsckRepo(ctx context.Context, request *pfs.FsckRepoR
 	if err != nil {
 		return nil, err
 	}
-	commitFscks, err := a.driver.FsckRepo(request.Repo, request.Repair, shards)
+	commitFscks, err := a.driver.FsckRepo(request.Repo, request.CommitsToRepair, shards)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,6 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -242,7 +241,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return nil
 }
 
-func (d *driver) FsckRepo(repo *pfs.Repo, repair bool, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
+func (d *driver) FsckRepo(repo *pfs.Repo, commitsToRepair []*pfs.CommitFsck, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	shardToDiffInfo, ok := d.diffs[repo.Name]
@@ -268,54 +267,45 @@ func (d *driver) FsckRepo(repo *pfs.Repo, repair bool, shards map[uint64]bool) (
 	for _, commitFsck := range idToFsck {
 		result = append(result, commitFsck)
 	}
-	if repair {
-		blockClient, err := d.getBlockClient()
-		if err != nil {
-			return nil, err
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+	for _, commitFsck := range commitsToRepair {
+		if len(commitFsck.Shards) == 0 {
+			return nil, fmt.Errorf("CommitFsck with no shards, this is likely a bug")
 		}
-		listDiffClient, err := blockClient.ListDiff(
+		shard := commitFsck.Shards[0]
+		diffInfo, err := blockClient.InspectDiff(
 			context.Background(),
-			&pfs.ListDiffRequest{
-				Repo:      repo,
-				AllShards: true,
-			})
+			&pfs.InspectDiffRequest{
+				Diff: client.NewDiff(commitFsck.Commit.Repo.Name, commitFsck.Commit.ID, shard),
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
-		for {
-			diffInfo, err := listDiffClient.Recv()
-			if err != nil && err != io.EOF {
-				return nil, err
+		for shard := range shards {
+			diff := &pfs.Diff{
+				Commit: diffInfo.Diff.Commit,
+				Shard:  shard,
 			}
-			if err == io.EOF {
-				break
-			}
-			lion.Printf("got diff: %s %s %d", diffInfo.Diff.Commit.Repo.Name, diffInfo.Diff.Commit.ID, diffInfo.Diff.Shard)
-			if diffInfo.Diff == nil || diffInfo.Diff.Commit == nil || diffInfo.Diff.Commit.Repo == nil {
-				return nil, fmt.Errorf("broken diff info: %v; this is likely a bug", diffInfo)
-			}
-			for shard := range shards {
-				diff := &pfs.Diff{
-					Commit: diffInfo.Diff.Commit,
-					Shard:  shard,
+			_, ok := d.diffs.get(diff)
+			if !ok {
+				diffInfo := &pfs.DiffInfo{
+					Diff:         diff,
+					ParentCommit: diffInfo.ParentCommit,
+					Branch:       diffInfo.Branch,
+					Started:      diffInfo.Started,
+					Finished:     diffInfo.Finished,
+					Cancelled:    diffInfo.Cancelled,
+					Provenance:   diffInfo.Provenance,
 				}
-				_, ok := d.diffs.get(diff)
-				if !ok {
-					diffInfo := &pfs.DiffInfo{
-						Diff:         diff,
-						ParentCommit: diffInfo.ParentCommit,
-						Branch:       diffInfo.Branch,
-						Started:      diffInfo.Started,
-						Finished:     diffInfo.Finished,
-						Cancelled:    diffInfo.Cancelled,
-						Provenance:   diffInfo.Provenance,
-					}
-					// if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
-					// 	return nil, err
-					// }
-					if err := d.diffs.insert(diffInfo); err != nil {
-						return nil, err
-					}
+				// if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+				// 	return nil, err
+				// }
+				if err := d.diffs.insert(diffInfo); err != nil {
+					return nil, err
 				}
 			}
 		}

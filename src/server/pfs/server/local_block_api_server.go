@@ -164,7 +164,7 @@ func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listD
 			// likely a directory
 			return nil
 		}
-		if diff.Shard == request.Shard || request.AllShards {
+		if diff.Shard == request.Shard {
 			diffInfo, err := s.readDiff(diff)
 			if err != nil {
 				return err
