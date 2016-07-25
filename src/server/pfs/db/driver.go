@@ -475,6 +475,7 @@ func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Com
 		[]interface{}{repo, branch, 0},
 		[]interface{}{repo, branch, gorethink.MaxVal},
 		true,
+		false,
 	)
 	if err != nil {
 		return err
@@ -753,7 +754,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 
 	rightBound := []interface{}{file.Commit.Repo.Name, file.Path, commit.BranchClocks[0].ToArray()}
 
-	cursor, err := d.betweenIndex(commitTable, commitDeletedPathsIndex, leftBound, rightBound, true)
+	cursor, err := d.betweenIndex(commitTable, commitDeletedPathsIndex, leftBound, rightBound, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -765,11 +766,26 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		return nil, err
 	}
 
-	cursor, err = d.betweenIndex(commitTable, commitModifiedPathsIndex, newLeftBound, rightBound, false)
+	cursor, err = d.betweenIndex(commitTable, commitModifiedPathsIndex, newLeftBound, rightBound, false, true)
 	if err != nil {
 		return nil, err
 	}
-	return d.newFileReader(cursor, file.Path, offset, size), nil
+
+	var commits []*persist.Commit
+	if err := cursor.All(&commits); err != nil {
+		return nil, err
+	}
+
+	// In case of an unsafe read, the current commit may not have been indexed on
+	// ModifiedPaths yet, since the indexing happens in FinishCommit.
+	// Therefore, we want to include the current commit if it's an unsafe read.
+	if unsafe && commit.Finished == nil && (len(commits) == 0 || commits[len(commits)-1].ID != commit.ID) {
+		commits = append(commits, commit)
+	}
+
+	fmt.Printf("commits to read: %v\n", commits)
+
+	return d.newFileReader(commits, file.Path, offset, size), nil
 }
 
 type fileReader struct {
@@ -783,12 +799,12 @@ type fileReader struct {
 	sizeRead    int64 // how much data has been read
 }
 
-func (d *driver) newFileReader(cursor *gorethink.Cursor, path string, offset int64, size int64) *fileReader {
+func (d *driver) newFileReader(commits []*persist.Commit, path string, offset int64, size int64) *fileReader {
 	// buffer 10 blockRefs at a time
 	blockChan := make(chan *persist.BlockRef, 10)
 	errCh := make(chan error, 1)
 	done := make(chan struct{})
-	go d.blockReceiver(cursor, path, blockChan, errCh, done)
+	go d.blockReceiver(commits, path, blockChan, errCh, done)
 	return &fileReader{
 		blockClient: d.blockClient,
 		offset:      offset,
@@ -801,9 +817,8 @@ func (d *driver) newFileReader(cursor *gorethink.Cursor, path string, offset int
 
 // blockReceiver reads commits from a cursor and sends diffs pertaining to a path
 // to the given channel
-func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan chan<- *persist.BlockRef, errCh chan<- error, done <-chan struct{}) {
-	commit := &persist.Commit{}
-	for cursor.Next(commit) {
+func (d *driver) blockReceiver(commits []*persist.Commit, path string, blockChan chan<- *persist.BlockRef, errCh chan<- error, done <-chan struct{}) {
+	for _, commit := range commits {
 		diff := &persist.Diff{}
 		err := d.getMessageByPrimaryKey(diffTable, getDiffID(commit.ID, path), diff)
 		if err != nil {
@@ -818,9 +833,6 @@ func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan 
 				return
 			}
 		}
-	}
-	if err := cursor.Err(); err != nil {
-		errCh <- err
 	}
 	close(blockChan)
 }
@@ -845,6 +857,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 				r.offset -= blockSize
 				continue
 			}
+			break
 		}
 		client := client.APIClient{BlockAPIClient: r.blockClient}
 		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(r.size))
@@ -951,13 +964,22 @@ func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, me
 	return err
 }
 
-func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}, reverse bool) (*gorethink.Cursor, error) {
+// betweenIndex returns a cursor that will return all documents in between two
+// values on an index.
+// rightBound specifies whether maxVal is included in the range.  Default is false.
+func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}, reverse bool, rightBoundClose bool) (*gorethink.Cursor, error) {
 	if reverse {
 		index = gorethink.Desc(index)
 	}
+	rightBound := "open"
+	if rightBoundClose {
+		rightBound = "closed"
+	}
 	return d.getTerm(table).OrderBy(gorethink.OrderByOpts{
 		Index: index,
-	}).Between(minVal, maxVal).Run(d.dbClient)
+	}).Between(minVal, maxVal, gorethink.BetweenOpts{
+		RightBound: rightBound,
+	}).Run(d.dbClient)
 }
 
 func (d *driver) deleteMessageByPrimaryKey(table Table, key interface{}) error {
