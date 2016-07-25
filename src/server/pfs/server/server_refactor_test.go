@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -56,8 +57,15 @@ func TestNEWAPIPutFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("bar"))
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit1.ID, "file", true, ""))
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("buzz"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	expected := "foo\nbar\nbuzz\n"
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, buffer))
+	require.Equal(t, expected, buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master/0", "file", 0, 0, "", nil, buffer))
+	require.Equal(t, expected, buffer.String())
 }

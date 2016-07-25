@@ -23,10 +23,7 @@ func NewClock(branch string) *persist.Clock {
 // "master" -> [[(master, 0)]]
 func NewBranchClocks(branch string) persist.BranchClocks {
 	return persist.BranchClocks{{
-		Clocks: []*persist.Clock{{
-			Branch: branch,
-			Clock:  0,
-		}},
+		Clocks: []*persist.Clock{NewClock(branch)},
 	}}
 }
 
