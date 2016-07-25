@@ -30,13 +30,18 @@ message Branch {
   string name = 3;
 }
 
+message BlockRef {
+  string hash = 1;
+  uint64 size = 2;
+}
+
 message Diff {
   string id = 1;  // commit_id + path
   string commit_id = 2;
   string path = 3;
   // appends can either be blockrefs, or a special
   // constant "delete", which means deleting the file
-  repeated string block_refs = 4;
+  repeated BlockRef block_refs = 4;
   bool delete = 5;
   uint64 size = 6;
 }
