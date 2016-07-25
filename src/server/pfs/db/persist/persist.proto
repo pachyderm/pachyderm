@@ -32,7 +32,8 @@ message Branch {
 
 message BlockRef {
   string hash = 1;
-  uint64 size = 2;
+  uint64 lower = 2;
+  uint64 upper = 3;
 }
 
 message Diff {

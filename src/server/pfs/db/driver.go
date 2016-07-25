@@ -705,11 +705,12 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	var size uint64
 	for _, blockref := range blockrefs.BlockRef {
 		ref := &persist.BlockRef{
-			Hash: blockref.Block.Hash,
-			Size: blockref.Range.Upper - blockref.Range.Lower,
+			Hash:  blockref.Block.Hash,
+			Upper: blockref.Range.Upper,
+			Lower: blockref.Range.Lower,
 		}
 		refs = append(refs, ref)
-		size += ref.Size
+		size += ref.Size()
 	}
 
 	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
@@ -780,6 +781,7 @@ type fileReader struct {
 	blockClient pfs.BlockAPIClient
 	blockChan   <-chan *persist.BlockRef
 	errCh       <-chan error
+	done        chan<- struct{}
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
@@ -790,19 +792,21 @@ func (d *driver) newFileReader(cursor *gorethink.Cursor, path string, offset int
 	// buffer 10 blockRefs at a time
 	blockChan := make(chan *persist.BlockRef, 10)
 	errCh := make(chan error, 1)
-	go d.blockReceiver(cursor, path, blockChan, errCh)
+	done := make(chan struct{})
+	go d.blockReceiver(cursor, path, blockChan, errCh, done)
 	return &fileReader{
 		blockClient: d.blockClient,
 		offset:      offset,
 		size:        size,
 		blockChan:   blockChan,
 		errCh:       errCh,
+		done:        done,
 	}
 }
 
 // blockReceiver reads commits from a cursor and sends diffs pertaining to a path
 // to the given channel
-func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan chan<- *persist.BlockRef, errCh chan<- error) {
+func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan chan<- *persist.BlockRef, errCh chan<- error, done <-chan struct{}) {
 	commit := &persist.Commit{}
 	for cursor.Next(commit) {
 		diff := &persist.Diff{}
@@ -813,7 +817,11 @@ func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan 
 			return
 		}
 		for _, blockRef := range diff.BlockRefs {
-			blockChan <- blockRef
+			select {
+			case blockChan <- blockRef:
+			case <-done:
+				return
+			}
 		}
 	}
 	if err := cursor.Err(); err != nil {
@@ -837,7 +845,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 					return 0, io.EOF
 				}
 			}
-			blockSize := int64(blockRef.Size)
+			blockSize := int64(blockRef.Size())
 			if r.offset >= blockSize {
 				r.offset -= blockSize
 				continue
@@ -868,6 +876,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 }
 
 func (r *fileReader) Close() error {
+	close(r.done)
 	return nil
 }
 
