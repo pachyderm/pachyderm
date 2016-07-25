@@ -478,7 +478,9 @@ func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Com
 	cursor, err := d.betweenIndex(
 		commitTable, commitBranchIndex,
 		[]interface{}{repo, branch, 0},
-		[]interface{}{repo, branch, gorethink.MaxVal})
+		[]interface{}{repo, branch, gorethink.MaxVal},
+		true,
+	)
 	if err != nil {
 		return err
 	}
@@ -733,7 +735,136 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
-	return nil, nil
+	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the most recent commit that deletes the file
+	// thereby tightening the left bound
+	leftBound := []interface{}{file.Commit.Repo.Name, file.Path}
+	if from != nil {
+		leftBound = append(leftBound, fromCommit.BranchClocks[0])
+	}
+	rightBound := []interface{}{file.Commit.Repo.Name, file.Path, commit.BranchClocks[0]}
+
+	cursor, err := d.betweenIndex(commitTable, commitDeletedPathsIndex, leftBound, rightBound, true)
+	if err != nil {
+		return nil, err
+	}
+	newLeftBound := []interface{}{file.Commit.Repo.Name, file.Path}
+	firstDeletionCommit := &persist.Commit{}
+	if err := cursor.One(firstDeletionCommit); err == nil {
+		newLeftBound = append(newLeftBound, firstDeletionCommit.BranchClocks[0])
+	} else if err != gorethink.ErrEmptyResult {
+		return nil, err
+	}
+
+	cursor, err = d.betweenIndex(commitTable, commitModifiedPathsIndex, newLeftBound, rightBound, false)
+	if err != nil {
+		return nil, err
+	}
+	return d.newFileReader(cursor, file.Path, offset, size), nil
+}
+
+type fileReader struct {
+	blockClient pfs.BlockAPIClient
+	blockChan   <-chan *pfs.BlockRef
+	errCh       <-chan error
+	reader      io.Reader
+	offset      int64
+	size        int64 // how much data to read
+	sizeRead    int64 // how much data has been read
+}
+
+func (d *driver) newFileReader(cursor *gorethink.Cursor, path string, offset int64, size int64) *fileReader {
+	// buffer 10 blockRefs at a time
+	blockChan := make(chan *pfs.BlockRef, 10)
+	errCh := make(chan error, 1)
+	go d.blockReceiver(cursor, path, blockChan, errCh)
+	return &fileReader{
+		blockClient: d.blockClient,
+		offset:      offset,
+		size:        size,
+		blockChan:   blockChan,
+		errCh:       errCh,
+	}
+}
+
+// blockReceiver reads commits from a cursor and sends diffs pertaining to a path
+// to the given channel
+func (d *driver) blockReceiver(cursor *gorethink.Cursor, path string, blockChan chan<- *pfs.BlockRef, errCh chan<- error) {
+	commit := &persist.Commit{}
+	for cursor.Next(commit) {
+		diff := &persist.Diff{}
+		err := d.getMessageByPrimaryKey(diffTable, getDiffID(commit.ID, path), diff)
+		if err != nil {
+			errCh <- err
+			close(blockChan)
+			return
+		}
+		for _, blockRef := range diff.BlockRefs {
+			blockChan <- blockRef
+		}
+	}
+	if err := cursor.Err(); err != nil {
+		errCh <- err
+	}
+	close(blockChan)
+}
+
+func (r *fileReader) Read(data []byte) (int, error) {
+	var err error
+	if r.reader == nil {
+		var blockRef *pfs.BlockRef
+		var ok bool
+		for {
+			blockRef, ok = <-r.blockChan
+			if !ok {
+				select {
+				case err := <-r.errCh:
+					return 0, err
+				default:
+					return 0, io.EOF
+				}
+			}
+			blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
+			if r.offset >= blockSize {
+				r.offset -= blockSize
+				continue
+			}
+		}
+		client := client.APIClient{BlockAPIClient: r.blockClient}
+		r.reader, err = client.GetBlock(blockRef.Block.Hash, uint64(r.offset), uint64(r.size))
+		if err != nil {
+			return 0, err
+		}
+		r.offset = 0
+	}
+	size, err := r.reader.Read(data)
+	if err != nil && err != io.EOF {
+		return size, err
+	}
+	if err == io.EOF {
+		r.reader = nil
+	}
+	r.sizeRead += int64(size)
+	if r.sizeRead == r.size {
+		return size, io.EOF
+	}
+	if r.size > 0 && r.sizeRead > r.size {
+		return 0, fmt.Errorf("read more than we need; this is likely a bug")
+	}
+	return size, nil
+}
+
+func (r *fileReader) Close() error {
+	return nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
@@ -812,9 +943,12 @@ func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, me
 	return err
 }
 
-func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}) (*gorethink.Cursor, error) {
+func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}, reverse bool) (*gorethink.Cursor, error) {
+	if reverse {
+		index = gorethink.Desc(index)
+	}
 	return d.getTerm(table).OrderBy(gorethink.OrderByOpts{
-		Index: gorethink.Desc(index),
+		Index: index,
 	}).Between(minVal, maxVal).Run(d.dbClient)
 }
 
