@@ -177,12 +177,7 @@ func InitDB(address string, databaseName string) error {
 				return []interface{}{
 					row.Field("Repo"),
 					path,
-					// Note that branchClock is an object containing an array of
-					// Clock objects.
-					// Here we are taking advantage of an under-documented feature
-					// of RethinkDB where objects are compared with their attributes
-					// in lexicographical order.
-					branchClock,
+					persist.BranchClockToArray(branchClock),
 				}
 			})
 		})
@@ -197,7 +192,7 @@ func InitDB(address string, databaseName string) error {
 				return []interface{}{
 					row.Field("Repo"),
 					path,
-					branchClock,
+					persist.BranchClockToArray(branchClock),
 				}
 			})
 		})
@@ -745,18 +740,18 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		return nil, err
 	}
 
-	fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Find the most recent commit that deletes the file
 	// thereby tightening the left bound
 	leftBound := []interface{}{file.Commit.Repo.Name, file.Path}
 	if from != nil {
-		leftBound = append(leftBound, fromCommit.BranchClocks[0])
+		fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
+		if err != nil {
+			return nil, err
+		}
+		leftBound = append(leftBound, fromCommit.BranchClocks[0].ToArray())
 	}
-	rightBound := []interface{}{file.Commit.Repo.Name, file.Path, commit.BranchClocks[0]}
+
+	rightBound := []interface{}{file.Commit.Repo.Name, file.Path, commit.BranchClocks[0].ToArray()}
 
 	cursor, err := d.betweenIndex(commitTable, commitDeletedPathsIndex, leftBound, rightBound, true)
 	if err != nil {
