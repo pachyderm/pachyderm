@@ -301,9 +301,9 @@ func (d *driver) FsckRepo(repo *pfs.Repo, commitsToRepair []*pfs.CommitFsck, sha
 					Cancelled:    diffInfo.Cancelled,
 					Provenance:   diffInfo.Provenance,
 				}
-				// if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
-				// 	return nil, err
-				// }
+				if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+					return nil, err
+				}
 				if err := d.diffs.insert(diffInfo); err != nil {
 					return nil, err
 				}
