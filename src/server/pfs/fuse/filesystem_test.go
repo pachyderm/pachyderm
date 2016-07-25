@@ -535,7 +535,7 @@ func TestDelimitJSON(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		// Make sure all the content is there
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, len(expectedOutput), buffer.Len())
 		require.Equal(t, string(expectedOutput), buffer.String())
 
@@ -548,7 +548,7 @@ func TestDelimitJSON(t *testing.T) {
 			}
 
 			buffer.Reset()
-			if c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", blockFilter, &buffer) != nil {
+			if c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", false, blockFilter, &buffer) != nil {
 				// ignore file not found
 				continue
 			}
@@ -610,7 +610,7 @@ func TestNoDelimiter(t *testing.T) {
 
 		// Make sure all the content is there
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", false, nil, &buffer))
 		require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 		require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
 
@@ -624,7 +624,7 @@ func TestNoDelimiter(t *testing.T) {
 			}
 
 			buffer.Reset()
-			if c.GetFile(repo, commit1.ID, name, 0, 0, "", blockFilter, &buffer) != nil {
+			if c.GetFile(repo, commit1.ID, name, 0, 0, "", false, blockFilter, &buffer) != nil {
 				continue
 			}
 
