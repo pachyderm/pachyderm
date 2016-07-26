@@ -61,6 +61,7 @@ func ReduceCommitInfos(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
 	return result
 }
 
+// ReduceCommitFscks combines CommitFscks by unioning their shards.
 func ReduceCommitFscks(commitFscks []*pfs.CommitFsck) []*pfs.CommitFsck {
 	reducedCommitFscks := make(map[string]*pfs.CommitFsck)
 	for _, commitFsck := range commitFscks {
