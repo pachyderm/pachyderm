@@ -730,6 +730,11 @@ func getDiffID(commitID string, path string) string {
 	return fmt.Sprintf("%s:%s", commitID, path)
 }
 
+// the equivalent of above except that commitID is a rethink term
+func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
+	return commitID.Add(":" + path)
+}
+
 func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	return nil
 }
@@ -766,92 +771,58 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		return nil, err
 	}
 
-	cursor, err = d.betweenIndex(commitTable, commitModifiedPathsIndex, newLeftBound, rightBound, false, true)
+	cursor, err = d.getTerm(commitTable).Between(newLeftBound, rightBound, gorethink.BetweenOpts{
+		Index: commitModifiedPathsIndex,
+	}).Field("ID").Union([]interface{}{commit.ID}).EqJoin(func(commitID gorethink.Term) gorethink.Term {
+		return getDiffIDFromTerm(commitID, file.Path)
+	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
+		Ordered: true,
+	}).Field("right").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
 
-	var commits []*persist.Commit
-	if err := cursor.All(&commits); err != nil {
-		return nil, err
-	}
-
-	// In case of an unsafe read, the current commit may not have been indexed on
-	// ModifiedPaths yet, since the indexing happens in FinishCommit.
-	// Therefore, we want to include the current commit if it's an unsafe read.
-	if unsafe && commit.Finished == nil && (len(commits) == 0 || commits[len(commits)-1].ID != commit.ID) {
-		commits = append(commits, commit)
-	}
-
-	fmt.Printf("commits to read: %v\n", commits)
-
-	return d.newFileReader(commits, file.Path, offset, size), nil
+	return d.newFileReader(cursor, file.Path, offset, size), nil
 }
 
 type fileReader struct {
 	blockClient pfs.BlockAPIClient
-	blockChan   <-chan *persist.BlockRef
-	errCh       <-chan error
-	done        chan<- struct{}
+	diffs       *gorethink.Cursor
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
+	blockRefs   []*persist.BlockRef
 }
 
-func (d *driver) newFileReader(commits []*persist.Commit, path string, offset int64, size int64) *fileReader {
-	// buffer 10 blockRefs at a time
-	blockChan := make(chan *persist.BlockRef, 10)
-	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	go d.blockReceiver(commits, path, blockChan, errCh, done)
+func (d *driver) newFileReader(diffs *gorethink.Cursor, path string, offset int64, size int64) *fileReader {
 	return &fileReader{
 		blockClient: d.blockClient,
+		diffs:       diffs,
 		offset:      offset,
 		size:        size,
-		blockChan:   blockChan,
-		errCh:       errCh,
-		done:        done,
 	}
-}
-
-// blockReceiver reads commits from a cursor and sends diffs pertaining to a path
-// to the given channel
-func (d *driver) blockReceiver(commits []*persist.Commit, path string, blockChan chan<- *persist.BlockRef, errCh chan<- error, done <-chan struct{}) {
-	for _, commit := range commits {
-		diff := &persist.Diff{}
-		err := d.getMessageByPrimaryKey(diffTable, getDiffID(commit.ID, path), diff)
-		if err != nil {
-			errCh <- err
-			close(blockChan)
-			return
-		}
-		for _, blockRef := range diff.BlockRefs {
-			select {
-			case blockChan <- blockRef:
-			case <-done:
-				return
-			}
-		}
-	}
-	close(blockChan)
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
 	var err error
 	if r.reader == nil {
 		var blockRef *persist.BlockRef
-		var ok bool
 		for {
-			blockRef, ok = <-r.blockChan
-			if !ok {
-				select {
-				case err := <-r.errCh:
-					return 0, err
-				default:
+			for len(r.blockRefs) == 0 {
+				// fetch more
+				diff := persist.Diff{}
+				if r.diffs.Next(&diff) {
+					r.blockRefs = append(r.blockRefs, diff.BlockRefs...)
+				} else {
+					if err := r.diffs.Err(); err != nil {
+						return 0, err
+					}
 					return 0, io.EOF
 				}
 			}
+			blockRef = r.blockRefs[0]
+			r.blockRefs = r.blockRefs[1:]
 			blockSize := int64(blockRef.Size())
 			if r.offset >= blockSize {
 				r.offset -= blockSize
@@ -884,8 +855,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 }
 
 func (r *fileReader) Close() error {
-	close(r.done)
-	return nil
+	return r.diffs.Close()
 }
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
