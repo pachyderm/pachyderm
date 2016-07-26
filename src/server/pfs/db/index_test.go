@@ -49,6 +49,7 @@ func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Sess
 	- getCommitByAmbmiguousID() -- if the commit ID is in the form of an alias, find the commit using the index
 
 */
+
 func TestCommitBranchIndexBasic(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
 
@@ -92,10 +93,73 @@ func TestCommitBranchIndexBasic(t *testing.T) {
 	})
 }
 
+func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
+
+		repo := &pfs.Repo{Name: "foo"}
+		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
+		commitID := uuid.NewWithoutDashes()
+		err := d.StartCommit(
+			repo,
+			commitID,
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		commit := &pfs.Commit{Repo: repo, ID: commitID}
+		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
+
+		commitID2 := uuid.NewWithoutDashes()
+		err = d.StartCommit(
+			repo,
+			commitID2,
+			commitID,
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		commit2 := &pfs.Commit{Repo: repo, ID: commitID2}
+		require.NoError(t, d.FinishCommit(commit2, timestampNow(), false, nil))
+
+		commitID3 := uuid.NewWithoutDashes()
+		err = d.StartCommit(
+			repo,
+			commitID3,
+			commitID2,
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		commit3 := &pfs.Commit{Repo: repo, ID: commitID3}
+		require.NoError(t, d.FinishCommit(commit3, timestampNow(), false, nil))
+
+		// Now that the commits are chained together,
+		// Grab the head of master branch using the index
+		head := &persist.Commit{}
+		term := gorethink.DB(dbName).Table(commitTable)
+		cursor, err := term.OrderBy(gorethink.OrderByOpts{
+			Index: gorethink.Desc(commitBranchIndex),
+		}).Between([]interface{}{repo.Name, "master", 0}, []interface{}{repo.Name, "master", gorethink.MaxVal}, gorethink.BetweenOpts{
+			RightBound: "open",
+		}).Run(dbClient)
+		require.NoError(t, err)
+		require.NoError(t, cursor.One(head))
+		require.Equal(t, commitID3, head.ID)
+	})
+}
+
 /*
 	diffPathIndex
 
 	used nowhere?
+	used in ListFile() to list diffs by path
 */
 
 /* diffCommitIndex
