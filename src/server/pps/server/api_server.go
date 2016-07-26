@@ -1374,6 +1374,23 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 		)
 	}
 
+	var volumes []api.Volume
+	var volumeMounts []api.VolumeMount
+	for _, secret := range jobInfo.Transform.Secrets {
+		volumes = append(volumes, api.Volume{
+			Name: secret.Name,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: secret.Name,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      secret.Name,
+			MountPath: secret.MountPath,
+		})
+	}
+
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -1406,9 +1423,11 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 							},
 							ImagePullPolicy: "IfNotPresent",
 							Env:             jobEnv,
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",
+					Volumes:       volumes,
 				},
 			},
 		},

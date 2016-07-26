@@ -2198,7 +2198,7 @@ func TestPipelineEnv(t *testing.T) {
 	// make a secret to reference
 	k := getKubeClient(t)
 	secretName := uniqueString("test-secret")
-	k.Secrets(api.NamespaceDefault).Create(
+	_, err := k.Secrets(api.NamespaceDefault).Create(
 		&api.Secret{
 			ObjectMeta: api.ObjectMeta{
 				Name: secretName,
@@ -2208,13 +2208,14 @@ func TestPipelineEnv(t *testing.T) {
 			},
 		},
 	)
+	require.NoError(t, err)
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipelineEnv_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&ppsclient.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
@@ -2343,7 +2344,7 @@ func getKubeClient(t *testing.T) *kube.Client {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
+	return prefix + uuid.NewWithoutDashes()[0:12]
 }
 
 func pachdRc(t *testing.T) *api.ReplicationController {
