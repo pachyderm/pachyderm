@@ -2195,6 +2195,19 @@ func TestPipelineEnv(t *testing.T) {
 	}
 	t.Parallel()
 
+	// make a secret to reference
+	k := getKubeClient(t)
+	secretName := uniqueString("test-secret")
+	k.Secrets(api.NamespaceDefault).Create(
+		&api.Secret{
+			ObjectMeta: api.ObjectMeta{
+				Name: secretName,
+			},
+			Data: map[string][]byte{
+				"foo": []byte("foo\n"),
+			},
+		},
+	)
 	c := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipelineEnv_data")
@@ -2206,9 +2219,19 @@ func TestPipelineEnv(t *testing.T) {
 		&ppsclient.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &ppsclient.Transform{
-				Cmd:   []string{"sh"},
-				Stdin: []string{"echo $foo > /pfs/out/file"},
-				Env:   map[string]string{"foo": "foo"},
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"ls /var/secret",
+					"cat /var/secret/foo > /pfs/out/foo",
+					"echo $bar> /pfs/out/bar",
+				},
+				Env: map[string]string{"bar": "bar"},
+				Secrets: []*ppsclient.Secret{
+					{
+						Name:      secretName,
+						MountPath: "/var/secret",
+					},
+				},
 			},
 			Parallelism: 1,
 			Inputs:      []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
@@ -2223,8 +2246,11 @@ func TestPipelineEnv(t *testing.T) {
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
