@@ -1293,8 +1293,6 @@ type fileReader struct {
 	offset      int64
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
-	ctx         context.Context
-	cancel      context.CancelFunc
 }
 
 func newFileReader(blockClient pfs.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {
