@@ -122,7 +122,7 @@ docker-build-fruitstand:
 docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand docker-wait-job-shim docker-wait-pachd
 
 docker-build-proto:
-	docker build -d -t pachyderm_proto etc/proto
+	docker build -t pachyderm_proto etc/proto
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
