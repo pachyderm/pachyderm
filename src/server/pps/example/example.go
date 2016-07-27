@@ -50,6 +50,7 @@ var (
 			},
 		},
 	}
+	// RunPipelineSpec example
 	RunPipelineSpec = &ppsclient.CreateJobRequest{
 		Inputs: []*ppsclient.JobInput{
 			{
