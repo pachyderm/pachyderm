@@ -2189,6 +2189,71 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 	require.Matches(t, "not found", err.Error())
 }
 
+func TestPipelineEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	// make a secret to reference
+	k := getKubeClient(t)
+	secretName := uniqueString("test-secret")
+	_, err := k.Secrets(api.NamespaceDefault).Create(
+		&api.Secret{
+			ObjectMeta: api.ObjectMeta{
+				Name: secretName,
+			},
+			Data: map[string][]byte{
+				"foo": []byte("foo\n"),
+			},
+		},
+	)
+	require.NoError(t, err)
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineEnv_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"ls /var/secret",
+					"cat /var/secret/foo > /pfs/out/foo",
+					"echo $bar> /pfs/out/bar",
+				},
+				Env: map[string]string{"bar": "bar"},
+				Secrets: []*ppsclient.Secret{
+					{
+						Name:      secretName,
+						MountPath: "/var/secret",
+					},
+				},
+			},
+			Parallelism: 1,
+			Inputs:      []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+		})
+	require.NoError(t, err)
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+}
+
 func TestFlushNonExistantCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2293,7 +2358,7 @@ func getKubeClient(t *testing.T) *kube.Client {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "_" + uuid.NewWithoutDashes()[0:12]
+	return prefix + uuid.NewWithoutDashes()[0:12]
 }
 
 func pachdRc(t *testing.T) *api.ReplicationController {
