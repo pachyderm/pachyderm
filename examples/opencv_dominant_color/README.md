@@ -7,7 +7,13 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 As mentioned in the introduction, having a statically linked native opencv binary simplifies the dev environment and reduces the size of docker images required. Note: an approach that was taken for the purposes of this guide was to build the binary (called `dominantColor`) in a docker images such as [this one](https://github.com/SoheilSalehian/Docker-OpenCV) and then copy over the resulting binary into the containers that run the pipeline.
 
-This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. `images.zip` is downloaded via [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing) and is to be uploaded to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`.
+In the case that you are running your own version of build with a Dockerfile, a [Makefile]([examples/opencv_dominant_color/Makefile) is provided in order to download the statically binary file:
+
+```shell
+$ make
+```
+
+This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. `images.zip` should be downloaded via [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing) and is to be uploaded to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`.
 
 ## Create a Repo
 
