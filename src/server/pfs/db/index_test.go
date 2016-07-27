@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -41,7 +42,7 @@ var (
 */
 
 func TestCommitBranchIndexBasic(t *testing.T) {
-	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
 		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
@@ -84,7 +85,7 @@ func TestCommitBranchIndexBasic(t *testing.T) {
 }
 
 func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
-	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
 		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
@@ -163,7 +164,7 @@ Used to:
 */
 
 func TestDiffCommitIndexBasic(t *testing.T) {
-	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
 		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
@@ -183,11 +184,39 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 				Repo: repo,
 				ID:   commitID,
 			},
+			Path: "file",
 		}
 		d.PutFile(file, "", pfs.Delimiter_LINE, 0, strings.NewReader("foo\n"))
 
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
+
+		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffCommitIndex, commitID).Run(dbClient)
+		require.NoError(t, err)
+		diff := &persist.Diff{}
+		require.NoError(t, cursor.One(diff))
+		fmt.Printf("got first diff: %v\n", diff)
+		require.Equal(t, "file", diff.Path)
+		require.Equal(t, 1, len(diff.BlockRefs))
+
+		block := diff.BlockRefs[0]
+		fmt.Printf("block: %v\n", block)
+		blockSize := block.Upper - block.Lower
+
+		// Was trying to check on a per block level ...
+		// But even GetFile() doesn't seem to return the correct results
+		// reader, err := d.GetFile(file, nil, 0,
+		//	int64(blockSize), &pfs.Commit{Repo: repo, ID: commitID}, 0, false, "")
+
+		reader, err := client.GetBlock(block.Hash, uint64(0), uint64(blockSize))
+		require.NoError(t, err)
+		var data []byte
+		size, err := reader.Read(data)
+		fmt.Printf("data=%v, err=%v\n", string(data), err)
+		fmt.Printf("size=%v\n", size)
+		require.NoError(t, err)
+		require.Equal(t, "foo\n", string(data))
+
 	})
 }
 
@@ -227,7 +256,7 @@ func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
 }
 
-func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Session)) {
+func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Session, pclient.APIClient)) {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	if err := InitDB(RethinkAddress, dbName); err != nil {
 		require.NoError(t, err)
@@ -238,12 +267,9 @@ func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Sess
 		Timeout: connectTimeoutSeconds * time.Second,
 	})
 	require.NoError(t, err)
-	d, err := NewDriver("localhost:30652", RethinkAddress, dbName)
-	require.NoError(t, err)
+	_client, d := startBlockServerAndGetClient(t, dbName)
 
-	startBlockServer(t, dbName, d)
-
-	testCode(d, dbName, dbClient)
+	testCode(d, dbName, dbClient, _client)
 
 	if err := RemoveDB(RethinkAddress, dbName); err != nil {
 		require.NoError(t, err)
@@ -267,7 +293,7 @@ func runServers(t *testing.T, port int32, blockAPIServer pfsclient.BlockAPIServe
 	<-ready
 }
 
-func startBlockServer(t *testing.T, dbName string, driver drive.Driver) {
+func startBlockServerAndGetClient(t *testing.T, dbName string) (pclient.APIClient, drive.Driver) {
 
 	root := uniqueString("/tmp/pach_test/run")
 	var ports []int32
@@ -276,12 +302,19 @@ func startBlockServer(t *testing.T, dbName string, driver drive.Driver) {
 	for _, port := range ports {
 		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
 	}
-	for _, port := range ports {
+	var driver drive.Driver
+	for i, port := range ports {
+		address := addresses[i]
+		_driver, err := NewDriver(address, RethinkAddress, dbName)
+		driver = _driver
+		require.NoError(t, err)
 		blockAPIServer, err := pfsserver.NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
 		runServers(t, port, blockAPIServer)
 	}
-	return
+	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
+	require.NoError(t, err)
+	return pclient.APIClient{BlockAPIClient: pfsclient.NewBlockAPIClient(clientConn)}, driver
 }
 
 func uniqueString(prefix string) string {
