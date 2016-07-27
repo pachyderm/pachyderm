@@ -2254,6 +2254,20 @@ func TestPipelineEnv(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
+func TestFlushNonExistantCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit("fake-repo", "fake-commit")}, nil)
+	require.YesError(t, err)
+	repo := uniqueString("FlushNonExistantCommit")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "fake-commit")}, nil)
+	require.YesError(t, err)
+}
+
 func TestPipelineWithFullObjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
