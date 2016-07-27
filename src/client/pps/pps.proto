@@ -9,12 +9,20 @@ package pachyderm.pps;
 
 option go_package = "pps";
 
+message Secret {
+    // Name must be the name of the secret in kubernetes.
+    string name = 1;
+    string mount_path = 2;
+}
+
 message Transform {
   string image = 1;
   repeated string cmd = 2;
-  repeated string stdin = 3;
-  repeated int64 accept_return_code = 4;
-  bool debug = 5;
+  map<string, string> env = 3;
+  repeated Secret secrets = 4;
+  repeated string stdin = 5;
+  repeated int64 accept_return_code = 6;
+  bool debug = 7;
 }
 
 message Job {
