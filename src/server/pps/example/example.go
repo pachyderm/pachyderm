@@ -6,13 +6,22 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
-// CreateJobRequest creates an example job request.
-func CreateJobRequest() *ppsclient.CreateJobRequest {
-	return &ppsclient.CreateJobRequest{
-		Transform: &ppsclient.Transform{
-			Cmd:              []string{"cmd", "args..."},
-			AcceptReturnCode: []int64{1},
-		},
+var (
+	// Secret example
+	Secret = &ppsclient.Secret{
+		Name:      "secret_name",
+		MountPath: "/path/in/container",
+	}
+	// Transform example
+	Transform = &ppsclient.Transform{
+		Cmd:              []string{"cmd", "args..."},
+		AcceptReturnCode: []int64{1},
+		Env:              map[string]string{"foo": "bar"},
+		Secrets:          []*ppsclient.Secret{Secret},
+	}
+	// CreateJobRequest example
+	CreateJobRequest = &ppsclient.CreateJobRequest{
+		Transform:   Transform,
 		Parallelism: 1,
 		Inputs: []*ppsclient.JobInput{
 			{
@@ -27,18 +36,12 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 			ID: "a951ca06cfda4377b8ffaa050d1074df",
 		},
 	}
-}
-
-// CreatePipelineRequest creates an example pipeline request.
-func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
-	return &ppsclient.CreatePipelineRequest{
+	// CreatePipelineRequest example
+	CreatePipelineRequest = &ppsclient.CreatePipelineRequest{
 		Pipeline: &ppsclient.Pipeline{
 			Name: "name",
 		},
-		Transform: &ppsclient.Transform{
-			Cmd:              []string{"cmd", "args..."},
-			AcceptReturnCode: []int64{1},
-		},
+		Transform:   Transform,
 		Parallelism: 1,
 		Inputs: []*ppsclient.PipelineInput{
 			{
@@ -47,11 +50,7 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 			},
 		},
 	}
-}
-
-// RunPipelineSpec creates an example run pipeline request.
-func RunPipelineSpec() *ppsclient.CreateJobRequest {
-	return &ppsclient.CreateJobRequest{
+	RunPipelineSpec = &ppsclient.CreateJobRequest{
 		Inputs: []*ppsclient.JobInput{
 			{
 				Commit: &pfs.Commit{
@@ -63,4 +62,4 @@ func RunPipelineSpec() *ppsclient.CreateJobRequest {
 		},
 		Parallelism: 3,
 	}
-}
+)
