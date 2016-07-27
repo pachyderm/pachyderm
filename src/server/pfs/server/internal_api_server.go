@@ -246,6 +246,10 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	}
 	var provenanceRepos []*pfs.Repo
 	for _, commit := range request.Commit {
+		_, err := a.driver.InspectCommit(commit, shards)
+		if err != nil {
+			return nil, err
+		}
 		provenanceRepos = append(provenanceRepos, commit.Repo)
 	}
 	repoInfos, err := a.driver.ListRepo(provenanceRepos, shards)
