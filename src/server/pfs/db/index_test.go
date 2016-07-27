@@ -1,40 +1,30 @@
 package persist
 
 import (
+	"fmt"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 
 	"github.com/dancannon/gorethink"
 	"go.pedge.io/pb/go/google/protobuf"
+	"go.pedge.io/proto/server"
+	"google.golang.org/grpc"
 )
 
-func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Session)) {
-	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
-	if err := InitDB(RethinkAddress, dbName); err != nil {
-		require.NoError(t, err)
-		return
-	}
-	dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
-		Address: RethinkAddress,
-		Timeout: connectTimeoutSeconds * time.Second,
-	})
-	require.NoError(t, err)
-	d, err := NewDriver("localhost:1523", RethinkAddress, dbName)
-	require.NoError(t, err)
-
-	testCode(d, dbName, dbClient)
-
-	if err := RemoveDB(RethinkAddress, dbName); err != nil {
-		require.NoError(t, err)
-		return
-	}
-}
+var (
+	port int32 = 30651
+)
 
 /*
 	CommitBranchIndex
@@ -172,6 +162,35 @@ Used to:
 
 */
 
+func TestDiffCommitIndexBasic(t *testing.T) {
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session) {
+
+		repo := &pfs.Repo{Name: "foo"}
+		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
+		commitID := uuid.NewWithoutDashes()
+		err := d.StartCommit(
+			repo,
+			commitID,
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		file := &pfs.File{
+			Commit: &pfs.Commit{
+				Repo: repo,
+				ID:   commitID,
+			},
+		}
+		d.PutFile(file, "", pfs.Delimiter_LINE, 0, strings.NewReader("foo\n"))
+
+		commit := &pfs.Commit{Repo: repo, ID: commitID}
+		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
+	})
+}
+
 /* commitModifiedPathsIndex
 
 Indexed on: repo / path / branchclock
@@ -206,4 +225,65 @@ Used to:
 
 func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
+}
+
+func testSetup(t *testing.T, testCode func(drive.Driver, string, *gorethink.Session)) {
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	if err := InitDB(RethinkAddress, dbName); err != nil {
+		require.NoError(t, err)
+		return
+	}
+	dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: RethinkAddress,
+		Timeout: connectTimeoutSeconds * time.Second,
+	})
+	require.NoError(t, err)
+	d, err := NewDriver("localhost:30652", RethinkAddress, dbName)
+	require.NoError(t, err)
+
+	startBlockServer(t, dbName, d)
+
+	testCode(d, dbName, dbClient)
+
+	if err := RemoveDB(RethinkAddress, dbName); err != nil {
+		require.NoError(t, err)
+		return
+	}
+}
+
+func runServers(t *testing.T, port int32, blockAPIServer pfsclient.BlockAPIServer) {
+	ready := make(chan bool)
+	go func() {
+		err := protoserver.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
+				close(ready)
+			},
+			protoserver.ServeOptions{Version: version.Version},
+			protoserver.ServeEnv{GRPCPort: uint16(port)},
+		)
+		require.NoError(t, err)
+	}()
+	<-ready
+}
+
+func startBlockServer(t *testing.T, dbName string, driver drive.Driver) {
+
+	root := uniqueString("/tmp/pach_test/run")
+	var ports []int32
+	ports = append(ports, atomic.AddInt32(&port, 1))
+	var addresses []string
+	for _, port := range ports {
+		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
+	}
+	for _, port := range ports {
+		blockAPIServer, err := pfsserver.NewLocalBlockAPIServer(root)
+		require.NoError(t, err)
+		runServers(t, port, blockAPIServer)
+	}
+	return
+}
+
+func uniqueString(prefix string) string {
+	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }
