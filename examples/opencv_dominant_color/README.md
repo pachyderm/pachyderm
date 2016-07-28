@@ -1,19 +1,19 @@
 # Quick Start Guide: OpenCV Dominant Color Example
-In this guide you're going to create a Pachyderm pipeline to run a dominant color algorithm is written in the popular computer vision library OpenCV. The algorithm is written in C++, compiled and statically linked in order for easy distribution throughout the containers that run the Pachyderm pipeline. If you are interested in the implementation of the [k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) based algorithm, please refer to [the OpenCV source code](https://github.com/SoheilSalehian/CVSearchEngine/tree/master/src/cpp). We are also going to run the algorithm on 1000 images from the Flikr dataset which are stored in an S3 bucket.
+In this guide you're going to create a Pachyderm pipeline to run a dominant color algorithm using the popular computer vision library OpenCV. The algorithm is written in C++, compiled and statically linked in order for easy distribution throughout the containers that run the Pachyderm pipeline. If you are interested in the implementation of the [k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) based algorithm, please refer to [the OpenCV source code](https://github.com/SoheilSalehian/CVSearchEngine/tree/master/src/cpp). We are also going to run the algorithm on 1000 images from the Flikr dataset which are stored in an S3 bucket.
  
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../SETUP.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](http://pachyderm.readthedocs.io/en/latest/deploying_setup.html).
 
 As mentioned in the introduction, having a statically linked native opencv binary simplifies the dev environment and reduces the size of docker images required. Note: an approach that was taken for the purposes of this guide was to build the binary (called `dominantColor`) in a docker images such as [this one](https://github.com/SoheilSalehian/Docker-OpenCV) and then copy over the resulting binary into the containers that run the pipeline.
 
-In the case that you are running your own version of build with a Dockerfile, a [Makefile]([examples/opencv_dominant_color/Makefile) is provided in order to download the statically binary file:
+In the case that you are running your own version of build with a Dockerfile, a [Makefile]([examples/opencv_dominant_color/Makefile) is provided in order to download the static binary file:
 
 ```shell
 $ make
 ```
 
-This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. `images.zip` should be downloaded via [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing) and is to be uploaded to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`.
+This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. You should download `images.zip` via our [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing), unzip the images, and upload to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`. 
 
 ## Create a Repo
 
@@ -50,7 +50,7 @@ e1b57763af0b41e5ad4ada262a392de1
 This returns a brand new commit id. Yours should be different from mine.
 Now if we take a look inside our repo, we’ve created a directory for the new commit:
 ```shell
-$ pachctl list-commit urls
+$ pachctl list-commit images
 e1b57763af0b41e5ad4ada262a392de1
 ```
 
@@ -62,19 +62,12 @@ We're going to write that data as a file called “images” in pfs.
 # Write sample data into pfs
 $ cat examples/opencv_dominant_color/images.txt | pachctl put-file images e1b57763af0b41e5ad4ada262a392de1 images
 ```
-However, you'll notice that we can't read the file “images” yet. This is because the commit hasn’t been completed yet
-and in a distributed environment could contain some dirty state.
-
-```shell
-$ pachctl get-file images e1b57763af0b41e5ad4ada262a392de1 images
-File not found
-```
 
 ## Finish a Commit
 
-Pachyderm won't let you read data from a commit until the `commit` is `finished`.
+Pachyderm won't let you process data from a commit that isn't `finished`.
 This prevents reads from racing with writes. Furthermore, every write
-to pfs is atomic. Now let's finish the commit:
+to pfs is atomic. So now let's finish the commit:
 
 ```shell
 $ pachctl finish-commit images e1b57763af0b41e5ad4ada262a392de1
@@ -83,7 +76,7 @@ $ pachctl finish-commit images e1b57763af0b41e5ad4ada262a392de1
 Now we can view the head of the file:
 
 ```shell
-$ pach get-file images e1b57763af0b41e5ad4ada262a392de1 images | head
+$ pachctl get-file images e1b57763af0b41e5ad4ada262a392de1 images | head
 im1.jpg
 im10.jpg
 im100.jpg
@@ -97,7 +90,7 @@ im105.jpg
 However, we've lost the ability to write to this `commit` since finished
 commits are immutable. In Pachyderm, a `commit` is always either _write-only_
 when it's been started and files are being added, or _read-only_ after it's
-finished.
+finished. But now we can to process the images!
 
 ## Create a Pipeline
 
