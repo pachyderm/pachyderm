@@ -132,4 +132,14 @@ var (
 			Multi: true,
 		},
 	}
+
+	// Collect them all for easier initialization
+	Indexes = []Index{
+		diffPathIndex,
+		diffPrefixIndex,
+		diffParentIndex,
+		diffCommitIndex,
+		clockBranchIndex,
+		commitBranchIndex,
+	}
 )

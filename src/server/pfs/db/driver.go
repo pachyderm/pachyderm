@@ -136,50 +136,14 @@ func InitDB(address string, databaseName string) error {
 	}
 
 	// Create indexes
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitBranchIndex.Name, commitBranchIndex.CreateFunction, commitBranchIndex.CreateOptions).RunWrite(session); err != nil {
-		return err
+	for _, someIndex := range Indexes {
+		if _, err := gorethink.DB(databaseName).Table(someIndex.Table).IndexCreateFunc(someIndex.Name, someIndex.CreateFunction, someIndex.CreateOptions).RunWrite(session); err != nil {
+			return err
+		}
+		if _, err := gorethink.DB(databaseName).Table(someIndex.Table).IndexWait(someIndex.Name).RunWrite(session); err != nil {
+			return err
+		}
 	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex.Name, diffCommitIndex.CreateFunction).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPrefixIndex.Name, diffPrefixIndex.CreateFunction, diffPrefixIndex.CreateOptions).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPrefixIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffParentIndex.Name, diffParentIndex.CreateFunction, diffParentIndex.CreateOptions).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffParentIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex.Name, diffPathIndex.CreateFunction, diffPathIndex.CreateOptions).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPathIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
-		clockBranchIndex.Name,
-		clockBranchIndex.CreateFunction).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex.Name).RunWrite(session); err != nil {
-		return err
-	}
-
 	return nil
 }
 
