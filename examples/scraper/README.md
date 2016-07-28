@@ -173,8 +173,8 @@ name where it stores its output results. In our example, the pipeline was named 
 There are a couple of different ways to retrieve the output. We can read a single output file from the “scraper” `repo` in the same fashion that we read the input data:
 
 ```shell
-$ pachctl list-file urls 09a7eb68995c43979cba2b0d29432073 urls
-$ pachctl get-file urls 09a7eb68995c43979cba2b0d29432073 urls/www.imgur.com/index.html
+$ pachctl list-file scraper 09a7eb68995c43979cba2b0d29432073
+$ pachctl get-file scraper 09a7eb68995c43979cba2b0d29432073 urls/www.imgur.com/index.html
 ```
 
 Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around. 
