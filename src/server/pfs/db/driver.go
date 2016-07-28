@@ -64,14 +64,15 @@ const (
 	// ["/foo/bar", [(master, 1)]]
 	// ["/foo/bar", [(master, 0), (foo, 2)]]
 	diffParentIndex Index = "DiffParentIndex"
-	// diffPathDeleteIndex maps a path to diffs that delete the path
-	// Format: [repo, path, clocks]
+	// diffPathIndex maps a path to diffs that for that path
+	// Format: [repo, bool, path, clocks]
+	// The bool specifies whether it's a delete.
 	// Example:
-	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+	// For the diff: delete "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
 	// We'd have the following index entries:
-	// ["/foo/bar/buzz", [(master, 1)]]
-	// ["/foo/bar/buzz", [(master, 0), (foo, 2)]]
-	diffPathDeleteIndex Index = "DiffPathDeleteIndex"
+	// ["/foo/bar/buzz", true, [(master, 1)]]
+	// ["/foo/bar/buzz", true, [(master, 0), (foo, 2)]]
+	diffPathIndex Index = "DiffPathDeleteIndex"
 	// diffPathAppendIndex works the same way as diffPathDeleteIndex, except that
 	// it's for appends.
 	diffPathAppendIndex Index = "DiffPathAppendIndex"
@@ -207,8 +208,50 @@ func InitDB(address string, databaseName string) error {
 		}).RunWrite(session); err != nil {
 		return err
 	}
+
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex, func(row gorethink.Term) interface{} {
 		return row.Field("CommitID")
+	}).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPrefixIndex, func(row gorethink.Term) interface{} {
+		return row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+			return acc.Add("/").Add(part)
+		}, gorethink.FoldOpts{
+			Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
+				return newAcc
+			},
+		}).ConcatMap(func(path gorethink.Term) gorethink.Term {
+			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
+			})
+		})
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffParentIndex, func(row gorethink.Term) interface{} {
+		parent := row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+			return acc.Add("/").Add(part)
+		})
+		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+			return []interface{}{row.Field("Repo"), parent, persist.BranchClockToArray(branchClock)}
+		})
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
+	}).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex, func(row gorethink.Term) interface{} {
+		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
+			return []interface{}{row.Field("Repo"), row.Field("Delete"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
+		})
+	}, gorethink.IndexCreateOpts{
+		Multi: true,
 	}).RunWrite(session); err != nil {
 		return err
 	}
