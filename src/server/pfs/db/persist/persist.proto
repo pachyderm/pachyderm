@@ -40,21 +40,19 @@ message Diff {
   string id = 1;  // commit_id + path
   string commit_id = 2;
   string path = 3;
-  // appends can either be blockrefs, or a special
-  // constant "delete", which means deleting the file
+  // block_refs and delete cannot both be set
   repeated BlockRef block_refs = 4;
   bool delete = 5;
   uint64 size = 6;
+  repeated BranchClock branch_clocks = 7;
 }
 
 message Commit {
   string id = 1;
   string repo = 2;
   repeated BranchClock branch_clocks = 3;
-  repeated string modified_paths = 4;
-  repeated string deleted_paths = 5;
-  google.protobuf.Timestamp started = 6;
-  google.protobuf.Timestamp finished = 7;
-  bool cancelled = 8;
-  repeated string provenance = 9;
+  google.protobuf.Timestamp started = 4;
+  google.protobuf.Timestamp finished = 5;
+  bool cancelled = 6;
+  repeated string provenance = 7;
 }

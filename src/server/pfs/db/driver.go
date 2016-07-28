@@ -45,8 +45,39 @@ const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
 
-	diffTable       Table = "Diffs"
-	diffPathIndex   Index = "DiffPathIndex"
+	diffTable Table = "Diffs"
+	// diffPrefixIndex maps a path to diffs that have the path as prefix
+	// Format: [repo, prefix, clocks]
+	// Example:
+	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+	// We'd have the following index entries:
+	// ["/foo", [(master, 1)]]
+	// ["/foo/bar", [(master, 1)]]
+	// ["/foo", [(master, 0), (foo, 2)]]
+	// ["/foo/bar", [(master, 0), (foo, 2)]]
+	diffPrefixIndex Index = "DiffPrefixIndex"
+	// diffParentIndex maps a path to diffs that have the path as direct parent
+	// Format: [repo, parent, clocks]
+	// Example:
+	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+	// We'd have the following index entries:
+	// ["/foo/bar", [(master, 1)]]
+	// ["/foo/bar", [(master, 0), (foo, 2)]]
+	diffParentIndex Index = "DiffParentIndex"
+	// diffPathDeleteIndex maps a path to diffs that delete the path
+	// Format: [repo, path, clocks]
+	// Example:
+	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+	// We'd have the following index entries:
+	// ["/foo/bar/buzz", [(master, 1)]]
+	// ["/foo/bar/buzz", [(master, 0), (foo, 2)]]
+	diffPathDeleteIndex Index = "DiffPathDeleteIndex"
+	// diffPathAppendIndex works the same way as diffPathDeleteIndex, except that
+	// it's for appends.
+	diffPathAppendIndex Index = "DiffPathAppendIndex"
+	// diffCommitIndex maps a commit ID to diffs
+	// Format: commit ID
+	// Example: "vswS3kJkejCnyVJLkHfjbUrSwnSAgHpW"
 	diffCommitIndex Index = "DiffCommitIndex"
 
 	clockTable       Table = "Clocks"
@@ -54,17 +85,11 @@ const (
 
 	commitTable Table = "Commits"
 	// commitBranchIndex maps branch positions to commits
-	// Format: repo + clock
-	// Example: ["repo", "master", 0]
+	// Format: repo + head of clocks
+	// Example:
+	// A commit that has the clock [(master, 2), (foo, 3)] will be indexed to:
+	// ["repo", "foo", 3]
 	commitBranchIndex Index = "CommitBranchIndex"
-	// commitModifiedPathsIndex maps modified paths to commits
-	// Format: repo + path + clocks
-	// Example: ["repo", "/file", ["master", 1, "foo", 2]]
-	commitModifiedPathsIndex Index = "CommitModifiedPathsIndex"
-	// commitDeletedPathsIndex maps deleted paths to commits
-	// Format: repo + path + clocks
-	// Example: ["repo", "/file", ["master", 1, "foo", 2]]
-	commitDeletedPathsIndex Index = "CommitDeletedPathsIndex"
 
 	connectTimeoutSeconds = 5
 )
@@ -171,36 +196,6 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitModifiedPathsIndex, func(row gorethink.Term) interface{} {
-		return row.Field("ModifiedPaths").ConcatMap(func(path gorethink.Term) gorethink.Term {
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{
-					row.Field("Repo"),
-					path,
-					persist.BranchClockToArray(branchClock),
-				}
-			})
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitDeletedPathsIndex, func(row gorethink.Term) interface{} {
-		return row.Field("DeletedPaths").ConcatMap(func(path gorethink.Term) gorethink.Term {
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{
-					row.Field("Repo"),
-					path,
-					persist.BranchClockToArray(branchClock),
-				}
-			})
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
-	}
 
 	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
 		clockBranchIndex,
@@ -210,23 +205,6 @@ func InitDB(address string, databaseName string) error {
 				row.Field("Branch"),
 			}
 		}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex, func(row gorethink.Term) interface{} {
-		return row.Field("Path").Split("/").Fold([]interface{}{0}, func(acc, part gorethink.Term) gorethink.Term {
-			return acc.Append(part).ChangeAt(0, acc.Nth(0).Add(1))
-		}, gorethink.FoldOpts{
-			Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
-				return gorethink.Branch(
-					row.Field("Path").Split("/").Count().Eq(newAcc.Count()),
-					[]interface{}{row.Field("Delete"), newAcc},
-					[]interface{}{false, newAcc},
-				)
-			},
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex, func(row gorethink.Term) interface{} {
@@ -239,16 +217,7 @@ func InitDB(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitModifiedPathsIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitDeletedPathsIndex).RunWrite(session); err != nil {
-		return err
-	}
 	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPathIndex).RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex).RunWrite(session); err != nil {
@@ -529,24 +498,6 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	if err != nil {
 		return err
 	}
-	cursor, err := d.getTerm(diffTable).GetAllByIndex(diffCommitIndex, rawCommit.ID).Run(d.dbClient)
-	if err != nil {
-		return err
-	}
-	defer cursor.Close()
-
-	diff := &persist.Diff{}
-	for cursor.Next(diff) {
-		if len(diff.BlockRefs) > 0 {
-			rawCommit.ModifiedPaths = append(rawCommit.ModifiedPaths, diff.Path)
-		}
-		if diff.Delete {
-			rawCommit.DeletedPaths = append(rawCommit.DeletedPaths, diff.Path)
-		}
-	}
-	if cursor.Err() != nil {
-		return cursor.Err()
-	}
 
 	var parentCancelled bool
 	if parentID != "" {
@@ -741,48 +692,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
-	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Find the most recent commit that deletes the file
-	// thereby tightening the left bound
-	leftBound := []interface{}{file.Commit.Repo.Name, file.Path}
-	if from != nil {
-		fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
-		if err != nil {
-			return nil, err
-		}
-		leftBound = append(leftBound, fromCommit.BranchClocks[0].ToArray())
-	}
-
-	rightBound := []interface{}{file.Commit.Repo.Name, file.Path, commit.BranchClocks[0].ToArray()}
-
-	cursor, err := d.betweenIndex(commitTable, commitDeletedPathsIndex, leftBound, rightBound, true, true)
-	if err != nil {
-		return nil, err
-	}
-	newLeftBound := []interface{}{file.Commit.Repo.Name, file.Path}
-	firstDeletionCommit := &persist.Commit{}
-	if err := cursor.One(firstDeletionCommit); err == nil {
-		newLeftBound = append(newLeftBound, firstDeletionCommit.BranchClocks[0])
-	} else if err != gorethink.ErrEmptyResult {
-		return nil, err
-	}
-
-	cursor, err = d.getTerm(commitTable).Between(newLeftBound, rightBound, gorethink.BetweenOpts{
-		Index: commitModifiedPathsIndex,
-	}).Field("ID").Union([]interface{}{commit.ID}).EqJoin(func(commitID gorethink.Term) gorethink.Term {
-		return getDiffIDFromTerm(commitID, file.Path)
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Ordered: true,
-	}).Field("right").Run(d.dbClient)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.newFileReader(cursor, file.Path, offset, size), nil
+	return nil, nil
 }
 
 type fileReader struct {
