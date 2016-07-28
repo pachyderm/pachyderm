@@ -768,6 +768,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
+	if _, err := pfsAPIClient.CreateRepo(
+		ctx,
+		&pfsclient.CreateRepoRequest{
+			Repo:       repo,
+			Provenance: provenance,
+		}); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if retErr != nil {
+			pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo})
+		}
+	}()
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -778,21 +791,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
-		if alreadyExists := strings.Contains(err.Error(), "Duplicate primary key `PipelineName`"); alreadyExists {
+		if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
 			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
 		}
-		return nil, err
-	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		if _, err := persistClient.DeletePipelineInfo(ctx, &ppsclient.Pipeline{Name: request.Pipeline.Name}); err != nil {
-			return nil, fmt.Errorf("could not delete PipelineInfo, this is likely a bug: %v\n", err)
-		}
-		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }
