@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -14,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 
 	"github.com/dancannon/gorethink"
-	"go.pedge.io/pb/go/google/protobuf"
 )
 
 const (
@@ -32,10 +30,6 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	os.Exit(code)
-}
-
-func timestampNow() *google_protobuf.Timestamp {
-	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
 }
 
 func persistCommitToPFSCommit(rawCommit *persist.Commit) *pfs.Commit {
