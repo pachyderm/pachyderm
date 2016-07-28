@@ -887,6 +887,26 @@ func (a *apiServer) Version(version int64) error {
 	return nil
 }
 
+func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.cancelFuncsLock.Lock()
+	defer a.cancelFuncsLock.Unlock()
+	a.cancelFuncs[pipelineName] = cancel
+	return ctx
+}
+
+func (a *apiServer) cancelPipeline(pipelineName string) {
+	a.cancelFuncsLock.Lock()
+	defer a.cancelFuncsLock.Unlock()
+	cancel, ok := a.cancelFuncs[pipelineName]
+	if ok {
+		cancel()
+		delete(a.cancelFuncs, pipelineName)
+	} else {
+		protolion.Errorf("trying to cancel a pipeline %s which has not been started; this is likely a bug", pipelineName)
+	}
+}
+
 func (a *apiServer) AddShard(shard uint64) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -924,59 +944,38 @@ func (a *apiServer) AddShard(shard uint64) error {
 			}
 			pipelineName := pipelineChange.Pipeline.PipelineName
 
-			if pipelineChange.Type == persist.ChangeType_DELETE {
-				a.cancelFuncsLock.Lock()
-				cancel, ok := a.cancelFuncs[pipelineName]
-				if ok {
-					cancel()
-					delete(a.cancelFuncs, pipelineName)
-				} else {
-					protolion.Errorf("trying to cancel a pipeline that has not been started; this is likely a bug")
+			switch pipelineChange.Type {
+			case persist.ChangeType_DELETE:
+				a.cancelPipeline(pipelineName)
+			case persist.ChangeType_UPDATE:
+				a.cancelPipeline(pipelineName)
+				// archive the existing commits from the pipeline
+				commitInfos, err := pfsAPIClient.ListCommit(
+					ctx,
+					&pfsclient.ListCommitRequest{
+						Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: pipelineName})},
+						All:  true,
+					})
+				if err != nil {
+					protolion.Errorf("error from ListCommit: %s", err.Error())
+					return
 				}
-				a.cancelFuncsLock.Unlock()
-			} else {
-				a.cancelFuncsLock.Lock()
-				pipelineCtx, cancel := context.WithCancel(ctx)
-				cancel, ok := a.cancelFuncs[pipelineName]
-				if ok && pipelineChange.Type == persist.ChangeType_CREATE {
-					a.cancelFuncsLock.Unlock()
-					continue
-				}
-				if !ok && pipelineChange.Type == persist.ChangeType_UPDATE {
-					protolion.Errorf("trying to update a pipeline that has not been started; this is likely a bug")
-				} else {
-					// cancel the previous run of the pipeline so we can update it
-					// with the new version of the pipeline
-					cancel()
-					delete(a.cancelFuncs, pipelineName)
-				}
-				a.cancelFuncs[pipelineName] = cancel
-				a.cancelFuncsLock.Unlock()
-				if pipelineChange.Type == persist.ChangeType_UPDATE {
-					commitInfos, err := pfsAPIClient.ListCommit(
-						pipelineCtx,
-						&pfsclient.ListCommitRequest{
-							Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: pipelineName})},
-							All:  true,
+				for _, commitInfo := range commitInfos.CommitInfo {
+					_, err := pfsAPIClient.ArchiveCommit(
+						ctx,
+						&pfsclient.ArchiveCommitRequest{
+							Commit: commitInfo.Commit,
 						})
 					if err != nil {
 						protolion.Errorf("error from ListCommit: %s", err.Error())
 						return
 					}
-					for _, commitInfo := range commitInfos.CommitInfo {
-						_, err := pfsAPIClient.ArchiveCommit(
-							pipelineCtx,
-							&pfsclient.ArchiveCommitRequest{
-								Commit: commitInfo.Commit,
-							})
-						if err != nil {
-							protolion.Errorf("error from ListCommit: %s", err.Error())
-							return
-						}
-					}
 				}
-				// We only want to start a goro to run the pipeline if the
-				// pipeline has more than one inputs
+				// we've cleaned up all the old state, the only left to
+				// complete the update is all the stuff we do for a create
+				fallthrough
+			case persist.ChangeType_CREATE:
+				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
 				go func() {
 					b := backoff.NewExponentialBackOff()
 					// We set MaxElapsedTime to 0 because we want the retry to
@@ -1019,7 +1018,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 			}
 		}
 	}()
-
 	return nil
 }
 
