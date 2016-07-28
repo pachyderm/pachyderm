@@ -2,12 +2,10 @@ package server
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pfs/db/clock"
 )
 
 func TestNEWAPIStartCommitFromBranchRF(t *testing.T) {
@@ -70,11 +68,4 @@ func TestNEWAPIPutFile(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, client.GetFile(repo, "master/0", "file", 0, 0, "", nil, buffer))
 	require.Equal(t, expected, buffer.String())
-}
-
-func TestGetClockIntervals(t *testing.T) {
-	b1 := clock.StringToBranchClock("master/0")
-	b2 := clock.StringToBranchClock("master/2-foo/4")
-	fmt.Printf("Intervals: %v", clock.GetClockIntervals(b1, b2))
-	require.True(t, false)
 }
