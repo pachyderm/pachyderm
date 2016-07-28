@@ -768,19 +768,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		return nil, err
-	}
-	defer func() {
-		if retErr != nil {
-			pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo})
+	if !request.Update { // repo exists if it's an update
+		if _, err := pfsAPIClient.CreateRepo(
+			ctx,
+			&pfsclient.CreateRepoRequest{
+				Repo:       repo,
+				Provenance: provenance,
+			}); err != nil {
+			return nil, err
 		}
-	}()
+		defer func() {
+			if retErr != nil {
+				// we ignore the error here because the function has already
+				// errored, if this fails there's nothing more we can do
+				pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo})
+			}
+		}()
+	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -790,9 +794,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
 		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
-	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
-		if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
-			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+	if !request.Update {
+		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+			if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
+				return nil, fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+			}
+		}
+	} else {
+		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+			return nil, err
 		}
 	}
 	return google_protobuf.EmptyInstance, nil
