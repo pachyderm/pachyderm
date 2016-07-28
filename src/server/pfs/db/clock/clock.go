@@ -2,6 +2,8 @@ package clock
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 )
@@ -147,4 +149,81 @@ func lastComponent(bc *persist.BranchClock) *persist.Clock {
 func GetBranchNameFromBranchClock(b *persist.BranchClock) string {
 	clock := lastComponent(b)
 	return clock.Branch
+}
+
+func ClockEq(c1 *persist.Clock, c2 *persist.Clock) bool {
+	return c1.Branch == c2.Branch && c1.Clock == c2.Clock
+}
+
+func CloneClock(c *persist.Clock) *persist.Clock {
+	return &persist.Clock{
+		Branch: c.Branch,
+		Clock:  c.Clock,
+	}
+}
+
+func CloneBranchClock(b *persist.BranchClock) *persist.BranchClock {
+	res := &persist.BranchClock{}
+	for _, clock := range b.Clocks {
+		res.Clocks = append(res.Clocks, CloneClock(clock))
+	}
+	return res
+}
+
+func GetClockIntervals(left *persist.BranchClock, right *persist.BranchClock) ([][]*persist.BranchClock, error) {
+	current := CloneBranchClock(left)
+	var intervals [][]*persist.BranchClock
+	for i := 0; i < len(right.Clocks); i++ {
+		var leftClone *persist.BranchClock
+		if len(left.Clocks) < i+1 {
+			current.Clocks = append(current.Clocks, CloneClock(right.Clocks[i]))
+			leftClone = CloneBranchClock(current)
+			leftClone.Clocks[i].Clock = 0
+		}
+		if !ClockEq(left.Clocks[i], right.Clocks[i]) {
+			if left.Clocks[i].Branch != right.Clocks[i].Branch || left.Clocks[i].Clock > right.Clocks[i].Clock {
+				return nil, fmt.Errorf("clocks %s is not an ancestor of %s", left, right)
+			}
+			leftClone = CloneBranchClock(current)
+			leftClone.Clocks = leftClone.Clocks[:i+1]
+			current.Clocks[i] = right.Clocks[i]
+		}
+		rightClone := CloneBranchClock(right)
+		rightClone.Clocks = rightClone.Clocks[:i+1]
+		intervals = append(intervals, []*persist.BranchClock{
+			leftClone,
+			rightClone,
+		})
+	}
+	return intervals, nil
+}
+
+// "master/2"
+func StringToClock(s string) (*persist.Clock, error) {
+	parts := strings.Split(s, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid clock string: %s", s)
+	}
+	clock, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid clock string: %v", err)
+	}
+	return &persist.Clock{
+		Branch: parts[0],
+		Clock:  uint64(clock),
+	}, nil
+}
+
+// "master/2-foo/3"
+func StringToBranchClock(s string) (*persist.BranchClock, error) {
+	res := &persist.BranchClock{}
+	parts := strings.Split(s, "-")
+	for _, part := range parts {
+		clock, err := StringToClock(part)
+		if err != nil {
+			return nil, err
+		}
+		res.Clocks = append(res.Clocks, clock)
+	}
+	return res, nil
 }
