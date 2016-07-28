@@ -232,7 +232,7 @@ Used to:
 
 */
 
-func TestDiffPrefixIndexBasic(t *testing.T) {
+func TestDiffPathIndexBasic(t *testing.T) {
 
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
@@ -269,29 +269,10 @@ func TestDiffPrefixIndexBasic(t *testing.T) {
 				},
 			},
 		}
-		key := []interface{}{repo.Name, "foo/bar/fizz/buzz", branchClock.ToArray()}
-		listIndex := func(row gorethink.Term) interface{} {
-			return row.Field("Path").Split("/").DeleteAt(-1).Fold(
-				"",
-				func(acc, part gorethink.Term) gorethink.Term {
-					return acc.Add("/").Add(part)
-				},
-				gorethink.FoldOpts{
-					Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
-						return newAcc
-					},
-				}).ConcatMap(
-				func(path gorethink.Term) gorethink.Term {
-					return row.Field("BranchClocks").Map(
-						func(branchClock gorethink.Term) interface{} {
-							return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
-						})
-				},
-			)
-		}
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffPrefixIndex, key).Map(listIndex).Run(dbClient)
+		key := []interface{}{repo.Name, false, "foo/bar/fizz/buzz", branchClock.ToArray()}
+		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffPathIndex.Name, key).Map(diffPathIndex.CreateFunction).Run(dbClient)
 
-		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(listIndex).Run(dbClient)
+		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(diffPathIndex.CreateFunction).Run(dbClient)
 		require.NoError(t, err)
 		diff := &persist.Diff{}
 		require.NoError(t, cursor.One(diff))
