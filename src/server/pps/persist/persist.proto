@@ -114,6 +114,7 @@ service API {
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
+  rpc UpdatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
   rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}

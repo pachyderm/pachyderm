@@ -337,6 +337,17 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	return request, nil
 }
 
+func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.CreatedAt != nil {
+		return nil, ErrTimestampSet
+	}
+	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
 func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	pipelineInfo := &persist.PipelineInfo{}
