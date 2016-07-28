@@ -130,8 +130,8 @@ message DiffInfo {
   map<string, Append> appends = 6;
   uint64 size_bytes = 7;
   bool cancelled = 8;
-  bool archived = 9;
-  repeated Commit provenance = 10;
+  repeated Commit provenance = 9;
+  bool archived = 10;
 }
 
 message Shard {
