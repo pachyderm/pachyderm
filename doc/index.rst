@@ -15,36 +15,12 @@ Pachyderm Developer Documentation
 
 .. toctree::
     :maxdepth: 2
-    :caption: First Time Users
+    :caption: User Documentation
 
     getting_started
-
-.. toctree::
-    :maxdepth: 2
-    :caption: Analyze Your Data
-
-    development/deploying_on_the_cloud
-    development/inputing_your_data
-    development/customizing_your_images
-    development/tracking_your_data
-    development/updating_pipelines
-    development/scaling
-    development/cluster_hygiene
-    development/python_logs_example
-
-.. toctree::
-    :maxdepth: 2
-    :caption: Advanced Workflows
-
-    advanced/provenance
-    advanced/incrementality
-    advanced/complex_dags
-
-.. toctree::
-    :maxdepth: 2
-    :caption: Going To Production
-
-    production
+    development/index
+    advanced/index
+    production/index
 
 
 .. _feature_docs:
