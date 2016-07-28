@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"server/pfs/db/clock"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -131,4 +132,50 @@ func TestAddClock(t *testing.T) {
 	b2, err := AddClock(b, newClock)
 	require.YesError(t, err)
 	require.Nil(t, b2)
+}
+
+func TestGetClockIntervals(t *testing.T) {
+	b1, err := clock.StringToBranchClock("master/0")
+	require.NoError(t, err)
+	b2, err := clock.StringToBranchClock("master/2-foo/4")
+	require.NoError(t, err)
+	intervals, err := clock.GetClockIntervals(b1, b2)
+	require.NoError(t, err)
+
+	endpoint1, err := clock.StringToBranchClock("master/2")
+	require.NoError(t, err)
+	endpoint2, err := clock.StringToBranchClock("master/2-foo/0")
+	require.NoError(t, err)
+
+	require.Equal(t, [][]*persist.BranchClock{{b1, e1}, {e2, b2}}, intervals)
+
+	b1, err = clock.StringToBranchClock("master/2")
+	require.NoError(t, err)
+	b2, err = clock.StringToBranchClock("master/5")
+	require.NoError(t, err)
+	intervals, err = clock.GetClockIntervals(b1, b2)
+	require.NoError(t, err)
+	require.Equal(t, [][]*persist.BranchClock{{b1, b2}}, intervals)
+
+	b1, err = clock.StringToBranchClock("master/1-foo/2")
+	require.NoError(t, err)
+	b2, err = clock.StringToBranchClock("master/1-foo/5")
+	require.NoError(t, err)
+	intervals, err = clock.GetClockIntervals(b1, b2)
+	require.NoError(t, err)
+	require.Equal(t, [][]*persist.BranchClock{{b1, b2}}, intervals)
+
+	b1, err = clock.StringToBranchClock("master/1-foo/2")
+	require.NoError(t, err)
+	b2, err = clock.StringToBranchClock("master/1-bar/1")
+	require.NoError(t, err)
+	intervals, err = clock.GetClockIntervals(b1, b2)
+	require.YesError(t, err)
+
+	b1, err = clock.StringToBranchClock("master/1-foo/2")
+	require.NoError(t, err)
+	b2, err = clock.StringToBranchClock("master/0")
+	require.NoError(t, err)
+	intervals, err = clock.GetClockIntervals(b1, b2)
+	require.YesError(t, err)
 }
