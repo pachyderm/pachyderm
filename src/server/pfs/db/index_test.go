@@ -220,26 +220,6 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 	})
 }
 
-/* commitModifiedPathsIndex
-
-Indexed on: repo / path / branchclock
-
-Used to:
-
-- in GetFile() to gather all commits within a range that modified a given path
-
-*/
-
-/* commitDeletedPathsIndex
-
-Indexed on :
-
-Used to:
-
-- in GetFile() given a range of commits, find the commits that deleted a path, return the leftmost one
-
-*/
-
 /* clockBranchIndex
 
 Indexed on:
@@ -251,6 +231,75 @@ Used to:
 - in ListBranch() to query the clocks table and return the branches
 
 */
+
+func TestDiffPrefixIndexBasic(t *testing.T) {
+
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
+
+		repo := &pfs.Repo{Name: "foo"}
+		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
+		commitID := uuid.NewWithoutDashes()
+		err := d.StartCommit(
+			repo,
+			commitID,
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		file := &pfs.File{
+			Commit: &pfs.Commit{
+				Repo: repo,
+				ID:   commitID,
+			},
+			Path: "foo/bar/fizz/buzz",
+		}
+		d.PutFile(file, "", pfs.Delimiter_LINE, 0, strings.NewReader("aaa\n"))
+
+		commit := &pfs.Commit{Repo: repo, ID: commitID}
+		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
+
+		branchClock := &persist.BranchClock{
+			Clocks: []*persist.Clock{
+				{
+					Branch: "master",
+					Clock:  0,
+				},
+			},
+		}
+		key := []interface{}{repo.Name, "foo/bar/fizz/buzz", branchClock.ToArray()}
+		listIndex := func(row gorethink.Term) interface{} {
+			return row.Field("Path").Split("/").DeleteAt(-1).Fold(
+				"",
+				func(acc, part gorethink.Term) gorethink.Term {
+					return acc.Add("/").Add(part)
+				},
+				gorethink.FoldOpts{
+					Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
+						return newAcc
+					},
+				}).ConcatMap(
+				func(path gorethink.Term) gorethink.Term {
+					return row.Field("BranchClocks").Map(
+						func(branchClock gorethink.Term) interface{} {
+							return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
+						})
+				},
+			)
+		}
+		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffPrefixIndex, key).Map(listIndex).Run(dbClient)
+
+		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(listIndex).Run(dbClient)
+		require.NoError(t, err)
+		diff := &persist.Diff{}
+		require.NoError(t, cursor.One(diff))
+		fmt.Printf("got first diff: %v\n", diff)
+		require.Equal(t, "file", diff.Path)
+		require.Equal(t, 1, len(diff.BlockRefs))
+	})
+}
 
 func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
