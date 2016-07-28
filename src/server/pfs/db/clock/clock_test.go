@@ -1,11 +1,10 @@
 package clock
 
 import (
-	"server/pfs/db/clock"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pfs/persist"
+	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 )
 
 func TestNewBranchClocks(t *testing.T) {
@@ -135,47 +134,47 @@ func TestAddClock(t *testing.T) {
 }
 
 func TestGetClockIntervals(t *testing.T) {
-	b1, err := clock.StringToBranchClock("master/0")
+	b1, err := StringToBranchClock("master/0")
 	require.NoError(t, err)
-	b2, err := clock.StringToBranchClock("master/2-foo/4")
+	b2, err := StringToBranchClock("master/2-foo/4")
 	require.NoError(t, err)
-	intervals, err := clock.GetClockIntervals(b1, b2)
+	intervals, err := GetClockIntervals(b1, b2)
 	require.NoError(t, err)
 
-	endpoint1, err := clock.StringToBranchClock("master/2")
+	e1, err := StringToBranchClock("master/2")
 	require.NoError(t, err)
-	endpoint2, err := clock.StringToBranchClock("master/2-foo/0")
+	e2, err := StringToBranchClock("master/2-foo/0")
 	require.NoError(t, err)
 
 	require.Equal(t, [][]*persist.BranchClock{{b1, e1}, {e2, b2}}, intervals)
 
-	b1, err = clock.StringToBranchClock("master/2")
+	b1, err = StringToBranchClock("master/2")
 	require.NoError(t, err)
-	b2, err = clock.StringToBranchClock("master/5")
+	b2, err = StringToBranchClock("master/5")
 	require.NoError(t, err)
-	intervals, err = clock.GetClockIntervals(b1, b2)
-	require.NoError(t, err)
-	require.Equal(t, [][]*persist.BranchClock{{b1, b2}}, intervals)
-
-	b1, err = clock.StringToBranchClock("master/1-foo/2")
-	require.NoError(t, err)
-	b2, err = clock.StringToBranchClock("master/1-foo/5")
-	require.NoError(t, err)
-	intervals, err = clock.GetClockIntervals(b1, b2)
+	intervals, err = GetClockIntervals(b1, b2)
 	require.NoError(t, err)
 	require.Equal(t, [][]*persist.BranchClock{{b1, b2}}, intervals)
 
-	b1, err = clock.StringToBranchClock("master/1-foo/2")
+	b1, err = StringToBranchClock("master/1-foo/2")
 	require.NoError(t, err)
-	b2, err = clock.StringToBranchClock("master/1-bar/1")
+	b2, err = StringToBranchClock("master/1-foo/5")
 	require.NoError(t, err)
-	intervals, err = clock.GetClockIntervals(b1, b2)
+	intervals, err = GetClockIntervals(b1, b2)
+	require.NoError(t, err)
+	require.Equal(t, [][]*persist.BranchClock{{b1, b2}}, intervals)
+
+	b1, err = StringToBranchClock("master/1-foo/2")
+	require.NoError(t, err)
+	b2, err = StringToBranchClock("master/1-bar/1")
+	require.NoError(t, err)
+	intervals, err = GetClockIntervals(b1, b2)
 	require.YesError(t, err)
 
-	b1, err = clock.StringToBranchClock("master/1-foo/2")
+	b1, err = StringToBranchClock("master/1-foo/2")
 	require.NoError(t, err)
-	b2, err = clock.StringToBranchClock("master/0")
+	b2, err = StringToBranchClock("master/0")
 	require.NoError(t, err)
-	intervals, err = clock.GetClockIntervals(b1, b2)
+	intervals, err = GetClockIntervals(b1, b2)
 	require.YesError(t, err)
 }
