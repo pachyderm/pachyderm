@@ -46,8 +46,7 @@ const (
 	branchTable Table = "Branches"
 
 	diffTable Table = "Diffs"
-	// diffPrefixIndex maps a path to diffs that have the path as prefix
-	// Format: [repo, prefix, clocks]
+	// diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
 	// Example:
 	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
 	// We'd have the following index entries:
@@ -73,9 +72,6 @@ const (
 	// ["/foo/bar/buzz", true, [(master, 1)]]
 	// ["/foo/bar/buzz", true, [(master, 0), (foo, 2)]]
 	diffPathIndex Index = "DiffPathDeleteIndex"
-	// diffPathAppendIndex works the same way as diffPathDeleteIndex, except that
-	// it's for appends.
-	diffPathAppendIndex Index = "DiffPathAppendIndex"
 	// diffCommitIndex maps a commit ID to diffs
 	// Format: commit ID
 	// Example: "vswS3kJkejCnyVJLkHfjbUrSwnSAgHpW"
@@ -197,21 +193,16 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
-
-	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
-		clockBranchIndex,
-		func(row gorethink.Term) interface{} {
-			return []interface{}{
-				row.Field("Repo"),
-				row.Field("Branch"),
-			}
-		}).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
 		return err
 	}
 
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex, func(row gorethink.Term) interface{} {
 		return row.Field("CommitID")
 	}).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -232,6 +223,9 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPrefixIndex).RunWrite(session); err != nil {
+		return err
+	}
 
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffParentIndex, func(row gorethink.Term) interface{} {
 		parent := row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
@@ -245,6 +239,9 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffParentIndex).RunWrite(session); err != nil {
+		return err
+	}
 
 	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex, func(row gorethink.Term) interface{} {
 		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
@@ -255,15 +252,21 @@ func InitDB(address string, databaseName string) error {
 	}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPathIndex).RunWrite(session); err != nil {
+		return err
+	}
 
-	// Wait for indexes to be ready
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
+		clockBranchIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("Repo"),
+				row.Field("Branch"),
+			}
+		}).RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -487,8 +490,7 @@ func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Com
 		[]interface{}{repo, branch, 0},
 		[]interface{}{repo, branch, gorethink.MaxVal},
 		true,
-		false,
-	)
+	).Run(d.dbClient)
 	if err != nil {
 		return err
 	}
@@ -541,6 +543,8 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	if err != nil {
 		return err
 	}
+
+	// TODO: validate diffs
 
 	var parentCancelled bool
 	if parentID != "" {
@@ -714,6 +718,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 			return oldDoc.Merge(map[string]interface{}{
 				"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
 				"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+				"Delete":    false,
 			})
 		},
 	}).RunWrite(d.dbClient)
@@ -735,7 +740,46 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
-	return nil, nil
+	var fromClocks []interface{}
+	if from != nil {
+		fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
+		if err != nil {
+			return nil, err
+		}
+		fromClocks = fromCommit.BranchClocks[0].ToArray()
+	}
+	minval := []interface{}{file.Commit.Repo.Name, true, file.Path, fromClocks}
+
+	var toClocks []interface{}
+	toCommit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
+	if err != nil {
+		return nil, err
+	}
+	toClocks = toCommit.BranchClocks[0].ToArray()
+	maxval := []interface{}{file.Commit.Repo.Name, true, file.Path, toClocks}
+
+	cursor, err := d.betweenIndex(diffTable, diffPathIndex, minval, maxval, true, gorethink.BetweenOpts{
+		RightBound: "closed",
+	}).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	diff := &persist.Diff{}
+	if err := cursor.One(diff); err != nil && err != gorethink.ErrEmptyResult {
+		return nil, err
+	}
+	if err == nil {
+		minval[3] = diff.BranchClocks[0].ToArray()
+	}
+
+	cursor, err = d.betweenIndex(diffTable, diffPathIndex, minval, maxval, false, gorethink.BetweenOpts{
+		RightBound: "closed",
+	}).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.newFileReader(cursor, file.Path, offset, size), nil
 }
 
 type fileReader struct {
@@ -890,19 +934,14 @@ func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, me
 // betweenIndex returns a cursor that will return all documents in between two
 // values on an index.
 // rightBound specifies whether maxVal is included in the range.  Default is false.
-func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}, reverse bool, rightBoundClose bool) (*gorethink.Cursor, error) {
+func (d *driver) betweenIndex(table Table, index interface{}, minVal interface{}, maxVal interface{}, reverse bool, opts ...gorethink.BetweenOpts) gorethink.Term {
 	if reverse {
 		index = gorethink.Desc(index)
 	}
-	rightBound := "open"
-	if rightBoundClose {
-		rightBound = "closed"
-	}
+
 	return d.getTerm(table).OrderBy(gorethink.OrderByOpts{
 		Index: index,
-	}).Between(minVal, maxVal, gorethink.BetweenOpts{
-		RightBound: rightBound,
-	}).Run(d.dbClient)
+	}).Between(minVal, maxVal, opts...)
 }
 
 func (d *driver) deleteMessageByPrimaryKey(table Table, key interface{}) error {
