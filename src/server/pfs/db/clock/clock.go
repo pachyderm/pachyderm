@@ -164,28 +164,37 @@ func CloneClock(c *persist.Clock) *persist.Clock {
 
 func CloneBranchClock(b *persist.BranchClock) *persist.BranchClock {
 	res := &persist.BranchClock{}
-	for _, clock := range b.Clocks {
-		res.Clocks = append(res.Clocks, CloneClock(clock))
+	if b != nil {
+		for _, clock := range b.Clocks {
+			res.Clocks = append(res.Clocks, CloneClock(clock))
+		}
 	}
 	return res
 }
 
+// GetClockIntervals return an array of clock intervals that describe all clocks
+// in between two given clocks.
+// Example:
+// Given two clocks: [(master, 1)] and [(master, 3), (foo, 2)]
+// Return: [[[(master, 1)], [(master, 3)]], [[(master, 3), (foo, 0)], [(master, 3), (foo, 2)]]]
 func GetClockIntervals(left *persist.BranchClock, right *persist.BranchClock) ([][]*persist.BranchClock, error) {
 	current := CloneBranchClock(left)
 	var intervals [][]*persist.BranchClock
 	for i := 0; i < len(right.Clocks); i++ {
 		var leftClone *persist.BranchClock
-		if len(left.Clocks) < i+1 {
+		if len(current.Clocks) < i+1 {
 			current.Clocks = append(current.Clocks, CloneClock(right.Clocks[i]))
 			leftClone = CloneBranchClock(current)
 			leftClone.Clocks[i].Clock = 0
-		} else if !ClockEq(left.Clocks[i], right.Clocks[i]) {
-			if left.Clocks[i].Branch != right.Clocks[i].Branch || left.Clocks[i].Clock > right.Clocks[i].Clock {
+		} else if !ClockEq(current.Clocks[i], right.Clocks[i]) {
+			if current.Clocks[i].Branch != right.Clocks[i].Branch || current.Clocks[i].Clock > right.Clocks[i].Clock {
 				return nil, fmt.Errorf("clocks %s is not an ancestor of %s", left, right)
 			}
 			leftClone = CloneBranchClock(current)
 			leftClone.Clocks = leftClone.Clocks[:i+1]
 			current.Clocks[i] = right.Clocks[i]
+		} else {
+			continue
 		}
 		rightClone := CloneBranchClock(right)
 		rightClone.Clocks = rightClone.Clocks[:i+1]
