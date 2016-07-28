@@ -1,6 +1,6 @@
 # Quick Start Guide: OpenCV Dominant Color Example
 In this guide you're going to create a Pachyderm pipeline to run a dominant color algorithm using the popular computer vision library OpenCV. The algorithm is written in C++, compiled and statically linked in order for easy distribution throughout the containers that run the Pachyderm pipeline. If you are interested in the implementation of the [k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) based algorithm, please refer to [the OpenCV source code](https://github.com/SoheilSalehian/CVSearchEngine/tree/master/src/cpp). We are also going to run the algorithm on 1000 images from the Flikr dataset which are stored in an S3 bucket.
- 
+
 ## Setup
 
 This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](http://pachyderm.readthedocs.io/en/latest/deploying_setup.html).
@@ -13,7 +13,7 @@ In the case that you are running your own version of build with a Dockerfile, a 
 $ make
 ```
 
-This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. You should download `images.zip` via our [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing), unzip the images, and upload to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`. 
+This guide also assumes access to an S3 bucket for the dataset images which will be downloaded at the beginning of the pipeline. You should download `images.zip` via our [google drive link](https://drive.google.com/file/d/0B351HZYtYt77XzlscG0wQkxIZmM/view?usp=sharing), unzip the images, and upload to an S3 bucket for the purposes of this example. In our case, the bucket is named `opencv-example`. The zip file contains 1000 images, but you don't have to upload all of them if you want everything to run quickly on only a few images.
 
 ## Create a Repo
 
@@ -96,7 +96,8 @@ finished. But now we can to process the images!
 
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
-they're specified with a JSON encoding. We're going to create a pipeline that simply scrapes each of the web pages in “urls.”
+they're specified with a JSON encoding. We're going to create a pipeline that 
+does dominant color detection on a set of input images.
 
 ```
 +---------------------------+     +------------------------------+
@@ -134,10 +135,10 @@ As the pipeline uses S3 for image input storage, please add the aws access id an
 
 In this pipeline, we’re using the already built docker image that includes the dominant color algorithm. For a closer look at this image please take a look at [examples/opencv_dominant_color/Dockerfile](Dockerfile) which can be found in this example directory. S3 credentials are passed in explicitly to keep the scope of the example (Pachyderm also supports passing S3 creds through AWS secret passing via kubernetes manifests).
 
-Finally, the interesting part of the pipeline: the `dominant_color` go binary (based on [examples/opencv_dominant_color/dominant_color.go](dominant_color.go) which is responsible for downloading the images from s3 and calling the c++ algorithm binary) is run with flags for the images file (which we have added as a commit to the images repo), the name of the AWS bucket that holds the images.
+Finally, the interesting part of the pipeline: the `dominant_color` go binary (based on [examples/opencv_dominant_color/dominant_color.go](dominant_color.go) which is responsible for downloading the images from s3 and calling the c++ algorithm binary) is run with flags for the "images.txt" file (the one we have added to the images repo) and the name of the AWS bucket that holds the images themselves.
 
 Another important section to notice is that we read data
-from `/pfs/images/images` (/pfs/[input_repo_name]) and write data to `/pfs/out/opencv`.
+from `/pfs/images/images` (/pfs/[input_repo_name]/[file_name]) and write data to `/pfs/out/opencv`.
 
 Now let's create the pipeline in Pachyderm:
 
@@ -149,7 +150,7 @@ $ pachctl create-pipeline -f examples/opencv_dominant_color/opencv-pipeline.json
 Creating a `pipeline` tells Pachyderm to run your code on *every* finished
 `commit` in a `repo` as well as *all future commits* that happen after the pipeline is
 created. Our `repo` already had a `commit` with the file “images” in it so Pachyderm will automatically
-launch a `job` to scrape those webpages.
+launch a `job` to process those images.
 
 You can view the job with:
 
@@ -160,17 +161,16 @@ ID                                 OUTPUT                                    STA
 ```
 
 Depending on how quickly the job is ran, you may see `running` or
-`successful`. For 1000 images and no parallelism, this may take up to 15 minutes.
+`successful`. For 1000 images and no parallelism (parallelism set to 1), this may take up to 15 minutes.
 
-Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your job with:
-
+Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your job with (please excuse the wrapping):
 ```shell
 $ kubectl get job
-JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR                                                         SUCCESSFUL
-09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
+JOB                                CONTAINER(S)   IMAGE(S)             
+SELECTOR                                                         SUCCESSFUL
+09a7eb68995c43979cba2b0d29432073   user           soheilsalehian/opencv_example:20170722-00
+app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
 ```
-
-A good way to check on the pipeline
 
 Every `pipeline` creates a corresponding `repo` with the same
 name where it stores its output results. In our example, the pipeline was named “opencv” so it created a `repo` called “opencv” which contains the final output.
@@ -180,8 +180,8 @@ name where it stores its output results. In our example, the pipeline was named 
 There are a couple of different ways to retrieve the output. We can read a single output file from the “opencv” `repo` in the same fashion that we read the input data:
 
 ```shell
-$ pachctl list-file opencv 09a7eb68995c43979cba2b0d29432073 opencv
-$ pachctl get-file opencv 09a7eb68995c43979cba2b0d29432073 opencv
+$ pachctl list-file opencv 09a7eb68995c43979cba2b0d29432073
+$ pachctl get-file opencv 09a7eb68995c43979cba2b0d29432073 im1.jpg
 ```
 
 Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see the top 5 most dominant color for each image. One great way to do this is to mount the distributed file system locally and then just poke around.
