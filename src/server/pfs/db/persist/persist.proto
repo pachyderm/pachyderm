@@ -38,13 +38,14 @@ message BlockRef {
 
 message Diff {
   string id = 1;  // commit_id + path
-  string commit_id = 2;
-  string path = 3;
+  string repo = 2;
+  string commit_id = 3;
+  string path = 4;
   // block_refs and delete cannot both be set
-  repeated BlockRef block_refs = 4;
-  bool delete = 5;
-  uint64 size = 6;
-  repeated BranchClock branch_clocks = 7;
+  repeated BlockRef block_refs = 5;
+  bool delete = 6;
+  uint64 size = 7;
+  repeated BranchClock branch_clocks = 8;
 }
 
 message Commit {
