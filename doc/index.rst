@@ -37,7 +37,8 @@ Pachyderm Developer Documentation
     :caption: Advanced Workflows
 
     advanced/provenance
-    advanced/incrmentality
+    advanced/incrementality
+    advanced/complex_dags
 
 .. toctree::
     :maxdepth: 2
