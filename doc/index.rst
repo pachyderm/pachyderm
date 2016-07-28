@@ -8,24 +8,16 @@
 Pachyderm Developer Documentation
 =================================
 
-User Documentation
-------------------
+* :ref:`user_docs`
+* :ref:`feature_docs`
 
-* :ref:`first_time_section`
-* :ref:`development_section`
-* :ref:`workflows_section`
-* :ref:`production_section`
-* :ref:`reference-section`
-
-.. _first_time_section:
+.. _user_docs:
 
 .. toctree::
     :maxdepth: 2
     :caption: First Time Users
 
     getting_started
-
-.. _development_section:
 
 .. toctree::
     :maxdepth: 2
@@ -34,20 +26,18 @@ User Documentation
     development/deploying_on_the_cloud
     development/inputing_your_data
     development/customizing_your_images
+    development/tracking_your_data
     development/updating_pipelines
     development/scaling
     development/cluster_hygiene
     development/python_logs_example
 
-.. _workflows_section:
-
 .. toctree::
     :maxdepth: 2
     :caption: Advanced Workflows
 
-    workflows
-
-.. _production_section:
+    advanced/provenance
+    advanced/incrmentality
 
 .. toctree::
     :maxdepth: 2
@@ -56,7 +46,7 @@ User Documentation
     production
 
 
-.. _reference-section:
+.. _feature_docs:
 
 .. toctree::
     :maxdepth: 2
