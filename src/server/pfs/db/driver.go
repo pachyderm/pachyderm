@@ -708,11 +708,13 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	}
 
 	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
-		ID:        getDiffID(commit.ID, file.Path),
-		CommitID:  commit.ID,
-		Path:      file.Path,
-		BlockRefs: refs,
-		Size:      size,
+		ID:           getDiffID(commit.ID, file.Path),
+		Repo:         commit.Repo,
+		CommitID:     commit.ID,
+		Path:         file.Path,
+		BlockRefs:    refs,
+		Size:         size,
+		BranchClocks: commit.BranchClocks,
 	}, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
 			return oldDoc.Merge(map[string]interface{}{
@@ -740,41 +742,66 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
-	var fromClocks []interface{}
+	var fromClocks *persist.BranchClock
 	if from != nil {
 		fromCommit, err := d.getCommitByAmbiguousID(from.Repo.Name, from.ID)
 		if err != nil {
 			return nil, err
 		}
-		fromClocks = fromCommit.BranchClocks[0].ToArray()
+		fromClocks = fromCommit.BranchClocks[0]
 	}
-	minval := []interface{}{file.Commit.Repo.Name, true, file.Path, fromClocks}
 
-	var toClocks []interface{}
 	toCommit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
 	if err != nil {
 		return nil, err
 	}
-	toClocks = toCommit.BranchClocks[0].ToArray()
-	maxval := []interface{}{file.Commit.Repo.Name, true, file.Path, toClocks}
+	toClocks := toCommit.BranchClocks[0]
 
-	cursor, err := d.betweenIndex(diffTable, diffPathIndex, minval, maxval, true, gorethink.BetweenOpts{
+	getIndexKey := func(delete bool, clock *persist.BranchClock) interface{} {
+		return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock.ToArray()}
+	}
+
+	// Find the most recent diff that removes the path
+	intervals, err := libclock.GetClockIntervals(fromClocks, toClocks)
+	if err != nil {
+		return nil, err
+	}
+	query := d.betweenIndex(diffTable, diffPathIndex, getIndexKey(true, intervals[0][0]), getIndexKey(true, intervals[0][1]), true, gorethink.BetweenOpts{
 		RightBound: "closed",
-	}).Run(d.dbClient)
+	})
+	for _, interval := range intervals[1:] {
+		query = query.Union(d.betweenIndex(diffTable, diffPathIndex, getIndexKey(true, interval[0]), getIndexKey(true, interval[1]), true, gorethink.BetweenOpts{
+			RightBound: "closed",
+		}))
+	}
+
+	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
 	diff := &persist.Diff{}
-	if err := cursor.One(diff); err != nil && err != gorethink.ErrEmptyResult {
+	err = cursor.One(diff)
+	if err != nil && err != gorethink.ErrEmptyResult {
 		return nil, err
 	}
-	if err == nil {
-		minval[3] = diff.BranchClocks[0].ToArray()
+
+	// Stream from the most recent delete to the current commit
+	if err != gorethink.ErrEmptyResult {
+		intervals, err = libclock.GetClockIntervals(diff.BranchClocks[0], toClocks)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	cursor, err = d.betweenIndex(diffTable, diffPathIndex, minval, maxval, false, gorethink.BetweenOpts{
+	query = d.betweenIndex(diffTable, diffPathIndex, getIndexKey(false, intervals[0][0]), getIndexKey(false, intervals[0][1]), false, gorethink.BetweenOpts{
 		RightBound: "closed",
-	}).Run(d.dbClient)
+	})
+	for _, interval := range intervals[1:] {
+		query = query.Union(d.betweenIndex(diffTable, diffPathIndex, getIndexKey(false, interval[0]), getIndexKey(false, interval[1]), false, gorethink.BetweenOpts{
+			RightBound: "closed",
+		}))
+	}
+	cursor, err = query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
