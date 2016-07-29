@@ -84,8 +84,8 @@ func NewDiffPathIndex() *diffPathIndex {
 	}}
 }
 
-func (i *diffPathIndex) Key(file *pfs.File, delete bool, clock *persist.BranchClock) interface{} {
-	return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock.ToArray()}
+func (i *diffPathIndex) Key(file *pfs.File, delete bool, clock gorethink.Term) interface{} {
+	return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock}
 }
 
 // diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
