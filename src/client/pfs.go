@@ -114,7 +114,22 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 			Force: force,
 		},
 	)
-	return err
+	return sanitizeErr(err)
+}
+
+// FsckRepo checks a repo for consistency.
+func (c APIClient) FsckRepo(repoName string, repair bool) ([]*pfs.CommitFsck, error) {
+	response, err := c.PfsAPIClient.FsckRepo(
+		context.Background(),
+		&pfs.FsckRepoRequest{
+			Repo:   NewRepo(repoName),
+			Repair: repair,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return response.CommitFsck, nil
 }
 
 // StartCommit begins the process of committing data to a Repo. Once started

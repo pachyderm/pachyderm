@@ -241,6 +241,78 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return nil
 }
 
+func (d *driver) FsckRepo(repo *pfs.Repo, commitsToRepair []*pfs.CommitFsck, shards map[uint64]bool) ([]*pfs.CommitFsck, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	shardToDiffInfo, ok := d.diffs[repo.Name]
+	if !ok {
+		return nil, pfsserver.NewErrRepoNotFound(repo.Name)
+	}
+	idToFsck := make(map[string]*pfs.CommitFsck)
+	for shard := range shards {
+		idToDiff, ok := shardToDiffInfo[shard]
+		if !ok {
+			continue
+		}
+		for id := range idToDiff {
+			commitFsck, ok := idToFsck[id]
+			if !ok {
+				commitFsck = &pfs.CommitFsck{Commit: client.NewCommit(repo.Name, id)}
+				idToFsck[id] = commitFsck
+			}
+			commitFsck.Shards = append(commitFsck.Shards, shard)
+		}
+	}
+	var result []*pfs.CommitFsck
+	for _, commitFsck := range idToFsck {
+		result = append(result, commitFsck)
+	}
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+	for _, commitFsck := range commitsToRepair {
+		if len(commitFsck.Shards) == 0 {
+			return nil, fmt.Errorf("CommitFsck with no shards, this is likely a bug")
+		}
+		shard := commitFsck.Shards[0]
+		diffInfo, err := blockClient.InspectDiff(
+			context.Background(),
+			&pfs.InspectDiffRequest{
+				Diff: client.NewDiff(commitFsck.Commit.Repo.Name, commitFsck.Commit.ID, shard),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		for shard := range shards {
+			diff := &pfs.Diff{
+				Commit: diffInfo.Diff.Commit,
+				Shard:  shard,
+			}
+			_, ok := d.diffs.get(diff)
+			if !ok {
+				diffInfo := &pfs.DiffInfo{
+					Diff:         diff,
+					ParentCommit: diffInfo.ParentCommit,
+					Branch:       diffInfo.Branch,
+					Started:      diffInfo.Started,
+					Finished:     diffInfo.Finished,
+					Cancelled:    diffInfo.Cancelled,
+					Provenance:   diffInfo.Provenance,
+				}
+				if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+					return nil, err
+				}
+				if err := d.diffs.insert(diffInfo); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()

@@ -198,6 +198,62 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) FsckRepo(ctx context.Context, request *pfs.FsckRepoRequest) (response *pfs.CommitFscks, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	result := &pfs.CommitFscks{}
+	for _, clientConn := range clientConns {
+		response, err := pfs.NewInternalAPIClient(clientConn).FsckRepo(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		result.CommitFsck = append(result.CommitFsck, response.CommitFsck...)
+	}
+	result.CommitFsck = pfsserver.ReduceCommitFscks(result.CommitFsck)
+	if request.Repair {
+		// If request.Repair is set we resend the request with some extra info
+		// about which commits need repairs and which shards do exist for those
+		// commits. This helps to make the repair process much faster.
+		for _, commitFsck := range result.CommitFsck {
+			if len(commitFsck.Shards) < int(a.hasher.FileModulus) {
+				request.CommitsToRepair = append(request.CommitsToRepair, commitFsck)
+			}
+		}
+		var wg sync.WaitGroup
+		errCh := make(chan error, 1)
+		for _, clientConn := range clientConns {
+			clientConn := clientConn
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, err := pfs.NewInternalAPIClient(clientConn).FsckRepo(ctx, request)
+				if err != nil {
+					select {
+					case errCh <- err:
+					default:
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		select {
+		case err := <-errCh:
+			return nil, err
+		default:
+		}
+	}
+	return result, nil
+}
+
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
