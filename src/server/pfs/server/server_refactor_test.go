@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
+	pclient "github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
