@@ -172,24 +172,11 @@ func TestDiffCommitIndexBasicRF(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffCommitIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
-		fields := []interface{}{}
-		require.NoError(t, cursor.One(&fields))
-		// Example return value:
-		// [[foo false file [[master 0]]]]
-		innerFields, ok := fields[0].([]interface{})
-		require.Equal(t, true, ok)
-		require.Equal(t, repo.Name, innerFields[0].(string))
-		require.Equal(t, false, innerFields[1].(bool))
-		require.Equal(t, "file", innerFields[2].(string))
-		clocks, ok := innerFields[3].([]interface{})
-		require.Equal(t, true, ok)
-		clock, ok := clocks[0].([]interface{})
-		require.Equal(t, true, ok)
-		require.Equal(t, "master", clock[0].(string))
-		require.Equal(t, float64(0), clock[1].(float64))
-
+		var indexedAsCommit string
+		require.NoError(t, cursor.One(&indexedAsCommit))
+		require.Equal(t, commitID, indexedAsCommit)
 	})
 }
 
