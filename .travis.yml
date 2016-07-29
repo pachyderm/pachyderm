@@ -24,8 +24,8 @@ before_script:
 - kubectl get all
 - docker version
 script:
-- go test -v ./src/server/pfs/server -run="Test.*RF\$" # Runs all server tests that we think should pass
-- go test -v ./src/server/pfs/db -run=Test.*Index # Runs all the index tests
+- go test -v ./src/server/pfs/server -run=Test.*RF\$ # Runs all server tests that we think should pass
+- go test -v ./src/server/pfs/db -run=Test.*RF\$ # Runs all the index tests and driver tests
 - make lint
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

@@ -41,7 +41,7 @@ var (
 
 */
 
-func TestCommitBranchIndexBasic(t *testing.T) {
+func TestCommitBranchIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -84,7 +84,7 @@ func TestCommitBranchIndexBasic(t *testing.T) {
 	})
 }
 
-func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
+func TestCommitBranchIndexHeadOfBranchRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -113,6 +113,18 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 			nil,
 			nil,
 		)
+		// master exists, when providing parentID and branch, assume its a new branch
+		require.YesError(t, err)
+
+		err = d.StartCommit(
+			repo,
+			commitID2,
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
 		require.NoError(t, err)
 		commit2 := &pfs.Commit{Repo: repo, ID: commitID2}
 		require.NoError(t, d.FinishCommit(commit2, timestampNow(), false, nil))
@@ -121,7 +133,7 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 		err = d.StartCommit(
 			repo,
 			commitID3,
-			commitID2,
+			"",
 			"master",
 			timestampNow(),
 			nil,
@@ -232,7 +244,7 @@ Used to:
 
 */
 
-func TestDiffPathIndexBasic(t *testing.T) {
+func TestDiffPathIndexBasicRF(t *testing.T) {
 
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 

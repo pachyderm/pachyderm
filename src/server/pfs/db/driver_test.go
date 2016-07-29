@@ -48,7 +48,7 @@ TODO, write these cases:
 - check uniqueness -- see if creating branch w same id results in rethink error
 */
 
-func TestStartCommit(t *testing.T) {
+func TestStartCommitRF(t *testing.T) {
 	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
 	require.NoError(t, err)
 	fmt.Printf("got a driver")
