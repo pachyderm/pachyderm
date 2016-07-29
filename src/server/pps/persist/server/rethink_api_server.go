@@ -425,17 +425,9 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
 	}
 
-	cursor, err := query.Changes(gorethink.ChangesOpts{
+	cursor, err := query.Without("State").Changes(gorethink.ChangesOpts{
 		IncludeInitial: request.IncludeInitial,
-	}).Filter(func(change gorethink.Term) gorethink.Term {
-		// make sure it's a real change
-		return gorethink.Not(gorethink.Eq(
-			change.Field("old_val").Without("State"),
-			change.Field("new_val").Without("State")))
-	},
-		gorethink.FilterOpts{
-			Default: true,
-		}).Run(a.session)
+	}).Run(a.session)
 	if err != nil {
 		return err
 	}
