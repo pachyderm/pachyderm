@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 
 	"github.com/dancannon/gorethink"
@@ -81,6 +82,10 @@ func NewDiffPathIndex() *diffPathIndex {
 			Multi: true,
 		},
 	}}
+}
+
+func (i *diffPathIndex) Key(file *pfs.File, delete bool, clock *persist.BranchClock) interface{} {
+	return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock.ToArray()}
 }
 
 // diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
