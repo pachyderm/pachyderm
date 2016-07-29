@@ -637,10 +637,6 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	}
 	toClocks := toCommit.BranchClocks[0]
 
-	getIndexKey := func(delete bool, clocks interface{}) interface{} {
-		return []interface{}{file.Commit.Repo.Name, delete, file.Path, clocks}
-	}
-
 	// Find the most recent diff that removes the path
 	intervals, err := libclock.GetClockIntervals(fromClocks, toClocks)
 	if err != nil {
@@ -653,7 +649,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 			return interval.ChangeAt(-1, gorethink.Expr(0).Sub(x))
 		})
 	}).Map(func(clocks gorethink.Term) interface{} {
-		return getIndexKey(true, clocks)
+		return DiffPathIndex.Key(file, true, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
@@ -686,7 +682,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 
 	cursor, err = gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
 		return gorethink.Range(persist.BranchClockToArray(interval.Nth(0)).Nth(-1), persist.BranchClockToArray(interval.Nth(1)).Nth(-1)).Map(func(clocks gorethink.Term) interface{} {
-			return getIndexKey(false, clocks)
+			return DiffPathIndex.Key(file, false, clocks)
 		})
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op

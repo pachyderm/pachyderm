@@ -236,7 +236,7 @@ func TestDiffPathIndexBasic(t *testing.T) {
 
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
-		repo := &pfs.Repo{Name: "foo"}
+		repo := &pfs.Repo{Name: "repo1"}
 		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
 		commitID := uuid.NewWithoutDashes()
 		err := d.StartCommit(
@@ -274,11 +274,21 @@ func TestDiffPathIndexBasic(t *testing.T) {
 
 		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
-		diff := &persist.Diff{}
-		require.NoError(t, cursor.One(diff))
-		fmt.Printf("got first diff: %v\n", diff)
-		require.Equal(t, "file", diff.Path)
-		require.Equal(t, 1, len(diff.BlockRefs))
+		fields := []interface{}{}
+		require.NoError(t, cursor.One(&fields))
+		// Example return value:
+		// []interface {}{"repo1", false, "foo/bar/fizz/buzz", []interface {}{[]interface {}{"master", 0}}}
+		innerFields, ok := fields[0].([]interface{})
+		require.Equal(t, true, ok)
+		require.Equal(t, repo.Name, innerFields[0].(string))
+		require.Equal(t, false, innerFields[1].(bool))
+		require.Equal(t, "foo/bar/fizz/buzz", innerFields[2].(string))
+		clocks, ok := innerFields[3].([]interface{})
+		require.Equal(t, true, ok)
+		clock, ok := clocks[0].([]interface{})
+		require.Equal(t, true, ok)
+		require.Equal(t, "master", clock[0].(string))
+		require.Equal(t, float64(0), clock[1].(float64))
 	})
 }
 
