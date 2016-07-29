@@ -29,9 +29,6 @@ type Table string
 // A PrimaryKey is a rethinkdb primary key identifier.
 type PrimaryKey string
 
-// An Index is a rethinkdb index.
-type Index string
-
 // Errors
 type ErrCommitNotFound struct {
 	error
@@ -44,49 +41,9 @@ type ErrBranchExists struct {
 const (
 	repoTable   Table = "Repos"
 	branchTable Table = "Branches"
-
-	diffTable Table = "Diffs"
-	// diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
-	// Example:
-	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
-	// We'd have the following index entries:
-	// ["/foo", [(master, 1)]]
-	// ["/foo/bar", [(master, 1)]]
-	// ["/foo", [(master, 0), (foo, 2)]]
-	// ["/foo/bar", [(master, 0), (foo, 2)]]
-	diffPrefixIndex Index = "DiffPrefixIndex"
-	// diffParentIndex maps a path to diffs that have the path as direct parent
-	// Format: [repo, parent, clocks]
-	// Example:
-	// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
-	// We'd have the following index entries:
-	// ["/foo/bar", [(master, 1)]]
-	// ["/foo/bar", [(master, 0), (foo, 2)]]
-	diffParentIndex Index = "DiffParentIndex"
-	// diffPathIndex maps a path to diffs that for that path
-	// Format: [repo, bool, path, clocks]
-	// The bool specifies whether it's a delete.
-	// Example:
-	// For the diff: delete "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
-	// We'd have the following index entries:
-	// ["/foo/bar/buzz", true, [(master, 1)]]
-	// ["/foo/bar/buzz", true, [(master, 0), (foo, 2)]]
-	diffPathIndex Index = "DiffPathDeleteIndex"
-	// diffCommitIndex maps a commit ID to diffs
-	// Format: commit ID
-	// Example: "vswS3kJkejCnyVJLkHfjbUrSwnSAgHpW"
-	diffCommitIndex Index = "DiffCommitIndex"
-
-	clockTable       Table = "Clocks"
-	clockBranchIndex Index = "ClockBranchIndex"
-
+	diffTable   Table = "Diffs"
+	clockTable  Table = "Clocks"
 	commitTable Table = "Commits"
-	// commitBranchIndex maps branch positions to commits
-	// Format: repo + head of clocks
-	// Example:
-	// A commit that has the clock [(master, 2), (foo, 3)] will be indexed to:
-	// ["repo", "foo", 3]
-	commitBranchIndex Index = "CommitBranchIndex"
 
 	connectTimeoutSeconds = 5
 )
@@ -179,97 +136,14 @@ func InitDB(address string, databaseName string) error {
 	}
 
 	// Create indexes
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexCreateFunc(commitBranchIndex, func(row gorethink.Term) interface{} {
-		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-			lastClock := branchClock.Field("Clocks").Nth(-1)
-			return []interface{}{
-				row.Field("Repo"),
-				lastClock.Field("Branch"),
-				lastClock.Field("Clock"),
-			}
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
+	for _, someIndex := range Indexes {
+		if _, err := gorethink.DB(databaseName).Table(someIndex.GetTable()).IndexCreateFunc(someIndex.GetName(), someIndex.GetCreateFunction(), someIndex.GetCreateOptions()).RunWrite(session); err != nil {
+			return err
+		}
+		if _, err := gorethink.DB(databaseName).Table(someIndex.GetTable()).IndexWait(someIndex.GetName()).RunWrite(session); err != nil {
+			return err
+		}
 	}
-	if _, err := gorethink.DB(databaseName).Table(commitTable).IndexWait(commitBranchIndex).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffCommitIndex, func(row gorethink.Term) interface{} {
-		return row.Field("CommitID")
-	}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffCommitIndex).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPrefixIndex, func(row gorethink.Term) interface{} {
-		return row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
-			return acc.Add("/").Add(part)
-		}, gorethink.FoldOpts{
-			Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
-				return newAcc
-			},
-		}).ConcatMap(func(path gorethink.Term) gorethink.Term {
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
-			})
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPrefixIndex).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffParentIndex, func(row gorethink.Term) interface{} {
-		parent := row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
-			return acc.Add("/").Add(part)
-		})
-		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-			return []interface{}{row.Field("Repo"), parent, persist.BranchClockToArray(branchClock)}
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffParentIndex).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexCreateFunc(diffPathIndex, func(row gorethink.Term) interface{} {
-		return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-			return []interface{}{row.Field("Repo"), row.Field("Delete"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
-		})
-	}, gorethink.IndexCreateOpts{
-		Multi: true,
-	}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(diffTable).IndexWait(diffPathIndex).RunWrite(session); err != nil {
-		return err
-	}
-
-	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexCreateFunc(
-		clockBranchIndex,
-		func(row gorethink.Term) interface{} {
-			return []interface{}{
-				row.Field("Repo"),
-				row.Field("Branch"),
-			}
-		}).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(clockTable).IndexWait(clockBranchIndex).RunWrite(session); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -427,7 +301,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		parentCommit := &persist.Commit{}
 		parentClock, err := parseClock(parentID)
 		if err == nil {
-			if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
+			if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
 				return err
 			}
 		} else {
@@ -486,7 +360,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 
 func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Commit) error {
 	cursor, err := d.betweenIndex(
-		commitTable, commitBranchIndex,
+		commitTable, CommitBranchIndex.GetName(),
 		[]interface{}{repo, branch, 0},
 		[]interface{}{repo, branch, gorethink.MaxVal},
 		true,
@@ -644,7 +518,7 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 		[]interface{}{repo.Name, gorethink.MinVal},
 		[]interface{}{repo.Name, gorethink.MaxVal},
 		gorethink.BetweenOpts{
-			Index: clockBranchIndex,
+			Index: ClockBranchIndex.GetName(),
 		},
 	).Distinct().Field("Branch").Run(d.dbClient)
 	if err != nil {
@@ -784,14 +658,13 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		// no-op
 		return x
 	}, diffTable, gorethink.EqJoinOpts{
-		Index:   diffPathIndex,
+		Index:   DiffPathIndex.GetName(),
 		Ordered: true,
 	}).Pluck("right").Run(d.dbClient)
-
-	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
+
 	diff := &persist.Diff{}
 	err = cursor.One(diff)
 	if err != nil && err != gorethink.ErrEmptyResult {
@@ -819,11 +692,9 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		// no-op
 		return x
 	}, diffTable, gorethink.EqJoinOpts{
-		Index:   diffPathIndex,
+		Index:   DiffPathIndex.GetName(),
 		Ordered: true,
-	}).Pluck("right")
-
-	cursor, err = query.Run(d.dbClient)
+	}).Pluck("right").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -969,7 +840,7 @@ func (d *driver) getMessageByPrimaryKey(table Table, key interface{}, message pr
 }
 
 func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, message proto.Message) error {
-	cursor, err := d.getTerm(table).GetAllByIndex(index, key).Run(d.dbClient)
+	cursor, err := d.getTerm(table).GetAllByIndex(index.GetName(), key).Run(d.dbClient)
 	if err != nil {
 		return err
 	}
@@ -1019,7 +890,7 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 	}
 
 	parentCommit := &persist.Commit{}
-	if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{commit.Repo, clock.Branch, clock.Clock}, parentCommit); err != nil {
+	if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{commit.Repo, clock.Branch, clock.Clock}, parentCommit); err != nil {
 		return "", err
 	}
 	return parentCommit.ID, nil
@@ -1039,7 +910,7 @@ func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *p
 			return nil, err
 		}
 	} else {
-		if err := d.getMessageByIndex(commitTable, commitBranchIndex, []interface{}{repo, alias.Branch, alias.Clock}, commit); err != nil {
+		if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{repo, alias.Branch, alias.Clock}, commit); err != nil {
 			return nil, err
 		}
 	}
@@ -1052,7 +923,7 @@ func (d *driver) updateCommitWithAmbiguousID(repo string, commitID string, value
 		_, err = d.getTerm(commitTable).Get(commitID).Update(values).RunWrite(d.dbClient)
 	} else {
 		key := []interface{}{repo, alias.Branch, alias.Clock}
-		_, err = d.getTerm(commitTable).GetAllByIndex(commitBranchIndex, key).Update(values).RunWrite(d.dbClient)
+		_, err = d.getTerm(commitTable).GetAllByIndex(CommitBranchIndex.GetName(), key).Update(values).RunWrite(d.dbClient)
 	}
 	return err
 }
