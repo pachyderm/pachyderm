@@ -740,6 +740,12 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	return nil
 }
 
+func reverseSlice(s [][]*persist.BranchClock) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	var fromClocks *persist.BranchClock
@@ -757,8 +763,8 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	}
 	toClocks := toCommit.BranchClocks[0]
 
-	getIndexKey := func(delete bool, clock *persist.BranchClock) interface{} {
-		return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock.ToArray()}
+	getIndexKey := func(delete bool, clocks interface{}) interface{} {
+		return []interface{}{file.Commit.Repo.Name, delete, file.Path, clocks}
 	}
 
 	// Find the most recent diff that removes the path
@@ -766,14 +772,21 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	if err != nil {
 		return nil, err
 	}
-	query := d.betweenIndex(diffTable, diffPathIndex, getIndexKey(true, intervals[0][0]), getIndexKey(true, intervals[0][1]), true, gorethink.BetweenOpts{
-		RightBound: "closed",
-	})
-	for _, interval := range intervals[1:] {
-		query = query.Union(d.betweenIndex(diffTable, diffPathIndex, getIndexKey(true, interval[0]), getIndexKey(true, interval[1]), true, gorethink.BetweenOpts{
-			RightBound: "closed",
-		}))
-	}
+	// Reverse because we want to find the most recent diff
+	reverseSlice(intervals)
+	cursor, err := gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
+		return gorethink.Range(gorethink.Expr(0).Sub(persist.BranchClockToArray(interval.Nth(1)).Nth(-1)), gorethink.Expr(0).Sub(persist.BranchClockToArray(interval.Nth(0)).Nth(-1))).Map(func(x gorethink.Term) gorethink.Term {
+			return interval.ChangeAt(-1, gorethink.Expr(0).Sub(x))
+		})
+	}).Map(func(clocks gorethink.Term) interface{} {
+		return getIndexKey(true, clocks)
+	}).EqJoin(func(x gorethink.Term) gorethink.Term {
+		// no-op
+		return x
+	}, diffTable, gorethink.EqJoinOpts{
+		Index:   diffPathIndex,
+		Ordered: true,
+	}).Pluck("right").Run(d.dbClient)
 
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
@@ -791,16 +804,25 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		intervals, err = libclock.GetClockIntervals(fromClocks, toClocks)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	query = d.betweenIndex(diffTable, diffPathIndex, getIndexKey(false, intervals[0][0]), getIndexKey(false, intervals[0][1]), false, gorethink.BetweenOpts{
-		RightBound: "closed",
-	})
-	for _, interval := range intervals[1:] {
-		query = query.Union(d.betweenIndex(diffTable, diffPathIndex, getIndexKey(false, interval[0]), getIndexKey(false, interval[1]), false, gorethink.BetweenOpts{
-			RightBound: "closed",
-		}))
-	}
+	cursor, err = gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
+		return gorethink.Range(persist.BranchClockToArray(interval.Nth(0)).Nth(-1), persist.BranchClockToArray(interval.Nth(1)).Nth(-1)).Map(func(clocks gorethink.Term) interface{} {
+			return getIndexKey(false, clocks)
+		})
+	}).EqJoin(func(x gorethink.Term) gorethink.Term {
+		// no-op
+		return x
+	}, diffTable, gorethink.EqJoinOpts{
+		Index:   diffPathIndex,
+		Ordered: true,
+	}).Pluck("right")
+
 	cursor, err = query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
