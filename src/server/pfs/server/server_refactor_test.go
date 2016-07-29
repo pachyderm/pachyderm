@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestPFSRefactorBranchSimpleRF(t *testing.T) {
+func TestBranchSimpleRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -27,7 +27,7 @@ func TestPFSRefactorBranchSimpleRF(t *testing.T) {
 
 }
 
-func TestPFSRefactorListBranchRF(t *testing.T) {
+func TestListBranchRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -64,7 +64,7 @@ func TestPFSRefactorListBranchRF(t *testing.T) {
 	require.EqualOneOf(t, branchNames, "branchB")
 }
 
-func TestPFSRefactorListCommitBasicRF(t *testing.T) {
+func TestListCommitBasicRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 
@@ -103,7 +103,7 @@ func TestPFSRefactorListCommitBasicRF(t *testing.T) {
 	test()
 }
 
-func TestPFSRefactorStartAndFinishCommitRF(t *testing.T) {
+func TestStartAndFinishCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -116,7 +116,7 @@ func TestPFSRefactorStartAndFinishCommitRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 }
 
-func TestPFSRefactorInspectCommitBasicRF(t *testing.T) {
+func TestInspectCommitBasicRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -149,7 +149,7 @@ func TestPFSRefactorInspectCommitBasicRF(t *testing.T) {
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
 }
 
-func TestPFSRefactorStartCommitFromParentIDRF(t *testing.T) {
+func TestStartCommitFromParentIDRF(t *testing.T) {
 	t.Parallel()
 
 	client, _ := getClientAndServer(t)
@@ -214,7 +214,7 @@ func TestPFSRefactorStartCommitFromParentIDRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 }
 
-func TestPFSRefactorInspectRepoMostBasicRF(t *testing.T) {
+func TestInspectRepoMostBasicRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -227,7 +227,7 @@ func TestPFSRefactorInspectRepoMostBasicRF(t *testing.T) {
 	require.Equal(t, int(repoInfo.SizeBytes), 0)
 }
 
-func TestPFSRefactorStartCommitLatestOnBranchRF(t *testing.T) {
+func TestStartCommitLatestOnBranchRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -254,7 +254,7 @@ func TestPFSRefactorStartCommitLatestOnBranchRF(t *testing.T) {
 	require.Equal(t, commit3.ID, branches[0].Commit.ID)
 }
 
-func TestPFSRefactorListBranchRedundantRF(t *testing.T) {
+func TestListBranchRedundantRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
