@@ -631,22 +631,30 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	}
 	toClocks := toCommit.BranchClocks[0]
 
-	getIndexKey := func(delete bool, clock *persist.BranchClock) interface{} {
-		return []interface{}{file.Commit.Repo.Name, delete, file.Path, clock.ToArray()}
-	}
-
 	// Find the most recent diff that removes the path
 	intervals, err := libclock.GetClockIntervals(fromClocks, toClocks)
 	if err != nil {
 		return nil, err
 	}
-	query := d.betweenIndex(diffTable, DiffPathIndex.GetName(), getIndexKey(true, intervals[0][0]), getIndexKey(true, intervals[0][1]), true, gorethink.BetweenOpts{
-		RightBound: "closed",
-	})
-	for _, interval := range intervals[1:] {
-		query = query.Union(d.betweenIndex(diffTable, DiffPathIndex.GetName(), getIndexKey(true, interval[0]), getIndexKey(true, interval[1]), true, gorethink.BetweenOpts{
+	query := d.betweenIndex(
+		diffTable,
+		DiffPathIndex.GetName(),
+		DiffPathIndex.Key(file, true, intervals[0][0]),
+		DiffPathIndex.Key(file, true, intervals[0][1]),
+		true,
+		gorethink.BetweenOpts{
 			RightBound: "closed",
-		}))
+		},
+	)
+	for _, interval := range intervals[1:] {
+		query = query.Union(d.betweenIndex(diffTable, DiffPathIndex.GetName(),
+			DiffPathIndex.Key(file, true, interval[0]),
+			DiffPathIndex.Key(file, true, interval[1]),
+			true,
+			gorethink.BetweenOpts{
+				RightBound: "closed",
+			},
+		))
 	}
 
 	cursor, err := query.Run(d.dbClient)
@@ -667,13 +675,27 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		}
 	}
 
-	query = d.betweenIndex(diffTable, DiffPathIndex.GetName(), getIndexKey(false, intervals[0][0]), getIndexKey(false, intervals[0][1]), false, gorethink.BetweenOpts{
-		RightBound: "closed",
-	})
-	for _, interval := range intervals[1:] {
-		query = query.Union(d.betweenIndex(diffTable, DiffPathIndex.GetName(), getIndexKey(false, interval[0]), getIndexKey(false, interval[1]), false, gorethink.BetweenOpts{
+	query = d.betweenIndex(
+		diffTable,
+		DiffPathIndex.GetName(),
+		DiffPathIndex.Key(file, false, intervals[0][0]),
+		DiffPathIndex.Key(file, false, intervals[0][1]),
+		false,
+		gorethink.BetweenOpts{
 			RightBound: "closed",
-		}))
+		},
+	)
+	for _, interval := range intervals[1:] {
+		query = query.Union(d.betweenIndex(
+			diffTable,
+			DiffPathIndex.GetName(),
+			DiffPathIndex.Key(file, false, interval[0]),
+			DiffPathIndex.Key(file, false, interval[1]),
+			false,
+			gorethink.BetweenOpts{
+				RightBound: "closed",
+			},
+		))
 	}
 	cursor, err = query.Run(d.dbClient)
 	if err != nil {
