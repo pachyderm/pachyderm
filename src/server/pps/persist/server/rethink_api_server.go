@@ -447,8 +447,7 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 				Pipeline: change.NewVal,
 				Type:     persist.ChangeType_UPDATE,
 			})
-		}
-		if change.NewVal != nil {
+		} else if change.NewVal != nil {
 			server.Send(&persist.PipelineInfoChange{
 				Pipeline: change.NewVal,
 				Type:     persist.ChangeType_CREATE,
