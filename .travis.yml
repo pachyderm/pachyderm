@@ -24,6 +24,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
+- make launch-rethinkdb
 - go test -v ./src/server/pfs/server -run=Test.*RF\$ # Runs all server tests that we think should pass
 - go test -v ./src/server/pfs/db -run=Test.*RF\$ # Runs all the index tests and driver tests
 - make lint
