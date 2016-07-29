@@ -427,7 +427,15 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 
 	cursor, err := query.Changes(gorethink.ChangesOpts{
 		IncludeInitial: request.IncludeInitial,
-	}).Run(a.session)
+	}).Filter(func(change gorethink.Term) gorethink.Term {
+		// make sure it's a real change
+		return gorethink.Not(gorethink.Eq(
+			change.Field("old_val").Without("State"),
+			change.Field("new_val").Without("State")))
+	},
+		gorethink.FilterOpts{
+			Default: true,
+		}).Run(a.session)
 	if err != nil {
 		return err
 	}
