@@ -301,7 +301,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		parentCommit := &persist.Commit{}
 		parentClock, err := parseClock(parentID)
 		if err == nil {
-			if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{parentClock.Branch, parentClock.Clock}, parentCommit); err != nil {
+			if err := d.getMessageByIndex(commitTable, CommitBranchIndex, CommitBranchIndex.Key(repo.Name, parentClock.Branch, parentClock.Clock), parentCommit); err != nil {
 				return err
 			}
 		} else {
@@ -361,8 +361,8 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Commit) error {
 	cursor, err := d.betweenIndex(
 		commitTable, CommitBranchIndex.GetName(),
-		[]interface{}{repo, branch, 0},
-		[]interface{}{repo, branch, gorethink.MaxVal},
+		CommitBranchIndex.Key(repo, branch, 0),
+		CommitBranchIndex.Key(repo, branch, gorethink.MaxVal),
 		true,
 	).Run(d.dbClient)
 	if err != nil {
@@ -796,12 +796,14 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	}
 
 	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
-		ID:        getDiffID(commit.ID, file.Path),
-		CommitID:  commit.ID,
-		Path:      file.Path,
-		BlockRefs: nil,
-		Delete:    true,
-		Size:      0,
+		ID:           getDiffID(commit.ID, file.Path),
+		CommitID:     commit.ID,
+		Repo:         commit.Repo,
+		Path:         file.Path,
+		BlockRefs:    nil,
+		Delete:       true,
+		Size:         0,
+		BranchClocks: commit.BranchClocks,
 	}, gorethink.InsertOpts{
 		Conflict: "replace",
 	}).RunWrite(d.dbClient)
@@ -896,7 +898,7 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 	}
 
 	parentCommit := &persist.Commit{}
-	if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{commit.Repo, clock.Branch, clock.Clock}, parentCommit); err != nil {
+	if err := d.getMessageByIndex(commitTable, CommitBranchIndex, CommitBranchIndex.Key(commit.Repo, clock.Branch, clock.Clock), parentCommit); err != nil {
 		return "", err
 	}
 	return parentCommit.ID, nil
@@ -916,7 +918,7 @@ func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *p
 			return nil, err
 		}
 	} else {
-		if err := d.getMessageByIndex(commitTable, CommitBranchIndex, []interface{}{repo, alias.Branch, alias.Clock}, commit); err != nil {
+		if err := d.getMessageByIndex(commitTable, CommitBranchIndex, CommitBranchIndex.Key(repo, alias.Branch, alias.Clock), commit); err != nil {
 			return nil, err
 		}
 	}
@@ -928,8 +930,7 @@ func (d *driver) updateCommitWithAmbiguousID(repo string, commitID string, value
 	if err != nil {
 		_, err = d.getTerm(commitTable).Get(commitID).Update(values).RunWrite(d.dbClient)
 	} else {
-		key := []interface{}{repo, alias.Branch, alias.Clock}
-		_, err = d.getTerm(commitTable).GetAllByIndex(CommitBranchIndex.GetName(), key).Update(values).RunWrite(d.dbClient)
+		_, err = d.getTerm(commitTable).GetAllByIndex(CommitBranchIndex.GetName(), CommitBranchIndex.Key(repo, alias.Branch, alias.Clock)).Update(values).RunWrite(d.dbClient)
 	}
 	return err
 }
