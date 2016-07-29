@@ -229,6 +229,84 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 	})
 }
 
+func TestClockBranchIndexRF(t *testing.T) {
+
+	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
+
+		repo := &pfs.Repo{Name: "repo1"}
+		require.NoError(t, d.CreateRepo(repo, timestampNow(), nil, nil))
+		err := d.StartCommit(
+			repo,
+			uuid.NewWithoutDashes(),
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		err = d.StartCommit(
+			repo,
+			uuid.NewWithoutDashes(),
+			"",
+			"foo",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		err = d.StartCommit(
+			repo,
+			uuid.NewWithoutDashes(),
+			"",
+			"bar",
+			timestampNow(),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+
+		removeElem := func(elements []interface{}, element interface{}) []interface{} {
+			split := 0
+			for i, thisElement := range elements {
+				if thisElement == element {
+					split = i
+					break
+
+				}
+			}
+			return append(elements[:split], elements[(split+1):]...)
+		}
+
+		cursor, err := gorethink.DB(dbName).Table(clockTable).Map(ClockBranchIndex.GetCreateFunction()).Run(dbClient)
+		require.NoError(t, err)
+		fields := []interface{}{}
+		branches := []interface{}{"master", "foo", "bar"}
+		require.Equal(t, true, cursor.Next(&fields))
+		require.Equal(t, "repo1", fields[0].(string))
+		thisBranch := fields[1].(string)
+		require.EqualOneOf(t, branches, thisBranch)
+		branches = removeElem(branches, thisBranch)
+
+		require.Equal(t, true, cursor.Next(&fields))
+		require.Equal(t, "repo1", fields[0].(string))
+		thisBranch = fields[1].(string)
+		require.EqualOneOf(t, branches, thisBranch)
+		branches = removeElem(branches, thisBranch)
+
+		require.Equal(t, true, cursor.Next(&fields))
+		require.Equal(t, "repo1", fields[0].(string))
+		thisBranch = fields[1].(string)
+		require.EqualOneOf(t, branches, thisBranch)
+		branches = removeElem(branches, thisBranch)
+
+		require.Equal(t, 0, len(branches))
+
+		require.Equal(t, false, cursor.Next(&fields))
+		require.NoError(t, cursor.Err())
+	})
+}
+
 func timestampNow() *google_protobuf.Timestamp {
 	return &google_protobuf.Timestamp{Seconds: time.Now().Unix()}
 }
