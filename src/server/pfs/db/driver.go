@@ -584,6 +584,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
 		ID:           getDiffID(commit.ID, file.Path),
 		Repo:         commit.Repo,
+		Delete:       false,
 		CommitID:     commit.ID,
 		Path:         file.Path,
 		BlockRefs:    refs,
@@ -644,19 +645,22 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	}
 	// Reverse because we want to find the most recent diff
 	reverseSlice(intervals)
+
 	cursor, err := gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
-		return gorethink.Range(gorethink.Expr(0).Sub(persist.BranchClockToArray(interval.Nth(1)).Nth(-1)), gorethink.Expr(0).Sub(persist.BranchClockToArray(interval.Nth(0)).Nth(-1))).Map(func(x gorethink.Term) gorethink.Term {
-			return interval.ChangeAt(-1, gorethink.Expr(0).Sub(x))
+		firstClock := persist.BranchClockToArray(interval.Nth(0))
+		secondClock := persist.BranchClockToArray(interval.Nth(1))
+		return gorethink.Range(gorethink.Expr(0).Sub(secondClock.Nth(-1).Nth(1)), gorethink.Expr(0).Sub(firstClock.Nth(-1).Nth(1)).Add(1)).Map(func(x gorethink.Term) gorethink.Term {
+			return firstClock.ChangeAt(-1, firstClock.Nth(-1).ChangeAt(1, gorethink.Expr(0).Sub(x)))
 		})
 	}).Map(func(clocks gorethink.Term) interface{} {
-		return DiffPathIndex.Key(file, true, clocks)
+		return DiffPathIndex.Key(file.Commit.Repo.Name, true, file.Path, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
-	}, diffTable, gorethink.EqJoinOpts{
+	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
 		Index:   DiffPathIndex.GetName(),
 		Ordered: true,
-	}).Pluck("right").Run(d.dbClient)
+	}).Field("right").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -681,16 +685,20 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	}
 
 	cursor, err = gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
-		return gorethink.Range(persist.BranchClockToArray(interval.Nth(0)).Nth(-1), persist.BranchClockToArray(interval.Nth(1)).Nth(-1)).Map(func(clocks gorethink.Term) interface{} {
-			return DiffPathIndex.Key(file, false, clocks)
+		firstClock := persist.BranchClockToArray(interval.Nth(0))
+		secondClock := persist.BranchClockToArray(interval.Nth(1))
+		return gorethink.Range(firstClock.Nth(-1).Nth(1), secondClock.Nth(-1).Nth(1).Add(1)).Map(func(x gorethink.Term) gorethink.Term {
+			return firstClock.ChangeAt(-1, firstClock.Nth(-1).ChangeAt(1, x))
+		}).Map(func(clocks gorethink.Term) interface{} {
+			return DiffPathIndex.Key(file.Commit.Repo.Name, false, file.Path, clocks)
 		})
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
-	}, diffTable, gorethink.EqJoinOpts{
+	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
 		Index:   DiffPathIndex.GetName(),
 		Ordered: true,
-	}).Pluck("right").Run(d.dbClient)
+	}).Field("right").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -726,8 +734,10 @@ func (r *fileReader) Read(data []byte) (int, error) {
 				// fetch more
 				diff := persist.Diff{}
 				if r.diffs.Next(&diff) {
+					fmt.Printf("diff: %v\n", diff)
 					r.blockRefs = append(r.blockRefs, diff.BlockRefs...)
 				} else {
+					fmt.Println("exiting!")
 					if err := r.diffs.Err(); err != nil {
 						return 0, err
 					}
