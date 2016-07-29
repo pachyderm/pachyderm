@@ -27,20 +27,6 @@ var (
 	port int32 = 30651
 )
 
-/*
-	CommitBranchIndex
-
-	Given a repo and a clock, returns a commit
-
-	Is used in several places to:
-
-	- find a parent commit given the parent's id in the form of an alias (e.g. "master/0")
-	- getHeadOfBranch() -- by doing a range query of the form "branchName/0" to "branchName/max" and returning the last result (in this case the head)
-	- getIDOfParentcommit() -- by decrementing this commit's clock value, and searching for that new clock
-	- getCommitByAmbmiguousID() -- if the commit ID is in the form of an alias, find the commit using the index
-
-*/
-
 func TestCommitBranchIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
@@ -158,23 +144,6 @@ func TestCommitBranchIndexHeadOfBranchRF(t *testing.T) {
 	})
 }
 
-/*
-	diffPathIndex
-
-	used nowhere?
-	used in ListFile() to list diffs by path
-*/
-
-/* diffCommitIndex
-
-Indexed on commitID field in diff row
-
-Used to:
-
-- in FinishCommit() to gather all of the diffs for this commit
-
-*/
-
 func TestDiffCommitIndexBasic(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
@@ -231,18 +200,6 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 
 	})
 }
-
-/* clockBranchIndex
-
-Indexed on:
-
-- repo && branchIndex
-
-Used to:
-
-- in ListBranch() to query the clocks table and return the branches
-
-*/
 
 func TestDiffPathIndexBasicRF(t *testing.T) {
 
