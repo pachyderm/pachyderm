@@ -76,7 +76,7 @@ func TestCommitBranchIndexBasic(t *testing.T) {
 		require.Equal(t, uint64(0), returnedClock.Clock)
 
 		key := []interface{}{repo.Name, clock.Branch, clock.Clock}
-		cursor, err = term.GetAllByIndex(commitBranchIndex, key).Run(dbClient)
+		cursor, err = term.GetAllByIndex(CommitBranchIndex.GetName(), key).Run(dbClient)
 		require.NoError(t, err)
 		returnedCommit := &persist.Commit{}
 		require.NoError(t, cursor.One(returnedCommit))
@@ -136,7 +136,7 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 		head := &persist.Commit{}
 		term := gorethink.DB(dbName).Table(commitTable)
 		cursor, err := term.OrderBy(gorethink.OrderByOpts{
-			Index: gorethink.Desc(commitBranchIndex),
+			Index: gorethink.Desc(CommitBranchIndex.GetName()),
 		}).Between([]interface{}{repo.Name, "master", 0}, []interface{}{repo.Name, "master", gorethink.MaxVal}, gorethink.BetweenOpts{
 			RightBound: "open",
 		}).Run(dbClient)
@@ -191,7 +191,7 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffCommitIndex, commitID).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffCommitIndex.GetName(), commitID).Run(dbClient)
 		require.NoError(t, err)
 		diff := &persist.Diff{}
 		require.NoError(t, cursor.One(diff))
@@ -270,9 +270,9 @@ func TestDiffPathIndexBasic(t *testing.T) {
 			},
 		}
 		key := []interface{}{repo.Name, false, "foo/bar/fizz/buzz", branchClock.ToArray()}
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(diffPathIndex.Name, key).Map(diffPathIndex.CreateFunction).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffPathIndex.GetName(), key).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 
-		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(diffPathIndex.CreateFunction).Run(dbClient)
+		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
 		diff := &persist.Diff{}
 		require.NoError(t, cursor.One(diff))
