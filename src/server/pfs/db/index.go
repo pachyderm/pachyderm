@@ -64,6 +64,9 @@ func (i *index) GetCreateOptions() gorethink.IndexCreateOpts {
 // We'd have the following index entries:
 // ["/foo/bar/buzz", true, [(master, 1)]]
 // ["/foo/bar/buzz", true, [(master, 0), (foo, 2)]]
+
+// TODO(pfs-refactor): Once we have Merge() implemented we can write the test case for this
+
 type diffPathIndex struct {
 	index
 }
@@ -95,6 +98,9 @@ func (i *diffPathIndex) Key(repo interface{}, delete interface{}, path interface
 // ["/foo/bar", [(master, 1)]]
 // ["/foo", [(master, 0), (foo, 2)]]
 // ["/foo/bar", [(master, 0), (foo, 2)]]
+
+// TODO(pfs-refactor) : Once we have merge() implemented, we can test the above case
+
 type diffPrefixIndex struct {
 	index
 }
@@ -129,6 +135,8 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 // We'd have the following index entries:
 // ["/foo/bar", [(master, 1)]]
 // ["/foo/bar", [(master, 0), (foo, 2)]]
+
+// TODO(pfs-refactor): Once we have Merge() implemented, we can write a test for the above case
 type diffParentIndex struct {
 	index
 }

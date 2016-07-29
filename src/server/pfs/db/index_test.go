@@ -27,21 +27,7 @@ var (
 	port int32 = 30651
 )
 
-/*
-	CommitBranchIndex
-
-	Given a repo and a clock, returns a commit
-
-	Is used in several places to:
-
-	- find a parent commit given the parent's id in the form of an alias (e.g. "master/0")
-	- getHeadOfBranch() -- by doing a range query of the form "branchName/0" to "branchName/max" and returning the last result (in this case the head)
-	- getIDOfParentcommit() -- by decrementing this commit's clock value, and searching for that new clock
-	- getCommitByAmbmiguousID() -- if the commit ID is in the form of an alias, find the commit using the index
-
-*/
-
-func TestCommitBranchIndexBasic(t *testing.T) {
+func TestCommitBranchIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -84,7 +70,7 @@ func TestCommitBranchIndexBasic(t *testing.T) {
 	})
 }
 
-func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
+func TestCommitBranchIndexHeadOfBranchRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -113,6 +99,18 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 			nil,
 			nil,
 		)
+		// master exists, when providing parentID and branch, assume its a new branch
+		require.YesError(t, err)
+
+		err = d.StartCommit(
+			repo,
+			commitID2,
+			"",
+			"master",
+			timestampNow(),
+			nil,
+			nil,
+		)
 		require.NoError(t, err)
 		commit2 := &pfs.Commit{Repo: repo, ID: commitID2}
 		require.NoError(t, d.FinishCommit(commit2, timestampNow(), false, nil))
@@ -121,7 +119,7 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 		err = d.StartCommit(
 			repo,
 			commitID3,
-			commitID2,
+			"",
 			"master",
 			timestampNow(),
 			nil,
@@ -146,24 +144,7 @@ func TestCommitBranchIndexHeadOfBranch(t *testing.T) {
 	})
 }
 
-/*
-	diffPathIndex
-
-	used nowhere?
-	used in ListFile() to list diffs by path
-*/
-
-/* diffCommitIndex
-
-Indexed on commitID field in diff row
-
-Used to:
-
-- in FinishCommit() to gather all of the diffs for this commit
-
-*/
-
-func TestDiffCommitIndexBasic(t *testing.T) {
+func TestDiffCommitIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -191,48 +172,15 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffCommitIndex.GetName(), commitID).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffCommitIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
-		diff := &persist.Diff{}
-		require.NoError(t, cursor.One(diff))
-		fmt.Printf("got first diff: %v\n", diff)
-		require.Equal(t, "file", diff.Path)
-		require.Equal(t, 1, len(diff.BlockRefs))
-
-		block := diff.BlockRefs[0]
-		fmt.Printf("block: %v\n", block)
-		blockSize := block.Upper - block.Lower
-
-		// Was trying to check on a per block level ...
-		// But even GetFile() doesn't seem to return the correct results
-		// reader, err := d.GetFile(file, nil, 0,
-		//	int64(blockSize), &pfs.Commit{Repo: repo, ID: commitID}, 0, false, "")
-
-		reader, err := client.GetBlock(block.Hash, uint64(0), uint64(blockSize))
-		require.NoError(t, err)
-		var data []byte
-		size, err := reader.Read(data)
-		fmt.Printf("data=%v, err=%v\n", string(data), err)
-		fmt.Printf("size=%v\n", size)
-		require.NoError(t, err)
-		require.Equal(t, "foo\n", string(data))
-
+		var indexedAsCommit string
+		require.NoError(t, cursor.One(&indexedAsCommit))
+		require.Equal(t, commitID, indexedAsCommit)
 	})
 }
 
-/* clockBranchIndex
-
-Indexed on:
-
-- repo && branchIndex
-
-Used to:
-
-- in ListBranch() to query the clocks table and return the branches
-
-*/
-
-func TestDiffPathIndexBasic(t *testing.T) {
+func TestDiffPathIndexBasicRF(t *testing.T) {
 
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
@@ -261,18 +209,7 @@ func TestDiffPathIndexBasic(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		branchClock := &persist.BranchClock{
-			Clocks: []*persist.Clock{
-				{
-					Branch: "master",
-					Clock:  0,
-				},
-			},
-		}
-		key := []interface{}{repo.Name, false, "foo/bar/fizz/buzz", branchClock.ToArray()}
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffPathIndex.GetName(), key).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
-
-		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
 		fields := []interface{}{}
 		require.NoError(t, cursor.One(&fields))
