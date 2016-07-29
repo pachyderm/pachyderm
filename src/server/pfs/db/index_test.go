@@ -144,7 +144,7 @@ func TestCommitBranchIndexHeadOfBranchRF(t *testing.T) {
 	})
 }
 
-func TestDiffCommitIndexBasic(t *testing.T) {
+func TestDiffCommitIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
 		repo := &pfs.Repo{Name: "foo"}
@@ -172,31 +172,23 @@ func TestDiffCommitIndexBasic(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffCommitIndex.GetName(), commitID).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
-		diff := &persist.Diff{}
-		require.NoError(t, cursor.One(diff))
-		fmt.Printf("got first diff: %v\n", diff)
-		require.Equal(t, "file", diff.Path)
-		require.Equal(t, 1, len(diff.BlockRefs))
-
-		block := diff.BlockRefs[0]
-		fmt.Printf("block: %v\n", block)
-		blockSize := block.Upper - block.Lower
-
-		// Was trying to check on a per block level ...
-		// But even GetFile() doesn't seem to return the correct results
-		// reader, err := d.GetFile(file, nil, 0,
-		//	int64(blockSize), &pfs.Commit{Repo: repo, ID: commitID}, 0, false, "")
-
-		reader, err := client.GetBlock(block.Hash, uint64(0), uint64(blockSize))
-		require.NoError(t, err)
-		var data []byte
-		size, err := reader.Read(data)
-		fmt.Printf("data=%v, err=%v\n", string(data), err)
-		fmt.Printf("size=%v\n", size)
-		require.NoError(t, err)
-		require.Equal(t, "foo\n", string(data))
+		fields := []interface{}{}
+		require.NoError(t, cursor.One(&fields))
+		// Example return value:
+		// [[foo false file [[master 0]]]]
+		innerFields, ok := fields[0].([]interface{})
+		require.Equal(t, true, ok)
+		require.Equal(t, repo.Name, innerFields[0].(string))
+		require.Equal(t, false, innerFields[1].(bool))
+		require.Equal(t, "file", innerFields[2].(string))
+		clocks, ok := innerFields[3].([]interface{})
+		require.Equal(t, true, ok)
+		clock, ok := clocks[0].([]interface{})
+		require.Equal(t, true, ok)
+		require.Equal(t, "master", clock[0].(string))
+		require.Equal(t, float64(0), clock[1].(float64))
 
 	})
 }
@@ -230,7 +222,7 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
+		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
 		fields := []interface{}{}
 		require.NoError(t, cursor.One(&fields))
