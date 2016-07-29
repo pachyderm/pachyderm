@@ -230,17 +230,6 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 		commit := &pfs.Commit{Repo: repo, ID: commitID}
 		require.NoError(t, d.FinishCommit(commit, timestampNow(), false, nil))
 
-		branchClock := &persist.BranchClock{
-			Clocks: []*persist.Clock{
-				{
-					Branch: "master",
-					Clock:  0,
-				},
-			},
-		}
-		key := []interface{}{repo.Name, false, "foo/bar/fizz/buzz", branchClock.ToArray()}
-		cursor, err := gorethink.DB(dbName).Table(diffTable).GetAllByIndex(DiffPathIndex.GetName(), key).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
-
 		cursor, err = gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
 		fields := []interface{}{}
