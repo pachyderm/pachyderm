@@ -49,8 +49,7 @@ const (
 )
 
 const (
-	// this is used in the "appends" field to signify deletion
-	DeleteAppend = "delete"
+	ErrConflictFileTypeMsg = "file type conflict"
 )
 
 var (
@@ -581,7 +580,22 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		size += ref.Size()
 	}
 
-	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
+	var diffs []*persist.Diff
+	// the ancestor directories
+	for _, prefix := range getPrefixes(file.Path) {
+		diffs = append(diffs, &persist.Diff{
+			ID:           getDiffID(commit.ID, file.Path),
+			Repo:         commit.Repo,
+			Delete:       false,
+			CommitID:     commit.ID,
+			Path:         prefix,
+			BranchClocks: commit.BranchClocks,
+			FileType:     persist.FileType_DIR,
+		})
+	}
+
+	// the file itself
+	diffs = append(diffs, &persist.Diff{
 		ID:           getDiffID(commit.ID, file.Path),
 		Repo:         commit.Repo,
 		Delete:       false,
@@ -590,16 +604,37 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		BlockRefs:    refs,
 		Size:         size,
 		BranchClocks: commit.BranchClocks,
-	}, gorethink.InsertOpts{
+		FileType:     persist.FileType_FILE,
+	})
+
+	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
-			return oldDoc.Merge(map[string]interface{}{
-				"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-				"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
-				"Delete":    false,
-			})
+			return gorethink.Branch(
+				// We throw an error if the new diff is of a different file type
+				// than the old diff, unless the old diff is NONE
+				oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
+				gorethink.Error(ErrConflictFileTypeMsg),
+				oldDoc.Merge(map[string]interface{}{
+					"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
+					"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+					"FileType":  newDoc.Field("FileType"),
+				}),
+			)
 		},
 	}).RunWrite(d.dbClient)
 	return err
+}
+
+func getPrefixes(path string) []string {
+	prefix := ""
+	parts := strings.Split(path, "/")
+	var res []string
+	// skip the last part; we only want prefixes
+	for i := 0; i < len(parts)-1; i++ {
+		prefix += "/" + parts[i]
+		res = append(res, prefix)
+	}
+	return res
 }
 
 func getDiffID(commitID string, path string) string {
@@ -734,10 +769,8 @@ func (r *fileReader) Read(data []byte) (int, error) {
 				// fetch more
 				diff := persist.Diff{}
 				if r.diffs.Next(&diff) {
-					fmt.Printf("diff: %v\n", diff)
 					r.blockRefs = append(r.blockRefs, diff.BlockRefs...)
 				} else {
-					fmt.Println("exiting!")
 					if err := r.diffs.Err(); err != nil {
 						return 0, err
 					}

@@ -36,6 +36,12 @@ message BlockRef {
   uint64 upper = 3;
 }
 
+enum FileType {
+    NONE = 0;
+    FILE = 1;
+    DIR = 2;
+}
+
 message Diff {
   string id = 1;  // commit_id + path
   string repo = 2;
@@ -46,6 +52,7 @@ message Diff {
   bool delete = 6;
   uint64 size = 7;
   repeated BranchClock branch_clocks = 8;
+  FileType file_type = 9;
 }
 
 message Commit {
