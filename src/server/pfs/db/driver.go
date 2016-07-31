@@ -724,8 +724,13 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		secondClock := persist.BranchClockToArray(interval.Nth(1))
 		return gorethink.Range(firstClock.Nth(-1).Nth(1), secondClock.Nth(-1).Nth(1).Add(1)).Map(func(x gorethink.Term) gorethink.Term {
 			return firstClock.ChangeAt(-1, firstClock.Nth(-1).ChangeAt(1, x))
-		}).Map(func(clocks gorethink.Term) interface{} {
-			return DiffPathIndex.Key(file.Commit.Repo.Name, false, file.Path, clocks)
+		}).ConcatMap(func(clocks gorethink.Term) interface{} {
+			return []interface{}{
+				// We want delete to be both true and false because even a
+				// commit that deletes can contain blockrefs.
+				DiffPathIndex.Key(file.Commit.Repo.Name, false, file.Path, clocks),
+				DiffPathIndex.Key(file.Commit.Repo.Name, true, file.Path, clocks),
+			}
 		})
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
@@ -837,6 +842,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 		Delete:       true,
 		Size:         0,
 		BranchClocks: commit.BranchClocks,
+		FileType:     persist.FileType_NONE,
 	}, gorethink.InsertOpts{
 		Conflict: "replace",
 	}).RunWrite(d.dbClient)

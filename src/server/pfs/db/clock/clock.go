@@ -186,7 +186,7 @@ func GetClockIntervals(left *persist.BranchClock, right *persist.BranchClock) ([
 			current.Clocks = append(current.Clocks, CloneClock(right.Clocks[i]))
 			leftClone = CloneBranchClock(current)
 			leftClone.Clocks[i].Clock = 0
-		} else if !ClockEq(current.Clocks[i], right.Clocks[i]) {
+		} else if !ClockEq(current.Clocks[i], right.Clocks[i]) || (ClockEq(current.Clocks[i], right.Clocks[i]) && i == len(right.Clocks)-1) {
 			if current.Clocks[i].Branch != right.Clocks[i].Branch || current.Clocks[i].Clock > right.Clocks[i].Clock {
 				return nil, fmt.Errorf("clocks %s is not an ancestor of %s", left, right)
 			}
