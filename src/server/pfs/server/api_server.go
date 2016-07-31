@@ -711,54 +711,11 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
-	fileInfo, err := a.InspectFile(ctx, &pfs.InspectFileRequest{
-		File:   request.File,
-		Unsafe: request.Unsafe,
-		Handle: request.Handle,
-	})
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return nil, err
 	}
-
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-		clientConn, err := a.getClientConnForFile(request.File, a.version)
-		if err != nil {
-			return nil, err
-		}
-		return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
-	}
-
-	// If we are deleting a directory, we multicast it to the entire cluster
-	clientConns, err := a.router.GetAllClientConns(a.version)
-	if err != nil {
-		return nil, err
-	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
-	for _, clientConn := range clientConns {
-		wg.Add(1)
-		clientConn := clientConn
-		go func() {
-			defer wg.Done()
-			_, err := pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
-	}
-	return google_protobuf.EmptyInstance, nil
+	return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {

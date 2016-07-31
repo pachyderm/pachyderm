@@ -370,7 +370,7 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 	require.Equal(t, expected, buffer.String())
 }
 
-func TestNEWAPIDeleteFile(t *testing.T) {
+func TestNEWAPIDeleteFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
