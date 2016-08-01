@@ -313,6 +313,27 @@ func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *per
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *persist.BlockPipelineStateRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	pipelineInfo := &persist.PipelineInfo{}
+	if err := a.waitMessageByPrimaryKey(pipelineInfosTable, request.PipelineName, pipelineInfo,
+		func(pipelineInfo gorethink.Term) gorethink.Term {
+			return gorethink.Eq(pipelineInfo.Field("State"), request.State)
+		}); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *rethinkAPIServer) StartPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	_, err = a.getTerm(pipelineInfosTable).Get(request.Name).
+		Update(map[string]interface{}{
+			"Stopped": false,
+		}).RunWrite(a.session)
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
@@ -325,7 +346,7 @@ func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protob
 }
 
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
@@ -334,10 +355,10 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return request, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
@@ -345,7 +366,7 @@ func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *pers
 	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return request, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {

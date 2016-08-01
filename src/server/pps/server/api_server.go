@@ -870,6 +870,41 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	_, err = persistClient.StartPipelineInfo(ctx, request.Pipeline)
+	if err != nil {
+		return nil, err
+	}
+	return persistClient.BlockPipelineState(ctx, &persist.BlockPipelineStateRequest{
+		PipelineName: request.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
+	})
+}
+
+func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *google_protobuf.Empty, err error) {
+	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	_, err = persistClient.UpdatePipelineInfo(ctx, &persist.PipelineInfo{
+		PipelineName: request.Pipeline.Name,
+		Stopped:      true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return persistClient.BlockPipelineState(ctx, &persist.BlockPipelineStateRequest{
+		PipelineName: request.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_STOPPED,
+	})
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
