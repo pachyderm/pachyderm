@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 message Clock {
   // a document either has these two fields 
@@ -53,6 +54,7 @@ message Diff {
   uint64 size = 7;
   repeated BranchClock branch_clocks = 8;
   FileType file_type = 9;
+  google.protobuf.Timestamp modified = 10;
 }
 
 message Commit {

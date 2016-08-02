@@ -151,6 +151,10 @@ func NewDiffParentIndex() *diffParentIndex {
 	}}
 }
 
+func (i *diffParentIndex) Key(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
+}
+
 // diffCommitIndex maps a commit ID to diffs
 // Format: commit ID
 // Example: "vswS3kJkejCnyVJLkHfjbUrSwnSAgHpW"
