@@ -410,3 +410,91 @@ func TestNEWAPIDeleteFileRF(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, "master/2", "file", 0, 0, "master/0", nil, &buffer))
 	require.Equal(t, expected, buffer.String())
 }
+
+func TestNEWAPIInspectFileRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent1 := "foo\n"
+	fileContent2 := "buzz\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfo, err := client.InspectFile(repo, "master/0", "file", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+	require.Equal(t, "file", fileInfo.File.Path)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfo, err = client.InspectFile(repo, "master/1", "file", "master/0", nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
+	require.Equal(t, "file", fileInfo.File.Path)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "file", false, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfo, err = client.InspectFile(repo, "master/2", "file", "master/0", nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
+}
+
+func TestNEWAPIInspectDirectory(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfo, err := client.InspectFile(repo, "master/0", "dir", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfo.Children))
+	require.Equal(t, "dir", fileInfo.File.Path)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_DIR, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "master/0", nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfo.Children))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfo, err = client.InspectFile(repo, "master/2", "file", "master/0", nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfo.Children))
+}
