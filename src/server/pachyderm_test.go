@@ -2225,7 +2225,7 @@ func TestUpdatePipeline(t *testing.T) {
 	// create repos
 	dataRepo := uniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	// create pipeline
+	// create 2 pipelines
 	pipelineName := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2233,7 +2233,17 @@ func TestUpdatePipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file1"), "/pfs/out/file"},
 		nil,
 		1,
-		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(dataRepo)}},
+		false,
+	))
+	pipeline2Name := uniqueString("pipeline2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2Name,
+		"",
+		[]string{"cp", path.Join("/pfs", pipelineName, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(pipelineName)}},
 		false,
 	))
 	// Do first commit to repo
@@ -2246,10 +2256,12 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
-	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "file1\n", buffer.String())
+	require.Equal(t, 2, len(commitInfos))
+	for _, commitInfo := range commitInfos {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.Equal(t, "file1\n", buffer.String())
+	}
 
 	// Update the pipeline to look at file2
 	require.NoError(t, c.CreatePipeline(
@@ -2263,10 +2275,12 @@ func TestUpdatePipeline(t *testing.T) {
 	))
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
-	buffer = bytes.Buffer{}
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "file2\n", buffer.String())
+	require.Equal(t, 2, len(commitInfos))
+	for _, commitInfo := range commitInfos {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.Equal(t, "file2\n", buffer.String())
+	}
 
 	// Update the pipeline to look at file3
 	require.NoError(t, c.CreatePipeline(
@@ -2280,10 +2294,12 @@ func TestUpdatePipeline(t *testing.T) {
 	))
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
-	buffer = bytes.Buffer{}
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "file3\n", buffer.String())
+	require.Equal(t, 2, len(commitInfos))
+	for _, commitInfo := range commitInfos {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.Equal(t, "file3\n", buffer.String())
+	}
 }
 
 func TestStopPipeline(t *testing.T) {
