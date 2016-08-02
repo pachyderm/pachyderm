@@ -138,7 +138,7 @@ func NewDiffParentIndex() *diffParentIndex {
 		Name:  "DiffParentIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			parent := row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+			parent := row.Field("Path").Split("/").DeleteAt(-1).DeleteAt(0).Fold("", func(acc, part gorethink.Term) gorethink.Term {
 				return acc.Add("/").Add(part)
 			})
 			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
