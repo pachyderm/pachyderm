@@ -801,6 +801,28 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}
 	} else {
+		if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+			return nil, err
+		}
+		// archive the existing commits from the pipeline
+		commitInfos, err := pfsAPIClient.ListCommit(
+			ctx,
+			&pfsclient.ListCommitRequest{
+				Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
+			})
+		if err != nil {
+			return nil, err
+		}
+		for _, commitInfo := range commitInfos.CommitInfo {
+			_, err := pfsAPIClient.ArchiveCommit(
+				ctx,
+				&pfsclient.ArchiveCommitRequest{
+					Commit: commitInfo.Commit,
+				})
+			if err != nil {
+				return nil, err
+			}
+		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 			return nil, err
 		}
@@ -961,14 +983,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
-
-	pfsAPIClient, err := a.getPfsClient()
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
-
 	a.shardCancelFuncsLock.Lock()
 	defer a.shardCancelFuncsLock.Unlock()
 	if _, ok := a.shardCancelFuncs[shard]; ok {
@@ -998,30 +1013,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 				a.cancelPipeline(pipelineName)
 			case persist.ChangeType_UPDATE:
 				a.cancelPipeline(pipelineName)
-				// archive the existing commits from the pipeline
-				commitInfos, err := pfsAPIClient.ListCommit(
-					ctx,
-					&pfsclient.ListCommitRequest{
-						Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: pipelineName})},
-						All:  true,
-					})
-				if err != nil {
-					protolion.Errorf("error from ListCommit: %s", err.Error())
-					return
-				}
-				for _, commitInfo := range commitInfos.CommitInfo {
-					_, err := pfsAPIClient.ArchiveCommit(
-						ctx,
-						&pfsclient.ArchiveCommitRequest{
-							Commit: commitInfo.Commit,
-						})
-					if err != nil {
-						protolion.Errorf("error from ListCommit: %s", err.Error())
-						return
-					}
-				}
-				// we've cleaned up all the old state, the only left to
-				// complete the update is all the stuff we do for a create
 				fallthrough
 			case persist.ChangeType_CREATE:
 				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
