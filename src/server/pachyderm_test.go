@@ -963,7 +963,7 @@ func TestSimple(t *testing.T) {
 	_, err = c.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit1.ID))
-	commitInfos, err := c.ListCommit([]string{repo}, nil, client.CommitTypeNone, false, false, nil)
+	commitInfos, err := c.ListCommit([]string{repo}, nil, client.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -1413,7 +1413,7 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	// There should only be 2 commits on cRepo
-	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, false, nil)
+	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, false, pfsclient.CommitStatus_NORMAL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {

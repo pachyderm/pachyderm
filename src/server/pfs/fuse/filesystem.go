@@ -631,7 +631,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-		nil, client.CommitTypeNone, false, true, nil)
+		nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
 	if err != nil {
 		return nil, err
 	}
