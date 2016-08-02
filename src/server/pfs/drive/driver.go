@@ -135,6 +135,10 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	return d.listRepo(provenance, shards)
+}
+
+func (d *driver) listRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	var result []*pfs.RepoInfo
@@ -387,12 +391,29 @@ func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	for shard := range shards {
-		diffInfo, ok := d.diffs.get(client.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
-		if !ok {
-			return pfsserver.NewErrCommitNotFound(canonicalCommit.Repo.Name, canonicalCommit.ID)
+	// Find all the commits that have this one as provenance
+	repoInfos, err := d.listRepo([]*pfs.Repo{canonicalCommit.Repo}, shards)
+	if err != nil {
+		return err
+	}
+	var repos []*pfs.Repo
+	for _, repoInfo := range repoInfos {
+		repos = append(repos, repoInfo.Repo)
+	}
+	commitInfos, err := d.listCommit(repos, pfs.CommitType_COMMIT_TYPE_NONE, nil,
+		[]*pfs.Commit{canonicalCommit}, pfs.CommitStatus_ALL, shards)
+	commitsToArchive := []*pfs.Commit{commit}
+	for _, commitInfo := range commitInfos {
+		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
+	}
+	for _, commit := range commitsToArchive {
+		for shard := range shards {
+			diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
+			if !ok {
+				return pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
+			}
+			diffInfo.Archived = true
 		}
-		diffInfo.Archived = true
 	}
 	return nil
 }
@@ -404,6 +425,13 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
+	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.listCommit(repos, commitType, fromCommit, provenance, status, shards)
+}
+
+func (d *driver) listCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
 	var canonicalProvenance []*pfs.Commit
@@ -421,8 +449,6 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		}
 		breakCommitIDs[commit.ID] = true
 	}
-	d.lock.RLock()
-	defer d.lock.RUnlock()
 	var result []*pfs.CommitInfo
 	for _, repo := range repos {
 		_, ok := d.diffs[repo.Name]
