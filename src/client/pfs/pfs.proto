@@ -183,12 +183,19 @@ message InspectCommitRequest {
   Commit commit = 1;
 }
 
+enum CommitStatus {
+    NORMAL = 0;
+    ARCHIVED = 1;
+    CANCELLED = 2;
+    ALL = 3;
+}
+
 message ListCommitRequest {
   repeated Repo repo = 1;
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
   repeated Commit provenance = 4;
-  bool all = 5;
+  CommitStatus status = 5;
   bool block = 6;
 }
 

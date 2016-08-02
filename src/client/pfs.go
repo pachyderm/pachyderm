@@ -206,12 +206,13 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
-// all, when set to true, will cause ListCommit to return cancelled commits as well.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
 func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, all bool, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
+	commitType pfs.CommitType, block bool, status pfs.CommitStatus, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &pfs.Repo{Name: repoName})
@@ -229,7 +230,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 			Repo:       repos,
 			FromCommit: fromCommits,
 			Block:      block,
-			All:        all,
+			Status:     status,
 			Provenance: provenance,
 		},
 	)

@@ -404,7 +404,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
 	var canonicalProvenance []*pfs.Commit
 	for _, provCommit := range provenance {
@@ -442,10 +442,10 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 					return nil, err
 				}
 				commit = commitInfo.ParentCommit
-				if commitInfo.Cancelled && !all {
+				if commitInfo.Cancelled && status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_CANCELLED {
 					continue
 				}
-				if commitInfo.Archived && !all {
+				if commitInfo.Archived && status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_ARCHIVED {
 					continue
 				}
 				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
