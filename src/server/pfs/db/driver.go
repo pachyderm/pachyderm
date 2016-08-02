@@ -555,6 +555,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 
 func (d *driver) PutFile(file *pfs.File, handle string,
 	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
+	fixPath(file)
 	// TODO: eventually optimize this with a cache so that we don't have to
 	// go to the database to figure out if the commit exists
 	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
@@ -584,7 +585,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	// the ancestor directories
 	for _, prefix := range getPrefixes(file.Path) {
 		diffs = append(diffs, &persist.Diff{
-			ID:           getDiffID(commit.ID, file.Path),
+			ID:           getDiffID(commit.ID, prefix),
 			Repo:         commit.Repo,
 			Delete:       false,
 			CommitID:     commit.ID,
@@ -665,8 +666,16 @@ func reverseSlice(s [][]*persist.BranchClock) {
 	}
 }
 
+// fixPath prepends a slash to the file path if there isn't one
+func fixPath(file *pfs.File) {
+	if len(file.Path) == 0 || file.Path[0] != '/' {
+		file.Path = "/" + file.Path
+	}
+}
+
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
+	fixPath(file)
 	cursor, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
 	if err != nil {
 		return nil, err
@@ -764,6 +773,7 @@ func (r *fileReader) Close() error {
 }
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
+	fixPath(file)
 	cursor, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
 	if err != nil {
 		return nil, err
