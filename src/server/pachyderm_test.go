@@ -2286,6 +2286,52 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "file3\n", buffer.String())
 }
 
+func TestStopPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+		false,
+	))
+	require.NoError(t, c.StopPipeline(pipelineName))
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	// timeout because the Flush should never return since the pipeline is
+	// stopped
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+	_, err = c.PfsAPIClient.FlushCommit(
+		ctx,
+		&pfsclient.FlushCommitRequest{
+			Commit: []*pfsclient.Commit{commit1},
+		})
+	require.YesError(t, err)
+	require.NoError(t, c.StartPipeline(pipelineName))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)

@@ -876,7 +876,10 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	if err != nil {
 		return nil, err
 	}
-	_, err = persistClient.StartPipelineInfo(ctx, request.Pipeline)
+	_, err = persistClient.UpdatePipelineStopped(ctx, &persist.UpdatePipelineStoppedRequest{
+		PipelineName: request.Pipeline.Name,
+		Stopped:      false,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +895,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	if err != nil {
 		return nil, err
 	}
-	_, err = persistClient.UpdatePipelineInfo(ctx, &persist.PipelineInfo{
+	_, err = persistClient.UpdatePipelineStopped(ctx, &persist.UpdatePipelineStoppedRequest{
 		PipelineName: request.Pipeline.Name,
 		Stopped:      true,
 	})
@@ -1022,6 +1025,15 @@ func (a *apiServer) AddShard(shard uint64) error {
 				fallthrough
 			case persist.ChangeType_CREATE:
 				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
+				if pipelineChange.Pipeline.Stopped {
+					if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+						PipelineName: pipelineName,
+						State:        ppsclient.PipelineState_PIPELINE_STOPPED,
+					}); err != nil {
+						protolion.Errorf("error updating pipeline state: %v", err)
+					}
+					continue
+				}
 				go func() {
 					b := backoff.NewExponentialBackOff()
 					// We set MaxElapsedTime to 0 because we want the retry to

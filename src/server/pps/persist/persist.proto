@@ -60,8 +60,6 @@ enum ChangeType {
   CREATE = 0;
   UPDATE = 1;
   DELETE = 2;
-  STOP = 3;
-  START = 4;
 }
 
 message PipelineInfoChange {
@@ -86,6 +84,11 @@ message UpdatePipelineStateRequest {
   string pipeline_name = 1;
   pps.PipelineState state = 2;
   string recent_error = 3;
+}
+
+message UpdatePipelineStoppedRequest {
+	string pipeline_name = 1;
+	bool stopped = 2;
 }
 
 message BlockPipelineStateRequest {
@@ -124,12 +127,12 @@ service API {
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
-  rpc StartPipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
   rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
+  rpc UpdatePipelineStopped(UpdatePipelineStoppedRequest) returns (google.protobuf.Empty) {}
   rpc BlockPipelineState(BlockPipelineStateRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
