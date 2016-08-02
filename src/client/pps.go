@@ -247,3 +247,26 @@ func (c APIClient) DeletePipeline(name string) error {
 	)
 	return sanitizeErr(err)
 }
+
+// StartPipeline restarts a stopped pipeline.
+func (c APIClient) StartPipeline(name string) error {
+	_, err := c.PpsAPIClient.StartPipeline(
+		context.Background(),
+		&pps.StartPipelineRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// StopPipeline prevents a pipeline from processing things, it can be restarted
+// with StartPipeline.
+func (c APIClient) StopPipeline(name string) error {
+	_, err := c.PpsAPIClient.StopPipeline(
+		context.Background(),
+		&pps.StopPipelineRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return sanitizeErr(err)
+}

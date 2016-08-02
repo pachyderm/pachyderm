@@ -313,6 +313,14 @@ func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *per
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) UpdatePipelineStopped(ctx context.Context, request *persist.UpdatePipelineStoppedRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *persist.BlockPipelineStateRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	pipelineInfo := &persist.PipelineInfo{}
@@ -322,15 +330,6 @@ func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *pers
 		}); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
-}
-
-func (a *rethinkAPIServer) StartPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	_, err = a.getTerm(pipelineInfosTable).Get(request.Name).
-		Update(map[string]interface{}{
-			"Stopped": false,
-		}).RunWrite(a.session)
 	return google_protobuf.EmptyInstance, nil
 }
 
