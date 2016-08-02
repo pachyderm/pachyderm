@@ -641,8 +641,10 @@ func getPrefixes(path string) []string {
 	var res []string
 	// skip the last part; we only want prefixes
 	for i := 0; i < len(parts)-1; i++ {
-		prefix += "/" + parts[i]
-		res = append(res, prefix)
+		if parts[i] != "" {
+			prefix += "/" + parts[i]
+			res = append(res, prefix)
+		}
 	}
 	return res
 }
@@ -839,7 +841,7 @@ func compareDiffClocks(left gorethink.Term, right gorethink.Term) gorethink.Term
 	// If the branch clocks are of equal length, then the last clock determines
 	// the ordering.  Otherwise, the lengths determine the ordering.
 	return gorethink.Branch(leftClocks.Count().Eq(rightClocks.Count()),
-		leftClocks.Nth(-1).Field("Clock").Gt(right.Nth(-1).Field("Clock")),
+		leftClocks.Nth(-1).Field("Clock").Gt(rightClocks.Nth(-1).Field("Clock")),
 		leftClocks.Count().Gt(rightClocks.Count()))
 }
 
@@ -862,6 +864,7 @@ func (d *driver) getChildren(repo string, parent string, fromCommitID string, to
 	if err != nil {
 		return nil, err
 	}
+
 	cursor, err := query.Map(func(clocks gorethink.Term) interface{} {
 		return DiffParentIndex.Key(repo, parent, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
@@ -871,8 +874,8 @@ func (d *driver) getChildren(repo string, parent string, fromCommitID string, to
 		Index: DiffParentIndex.GetName(),
 	}).Field("right").Group("Path").Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
 		return gorethink.Branch(compareDiffClocks(left, right), left, right)
-	}).Filter(func(diff gorethink.Term) gorethink.Term {
-		return gorethink.Ne(diff.Field("FileType"), persist.FileType_NONE)
+	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -882,7 +885,6 @@ func (d *driver) getChildren(repo string, parent string, fromCommitID string, to
 	if err := cursor.All(&res); err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
@@ -1000,6 +1002,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
+	fixPath(file)
 	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
 	if err != nil {
 		return err

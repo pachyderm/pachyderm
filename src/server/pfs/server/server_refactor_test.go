@@ -475,7 +475,7 @@ func TestNEWAPIInspectDirectory(t *testing.T) {
 	fileInfo, err := client.InspectFile(repo, "master/0", "dir", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfo.Children))
-	require.Equal(t, "dir", fileInfo.File.Path)
+	require.Equal(t, "/dir", fileInfo.File.Path)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_DIR, fileInfo.FileType)
 
 	_, err = client.StartCommit(repo, "", "master")
@@ -494,7 +494,7 @@ func TestNEWAPIInspectDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfo, err = client.InspectFile(repo, "master/2", "file", "master/0", nil)
+	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "master/0", nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfo.Children))
 }

@@ -636,15 +636,6 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 		return nil, err
 	}
 
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		// If it's a directory, chances are that its children are scattered around
-		// the cluster, so we can't get the complete list of children without
-		// doing a multicast.  So instead of returning a partial list of children,
-		// we'd rather return no children at all.  To get the complete list of
-		// children, the caller is expected to use ListFile
-		fileInfo.Children = nil
-	}
-
 	return fileInfo, nil
 }
 
