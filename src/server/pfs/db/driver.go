@@ -813,35 +813,64 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
+// foldDiffs takes an unordered stream of diffs for a given path, and return
+// a single diff that represents the aggregation of these diffs.
+func foldDiffs(diffs gorethink.Term) gorethink.Term {
+	return diffs.Map(func(diff gorethink.Term) interface{} {
+		return []interface{}{diff}
+	}).Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
+		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
+			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
+		})
+	}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
+		// TODO: the fold function can easily take offset and size into account,
+		// only returning blockrefs that fall into the range specified by offset
+		// and size.
+		return gorethink.Branch(
+			diff.Field("Delete"),
+			acc.Merge(map[string]interface{}{
+				"CommitID":  diff.Field("CommitID"),
+				"BlockRefs": diff.Field("BlockRefs"),
+				"FileType":  diff.Field("FileType"),
+				"Size":      diff.Field("Size"),
+				"Modified":  diff.Field("Modified"),
+			}),
+			acc.Merge(map[string]interface{}{
+				"CommitID":  diff.Field("CommitID"),
+				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
+				"Size":      acc.Field("Size").Add(diff.Field("Size")),
+				"FileType":  diff.Field("FileType"),
+				"Modified":  diff.Field("Modified"),
+			}),
+		)
+	})
+}
+
 func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
 	query, _, _, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
 	if err != nil {
 		return nil, err
 	}
 
-	cursor, err := query.Map(func(clocks gorethink.Term) interface{} {
+	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
 		return DiffParentIndex.Key(repo, parent, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
 	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
 		Index: DiffParentIndex.GetName(),
-	}).Field("right").Group("Path").Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
-		leftClocks := persist.BranchClockToArray(left.Field("BranchClocks").Nth(0))
-		rightClocks := persist.BranchClockToArray(right.Field("BranchClocks").Nth(0))
-		return gorethink.Branch(leftClocks.Gt(rightClocks), left, right)
-	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*persist.Diff
-	if err := cursor.All(&res); err != nil {
+	var diffs []*persist.Diff
+	if err := cursor.All(&diffs); err != nil {
 		return nil, err
 	}
-	return res, nil
+	return diffs, nil
 }
 
 // intervalsToClocks takes a [fromClock, toClock] interval and returns an array
@@ -890,41 +919,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 		return nil, err
 	}
 
-	cursor, err := query.Map(func(clocks gorethink.Term) interface{} {
+	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
 		return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
 	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
 		Index: DiffPathIndex.GetName(),
-	}).Field("right").Map(func(diff gorethink.Term) interface{} {
-		return []interface{}{diff}
-	}).Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
-		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
-			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
-		})
-	}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
-		// TODO: the fold function can easily take offset and size into account,
-		// only returning blockrefs that fall into the range specified by offset
-		// and size.
-		return gorethink.Branch(
-			diff.Field("Delete"),
-			acc.Merge(map[string]interface{}{
-				"CommitID":  diff.Field("CommitID"),
-				"BlockRefs": diff.Field("BlockRefs"),
-				"FileType":  diff.Field("FileType"),
-				"Size":      diff.Field("Size"),
-				"Modified":  diff.Field("Modified"),
-			}),
-			acc.Merge(map[string]interface{}{
-				"CommitID":  diff.Field("CommitID"),
-				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-				"Size":      acc.Field("Size").Add(diff.Field("Size")),
-				"FileType":  diff.Field("FileType"),
-				"Modified":  diff.Field("Modified"),
-			}),
-		)
-	}).Run(d.dbClient)
+	}).Field("right")).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
