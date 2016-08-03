@@ -429,7 +429,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	fileInfo, err := client.InspectFile(repo, "master/0", "file", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
-	require.Equal(t, "file", fileInfo.File.Path)
+	require.Equal(t, "/file", fileInfo.File.Path)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 
 	_, err = client.StartCommit(repo, "", "master")
@@ -441,7 +441,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	fileInfo, err = client.InspectFile(repo, "master/1", "file", "master/0", nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
-	require.Equal(t, "file", fileInfo.File.Path)
+	require.Equal(t, "/file", fileInfo.File.Path)
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)

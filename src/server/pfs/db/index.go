@@ -57,13 +57,12 @@ func (i *index) GetCreateOptions() gorethink.IndexCreateOpts {
 }
 
 // diffPathIndex maps a path to diffs that for that path
-// Format: [repo, bool, path, clocks]
-// The bool specifies whether it's a delete.
+// Format: [repo, path, clocks]
 // Example:
 // For the diff: delete "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
 // We'd have the following index entries:
-// ["/foo/bar/buzz", true, [(master, 1)]]
-// ["/foo/bar/buzz", true, [(master, 0), (foo, 2)]]
+// ["/foo/bar/buzz", [(master, 1)]]
+// ["/foo/bar/buzz", [(master, 0), (foo, 2)]]
 type diffPathIndex struct {
 	index
 }
@@ -74,7 +73,7 @@ func NewDiffPathIndex() *diffPathIndex {
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
 			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), row.Field("Delete"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
+				return []interface{}{row.Field("Repo"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
@@ -83,8 +82,8 @@ func NewDiffPathIndex() *diffPathIndex {
 	}}
 }
 
-func (i *diffPathIndex) Key(repo interface{}, delete interface{}, path interface{}, clock interface{}) interface{} {
-	return []interface{}{repo, delete, path, clock}
+func (i *diffPathIndex) Key(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
 }
 
 // diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
