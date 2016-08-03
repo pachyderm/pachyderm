@@ -970,47 +970,38 @@ func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommi
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
-	query, _, _, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
+	diffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, from, file.Commit)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffPrefixIndex.Key(file.Commit.Repo.Name, file.Path, clocks)
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index: DiffPrefixIndex.GetName(),
-	}).Field("right").Group("Path").Map(func(diff gorethink.Term) interface{} {
-		return []interface{}{diff}
-	}).Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
-		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
-			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
-		})
-	}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
-		return gorethink.Branch(
-			diff.Field("Delete"),
-			acc.Merge(map[string]interface{}{
-				"BlockRefs": diff.Field("BlockRefs"),
-				"FileType":  diff.Field("FileType"),
-				"Size":      diff.Field("Size"),
-				"Modified":  diff.Field("Modified"),
-			}),
-			acc.Merge(map[string]interface{}{
-				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-				"Size":      acc.Field("Size").Add(diff.Field("Size")),
-				"FileType":  diff.Field("FileType"),
-				"Modified":  diff.Field("Modified"),
-			}),
-		)
-	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
-		return diff.Field("FileType").Ne(persist.FileType_NONE)
-	}).Run(d.dbClient)
-	if err != nil {
-		return nil, err
+	var fileInfos []*pfs.FileInfo
+	for _, diff := range diffs {
+		fileInfo := &pfs.FileInfo{}
+		fileInfo.File = &pfs.File{
+			Commit: file.Commit,
+			Path:   diff.Path,
+		}
+		fileInfo.SizeBytes = diff.Size
+		fileInfo.Modified = diff.Modified
+		switch diff.FileType {
+		case persist.FileType_FILE:
+			fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+		case persist.FileType_DIR:
+			fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+		default:
+			return nil, fmt.Errorf("unrecognized file type %d; this is likely a bug", diff.FileType)
+		}
+		fileInfo.CommitModified = &pfs.Commit{
+			Repo: file.Commit.Repo,
+			ID:   diff.CommitID,
+		}
+		fileInfos = append(fileInfos, fileInfo)
 	}
-	return nil, nil
+
+	fmt.Printf("got %d fileInfos\n", len(fileInfos))
+
+	return fileInfos, nil
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {

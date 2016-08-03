@@ -498,3 +498,44 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfo.Children))
 }
+
+func TestNEWAPIListFileRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "master/0", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "master/0", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+}

@@ -647,51 +647,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
-	clientConns, err := a.router.GetAllClientConns(a.version)
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var fileInfos []*pfs.FileInfo
-	seenDirectories := make(map[string]bool)
-	errCh := make(chan error, 1)
-	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
-			subFileInfos, err := pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
-			lock.Lock()
-			defer lock.Unlock()
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-			for _, fileInfo := range subFileInfos.FileInfo {
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					if seenDirectories[fileInfo.File.Path] {
-						continue
-					}
-					seenDirectories[fileInfo.File.Path] = true
-				}
-				fileInfos = append(fileInfos, fileInfo)
-			}
-		}(clientConn)
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
-	}
-	return &pfs.FileInfos{
-		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
-	}, nil
+	return pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
 }
 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
