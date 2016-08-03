@@ -104,7 +104,7 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 		Name:  "DiffPrefixIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			return row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+			return row.Field("Path").Split("/").DeleteAt(-1).DeleteAt(0).Fold("", func(acc, part gorethink.Term) gorethink.Term {
 				return acc.Add("/").Add(part)
 			}, gorethink.FoldOpts{
 				Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
@@ -120,6 +120,10 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 			Multi: true,
 		},
 	}}
+}
+
+func (i *diffPrefixIndex) Key(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
 }
 
 // diffParentIndex maps a path to diffs that have the path as direct parent
