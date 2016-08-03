@@ -232,6 +232,7 @@ message PutFileRequest {
   bytes value = 3;
   string handle = 4;
   Delimiter delimiter = 5;
+  string url = 6;
 }
 
 message InspectFileRequest {
