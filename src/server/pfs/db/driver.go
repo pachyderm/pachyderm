@@ -683,16 +683,15 @@ func fixPath(file *pfs.File) {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	fixPath(file)
-	cursor, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
+	diff, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
 	if err != nil {
 		return nil, err
 	}
-	return d.newFileReader(cursor, file, filterShard, offset, size), nil
+	return d.newFileReader(diff.BlockRefs, file, filterShard, offset, size), nil
 }
 
 type fileReader struct {
 	blockClient pfs.BlockAPIClient
-	diffs       *gorethink.Cursor
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
@@ -702,10 +701,10 @@ type fileReader struct {
 	file        *pfs.File
 }
 
-func (d *driver) newFileReader(diffs *gorethink.Cursor, file *pfs.File, filterShard *pfs.Shard, offset int64, size int64) *fileReader {
+func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, filterShard *pfs.Shard, offset int64, size int64) *fileReader {
 	return &fileReader{
 		blockClient: d.blockClient,
-		diffs:       diffs,
+		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
 		filterShard: filterShard,
@@ -730,17 +729,8 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	if r.reader == nil {
 		var blockRef *persist.BlockRef
 		for {
-			for len(r.blockRefs) == 0 {
-				// fetch more
-				diff := persist.Diff{}
-				if r.diffs.Next(&diff) {
-					r.blockRefs = append(r.blockRefs, filterBlockRefs(r.filterShard, r.file, diff.BlockRefs)...)
-				} else {
-					if err := r.diffs.Err(); err != nil {
-						return 0, err
-					}
-					return 0, io.EOF
-				}
+			if len(r.blockRefs) == 0 {
+				return 0, io.EOF
 			}
 			blockRef = r.blockRefs[0]
 			r.blockRefs = r.blockRefs[1:]
@@ -776,22 +766,14 @@ func (r *fileReader) Read(data []byte) (int, error) {
 }
 
 func (r *fileReader) Close() error {
-	return r.diffs.Close()
+	return nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
-	cursor, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
+	diff, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
 	if err != nil {
 		return nil, err
-	}
-	var diffs []*persist.Diff
-	if err := cursor.All(&diffs); err != nil {
-		return nil, err
-	}
-
-	if len(diffs) == 0 {
-		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 
 	res := &pfs.FileInfo{
@@ -801,21 +783,18 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	// The most recent diff will tell us about the file type.
 	// Technically any diff will do, but the very first diff might be a
 	// deletion.
-	lastDiff := diffs[len(diffs)-1]
-	switch lastDiff.FileType {
+	switch diff.FileType {
 	case persist.FileType_FILE:
 		res.FileType = pfs.FileType_FILE_TYPE_REGULAR
-		for _, diff := range diffs {
-			res.SizeBytes += diff.Size
-		}
-		res.Modified = lastDiff.Modified
+		res.Modified = diff.Modified
 		res.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   lastDiff.ID,
+			ID:   diff.CommitID,
 		}
+		res.SizeBytes = diff.Size
 	case persist.FileType_DIR:
 		res.FileType = pfs.FileType_FILE_TYPE_DIR
-		res.Modified = diffs[len(diffs)-1].Modified
+		res.Modified = diff.Modified
 		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, from, file.Commit)
 		if err != nil {
 			return nil, err
@@ -829,7 +808,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	case persist.FileType_NONE:
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	default:
-		return nil, fmt.Errorf("unrecognized file type: %d; this is likely a bug", lastDiff.FileType)
+		return nil, fmt.Errorf("unrecognized file type: %d; this is likely a bug", diff.FileType)
 	}
 	return res, nil
 }
@@ -905,59 +884,60 @@ func (d *driver) getClockByAmbiguousID(repo string, commitID string) (*persist.B
 	return commit.BranchClocks[0], nil
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*gorethink.Cursor, error) {
-	query, fromClock, toClock, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*persist.Diff, error) {
+	query, _, _, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
 	if err != nil {
 		return nil, err
 	}
+
 	cursor, err := query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffPathIndex.Key(file.Commit.Repo.Name, true, file.Path, clocks)
+		return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clocks)
 	}).EqJoin(func(x gorethink.Term) gorethink.Term {
 		// no-op
 		return x
 	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index:   DiffPathIndex.GetName(),
-		Ordered: true,
-	}).Field("right").Run(d.dbClient)
+		Index: DiffPathIndex.GetName(),
+	}).Field("right").Map(func(diff gorethink.Term) interface{} {
+		return []interface{}{diff}
+	}).Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
+		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
+			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
+		})
+	}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
+		// TODO: the fold function can easily take offset and size into account,
+		// only returning blockrefs that fall into the range specified by offset
+		// and size.
+		return gorethink.Branch(
+			diff.Field("Delete"),
+			acc.Merge(map[string]interface{}{
+				"CommitID":  diff.Field("CommitID"),
+				"BlockRefs": diff.Field("BlockRefs"),
+				"FileType":  diff.Field("FileType"),
+				"Size":      diff.Field("Size"),
+				"Modified":  diff.Field("Modified"),
+			}),
+			acc.Merge(map[string]interface{}{
+				"CommitID":  diff.Field("CommitID"),
+				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
+				"Size":      acc.Field("Size").Add(diff.Field("Size")),
+				"FileType":  diff.Field("FileType"),
+				"Modified":  diff.Field("Modified"),
+			}),
+		)
+	}).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
 
 	diff := &persist.Diff{}
-	err = cursor.One(diff)
-	if err != nil && err != gorethink.ErrEmptyResult {
-		return nil, err
-	}
-
-	// Stream from the most recent delete to the current commit
-	if err != gorethink.ErrEmptyResult {
-		query, err = intervalToClocks(diff.BranchClocks[0], toClock, false)
-	} else {
-		query, err = intervalToClocks(fromClock, toClock, false)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cursor, err = query.ConcatMap(func(clocks gorethink.Term) interface{} {
-		return []interface{}{
-			// We want delete to be both true and false because even a
-			// commit that deletes can contain blockrefs.
-			DiffPathIndex.Key(file.Commit.Repo.Name, false, file.Path, clocks),
-			DiffPathIndex.Key(file.Commit.Repo.Name, true, file.Path, clocks),
+	if err := cursor.One(diff); err != nil {
+		if err == gorethink.ErrEmptyResult {
+			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 		}
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index:   DiffPathIndex.GetName(),
-		Ordered: true,
-	}).Field("right").Run(d.dbClient)
-	if err != nil {
 		return nil, err
 	}
 
-	return cursor, nil
+	return diff, nil
 }
 
 // getIntervalQueryFromCommitRange takes a commit range and returns a RethinkDB
