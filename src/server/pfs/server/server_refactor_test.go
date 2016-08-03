@@ -456,7 +456,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 }
 
-func TestNEWAPIInspectDirectory(t *testing.T) {
+func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
