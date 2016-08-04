@@ -395,7 +395,8 @@ func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path s
 	return int(written), err
 }
 
-// PutFileURL
+// PutFileURL puts a file using the content found at a URL.
+// The URL is sent to the server which performs the request.
 func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
 	if err != nil {
