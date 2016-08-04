@@ -829,6 +829,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 		return gorethink.Branch(
 			diff.Field("Delete"),
 			acc.Merge(map[string]interface{}{
+				"Path":      diff.Field("Path"),
 				"CommitID":  diff.Field("CommitID"),
 				"BlockRefs": diff.Field("BlockRefs"),
 				"FileType":  diff.Field("FileType"),
@@ -836,6 +837,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 				"Modified":  diff.Field("Modified"),
 			}),
 			acc.Merge(map[string]interface{}{
+				"Path":      diff.Field("Path"),
 				"CommitID":  diff.Field("CommitID"),
 				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 				"Size":      acc.Field("Size").Add(diff.Field("Size")),
@@ -861,7 +863,7 @@ func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit,
 		Index: DiffParentIndex.GetName(),
 	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
-	}).Run(d.dbClient)
+	}).OrderBy("Path").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -870,6 +872,52 @@ func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit,
 	if err := cursor.All(&diffs); err != nil {
 		return nil, err
 	}
+	return diffs, nil
+}
+
+func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
+	query, _, _, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
+	if err != nil {
+		return nil, err
+	}
+
+	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
+		return DiffPrefixIndex.Key(repo, parent, clocks)
+	}).EqJoin(func(x gorethink.Term) gorethink.Term {
+		// no-op
+		return x
+	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
+		Index: DiffPrefixIndex.GetName(),
+	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+		return diff.Field("FileType").Ne(persist.FileType_NONE)
+	}).Group(func(diff gorethink.Term) gorethink.Term {
+		// This query gives us the first component after the parent prefix.
+		// For instance, if the path is "/foo/bar/buzz" and parent is "/foo",
+		// this query gives us "bar".
+		return diff.Field("Path").Split(parent, 1).Nth(1).Split("/").Nth(1)
+	}).Reduce(func(left, right gorethink.Term) gorethink.Term {
+		// Basically, we add up the sizes and discard the diff with the longer
+		// path.  That way, we will be left with the diff with the shortest path,
+		// namely the direct child of parent.
+		return gorethink.Branch(
+			left.Field("Path").Lt(right.Field("Path")),
+			left.Merge(map[string]interface{}{
+				"Size": left.Field("Size").Add(right.Field("Size")),
+			}),
+			right.Merge(map[string]interface{}{
+				"Size": left.Field("Size").Add(right.Field("Size")),
+			}),
+		)
+	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var diffs []*persist.Diff
+	if err := cursor.All(&diffs); err != nil {
+		return nil, err
+	}
+
 	return diffs, nil
 }
 
@@ -970,7 +1018,13 @@ func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommi
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
-	diffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, from, file.Commit)
+	var diffs []*persist.Diff
+	var err error
+	if recurse {
+		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, from, file.Commit)
+	} else {
+		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, from, file.Commit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -998,8 +1052,6 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 		}
 		fileInfos = append(fileInfos, fileInfo)
 	}
-
-	fmt.Printf("got %d fileInfos\n", len(fileInfos))
 
 	return fileInfos, nil
 }

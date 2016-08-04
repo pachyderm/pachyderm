@@ -539,3 +539,48 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 }
+
+func TestNEWAPIListFileRecurseRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3/foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3/bar", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "master/0", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/3/bar", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "master/0", nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
+}
