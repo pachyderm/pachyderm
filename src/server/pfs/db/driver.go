@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -554,6 +555,32 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return nil
 }
 
+// checkFileType returns an error if the given type conflicts with the preexisting
+// type.  TODO: cache file types
+func (d *driver) checkFileType(repo string, commit string, path string, typ persist.FileType) (err error) {
+	diff, err := d.inspectFile(&pfs.File{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: repo,
+			},
+			ID: commit,
+		},
+		Path: path,
+	}, nil, nil)
+	if err != nil {
+		_, ok := err.(*pfsserver.ErrFileNotFound)
+		if ok {
+			// If the file was not found, then there's no type conflict
+			return nil
+		}
+		return err
+	}
+	if diff.FileType != typ && diff.FileType != persist.FileType_NONE {
+		return errors.New(ErrConflictFileTypeMsg)
+	}
+	return nil
+}
+
 func (d *driver) PutFile(file *pfs.File, handle string,
 	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
 	fixPath(file)
@@ -610,6 +637,13 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		FileType:     persist.FileType_FILE,
 		Modified:     now(),
 	})
+
+	// Make sure that there's no type conflict
+	for _, diff := range diffs {
+		if err := d.checkFileType(diff.Repo, diff.CommitID, diff.Path, diff.FileType); err != nil {
+			return err
+		}
+	}
 
 	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
@@ -683,7 +717,7 @@ func fixPath(file *pfs.File) {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	fixPath(file)
-	diff, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
+	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
 	}
@@ -771,7 +805,7 @@ func (r *fileReader) Close() error {
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
-	diff, err := d.inspectFile(file, filterShard, from, shard, unsafe, handle)
+	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
 	}
@@ -822,7 +856,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
 			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
 		})
-	}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
+	}).Default([]interface{}{}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
 		// TODO: the fold function can easily take offset and size into account,
 		// only returning blockrefs that fall into the range specified by offset
 		// and size.
@@ -849,7 +883,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 }
 
 func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, _, _, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
+	query, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -876,7 +910,7 @@ func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit,
 }
 
 func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, _, _, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
+	query, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -961,8 +995,8 @@ func (d *driver) getClockByAmbiguousID(repo string, commitID string) (*persist.B
 	return commit.BranchClocks[0], nil
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*persist.Diff, error) {
-	query, _, _, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit) (*persist.Diff, error) {
+	query, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -991,29 +1025,28 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 }
 
 // getIntervalQueryFromCommitRange takes a commit range and returns a RethinkDB
-// query that represents a stream of clocks in the commit range.  It also returns
-// the clocks for fromCommit and toCommit.
-func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit) (gorethink.Term, *persist.BranchClock, *persist.BranchClock, error) {
+// query that represents a stream of clocks in the commit range.
+func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit) (gorethink.Term, error) {
 	var err error
 	var fromClock *persist.BranchClock
 	if fromCommit != nil {
 		fromClock, err = d.getClockByAmbiguousID(fromCommit.Repo.Name, fromCommit.ID)
 		if err != nil {
-			return gorethink.Term{}, nil, nil, err
+			return gorethink.Term{}, err
 		}
 	}
 
 	toClock, err := d.getClockByAmbiguousID(toCommit.Repo.Name, toCommit.ID)
 	if err != nil {
-		return gorethink.Term{}, nil, nil, err
+		return gorethink.Term{}, err
 	}
 
 	query, err := intervalToClocks(fromClock, toClock, true)
 	if err != nil {
-		return gorethink.Term{}, nil, nil, err
+		return gorethink.Term{}, err
 	}
 
-	return query, fromClock, toClock, nil
+	return query, nil
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
