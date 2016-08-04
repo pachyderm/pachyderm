@@ -10,6 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
@@ -350,6 +352,7 @@ Files can be read from finished commits with get-file.`,
 	}
 
 	var filePath string
+	var recursive bool
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file",
@@ -370,32 +373,31 @@ Files can be read from finished commits with get-file.`,
 			if url, err := url.Parse(filePath); err == nil {
 				if len(args) < 3 {
 					return client.PutFileURL(args[0], args[1], url.Path, url.String())
-				} else {
-					return client.PutFileURL(args[0], args[1], args[2], url.String())
 				}
+				return client.PutFileURL(args[0], args[1], args[2], url.String())
 			}
-			f, err := os.Open(filePath)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
+			if !recursive {
+				if len(args) == 3 {
+					return cpFile(client, args[0], args[1], args[2], filePath)
 				}
-			}()
-			var p string
-			if len(args) == 3 {
-				p = args[2]
-			} else {
-				// If a path is not provided,
-				// use the basename of the file as the path
-				p = filepath.Base(filePath)
+				return cpFile(client, args[0], args[1], filePath, filePath)
 			}
-			_, err = client.PutFile(args[0], args[1], p, f)
-			return err
+			var eg errgroup.Group
+			filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+				if info.IsDir() {
+					return nil
+				}
+				if len(args) == 3 {
+					eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+				}
+				eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+				return nil
+			})
+			return eg.Wait()
 		}),
 	}
 	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 
 	var fromCommitID string
 	var fullFile bool
@@ -544,4 +546,18 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 		result = append(result, commitMount)
 	}
 	return result
+}
+
+func cpFile(client *client.APIClient, repo string, commit string, path string, filePath string) (retErr error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = client.PutFile(repo, commit, path, f)
+	return err
 }
