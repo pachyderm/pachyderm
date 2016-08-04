@@ -459,9 +459,20 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		}
 	}
 
+	// Update the size of the repo.  Note that there is a consistency issue here:
+	// If this transaction succeeds but the next one (updating Commit) fails,
+	// then the repo size will be wrong.
+	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
+		"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
+	}).Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+
 	rawCommit.Finished = finished
 	rawCommit.Cancelled = parentCancelled || cancel
 	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
+
 	return err
 }
 
