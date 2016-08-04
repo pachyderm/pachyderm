@@ -358,8 +358,12 @@ Files can be read from finished commits with get-file.`,
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
-Put data from stdin as repo/commit/path :
+Put data from stdin as repo/commit/path:
 	echo "data" | pachctl put-file repo commit path
+
+Start a new commmit on branch, put data from stdin as repo/branch/path and
+finish the commit:
+	echo "data" | pachctl put-file -c repo branch path
 
 Put a file from the local filesystem as repo/commit/path:
 	pachctl put-file repo commit path -f file
