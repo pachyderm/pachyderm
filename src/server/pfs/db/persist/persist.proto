@@ -23,6 +23,7 @@ message BranchClock {
 message Repo {
   string name = 1;
   google.protobuf.Timestamp created = 2;
+  uint64 size = 3;
 }
 
 message Branch {
