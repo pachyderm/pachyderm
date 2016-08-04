@@ -3,6 +3,7 @@ package cmds
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -365,6 +366,14 @@ Files can be read from finished commits with get-file.`,
 				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
 				return err
 			}
+			// try parsing the filename as a url, if it is one do a PutFileURL
+			if url, err := url.Parse(filePath); err == nil {
+				if len(args) < 3 {
+					return client.PutFileURL(args[0], args[1], url.Path, url.String())
+				} else {
+					return client.PutFileURL(args[0], args[1], args[2], url.String())
+				}
+			}
 			f, err := os.Open(filePath)
 			if err != nil {
 				return err
@@ -386,7 +395,7 @@ Files can be read from finished commits with get-file.`,
 			return err
 		}),
 	}
-	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
+	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put, it can be a local file or a URL.")
 
 	var fromCommitID string
 	var fullFile bool
