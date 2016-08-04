@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -364,14 +366,39 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 			return err
 		}
 	} else {
-		reader := putFileReader{
-			server: putFileServer,
+		var r io.Reader
+		var delimiter pfs.Delimiter
+		if request.Url != "" {
+			resp, err := http.Get(request.Url)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+			switch resp.Header.Get("Content-Type") {
+			case "application/json":
+				delimiter = pfs.Delimiter_JSON
+			case "application/text":
+				delimiter = pfs.Delimiter_LINE
+			default:
+				delimiter = pfs.Delimiter_NONE
+			}
+		} else {
+			reader := putFileReader{
+				server: putFileServer,
+			}
+			_, err = reader.buffer.Write(request.Value)
+			if err != nil {
+				return err
+			}
+			r = &reader
+			delimiter = request.Delimiter
 		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		if err := a.driver.PutFile(request.File, request.Handle, request.Delimiter, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, delimiter, shard, r); err != nil {
 			return err
 		}
 	}
