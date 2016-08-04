@@ -1173,20 +1173,35 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 	return parentCommit.ID, nil
 }
 
+// getCommitByAmbiguousID accepts a repo name and an ID, and returns a Commit object.
+// The ID can be of 3 forms:
+// 1. Database primary key: we are only supporting this case to maintain compatibility
+// of the existing tests.  We will remove support for this case eventually.  OBSOLETE
+// 2. branch/clock: like "master/3"
+// 3. branch: like "master".  This would represent the head of the branch.
 func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *persist.Commit, err error) {
 	alias, err := parseClock(commitID)
 
 	commit = &persist.Commit{}
 	if err != nil {
-		cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
-		if err != nil {
-			return nil, err
-		}
+		// We see if the commitID is a branch name
+		if err := d.getHeadOfBranch(repo, commitID, commit); err != nil {
+			if err != gorethink.ErrEmptyResult {
+				return nil, err
+			}
 
-		if err := cursor.One(commit); err != nil {
-			return nil, err
+			// If the commit ID is not a branch name, we see if it's a database key
+			cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := cursor.One(commit); err != nil {
+				return nil, err
+			}
 		}
 	} else {
+		// If we can't parse
 		if err := d.getMessageByIndex(commitTable, CommitBranchIndex, CommitBranchIndex.Key(repo, alias.Branch, alias.Clock), commit); err != nil {
 			return nil, err
 		}
