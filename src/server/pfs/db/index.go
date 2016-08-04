@@ -106,8 +106,8 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 			return row.Field("Path").Split("/").DeleteAt(-1).DeleteAt(0).Fold("", func(acc, part gorethink.Term) gorethink.Term {
 				return acc.Add("/").Add(part)
 			}, gorethink.FoldOpts{
-				Emit: func(acc, row, newAcc gorethink.Term) gorethink.Term {
-					return newAcc
+				Emit: func(acc, row, newAcc gorethink.Term) []interface{} {
+					return []interface{}{newAcc}
 				},
 			}).ConcatMap(func(path gorethink.Term) gorethink.Term {
 				return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
