@@ -111,7 +111,7 @@ func TestInvalidRepoRF(t *testing.T) {
 	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
-func TestSimple(t *testing.T) {
+func TestSimpleRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 
@@ -151,7 +151,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestBranch(t *testing.T) {
+func TestBranchRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 	repo := "test"
@@ -199,7 +199,7 @@ func TestBranch(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
-func TestDisallowReadsDuringCommit(t *testing.T) {
+func TestDisallowReadsDuringCommitWF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)
 	repo := "test"
