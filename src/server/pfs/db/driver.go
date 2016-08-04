@@ -721,7 +721,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	if err != nil {
 		return nil, err
 	}
-	return d.newFileReader(diff.BlockRefs, file, filterShard, offset, size), nil
+	return d.newFileReader(diff.BlockRefs, file, offset, size), nil
 }
 
 type fileReader struct {
@@ -731,17 +731,15 @@ type fileReader struct {
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
 	blockRefs   []*persist.BlockRef
-	filterShard *pfs.Shard
 	file        *pfs.File
 }
 
-func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, filterShard *pfs.Shard, offset int64, size int64) *fileReader {
+func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) *fileReader {
 	return &fileReader{
 		blockClient: d.blockClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
-		filterShard: filterShard,
 		file:        file,
 	}
 }
@@ -996,6 +994,10 @@ func (d *driver) getClockByAmbiguousID(repo string, commitID string) (*persist.B
 }
 
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit) (*persist.Diff, error) {
+	if !pfsserver.FileInShard(filterShard, file) {
+		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+	}
+
 	query, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1019,6 +1021,20 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 		}
 		return nil, err
+	}
+
+	if len(diff.BlockRefs) == 0 {
+		// If the file is empty, we want to make sure that it's seen by one shard.
+		if !pfsserver.BlockInShard(filterShard, file, nil) {
+			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
+	} else {
+		// If the file is not empty, we want to make sure to return NotFound if
+		// all blocks have been filtered out.
+		diff.BlockRefs = filterBlockRefs(filterShard, file, diff.BlockRefs)
+		if len(diff.BlockRefs) == 0 {
+			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
 	}
 
 	return diff, nil
