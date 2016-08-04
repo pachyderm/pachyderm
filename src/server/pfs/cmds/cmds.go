@@ -353,6 +353,7 @@ Files can be read from finished commits with get-file.`,
 
 	var filePath string
 	var recursive bool
+	var commitFlag bool
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -382,6 +383,18 @@ Put the data from a URL as repo/commit/url_path:
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
+			}
+			if commitFlag {
+				commit, err := client.StartCommit(args[0],
+					"", args[1])
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 			}
 			if filePath == "-" {
 				if len(args) < 3 {
@@ -419,6 +432,7 @@ Put the data from a URL as repo/commit/url_path:
 	}
 	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
+	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 
 	var fromCommitID string
 	var fullFile bool
