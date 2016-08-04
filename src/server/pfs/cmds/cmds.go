@@ -359,7 +359,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			if filePath == "" || filePath == "-" {
+			if filePath == "-" {
 				if len(args) < 3 {
 					return errors.New("either a path or the -f flag needs to be provided")
 				}
@@ -395,7 +395,7 @@ Files can be read from finished commits with get-file.`,
 			return err
 		}),
 	}
-	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
 
 	var fromCommitID string
 	var fullFile bool
