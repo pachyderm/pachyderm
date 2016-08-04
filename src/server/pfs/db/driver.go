@@ -405,6 +405,30 @@ type CommitChangeFeed struct {
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
+	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+	if err != nil {
+		return err
+	}
+
+	// Add up the sizes of all diffs to get the size of this commit
+	cursor, err := d.getTerm(diffTable).GetAllByIndex(
+		commit.ID,
+	).Reduce(func(left, right gorethink.Term) gorethink.Term {
+		return left.Merge(map[string]interface{}{
+			"Size": left.Field("Size").Add(right.Field("Size")),
+		})
+	}).Default(&persist.Diff{}).Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	var diff persist.Diff
+	if err := cursor.One(&diff); err != nil {
+		return err
+	}
+
+	rawCommit.Size = diff.Size
+
 	// OBSOLETE
 	// Once we move to the new implementation, we should be able to directly
 	// Infer the parentID using the given commit ID.
@@ -412,13 +436,6 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	if err != nil {
 		return err
 	}
-
-	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
-	if err != nil {
-		return err
-	}
-
-	// TODO: validate diffs
 
 	var parentCancelled bool
 	if parentID != "" {
@@ -552,7 +569,7 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	return nil
+	return errors.New("DeleteCommit is not supported")
 }
 
 // checkFileType returns an error if the given type conflicts with the preexisting
@@ -720,6 +737,9 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
+	}
+	if diff.FileType == persist.FileType_DIR {
+		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	}
 	return d.newFileReader(diff.BlockRefs, file, offset, size), nil
 }
