@@ -395,6 +395,28 @@ func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path s
 	return int(written), err
 }
 
+// PutFileURL puts a file using the content found at a URL.
+// The URL is sent to the server which performs the request.
+func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string) (retErr error) {
+	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	defer func() {
+		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
+			retErr = sanitizeErr(err)
+		}
+	}()
+	if err := putFileClient.Send(&pfs.PutFileRequest{
+		File:     NewFile(repoName, commitID, path),
+		FileType: pfs.FileType_FILE_TYPE_REGULAR,
+		Url:      url,
+	}); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
 // GetFile returns the contents of a file at a specific Commit.
 // offset specifies a number of bytes that should be skipped in the beginning of the file.
 // size limits the total amount of data returned, note you will get fewer bytes
