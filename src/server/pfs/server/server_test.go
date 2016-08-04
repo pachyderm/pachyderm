@@ -437,7 +437,7 @@ func TestDeleteCommitFuture(t *testing.T) {
 	require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
-func TestDeleteCommit(t *testing.T) {
+func TestDeleteCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -457,7 +457,7 @@ func TestDeleteCommit(t *testing.T) {
 	require.YesError(t, client.DeleteCommit(repo, commit.ID))
 }
 
-func TestPutFile(t *testing.T) {
+func TestPutFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -508,7 +508,7 @@ func TestPutFile(t *testing.T) {
 	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", nil, &buffer))
 }
 
-func TestListFileTwoCommits(t *testing.T) {
+func TestListFileTwoCommitsRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -546,7 +546,7 @@ func TestListFileTwoCommits(t *testing.T) {
 	require.Equal(t, 2*numFiles, len(fileInfos))
 }
 
-func TestPutSameFileInParallel(t *testing.T) {
+func TestPutSameFileInParallelRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -572,7 +572,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 }
 
-func TestInspectFile(t *testing.T) {
+func TestInspectFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 

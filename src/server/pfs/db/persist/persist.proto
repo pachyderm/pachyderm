@@ -65,4 +65,5 @@ message Commit {
   google.protobuf.Timestamp finished = 5;
   bool cancelled = 6;
   repeated string provenance = 7;
+  uint64 size = 8;
 }
