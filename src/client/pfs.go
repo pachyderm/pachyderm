@@ -159,6 +159,9 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
+// ArchiveCommit marks a commit as archived. Archived commits are not listed in
+// ListCommit unless commit status is set to Archived or All. Archived commits
+// are not considered by FlushCommit either.
 func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.ArchiveCommit(
 		context.Background(),
