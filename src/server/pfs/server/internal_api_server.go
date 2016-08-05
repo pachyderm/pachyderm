@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -262,6 +264,10 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	}
 	var provenanceRepos []*pfs.Repo
 	for _, commit := range request.Commit {
+		_, err := a.driver.InspectCommit(commit, shards)
+		if err != nil {
+			return nil, err
+		}
 		provenanceRepos = append(provenanceRepos, commit.Repo)
 	}
 	repoInfos, err := a.driver.ListRepo(provenanceRepos, shards)
@@ -380,14 +386,39 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 			return err
 		}
 	} else {
-		reader := putFileReader{
-			server: putFileServer,
+		var r io.Reader
+		var delimiter pfs.Delimiter
+		if request.Url != "" {
+			resp, err := http.Get(request.Url)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+			switch resp.Header.Get("Content-Type") {
+			case "application/json":
+				delimiter = pfs.Delimiter_JSON
+			case "application/text":
+				delimiter = pfs.Delimiter_LINE
+			default:
+				delimiter = pfs.Delimiter_NONE
+			}
+		} else {
+			reader := putFileReader{
+				server: putFileServer,
+			}
+			_, err = reader.buffer.Write(request.Value)
+			if err != nil {
+				return err
+			}
+			r = &reader
+			delimiter = request.Delimiter
 		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		if err := a.driver.PutFile(request.File, request.Handle, request.Delimiter, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, delimiter, shard, r); err != nil {
 			return err
 		}
 	}
@@ -405,7 +436,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 		return err
 	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes,
-		request.FromCommit, shard, request.Unsafe, request.Handle)
+		request.DiffMethod, shard, request.Unsafe, request.Handle)
 	if err != nil {
 		return err
 	}
@@ -427,7 +458,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe, request.Handle)
+	return a.driver.InspectFile(request.File, request.Shard, request.DiffMethod, shard, request.Unsafe, request.Handle)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -450,7 +481,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		go func() {
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard,
-				request.FromCommit, shard, request.Recurse, request.Unsafe, request.Handle)
+				request.DiffMethod, shard, request.Recurse, request.Unsafe, request.Handle)
 			_, ok := err.(*pfsserver.ErrFileNotFound)
 			if err != nil && !ok {
 				select {

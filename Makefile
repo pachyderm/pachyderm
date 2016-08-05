@@ -18,7 +18,7 @@ ifdef VENDOR_ALL
 	VENDOR_IGNORE_DIRS =
 endif
 
-COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
@@ -96,19 +96,33 @@ release-pachctl:
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
-docker-build-job-shim: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
+docker-clean-job-shim:
+	docker stop job_shim_compile || true
+	docker rm job_shim_compile || true
 
-docker-build-pachd: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+docker-build-job-shim: docker-clean-job-shim docker-build-compile
+	docker run --name job_shim_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
-docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
+docker-wait-job-shim:
+	docker wait job_shim_compile
 
-docker-build-proto:
-	docker build -t pachyderm_proto etc/proto
+docker-clean-pachd:
+	docker stop pachd_compile || true
+	docker rm pachd_compile || true
+
+docker-build-pachd: docker-clean-pachd docker-build-compile
+	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+
+docker-wait-pachd:
+	docker wait pachd_compile
 
 docker-build-fruitstand:
 	docker build -t fruit_stand examples/fruit_stand
+
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-fruitstand 
+
+docker-build-proto:
+	docker build -t pachyderm_proto etc/proto
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -240,6 +254,7 @@ google-cluster:
 
 clean-google-cluster:
 	gcloud container clusters delete $(CLUSTER_NAME)
+	gcloud compute firewall-rules delete pachd
 	gsutil -m rm -r gs://$(BUCKET_NAME)
 	gcloud compute disks delete $(STORAGE_NAME)
 

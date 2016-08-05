@@ -3,11 +3,14 @@ package cmds
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -353,47 +356,96 @@ Files can be read from finished commits with get-file.`,
 	}
 
 	var filePath string
+	var recursive bool
+	var commitFlag bool
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
-		Short: "Put a file",
-		Long:  "Put a file.  If the -f flag is not used, the data is read from stdin.  If the -f flag is used and a path is not provided, the base name of the file is used as the path.  commit-id must be an open commit.",
+		Short: "Put a file into the filesystem.",
+		Long: `Put-file supports a number of ways to insert data into pfs:
+Put data from stdin as repo/commit/path :
+	echo "data" | pachctl put-file repo commit path
+
+Put a file from the local filesystem as repo/commit/path:
+	pachctl put-file repo commit path -f file
+
+Put a file from the local filesystem as repo/commit/file:
+	pachctl put-file repo commit -f file
+
+Put the contents of a directory as repo/commit/path/dir/file:
+	pachctl put-file -r repo commit path -f dir
+
+Put the contents of a directory as repo/commit/dir/file:
+	pachctl put-file -r repo commit -f dir
+
+Put the data from a URL as repo/commit/path:
+	pachctl put-file repo commit path -f http://host/url_path
+
+Put the data from a URL as repo/commit/url_path:
+	pachctl put-file repo commit -f http://host/url_path
+`,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			if filePath == "" || filePath == "-" {
+			if commitFlag {
+				commit, err := client.StartCommit(args[0],
+					"", args[1])
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+			}
+			if filePath == "-" {
 				if len(args) < 3 {
 					return errors.New("either a path or the -f flag needs to be provided")
 				}
 				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
 				return err
 			}
-			f, err := os.Open(filePath)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
+			// try parsing the filename as a url, if it is one do a PutFileURL
+			if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+				if len(args) < 3 {
+					return client.PutFileURL(args[0], args[1], url.Path, url.String())
 				}
-			}()
-			var p string
-			if len(args) == 3 {
-				p = args[2]
-			} else {
-				// If a path is not provided,
-				// use the basename of the file as the path
-				p = filepath.Base(filePath)
+				return client.PutFileURL(args[0], args[1], args[2], url.String())
 			}
-			_, err = client.PutFile(args[0], args[1], p, f)
-			return err
+			if !recursive {
+				if len(args) == 3 {
+					return cpFile(client, args[0], args[1], args[2], filePath)
+				}
+				return cpFile(client, args[0], args[1], filePath, filePath)
+			}
+			var eg errgroup.Group
+			filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+				if info.IsDir() {
+					return nil
+				}
+				if len(args) == 3 {
+					eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+				}
+				eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+				return nil
+			})
+			return eg.Wait()
 		}),
 	}
-	putFile.Flags().StringVarP(&filePath, "file", "f", "", "The file to be put")
+	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
+	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 
 	var fromCommitID string
+	var fullFile bool
 	var unsafe bool
+	addFileFlags := func(cmd *cobra.Command) {
+		cmd.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
+		cmd.Flags().BoolVar(&fullFile, "full-file", false, "if there has been data since the from commit return the full file")
+		cmd.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
+	}
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -403,12 +455,11 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, shard(), os.Stdout)
+			return client.GetFile(args[0], args[1], args[2], 0, 0, fromCommitID, fullFile, shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
-	getFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
-	getFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(getFile)
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -419,7 +470,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			fileInfo, err := client.InspectFile(args[0], args[1], args[2], "", shard())
+			fileInfo, err := client.InspectFile(args[0], args[1], args[2], fromCommitID, fullFile, shard())
 			if err != nil {
 				return err
 			}
@@ -430,7 +481,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(inspectFile)
-	inspectFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to inspect files written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(inspectFile)
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -445,7 +496,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, shard(), true)
+			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), true)
 			if err != nil {
 				return err
 			}
@@ -458,8 +509,7 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 	addShardFlags(listFile)
-	listFile.Flags().StringVarP(&fromCommitID, "from", "f", "", "only list files that are written since this commit")
-	listFile.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to list files written in the current commit; this operation will race with concurrent writes")
+	addFileFlags(listFile)
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
@@ -535,4 +585,18 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 		result = append(result, commitMount)
 	}
 	return result
+}
+
+func cpFile(client *client.APIClient, repo string, commit string, path string, filePath string) (retErr error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = client.PutFile(repo, commit, path, f)
+	return err
 }

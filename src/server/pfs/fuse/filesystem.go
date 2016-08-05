@@ -218,6 +218,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
+		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
 		f.fs.handleID,
 	)
@@ -273,6 +274,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
+		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
 		f.fs.handleID,
 	)
@@ -378,6 +380,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		request.Offset,
 		int64(request.Size),
 		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
+		h.f.fs.getFullFile(h.f.getRepoOrAliasName()),
 		h.f.Shard,
 		h.f.fs.handleID,
 		&buffer,
@@ -508,10 +511,18 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 
 func (f *filesystem) getFromCommitID(nameOrAlias string) string {
 	commitMount := f.getCommitMount(nameOrAlias)
-	if commitMount == nil || commitMount.FromCommit == nil {
+	if commitMount == nil || commitMount.DiffMethod == nil || commitMount.DiffMethod.FromCommit == nil {
 		return ""
 	}
-	return commitMount.FromCommit.ID
+	return commitMount.DiffMethod.FromCommit.ID
+}
+
+func (f *filesystem) getFullFile(nameOrAlias string) bool {
+	commitMount := f.getCommitMount(nameOrAlias)
+	if commitMount == nil || commitMount.DiffMethod == nil {
+		return false
+	}
+	return commitMount.DiffMethod.FullFile
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
@@ -580,6 +591,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
 		d.fs.getFromCommitID(d.getRepoOrAliasName()),
+		d.fs.getFullFile(d.getRepoOrAliasName()),
 		d.Shard,
 		d.fs.handleID,
 	)
@@ -648,6 +660,7 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		d.File.Commit.ID,
 		d.File.Path,
 		d.fs.getFromCommitID(d.getRepoOrAliasName()),
+		d.fs.getFullFile(d.getRepoOrAliasName()),
 		d.Shard,
 		// setting recurse to false for performance reasons
 		// it does however means that we won't know the correct sizes of directories
