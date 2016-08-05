@@ -52,6 +52,13 @@ const (
 	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
 )
 
+const (
+	CommitStatusNormal    = pfs.CommitStatus_NORMAL
+	CommitStatusArchived  = pfs.CommitStatus_ARCHIVED
+	CommitStatusCancelled = pfs.CommitStatus_CANCELLED
+	CommitStatusAll       = pfs.CommitStatus_ALL
+)
+
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
