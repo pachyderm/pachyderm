@@ -68,7 +68,7 @@ containers in Pachyderm, it really is!
 
 The most exciting thing about this vision though is what comes next. Pachyderm
 can do big data with _anything_ that runs in a container. And anything you build can be
-easily shared with the rest of the community, afterall it's just a
+easily shared with the rest of the community, after all it's just a
 container so it's completely reusable and will run the same every time. We have some ideas of our own about what the best starting building blocks will be, but it's just the
 tip of the iceburg -- we expect our users will have many more interesting ideas.
 We can't wait to see what they are!
