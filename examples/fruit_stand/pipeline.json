@@ -42,7 +42,7 @@
       },
       "method": {
         "partition": "file",
-        "incremental": true
+        "incremental": "DIFF"
       }
     }
   ]

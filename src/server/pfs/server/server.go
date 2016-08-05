@@ -55,12 +55,17 @@ func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIS
 func NewBlockAPIServer(dir string, backend string) (pfsclient.BlockAPIServer, error) {
 	switch backend {
 	case AmazonBackendEnvVar:
+		// amazon doesn't like leading slashes
+		if dir[0] == '/' {
+			dir = dir[1:]
+		}
 		blockAPIServer, err := newAmazonBlockAPIServer(dir)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case GoogleBackendEnvVar:
+		// TODO figure out if google likes leading slashses
 		blockAPIServer, err := newGoogleBlockAPIServer(dir)
 		if err != nil {
 			return nil, err

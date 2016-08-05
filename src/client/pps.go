@@ -20,22 +20,22 @@ var (
 	// MapMethod defines a pps.Method for mapper pipelines.
 	MapMethod = &pps.Method{
 		Partition:   pps.Partition_BLOCK,
-		Incremental: true,
+		Incremental: pps.Incremental_DIFF,
 	}
 	// ReduceMethod defines a pps.Method for non-incremental reducer pipelines.
 	ReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
-		Incremental: false,
+		Incremental: pps.Incremental_NONE,
 	}
 	// IncrementalReduceMethod defines a pps.Method for incremental reducer pipelines.
 	IncrementalReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
-		Incremental: true,
+		Incremental: pps.Incremental_DIFF,
 	}
 	// GlobalMethod defines a pps.Method for non-incremental, non-partitioned pipelines.
 	GlobalMethod = &pps.Method{
 		Partition:   pps.Partition_REPO,
-		Incremental: false,
+		Incremental: pps.Incremental_NONE,
 	}
 	// DefaultMethod defines the default pps.Method for a pipeline.
 	DefaultMethod = MapMethod

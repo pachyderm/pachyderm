@@ -13,6 +13,13 @@ This document discusses each of the fields present in a pipeline specification. 
     "image": string,
     "cmd": [ string ],
     "stdin": [ string ]
+    "env": {
+        "foo": "bar"
+    },
+    "secrets": [ {
+        "name": "secret_name",
+        "mountPath": "/path/in/container"
+    } ]
   },
   "parallelism": int,
   "inputs": [
@@ -44,6 +51,10 @@ This document discusses each of the fields present in a pipeline specification. 
 `transform.cmd` is the command passed to the Docker run invocation.  Note that as with Docker, cmd is not run inside a shell which means that things like wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not work.  To get that behavior, you can set `cmd` to be a shell of your choice (e.g. `sh`) and pass a shell script to stdin.
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
+
+`transform.env is a map from key to value of environment variables that will be injected into the container
+
+`transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
 
 ### Parallelism
 

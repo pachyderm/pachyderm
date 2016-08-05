@@ -660,10 +660,10 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 }
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
+	size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, diffMethod, false, unsafe, handle)
 	if err != nil {
 		return nil, err
 	}
@@ -677,17 +677,17 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, diffMethod, false, unsafe, handle)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, false, unsafe, handle)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, diffMethod, false, unsafe, handle)
 	if err != nil {
 		return nil, err
 	}
@@ -696,7 +696,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, recurse, unsafe, handle)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, diffMethod, recurse, unsafe, handle)
 		_, ok := err.(*pfsserver.ErrFileNotFound)
 		if err != nil && !ok {
 			return nil, err
@@ -1054,12 +1054,26 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 	return pfs.FileType_FILE_TYPE_NONE, nil
 }
 
+func fromCommitID(diffMethod *pfs.DiffMethod) string {
+	if diffMethod == nil || diffMethod.FromCommit == nil {
+		return ""
+	}
+	return diffMethod.FromCommit.ID
+}
+
+func fullFile(diffMethod *pfs.DiffMethod) bool {
+	if diffMethod == nil {
+		return false
+	}
+	return diffMethod.FullFile
+}
+
 // If recurse is set to true, and if the file being inspected is a directory,
 // its children will have the correct sizes.  If recurse is false and the file
 // is a directory, its children will have size of 0.
 // If unsafe is set to true, you can inspect files in an open commit
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64,
-	from *pfs.Commit, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+	diffMethod *pfs.DiffMethod, recurse bool, unsafe bool, handle string) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	var blocksSeen bool // whether this file contains any blocks at all
@@ -1069,7 +1083,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if err != nil {
 		return nil, nil, err
 	}
-	for commit != nil && (from == nil || commit.ID != from.ID) {
+	for commit != nil && (commit.ID != fromCommitID(diffMethod) || (fullFile(diffMethod) && blocksSeen)) {
 		diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if !ok {
 			return nil, nil, pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
@@ -1135,7 +1149,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 								childFileInfo, _, err := d.inspectFile(&pfs.File{
 									Commit: file.Commit,
 									Path:   child,
-								}, filterShard, shard, from, recurse, unsafe, handle)
+								}, filterShard, shard, diffMethod, recurse, unsafe, handle)
 								if err != nil {
 									return nil, nil, err
 								}
@@ -1327,8 +1341,6 @@ type fileReader struct {
 	offset      int64
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
-	ctx         context.Context
-	cancel      context.CancelFunc
 }
 
 func newFileReader(blockClient pfs.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {

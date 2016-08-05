@@ -70,12 +70,12 @@ The increase the throughput of a job increase the Shard paremeter.
 		}),
 	}
 
-	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest())
+	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec())
+	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec)
 	if err != nil {
 		return nil, err
 	}
