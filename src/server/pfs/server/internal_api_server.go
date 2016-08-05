@@ -412,45 +412,10 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
+	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
+		request.FromCommit, 0, request.Recurse, request.Unsafe, request.Handle)
 	if err != nil {
 		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var fileInfos []*pfs.FileInfo
-	errCh := make(chan error, 1)
-	for shard := range shards {
-		shard := shard
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard,
-				request.FromCommit, shard, request.Recurse, request.Unsafe, request.Handle)
-			_, ok := err.(*pfsserver.ErrFileNotFound)
-			if err != nil && !ok {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-			lock.Lock()
-			defer lock.Unlock()
-			fileInfos = append(fileInfos, subFileInfos...)
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,

@@ -208,8 +208,9 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *
 		return nil, err
 	}
 	repoInfo = &pfs.RepoInfo{
-		Repo:    &pfs.Repo{rawRepo.Name},
-		Created: rawRepo.Created,
+		Repo:      &pfs.Repo{rawRepo.Name},
+		Created:   rawRepo.Created,
+		SizeBytes: rawRepo.Size,
 	}
 	return repoInfo, nil
 }
@@ -219,23 +220,17 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoI
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := cursor.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	for {
-		repo := &persist.Repo{}
-		if !cursor.Next(repo) {
-			break
-		}
-		repoInfos = append(repoInfos, &pfs.RepoInfo{
-			Repo:    &pfs.Repo{repo.Name},
-			Created: repo.Created,
-		})
-	}
-	if err := cursor.Err(); err != nil {
+	var repos []*persist.Repo
+	if err := cursor.All(&repos); err != nil {
 		return nil, err
+	}
+
+	for _, repo := range repos {
+		repoInfos = append(repoInfos, &pfs.RepoInfo{
+			Repo:      &pfs.Repo{repo.Name},
+			Created:   repo.Created,
+			SizeBytes: repo.Size,
+		})
 	}
 	return repoInfos, nil
 }
@@ -403,6 +398,29 @@ type CommitChangeFeed struct {
 	NewVal *persist.Commit `gorethink:"new_val,omitempty"`
 }
 
+// Given a commitID (database primary key), compute the size of the commit
+// using diffs.
+func (d *driver) computeCommitSize(commitID string) (uint64, error) {
+	cursor, err := d.getTerm(diffTable).GetAllByIndex(
+		DiffCommitIndex.GetName(),
+		commitID,
+	).Reduce(func(left, right gorethink.Term) gorethink.Term {
+		return left.Merge(map[string]interface{}{
+			"Size": left.Field("Size").Add(right.Field("Size")),
+		})
+	}).Default(&persist.Diff{}).Run(d.dbClient)
+	if err != nil {
+		return 0, err
+	}
+
+	var diff persist.Diff
+	if err := cursor.One(&diff); err != nil {
+		return 0, err
+	}
+
+	return diff.Size, nil
+}
+
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
@@ -410,24 +428,10 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 
-	// Add up the sizes of all diffs to get the size of this commit
-	cursor, err := d.getTerm(diffTable).GetAllByIndex(
-		commit.ID,
-	).Reduce(func(left, right gorethink.Term) gorethink.Term {
-		return left.Merge(map[string]interface{}{
-			"Size": left.Field("Size").Add(right.Field("Size")),
-		})
-	}).Default(&persist.Diff{}).Run(d.dbClient)
+	rawCommit.Size, err = d.computeCommitSize(rawCommit.ID)
 	if err != nil {
 		return err
 	}
-
-	var diff persist.Diff
-	if err := cursor.One(&diff); err != nil {
-		return err
-	}
-
-	rawCommit.Size = diff.Size
 
 	// OBSOLETE
 	// Once we move to the new implementation, we should be able to directly
@@ -461,10 +465,10 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 
 	// Update the size of the repo.  Note that there is a consistency issue here:
 	// If this transaction succeeds but the next one (updating Commit) fails,
-	// then the repo size will be wrong.
+	// then the repo size will be wrong.  TODO
 	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
 		"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
-	}).Run(d.dbClient)
+	}).RunWrite(d.dbClient)
 	if err != nil {
 		return err
 	}
@@ -482,6 +486,12 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (comm
 		return nil, err
 	}
 	commitInfo = rawCommitToCommitInfo(rawCommit)
+	if commitInfo.Finished == nil {
+		commitInfo.SizeBytes, err = d.computeCommitSize(rawCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// OBSOLETE
 	// Old API Server expects request commit ID to match results commit ID
 	commitInfo.Commit.ID = commit.ID
@@ -507,6 +517,7 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 		Finished:   rawCommit.Finished,
 		Cancelled:  rawCommit.Cancelled,
 		CommitType: commitType,
+		SizeBytes:  rawCommit.Size,
 	}
 }
 
@@ -737,7 +748,7 @@ func fixPath(file *pfs.File) {
 	if len(file.Path) == 0 || file.Path[0] != '/' {
 		file.Path = "/" + file.Path
 	}
-	if file.Path[len(file.Path)-1] == '/' {
+	if len(file.Path) > 1 && file.Path[len(file.Path)-1] == '/' {
 		file.Path = file.Path[:len(file.Path)-1]
 	}
 }
@@ -1098,6 +1109,22 @@ func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommi
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
+	// We treat the root directory specially: we know that it's a directory
+	if file.Path != "/" {
+		fileInfo, err := d.InspectFile(file, filterShard, from, shard, unsafe, handle)
+		if err != nil {
+			return nil, err
+		}
+		switch fileInfo.FileType {
+		case pfs.FileType_FILE_TYPE_REGULAR:
+			return []*pfs.FileInfo{fileInfo}, nil
+		case pfs.FileType_FILE_TYPE_DIR:
+			break
+		default:
+			return nil, fmt.Errorf("unrecognized file type %d; this is likely a bug", fileInfo.FileType)
+		}
+	}
+
 	var diffs []*persist.Diff
 	var err error
 	if recurse {
