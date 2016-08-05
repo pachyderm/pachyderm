@@ -52,6 +52,7 @@ const (
 	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
 )
 
+// CommitStatus alias pfs.CommitStatus_*
 const (
 	CommitStatusNormal    = pfs.CommitStatus_NORMAL
 	CommitStatusArchived  = pfs.CommitStatus_ARCHIVED
