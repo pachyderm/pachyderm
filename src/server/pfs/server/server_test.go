@@ -727,7 +727,7 @@ func TestDeleteFileRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestInspectDir(t *testing.T) {
+func TestInspectDirRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -758,7 +758,7 @@ func TestInspectDir(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestDeleteDir(t *testing.T) {
+func TestDeleteDirRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -775,26 +775,22 @@ func TestDeleteDir(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "dir/bar", strings.NewReader("bar1"))
 	require.NoError(t, err)
 
-	// Since the directory did not exist before this commit, this should error
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "dir", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "dir", false, ""))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	// Should see one directory
 	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, 0, len(fileInfos))
 
 	// dir should not exist
 	_, err = client.InspectFile(repo, commit1.ID, "dir", "", nil)
-	require.NoError(t, err)
+	require.YesError(t, err)
 
 	// Commit 2: Delete the directory and add the same two files
 	// The two files should reflect the new content
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
-
-	require.NoError(t, client.DeleteFile(repo, commit2.ID, "dir", false, ""))
 
 	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
 	require.NoError(t, err)
