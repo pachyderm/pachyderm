@@ -24,6 +24,7 @@ import (
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -828,6 +829,36 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+			return nil, err
+		}
+		// Downstream pipelines need to be restarted as well so that they know
+		// there's new stuff to process.
+		repoInfos, err := pfsAPIClient.ListRepo(
+			ctx,
+			&pfsclient.ListRepoRequest{
+				Provenance: []*pfsclient.Repo{client.NewRepo(request.Pipeline.Name)},
+			})
+		if err != nil {
+			return nil, err
+		}
+		var eg errgroup.Group
+		for _, repoInfo := range repoInfos.RepoInfo {
+			repoInfo := repoInfo
+			eg.Go(func() error {
+				// here we use the fact that pipelines have the same names as their output repos
+				request := &persist.UpdatePipelineStoppedRequest{PipelineName: repoInfo.Repo.Name}
+				request.Stopped = true
+				if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+					return err
+				}
+				request.Stopped = false
+				if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+					return err
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
 			return nil, err
 		}
 	}
