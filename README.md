@@ -5,7 +5,6 @@
 * [Getting Started](http://pachyderm.readthedocs.io/)
 * [What is Pachyderm?](#what-is-pachyderm)
 * [What's new about Pachyderm? (How is it different from Hadoop?)](#whats-new-about-pachyderm-how-is-it-different-from-hadoop)
-* [The Vision](#our-vision)
 * [Contributing](#contributing)
 * [Join Us](#join-us)
 * [Usage Metrics](#usage-metrics)
@@ -43,23 +42,6 @@ engine. Pachyderm understands how your data changes and thus, as new data
 is ingested, can run your workload on the _diff_ of the data rather than the
 whole thing. This means that there's no difference between a batched job and
 a streaming job, the same code will work for both!
-
-### The Vision
-
-Containers are a revolutionary new technology with a compelling application to
-big data. Our goal is to fully realize that use case. Hadoop has spawned a
-sprawling ecosystem of tools but with each new tool the complexity of your
-cluster grows until maintaining it becomes a full-time job. Containers are the
-_perfect_ antidote to this problem. What if adding a new tool to your data
-infrastructure was as easy as installing an app? Thanks to the magic of
-containers in Pachyderm, it really is!
-
-The most exciting thing about this vision though is what comes next. Pachyderm
-can do big data with _anything_ that runs in a container. And anything you build can be
-easily shared with the rest of the community, after all it's just a
-container so it's completely reusable and will run the same every time. We have some ideas of our own about what the best starting building blocks will be, but it's just the
-tip of the iceburg -- we expect our users will have many more interesting ideas.
-We can't wait to see what they are!
 
 ### Contributing
 
