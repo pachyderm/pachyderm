@@ -2,17 +2,13 @@
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 
-* [News](#news)
 * [Getting Started](http://pachyderm.readthedocs.io/)
 * [What is Pachyderm?](#what-is-pachyderm)
 * [What's new about Pachyderm? (How is it different from Hadoop?)](#whats-new-about-pachyderm-how-is-it-different-from-hadoop)
 * [The Vision](#our-vision)
 * [Contributing](#contributing)
+* [Join Us](#join-us)
 * [Usage Metrics](#usage-metrics)
-
-### News
-
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ### Getting Started
 
@@ -20,18 +16,10 @@ Refer to our [developer docs](http://pachyderm.readthedocs.io) to get started.
 
 ### What is Pachyderm?
 
-Pachyderm is a big-data processing platform.
+Pachyderm is a software platform the supports the storage and processing of large data sets.
 Pachyderm is inspired by the Hadoop ecosystem but _shares no code_ with it.
 Instead, we leverage the container ecosystem to provide the broad functionality
 of Hadoop with the ease of use of Docker.
-
-Pachyderm offers the following core functionality:
-
-- Tracking of data history, provenance and ownership. (Version Control for data).
-- Automatic processing on new data as it’s ingested. (Streaming).
-- Chaining data processors together. (Pipelining)
-- Scalable storage for any data. (Distributed data store)
-- Scalable data processing via containers. (Distributed data processing engine)
 
 ### What's new about Pachyderm? (How is it different from Hadoop?)
 
@@ -78,6 +66,10 @@ We can't wait to see what they are!
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
 Send us PRs, we would love to see what you do!
+
+### Join Us
+
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ### Usage Metrics
 
