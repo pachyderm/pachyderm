@@ -684,6 +684,9 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		}
 	}
 
+	// Actually, we don't know if Rethink actually inserts these documents in
+	// order.  If it doesn't, then we might end up with "/foo/bar" but not
+	// "/foo", which is kinda problematic.
 	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
 		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
 			return gorethink.Branch(
@@ -1165,24 +1168,66 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
 	fixPath(file)
+
 	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.getTerm(diffTable).Insert(&persist.Diff{
-		ID:           getDiffID(commit.ID, file.Path),
-		CommitID:     commit.ID,
-		Repo:         commit.Repo,
-		Path:         file.Path,
-		BlockRefs:    nil,
-		Delete:       true,
-		Size:         0,
-		BranchClocks: commit.BranchClocks,
-		FileType:     persist.FileType_NONE,
-	}, gorethink.InsertOpts{
+	query, err := d.getIntervalQueryFromCommitRange(nil, file.Commit)
+	if err != nil {
+		return err
+	}
+
+	repo := commit.Repo
+	commitID := commit.ID
+	prefix := file.Path
+
+	// Get all files under the directory, ordered by path.
+	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
+		return DiffPrefixIndex.Key(repo, prefix, clocks)
+	}).EqJoin(func(x gorethink.Term) gorethink.Term {
+		// no-op
+		return x
+	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
+		Index: DiffPrefixIndex.GetName(),
+	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+		return diff.Field("FileType").Ne(persist.FileType_NONE)
+	}).Field("Path").Run(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	var paths []string
+	if err := cursor.All(&paths); err != nil {
+		return err
+	}
+	paths = append(paths, prefix)
+
+	var diffs []*persist.Diff
+	for _, path := range paths {
+		diffs = append(diffs, &persist.Diff{
+			ID:           getDiffID(commitID, path),
+			CommitID:     commitID,
+			Repo:         repo,
+			Path:         path,
+			BlockRefs:    nil,
+			Delete:       true,
+			Size:         0,
+			BranchClocks: commit.BranchClocks,
+			FileType:     persist.FileType_NONE,
+		})
+	}
+
+	// TODO: ideally we want to insert the documents ordered by their path,
+	// where we insert the leaves first all the way to the root.  That way
+	// we ensure the consistency of the file system: it's ok if we've removed
+	// "/foo/bar" but not "/foo", but it's problematic if we've removed "/foo"
+	// but not "/foo/bar"
+	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
 		Conflict: "replace",
 	}).RunWrite(d.dbClient)
+
 	return err
 }
 

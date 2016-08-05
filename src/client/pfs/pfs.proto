@@ -66,6 +66,11 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
+enum MergeStrategy {
+  SQUASH = 0;
+  REPLAY = 1;
+}
+
 enum FileType {
   FILE_TYPE_NONE = 0;
   FILE_TYPE_REGULAR = 1;

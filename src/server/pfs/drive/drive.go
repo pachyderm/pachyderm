@@ -62,6 +62,8 @@ type PfsRefactorDriver interface {
 	DeleteAll() error
 	AddShard() error
 	DeleteShard() error
+	Squash(from []*pfs.Commit, to *pfs.Commit) error
+	Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) error
 	Dump()
 }
 
