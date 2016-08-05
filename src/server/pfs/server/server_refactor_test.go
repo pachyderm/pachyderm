@@ -605,3 +605,22 @@ func TestNEWAPIPutFileTypeConflictRF(t *testing.T) {
 	require.YesError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 }
+
+func TestRootDirectoryRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err := client.ListFile(repo, "master", "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+}

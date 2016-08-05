@@ -241,7 +241,7 @@ func TestDisallowReadsDuringCommitWF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestInspectRepoSimple(t *testing.T) {
+func TestInspectRepoSimpleRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -267,7 +267,7 @@ func TestInspectRepoSimple(t *testing.T) {
 	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
 }
 
-func TestInspectRepoComplex(t *testing.T) {
+func TestInspectRepoComplexRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -369,7 +369,7 @@ func TestDeleteRepoRF(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
-func TestInspectCommit(t *testing.T) {
+func TestInspectCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -636,7 +636,7 @@ func TestInspectFileRF(t *testing.T) {
 	require.Equal(t, len(fileInfos), 2)
 }
 
-func TestListFile(t *testing.T) {
+func TestListFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -659,16 +659,16 @@ func TestListFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit.ID, "dir", "", nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
 	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo", "", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo")
 }
 
-func TestDeleteFile(t *testing.T) {
+func TestDeleteFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -687,45 +687,43 @@ func TestDeleteFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "bar", strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	// The deletion should fail because the file did not exist before this commit,
-	// and files written in the current commit should not be visible yet.
-	require.YesError(t, client.DeleteFile(repo, commit1.ID, "foo", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "foo", false, ""))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	// foo should still be here because we can't remove a file that we are adding
 	// in the same commit
 	_, err = client.InspectFile(repo, commit1.ID, "foo", "", nil)
-	require.NoError(t, err)
+	require.YesError(t, err)
 
-	// Should see two files
+	// Should see one files
 	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
 	// Empty commit
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	// Should still see two files
+	// Should still see one files
 	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 
-	// Delete foo
+	// Delete bar
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "foo", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar", false, ""))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see one file
 	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, 0, len(fileInfos))
 
 	// The removed file should not exist
-	_, err = client.InspectFile(repo, commit3.ID, "foo", "", nil)
+	_, err = client.InspectFile(repo, commit3.ID, "bar", "", nil)
 	require.YesError(t, err)
 }
 

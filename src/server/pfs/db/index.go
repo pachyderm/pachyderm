@@ -90,8 +90,10 @@ func (i *diffPathIndex) Key(repo interface{}, path interface{}, clock interface{
 // Example:
 // For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
 // We'd have the following index entries:
+// ["/", [(master, 1)]]
 // ["/foo", [(master, 1)]]
 // ["/foo/bar", [(master, 1)]]
+// ["/", [(master, 0), (foo, 2)]]
 // ["/foo", [(master, 0), (foo, 2)]]
 // ["/foo/bar", [(master, 0), (foo, 2)]]
 type diffPrefixIndex struct {
@@ -103,8 +105,12 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 		Name:  "DiffPrefixIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			return row.Field("Path").Split("/").DeleteAt(-1).DeleteAt(0).Fold("", func(acc, part gorethink.Term) gorethink.Term {
-				return acc.Add("/").Add(part)
+			return row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+				return gorethink.Branch(
+					acc.Eq("/"),
+					acc.Add(part),
+					acc.Add("/").Add(part),
+				)
 			}, gorethink.FoldOpts{
 				Emit: func(acc, row, newAcc gorethink.Term) []interface{} {
 					return []interface{}{newAcc}
@@ -141,8 +147,12 @@ func NewDiffParentIndex() *diffParentIndex {
 		Name:  "DiffParentIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			parent := row.Field("Path").Split("/").DeleteAt(-1).DeleteAt(0).Fold("", func(acc, part gorethink.Term) gorethink.Term {
-				return acc.Add("/").Add(part)
+			parent := row.Field("Path").Split("/").DeleteAt(-1).Fold("", func(acc, part gorethink.Term) gorethink.Term {
+				return gorethink.Branch(
+					acc.Eq("/"),
+					acc.Add(part),
+					acc.Add("/").Add(part),
+				)
 			})
 			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
 				return []interface{}{row.Field("Repo"), parent, persist.BranchClockToArray(branchClock)}
