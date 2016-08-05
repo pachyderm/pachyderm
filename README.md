@@ -20,18 +20,18 @@ Refer to our [developer docs](http://pachyderm.readthedocs.io) to get started.
 
 ### What is Pachyderm?
 
-Pachyderm is a Data Lake -- a place to dump and process gigantic data sets.
+Pachyderm is a big-data processing platform.
 Pachyderm is inspired by the Hadoop ecosystem but _shares no code_ with it.
 Instead, we leverage the container ecosystem to provide the broad functionality
 of Hadoop with the ease of use of Docker.
 
 Pachyderm offers the following core functionality:
 
-- Virtually limitless storage for any data.
-- Virtually limitless processing power using any tools via containers.
 - Tracking of data history, provenance and ownership. (Version Control for data).
 - Automatic processing on new data as it’s ingested. (Streaming).
-- Chaining jobs together. (Pipelining)
+- Chaining data processors together. (Pipelining)
+- Scalable storage for any data. (Distributed data store)
+- Scalable data processing via containers. (Distributed data processing engine)
 
 ### What's new about Pachyderm? (How is it different from Hadoop?)
 
@@ -42,7 +42,7 @@ There are two bold new ideas in Pachyderm:
 
 These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand)).
+To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand)).
 
 Pachyderm also version controls all data using a commit-based distributed
 filesystem (PFS), similar to what git does with code. Version control for data
