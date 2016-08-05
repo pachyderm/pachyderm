@@ -39,30 +39,29 @@ var (
 	suite   = "pachyderm"
 )
 
-// NewErrJobNotFound creates a job-not-found error.
-func NewErrJobNotFound(job string) error {
+func newErrJobNotFound(job string) error {
 	return fmt.Errorf("job %v not found", job)
 }
 
-// NewErrPipelineNotFound creates a pipeline-not-found error.
-func NewErrPipelineNotFound(pipeline string) error {
+func newErrPipelineNotFound(pipeline string) error {
 	return fmt.Errorf("pipeline %v not found", pipeline)
 }
 
-// ErrEmptyInput is an input returned for empty inputs.
-type ErrEmptyInput struct {
+func newErrPipelineExists(pipeline string) error {
+	return fmt.Errorf("pipeline %v already exists", pipeline)
+}
+
+type errEmptyInput struct {
 	error
 }
 
-// NewErrEmptyInput creates a new ErrEmptyInput
-func NewErrEmptyInput(commitID string) *ErrEmptyInput {
-	return &ErrEmptyInput{
+func newerrEmptyInput(commitID string) *errEmptyInput {
+	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
 }
 
-// NewErrParentInputsMismatch creates an error for mismatched job parents.
-func NewErrParentInputsMismatch(parent string) error {
+func newErrParentInputsMismatch(parent string) error {
 	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
@@ -166,12 +165,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 		// Check that the parent job has the same set of inputs as the current job
 		if len(parentJobInfo.Inputs) != len(request.Inputs) {
-			return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
+			return nil, newErrParentInputsMismatch(parentJobInfo.JobID)
 		}
 
 		for i, input := range request.Inputs {
 			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
-				return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
+				return nil, newErrParentInputsMismatch(parentJobInfo.JobID)
 			}
 		}
 	}
@@ -328,7 +327,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 		}
 
 		if commitInfo.SizeBytes == 0 {
-			return nil, NewErrEmptyInput(input.Commit.ID)
+			return nil, newerrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -507,7 +506,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		return err
 	}
 	if len(pods) == 0 {
-		return NewErrJobNotFound(request.Job.ID)
+		return newErrJobNotFound(request.Job.ID)
 	}
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(pods))
@@ -774,6 +773,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		provenance = append(provenance, input.Repo)
 	}
 	if !request.Update { // repo exists if it's an update
+		// This function needs to return newErrPipelineExists if the pipeline
+		// already exists
+		if _, err := a.InspectPipeline(
+			ctx,
+			&ppsclient.InspectPipelineRequest{Pipeline: request.Pipeline},
+		); err == nil {
+			return nil, newErrPipelineExists(request.Pipeline.Name)
+		}
 		if _, err := pfsAPIClient.CreateRepo(
 			ctx,
 			&pfsclient.CreateRepoRequest{
@@ -1239,7 +1246,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParentJob:   parentJob,
 					},
 				)
-				_, ok := err.(*ErrEmptyInput)
+				_, ok := err.(*errEmptyInput)
 				if err != nil && !ok {
 					return err
 				}
