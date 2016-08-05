@@ -2259,7 +2259,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file1\n", buffer.String())
 	}
 
@@ -2278,7 +2278,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file2\n", buffer.String())
 	}
 
@@ -2297,7 +2297,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file3\n", buffer.String())
 	}
 }
@@ -2344,7 +2344,7 @@ func TestStopPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
 
@@ -2453,6 +2453,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 				},
 			},
 		},
+		false,
 	))
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "", "")
