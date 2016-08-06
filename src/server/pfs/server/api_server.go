@@ -16,6 +16,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -294,7 +295,10 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 
 	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
 
-	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
+	if len(commitInfos) != 1 ||
+		(commitInfos[0].Commit.ID != request.Commit.ID &&
+			commitInfos[0].Branch != request.Commit.ID) {
+		lion.Printf("commitInfos: %+v", commitInfos)
 		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")
 	}
 
