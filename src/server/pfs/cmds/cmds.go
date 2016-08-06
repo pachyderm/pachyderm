@@ -540,7 +540,7 @@ Put the data from a URL as repo/commit/url_path:
 		}),
 	}
 	addShardFlags(mount)
-	finishCommit.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
 
 	var result []*cobra.Command
 	result = append(result, repo)
