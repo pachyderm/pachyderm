@@ -69,41 +69,32 @@ func TestListBranchRF(t *testing.T) {
 
 func TestListCommitBasicRF(t *testing.T) {
 	t.Parallel()
-	client, server := getClientAndServer(t)
+	client, _ := getClientAndServer(t)
 
 	require.NoError(t, client.CreateRepo("test"))
 	numCommits := 10
 	var commitIDs []string
 	for i := 0; i < numCommits; i++ {
-		commit, err := client.StartCommit("test", "", "")
+		commit, err := client.StartCommit("test", "", "master")
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit("test", commit.ID))
 		commitIDs = append(commitIDs, commit.ID)
 	}
 
-	test := func() {
-		commitInfos, err := client.ListCommit(
-			[]string{"test"},
-			nil,
-			pclient.CommitTypeNone,
-			false,
-			false,
-			nil,
-		)
-		require.NoError(t, err)
+	commitInfos, err := client.ListCommit(
+		[]string{"test"},
+		nil,
+		pclient.CommitTypeNone,
+		false,
+		false,
+		nil,
+	)
+	require.NoError(t, err)
 
-		for i, commitInfo := range commitInfos {
-			require.Equal(t, commitIDs[len(commitIDs)-i-1], commitInfo.Commit.ID)
-		}
-
-		require.Equal(t, len(commitInfos), numCommits)
+	require.Equal(t, len(commitInfos), numCommits)
+	for i, commitInfo := range commitInfos {
+		require.Equal(t, commitIDs[i], commitInfo.Commit.ID)
 	}
-
-	test()
-
-	restartServer(server, t)
-
-	test()
 }
 
 func TestStartAndFinishCommitRF(t *testing.T) {

@@ -42,7 +42,6 @@ type ErrBranchExists struct {
 
 const (
 	repoTable   Table = "Repos"
-	branchTable Table = "Branches"
 	diffTable   Table = "Diffs"
 	clockTable  Table = "Clocks"
 	commitTable Table = "Commits"
@@ -57,7 +56,6 @@ const (
 var (
 	tables = []Table{
 		repoTable,
-		branchTable,
 		commitTable,
 		diffTable,
 		clockTable,
@@ -67,11 +65,6 @@ var (
 		repoTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: "Name",
-			},
-		},
-		branchTable: []gorethink.TableCreateOpts{
-			gorethink.TableCreateOpts{
-				PrimaryKey: "ID",
 			},
 		},
 		commitTable: []gorethink.TableCreateOpts{
@@ -532,19 +525,34 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	var queries []interface{}
 	for repo, commit := range repoToFromCommit {
 		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).GetAllByIndex(CommitRepoIndex.GetName(), repo))
+			// List all commits in the repo, ordered within each branch
+			branches, err := d.ListBranch(&pfs.Repo{Name: repo}, nil)
+			if err != nil {
+				return nil, err
+			}
+			for _, branch := range branches {
+				queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+					Index: CommitBranchIndex.GetName(),
+				}).Between(CommitBranchIndex.Key(repo, branch.Branch, gorethink.MinVal), CommitBranchIndex.Key(repo, branch.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
+					Index: CommitBranchIndex.GetName(),
+				}))
+			}
 		} else {
 			branchClock, err := d.getClockByAmbiguousID(repo, commit)
 			if err != nil {
 				return nil, err
 			}
 			lastClock := branchClock.Clocks[len(branchClock.Clocks)-1]
-			queries = append(queries, d.getTerm(commitTable).Between(CommitBranchIndex.Key(repo, lastClock.Branch, lastClock.Clock+1), CommitBranchIndex.Key(repo, lastClock.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
+			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+				Index: CommitBranchIndex.GetName(),
+			}).Between(CommitBranchIndex.Key(repo, lastClock.Branch, lastClock.Clock+1), CommitBranchIndex.Key(repo, lastClock.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
 				Index: CommitBranchIndex.GetName(),
 			}))
 		}
 	}
-	query := gorethink.Union(queries...)
+	query := gorethink.UnionWithOpts(gorethink.UnionOpts{
+		Interleave: false,
+	}, queries...)
 	if !all {
 		query = query.Filter(map[string]interface{}{
 			"Cancelled": false,
@@ -601,7 +609,7 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 		gorethink.BetweenOpts{
 			Index: ClockBranchIndex.GetName(),
 		},
-	).Distinct().Field("Branch").Run(d.dbClient)
+	).Field("Branch").Distinct().Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}

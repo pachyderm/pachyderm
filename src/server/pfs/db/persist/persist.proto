@@ -26,12 +26,6 @@ message Repo {
   uint64 size = 3;
 }
 
-message Branch {
-  string id = 1;  // repo name + branch name
-  string repo = 2;
-  string name = 3;
-}
-
 message BlockRef {
   string hash = 1;
   uint64 lower = 2;

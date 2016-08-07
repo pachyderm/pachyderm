@@ -248,36 +248,8 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
-	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
-			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-			lock.Lock()
-			defer lock.Unlock()
-			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
-	}
-	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
+
+	return pfs.NewInternalAPIClient(clientConns[0]).ListCommit(ctx, request)
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
