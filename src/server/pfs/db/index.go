@@ -13,6 +13,7 @@ var (
 	DiffCommitIndex   = NewDiffCommitIndex()
 	ClockBranchIndex  = NewClockBranchIndex()
 	CommitBranchIndex = NewCommitBranchIndex()
+	CommitRepoIndex   = NewCommitRepoIndex()
 
 	// Collect them all for easier initialization
 	Indexes = []Index{
@@ -22,6 +23,7 @@ var (
 		DiffCommitIndex,
 		ClockBranchIndex,
 		CommitBranchIndex,
+		CommitRepoIndex,
 	}
 )
 
@@ -234,6 +236,25 @@ func NewCommitBranchIndex() *commitBranchIndex {
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
 			Multi: true,
+		},
+	}}
+}
+
+// commitRepoIndex maps repos to commits
+type commitRepoIndex struct {
+	index
+}
+
+func (i *commitRepoIndex) Key(repo interface{}) interface{} {
+	return []interface{}{repo}
+}
+
+func NewCommitRepoIndex() *commitRepoIndex {
+	return &commitRepoIndex{index{
+		Name:  "CommitRepoIndex",
+		Table: commitTable,
+		CreateFunction: func(row gorethink.Term) interface{} {
+			return row.Field("Repo")
 		},
 	}}
 }
