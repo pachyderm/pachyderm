@@ -212,19 +212,36 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 		cursor, err := gorethink.DB(dbName).Table(diffTable).Map(DiffPathIndex.GetCreateFunction()).Run(dbClient)
 		require.NoError(t, err)
 		fields := []interface{}{}
-		require.NoError(t, cursor.One(&fields))
 		// Example return value:
 		// []interface {}{"repo1", "foo/bar/fizz/buzz", []interface {}{[]interface {}{"master", 0}}}
-		innerFields, ok := fields[0].([]interface{})
-		require.Equal(t, true, ok)
-		require.Equal(t, repo.Name, innerFields[0].(string))
-		require.Equal(t, "foo/bar/fizz/buzz", innerFields[1].(string))
-		clocks, ok := innerFields[2].([]interface{})
-		require.Equal(t, true, ok)
-		clock, ok := clocks[0].([]interface{})
-		require.Equal(t, true, ok)
-		require.Equal(t, "master", clock[0].(string))
-		require.Equal(t, float64(0), clock[1].(float64))
+		expectedPrefixes := []interface{}{
+			"/foo",
+			"/foo/bar",
+			"/foo/bar/fizz",
+			"/foo/bar/fizz/buzz",
+		}
+		for cursor.Next(&fields) {
+			innerFields, ok := fields[0].([]interface{})
+			require.Equal(t, true, ok)
+			require.Equal(t, repo.Name, innerFields[0].(string))
+
+			path := innerFields[1].(string)
+			require.EqualOneOf(t, expectedPrefixes, path)
+			for i, expectedPrefix := range expectedPrefixes {
+				if expectedPrefix == path {
+					expectedPrefixes = append(expectedPrefixes[:i], expectedPrefixes[i+1:]...)
+				}
+			}
+
+			clocks, ok := innerFields[2].([]interface{})
+			require.Equal(t, true, ok)
+			clock, ok := clocks[0].([]interface{})
+			require.Equal(t, true, ok)
+			require.Equal(t, "master", clock[0].(string))
+			require.Equal(t, float64(0), clock[1].(float64))
+		}
+		require.Equal(t, 0, len(expectedPrefixes))
+		require.NoError(t, cursor.Err())
 	})
 }
 
