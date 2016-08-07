@@ -829,7 +829,7 @@ func TestDeleteDirRF(t *testing.T) {
 	// TODO: test deleting "."
 }
 
-func TestListCommit(t *testing.T) {
+func TestListCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -868,7 +868,7 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	time.Sleep(time.Second)
+	time.Sleep(5 * time.Second)
 	select {
 	case <-ch:
 	default:

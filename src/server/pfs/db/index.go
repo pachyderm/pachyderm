@@ -208,8 +208,6 @@ func NewClockBranchIndex() *clockBranchIndex {
 // A commit that has the clock [(master, 2), (foo, 3)] will be indexed to:
 // ["repo", "foo", 3]
 
-var _ Index = (*commitBranchIndex)(nil)
-
 type commitBranchIndex struct {
 	index
 }
