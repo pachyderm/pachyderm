@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	port int32 = 30651
+	port int32 = 40651
 )
 
 func TestCommitBranchIndexBasicRF(t *testing.T) {
