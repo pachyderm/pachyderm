@@ -521,33 +521,74 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	}
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-	provenance []*pfs.Commit, all bool, shards map[uint64]bool) (commitInfos []*pfs.CommitInfo, retErr error) {
-	// TODO: block for new commits
-	cursor, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
-		var predicates []interface{}
-		for _, repo := range repos {
-			predicates = append(predicates, commit.Field("Repo").Eq(repo.Name))
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
+	repoToFromCommit := make(map[string]string)
+	for _, repo := range repos {
+		repoToFromCommit[repo.Name] = ""
+	}
+	for _, commit := range fromCommits {
+		repoToFromCommit[commit.Repo.Name] = commit.ID
+	}
+	var queries []interface{}
+	for repo, commit := range repoToFromCommit {
+		if commit == "" {
+			queries = append(queries, d.getTerm(commitTable).GetAllByIndex(CommitRepoIndex.GetName(), repo))
+		} else {
+			branchClock, err := d.getClockByAmbiguousID(repo, commit)
+			if err != nil {
+				return nil, err
+			}
+			lastClock := branchClock.Clocks[len(branchClock.Clocks)-1]
+			queries = append(queries, d.getTerm(commitTable).Between(CommitBranchIndex.Key(repo, lastClock.Branch, lastClock.Clock+1), CommitBranchIndex.Key(repo, lastClock.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
+				Index: CommitBranchIndex.GetName(),
+			}))
 		}
-		return gorethink.Or(predicates...)
-	}).Run(d.dbClient)
+	}
+	query := gorethink.Union(queries...)
+	if !all {
+		query = query.Filter(map[string]interface{}{
+			"Cancelled": false,
+		})
+	}
+	switch commitType {
+	case pfs.CommitType_COMMIT_TYPE_READ:
+		query = query.Filter(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("Finished").Ne(nil)
+		})
+	case pfs.CommitType_COMMIT_TYPE_WRITE:
+		query = query.Filter(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("Finished").Eq(nil)
+		})
+	}
+	var provenanceIDs []interface{}
+	for _, commit := range provenance {
+		c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		provenanceIDs = append(provenanceIDs, c.ID)
+	}
+	if provenanceIDs != nil {
+		query = query.Filter(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("Provenance").Contains(provenanceIDs...)
+		})
+	}
+	if block {
+		query = query.Changes(gorethink.ChangesOpts{
+			IncludeInitial: true,
+		}).Field("new_val")
+	}
+	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := cursor.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	for {
-		rawCommit := &persist.Commit{}
-		if !cursor.Next(rawCommit) {
-			break
-		}
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(rawCommit))
-	}
-	if err := cursor.Err(); err != nil {
+	var commits []*persist.Commit
+	if err := cursor.All(&commits); err != nil {
 		return nil, err
+	}
+	var commitInfos []*pfs.CommitInfo
+	for _, commit := range commits {
+		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
 	}
 	return commitInfos, nil
 }
