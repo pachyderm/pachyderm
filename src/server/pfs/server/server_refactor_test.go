@@ -93,7 +93,7 @@ func TestListCommitBasicRF(t *testing.T) {
 
 	require.Equal(t, len(commitInfos), numCommits)
 	for i, commitInfo := range commitInfos {
-		require.Equal(t, commitIDs[i], commitInfo.Commit.ID)
+		require.Equal(t, commitIDs[len(commitIDs)-i-1], commitInfo.Commit.ID)
 	}
 }
 

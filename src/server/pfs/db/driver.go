@@ -245,12 +245,11 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Provenance: _provenance,
 	}
 
-	if branch == "" {
-		branch = uuid.NewWithoutDashes()
-	}
-
 	var clockID *persist.ClockID
 	if parentID == "" {
+		if branch == "" {
+			branch = uuid.NewWithoutDashes()
+		}
 		for {
 			// The head of this branch will be our parent commit
 			parentCommit := &persist.Commit{}
@@ -286,35 +285,22 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			break
 		}
 	} else {
-		parentCommit := &persist.Commit{}
-		parentClock, err := parseClock(parentID)
-		if err == nil {
-			if err := d.getMessageByIndex(commitTable, CommitBranchIndex, CommitBranchIndex.Key(repo.Name, parentClock.Branch, parentClock.Clock), parentCommit); err != nil {
-				return err
-			}
-		} else {
-			// OBSOLETE
-			// This logic is here to make the implementation compatible with the
-			// old API where parentID can be a UUID, instead of a semantically
-			// meaningful ID such as "master/0".
-			// This logic should be removed eventually once we migrate to the
-			// new API.
-			if err := d.getMessageByPrimaryKey(commitTable, parentID, parentCommit); err != nil {
-				return err
-			}
-		}
-
-		var parentBranch string
-		if parentClock == nil {
-			// OBSOLETE
-			parentBranch = parentCommit.BranchClocks[0].Clocks[len(parentCommit.BranchClocks[0].Clocks)-1].Branch
-		} else {
-			parentBranch = parentClock.Branch
-		}
-
-		commit.BranchClocks, err = libclock.NewBranchOffBranchClocks(parentCommit.BranchClocks, parentBranch, branch)
+		parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parentID)
 		if err != nil {
 			return err
+		}
+
+		// OBSOLETE
+		parentBranch := parentCommit.BranchClocks[0].Clocks[len(parentCommit.BranchClocks[0].Clocks)-1].Branch
+
+		if branch == "" {
+			commit.BranchClocks = append(commit.BranchClocks, libclock.NewChild(parentCommit.BranchClocks[0]))
+			branch = parentBranch
+		} else {
+			commit.BranchClocks, err = libclock.NewBranchOffBranchClocks(parentCommit.BranchClocks, parentBranch, branch)
+			if err != nil {
+				return err
+			}
 		}
 
 		clock, err := libclock.GetClockForBranch(commit.BranchClocks, branch)
@@ -532,7 +518,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			}
 			for _, branch := range branches {
 				queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-					Index: CommitBranchIndex.GetName(),
+					Index: gorethink.Desc(CommitBranchIndex.GetName()),
 				}).Between(CommitBranchIndex.Key(repo, branch.Branch, gorethink.MinVal), CommitBranchIndex.Key(repo, branch.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
 					Index: CommitBranchIndex.GetName(),
 				}))
@@ -544,15 +530,13 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			}
 			lastClock := branchClock.Clocks[len(branchClock.Clocks)-1]
 			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: CommitBranchIndex.GetName(),
+				Index: gorethink.Desc(CommitBranchIndex.GetName()),
 			}).Between(CommitBranchIndex.Key(repo, lastClock.Branch, lastClock.Clock+1), CommitBranchIndex.Key(repo, lastClock.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
 				Index: CommitBranchIndex.GetName(),
 			}))
 		}
 	}
-	query := gorethink.UnionWithOpts(gorethink.UnionOpts{
-		Interleave: false,
-	}, queries...)
+	query := gorethink.Union(queries...)
 	if !all {
 		query = query.Filter(map[string]interface{}{
 			"Cancelled": false,
@@ -581,11 +565,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			return commit.Field("Provenance").Contains(provenanceIDs...)
 		})
 	}
-	if block {
-		query = query.Changes(gorethink.ChangesOpts{
-			IncludeInitial: true,
-		}).Field("new_val")
-	}
+
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -594,10 +574,28 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	if err := cursor.All(&commits); err != nil {
 		return nil, err
 	}
+
 	var commitInfos []*pfs.CommitInfo
-	for _, commit := range commits {
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+	if len(commits) > 0 {
+		for _, commit := range commits {
+			commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+		}
+	} else if block {
+		query = query.Changes(gorethink.ChangesOpts{
+			IncludeInitial: true,
+		}).Field("new_val")
+		cursor, err := query.Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+		var commit persist.Commit
+		cursor.Next(&commit)
+		if err := cursor.Err(); err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, rawCommitToCommitInfo(&commit))
 	}
+
 	return commitInfos, nil
 }
 
