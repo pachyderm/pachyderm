@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -28,11 +27,9 @@ var (
 
 type internalAPIServer struct {
 	protorpclog.Logger
-	hasher            *pfsserver.Hasher
-	router            shard.Router
-	driver            drive.Driver
-	commitWaiters     map[*commitWait]bool
-	commitWaitersLock sync.Mutex
+	hasher *pfsserver.Hasher
+	router shard.Router
+	driver drive.Driver
 }
 
 func newInternalAPIServer(
@@ -41,12 +38,10 @@ func newInternalAPIServer(
 	driver drive.Driver,
 ) *internalAPIServer {
 	return &internalAPIServer{
-		Logger:            protorpclog.NewLogger("pachyderm.pfsserver.InternalAPI"),
-		hasher:            hasher,
-		router:            router,
-		driver:            driver,
-		commitWaiters:     make(map[*commitWait]bool),
-		commitWaitersLock: sync.Mutex{},
+		Logger: protorpclog.NewLogger("pachyderm.pfsserver.InternalAPI"),
+		hasher: hasher,
+		router: router,
+		driver: driver,
 	}
 }
 
@@ -127,9 +122,6 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 		request.Branch, request.Started, request.Provenance, shards); err != nil {
 		return nil, err
 	}
-	if err := a.pulseCommitWaiters(client.NewCommit(request.Repo.Name, request.ID), pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
-		return nil, err
-	}
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -144,9 +136,6 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 		return nil, err
 	}
 	if err := a.driver.FinishCommit(request.Commit, request.Finished, request.Cancel, shards); err != nil {
-		return nil, err
-	}
-	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_READ, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -176,22 +165,9 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		return nil, err
 	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.All, shards)
-	_, ok := err.(*pfsserver.ErrRepoNotFound)
-	if err != nil && (!request.Block || !ok) {
+		request.FromCommit, request.Provenance, request.All, shards, request.Block)
+	if err != nil {
 		return nil, err
-	}
-	if len(commitInfos) == 0 && request.Block {
-		commitWait, err := a.newCommitWait(request, shards)
-		if err != nil {
-			return nil, err
-		}
-		select {
-		case <-ctx.Done():
-			a.cancelCommitWait(commitWait)
-			return nil, ctx.Err()
-		case commitInfos = <-commitWait.commitInfoChan:
-		}
 	}
 	return &pfs.CommitInfos{
 		CommitInfo: commitInfos,
@@ -546,75 +522,6 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("version not found in context")
 	}
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
-}
-
-// commitWait contains the values that describe which commits you're waiting for
-type commitWait struct {
-	repos          []*pfs.Repo
-	provenance     []*pfs.Commit
-	commitType     pfs.CommitType
-	all            bool
-	commitInfoChan chan []*pfs.CommitInfo
-}
-
-func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards map[uint64]bool) (*commitWait, error) {
-	result := &commitWait{
-		repos:          request.Repo,
-		provenance:     request.Provenance,
-		commitType:     request.CommitType,
-		all:            request.All,
-		commitInfoChan: make(chan []*pfs.CommitInfo, 1),
-	}
-	a.commitWaitersLock.Lock()
-	defer a.commitWaitersLock.Unlock()
-	// We need to redo the call to ListCommit because commits may have been
-	// created between then and now.
-	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.All, shards)
-	_, ok := err.(*pfsserver.ErrRepoNotFound)
-	if err != nil && !ok {
-		return nil, err
-	}
-	if len(commitInfos) != 0 {
-		result.commitInfoChan <- commitInfos
-	} else {
-		a.commitWaiters[result] = true
-	}
-	return result, nil
-}
-
-func (a *internalAPIServer) cancelCommitWait(cw *commitWait) {
-	a.commitWaitersLock.Lock()
-	defer a.commitWaitersLock.Unlock()
-	delete(a.commitWaiters, cw)
-}
-
-func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) error {
-	a.commitWaitersLock.Lock()
-	defer a.commitWaitersLock.Unlock()
-	commitInfo, err := a.driver.InspectCommit(commit, shards)
-	if err != nil {
-		return err
-	}
-	var pulsedWaiters []*commitWait
-WaitersLoop:
-	for commitWaiter := range a.commitWaiters {
-		if (commitWaiter.commitType == pfs.CommitType_COMMIT_TYPE_NONE || commitType == commitWaiter.commitType) &&
-			(commitWaiter.all || !commitInfo.Cancelled) &&
-			drive.MatchProvenance(commitWaiter.provenance, commitInfo.Provenance) {
-			for _, repo := range commitWaiter.repos {
-				if repo.Name == commit.Repo.Name {
-					commitWaiter.commitInfoChan <- []*pfs.CommitInfo{commitInfo}
-					pulsedWaiters = append(pulsedWaiters, commitWaiter)
-					continue WaitersLoop
-				}
-			}
-		}
-	}
-	for _, commitWaiter := range pulsedWaiters {
-		delete(a.commitWaiters, commitWaiter)
-	}
-	return nil
 }
 
 func drainFileServer(putFileServer interface {
