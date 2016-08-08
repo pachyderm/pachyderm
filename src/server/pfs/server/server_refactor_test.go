@@ -56,11 +56,10 @@ func TestListBranchRF(t *testing.T) {
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, 3, len(branches))
+	require.Equal(t, 2, len(branches))
 	branchNames := []interface{}{
 		branches[0].Branch,
 		branches[1].Branch,
-		branches[2].Branch,
 	}
 
 	require.EqualOneOf(t, branchNames, "branchA")
@@ -161,14 +160,21 @@ func TestStartCommitFromParentIDRF(t *testing.T) {
 
 	require.Equal(t, 1, len(branches))
 
-	// Should create commit off of parent on a new branch
+	// Should create commit off of parent on the same branch
 	commit1, err := client.StartCommit(repo, commit.ID, "")
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	// Now check to make sure that commit is on a new branch w a random name
-	// This imitates the existing PFS behavior
 	existingBranch := branches[0].Branch
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+
+	// Should create commit off of parent on a new branch by name
+	commit2, err := client.StartCommit(repo, commit.ID, "foo")
+	require.NoError(t, err)
+
 	branches2, err := client.ListBranch(repo)
 	require.NoError(t, err)
 
@@ -180,29 +186,6 @@ func TestStartCommitFromParentIDRF(t *testing.T) {
 
 	require.Equal(t, 2, len(uniqueBranches))
 	delete(uniqueBranches, existingBranch)
-	require.Equal(t, 1, len(uniqueBranches))
-	var existingBranch2 string
-	for name, _ := range uniqueBranches {
-		existingBranch2 = name
-	}
-
-	// Should create commit off of parent on a new branch by name
-	commit2, err := client.StartCommit(repo, commit.ID, "foo")
-	require.NoError(t, err)
-
-	branches3, err := client.ListBranch(repo)
-	require.NoError(t, err)
-
-	uniqueBranches = make(map[string]bool)
-
-	for _, thisBranch := range branches3 {
-		uniqueBranches[thisBranch.Branch] = true
-	}
-
-	require.Equal(t, 3, len(uniqueBranches))
-	delete(uniqueBranches, existingBranch)
-	require.Equal(t, 2, len(uniqueBranches))
-	delete(uniqueBranches, existingBranch2)
 	require.Equal(t, 1, len(uniqueBranches))
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
@@ -344,10 +327,10 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 
 	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, "master/0", nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, "", nil, buffer))
 	require.Equal(t, expected, buffer.String())
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "master/0", nil, buffer))
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "", nil, buffer))
 	require.Equal(t, expected, buffer.String())
 
 	_, err = client.StartCommit(repo, "master/1", "foo")
@@ -357,7 +340,7 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 
 	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "foo/0", "file", 0, 0, "master/0", nil, buffer))
+	require.NoError(t, client.GetFile(repo, "foo/0", "file", 0, 0, "", nil, buffer))
 	require.Equal(t, expected, buffer.String())
 }
 
@@ -429,7 +412,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfo, err = client.InspectFile(repo, "master/1", "file", "master/0", nil)
+	fileInfo, err = client.InspectFile(repo, "master/1", "file", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
 	require.Equal(t, "/file", fileInfo.File.Path)
@@ -442,7 +425,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfo, err = client.InspectFile(repo, "master/2", "file", "master/0", nil)
+	fileInfo, err = client.InspectFile(repo, "master/2", "file", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 }
@@ -475,7 +458,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "master/0", nil)
+	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfo.Children))
 
@@ -485,7 +468,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "master/0", nil)
+	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfo.Children))
 }
@@ -516,7 +499,7 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfos, err = client.ListFile(repo, "master/1", "dir", "master/0", nil, false)
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 
@@ -526,7 +509,7 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfos, err = client.ListFile(repo, "master/2", "dir", "master/0", nil, false)
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 }
@@ -559,7 +542,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfos, err = client.ListFile(repo, "master/1", "dir", "master/0", nil, true)
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
@@ -570,7 +553,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfos, err = client.ListFile(repo, "master/2", "dir", "master/0", nil, true)
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
