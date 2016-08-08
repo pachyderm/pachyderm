@@ -610,20 +610,20 @@ func TestSquashMergeSameFile(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	contentA := "foo\n"
-	commitA, err := client.StartCommit(repo, "", "master")
+	commitA, err := client.StartCommit(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, "master", "file", strings.NewReader(contentA))
+	_, err = client.PutFile(repo, commitA.ID, "file", strings.NewReader(contentA))
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, "master"))
+	require.NoError(t, client.FinishCommit(repo, commitA.ID))
 
 	contentB := "bar\n"
-	commitB, err := client.StartCommit(repo, "", "master")
+	commitB, err := client.StartCommit(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, "master", "file", strings.NewReader(contentB))
+	_, err = client.PutFile(repo, commitB.ID, "file", strings.NewReader(contentB))
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, "master"))
+	require.NoError(t, client.FinishCommit(repo, commitB.ID))
 
-	mergedCommits, err := client.Merge(repo, []string{commitA.ID, commitB.ID}, commitRoot.ID, pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := client.Merge(repo, []string{commitA.ID, commitB.ID}, "master", pfsclient.MergeStrategy_SQUASH)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 

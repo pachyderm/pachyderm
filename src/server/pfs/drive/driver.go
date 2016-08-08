@@ -450,7 +450,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	return result, nil
 }
 
-func (d *driver) Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
+func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
 	return nil, nil
 }
 
