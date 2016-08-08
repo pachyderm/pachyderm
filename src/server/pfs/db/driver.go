@@ -937,8 +937,89 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
-func (d *driver) Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
-	return &pfs.Commits{}, nil
+func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
+	retCommits = &pfs.Commits{
+		Commit: []*pfs.Commit{},
+	}
+
+	if strategy == pfs.MergeStrategy_SQUASH {
+
+		_repo := &pfs.Repo{
+			Name: repo,
+		}
+		newCommit := &pfs.Commit{
+			Repo: _repo,
+			ID:   uuid.NewWithoutDashes(),
+		}
+		err := d.StartCommit(_repo, newCommit.ID, "", toBranch, now(), nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+		var newPersistCommit persist.Commit
+		cursor.One(&newPersistCommit)
+		// TODO: Need to find correct branch clock:
+		newClock := libclock.NewChild(newPersistCommit.BranchClocks[0])
+
+		// TODO: Update the diffs of all of the prefixes of each path as well
+		// Probably want to make a helper function out the code in PutFile()
+		// that does this
+		var allDiffs []persist.Diff
+		for _, commit := range commits {
+			cursor, err := d.getTerm(diffTable).GetAllByIndex(
+				DiffCommitIndex.GetName(),
+				commit.ID,
+			).Run(d.dbClient)
+			if err != nil {
+				return nil, err
+			}
+
+			var diff persist.Diff
+			fmt.Printf("ZZZ looking for diff\n")
+			for cursor.Next(&diff) {
+				fmt.Printf("ZZZ got diff: %v\n", diff)
+				diff.CommitID = newCommit.ID
+				fmt.Printf("branch clock: %v\n", diff.BranchClocks)
+				diff.BranchClocks = append(diff.BranchClocks, newClock)
+				allDiffs = append(allDiffs, diff)
+				fmt.Printf("ZZZ normalized diff: %v\n", diff)
+			}
+			fmt.Printf("ZZZ done walking over diffs\n")
+			if err = cursor.Err(); err != nil {
+				return nil, err
+			}
+		}
+		fmt.Printf("ZZZ all diffs: %v\n", allDiffs)
+		_, err = d.getTerm(diffTable).Insert(
+			allDiffs,
+			gorethink.InsertOpts{
+				Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+					return gorethink.Branch(
+						// We throw an error if the new diff is of a different file type
+						// than the old diff, unless the old diff is NONE
+						oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
+						gorethink.Error(ErrConflictFileTypeMsg),
+						oldDoc.Merge(map[string]interface{}{
+							"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
+							"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+							// Overwrite the file type in case the old file type is NONE
+							"FileType": newDoc.Field("FileType"),
+							// Update modification time
+							"Modified": newDoc.Field("Modified"),
+						}),
+					)
+				},
+			},
+		).RunWrite(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+		err = d.FinishCommit(newCommit, now(), false, nil)
+		retCommits.Commit = append(retCommits.Commit, newCommit)
+	}
+
+	return retCommits, nil
 }
 
 // foldDiffs takes an unordered stream of diffs for a given path, and return
