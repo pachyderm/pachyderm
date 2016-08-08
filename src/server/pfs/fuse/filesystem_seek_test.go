@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestSeekRead(t *testing.T) {
+func TestSeekReadRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -68,7 +68,7 @@ func TestSeekRead(t *testing.T) {
 	})
 }
 
-func TestSeekWriteGap(t *testing.T) {
+func TestSeekWriteGapRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -111,7 +111,7 @@ func TestSeekWriteGap(t *testing.T) {
 	})
 }
 
-func TestSeekWriteBackwards(t *testing.T) {
+func TestSeekWriteBackwardsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
