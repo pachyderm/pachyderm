@@ -813,60 +813,64 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}
 	} else {
-		if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
-			return nil, err
-		}
-		// archive the existing commits from the pipeline
-		commitInfos, err := pfsAPIClient.ListCommit(
-			ctx,
-			&pfsclient.ListCommitRequest{
-				Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
-			})
-		if err != nil {
-			return nil, err
-		}
-		for _, commitInfo := range commitInfos.CommitInfo {
-			_, err := pfsAPIClient.ArchiveCommit(
+		if !request.NoArchive {
+			if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+				return nil, err
+			}
+			// archive the existing commits from the pipeline
+			commitInfos, err := pfsAPIClient.ListCommit(
 				ctx,
-				&pfsclient.ArchiveCommitRequest{
-					Commit: commitInfo.Commit,
+				&pfsclient.ListCommitRequest{
+					Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
 				})
 			if err != nil {
 				return nil, err
+			}
+			for _, commitInfo := range commitInfos.CommitInfo {
+				_, err := pfsAPIClient.ArchiveCommit(
+					ctx,
+					&pfsclient.ArchiveCommitRequest{
+						Commit: commitInfo.Commit,
+					})
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 			return nil, err
 		}
-		// Downstream pipelines need to be restarted as well so that they know
-		// there's new stuff to process.
-		repoInfos, err := pfsAPIClient.ListRepo(
-			ctx,
-			&pfsclient.ListRepoRequest{
-				Provenance: []*pfsclient.Repo{client.NewRepo(request.Pipeline.Name)},
-			})
-		if err != nil {
-			return nil, err
-		}
-		var eg errgroup.Group
-		for _, repoInfo := range repoInfos.RepoInfo {
-			repoInfo := repoInfo
-			eg.Go(func() error {
-				// here we use the fact that pipelines have the same names as their output repos
-				request := &persist.UpdatePipelineStoppedRequest{PipelineName: repoInfo.Repo.Name}
-				request.Stopped = true
-				if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
-					return err
-				}
-				request.Stopped = false
-				if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
-					return err
-				}
-				return nil
-			})
-		}
-		if err := eg.Wait(); err != nil {
-			return nil, err
+		if !request.NoArchive {
+			// Downstream pipelines need to be restarted as well so that they know
+			// there's new stuff to process.
+			repoInfos, err := pfsAPIClient.ListRepo(
+				ctx,
+				&pfsclient.ListRepoRequest{
+					Provenance: []*pfsclient.Repo{client.NewRepo(request.Pipeline.Name)},
+				})
+			if err != nil {
+				return nil, err
+			}
+			var eg errgroup.Group
+			for _, repoInfo := range repoInfos.RepoInfo {
+				repoInfo := repoInfo
+				eg.Go(func() error {
+					// here we use the fact that pipelines have the same names as their output repos
+					request := &persist.UpdatePipelineStoppedRequest{PipelineName: repoInfo.Repo.Name}
+					request.Stopped = true
+					if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+						return err
+					}
+					request.Stopped = false
+					if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+			if err := eg.Wait(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return google_protobuf.EmptyInstance, nil
