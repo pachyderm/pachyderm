@@ -25,6 +25,6 @@ before_script:
 - docker version
 script:
 - make launch-rethinkdb
-- go test -v $(go list ./src/server/pfs/...) -run=Test.*RF\$
+- go test $(go list ./src/server/pfs/...) -run=Test.*RF\$
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
