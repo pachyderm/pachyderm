@@ -176,7 +176,7 @@ func CloneBranchClock(b *persist.BranchClock) *persist.BranchClock {
 // in between two given clocks.
 // Example:
 // Given two clocks: [(master, 1)] and [(master, 3), (foo, 2)]
-// Return: [[[(master, 1)], [(master, 3)]], [[(master, 3), (foo, 0)], [(master, 3), (foo, 2)]]]
+// Return: [[[(master, 2)], [(master, 3)]], [[(master, 3), (foo, 0)], [(master, 3), (foo, 2)]]]
 func GetClockIntervals(left *persist.BranchClock, right *persist.BranchClock) ([][]*persist.BranchClock, error) {
 	current := CloneBranchClock(left)
 	var intervals [][]*persist.BranchClock
@@ -192,6 +192,7 @@ func GetClockIntervals(left *persist.BranchClock, right *persist.BranchClock) ([
 			}
 			leftClone = CloneBranchClock(current)
 			leftClone.Clocks = leftClone.Clocks[:i+1]
+			leftClone.Clocks[i].Clock += 1
 			current.Clocks[i] = right.Clocks[i]
 		} else {
 			continue
