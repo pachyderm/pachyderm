@@ -2300,6 +2300,33 @@ func TestUpdatePipeline(t *testing.T) {
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file3\n", buffer.String())
 	}
+
+	// Do an update that shouldn't cause archiving
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file3"), "/pfs/out/file"},
+			},
+			Parallelism: 2,
+			Inputs:      []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			Update:      true,
+			NoArchive:   true,
+		})
+	require.NoError(t, err)
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	for _, commitInfo := range commitInfos {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+		require.Equal(t, "file3\n", buffer.String())
+	}
+	commitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
 }
 
 func TestStopPipeline(t *testing.T) {
