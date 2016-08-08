@@ -18,6 +18,10 @@ message Commit {
   string id = 2;
 }
 
+message Commits {
+  repeated Commit commit = 1;
+}
+
 message File {
   Commit commit = 1;
   string path = 2;
@@ -251,6 +255,12 @@ message DeleteFileRequest {
   string handle = 3;
 }
 
+message MergeRequest {
+  repeated Commit from_commits = 1;
+  Commit parent_commit = 2;
+  MergeStrategy strategy = 3;  
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -278,6 +288,8 @@ service API {
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
+  // Merge returns the head of the commit of the merge
+  rpc Merge(MergeRequest) returns (Commits) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -316,6 +328,8 @@ service InternalAPI {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // Merge merges commits
+  rpc Merge(MergeRequest) returns (Commits) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish

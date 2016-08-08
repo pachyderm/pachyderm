@@ -252,6 +252,26 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	return pfs.NewInternalAPIClient(clientConns[0]).ListCommit(ctx, request)
 }
 
+func (a *apiServer) Merge(ctx context.Context, request *pfs.MergeRequest) (response *pfs.Commits, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	defer func() {
+		if retErr == nil {
+			metrics.AddCommits(1)
+		}
+	}()
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewInternalAPIClient(clientConns[0]).Merge(ctx, request)
+}
+
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()

@@ -174,6 +174,11 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	}, nil
 }
 
+func (a *internalAPIServer) Merge(ctx context.Context, request *pfs.MergeRequest) (response *pfs.Commits, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return a.driver.Merge(request.FromCommits, request.ParentCommit, request.Strategy)
+}
+
 func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
