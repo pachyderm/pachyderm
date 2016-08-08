@@ -450,6 +450,10 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	return result, nil
 }
 
+func (d *driver) Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
+	return nil, nil
+}
+
 // MatchProvenance checks if all the commits we want exist in the commits we have.
 func MatchProvenance(want []*pfs.Commit, have []*pfs.Commit) bool {
 	// Get a map of repo names to commits we have

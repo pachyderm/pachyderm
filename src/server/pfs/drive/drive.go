@@ -35,6 +35,7 @@ type Driver interface {
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
 	Dump()
+	Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 }
 
 type CommitID string // master/0
@@ -63,7 +64,7 @@ type PfsRefactorDriver interface {
 	AddShard() error
 	DeleteShard() error
 	Squash(from []*pfs.Commit, to *pfs.Commit) error
-	Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) error
+	Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 	Dump()
 }
 

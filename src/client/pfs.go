@@ -547,6 +547,28 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
+// Merge combines commits
+func (c APIClient) Merge(repo string, fromCommits []string, parentCommit string, strategy pfs.MergeStrategy) ([]*pfs.Commit, error) {
+
+	var realFromCommits []*pfs.Commit
+	for _, commitID := range fromCommits {
+		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
+	}
+
+	commits, err := c.PfsAPIClient.Merge(
+		context.Background(),
+		&pfs.MergeRequest{
+			FromCommits:  realFromCommits,
+			ParentCommit: NewCommit(repo, parentCommit),
+			Strategy:     strategy,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return commits.Commit, nil
+}
+
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient

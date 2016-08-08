@@ -598,3 +598,37 @@ func TestRootDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 }
+
+func TestSquashMergeSameFile(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA := "foo\n"
+	commitA, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(contentA))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentB := "bar\n"
+	commitB, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(contentB))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	mergedCommits, err := client.Merge(repo, []string{commitA.ID, commitB.ID}, commitRoot.ID, pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.Equal(t, contentA+contentB, buffer.String())
+
+}

@@ -937,6 +937,10 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
+func (d *driver) Merge(from []*pfs.Commit, parent *pfs.Commit, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
+	return nil, nil
+}
+
 // foldDiffs takes an unordered stream of diffs for a given path, and return
 // a single diff that represents the aggregation of these diffs.
 func foldDiffs(diffs gorethink.Term) gorethink.Term {
