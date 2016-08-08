@@ -147,6 +147,7 @@ message CreatePipelineRequest {
   uint64 parallelism = 3;
   repeated PipelineInput inputs = 4;
   bool update = 5;
+  bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
 }
 
 message InspectPipelineRequest {
