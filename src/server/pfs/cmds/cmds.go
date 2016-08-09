@@ -351,9 +351,44 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
-	var filePath string
+	var filePaths []string
 	var recursive bool
 	var commitFlag bool
+	// putFilePath is a helper for putFile
+	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
+		if filePath == "-" {
+			if len(args) < 3 {
+				return errors.New("either a path or the -f flag needs to be provided")
+			}
+			_, err := client.PutFile(args[0], args[1], args[2], os.Stdin)
+			return err
+		}
+		// try parsing the filename as a url, if it is one do a PutFileURL
+		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+			if len(args) < 3 {
+				return client.PutFileURL(args[0], args[1], url.Path, url.String())
+			}
+			return client.PutFileURL(args[0], args[1], args[2], url.String())
+		}
+		if !recursive {
+			if len(args) == 3 {
+				return cpFile(client, args[0], args[1], args[2], filePath)
+			}
+			return cpFile(client, args[0], args[1], filePath, filePath)
+		}
+		var eg errgroup.Group
+		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			if len(args) == 3 {
+				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+			}
+			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+			return nil
+		})
+		return eg.Wait()
+	}
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -400,41 +435,14 @@ Put the data from a URL as repo/commit/url_path:
 					}
 				}()
 			}
-			if filePath == "-" {
-				if len(args) < 3 {
-					return errors.New("either a path or the -f flag needs to be provided")
-				}
-				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
-				return err
-			}
-			// try parsing the filename as a url, if it is one do a PutFileURL
-			if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
-				if len(args) < 3 {
-					return client.PutFileURL(args[0], args[1], url.Path, url.String())
-				}
-				return client.PutFileURL(args[0], args[1], args[2], url.String())
-			}
-			if !recursive {
-				if len(args) == 3 {
-					return cpFile(client, args[0], args[1], args[2], filePath)
-				}
-				return cpFile(client, args[0], args[1], filePath, filePath)
-			}
 			var eg errgroup.Group
-			filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-				if info.IsDir() {
-					return nil
-				}
-				if len(args) == 3 {
-					eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
-				}
-				eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
-				return nil
-			})
+			for _, filePath := range filePaths {
+				eg.Go(func() error { return putFilePath(client, args, filePath) })
+			}
 			return eg.Wait()
 		}),
 	}
-	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 
