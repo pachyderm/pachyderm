@@ -891,7 +891,7 @@ func TestListCommitRF(t *testing.T) {
 	require.Equal(t, commit3, commitInfos[0].Commit)
 }
 
-func TestOffsetRead(t *testing.T) {
+func TestOffsetReadRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "TestOffsetRead"
@@ -909,8 +909,10 @@ func TestOffsetRead(t *testing.T) {
 	require.Equal(t, "", buffer.String())
 }
 
-func TestUnsafeOperations(t *testing.T) {
+func TestUnsafeOperationsRF(t *testing.T) {
 	t.Parallel()
+	// Unsafe is not a thing anymore
+	t.Skip()
 	client, _ := getClientAndServer(t)
 	repo := "TestUnsafeOperations"
 	require.NoError(t, client.CreateRepo(repo))
@@ -987,7 +989,7 @@ func TestFinishCommitRF(t *testing.T) {
 	}
 }
 
-func TestStartCommitWithNonexistentParent(t *testing.T) {
+func TestStartCommitWithNonexistentParentRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "TestStartCommitWithNonexistentParent"
@@ -1036,8 +1038,10 @@ func TestFinishCommitParentCancelledRF(t *testing.T) {
 	require.True(t, commit3Info.Cancelled)
 }
 
-func TestHandleRace(t *testing.T) {
+func TestHandleRaceRF(t *testing.T) {
 	t.Parallel()
+	// handle is not a thing anymore
+	t.Skip()
 	client, _ := getClientAndServer(t)
 
 	repo := "test"
@@ -1062,7 +1066,7 @@ func TestHandleRace(t *testing.T) {
 	require.EqualOneOf(t, []interface{}{"foofoobar", "barfoofoo"}, buffer.String())
 }
 
-func Test0Modulus(t *testing.T) {
+func Test0ModulusRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
@@ -1119,6 +1123,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	commitInfo, err := client.InspectCommit("B", BCommit.ID)
 	require.NoError(t, err)
+	fmt.Printf("provenance: %v\n", commitInfo.Provenance)
 	require.Equal(t, []*pfsclient.Commit{ACommit}, commitInfo.Provenance)
 	CCommit, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
