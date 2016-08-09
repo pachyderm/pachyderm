@@ -1623,6 +1623,57 @@ func TestFlushCommitWithFailure(t *testing.T) {
 	require.YesError(t, err)
 }
 
+// TestFlushOpenCommit flushes a commit that hasn't been finished.
+func TestFlushOpenCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	prefix := uniqueString("repo")
+	makeRepoName := func(i int) string {
+		return fmt.Sprintf("%s_%d", prefix, i)
+	}
+
+	sourceRepo := makeRepoName(0)
+	require.NoError(t, c.CreateRepo(sourceRepo))
+
+	// Create a five-stage pipeline; the third stage is designed to fail
+	numStages := 5
+	for i := 0; i < numStages; i++ {
+		fileName := "file"
+		repo := makeRepoName(i)
+		require.NoError(t, c.CreatePipeline(
+			makeRepoName(i+1),
+			"",
+			[]string{"cp", path.Join("/pfs", repo, fileName), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+		))
+	}
+
+	commit, err := c.StartCommit(sourceRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	go func() {
+		// We finish the commit in a goro so that we can block on FlushCommit
+		// in the main goro.
+		time.Sleep(20 * time.Second)
+		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
+	}()
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*30)
+	commitInfos, err := c.PfsAPIClient.FlushCommit(
+		ctx,
+		&pfsclient.FlushCommitRequest{
+			Commit: []*pfsclient.Commit{client.NewCommit(sourceRepo, commit.ID)},
+		})
+	require.NoError(t, err)
+	require.Equal(t, 5, len(commitInfos.CommitInfo))
+}
+
 // TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
