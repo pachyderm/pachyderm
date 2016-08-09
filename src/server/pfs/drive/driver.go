@@ -258,6 +258,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		}
 	}
 
+	archived := false
 	for shard := range shards {
 		if len(provenance) != 0 {
 			diffInfo, ok := d.diffs.get(client.NewDiff(repo.Name, "", shard))
@@ -270,6 +271,13 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 					return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
 						provCommit.Repo.Name, provCommit.ID, provCommit.Repo.Name, repo.Name)
 				}
+				diffInfo, ok := d.diffs.get(client.NewDiff(provCommit.Repo.Name, provCommit.ID, shard))
+				if !ok {
+					return pfsserver.NewErrCommitNotFound(provCommit.Repo.Name, provCommit.ID)
+				}
+				if diffInfo.Archived {
+					archived = true
+				}
 			}
 		}
 		diffInfo := &pfs.DiffInfo{
@@ -278,6 +286,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			Appends:    make(map[string]*pfs.Append),
 			Branch:     branch,
 			Provenance: provenance,
+			Archived:   archived,
 		}
 		if branch != "" {
 			parentCommit, err := d.branchParent(client.NewCommit(repo.Name, commitID), branch)
