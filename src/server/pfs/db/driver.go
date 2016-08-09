@@ -1068,7 +1068,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		var newPersistCommit persist.Commit
 		cursor.One(&newPersistCommit)
 		// TODO: Need to find correct branch clock:
-		newClock := libclock.NewChild(newPersistCommit.BranchClocks[0])
+		newClock := newPersistCommit.BranchClocks[0]
 
 		// TODO: Update the diffs of all of the prefixes of each path as well
 		// Probably want to make a helper function out the code in PutFile()
@@ -1103,20 +1103,9 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			allDiffs,
 			gorethink.InsertOpts{
 				Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
-					return gorethink.Branch(
-						// We throw an error if the new diff is of a different file type
-						// than the old diff, unless the old diff is NONE
-						oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
-						gorethink.Error(ErrConflictFileTypeMsg),
-						oldDoc.Merge(map[string]interface{}{
-							"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-							"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
-							// Overwrite the file type in case the old file type is NONE
-							"FileType": newDoc.Field("FileType"),
-							// Update modification time
-							"Modified": newDoc.Field("Modified"),
-						}),
-					)
+					return oldDoc.Merge(map[string]interface{}{
+						"BranchClocks": oldDoc.Field("BranchClocks").Append(newClock),
+					})
 				},
 			},
 		).RunWrite(d.dbClient)
