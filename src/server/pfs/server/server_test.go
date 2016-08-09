@@ -48,13 +48,14 @@ var testDBs []string
 func TestMain(m *testing.M) {
 	flag.Parse()
 	code := m.Run()
-	if code == 0 {
-		for _, name := range testDBs {
-			if err := persist.RemoveDB(RethinkAddress, name); err != nil {
-				panic(err)
+	/*
+		if code == 0 {
+			for _, name := range testDBs {
+				if err := persist.RemoveDB(RethinkAddress, name); err != nil {
+					panic(err)
+				}
 			}
-		}
-	}
+		}*/
 	os.Exit(code)
 }
 

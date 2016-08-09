@@ -256,9 +256,10 @@ message DeleteFileRequest {
 }
 
 message MergeRequest {
-  repeated Commit from_commits = 1;
-  Commit parent_commit = 2;
-  MergeStrategy strategy = 3;  
+  string repo = 1;
+  repeated Commit from_commits = 2;
+  string to_branch = 3;
+  MergeStrategy strategy = 4;  
 }
 
 service API {
