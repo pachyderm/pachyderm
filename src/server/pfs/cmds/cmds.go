@@ -433,8 +433,15 @@ Put the data from a URL as repo/commit/url_path:
 					return err
 				}
 				defer func() {
-					if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
-						retErr = err
+					if retErr != nil {
+						// something errored so we try to cancel the commit, if
+						// we error doing this we don't report because retErr
+						// occurred first
+						_ = client.CancelCommit(commit.Repo.Name, commit.ID)
+					} else {
+						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+							retErr = err
+						}
 					}
 				}()
 			}
