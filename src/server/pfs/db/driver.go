@@ -184,14 +184,20 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		return err
 	}
 
+	var provenanceIDs []string
+	for _, repo := range provenance {
+		provenanceIDs = append(provenanceIDs, repo.Name)
+	}
+
 	_, err = d.getTerm(repoTable).Insert(&persist.Repo{
-		Name:    repo.Name,
-		Created: created,
+		Name:       repo.Name,
+		Created:    created,
+		Provenance: provenanceIDs,
 	}).RunWrite(d.dbClient)
 	return err
 }
 
-func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *pfs.RepoInfo, retErr error) {
+func (d *driver) inspectRepo(repo *pfs.Repo) (*persist.Repo, error) {
 	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -200,12 +206,45 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (repoInfo *
 	if err := cursor.One(rawRepo); err != nil {
 		return nil, err
 	}
-	repoInfo = &pfs.RepoInfo{
-		Repo:      &pfs.Repo{rawRepo.Name},
-		Created:   rawRepo.Created,
-		SizeBytes: rawRepo.Size,
+	return rawRepo, nil
+}
+
+func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+	rawRepo, err := d.inspectRepo(repo)
+	if err != nil {
+		return nil, err
 	}
-	return repoInfo, nil
+
+	var provenance []*pfs.Repo
+	for _, repoName := range rawRepo.Provenance {
+		provenance = append(provenance, &pfs.Repo{
+			Name: repoName,
+		})
+	}
+
+	fullProvenance := make(map[string]bool)
+	for _, repoName := range rawRepo.Provenance {
+		repoInfo, err := d.InspectRepo(&pfs.Repo{repoName}, shards)
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range repoInfo.Provenance {
+			fullProvenance[repo.Name] = true
+		}
+	}
+
+	for repoName := range fullProvenance {
+		provenance = append(provenance, &pfs.Repo{
+			Name: repoName,
+		})
+	}
+
+	return &pfs.RepoInfo{
+		Repo:       &pfs.Repo{rawRepo.Name},
+		Created:    rawRepo.Created,
+		SizeBytes:  rawRepo.Size,
+		Provenance: provenance,
+	}, nil
 }
 
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
@@ -218,13 +257,34 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoI
 		return nil, err
 	}
 
+nextRepo:
 	for _, repo := range repos {
+		if len(provenance) != 0 {
+			// Filter out the repos that don't have the given provenance
+			repoInfo, err := d.InspectRepo(&pfs.Repo{repo.Name}, shards)
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range provenance {
+				var found bool
+				for _, r := range repoInfo.Provenance {
+					if p.Name == r.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue nextRepo
+				}
+			}
+		}
 		repoInfos = append(repoInfos, &pfs.RepoInfo{
 			Repo:      &pfs.Repo{repo.Name},
 			Created:   repo.Created,
 			SizeBytes: repo.Size,
 		})
 	}
+
 	return repoInfos, nil
 }
 
@@ -234,10 +294,31 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (retErr error) {
-	var _provenance []string
-	for _, c := range provenance {
-		_provenance = append(_provenance, c.ID)
+	rawRepo, err := d.inspectRepo(repo)
+	if err != nil {
+		return err
 	}
+
+	repoSet := make(map[string]bool)
+	for _, repoName := range rawRepo.Provenance {
+		repoSet[repoName] = true
+	}
+
+	fmt.Printf("repoSet: %v\n", repoSet)
+	fmt.Printf("provenance: %v\n", provenance)
+
+	var _provenance []*persist.Commit
+	for _, c := range provenance {
+		if !repoSet[c.Repo.Name] {
+			return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
+				c.Repo.Name, c.ID, c.Repo.Name, repo.Name)
+		}
+		_provenance = append(_provenance, &persist.Commit{
+			ID:   c.ID,
+			Repo: c.Repo.Name,
+		})
+	}
+
 	commit := &persist.Commit{
 		ID:         commitID,
 		Repo:       repo.Name,
@@ -459,18 +540,45 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return err
 }
 
-func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (commitInfo *pfs.CommitInfo, retErr error) {
+func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
-	commitInfo = rawCommitToCommitInfo(rawCommit)
+
+	commitInfo := rawCommitToCommitInfo(rawCommit)
 	if commitInfo.Finished == nil {
 		commitInfo.SizeBytes, err = d.computeCommitSize(rawCommit.ID)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	for _, c := range rawCommit.Provenance {
+		commitInfo.Provenance = append(commitInfo.Provenance, &pfs.Commit{
+			ID:   c.ID,
+			Repo: &pfs.Repo{c.Repo},
+		})
+	}
+
+	fullProvenance := make(map[string]*pfs.Commit)
+	for _, c := range rawCommit.Provenance {
+		info, err := d.InspectCommit(&pfs.Commit{
+			ID:   c.ID,
+			Repo: &pfs.Repo{c.Repo},
+		}, shards)
+		if err != nil {
+			return nil, err
+		}
+		for _, commit := range info.Provenance {
+			fullProvenance[commit.ID] = commit
+		}
+	}
+
+	for _, c := range fullProvenance {
+		commitInfo.Provenance = append(commitInfo.Provenance, c)
+	}
+
 	// OBSOLETE
 	// Old API Server expects request commit ID to match results commit ID
 	commitInfo.Commit.ID = commit.ID
