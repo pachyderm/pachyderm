@@ -1090,7 +1090,7 @@ func Test0ModulusRF(t *testing.T) {
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
 }
 
-func TestProvenance(t *testing.T) {
+func TestProvenanceRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	require.NoError(t, client.CreateRepo("A"))

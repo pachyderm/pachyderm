@@ -304,16 +304,32 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		repoSet[repoName] = true
 	}
 
-	fmt.Printf("repoSet: %v\n", repoSet)
-	fmt.Printf("provenance: %v\n", provenance)
-
-	var _provenance []*persist.Commit
+	var _provenance []*persist.ProvenanceCommit
 	for _, c := range provenance {
 		if !repoSet[c.Repo.Name] {
 			return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
 				c.Repo.Name, c.ID, c.Repo.Name, repo.Name)
 		}
-		_provenance = append(_provenance, &persist.Commit{
+		_provenance = append(_provenance, &persist.ProvenanceCommit{
+			ID:   c.ID,
+			Repo: c.Repo.Name,
+		})
+	}
+
+	provenanceSet := make(map[string]*pfs.Commit)
+	for _, c := range provenance {
+		commitInfo, err := d.InspectCommit(c, shards)
+		if err != nil {
+			return err
+		}
+
+		for _, p := range commitInfo.Provenance {
+			provenanceSet[p.ID] = p
+		}
+	}
+
+	for _, c := range provenanceSet {
+		_provenance = append(_provenance, &persist.ProvenanceCommit{
 			ID:   c.ID,
 			Repo: c.Repo.Name,
 		})
@@ -561,24 +577,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		})
 	}
 
-	fullProvenance := make(map[string]*pfs.Commit)
-	for _, c := range rawCommit.Provenance {
-		info, err := d.InspectCommit(&pfs.Commit{
-			ID:   c.ID,
-			Repo: &pfs.Repo{c.Repo},
-		}, shards)
-		if err != nil {
-			return nil, err
-		}
-		for _, commit := range info.Provenance {
-			fullProvenance[commit.ID] = commit
-		}
-	}
-
-	for _, c := range fullProvenance {
-		commitInfo.Provenance = append(commitInfo.Provenance, c)
-	}
-
 	// OBSOLETE
 	// Old API Server expects request commit ID to match results commit ID
 	commitInfo.Commit.ID = commit.ID
@@ -619,18 +617,11 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	var queries []interface{}
 	for repo, commit := range repoToFromCommit {
 		if commit == "" {
-			// List all commits in the repo, ordered within each branch
-			branches, err := d.ListBranch(&pfs.Repo{Name: repo}, nil)
-			if err != nil {
-				return nil, err
-			}
-			for _, branch := range branches {
-				queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-					Index: gorethink.Desc(CommitBranchIndex.GetName()),
-				}).Between(CommitBranchIndex.Key(repo, branch.Branch, gorethink.MinVal), CommitBranchIndex.Key(repo, branch.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
-					Index: CommitBranchIndex.GetName(),
-				}))
-			}
+			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+				Index: gorethink.Desc(CommitBranchIndex.GetName()),
+			}).Filter(map[string]interface{}{
+				"Repo": repo,
+			}))
 		} else {
 			branchClock, err := d.getClockByAmbiguousID(repo, commit)
 			if err != nil {
@@ -666,7 +657,10 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		if err != nil {
 			return nil, err
 		}
-		provenanceIDs = append(provenanceIDs, c.ID)
+		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
+			ID:   c.ID,
+			Repo: c.Repo,
+		})
 	}
 	if provenanceIDs != nil {
 		query = query.Filter(func(commit gorethink.Term) gorethink.Term {
