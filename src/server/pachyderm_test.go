@@ -1674,6 +1674,28 @@ func TestFlushOpenCommit(t *testing.T) {
 	require.Equal(t, 5, len(commitInfos.CommitInfo))
 }
 
+func TestFlushNonexistantCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("repo")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit("nonexistant", "nonexistent")}, nil)
+	require.YesError(t, err)
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "nonexistent")}, nil)
+	require.YesError(t, err)
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "")}, nil)
+	require.YesError(t, err)
+	commit, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, []*pfsclient.Repo{client.NewRepo("nonexistant")})
+	require.YesError(t, err)
+}
+
 // TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
