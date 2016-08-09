@@ -1656,18 +1656,56 @@ func TestArchiveCommit(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
-	repo := "TestArchiveCommit"
-	require.NoError(t, client.CreateRepo(repo))
-	commit, err := client.StartCommit(repo, "", "")
+	repo1 := "TestArchiveCommit"
+	repo2 := "TestBlockveCommit2"
+	require.NoError(t, client.CreateRepo(repo1))
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Repo{{repo1}},
+		})
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+
+	// create a commit on repo1
+	commit1, err := client.StartCommit(repo1, "", "")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	_, err = client.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
-	require.NoError(t, client.ArchiveCommit(repo, commit.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, client.FinishCommit(repo1, commit1.ID))
+	// create a commit on repo2 with the previous commit as provenance
+	commit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit2.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
+
+	commitInfos, err := client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	require.NoError(t, client.ArchiveCommit(repo1, commit1.ID))
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+
+	// commits whose provenance has been archived should be archived on creation
+	commit3, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit3.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
+	// there should still be no commits to list
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 }
