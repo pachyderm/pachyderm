@@ -1,8 +1,10 @@
 package cmds
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -354,6 +356,7 @@ Files can be read from finished commits with get-file.`,
 	var filePaths []string
 	var recursive bool
 	var commitFlag bool
+	var inputFile string
 	// putFilePath is a helper for putFile
 	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
 		if filePath == "-" {
@@ -436,6 +439,23 @@ Put the data from a URL as repo/commit/url_path:
 				}()
 			}
 			var eg errgroup.Group
+			if inputFile != "" {
+				var r io.Reader
+				if inputFile == "-" {
+					r = os.Stdin
+				} else {
+					inputFile, err := os.Open(inputFile)
+					if err != nil {
+						return err
+					}
+					r = inputFile
+				}
+				// scan line by line
+				scanner := bufio.NewScanner(r)
+				for scanner.Scan() {
+					eg.Go(func() error { return putFilePath(client, args, scanner.Text()) })
+				}
+			}
 			for _, filePath := range filePaths {
 				eg.Go(func() error { return putFilePath(client, args, filePath) })
 			}
@@ -443,6 +463,7 @@ Put the data from a URL as repo/commit/url_path:
 		}),
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 
