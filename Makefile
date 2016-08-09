@@ -116,10 +116,7 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 docker-wait-pachd:
 	docker wait pachd_compile
 
-docker-build-fruitstand:
-	docker build -t fruit_stand examples/fruit_stand
-
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-fruitstand 
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -326,7 +323,6 @@ goxc-build:
 	docker-build-pachd \
 	docker-build \
 	docker-build-proto \
-	docker-build-fruitstand \
 	docker-push-job-shim \
 	docker-push-pachd \
 	docker-push \
