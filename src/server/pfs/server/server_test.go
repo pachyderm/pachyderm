@@ -1359,7 +1359,7 @@ func TestFlushRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestShardingInTopLevel(t *testing.T) {
+func TestShardingInTopLevelRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1387,18 +1387,17 @@ func TestShardingInTopLevel(t *testing.T) {
 		}
 		for j := 0; j < folders; j++ {
 			// You should either see all files in the folder (if the folder
-			// matches the shard), or no files in the folder (if the folder
-			// does not match the shard).
+			// matches the shard), or a NotFound error (if the folder does not
+			// match the shard).
 			fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", shard, false)
-			require.NoError(t, err)
-			require.EqualOneOf(t, []interface{}{filesPerFolder, 0}, len(fileInfos))
+			require.True(t, err != nil || len(fileInfos) == filesPerFolder)
 			totalFiles += len(fileInfos)
 		}
 	}
 	require.Equal(t, folders*filesPerFolder, totalFiles)
 }
 
-func TestCreate(t *testing.T) {
+func TestCreateRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1414,7 +1413,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetFileInvalidCommit(t *testing.T) {
+func TestGetFileInvalidCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1495,7 +1494,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
-func TestATonOfPuts(t *testing.T) {
+func TestATonOfPutsRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1513,12 +1512,25 @@ func TestATonOfPuts(t *testing.T) {
 		"timing":[1,3,34,6,7]
 	}`
 	numObjs := 5000
+	numGoros := 100
 	var expectedOutput []byte
+	var wg sync.WaitGroup
+	for j := 0; j < numGoros; j++ {
+		wg.Add(1)
+		go func() {
+			for i := 0; i < numObjs/numGoros; i++ {
+				_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage))
+				if err != nil {
+					panic(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
 	for i := 0; i < numObjs; i++ {
-		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage))
-		require.NoError(t, err)
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
+	wg.Wait()
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
