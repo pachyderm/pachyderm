@@ -701,6 +701,86 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	return commitInfos, nil
 }
 
+func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	repoSet1 := make(map[string]bool)
+	for _, commit := range fromCommits {
+		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo}, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, repoInfo := range repoInfos {
+			repoSet1[repoInfo.Repo.Name] = true
+		}
+	}
+
+	repoSet2 := make(map[string]bool)
+	for _, repo := range toRepos {
+		repoInfo, err := d.InspectRepo(repo, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range repoInfo.Provenance {
+			repoSet2[repo.Name] = true
+		}
+		repoSet2[repo.Name] = true
+	}
+
+	// The list of the repos that we care about.
+	var repos []string
+	for repoName, _ := range repoSet1 {
+		if len(repoSet2) == 0 || repoSet2[repoName] {
+			repos = append(repos, repoName)
+		}
+	}
+
+	// The commit IDs of the provenance commits
+	var provenanceIDs []interface{}
+	for _, commit := range fromCommits {
+		commit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
+			Repo: commit.Repo,
+			ID:   commit.ID,
+		})
+	}
+
+	cursor, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		return gorethink.And(
+			commit.Field("Provenance").Contains(provenanceIDs...),
+			gorethink.Expr(repos).Contains(commit.Field("Repo")),
+		)
+	}).Changes(gorethink.ChangesOpts{
+		IncludeInitial: true,
+	}).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+
+	var commitInfos []*pfs.CommitInfo
+	repoSet := make(map[string]bool)
+	for _, repoName := range repos {
+		repoSet[repoName] = true
+	}
+	for {
+		commit := &persist.Commit{}
+		cursor.Next(commit)
+		if commit.Cancelled {
+			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
+		}
+		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+		delete(repoSet, commit.Repo)
+		// Return when we have seen at least one commit from each repo that we
+		// care about.
+		if len(repoSet) == 0 {
+			return commitInfos, nil
+		}
+	}
+	return nil, errors.New("unreachable")
+}
+
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	// Get all branches
 	cursor, err := d.getTerm(clockTable).Between(
