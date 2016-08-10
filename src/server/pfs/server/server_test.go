@@ -1539,7 +1539,7 @@ func TestATonOfPutsRF(t *testing.T) {
 	require.Equal(t, string(expectedOutput), buffer.String())
 }
 
-func TestPutFileWithJSONDelimiter(t *testing.T) {
+func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
@@ -1605,7 +1605,7 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	}
 }
 
-func TestPutFileWithNoDelimiter(t *testing.T) {
+func TestPutFileWithNoDelimiterRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
