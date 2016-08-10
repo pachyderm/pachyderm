@@ -197,7 +197,12 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	return err
 }
 
-func (d *driver) inspectRepo(repo *pfs.Repo) (*persist.Repo, error) {
+func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
+	defer func() {
+		if retErr == gorethink.ErrEmptyResult {
+			retErr = pfsserver.NewErrRepoNotFound(repo.Name)
+		}
+	}()
 	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -609,6 +614,11 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
 	repoToFromCommit := make(map[string]string)
 	for _, repo := range repos {
+		// make sure that the repos exist
+		_, err := d.inspectRepo(repo)
+		if err != nil {
+			return nil, err
+		}
 		repoToFromCommit[repo.Name] = ""
 	}
 	for _, commit := range fromCommits {
@@ -699,6 +709,90 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	}
 
 	return commitInfos, nil
+}
+
+func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	repoSet1 := make(map[string]bool)
+	for _, commit := range fromCommits {
+		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo}, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, repoInfo := range repoInfos {
+			repoSet1[repoInfo.Repo.Name] = true
+		}
+	}
+
+	repoSet2 := make(map[string]bool)
+	for _, repo := range toRepos {
+		repoInfo, err := d.InspectRepo(repo, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, repo := range repoInfo.Provenance {
+			repoSet2[repo.Name] = true
+		}
+		repoSet2[repo.Name] = true
+	}
+
+	// The list of the repos that we care about.
+	var repos []string
+	for repoName, _ := range repoSet1 {
+		if len(repoSet2) == 0 || repoSet2[repoName] {
+			repos = append(repos, repoName)
+		}
+	}
+
+	// The commit IDs of the provenance commits
+	var provenanceIDs []interface{}
+	for _, commit := range fromCommits {
+		commit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
+			Repo: commit.Repo,
+			ID:   commit.ID,
+		})
+	}
+
+	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		return gorethink.And(
+			commit.Field("Provenance").Contains(provenanceIDs...),
+			gorethink.Expr(repos).Contains(commit.Field("Repo")),
+		)
+	}).Changes(gorethink.ChangesOpts{
+		IncludeInitial: true,
+	}).Field("new_val")
+	cursor, err := query.Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+
+	var commitInfos []*pfs.CommitInfo
+	repoSet := make(map[string]bool)
+	for _, repoName := range repos {
+		repoSet[repoName] = true
+	}
+	for {
+		commit := &persist.Commit{}
+		cursor.Next(commit)
+		if err := cursor.Err(); err != nil {
+			return nil, err
+		}
+		if commit.Cancelled {
+			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
+		}
+		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+		delete(repoSet, commit.Repo)
+		// Return when we have seen at least one commit from each repo that we
+		// care about.
+		if len(repoSet) == 0 {
+			return commitInfos, nil
+		}
+	}
+	return nil, errors.New("unreachable")
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
@@ -1554,7 +1648,12 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 // of the existing tests.  We will remove support for this case eventually.  OBSOLETE
 // 2. branch/clock: like "master/3"
 // 3. branch: like "master".  This would represent the head of the branch.
-func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *persist.Commit, err error) {
+func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *persist.Commit, retErr error) {
+	defer func() {
+		if retErr == gorethink.ErrEmptyResult {
+			retErr = pfsserver.NewErrCommitNotFound(repo, commitID)
+		}
+	}()
 	alias, err := parseClock(commitID)
 
 	commit = &persist.Commit{}
