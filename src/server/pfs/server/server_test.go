@@ -1268,7 +1268,7 @@ func TestProvenanceRF(t *testing.T) {
 	}
 }
 
-func TestFlush(t *testing.T) {
+func TestFlushRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	require.NoError(t, client.CreateRepo("A"))
@@ -1322,12 +1322,10 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, client.FinishCommit("D", DCommit.ID))
 	}()
 
-	fmt.Println("BP1")
 	// Flush ACommit
 	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-	fmt.Println("BP2")
 	commitInfos, err = client.FlushCommit(
 		[]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)},
 		[]*pfsclient.Repo{pclient.NewRepo("C")},
@@ -1353,7 +1351,6 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, client.CancelCommit("B", BCommit2.ID))
 	}()
 
-	fmt.Println("BP3")
 	// Flush ACommit2
 	_, err = client.FlushCommit(
 		[]*pfsclient.Commit{pclient.NewCommit("A", ACommit2.ID)},
