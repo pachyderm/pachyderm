@@ -746,14 +746,15 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		})
 	}
 
-	cursor, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		return gorethink.And(
 			commit.Field("Provenance").Contains(provenanceIDs...),
 			gorethink.Expr(repos).Contains(commit.Field("Repo")),
 		)
 	}).Changes(gorethink.ChangesOpts{
 		IncludeInitial: true,
-	}).Run(d.dbClient)
+	}).Field("new_val")
+	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -767,6 +768,9 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	for {
 		commit := &persist.Commit{}
 		cursor.Next(commit)
+		if err := cursor.Err(); err != nil {
+			return nil, err
+		}
 		if commit.Cancelled {
 			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
 		}
