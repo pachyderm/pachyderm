@@ -263,7 +263,20 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
 		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
-		if err != nil {
+		_, ok := err.(*ErrEmptyInput)
+		if err != nil && !ok {
+			return nil, err
+		}
+
+		if ok {
+			// If an input is empty, and RunEmpty flag is not set, then we simply
+			// Finish the commit.
+			_, err2 := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+				Commit: commit,
+			})
+			if err2 != nil {
+				return nil, err2
+			}
 			return nil, err
 		}
 
@@ -318,7 +331,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 
 	var shardModuli []uint64
 	var inputSizes []uint64
-	for _, input := range inputs {
+	limitHit := make(map[int]bool)
+	for i, input := range inputs {
 		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: input.Commit,
 		})
@@ -327,14 +341,18 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 		}
 
 		if commitInfo.SizeBytes == 0 {
-			return nil, NewErrEmptyInput(input.Commit.ID)
+			if input.RunEmpty {
+				// An empty input will always have a modulus of 1
+				limitHit[i] = true
+			} else {
+				return nil, NewErrEmptyInput(input.Commit.ID)
+			}
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
 		shardModuli = append(shardModuli, 1)
 	}
 
-	limitHit := make(map[int]bool)
 	for product(shardModuli) < parallelism && len(limitHit) < len(inputs) {
 		max := float64(0)
 		modulusIndex := 0
@@ -1123,6 +1141,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParentJob:   parentJob,
 					},
 				)
+				// We can ignore EmptyInput errors since they are benevolent
 				_, ok := err.(*ErrEmptyInput)
 				if err != nil && !ok {
 					return err
@@ -1249,8 +1268,9 @@ func (a *apiServer) trueInputs(
 		if ok {
 			result = append(result,
 				&ppsclient.JobInput{
-					Commit: commit,
-					Method: pipelineInput.Method,
+					Commit:   commit,
+					Method:   pipelineInput.Method,
+					RunEmpty: pipelineInput.RunEmpty,
 				})
 		}
 	}
@@ -1275,8 +1295,9 @@ func (a *apiServer) trueInputs(
 		if ok {
 			result = append(result,
 				&ppsclient.JobInput{
-					Commit: commitInfo.Commit,
-					Method: pipelineInput.Method,
+					Commit:   commitInfo.Commit,
+					Method:   pipelineInput.Method,
+					RunEmpty: pipelineInput.RunEmpty,
 				})
 		}
 	}
