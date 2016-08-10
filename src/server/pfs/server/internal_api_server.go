@@ -217,87 +217,13 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 
 func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
+	commitInfos, err := a.driver.FlushCommit(request.Commit, request.ToRepo)
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	var provenanceRepos []*pfs.Repo
-	for _, commit := range request.Commit {
-		provenanceRepos = append(provenanceRepos, commit.Repo)
-	}
-	repoInfos, err := a.driver.ListRepo(provenanceRepos, shards)
-	if err != nil {
-		return nil, err
-	}
-	// repoWhiteList is the set of repos we're interested in, empty means we're
-	// interested in all repos
-	repoWhiteList := make(map[string]bool)
-	for _, toRepo := range request.ToRepo {
-		repoWhiteList[toRepo.Name] = true
-		repoInfo, err := a.driver.InspectRepo(toRepo, shards)
-		if err != nil {
-			return nil, err
-		}
-		for _, repo := range repoInfo.Provenance {
-			repoWhiteList[repo.Name] = true
-		}
-	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	var wg sync.WaitGroup
-	var result []*pfs.CommitInfo
-	var lock sync.Mutex
-	errCh := make(chan error, 1)
-	for _, repoInfo := range repoInfos {
-		if len(repoWhiteList) > 0 && !repoWhiteList[repoInfo.Repo.Name] {
-			continue
-		}
-		repoInfo := repoInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			commitInfos, err := a.ListCommit(ctx, &pfs.ListCommitRequest{
-				Repo:       []*pfs.Repo{repoInfo.Repo},
-				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-				Provenance: request.Commit,
-				Block:      true,
-				All:        true,
-			})
-			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
-			}
-			lock.Lock()
-			defer lock.Unlock()
-			for _, commitInfo := range commitInfos.CommitInfo {
-				if commitInfo.Cancelled {
-					// one of the commits was cancelled so downstream commits might now show up
-					// cancel everything
-					cancel()
-					select {
-					case errCh <- fmt.Errorf("commit %s/%s was cancelled", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID):
-					default:
-					}
-					return
-				}
-				result = append(result, commitInfo)
-			}
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
-	}
-	return &pfs.CommitInfos{CommitInfo: result}, nil
+	return &pfs.CommitInfos{
+		CommitInfo: commitInfos,
+	}, nil
 }
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
