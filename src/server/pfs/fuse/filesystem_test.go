@@ -95,7 +95,7 @@ func TestRootReadDirRF(t *testing.T) {
 	})
 }
 
-func TestRepoReadDir(t *testing.T) {
+func TestRepoReadDirRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
