@@ -532,6 +532,11 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.RepoAlias = commitMount.Alias
 	result.Shard = commitMount.Shard
 
+	if commitMount.Commit.ID == "" {
+		// The Repo is empty
+		result.Write = false
+		return result, nil
+	}
 	commitInfo, err := d.fs.apiClient.InspectCommit(
 		commitMount.Commit.Repo.Name,
 		commitMount.Commit.ID,
