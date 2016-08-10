@@ -22,6 +22,7 @@ type Driver interface {
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 		provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error)
+	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, shard uint64, reader io.Reader) error
@@ -51,6 +52,7 @@ type PfsRefactorDriver interface {
 	FinishCommit(commit CommitID, cancel bool) error
 	InspectCommit(commit CommitID) (*pfs.CommitInfo, error)
 	ListCommit(repo *pfs.Repo, branch string, commitType pfs.CommitType, fromCommit *pfs.Commit, provenance []*pfs.Commit, all bool) ([]*pfs.CommitInfo, error)
+	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo) ([]string, error)
 	DeleteCommit(commit CommitID) error
 	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
