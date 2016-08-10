@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(code)
 }
-func TestRootReadDirRF(t *testing.T) {
+func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -95,7 +95,7 @@ func TestRootReadDirRF(t *testing.T) {
 	})
 }
 
-func TestRepoReadDirRF(t *testing.T) {
+func TestRepoReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -147,7 +147,7 @@ func TestRepoReadDirRF(t *testing.T) {
 	})
 }
 
-func TestCommitOpenReadDirRF(t *testing.T) {
+func TestCommitOpenReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -205,7 +205,7 @@ func TestCommitOpenReadDirRF(t *testing.T) {
 	})
 }
 
-func TestCommitFinishedReadDirRF(t *testing.T) {
+func TestCommitFinishedReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -264,7 +264,7 @@ func TestCommitFinishedReadDirRF(t *testing.T) {
 	})
 }
 
-func TestWriteAndReadRF(t *testing.T) {
+func TestWriteAndRead(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -287,7 +287,7 @@ func TestWriteAndReadRF(t *testing.T) {
 	})
 }
 
-func TestBigWriteRF(t *testing.T) {
+func TestBigWrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -307,7 +307,7 @@ func TestBigWriteRF(t *testing.T) {
 	})
 }
 
-func Test296AppendsRF(t *testing.T) {
+func Test296Appends(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -336,7 +336,7 @@ func Test296AppendsRF(t *testing.T) {
 	})
 }
 
-func Test296RF(t *testing.T) {
+func Test296(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -365,7 +365,7 @@ func Test296RF(t *testing.T) {
 	})
 }
 
-func TestSpacedWritesRF(t *testing.T) {
+func TestSpacedWrites(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -465,7 +465,7 @@ func TestMountCachingViaShellRF(t *testing.T) {
 	})
 }
 
-func TestCreateFileInDirRF(t *testing.T) {
+func TestCreateFileInDir(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -481,7 +481,7 @@ func TestCreateFileInDirRF(t *testing.T) {
 	})
 }
 
-func TestOverwriteFileRF(t *testing.T) {
+func TestOverwriteFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -504,7 +504,7 @@ func TestOverwriteFileRF(t *testing.T) {
 	})
 }
 
-func TestOpenAndWriteFileRF(t *testing.T) {
+func TestOpenAndWriteFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -533,7 +533,7 @@ func TestOpenAndWriteFileRF(t *testing.T) {
 	})
 }
 
-func TestDelimitJSONRF(t *testing.T) {
+func TestDelimitJSON(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -598,7 +598,7 @@ func TestDelimitJSONRF(t *testing.T) {
 	})
 }
 
-func TestNoDelimiterRF(t *testing.T) {
+func TestNoDelimiter(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -663,7 +663,7 @@ func TestNoDelimiterRF(t *testing.T) {
 	})
 }
 
-func TestWriteToReadOnlyPathRF(t *testing.T) {
+func TestWriteToReadOnlyPath(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -684,7 +684,7 @@ func TestWriteToReadOnlyPathRF(t *testing.T) {
 	})
 }
 
-func TestWriteManyFilesRF(t *testing.T) {
+func TestWriteManyFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -703,7 +703,7 @@ func TestWriteManyFilesRF(t *testing.T) {
 	})
 }
 
-func TestReadCancelledCommitRF(t *testing.T) {
+func TestReadCancelledCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
