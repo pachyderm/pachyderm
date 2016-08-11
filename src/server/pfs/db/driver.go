@@ -898,29 +898,29 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	// the ancestor directories
 	for _, prefix := range getPrefixes(file.Path) {
 		diffs = append(diffs, &persist.Diff{
-			ID:           getDiffID(commit.ID, prefix),
-			Repo:         commit.Repo,
-			Delete:       false,
-			CommitID:     commit.ID,
-			Path:         prefix,
-			BranchClocks: commit.BranchClocks,
-			FileType:     persist.FileType_DIR,
-			Modified:     now(),
+			ID:       getDiffID(commit.ID, prefix),
+			Repo:     commit.Repo,
+			Delete:   false,
+			CommitID: commit.ID,
+			Path:     prefix,
+			Clocks:   commit.BranchClocks.Heads(),
+			FileType: persist.FileType_DIR,
+			Modified: now(),
 		})
 	}
 
 	// the file itself
 	diffs = append(diffs, &persist.Diff{
-		ID:           getDiffID(commit.ID, file.Path),
-		Repo:         commit.Repo,
-		Delete:       false,
-		CommitID:     commit.ID,
-		Path:         file.Path,
-		BlockRefs:    refs,
-		Size:         size,
-		BranchClocks: commit.BranchClocks,
-		FileType:     persist.FileType_FILE,
-		Modified:     now(),
+		ID:        getDiffID(commit.ID, file.Path),
+		Repo:      commit.Repo,
+		Delete:    false,
+		CommitID:  commit.ID,
+		Path:      file.Path,
+		BlockRefs: refs,
+		Size:      size,
+		Clocks:    commit.BranchClocks.Heads(),
+		FileType:  persist.FileType_FILE,
+		Modified:  now(),
 	})
 
 	// Make sure that there's no type conflict
@@ -1136,58 +1136,6 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
-type BranchRanges struct {
-	ranges []*BranchRange
-}
-
-type BranchRange struct {
-	branch string
-	left   uint64
-	right  uint64
-}
-
-func (b *BranchRanges) AddBranchClock(bc *persist.BranchClock) {
-	for _, c := range bc.Clocks {
-		b.AddClock(c)
-	}
-}
-
-func (b *BranchRanges) AddClock(c *persist.Clock) {
-	for _, r := range b.ranges {
-		if r.branch == c.Branch {
-			if c.Clock > r.right {
-				r.right = c.Clock
-			}
-			return
-		}
-	}
-	b.ranges = append(b.ranges, &BranchRange{
-		branch: c.Branch,
-		left:   0,
-		right:  c.Clock,
-	})
-}
-
-func (b *BranchRanges) SubBranchClock(bc *persist.BranchClock) {
-	for _, c := range bc.Clocks {
-		b.SubClock(c)
-	}
-}
-
-func (b *BranchRanges) SubClock(c *persist.Clock) {
-	// only keep non-empty ranges
-	var newRanges []*BranchRange
-	for _, r := range b.ranges {
-		if r.branch == c.Branch {
-			r.left = c.Clock
-		}
-		if r.left <= r.right {
-			newRanges = append(newRanges, r)
-		}
-	}
-	b.ranges = newRanges
-}
-
 func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (emptyTerm gorethink.Term, retErr error) {
 	var ranges BranchRanges
 	for _, commit := range commits {
@@ -1280,13 +1228,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 // foldDiffs takes an unordered stream of diffs for a given path, and return
 // a single diff that represents the aggregation of these diffs.
 func foldDiffs(diffs gorethink.Term) gorethink.Term {
-	return diffs.Map(func(diff gorethink.Term) interface{} {
-		return []interface{}{diff}
-	}).Reduce(func(left gorethink.Term, right gorethink.Term) gorethink.Term {
-		return left.Union(right).OrderBy(func(diff gorethink.Term) gorethink.Term {
-			return persist.BranchClockToArray(diff.Field("BranchClocks").Nth(0))
-		})
-	}).Default([]interface{}{}).Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
+	return diffs.Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
 		// TODO: the fold function can easily take offset and size into account,
 		// only returning blockrefs that fall into the range specified by offset
 		// and size.
@@ -1313,19 +1255,14 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 }
 
 func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
+	query, err := d.getDiffsInCommitRange(fromCommit, toCommit, false, DiffParentIndex.GetName(), func(clock gorethink.Term) gorethink.Term {
+		return DiffParentIndex.Key(repo, parent, clock)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffParentIndex.Key(repo, parent, clocks)
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index: DiffParentIndex.GetName(),
-	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).OrderBy("Path").Run(d.dbClient)
 	if err != nil {
@@ -1340,19 +1277,14 @@ func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit,
 }
 
 func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getIntervalQueryFromCommitRange(fromCommit, toCommit)
+	query, err := d.getDiffsInCommitRange(fromCommit, toCommit, false, DiffPrefixIndex.GetName(), func(clock interface{}) interface{} {
+		return DiffPrefixIndex.Key(repo, parent, clock)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffPrefixIndex.Key(repo, parent, clocks)
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index: DiffPrefixIndex.GetName(),
-	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Group(func(diff gorethink.Term) gorethink.Term {
 		// This query gives us the first component after the parent prefix.
@@ -1385,32 +1317,54 @@ func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pf
 	return diffs, nil
 }
 
+type ClockToIndexKeyFunc func(interface{}) interface{}
+
 // intervalsToClocks takes a [fromClock, toClock] interval and returns an array
 // of clocks in between this range.
 // If reverse is set to true, the clocks will be in reverse order.
-func intervalToClocks(fromClock *persist.BranchClock, toClock *persist.BranchClock, reverse bool) (gorethink.Term, error) {
-	// Find the most recent diff that removes the path
-	intervals, err := libclock.GetClockIntervals(fromClock, toClock)
+func (d *driver) getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc ClockToIndexKeyFunc) (gorethink.Term, error) {
+	var err error
+	var fromClock *persist.BranchClock
+	if fromCommit != nil {
+		fromClock, err = d.getClockByAmbiguousID(fromCommit.Repo.Name, fromCommit.ID)
+		if err != nil {
+			return gorethink.Term{}, err
+		}
+	}
+
+	toClock, err := d.getClockByAmbiguousID(toCommit.Repo.Name, toCommit.ID)
 	if err != nil {
 		return gorethink.Term{}, err
 	}
 
+	crl := libclock.NewClockRangeList(fromClock, toClock)
+	ranges := crl.Ranges()
 	if reverse {
-		reverseSlice(intervals)
-		return gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
-			firstClock := persist.BranchClockToArray(interval.Nth(0))
-			secondClock := persist.BranchClockToArray(interval.Nth(1))
-			return gorethink.Range(gorethink.Expr(0).Sub(secondClock.Nth(-1).Nth(1)), gorethink.Expr(0).Sub(firstClock.Nth(-1).Nth(1)).Add(1)).Map(func(x gorethink.Term) gorethink.Term {
-				return firstClock.ChangeAt(-1, firstClock.Nth(-1).ChangeAt(1, gorethink.Expr(0).Sub(x)))
-			})
+		reverseSlice(ranges)
+		return gorethink.Expr(ranges).ConcatMap(func(r gorethink.Term) gorethink.Term {
+			return d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+				Index: gorethink.Desc(indexName),
+			}).Between(
+				keyFunc([]interface{}{r.Field("Branch"), r.Field("Left")}),
+				keyFunc([]interface{}{r.Field("Branch"), r.Field("Right")}),
+				gorethink.BetweenOpts{
+					LeftBound:  "closed",
+					RightBound: "closed",
+					Index:      indexName,
+				},
+			)
 		}), nil
 	} else {
-		return gorethink.Expr(intervals).ConcatMap(func(interval gorethink.Term) gorethink.Term {
-			firstClock := persist.BranchClockToArray(interval.Nth(0))
-			secondClock := persist.BranchClockToArray(interval.Nth(1))
-			return gorethink.Range(firstClock.Nth(-1).Nth(1), secondClock.Nth(-1).Nth(1).Add(1)).Map(func(x gorethink.Term) gorethink.Term {
-				return firstClock.ChangeAt(-1, firstClock.Nth(-1).ChangeAt(1, x))
-			})
+		return gorethink.Expr(ranges).ConcatMap(func(r gorethink.Term) gorethink.Term {
+			return d.getTerm(diffTable).Between(
+				keyFunc([]interface{}{r.Field("Branch"), r.Field("Left")}),
+				keyFunc([]interface{}{r.Field("Branch"), r.Field("Right")}),
+				gorethink.BetweenOpts{
+					LeftBound:  "closed",
+					RightBound: "closed",
+					Index:      indexName,
+				},
+			)
 		}), nil
 	}
 }
@@ -1430,19 +1384,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 
-	query, err := d.getIntervalQueryFromCommitRange(from, file.Commit)
+	query, err := d.getDiffsInCommitRange(from, file.Commit, false, DiffPathIndex.GetName(), func(clock interface{}) interface{} {
+		return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clock)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clocks)
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index: DiffPathIndex.GetName(),
-	}).Field("right")).Run(d.dbClient)
+	cursor, err := foldDiffs(query).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -1470,31 +1419,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	}
 
 	return diff, nil
-}
-
-// getIntervalQueryFromCommitRange takes a commit range and returns a RethinkDB
-// query that represents a stream of clocks in the commit range.
-func (d *driver) getIntervalQueryFromCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit) (gorethink.Term, error) {
-	var err error
-	var fromClock *persist.BranchClock
-	if fromCommit != nil {
-		fromClock, err = d.getClockByAmbiguousID(fromCommit.Repo.Name, fromCommit.ID)
-		if err != nil {
-			return gorethink.Term{}, err
-		}
-	}
-
-	toClock, err := d.getClockByAmbiguousID(toCommit.Repo.Name, toCommit.ID)
-	if err != nil {
-		return gorethink.Term{}, err
-	}
-
-	query, err := intervalToClocks(fromClock, toClock, true)
-	if err != nil {
-		return gorethink.Term{}, err
-	}
-
-	return query, nil
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
@@ -1561,24 +1485,20 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 		return err
 	}
 
-	query, err := d.getIntervalQueryFromCommitRange(nil, file.Commit)
-	if err != nil {
-		return err
-	}
-
 	repo := commit.Repo
 	commitID := commit.ID
 	prefix := file.Path
 
+	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.GetName(), func(clock interface{}) interface{} {
+
+		return DiffPrefixIndex.Key(repo, prefix, clock)
+	})
+	if err != nil {
+		return err
+	}
+
 	// Get all files under the directory, ordered by path.
-	cursor, err := foldDiffs(query.Map(func(clocks gorethink.Term) interface{} {
-		return DiffPrefixIndex.Key(repo, prefix, clocks)
-	}).EqJoin(func(x gorethink.Term) gorethink.Term {
-		// no-op
-		return x
-	}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-		Index: DiffPrefixIndex.GetName(),
-	}).Field("right").Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Field("Path").Run(d.dbClient)
 	if err != nil {
@@ -1594,15 +1514,15 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	var diffs []*persist.Diff
 	for _, path := range paths {
 		diffs = append(diffs, &persist.Diff{
-			ID:           getDiffID(commitID, path),
-			CommitID:     commitID,
-			Repo:         repo,
-			Path:         path,
-			BlockRefs:    nil,
-			Delete:       true,
-			Size:         0,
-			BranchClocks: commit.BranchClocks,
-			FileType:     persist.FileType_NONE,
+			ID:        getDiffID(commitID, path),
+			CommitID:  commitID,
+			Repo:      repo,
+			Path:      path,
+			BlockRefs: nil,
+			Delete:    true,
+			Size:      0,
+			Clocks:    commit.BranchClocks.Heads(),
+			FileType:  persist.FileType_NONE,
 		})
 	}
 
