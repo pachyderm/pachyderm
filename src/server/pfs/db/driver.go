@@ -1263,7 +1263,7 @@ func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit,
 		return nil, err
 	}
 
-	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).OrderBy("Path").Run(d.dbClient)
 	if err != nil {
@@ -1285,7 +1285,7 @@ func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pf
 		return nil, err
 	}
 
-	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Group(func(diff gorethink.Term) gorethink.Term {
 		// This query gives us the first component after the parent prefix.
@@ -1499,7 +1499,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	}
 
 	// Get all files under the directory, ordered by path.
-	cursor, err := foldDiffs(query.Group("Path")).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Field("Path").Run(d.dbClient)
 	if err != nil {
