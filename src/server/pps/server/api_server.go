@@ -791,9 +791,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		}
 		defer func() {
 			if retErr != nil {
-				// we ignore the error here because the function has already
-				// errored, if this fails there's nothing more we can do
-				pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo})
+				// we don't return the error here because the function has
+				// already errored, if this fails there's nothing we can do but
+				// log it
+				if _, err := pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo}); err != nil {
+					protolion.Errorf("error deleting repo %s: %s", repo, err.Error())
+				}
 			}
 		}()
 	}
