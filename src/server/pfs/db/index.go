@@ -59,10 +59,10 @@ func (i *index) GetCreateOptions() gorethink.IndexCreateOpts {
 // diffPathIndex maps a path to diffs that for that path
 // Format: [repo, path, clocks]
 // Example:
-// For the diff: delete "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: delete "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/foo/bar/buzz", [(master, 1)]]
-// ["/foo/bar/buzz", [(master, 0), (foo, 2)]]
+// ["/foo/bar/buzz", (master, 1)]
+// ["/foo/bar/buzz", (foo, 2)]
 type diffPathIndex struct {
 	index
 }
@@ -72,8 +72,8 @@ func NewDiffPathIndex() *diffPathIndex {
 		Name:  "diffPathIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
+			return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), row.Field("Path"), persist.ClockToArray(clock)}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
@@ -88,14 +88,14 @@ func (i *diffPathIndex) Key(repo interface{}, path interface{}, clock interface{
 
 // diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
 // Example:
-// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/", [(master, 1)]]
-// ["/foo", [(master, 1)]]
-// ["/foo/bar", [(master, 1)]]
-// ["/", [(master, 0), (foo, 2)]]
-// ["/foo", [(master, 0), (foo, 2)]]
-// ["/foo/bar", [(master, 0), (foo, 2)]]
+// ["/", (master, 1)]
+// ["/foo", (master, 1)]
+// ["/foo/bar", (master, 1)]
+// ["/", (foo, 2)]
+// ["/foo", (foo, 2)]
+// ["/foo/bar", (foo, 2)]
 type diffPrefixIndex struct {
 	index
 }
@@ -116,8 +116,8 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 					return []interface{}{newAcc}
 				},
 			}).ConcatMap(func(path gorethink.Term) gorethink.Term {
-				return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-					return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
+				return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
+					return []interface{}{row.Field("Repo"), path, persist.ClockToArray(clock)}
 				})
 			})
 		},
@@ -134,10 +134,10 @@ func (i *diffPrefixIndex) Key(repo interface{}, path interface{}, clock interfac
 // diffParentIndex maps a path to diffs that have the path as direct parent
 // Format: [repo, parent, clocks]
 // Example:
-// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/foo/bar", [(master, 1)]]
-// ["/foo/bar", [(master, 0), (foo, 2)]]
+// ["/foo/bar", (master, 1)]
+// ["/foo/bar", (foo, 2)]
 type diffParentIndex struct {
 	index
 }
@@ -154,8 +154,8 @@ func NewDiffParentIndex() *diffParentIndex {
 					acc.Add("/").Add(part),
 				)
 			})
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), parent, persist.BranchClockToArray(branchClock)}
+			return row.Field("clocks").Map(func(clock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), parent, persist.ClockToArray(clock)}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{

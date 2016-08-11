@@ -554,6 +554,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 
+	if finished == nil {
+		finished = now()
+	}
 	rawCommit.Finished = finished
 	rawCommit.Cancelled = parentCancelled || cancel
 	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
@@ -1133,13 +1136,96 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
+type BranchRanges struct {
+	ranges []*BranchRange
+}
+
+type BranchRange struct {
+	branch string
+	left   uint64
+	right  uint64
+}
+
+func (b *BranchRanges) AddBranchClock(bc *persist.BranchClock) {
+	for _, c := range bc.Clocks {
+		b.AddClock(c)
+	}
+}
+
+func (b *BranchRanges) AddClock(c *persist.Clock) {
+	for _, r := range b.ranges {
+		if r.branch == c.Branch {
+			if c.Clock > r.right {
+				r.right = c.Clock
+			}
+			return
+		}
+	}
+	b.ranges = append(b.ranges, &BranchRange{
+		branch: c.Branch,
+		left:   0,
+		right:  c.Clock,
+	})
+}
+
+func (b *BranchRanges) SubBranchClock(bc *persist.BranchClock) {
+	for _, c := range bc.Clocks {
+		b.SubClock(c)
+	}
+}
+
+func (b *BranchRanges) SubClock(c *persist.Clock) {
+	// only keep non-empty ranges
+	var newRanges []*BranchRange
+	for _, r := range b.ranges {
+		if r.branch == c.Branch {
+			r.left = c.Clock
+		}
+		if r.left <= r.right {
+			newRanges = append(newRanges, r)
+		}
+	}
+	b.ranges = newRanges
+}
+
+func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (emptyTerm gorethink.Term, retErr error) {
+	var ranges BranchRanges
+	for _, commit := range commits {
+		clock, err := d.getClockByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return emptyTerm, err
+		}
+		ranges.AddBranchClock(clock)
+	}
+	var head persist.Commit
+	if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
+		return emptyTerm, err
+	}
+	ranges.SubBranchClock(head.BranchClocks[0])
+
+	var queries []interface{}
+	for _, r := range ranges.ranges {
+		queries = append(queries,
+			d.getTerm(commitTable).Between(
+				CommitBranchIndex.Key(repo, r.branch, r.left),
+				CommitBranchIndex.Key(repo, r.branch, r.right),
+				gorethink.BetweenOpts{
+					Index:      CommitBranchIndex.GetName(),
+					LeftBound:  "closed",
+					RightBound: "closed",
+				},
+			),
+		)
+	}
+	return gorethink.Union(queries...), nil
+}
+
 func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
 	}
 
 	if strategy == pfs.MergeStrategy_SQUASH {
-
 		_repo := &pfs.Repo{
 			Name: repo,
 		}
@@ -1147,7 +1233,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			Repo: _repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		err := d.StartCommit(_repo, newCommit.ID, "", toBranch, now(), nil, nil)
+		err := d.StartCommit(_repo, newCommit.ID, "", toBranch, nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1158,49 +1244,33 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		// TODO: Need to find correct branch clock:
 		newClock := newPersistCommit.BranchClocks[0]
 
-		// TODO: Update the diffs of all of the prefixes of each path as well
-		// Probably want to make a helper function out the code in PutFile()
-		// that does this
-		var allDiffs []persist.Diff
-		for _, commit := range commits {
-			cursor, err := d.getTerm(diffTable).GetAllByIndex(
-				DiffCommitIndex.GetName(),
-				commit.ID,
-			).Run(d.dbClient)
-			if err != nil {
-				return nil, err
-			}
-
-			var diff persist.Diff
-			fmt.Printf("ZZZ looking for diff\n")
-			for cursor.Next(&diff) {
-				fmt.Printf("ZZZ got diff: %v\n", diff)
-				diff.CommitID = newCommit.ID
-				fmt.Printf("branch clock: %v\n", diff.BranchClocks)
-				diff.BranchClocks = append(diff.BranchClocks, newClock)
-				allDiffs = append(allDiffs, diff)
-				fmt.Printf("ZZZ normalized diff: %v\n", diff)
-			}
-			fmt.Printf("ZZZ done walking over diffs\n")
-			if err = cursor.Err(); err != nil {
-				return nil, err
-			}
-		}
-		fmt.Printf("ZZZ all diffs: %v\n", allDiffs)
-		_, err = d.getTerm(diffTable).Insert(
-			allDiffs,
-			gorethink.InsertOpts{
-				Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
-					return oldDoc.Merge(map[string]interface{}{
-						"BranchClocks": oldDoc.Field("BranchClocks").Append(newClock),
-					})
-				},
-			},
-		).RunWrite(d.dbClient)
+		commits, err := d.getCommitsToMerge(repo, commits, toBranch)
 		if err != nil {
 			return nil, err
 		}
-		err = d.FinishCommit(newCommit, now(), false, nil)
+
+		var all []*persist.Commit
+		cursor, err = commits.Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+		if err := cursor.All(&all); err != nil {
+			return nil, err
+		}
+
+		// update diffs with the new clock
+		_, err = commits.EqJoin(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("ID")
+		}, d.getTerm(diffTable), gorethink.EqJoinOpts{
+			Index: DiffCommitIndex.GetName(),
+		}).Update(map[string]interface{}{
+			"BranchClocks": gorethink.Row.Field("BranchClocks").Append(newClock),
+		}).RunWrite(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+
+		err = d.FinishCommit(newCommit, nil, false, nil)
 		retCommits.Commit = append(retCommits.Commit, newCommit)
 	}
 
