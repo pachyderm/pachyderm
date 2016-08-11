@@ -1656,8 +1656,8 @@ func TestArchiveCommit(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 
-	repo1 := "TestArchiveCommit"
-	repo2 := "TestBlockveCommit2"
+	repo1 := "TestArchiveCommit1"
+	repo2 := "TestArchiveCommit2"
 	require.NoError(t, client.CreateRepo(repo1))
 	_, err := client.PfsAPIClient.CreateRepo(
 		context.Background(),
