@@ -903,7 +903,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 			Delete:   false,
 			CommitID: commit.ID,
 			Path:     prefix,
-			Clocks:   commit.BranchClocks.Heads(),
+			Clocks:   persist.Heads(commit.BranchClocks),
 			FileType: persist.FileType_DIR,
 			Modified: now(),
 		})
@@ -918,7 +918,7 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 		Path:      file.Path,
 		BlockRefs: refs,
 		Size:      size,
-		Clocks:    commit.BranchClocks.Heads(),
+		Clocks:    persist.Heads(commit.BranchClocks),
 		FileType:  persist.FileType_FILE,
 		Modified:  now(),
 	})
@@ -985,7 +985,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	return nil
 }
 
-func reverseSlice(s [][]*persist.BranchClock) {
+func reverseSlice(s []*libclock.ClockRange) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
@@ -1136,93 +1136,94 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
-func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (emptyTerm gorethink.Term, retErr error) {
-	var ranges BranchRanges
-	for _, commit := range commits {
-		clock, err := d.getClockByAmbiguousID(commit.Repo.Name, commit.ID)
-		if err != nil {
-			return emptyTerm, err
-		}
-		ranges.AddBranchClock(clock)
-	}
-	var head persist.Commit
-	if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
-		return emptyTerm, err
-	}
-	ranges.SubBranchClock(head.BranchClocks[0])
+//func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (emptyTerm gorethink.Term, retErr error) {
+//var ranges libclock.ClockRangeList
+//for _, commit := range commits {
+//clock, err := d.getClockByAmbiguousID(commit.Repo.Name, commit.ID)
+//if err != nil {
+//return emptyTerm, err
+//}
+//ranges.AddBranchClock(clock)
+//}
+//var head persist.Commit
+//if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
+//return emptyTerm, err
+//}
+//ranges.SubBranchClock(head.BranchClocks[0])
 
-	var queries []interface{}
-	for _, r := range ranges.ranges {
-		queries = append(queries,
-			d.getTerm(commitTable).Between(
-				CommitBranchIndex.Key(repo, r.branch, r.left),
-				CommitBranchIndex.Key(repo, r.branch, r.right),
-				gorethink.BetweenOpts{
-					Index:      CommitBranchIndex.GetName(),
-					LeftBound:  "closed",
-					RightBound: "closed",
-				},
-			),
-		)
-	}
-	return gorethink.Union(queries...), nil
-}
+//var queries []interface{}
+//for _, r := range ranges.ranges {
+//queries = append(queries,
+//d.getTerm(commitTable).Between(
+//CommitBranchIndex.Key(repo, r.branch, r.left),
+//CommitBranchIndex.Key(repo, r.branch, r.right),
+//gorethink.BetweenOpts{
+//Index:      CommitBranchIndex.GetName(),
+//LeftBound:  "closed",
+//RightBound: "closed",
+//},
+//),
+//)
+//}
+//return gorethink.Union(queries...), nil
+//}
 
 func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
-	retCommits = &pfs.Commits{
-		Commit: []*pfs.Commit{},
-	}
+	//retCommits = &pfs.Commits{
+	//Commit: []*pfs.Commit{},
+	//}
 
-	if strategy == pfs.MergeStrategy_SQUASH {
-		_repo := &pfs.Repo{
-			Name: repo,
-		}
-		newCommit := &pfs.Commit{
-			Repo: _repo,
-			ID:   uuid.NewWithoutDashes(),
-		}
-		err := d.StartCommit(_repo, newCommit.ID, "", toBranch, nil, nil, nil)
-		if err != nil {
-			return nil, err
-		}
+	//if strategy == pfs.MergeStrategy_SQUASH {
+	//_repo := &pfs.Repo{
+	//Name: repo,
+	//}
+	//newCommit := &pfs.Commit{
+	//Repo: _repo,
+	//ID:   uuid.NewWithoutDashes(),
+	//}
+	//err := d.StartCommit(_repo, newCommit.ID, "", toBranch, nil, nil, nil)
+	//if err != nil {
+	//return nil, err
+	//}
 
-		cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
-		var newPersistCommit persist.Commit
-		cursor.One(&newPersistCommit)
-		// TODO: Need to find correct branch clock:
-		newClock := newPersistCommit.BranchClocks[0]
+	//cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+	//var newPersistCommit persist.Commit
+	//cursor.One(&newPersistCommit)
+	//// TODO: Need to find correct branch clock:
+	//newClock := newPersistCommit.BranchClocks[0]
 
-		commits, err := d.getCommitsToMerge(repo, commits, toBranch)
-		if err != nil {
-			return nil, err
-		}
+	//commits, err := d.getCommitsToMerge(repo, commits, toBranch)
+	//if err != nil {
+	//return nil, err
+	//}
 
-		var all []*persist.Commit
-		cursor, err = commits.Run(d.dbClient)
-		if err != nil {
-			return nil, err
-		}
-		if err := cursor.All(&all); err != nil {
-			return nil, err
-		}
+	//var all []*persist.Commit
+	//cursor, err = commits.Run(d.dbClient)
+	//if err != nil {
+	//return nil, err
+	//}
+	//if err := cursor.All(&all); err != nil {
+	//return nil, err
+	//}
 
-		// update diffs with the new clock
-		_, err = commits.EqJoin(func(commit gorethink.Term) gorethink.Term {
-			return commit.Field("ID")
-		}, d.getTerm(diffTable), gorethink.EqJoinOpts{
-			Index: DiffCommitIndex.GetName(),
-		}).Update(map[string]interface{}{
-			"BranchClocks": gorethink.Row.Field("BranchClocks").Append(newClock),
-		}).RunWrite(d.dbClient)
-		if err != nil {
-			return nil, err
-		}
+	//// update diffs with the new clock
+	//_, err = commits.EqJoin(func(commit gorethink.Term) gorethink.Term {
+	//return commit.Field("ID")
+	//}, d.getTerm(diffTable), gorethink.EqJoinOpts{
+	//Index: DiffCommitIndex.GetName(),
+	//}).Update(map[string]interface{}{
+	//"BranchClocks": gorethink.Row.Field("BranchClocks").Append(newClock),
+	//}).RunWrite(d.dbClient)
+	//if err != nil {
+	//return nil, err
+	//}
 
-		err = d.FinishCommit(newCommit, nil, false, nil)
-		retCommits.Commit = append(retCommits.Commit, newCommit)
-	}
+	//err = d.FinishCommit(newCommit, nil, false, nil)
+	//retCommits.Commit = append(retCommits.Commit, newCommit)
+	//}
 
-	return retCommits, nil
+	//return retCommits, nil
+	return nil, nil
 }
 
 // foldDiffs takes an unordered stream of diffs for a given path, and return
@@ -1255,7 +1256,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 }
 
 func (d *driver) getChildren(repo string, parent string, fromCommit *pfs.Commit, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(fromCommit, toCommit, false, DiffParentIndex.GetName(), func(clock gorethink.Term) gorethink.Term {
+	query, err := d.getDiffsInCommitRange(fromCommit, toCommit, false, DiffParentIndex.GetName(), func(clock interface{}) interface{} {
 		return DiffParentIndex.Key(repo, parent, clock)
 	})
 	if err != nil {
@@ -1319,9 +1320,9 @@ func (d *driver) getChildrenRecursive(repo string, parent string, fromCommit *pf
 
 type ClockToIndexKeyFunc func(interface{}) interface{}
 
-// intervalsToClocks takes a [fromClock, toClock] interval and returns an array
-// of clocks in between this range.
-// If reverse is set to true, the clocks will be in reverse order.
+// getDiffsInCommitRange takes a [fromClock, toClock] interval and returns
+// a stream of diffs in this range that matches a given index.
+// If reverse is set to true, the commits will be in reverse order.
 func (d *driver) getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc ClockToIndexKeyFunc) (gorethink.Term, error) {
 	var err error
 	var fromClock *persist.BranchClock
@@ -1521,7 +1522,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 			BlockRefs: nil,
 			Delete:    true,
 			Size:      0,
-			Clocks:    commit.BranchClocks.Heads(),
+			Clocks:    persist.Heads(commit.BranchClocks),
 			FileType:  persist.FileType_NONE,
 		})
 	}
