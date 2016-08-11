@@ -37,9 +37,9 @@ message JobOutput {
 }
 
 message JobState {
-	string job_id = 1;
-	pps.JobState state = 2;
-    google.protobuf.Timestamp finished = 3; // set when state == FINISHED
+  string job_id = 1;
+  pps.JobState state = 2;
+  google.protobuf.Timestamp finished = 3; // set when state == FINISHED
 }
 
 message PipelineInfo {
@@ -87,8 +87,8 @@ message UpdatePipelineStateRequest {
 }
 
 message UpdatePipelineStoppedRequest {
-	string pipeline_name = 1;
-	bool stopped = 2;
+  string pipeline_name = 1;
+  bool stopped = 2;
 }
 
 message BlockPipelineStateRequest {
