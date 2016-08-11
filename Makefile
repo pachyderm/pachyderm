@@ -1,4 +1,5 @@
-#### VARIABLES
+#ma
+### VARIABLES
 # RUNARGS: arguments for run
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
@@ -116,7 +117,10 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 docker-wait-pachd:
 	docker wait pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
+docker-build-fruitstand:
+	docker build -t fruit_stand examples/fruit_stand
+
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-fruitstand 
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -141,14 +145,14 @@ clean-launch-kube:
 
 launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
+	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST) --validate=false
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
+	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST) --validate=false
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -259,12 +263,22 @@ amazon-cluster-manifest:
 	@pach-deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
+	#aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --create-bucket-configuration LocationConstraint=$(AWS_REGION)
 	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION) --availability-zone $(AWS_AVAILABILITY_ZONE) --volume-type gp2
 
-clean-amazon-cluster:
+amazon-clean-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 detach-volume --force --volume-id $(STORAGE_NAME)
+	sleep 20
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
+
+amazon-clean-launch: clean-launch
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secrets amazon-secret
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
+
+amazon-clean: amazon-clean-launch amazon-clean-cluster
 
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
@@ -323,6 +337,7 @@ goxc-build:
 	docker-build-pachd \
 	docker-build \
 	docker-build-proto \
+	docker-build-fruitstand \
 	docker-push-job-shim \
 	docker-push-pachd \
 	docker-push \
@@ -353,7 +368,9 @@ goxc-build:
 	clean-google-cluster \
 	amazon-cluster-manifest \
 	amazon-cluster \
-	clean-amazon-cluster \
+	amazon-clean-cluster \
+	amazon-clean-launch \
+	amazon-clean \
 	install-go-bindata \
 	assets \
 	lint \
