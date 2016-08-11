@@ -336,7 +336,7 @@ func Test296Appends(t *testing.T) {
 	})
 }
 
-func Test296(t *testing.T) {
+func Test296RF(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -481,7 +481,7 @@ func TestCreateFileInDirRF(t *testing.T) {
 	})
 }
 
-func TestOverwriteFile(t *testing.T) {
+func TestOverwriteFileRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}

@@ -308,6 +308,9 @@ func (f *file) delimiter() pfsclient.Delimiter {
 }
 
 func (f *file) touch() error {
+	if len(f.File.Path) > 0 && f.File.Path[0] == '/' {
+		f.File.Path = f.File.Path[1:]
+	}
 	w, err := f.fs.apiClient.PutFileWriter(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
