@@ -663,7 +663,7 @@ func TestNoDelimiterRF(t *testing.T) {
 	})
 }
 
-func TestWriteToReadOnlyPath(t *testing.T) {
+func TestWriteToReadOnlyPathRF(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
