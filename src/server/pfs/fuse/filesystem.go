@@ -533,7 +533,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.Shard = commitMount.Shard
 
 	if commitMount.Commit.ID == "" {
-		// The Repo is empty
+		// We don't have a commit mount
 		result.Write = false
 		result.Modified = repoInfo.Created
 		return result, nil
