@@ -147,7 +147,7 @@ func TestRepoReadDirRF(t *testing.T) {
 	})
 }
 
-func TestCommitOpenReadDir(t *testing.T) {
+func TestCommitOpenReadDirRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -205,7 +205,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	})
 }
 
-func TestCommitFinishedReadDir(t *testing.T) {
+func TestCommitFinishedReadDirRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -264,7 +264,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	})
 }
 
-func TestWriteAndRead(t *testing.T) {
+func TestWriteAndReadRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -287,7 +287,7 @@ func TestWriteAndRead(t *testing.T) {
 	})
 }
 
-func TestBigWrite(t *testing.T) {
+func TestBigWriteRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -365,7 +365,7 @@ func Test296(t *testing.T) {
 	})
 }
 
-func TestSpacedWrites(t *testing.T) {
+func TestSpacedWritesRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -465,7 +465,7 @@ func TestMountCachingViaShellRF(t *testing.T) {
 	})
 }
 
-func TestCreateFileInDir(t *testing.T) {
+func TestCreateFileInDirRF(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -504,7 +504,7 @@ func TestOverwriteFile(t *testing.T) {
 	})
 }
 
-func TestOpenAndWriteFile(t *testing.T) {
+func TestOpenAndWriteFileRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -533,7 +533,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 	})
 }
 
-func TestDelimitJSON(t *testing.T) {
+func TestDelimitJSONRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -598,7 +598,7 @@ func TestDelimitJSON(t *testing.T) {
 	})
 }
 
-func TestNoDelimiter(t *testing.T) {
+func TestNoDelimiterRF(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -684,7 +684,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 	})
 }
 
-func TestWriteManyFiles(t *testing.T) {
+func TestWriteManyFilesRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -703,7 +703,7 @@ func TestWriteManyFiles(t *testing.T) {
 	})
 }
 
-func TestReadCancelledCommit(t *testing.T) {
+func TestReadCancelledCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -777,8 +777,7 @@ func testFuse(
 	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
 		panic(err)
 	}
-	address := fmt.Sprintf("localhost:%d", port)
-	driver, err := persist.NewDriver(address, RethinkAddress, dbName)
+	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
 	apiServer := server.NewAPIServer(
