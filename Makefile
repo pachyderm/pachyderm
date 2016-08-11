@@ -145,14 +145,14 @@ clean-launch-kube:
 
 launch: check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST) --validate=false
+	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST) --validate=false
+	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"

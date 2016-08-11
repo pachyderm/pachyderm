@@ -143,7 +143,7 @@ Deploying Kubernetes on AWS is still a relatively lengthy and manual process com
 First of all, set these environment variables:
 
 ```shell
-$ export KUBECTLFLAGS="-s [the IP address of the node where Kubernetes runs]"
+$ export KUBECTLFLAGS="-s [the Public IP address of the node where Kubernetes-master runs]"
 $ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire AWS region]
 $ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs]
 $ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
@@ -184,7 +184,13 @@ $ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[session token] m
 $ make MANIFEST=manifest launch
 ```
 
-It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
+It may take a while to complete for the first time, as a lot of Docker images need to be pulled. User can tear down the pachyderm bu running:
+
+```shell
+$ make amazon-clean$
+```
+
+It may take about 30 seconds to delete the pachyderm components.
 
 # OpenShift
 
