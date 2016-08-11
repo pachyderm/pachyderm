@@ -1,5 +1,4 @@
-#ma
-### VARIABLES
+#### VARIABLES
 # RUNARGS: arguments for run
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
@@ -117,10 +116,7 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 docker-wait-pachd:
 	docker wait pachd_compile
 
-docker-build-fruitstand:
-	docker build -t fruit_stand examples/fruit_stand
-
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-fruitstand 
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -263,7 +259,6 @@ amazon-cluster-manifest:
 	@pach-deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
-	#aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --create-bucket-configuration LocationConstraint=$(AWS_REGION)
 	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION) --availability-zone $(AWS_AVAILABILITY_ZONE) --volume-type gp2
 
@@ -337,7 +332,6 @@ goxc-build:
 	docker-build-pachd \
 	docker-build \
 	docker-build-proto \
-	docker-build-fruitstand \
 	docker-push-job-shim \
 	docker-push-pachd \
 	docker-push \
