@@ -632,3 +632,36 @@ func TestSquashMergeSameFile(t *testing.T) {
 	require.Equal(t, contentA+contentB, buffer.String())
 
 }
+
+/*
+
+Other Merge Test Case Stubs
+
+func TestMergeSquashMultipleFiles(t *testing.t) {
+
+}
+
+func TestMergeSquashValidateDiffOrder(t *testing.t) {
+	// Diffs from separate commits don't need to be in any order, but
+	// Diffs within a particular commit should be
+}
+
+func TestMergeSquashTwoBranchesToThird(t *testing.t) {
+	// This is the graph Derek mentioned in slack ... basically something like:
+
+       /       \
+1 --- 2 --- 3 - ?
+       \       /
+	    4 --- 5
+
+}
+
+func TestMergeReplay(t *testing.t) {
+	// Test equal # of commits created
+	// Test that their branchclocks are updated appropriately
+}
+
+func TestMergeReplayMultipleFiles(t *testing.t) {
+}
+
+*/

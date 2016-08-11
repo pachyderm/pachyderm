@@ -3,6 +3,7 @@ package fuse_test
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,8 +21,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"go.pedge.io/lion"
@@ -29,6 +31,28 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	RethinkAddress = "localhost:28015"
+)
+
+var (
+	port int32 = 30651
+)
+
+var testDBs []string
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	code := m.Run()
+	if code == 0 {
+		for _, name := range testDBs {
+			if err := persist.RemoveDB(RethinkAddress, name); err != nil {
+				panic(err)
+			}
+		}
+	}
+	os.Exit(code)
+}
 func TestRootReadDirRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
@@ -747,7 +771,13 @@ func testFuse(
 	require.NoError(t, err)
 	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
-	driver, err := drive.NewDriver(localAddress)
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	testDBs = append(testDBs, dbName)
+
+	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
+		panic(err)
+	}
+	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
 	apiServer := server.NewAPIServer(
