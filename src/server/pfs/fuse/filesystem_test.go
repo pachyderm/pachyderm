@@ -307,7 +307,7 @@ func TestBigWriteRF(t *testing.T) {
 	})
 }
 
-func Test296Appends(t *testing.T) {
+func Test296AppendsRF(t *testing.T) {
 	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")

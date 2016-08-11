@@ -308,9 +308,6 @@ func (f *file) delimiter() pfsclient.Delimiter {
 }
 
 func (f *file) touch() error {
-	if len(f.File.Path) > 0 && f.File.Path[0] == '/' {
-		f.File.Path = f.File.Path[1:]
-	}
 	w, err := f.fs.apiClient.PutFileWriter(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
@@ -603,6 +600,14 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	// path currently being looked up
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
+
+	// OBSOLETE: We need to remove the leading slash because of old error handling in pfs api/internalAPI layers
+	// This can go away once we collaps those layers
+
+	if len(directory.File.Path) > 0 && directory.File.Path[0] == '/' {
+		directory.File.Path = directory.File.Path[1:]
+	}
+
 	switch fileInfo.FileType {
 	case pfsclient.FileType_FILE_TYPE_REGULAR:
 		return &file{
