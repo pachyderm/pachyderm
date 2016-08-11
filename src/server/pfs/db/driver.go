@@ -40,6 +40,10 @@ type ErrBranchExists struct {
 	error
 }
 
+type ErrCommitFinished struct {
+	error
+}
+
 const (
 	repoTable   Table = "Repos"
 	diffTable   Table = "Diffs"
@@ -871,6 +875,10 @@ func (d *driver) PutFile(file *pfs.File, handle string,
 	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
 	if err != nil {
 		return err
+	}
+
+	if commit.Finished != nil {
+		return ErrCommitFinished{fmt.Errorf("commit %v has already been finished", commit.ID)}
 	}
 
 	_client := client.APIClient{BlockAPIClient: d.blockClient}
