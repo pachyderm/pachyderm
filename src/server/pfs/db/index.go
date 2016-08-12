@@ -187,7 +187,7 @@ func NewDiffCommitIndex() *diffCommitIndex {
 	}}
 }
 
-// diffCommitIndex maps a clock to diffs
+// diffClockIndex maps a clock to diffs
 // Format: [repo, branch, clock]
 // Example: ["test", "master", 1]
 type diffClockIndex struct {
@@ -200,7 +200,7 @@ func NewDiffClockIndex() *diffClockIndex {
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
 			return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
-				return []interface{}{row.Field("repo"), clock.Field("Branch"), clock.Field("Clock")}
+				return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock")}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
