@@ -629,7 +629,7 @@ func TestSquashMergeSameFile(t *testing.T) {
 
 	buffer := &bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
-	require.Equal(t, contentA+contentB, buffer.String())
+	require.EqualOneOf(t, []interface{}{contentA + contentB, contentB + contentA}, buffer.String())
 
 }
 
