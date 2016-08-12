@@ -270,14 +270,23 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 		if ok {
 			// If an input is empty, and RunEmpty flag is not set, then we simply
-			// Finish the commit.
-			_, err2 := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+			// create an empty job and finish the commit.
+			persistJobInfo.State = ppsclient.JobState_JOB_EMPTY
+			_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
 				Commit: commit,
 			})
-			if err2 != nil {
-				return nil, err2
+			if err != nil {
+				return nil, err
 			}
-			return nil, err
+
+			return &ppsclient.Job{
+				ID: jobID,
+			}, nil
 		}
 
 		persistJobInfo.Parallelism = product(shardModuli)
@@ -1045,7 +1054,6 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		// this pipeline does not have inputs; there is nothing to be done
 		return nil
 	}
-	protolion.Infof("running pipeline %s", pipelineInfo.Pipeline.Name)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1141,9 +1149,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParentJob:   parentJob,
 					},
 				)
-				// We can ignore EmptyInput errors since they are benevolent
-				_, ok := err.(*ErrEmptyInput)
-				if err != nil && !ok {
+				if err != nil {
 					return err
 				}
 			}

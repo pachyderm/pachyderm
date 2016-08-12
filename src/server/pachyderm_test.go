@@ -503,13 +503,47 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	require.Equal(t, 0, int(outCommits[0].SizeBytes))
-	// No job should've been created
+	// An empty job should've been created
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_EMPTY, jobInfos[0].State)
+
+	// Make another empty commit in the input repo
+	// The output commit should have the previous output commit as its parent
+	parentOutputCommit := outCommits[0].Commit
+	commit2, err := c.StartCommit(dataRepo, commit1.ID, "")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+		FromCommit: []*pfsclient.Commit{parentOutputCommit},
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	require.Equal(t, 0, int(outCommits[0].SizeBytes))
+	require.Equal(t, parentOutputCommit.ID, outCommits[0].ParentCommit.ID)
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_EMPTY, jobInfos[1].State)
 
 	// create a pipeline that runs with empty commits
+	dataRepo = uniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName = uniqueString("pipeline")
+
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
 	outRepo = ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,

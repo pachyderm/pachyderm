@@ -34,6 +34,9 @@ enum JobState {
     JOB_RUNNING = 1;
     JOB_FAILURE = 2;
     JOB_SUCCESS = 3;
+    // An empty job is a job that hasn't actually been run.
+    // It's a result of empty input commits.
+    JOB_EMPTY = 4;
 }
 
 enum Partition {
