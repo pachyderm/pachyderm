@@ -26,7 +26,6 @@ import (
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
 )
@@ -308,7 +307,6 @@ func TestBigWriteRF(t *testing.T) {
 }
 
 func Test296AppendsRF(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -337,7 +335,6 @@ func Test296AppendsRF(t *testing.T) {
 }
 
 func Test296RF(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -466,7 +463,6 @@ func TestMountCachingViaShellRF(t *testing.T) {
 }
 
 func TestCreateFileInDirRF(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
