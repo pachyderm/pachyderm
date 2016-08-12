@@ -26,7 +26,7 @@ before_script:
 script:
 - make launch-rethinkdb
 # Do the fuse tests separately ... otherwise they seem to take a while and make CI time out
-- travis_wait go test ./src/server/pfs/fuse -run=Test.*RF\$ > /dev/null
+- travis_wait go test ./src/server/pfs/fuse -run=Test.*RF\$
 - go test $(go list ./src/server/pfs/... | grep -v '/src/server/pfs/fuse') -run=Test.*RF\$
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
