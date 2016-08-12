@@ -7,12 +7,13 @@ import (
 )
 
 var (
-	DiffPathIndex     = NewDiffPathIndex()
-	DiffPrefixIndex   = NewDiffPrefixIndex()
-	DiffParentIndex   = NewDiffParentIndex()
-	DiffCommitIndex   = NewDiffCommitIndex()
-	ClockBranchIndex  = NewClockBranchIndex()
-	CommitBranchIndex = NewCommitBranchIndex()
+	DiffPathIndex    = NewDiffPathIndex()
+	DiffPrefixIndex  = NewDiffPrefixIndex()
+	DiffParentIndex  = NewDiffParentIndex()
+	DiffCommitIndex  = NewDiffCommitIndex()
+	DiffClockIndex   = NewDiffClockIndex()
+	ClockBranchIndex = NewClockBranchIndex()
+	CommitClockIndex = NewCommitClockIndex()
 
 	// Collect them all for easier initialization
 	Indexes = []Index{
@@ -20,8 +21,9 @@ var (
 		DiffPrefixIndex,
 		DiffParentIndex,
 		DiffCommitIndex,
+		DiffClockIndex,
 		ClockBranchIndex,
-		CommitBranchIndex,
+		CommitClockIndex,
 	}
 )
 
@@ -59,10 +61,10 @@ func (i *index) GetCreateOptions() gorethink.IndexCreateOpts {
 // diffPathIndex maps a path to diffs that for that path
 // Format: [repo, path, clocks]
 // Example:
-// For the diff: delete "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: delete "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/foo/bar/buzz", [(master, 1)]]
-// ["/foo/bar/buzz", [(master, 0), (foo, 2)]]
+// ["/foo/bar/buzz", (master, 1)]
+// ["/foo/bar/buzz", (foo, 2)]
 type diffPathIndex struct {
 	index
 }
@@ -72,8 +74,8 @@ func NewDiffPathIndex() *diffPathIndex {
 		Name:  "diffPathIndex",
 		Table: diffTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), row.Field("Path"), persist.BranchClockToArray(branchClock)}
+			return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), row.Field("Path"), persist.ClockToArray(clock)}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
@@ -88,14 +90,14 @@ func (i *diffPathIndex) Key(repo interface{}, path interface{}, clock interface{
 
 // diffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
 // Example:
-// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/", [(master, 1)]]
-// ["/foo", [(master, 1)]]
-// ["/foo/bar", [(master, 1)]]
-// ["/", [(master, 0), (foo, 2)]]
-// ["/foo", [(master, 0), (foo, 2)]]
-// ["/foo/bar", [(master, 0), (foo, 2)]]
+// ["/", (master, 1)]
+// ["/foo", (master, 1)]
+// ["/foo/bar", (master, 1)]
+// ["/", (foo, 2)]
+// ["/foo", (foo, 2)]
+// ["/foo/bar", (foo, 2)]
 type diffPrefixIndex struct {
 	index
 }
@@ -116,8 +118,8 @@ func NewDiffPrefixIndex() *diffPrefixIndex {
 					return []interface{}{newAcc}
 				},
 			}).ConcatMap(func(path gorethink.Term) gorethink.Term {
-				return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-					return []interface{}{row.Field("Repo"), path, persist.BranchClockToArray(branchClock)}
+				return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
+					return []interface{}{row.Field("Repo"), path, persist.ClockToArray(clock)}
 				})
 			})
 		},
@@ -134,10 +136,10 @@ func (i *diffPrefixIndex) Key(repo interface{}, path interface{}, clock interfac
 // diffParentIndex maps a path to diffs that have the path as direct parent
 // Format: [repo, parent, clocks]
 // Example:
-// For the diff: "/foo/bar/buzz", [[(master, 1)], [(master, 0), (foo, 2)]]
+// For the diff: "/foo/bar/buzz", [(master, 1), (foo, 2)]
 // We'd have the following index entries:
-// ["/foo/bar", [(master, 1)]]
-// ["/foo/bar", [(master, 0), (foo, 2)]]
+// ["/foo/bar", (master, 1)]
+// ["/foo/bar", (foo, 2)]
 type diffParentIndex struct {
 	index
 }
@@ -154,8 +156,8 @@ func NewDiffParentIndex() *diffParentIndex {
 					acc.Add("/").Add(part),
 				)
 			})
-			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
-				return []interface{}{row.Field("Repo"), parent, persist.BranchClockToArray(branchClock)}
+			return row.Field("clocks").Map(func(clock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), parent, persist.ClockToArray(clock)}
 			})
 		},
 		CreateOptions: gorethink.IndexCreateOpts{
@@ -185,6 +187,32 @@ func NewDiffCommitIndex() *diffCommitIndex {
 	}}
 }
 
+// diffClockIndex maps a clock to diffs
+// Format: [repo, branch, clock]
+// Example: ["test", "master", 1]
+type diffClockIndex struct {
+	index
+}
+
+func NewDiffClockIndex() *diffClockIndex {
+	return &diffClockIndex{index{
+		Name:  "DiffClockIndex",
+		Table: diffTable,
+		CreateFunction: func(row gorethink.Term) interface{} {
+			return row.Field("Clocks").Map(func(clock gorethink.Term) interface{} {
+				return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock")}
+			})
+		},
+		CreateOptions: gorethink.IndexCreateOpts{
+			Multi: true,
+		},
+	}}
+}
+
+func (i *diffClockIndex) Key(repo interface{}, branch interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, branch, clock}
+}
+
 type clockBranchIndex struct {
 	index
 }
@@ -202,23 +230,23 @@ func NewClockBranchIndex() *clockBranchIndex {
 	}}
 }
 
-// commitBranchIndex maps branch positions to commits
+// commitClockIndex maps branch positions to commits
 // Format: repo + head of clocks
 // Example:
 // A commit that has the clock [(master, 2), (foo, 3)] will be indexed to:
 // ["repo", "foo", 3]
 
-type commitBranchIndex struct {
+type commitClockIndex struct {
 	index
 }
 
-func (i *commitBranchIndex) Key(repo interface{}, branch interface{}, clock interface{}) interface{} {
+func (i *commitClockIndex) Key(repo interface{}, branch interface{}, clock interface{}) interface{} {
 	return []interface{}{repo, branch, clock}
 }
 
-func NewCommitBranchIndex() *commitBranchIndex {
-	return &commitBranchIndex{index{
-		Name:  "CommitBranchIndex",
+func NewCommitClockIndex() *commitClockIndex {
+	return &commitClockIndex{index{
+		Name:  "CommitClockIndex",
 		Table: commitTable,
 		CreateFunction: func(row gorethink.Term) interface{} {
 			return row.Field("BranchClocks").Map(func(branchClock gorethink.Term) interface{} {
