@@ -1136,22 +1136,23 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return res, nil
 }
 
-func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) (emptyTerm gorethink.Term, retErr error) {
+// getDiffsToMerge returns the diffs that need to be updated in case of a Merge
+func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) ([]gorethink.Term, error) {
 	var ranges libclock.ClockRangeList
 	for _, commit := range commits {
 		clock, err := d.getClockByAmbiguousID(commit.Repo.Name, commit.ID)
 		if err != nil {
-			return emptyTerm, err
+			return nil, err
 		}
 		ranges.AddBranchClock(clock)
 	}
 	var head persist.Commit
 	if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
-		return emptyTerm, err
+		return nil, err
 	}
 	ranges.SubBranchClock(head.BranchClocks[0])
 
-	var queries []interface{}
+	var queries []gorethink.Term
 	for _, r := range ranges.Ranges() {
 		queries = append(queries,
 			d.getTerm(diffTable).Between(
@@ -1165,7 +1166,7 @@ func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch st
 			),
 		)
 	}
-	return gorethink.Union(queries...), nil
+	return queries, nil
 }
 
 func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
@@ -1197,20 +1198,14 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		var all []*persist.Diff
-		cursor, err = diffs.Run(d.dbClient)
-		if err != nil {
-			return nil, err
+		var queries []gorethink.Term
+		for _, diff := range diffs {
+			queries = append(queries, diff.Update(map[string]interface{}{
+				"Clocks": gorethink.Row.Field("Clocks").Append(newClock),
+			}))
 		}
-		if err := cursor.All(&all); err != nil {
-			return nil, err
-		}
-		fmt.Printf("diffs: %v\n", all)
 
-		fmt.Printf("diffs query: %s\n", diffs.String())
-		_, err = diffs.Update(map[string]interface{}{
-			"Clocks": gorethink.Row.Field("Clocks").Append(newClock),
-		}).RunWrite(d.dbClient)
+		_, err = gorethink.Expr(queries).RunWrite(d.dbClient)
 		if err != nil {
 			return nil, err
 		}
