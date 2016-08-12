@@ -25,7 +25,8 @@ before_script:
 - docker version
 script:
 - make launch-rethinkdb
-- travis_wait go test ./src/server/pfs/fuse -run=Test.*RF\$ # Do the fuse tests separately ... otherwise they seem to take a while and make CI time out
+# Do the fuse tests separately ... otherwise they seem to take a while and make CI time out
+- travis_wait go test ./src/server/pfs/fuse -run=Test.*RF\$ > /dev/null
 - go test $(go list ./src/server/pfs/... | grep -v '/src/server/pfs/fuse') -run=Test.*RF\$
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
