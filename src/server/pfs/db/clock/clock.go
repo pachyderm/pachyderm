@@ -236,3 +236,76 @@ func StringToBranchClock(s string) (*persist.BranchClock, error) {
 	}
 	return res, nil
 }
+
+// A ClockRangeList is an ordered list of ClockRanges
+type ClockRangeList struct {
+	ranges []*ClockRange
+}
+
+// A ClockRange represents a range of clocks
+type ClockRange struct {
+	Branch string
+	Left   uint64
+	Right  uint64
+}
+
+// NewClockRangeList creates a ClockRangeList that represents all clock ranges
+// in between the two given BranchClocks.
+func NewClockRangeList(from *persist.BranchClock, to *persist.BranchClock) ClockRangeList {
+	var crl ClockRangeList
+	crl.AddBranchClock(to)
+	crl.SubBranchClock(from)
+	return crl
+}
+
+func (l *ClockRangeList) AddBranchClock(bc *persist.BranchClock) {
+	if bc != nil {
+		for _, c := range bc.Clocks {
+			l.AddClock(c)
+		}
+	}
+}
+
+// AddClock adds a range [0, c.Clock]
+func (l *ClockRangeList) AddClock(c *persist.Clock) {
+	for _, r := range l.ranges {
+		if r.Branch == c.Branch {
+			if c.Clock > r.Right {
+				r.Right = c.Clock
+			}
+			return
+		}
+	}
+	l.ranges = append(l.ranges, &ClockRange{
+		Branch: c.Branch,
+		Left:   0,
+		Right:  c.Clock,
+	})
+}
+
+func (l *ClockRangeList) SubBranchClock(bc *persist.BranchClock) {
+	if bc != nil {
+		for _, c := range bc.Clocks {
+			l.SubClock(c)
+		}
+	}
+}
+
+// SubClock substracts a range [0, c.Clock]
+func (l *ClockRangeList) SubClock(c *persist.Clock) {
+	// only keep non-empty ranges
+	var newRanges []*ClockRange
+	for _, r := range l.ranges {
+		if r.Branch == c.Branch {
+			r.Left = c.Clock
+		}
+		if r.Left <= r.Right {
+			newRanges = append(newRanges, r)
+		}
+	}
+	l.ranges = newRanges
+}
+
+func (l *ClockRangeList) Ranges() []*ClockRange {
+	return l.ranges
+}
