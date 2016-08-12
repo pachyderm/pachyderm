@@ -1212,6 +1212,8 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 
 		err = d.FinishCommit(newCommit, nil, false, nil)
 		retCommits.Commit = append(retCommits.Commit, newCommit)
+	} else if strategy == pfs.MergeStrategy_REPLAY {
+
 	}
 
 	return retCommits, nil

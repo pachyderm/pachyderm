@@ -609,27 +609,45 @@ func TestSquashMergeSameFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	contentA := "foo\n"
-	commitA, err := client.StartCommit(repo, commitRoot.ID, "A")
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commitA.ID, "file", strings.NewReader(contentA))
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commitA.ID))
+	require.NoError(t, client.FinishCommit(repo, "A"))
 
-	contentB := "bar\n"
-	commitB, err := client.StartCommit(repo, commitRoot.ID, "B")
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commitB.ID, "file", strings.NewReader(contentB))
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commitB.ID))
+	require.NoError(t, client.FinishCommit(repo, "A"))
 
-	mergedCommits, err := client.Merge(repo, []string{commitA.ID, commitB.ID}, "master", pfsclient.MergeStrategy_SQUASH)
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, "", "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
-	require.EqualOneOf(t, []interface{}{contentA + contentB, contentB + contentA}, buffer.String())
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestMergeSquashMultipleFiles(t *testing.T) {
 
 }
 
