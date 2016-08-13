@@ -73,9 +73,6 @@ func NewDiffPathIndex() *diffPathIndex {
 		CreateFunction: func(row gorethink.Term) interface{} {
 			return []interface{}{row.Field("Repo"), row.Field("Path"), persist.ClockToArray(row.Field("Clock"))}
 		},
-		CreateOptions: gorethink.IndexCreateOpts{
-			Multi: true,
-		},
 	}}
 }
 
