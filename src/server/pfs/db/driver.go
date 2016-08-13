@@ -389,7 +389,6 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			return err
 		}
 
-		// OBSOLETE
 		parentBranch := libclock.ClockHead(parentCommit.FullClock).Branch
 
 		if branch == "" {
@@ -508,9 +507,6 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 
-	// OBSOLETE
-	// Once we move to the new implementation, we should be able to directly
-	// Infer the parentID using the given commit ID.
 	parentID, err := d.getIDOfParentCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return err
@@ -1126,38 +1122,43 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 }
 
 // getDiffsToMerge returns the diffs that need to be updated in case of a Merge
-func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) ([]gorethink.Term, error) {
+func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) (nilTerm gorethink.Term, retErr error) {
 	var ranges libclock.ClockRangeList
 	for _, commit := range commits {
 		clock, err := d.getFullClockByAmbiguousID(commit.Repo.Name, commit.ID)
 		if err != nil {
-			return nil, err
+			return nilTerm, err
 		}
 		ranges.AddFullClock(clock)
 	}
 	var head persist.Commit
 	if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
-		return nil, err
+		return nilTerm, err
 	}
 	ranges.SubFullClock(head.FullClock)
 
-	var queries []gorethink.Term
-	for _, r := range ranges.Ranges() {
-		queries = append(queries,
-			d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
-				Index: DiffClockIndex.GetName(),
-			}).Between(
-				DiffClockIndex.Key(repo, r.Branch, r.Left),
-				DiffClockIndex.Key(repo, r.Branch, r.Right),
-				gorethink.BetweenOpts{
-					Index:      DiffClockIndex.GetName(),
-					LeftBound:  "closed",
-					RightBound: "closed",
-				},
-			),
+	var query gorethink.Term
+	for i, r := range ranges.Ranges() {
+		q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+			Index: DiffClockIndex.GetName(),
+		}).Between(
+			DiffClockIndex.Key(repo, r.Branch, r.Left),
+			DiffClockIndex.Key(repo, r.Branch, r.Right),
+			gorethink.BetweenOpts{
+				Index:      DiffClockIndex.GetName(),
+				LeftBound:  "closed",
+				RightBound: "closed",
+			},
 		)
+		if i == 0 {
+			query = q
+		} else {
+			query = query.UnionWithOpts(gorethink.UnionOpts{
+				Interleave: false,
+			}, q)
+		}
 	}
-	return queries, nil
+	return query, nil
 }
 
 func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
@@ -1189,15 +1190,16 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		var queries []gorethink.Term
-		for _, diff := range diffs {
-			queries = append(queries, diff.Update(map[string]interface{}{
-				"Clocks": gorethink.Row.Field("Clocks").Append(newClock),
-			}))
-		}
-
-		_, err = gorethink.Expr(queries).RunWrite(d.dbClient)
+		_, err = d.getTerm(diffTable).Insert(diffs.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Merge(func(diff gorethink.Term) map[string]interface{} {
+			return map[string]interface{}{
+				// diff IDs are of the form:
+				// commitID:path
+				"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
+				"Clock": newClock,
+			}
+		})).RunWrite(d.dbClient)
 		if err != nil {
+			// TODO: rollback if failed
 			return nil, err
 		}
 
@@ -1226,6 +1228,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 				"Size":      diff.Field("Size"),
 				"Modified":  diff.Field("Modified"),
 				"Clock":     diff.Field("Clock"),
+				"Repo":      diff.Field("Repo"),
 			}),
 			acc.Merge(map[string]interface{}{
 				"Path":      diff.Field("Path"),
@@ -1234,6 +1237,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 				"FileType":  diff.Field("FileType"),
 				"Modified":  diff.Field("Modified"),
 				"Clock":     diff.Field("Clock"),
+				"Repo":      diff.Field("Repo"),
 			}),
 		)
 	})
@@ -1596,9 +1600,6 @@ func (d *driver) deleteMessageByPrimaryKey(table Table, key interface{}) error {
 	return err
 }
 
-// OBSOLETE
-// Under the new scheme, the parent ID of a commit is self evident:
-// The parent of foo/3 is foo/2, for instance.
 func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, error) {
 	commit, err := d.getCommitByAmbiguousID(repo, commitID)
 	if err != nil {
