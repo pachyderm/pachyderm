@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -470,6 +471,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 
 	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", nil)
 	require.NoError(t, err)
+	fmt.Printf("children: %+v", fileInfo.Children)
 	require.Equal(t, 2, len(fileInfo.Children))
 }
 

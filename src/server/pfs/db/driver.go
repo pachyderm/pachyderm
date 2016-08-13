@@ -637,9 +637,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			head := fullClock.Head()
 			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 				Index: gorethink.Desc(CommitClockIndex.GetName()),
-			}).Between(CommitClockIndex.Key(repo, head.Branch, head.Clock+1), CommitClockIndex.Key(repo, head.Branch, gorethink.MaxVal), gorethink.BetweenOpts{
-				Index: CommitClockIndex.GetName(),
-			}))
+			}).Between(CommitClockIndex.Key(repo, head.Branch, head.Clock+1), CommitClockIndex.Key(repo, head.Branch, gorethink.MaxVal)))
 		}
 	}
 	query := gorethink.Union(queries...)
@@ -794,12 +792,11 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	// Get all branches
-	cursor, err := d.getTerm(clockTable).Between(
+	cursor, err := d.getTerm(clockTable).OrderBy(gorethink.OrderByOpts{
+		Index: ClockBranchIndex.GetName(),
+	}).Between(
 		[]interface{}{repo.Name, gorethink.MinVal},
 		[]interface{}{repo.Name, gorethink.MaxVal},
-		gorethink.BetweenOpts{
-			Index: ClockBranchIndex.GetName(),
-		},
 	).Field("Branch").Distinct().Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -1147,7 +1144,9 @@ func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch st
 	var queries []gorethink.Term
 	for _, r := range ranges.Ranges() {
 		queries = append(queries,
-			d.getTerm(diffTable).Between(
+			d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+				Index: DiffClockIndex.GetName(),
+			}).Between(
 				DiffClockIndex.Key(repo, r.Branch, r.Left),
 				DiffClockIndex.Key(repo, r.Branch, r.Right),
 				gorethink.BetweenOpts{
@@ -1222,19 +1221,19 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 			diff.Field("Delete"),
 			acc.Merge(map[string]interface{}{
 				"Path":      diff.Field("Path"),
-				"CommitID":  diff.Field("CommitID"),
 				"BlockRefs": diff.Field("BlockRefs"),
 				"FileType":  diff.Field("FileType"),
 				"Size":      diff.Field("Size"),
 				"Modified":  diff.Field("Modified"),
+				"Clock":     diff.Field("Clock"),
 			}),
 			acc.Merge(map[string]interface{}{
 				"Path":      diff.Field("Path"),
-				"CommitID":  diff.Field("CommitID"),
 				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 				"Size":      acc.Field("Size").Add(diff.Field("Size")),
 				"FileType":  diff.Field("FileType"),
 				"Modified":  diff.Field("Modified"),
+				"Clock":     diff.Field("Clock"),
 			}),
 		)
 	})
@@ -1336,19 +1335,19 @@ func (d *driver) getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Com
 				gorethink.BetweenOpts{
 					LeftBound:  "closed",
 					RightBound: "closed",
-					Index:      indexName,
 				},
 			)
 		}), nil
 	} else {
 		return gorethink.Expr(ranges).ConcatMap(func(r gorethink.Term) gorethink.Term {
-			return d.getTerm(diffTable).Between(
+			return d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+				Index: indexName,
+			}).Between(
 				keyFunc([]interface{}{r.Field("Branch"), r.Field("Left")}),
 				keyFunc([]interface{}{r.Field("Branch"), r.Field("Right")}),
 				gorethink.BetweenOpts{
 					LeftBound:  "closed",
 					RightBound: "closed",
-					Index:      indexName,
 				},
 			)
 		}), nil
@@ -1374,6 +1373,16 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	if err != nil {
 		return nil, err
 	}
+
+	//var all []*persist.Diff
+	//cursor2, err := query.Run(d.dbClient)
+	//if err != nil {
+	//return nil, err
+	//}
+	//if err := cursor2.All(&all); err != nil {
+	//return nil, err
+	//}
+	//fmt.Printf("diffs: %v\n", all)
 
 	cursor, err := foldDiffs(query).Run(d.dbClient)
 	if err != nil {
@@ -1474,7 +1483,6 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	prefix := file.Path
 
 	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.GetName(), func(clock interface{}) interface{} {
-
 		return DiffPrefixIndex.Key(repo, prefix, clock)
 	})
 	if err != nil {
