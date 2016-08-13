@@ -233,9 +233,7 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 				}
 			}
 
-			clocks, ok := innerFields[2].([]interface{})
-			require.Equal(t, true, ok)
-			clock, ok := clocks[0].([]interface{})
+			clock, ok := innerFields[2].([]interface{})
 			require.Equal(t, true, ok)
 			require.Equal(t, "master", clock[0].(string))
 			require.Equal(t, float64(0), clock[1].(float64))
