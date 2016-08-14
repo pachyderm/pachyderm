@@ -601,7 +601,7 @@ func TestRootDirectoryRF(t *testing.T) {
 	require.Equal(t, 1, len(fileInfos))
 }
 
-func TestSquashMergeSameFile(t *testing.T) {
+func TestSquashMergeSameFileRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
@@ -645,6 +645,54 @@ func TestSquashMergeSameFile(t *testing.T) {
 
 	buffer := &bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestReplayMergeSameFileRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, "", "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[3].ID, "file", 0, 0, "", nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
 }

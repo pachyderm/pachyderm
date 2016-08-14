@@ -134,7 +134,7 @@ func (l *ClockRangeList) SubClock(c *persist.Clock) {
 	var newRanges []*ClockRange
 	for _, r := range l.ranges {
 		if r.Branch == c.Branch {
-			r.Left = c.Clock
+			r.Left = c.Clock + 1
 		}
 		if r.Left <= r.Right {
 			newRanges = append(newRanges, r)

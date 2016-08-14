@@ -1176,7 +1176,7 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 
 	var query gorethink.Term
 	for i, r := range ranges.Ranges() {
-		q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+		q := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 			Index: CommitClockIndex.GetName(),
 		}).Between(
 			CommitClockIndex.Key(repo, r.Branch, r.Left),
@@ -1280,7 +1280,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			oldClock := libclock.ClockHead(rawCommit.FullClock)
 
 			// TODO: conflict detection
-			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(CommitClockIndex.GetName(), CommitClockIndex.Key(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
+			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.GetName(), DiffClockIndex.Key(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 				return map[string]interface{}{
 					"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
 					"Clock": newClock,
