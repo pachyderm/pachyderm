@@ -1495,6 +1495,9 @@ func TestScrubbedErrorStrings(t *testing.T) {
 }
 
 func TestATonOfPutsRF(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping long tests in short mode")
+	}
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 

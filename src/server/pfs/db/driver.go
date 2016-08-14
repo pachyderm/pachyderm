@@ -1088,9 +1088,6 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 		File: file,
 	}
 
-	// The most recent diff will tell us about the file type.
-	// Technically any diff will do, but the very first diff might be a
-	// deletion.
 	switch diff.FileType {
 	case persist.FileType_FILE:
 		res.FileType = pfs.FileType_FILE_TYPE_REGULAR
@@ -1312,7 +1309,10 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 		// only returning blockrefs that fall into the range specified by offset
 		// and size.
 		return gorethink.Branch(
-			diff.Field("FileType").Eq(acc.Field("FileType")).Or(acc.Field("FileType").Eq(persist.FileType_NONE)),
+			// If neither the acc nor the new diff has FileType_NONE, and they have
+			// different FileTypes, then it's a file type conflict.
+			acc.Field("FileType").Ne(persist.FileType_NONE).And(diff.Field("FileType").Ne(persist.FileType_NONE).And(acc.Field("FileType").Ne(diff.Field("FileType")))),
+			gorethink.Error(ErrConflictFileTypeMsg),
 			gorethink.Branch(
 				diff.Field("Delete"),
 				acc.Merge(map[string]interface{}{
@@ -1334,7 +1334,6 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 					"Repo":      diff.Field("Repo"),
 				}),
 			),
-			gorethink.Error(ErrConflictFileTypeMsg),
 		)
 	})
 }
