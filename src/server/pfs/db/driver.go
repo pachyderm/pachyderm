@@ -1092,9 +1092,18 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	case persist.FileType_FILE:
 		res.FileType = pfs.FileType_FILE_TYPE_REGULAR
 		res.Modified = diff.Modified
+
+		// OBSOLETE
+		// We need the database ID because that's what some old tests expect.
+		// Once we switch to semantically meaningful IDs, this won't be necessary.
+		commit, err := d.getCommitByAmbiguousID(diff.Repo, diff.CommitID())
+		if err != nil {
+			return nil, err
+		}
+
 		res.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.CommitID(),
+			ID:   commit.ID,
 		}
 		res.SizeBytes = diff.Size
 	case persist.FileType_DIR:
