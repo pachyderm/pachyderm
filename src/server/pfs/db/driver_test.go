@@ -41,46 +41,6 @@ func persistCommitToPFSCommit(rawCommit *persist.Commit) *pfs.Commit {
 	}
 }
 
-func TestStartCommitRF(t *testing.T) {
-	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
-	require.NoError(t, err)
-	fmt.Printf("got a driver")
-
-	dbClient, err := dbConnect(RethinkAddress)
-	require.NoError(t, err)
-
-	commitID := uuid.NewWithoutDashes()
-	err = d.StartCommit(
-		&pfs.Repo{Name: "foo"},
-		commitID,
-		"",
-		"master",
-		timestampNow(),
-		make([]*pfs.Commit, 0),
-		make(map[uint64]bool),
-	)
-	require.NoError(t, err)
-
-	cursor, err := gorethink.DB(RethinkTestDB).Table(commitTable).Get(commitID).Default(gorethink.Error("value not found")).Run(dbClient)
-	defer func() {
-		require.NoError(t, cursor.Close())
-	}()
-
-	rawCommit := &persist.Commit{}
-	cursor.Next(rawCommit)
-	require.NoError(t, cursor.Err())
-
-	fmt.Printf("Commit info: %v\n", rawCommit)
-
-	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
-	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
-
-	commit := persistCommitToPFSCommit(rawCommit)
-	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
-	require.NoError(t, err)
-}
-
 func TestStartCommitRace(t *testing.T) {
 	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
 	require.NoError(t, err)
@@ -112,9 +72,8 @@ func TestStartCommitRace(t *testing.T) {
 	cursor.Next(rawCommit)
 	require.NoError(t, cursor.Err())
 
-	require.Equal(t, 1, len(rawCommit.BranchClocks))           // Only belongs to one branch
-	require.Equal(t, 1, len(rawCommit.BranchClocks[0].Clocks)) // First commit on this branch
-	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.BranchClocks[0].Clocks[0])
+	require.Equal(t, 1, len(rawCommit.FullClock))
+	require.Equal(t, &persist.Clock{Branch: "master", Clock: 0}, rawCommit.FullClock[0])
 
 	commit := persistCommitToPFSCommit(rawCommit)
 	err = d.FinishCommit(commit, timestampNow(), false, make(map[uint64]bool))
@@ -125,7 +84,7 @@ func TestStartCommitRace(t *testing.T) {
 	errCh := make(chan error, 1)
 	startCommitOnHead := func() {
 		defer wg.Done()
-		var bc *persist.BranchClock
+		var bc *persist.Clock
 		newCommitID := uuid.NewWithoutDashes()
 		err := d.StartCommit(
 			&pfs.Repo{Name: "foo"},
@@ -149,17 +108,12 @@ func TestStartCommitRace(t *testing.T) {
 			goto SendError
 		}
 
-		if len(rawCommit.BranchClocks) != 1 {
-			err = fmt.Errorf("RawCommit %v has incorrect number of BranchClocks", rawCommit)
-			goto SendError
-		}
-
-		bc = rawCommit.BranchClocks[0]
-		if len(bc.Clocks) != 1 {
+		if len(rawCommit.FullClock) != 1 {
 			err = fmt.Errorf("BranchClock %v has incorrect number of Clocks", bc)
 			goto SendError
 		}
-		ch <- int(bc.Clocks[len(bc.Clocks)-1].Clock)
+		bc = rawCommit.FullClock[0]
+		ch <- int(bc.Clock)
 
 	SendError:
 		if err != nil {
