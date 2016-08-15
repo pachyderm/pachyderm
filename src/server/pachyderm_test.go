@@ -486,6 +486,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 			Repo:     &pfsclient.Repo{Name: dataRepo},
 			RunEmpty: false,
 		}},
+		false,
 	))
 	// Add first empty commit to repo
 	commit1, err := c.StartCommit(dataRepo, "", "")
@@ -558,6 +559,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 			Repo:     &pfsclient.Repo{Name: dataRepo},
 			RunEmpty: true,
 		}},
+		false,
 	))
 	listCommitRequest = &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
