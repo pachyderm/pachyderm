@@ -813,7 +813,7 @@ func testFuse(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, true))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false))
 	}()
 
 	<-ready
