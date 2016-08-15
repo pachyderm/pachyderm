@@ -96,7 +96,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		if retErr == nil {
+		if retErr == nil || retErr == fuse.ENOENT {
 			protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 		} else {
 			protolion.Error(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
