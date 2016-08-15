@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 
@@ -27,6 +26,7 @@ var (
 	port int32 = 40651
 )
 
+/*
 func TestCommitBranchIndexBasicRF(t *testing.T) {
 	testSetup(t, func(d drive.Driver, dbName string, dbClient *gorethink.Session, client pclient.APIClient) {
 
@@ -179,6 +179,7 @@ func TestDiffCommitIndexBasicRF(t *testing.T) {
 		require.Equal(t, commitID, indexedAsCommit)
 	})
 }
+*/
 
 func TestDiffPathIndexBasicRF(t *testing.T) {
 
