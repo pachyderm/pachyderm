@@ -52,6 +52,14 @@ const (
 	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
 )
 
+// CommitStatus alias pfs.CommitStatus_*
+const (
+	CommitStatusNormal    = pfs.CommitStatus_NORMAL
+	CommitStatusArchived  = pfs.CommitStatus_ARCHIVED
+	CommitStatusCancelled = pfs.CommitStatus_CANCELLED
+	CommitStatusAll       = pfs.CommitStatus_ALL
+)
+
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
@@ -159,6 +167,19 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
+// ArchiveCommit marks a commit as archived. Archived commits are not listed in
+// ListCommit unless commit status is set to Archived or All. Archived commits
+// are not considered by FlushCommit either.
+func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
+	_, err := c.PfsAPIClient.ArchiveCommit(
+		context.Background(),
+		&pfs.ArchiveCommitRequest{
+			Commit: NewCommit(repoName, commitID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // CancelCommit ends the process of committing data to a repo. It differs from
 // FinishCommit in that the Commit will not be used as a source for downstream
 // pipelines. CancelCommit is used primarily by PPS for the output commits of
@@ -196,12 +217,13 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
 // block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
 // Using fromCommitIDs and block you can get subscription semantics from ListCommit.
-// all, when set to true, will cause ListCommit to return cancelled commits as well.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
 func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, all bool, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
+	commitType pfs.CommitType, block bool, status pfs.CommitStatus, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &pfs.Repo{Name: repoName})
@@ -219,7 +241,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 			Repo:       repos,
 			FromCommit: fromCommits,
 			Block:      block,
-			All:        all,
+			Status:     status,
 			Provenance: provenance,
 		},
 	)

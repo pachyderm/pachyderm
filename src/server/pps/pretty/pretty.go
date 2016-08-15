@@ -171,6 +171,8 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 		return color.New(color.FgYellow).SprintFunc()("restarting")
 	case ppsclient.PipelineState_PIPELINE_FAILURE:
 		return color.New(color.FgRed).SprintFunc()("failure")
+	case ppsclient.PipelineState_PIPELINE_STOPPED:
+		return color.New(color.FgYellow).SprintFunc()("stopped")
 	}
 	return "-"
 }

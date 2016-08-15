@@ -345,6 +345,38 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	startPipeline := &cobra.Command{
+		Use:   "start-pipeline pipeline-name",
+		Short: "Restart a stopped pipeline.",
+		Long:  "Restart a stopped pipeline.",
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+			client, err := pach.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			if err := client.StartPipeline(args[0]); err != nil {
+				pkgcmd.ErrorAndExit("error from StartPipeline: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
+	stopPipeline := &cobra.Command{
+		Use:   "stop-pipeline pipeline-name",
+		Short: "Stop a running pipeline.",
+		Long:  "Stop a running pipeline.",
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+			client, err := pach.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			if err := client.StopPipeline(args[0]); err != nil {
+				pkgcmd.ErrorAndExit("error from StopPipeline: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
 	var specPath string
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
@@ -417,6 +449,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)
 	result = append(result, deletePipeline)
+	result = append(result, startPipeline)
+	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
 	return result, nil
 }
