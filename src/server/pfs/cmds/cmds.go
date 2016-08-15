@@ -253,7 +253,11 @@ Examples:
 			if err != nil {
 				return err
 			}
-			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all, provenance)
+			status := pfsclient.CommitStatus_NORMAL
+			if all {
+				status = pfsclient.CommitStatus_ALL
+			}
+			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, status, provenance)
 			if err != nil {
 				return err
 			}

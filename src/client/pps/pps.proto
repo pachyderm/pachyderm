@@ -107,6 +107,8 @@ enum PipelineState {
     PIPELINE_RESTARTING = 2;
     // We have retried too many times and we have given up on this pipeline.
     PIPELINE_FAILURE = 3;
+    // The pipeline has been explicitly stopped by the user.
+    PIPELINE_STOPPED = 4;
 }
 
 message PipelineInfo {
@@ -153,6 +155,8 @@ message CreatePipelineRequest {
   Transform transform = 2;
   uint64 parallelism = 3;
   repeated PipelineInput inputs = 4;
+  bool update = 5;
+  bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
 }
 
 message InspectPipelineRequest {
@@ -166,6 +170,14 @@ message DeletePipelineRequest {
   Pipeline pipeline = 1;
 }
 
+message StartPipelineRequest {
+  Pipeline pipeline = 1;
+}
+
+message StopPipelineRequest {
+  Pipeline pipeline = 1;
+}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -176,6 +188,8 @@ service API {
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
+  rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
