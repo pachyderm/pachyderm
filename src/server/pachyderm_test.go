@@ -460,6 +460,123 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
+func TestPipelineWithEmptyInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repo
+	dataRepo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline that doesn't run with empty commits
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo foo > /pfs/out/file",
+		},
+		1,
+		[]*ppsclient.PipelineInput{{
+			Repo:     &pfsclient.Repo{Name: dataRepo},
+			RunEmpty: false,
+		}},
+	))
+	// Add first empty commit to repo
+	commit1, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	require.Equal(t, 0, int(outCommits[0].SizeBytes))
+	// An empty job should've been created
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_EMPTY, jobInfos[0].State)
+
+	// Make another empty commit in the input repo
+	// The output commit should have the previous output commit as its parent
+	parentOutputCommit := outCommits[0].Commit
+	commit2, err := c.StartCommit(dataRepo, commit1.ID, "")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+		FromCommit: []*pfsclient.Commit{parentOutputCommit},
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	require.Equal(t, 0, int(outCommits[0].SizeBytes))
+	require.Equal(t, parentOutputCommit.ID, outCommits[0].ParentCommit.ID)
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_EMPTY, jobInfos[1].State)
+
+	// create a pipeline that runs with empty commits
+	dataRepo = uniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName = uniqueString("pipeline")
+
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	outRepo = ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo foo > /pfs/out/file",
+		},
+		1,
+		[]*ppsclient.PipelineInput{{
+			Repo:     &pfsclient.Repo{Name: dataRepo},
+			RunEmpty: true,
+		}},
+	))
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	require.Equal(t, len("foo\n"), int(outCommits[0].SizeBytes))
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+}
+
 func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -516,7 +633,7 @@ func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	require.Equal(t, false, outCommits[0].Cancelled)
 }
 
-func TestPipelineWithEmptyInputs(t *testing.T) {
+func TestPipelineWithNoInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

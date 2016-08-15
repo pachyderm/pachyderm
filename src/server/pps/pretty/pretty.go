@@ -155,6 +155,8 @@ func jobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("failure")
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.JobState_JOB_EMPTY:
+		return color.New(color.FgGreen).SprintFunc()("empty")
 	}
 	return "-"
 }

@@ -27,6 +27,7 @@ This document discusses each of the fields present in a pipeline specification. 
       "repo": {
         "name": string
       },
+      "runEmpty": false,
       "method": "map"/"reduce"/"global"
       // alternatively, method can be specified as an object.
       // this is only for advanced use cases; most of the time, one of the four
@@ -63,6 +64,8 @@ This document discusses each of the fields present in a pipeline specification. 
 ### Inputs
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
+
+`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
