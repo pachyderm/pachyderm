@@ -81,7 +81,6 @@ func (fc FullClock) ToArray() (res []interface{}) {
 	return res
 }*/
 func FullClockHead(fc FullClock) *Clock {
-	//func (fc *FullClock) Head() *Clock {
 	if len(fc) == 0 {
 		return nil
 	}
