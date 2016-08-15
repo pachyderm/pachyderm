@@ -55,7 +55,7 @@ type errEmptyInput struct {
 	error
 }
 
-func newerrEmptyInput(commitID string) *errEmptyInput {
+func newErrEmptyInput(commitID string) *errEmptyInput {
 	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
@@ -263,7 +263,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
 		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
-		_, ok := err.(*ErrEmptyInput)
+		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
 		}
