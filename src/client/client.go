@@ -29,7 +29,7 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	BlockAPIClient
-	GRPCConn *grpc.ClientConn
+	gRPCConn *grpc.ClientConn
 }
 
 // NewFromAddress constructs a new APIClient for the server at pachAddr.
@@ -62,7 +62,7 @@ func NewInCluster() (*APIClient, error) {
 
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
-	return c.GRPCConn.Close()
+	return c.gRPCConn.Close()
 }
 
 // DeleteAll deletes everything in the cluster.
