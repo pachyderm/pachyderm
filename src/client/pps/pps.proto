@@ -34,6 +34,9 @@ enum JobState {
     JOB_RUNNING = 1;
     JOB_FAILURE = 2;
     JOB_SUCCESS = 3;
+    // An empty job is a job that hasn't actually been run.
+    // It's a result of empty input commits.
+    JOB_EMPTY = 4;
 }
 
 enum Partition {
@@ -54,8 +57,11 @@ message Method {
 }
 
 message JobInput {
-    pfs.Commit commit = 1;
-    Method method = 2;
+  pfs.Commit commit = 1;
+  Method method = 2;
+  // This flag specifies whether the pipeline should be triggered
+  // when this input gets an empty commit.
+  bool run_empty = 3;
 }
 
 message JobInfo {
@@ -82,6 +88,9 @@ message Pipeline {
 message PipelineInput {
   pfs.Repo repo = 1;
   Method method = 2;
+  // This flag specifies whether the pipeline should be triggered
+  // when this input gets an empty commit.
+  bool run_empty = 3;
 }
 
 enum PipelineState {
