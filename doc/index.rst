@@ -17,7 +17,10 @@ Pachyderm Developer Documentation
     :maxdepth: 2
     :caption: First Time Users
 
-    getting_started
+    getting_started/getting_started
+    getting_started/installation
+    getting_started/beginner_tutorial
+    getting_started/troubleshooting
 
 .. toctree::
     :maxdepth: 2
@@ -30,7 +33,7 @@ Pachyderm Developer Documentation
     development/updating_pipelines
     development/scaling
     development/cluster_hygiene
-    development/python_logs_example
+    development/python_example
 
 .. toctree::
     :maxdepth: 2
@@ -38,13 +41,21 @@ Pachyderm Developer Documentation
 
     advanced/provenance
     advanced/incrementality
-    advanced/complex_dags
+    advanced/composing_pipelines
 
 .. toctree::
     :maxdepth: 2
     :caption: Going To Production
 
-    production
+    production/collaboration
+    production/connecting_to_other_data_sources
+    production/outputting_results
+    production/best_practices
+    production/performance_benchmarks_and_optimization
+    production/cluster_maintenance
+
+
+
 
 
 .. _feature_docs:
