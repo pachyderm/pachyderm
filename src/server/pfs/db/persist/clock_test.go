@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -86,36 +87,102 @@ func TestGetClockIntervals(t *testing.T) {
 		},
 		rangeList.ranges[1],
 	)
-	//	require.Equal(t, [][]*BranchClock{{b1, e1}, {e2, b2}}, intervals)
-	/*
-		b1, err = StringToClock("master/2")
-		require.NoError(t, err)
-		b2, err = StringToClock("master/5")
-		require.NoError(t, err)
-		intervals, err = GetClockIntervals(b1, b2)
-		require.NoError(t, err)
-		require.Equal(t, [][]*BranchClock{{b1, b2}}, intervals)
 
-		b1, err = StringToClock("master/1-foo/2")
-		require.NoError(t, err)
-		b2, err = StringToClock("master/1-foo/5")
-		require.NoError(t, err)
-		intervals, err = GetClockIntervals(b1, b2)
-		require.NoError(t, err)
-		require.Equal(t, [][]*BranchClock{{b1, b2}}, intervals)
+	b1, err := StringToClock("master/2")
+	require.NoError(t, err)
+	b2, err := StringToClock("master/5")
+	require.NoError(t, err)
+	rangeList = NewClockRangeList([]*Clock{b1}, []*Clock{b2})
 
-		b1, err = StringToClock("master/1-foo/2")
-		require.NoError(t, err)
-		b2, err = StringToClock("master/1-bar/1")
-		require.NoError(t, err)
-		intervals, err = GetClockIntervals(b1, b2)
-		require.YesError(t, err)
+	require.Equal(t, 1, len(rangeList.ranges))
+	require.Equal(
+		t,
+		&ClockRange{
+			Branch: "master",
+			Left:   3,
+			Right:  5,
+		},
+		rangeList.ranges[0],
+	)
 
-		b1, err = StringToClock("master/1-foo/2")
-		require.NoError(t, err)
-		b2, err = StringToClock("master/0")
-		require.NoError(t, err)
-		intervals, err = GetClockIntervals(b1, b2)
-		require.YesError(t, err)
-	*/
+	a := []*Clock{
+		{
+			Branch: "master",
+			Clock:  1,
+		},
+		{
+			Branch: "foo",
+			Clock:  2,
+		},
+	}
+	b := []*Clock{
+		{
+			Branch: "master",
+			Clock:  1,
+		},
+		{
+			Branch: "foo",
+			Clock:  5,
+		},
+	}
+
+	rangeList = NewClockRangeList(a, b)
+	require.Equal(t, 1, len(rangeList.ranges))
+	require.Equal(
+		t,
+		&ClockRange{
+			Branch: "foo",
+			Left:   3,
+			Right:  5,
+		},
+		rangeList.ranges[0],
+	)
+
+	a = []*Clock{
+		{
+			Branch: "master",
+			Clock:  1,
+		},
+		{
+			Branch: "foo",
+			Clock:  2,
+		},
+	}
+	b = []*Clock{
+		{
+			Branch: "master",
+			Clock:  0,
+		},
+	}
+	rangeList = NewClockRangeList(a, b)
+	require.Equal(t, 0, len(rangeList.ranges))
+
+	a = []*Clock{
+		{
+			Branch: "master",
+			Clock:  1,
+		},
+		{
+			Branch: "foo",
+			Clock:  2,
+		},
+	}
+	b = []*Clock{
+		{
+			Branch: "master",
+			Clock:  1,
+		},
+		{
+			Branch: "bar",
+			Clock:  1,
+		},
+	}
+	// QUESTION: This case erred before. What do we expect here?
+	rangeList = NewClockRangeList(a, b)
+	fmt.Printf("# of ranges: %v\n", len(rangeList.ranges))
+	fmt.Printf("rnage list: %v\n", rangeList.ranges[0])
+	require.Equal(t, 2, len(rangeList.ranges))
+	require.Equal(t, &ClockRange{Branch: "foo", Left: 0, Right: 2}, rangeList.ranges[0])
+	require.Equal(t, &ClockRange{Branch: "bar", Left: 0, Right: 1}, rangeList.ranges[1])
+
 }
