@@ -481,6 +481,12 @@
 			"revisionTime": "2016-01-25T20:49:56Z"
 		},
 		{
+			"checksumSHA1": "HiA1rI2ErqY3dtV6mrfZYC82zss=",
+			"path": "github.com/golang/groupcache",
+			"revision": "a6b377e3400b08991b80d6805d627f347f983866",
+			"revisionTime": "2016-08-03T20:04:08Z"
+		},
+		{
 			"checksumSHA1": "PKhaEMgdFISMGJBHrRIqLPv2/6E=",
 			"path": "github.com/golang/protobuf/jsonpb",
 			"revision": "3b06fc7a4cad73efce5fe6217ab6c33e7231ab4a",
