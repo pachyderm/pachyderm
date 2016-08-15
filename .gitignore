@@ -5,6 +5,7 @@
 # Build artifacts
 .goxc.json
 /protofix
+doc/_build
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o

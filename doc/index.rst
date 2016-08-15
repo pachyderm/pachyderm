@@ -15,7 +15,7 @@ Pachyderm Developer Documentation
 
 .. toctree::
     :maxdepth: 2
-    :caption: First Time Users
+    :caption: User Documentation
 
     getting_started/getting_started
     getting_started/installation
@@ -53,9 +53,6 @@ Pachyderm Developer Documentation
     production/best_practices
     production/performance_benchmarks_and_optimization
     production/cluster_maintenance
-
-
-
 
 
 .. _feature_docs:
