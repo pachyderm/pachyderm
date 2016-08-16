@@ -709,8 +709,3 @@ func drainFileServer(putFileServer interface {
 		}
 	}
 }
-
-func zeroDuration() time.Duration {
-	d, _ := time.ParseDuration("0s")
-	return d
-}

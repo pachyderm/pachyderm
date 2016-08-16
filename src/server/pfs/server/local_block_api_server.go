@@ -335,8 +335,3 @@ func drainBlockServer(putBlockServer pfsclient.BlockAPI_PutBlockServer) {
 		}
 	}
 }
-
-func zeroDuration() time.Duration {
-	d, _ := time.ParseDuration("0s")
-	return d
-}
