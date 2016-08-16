@@ -275,8 +275,3 @@ func (s *objBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInfo,
 	}
 	return result, nil
 }
-
-func zeroDuration() time.Duration {
-	d, _ := time.ParseDuration("0s")
-	return d
-}
