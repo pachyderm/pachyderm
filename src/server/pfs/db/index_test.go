@@ -222,11 +222,8 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 			"/foo/bar/fizz/buzz",
 		}
 		for cursor.Next(&fields) {
-			innerFields, ok := fields[0].([]interface{})
-			require.Equal(t, true, ok)
-			require.Equal(t, repo.Name, innerFields[0].(string))
-
-			path := innerFields[1].(string)
+			require.Equal(t, repo.Name, fields[0].(string))
+			path := fields[1].(string)
 			require.EqualOneOf(t, expectedPrefixes, path)
 			for i, expectedPrefix := range expectedPrefixes {
 				if expectedPrefix == path {
@@ -234,7 +231,7 @@ func TestDiffPathIndexBasicRF(t *testing.T) {
 				}
 			}
 
-			clock, ok := innerFields[2].([]interface{})
+			clock, ok := fields[2].([]interface{})
 			require.Equal(t, true, ok)
 			require.Equal(t, "master", clock[0].(string))
 			require.Equal(t, float64(0), clock[1].(float64))
