@@ -13,11 +13,12 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/groupcache"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -27,6 +28,7 @@ type objBlockAPIServer struct {
 	dir         string
 	localServer *localBlockAPIServer
 	objClient   obj.Client
+	cache       *groupcache.Group
 }
 
 func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer, error) {
@@ -39,6 +41,36 @@ func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer,
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
+		cache: groupcache.NewGroup("block", 1024*1024*1024*10,
+			groupcache.GetterFunc(func(ctx groupcache.Context, key string, dest groupcache.Sink) (retErr error) {
+				var reader io.ReadCloser
+				var err error
+				backoff.RetryNotify(func() error {
+					reader, err = objClient.Reader(localServer.blockPath(client.NewBlock(key)), 0, 0)
+					if err != nil && objClient.IsRetryable(err) {
+						return err
+					}
+					return nil
+				}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+					protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+						Err:               err.Error(),
+						TimeTillNextRetry: d.String(),
+					})
+				})
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := reader.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				block, err := ioutil.ReadAll(reader)
+				if err != nil {
+					return err
+				}
+				return dest.SetBytes(block)
+			})),
 	}, nil
 }
 
@@ -155,29 +187,20 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 
 func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	var reader io.ReadCloser
-	var err error
-	backoff.RetryNotify(func() error {
-		reader, err = s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
-		if err != nil && s.objClient.IsRetryable(err) {
-			return err
-		}
-		return nil
-	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
-			Err:               err.Error(),
-			TimeTillNextRetry: d.String(),
-		})
-	})
-	if err != nil {
+	var data []byte
+	sink := groupcache.AllocatingByteSliceSink(&data)
+	if err := s.cache.Get(getBlockServer.Context(), request.Block.Hash, sink); err != nil {
 		return err
 	}
-	defer func() {
-		if err := reader.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
+	if request.SizeBytes != 0 && request.SizeBytes+request.OffsetBytes < uint64(len(data)) {
+		data = data[request.OffsetBytes : request.OffsetBytes+request.SizeBytes]
+	} else if request.OffsetBytes < uint64(len(data)) {
+		data = data[request.OffsetBytes:]
+	} else {
+		data = nil
+	}
+	getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
+	return nil
 }
 
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
