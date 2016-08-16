@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestNewChild(t *testing.T) {
+func TestNewChildRF(t *testing.T) {
 	fullClock := []*Clock{NewClock("master")}
 	child := NewChild(fullClock)
 
@@ -20,7 +20,7 @@ func TestNewChild(t *testing.T) {
 	require.Equal(t, expected, child)
 }
 
-func TestClockRange(t *testing.T) {
+func TestClockRangeRF(t *testing.T) {
 	clockRangeList := NewClockRangeList(
 		[]*Clock{
 			{
