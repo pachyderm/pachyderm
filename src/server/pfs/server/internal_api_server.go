@@ -337,8 +337,8 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 }
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
-	a.Log(request, nil, nil, zeroDuration())
 	var request *pfs.PutFileRequest
+	a.Log(request, nil, nil, zeroDuration())
 	defer func(start time.Time) {
 		if request != nil {
 			request.Value = nil // we set the value to nil so as not to spam logs
