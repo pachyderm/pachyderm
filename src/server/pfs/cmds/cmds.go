@@ -420,6 +420,10 @@ Put the data from a URL as repo/commit/path:
 
 Put the data from a URL as repo/commit/url_path:
 	pachctl put-file repo commit -f http://host/url_path
+
+Put several files or URLs that are listed in file.
+Files and URLs should be newline delimited.
+	pachctl put-file repo commit -i file
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
