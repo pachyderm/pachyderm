@@ -47,7 +47,7 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 
@@ -85,7 +85,7 @@ func (s *localBlockAPIServer) blockFile(block *pfsclient.Block) (*os.File, error
 }
 
 func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := s.blockFile(request.Block)
 	if err != nil {
@@ -110,13 +110,13 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 }
 
 func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, s.deleteBlock(request.Block)
 }
 
 func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
@@ -132,13 +132,13 @@ func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclie
 }
 
 func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfsclient.DiffInfo) (response *google_protobuf.Empty, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(request)
 	if err != nil {
@@ -154,13 +154,13 @@ func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfsclient
 }
 
 func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.InspectDiffRequest) (response *pfsclient.DiffInfo, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
 func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
@@ -185,7 +185,7 @@ func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listD
 }
 
 func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
-	s.Log(nil, nil, nil, nil)
+	s.Log(nil, nil, nil, zeroDuration())
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, os.RemoveAll(s.diffPath(request.Diff))
 }
@@ -334,4 +334,9 @@ func drainBlockServer(putBlockServer pfsclient.BlockAPI_PutBlockServer) {
 			break
 		}
 	}
+}
+
+func zeroDuration() time.Duration {
+	d, _ := time.ParseDuration("0s")
+	return d
 }
