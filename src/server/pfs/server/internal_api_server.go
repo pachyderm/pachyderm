@@ -53,6 +53,7 @@ func newInternalAPIServer(
 }
 
 func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -69,6 +70,7 @@ func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateR
 }
 
 func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -82,6 +84,7 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -96,6 +99,7 @@ func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoR
 }
 
 func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -116,6 +120,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 }
 
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -136,6 +141,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -171,6 +177,7 @@ func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.Arch
 }
 
 func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -184,6 +191,7 @@ func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.Insp
 }
 
 func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -217,6 +225,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 }
 
 func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -236,6 +245,7 @@ func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBra
 }
 
 func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -253,6 +263,7 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 }
 
 func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -347,6 +358,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) {
 		if request != nil {
 			request.Value = nil // we set the value to nil so as not to spam logs
@@ -426,6 +438,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
@@ -449,6 +462,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -462,6 +476,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -509,6 +524,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 }
 
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -553,6 +569,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 }
 
 func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
