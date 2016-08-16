@@ -695,10 +695,6 @@ func TestReplayMergeSameFileRF(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, mergedCommits[3].ID, "file", 0, 0, "", nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
-
-	commitInfos, err := client.ListCommit([]string{repo}, []string{commitRoot.ID}, pclient.CommitTypeNone, true, true, nil)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
 }
 
 func TestMergeSquashMultipleFiles(t *testing.T) {
