@@ -465,8 +465,8 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
-	a.Log(request, nil, nil, zeroDuration())
 	var request *pfs.PutFileRequest
+	a.Log(request, nil, nil, zeroDuration())
 	var err error
 	defer func(start time.Time) {
 		if request != nil {
@@ -793,7 +793,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 }
 
 func (a *apiServer) Version(version int64) error {
-	a.Log(request, nil, nil, zeroDuration())
 	func() {
 		a.versionLock.RLock()
 		defer a.versionLock.RUnlock()
