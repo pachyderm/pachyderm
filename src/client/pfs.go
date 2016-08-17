@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"golang.org/x/net/context"
 
+	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 	protostream "go.pedge.io/proto/stream"
 )
 
@@ -589,6 +590,15 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
 	))
+}
+
+// ArchiveAll archives all commits in all repos.
+func (c APIClient) ArchiveAll() error {
+	_, err := c.PfsAPIClient.ArchiveAll(
+		context.Background(),
+		google_protobuf.EmptyInstance,
+	)
+	return err
 }
 
 type putFileWriteCloser struct {
