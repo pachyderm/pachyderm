@@ -1710,6 +1710,32 @@ func TestArchiveCommit(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
+func TestArchiveAll(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	numRepos := 10
+	for i := 0; i < numRepos; i++ {
+		repo := fmt.Sprintf("repo%d", i)
+		require.NoError(t, client.CreateRepo(repo))
+
+		commit1, err := client.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("aaa\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("bbb\n"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	}
+
+	err := client.ArchiveAll()
+	require.NoError(t, err)
+
+	repoInfos, err := client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {

@@ -415,6 +415,10 @@ func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	for _, commitInfo := range commitInfos {
 		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
 	}
+	return d.archiveCommits(commitsToArchive, shards)
+}
+
+func (d *driver) archiveCommits(commitsToArchive []*pfs.Commit, shards map[uint64]bool) error {
 	for _, commit := range commitsToArchive {
 		for shard := range shards {
 			diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
@@ -819,6 +823,34 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 		}
 	}
 	return nil
+}
+
+func (d *driver) ArchiveAll(shards map[uint64]bool) error {
+	repoInfos, err := d.ListRepo(nil, shards)
+	if err != nil {
+		return err
+	}
+	var repos []*pfs.Repo
+	for _, repoInfo := range repoInfos {
+		repos = append(repos, repoInfo.Repo)
+	}
+	commitInfos, err := d.listCommit(
+		repos,
+		pfs.CommitType_COMMIT_TYPE_NONE,
+		nil,
+		nil,
+		pfs.CommitStatus_ALL,
+		shards,
+	)
+	if err != nil {
+		return err
+	}
+
+	var commitsToArchive []*pfs.Commit
+	for _, commitInfo := range commitInfos {
+		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
+	}
+	return d.archiveCommits(commitsToArchive, shards)
 }
 
 func (d *driver) AddShard(shard uint64) error {

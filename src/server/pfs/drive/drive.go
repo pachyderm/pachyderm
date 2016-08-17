@@ -33,6 +33,7 @@ type Driver interface {
 	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error
 	DeleteAll(shards map[uint64]bool) error
+	ArchiveAll(shards map[uint64]bool) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
 	Dump()
