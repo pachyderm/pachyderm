@@ -13,12 +13,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+// CacheServer serves groupcache requests over grpc.
 type CacheServer interface {
 	groupcachepb.GroupCacheServer
 	shard.Frontend
 	shard.Server
 }
 
+// NewCacheServer creates a new CacheServer.
 func NewCacheServer(router shard.Router, shards uint64) CacheServer {
 	server := &groupCacheServer{
 		Logger:      protorpclog.NewLogger("CacheServer"),
