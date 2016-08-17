@@ -2456,44 +2456,6 @@ func TestPutFileURL(t *testing.T) {
 	require.True(t, fileInfo.SizeBytes > 0)
 }
 
-func TestRepeatedReads(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
-	repo := uniqueString("TestRepeatedReads")
-	require.NoError(t, c.CreateRepo(repo))
-	for i := 0; i < 100; i++ {
-		_, err := c.StartCommit(repo, "", "master")
-		require.NoError(t, err)
-		var eg errgroup.Group
-		for j := 0; j < 100; j++ {
-			j := j
-			eg.Go(func() error {
-				rand := rand.New(rand.NewSource(time.Now().UnixNano()))
-				_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", j), workload.NewReader(rand, 5*1024))
-				return err
-			})
-		}
-		require.NoError(t, eg.Wait())
-		require.NoError(t, c.FinishCommit(repo, "master"))
-	}
-	var eg errgroup.Group
-	for i := 0; i < 100; i++ {
-		i := i
-		eg.Go(func() error {
-			for j := 0; j < 100; j++ {
-				if err := c.GetFile(repo, "master", fmt.Sprintf("file-%d", i), 0, 0, "", false, nil, ioutil.Discard); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		require.NoError(t, eg.Wait())
-	}
-}
-
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
