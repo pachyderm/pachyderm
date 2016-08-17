@@ -422,6 +422,7 @@ func (d *driver) archiveCommits(commitsToArchive []*pfs.Commit, shards map[uint6
 	for _, commit := range commitsToArchive {
 		for shard := range shards {
 			diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
+			fmt.Printf("!!! Err getting diffinfo? %v\n", ok)
 			if !ok {
 				return pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
 			}
@@ -830,6 +831,16 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	if err != nil {
 		return err
 	}
+	// We want to make sure we archive repos after archiving their provenance.
+	// The reason is that if a pipeline see's missing output Commits for a set of input Commits, it will trigger the pipeline, creating new output commits. This is a race.
+
+	// Provenance has a nice invariant:
+	// A in Provenance(B) => len(Provenance(A)) < len(Provenance(B))
+	// Since Provenance is transitive
+	// Thus when we sort by length we guarantee that A will have a lower index than B
+	// Because we want to make sure we delete the higher indexes first we traverse in reverse
+	sort.Sort(byProvenance(repoInfos))
+
 	var repos []*pfs.Repo
 	for _, repoInfo := range repoInfos {
 		repos = append(repos, repoInfo.Repo)
@@ -850,6 +861,7 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	for _, commitInfo := range commitInfos {
 		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
 	}
+	fmt.Printf("!!! going to archive commits: %v\n", commitsToArchive)
 	return d.archiveCommits(commitsToArchive, shards)
 }
 

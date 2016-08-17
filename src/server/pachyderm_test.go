@@ -2644,6 +2644,60 @@ func TestPutFileURL(t *testing.T) {
 	require.True(t, fileInfo.SizeBytes > 0)
 }
 
+func TestArchiveAllWithPipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getUsablePachClient(t)
+	dataRepo := uniqueString("TestUpdatePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	numPipelines := 10
+	var outputRepos []*pfsclient.Repo
+	for i := 0; i < numPipelines; i++ {
+		pipelineName := uniqueString("pipeline")
+		outputRepos = append(outputRepos, &pfsclient.Repo{Name: pipelineName})
+		require.NoError(t, c.CreatePipeline(
+			pipelineName,
+			"",
+			[]string{"cp", path.Join("/pfs", dataRepo, "file1"), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(dataRepo)}},
+			false,
+		))
+	}
+	fmt.Printf("!!! constructed pipelines\n")
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("file1\n"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file2", strings.NewReader("file2\n"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file3", strings.NewReader("file3\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	fmt.Printf("!!! wrote data to input repo\n")
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	fmt.Printf("!!! flushed commit\n")
+	require.NoError(t, err)
+	require.Equal(t, numPipelines, len(commitInfos))
+
+	require.NoError(t, c.ArchiveAll())
+	fmt.Printf("!!! archived everything\n")
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       outputRepos,
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_NONE,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	fmt.Printf("!!! listed all commits: %v\n", listCommitResponse)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(listCommitResponse.CommitInfo))
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
