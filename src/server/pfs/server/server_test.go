@@ -1715,9 +1715,11 @@ func TestArchiveAll(t *testing.T) {
 	client, _ := getClientAndServer(t)
 
 	numRepos := 10
+	var repoNames []string
 	for i := 0; i < numRepos; i++ {
 		repo := fmt.Sprintf("repo%d", i)
 		require.NoError(t, client.CreateRepo(repo))
+		repoNames = append(repoNames, repo)
 
 		commit1, err := client.StartCommit(repo, "", "")
 		require.NoError(t, err)
@@ -1728,12 +1730,20 @@ func TestArchiveAll(t *testing.T) {
 		require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	}
 
-	err := client.ArchiveAll()
+	commitInfos, err := client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, numRepos, len(commitInfos))
+
+	err = client.ArchiveAll()
 	require.NoError(t, err)
 
 	repoInfos, err := client.ListRepo(nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(repoInfos))
+	require.Equal(t, numRepos, len(repoInfos))
+
+	commitInfos, err = client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func generateRandomString(n int) string {
