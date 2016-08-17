@@ -1,2 +1,29 @@
 Troubleshooting
 ===============
+
+common rookie mistakes
+----------------------
+
+Error: 
+
+Solution:
+
+
+Client-Server version mismatch
+
+Setting gopath correctly
+
+mount issues
+
+Stuck in "pulling" -- job-shim image
+
+port forwarding not set up correctly -- maybe be different for k8s in docker and minikube
+
+requiring "timeout"
+
+From chris:
+
+"Right now if I make a new terminal window, it seems like it wouldn't be able to find pachyderm anymore."
+
+"If the pipeline fails for some reason, I have no idea how to debug that, fix it, or reset it to a known state. "
+

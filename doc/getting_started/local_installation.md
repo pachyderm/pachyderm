@@ -1,16 +1,13 @@
+# Local Installation
 
-Installation (Local Deployment)
-============
-
-Prerequisites
---------------------
+## Prerequisites
 
 - [Kubectl (Kubernetes CLI)](#kubectl) >= 1.2.2
 - [Pachyderm Command Line Interface](#pachctl)
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
 
-Kubectl
-^^^^^^^
+### Kubectl
+
 
 Make sure you have version 1.2.2 or higher.
 
@@ -28,37 +25,35 @@ mv kubectl /usr/local/bin/
 
 ---
 
-Pachctl
-^^^^^^^
+### Pachctl
+
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
 
-FUSE (optional)
-^^^^^^^^^^^^^^^
+### FUSE
 
-Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS.
+Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS and is used in the beginner tutorial.
 
 FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X FUSE](https://osxfuse.github.io/)
 
-Deploying Kubernetes
---------------------
+
+## Deploying Kubernetes
+
 
 There are two easy ways to get kubernetes running locally. If you have Docker set up already, you can run kubernetes in Docker. If not, we recommend you use minikube.
 
-Kubernetes in Docker
-^^^^^^^^^^^^^^^^^^^^
+
+### Kubernetes in Docker
 - [Docker](https://docs.docker.com/engine/installation) >= 1.10
 
-Minikube
-^^^^^^^^
+### Minikube
 
 
 
 
 
-Port Forwarding
-^^^^^^^^^^^^^^^
+### Port Forwarding
 
 Both kubectl and pachctl need a port forwarded so they can talk with their servers
 If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
@@ -68,8 +63,7 @@ If your Docker daemon is running locally you can skip this step.  Otherwise (e.g
 $ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
 ```
 
-Deploy Kubernetes
-^^^^^^^^^^^^^^^^^
+### Deploy Kubernetes
 
 From the root of this repo you can deploy Kubernetes with:
 
@@ -79,8 +73,8 @@ $ make launch-kube
 
 This step can take a while the first time you run it, since some Docker images need to be pulled.
 
-Deploy Pachyderm
-^^^^^^^^^^^^^^^^
+## Deploy Pachyderm
+
 
 From the root of this repo you can deploy Pachyderm on Kubernetes with:
 
@@ -91,19 +85,15 @@ $ make launch
 This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
 
 
+## Installation
 
-
-
-
-### Installation
-
-#### Homebrew
+### Homebrew
 
 ```shell
 $ brew tap pachyderm/tap && brew install pachctl
 ```
 
-#### Deb Package
+### Deb Package
 
 If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
@@ -111,7 +101,7 @@ If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-#### From Source
+### From Source
 
 To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
 
@@ -127,7 +117,7 @@ Make sure you add `GOPATH/bin` to your `PATH` env variable:
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
-### Usage
+## Usage
 
 If Pachyderm is running locally, you are good to go.  Otherwise, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
 

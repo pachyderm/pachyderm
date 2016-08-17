@@ -1,5 +1,5 @@
-Inputting Your Data
-===================
+Inputing Your Data From Other Sources
+=====================================
 
 
 Data Sources
@@ -27,6 +27,9 @@ Pachctl Mount
 ^^^^^^^^^^^^^
 
 Golang Client
+^^^^^^^^^^^^^
+
+Other Clients
 ^^^^^^^^^^^^^
 
 
