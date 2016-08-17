@@ -1,70 +1,20 @@
-Deploying On the Cloud
-======================
+# Deploying On the Cloud
 
-If you're evaluating Pachyderm and want the quickest hosting option, we recommend using Google's GCE. You already have credentials (if you have a gmail account), and our setup script is quick.
+## Intro
 
-Intro
------
+Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, Pachyderm can run on any platform that supports Kubernetes. This guide covers the following commonly used platforms:
 
-Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, technically Pachyderm can run on any platform that Kubernetes supports.  This guide covers the following commonly used platforms:
-
-* [Local](#local-deployment)
 * [Google Cloud Platform](#google-cloud-platform)
 * [AWS](#amazon-web-services-aws)
 * [OpenShift](#openshift)
 
-# Local Deployment
 
-If you have docker running, you can run kubernetes right off of docker. If you don't, consider checking out:
+## Google Cloud Platform
 
-- minikube (TODO / link)
-- or use one of the [Deployment Options](./deploying.md) to host the Docker daemon.
-
-Prerequisites
-^^^^^^^^^^^^^
-
-- [Docker](https://docs.docker.com/engine/installation) >= 1.10
-
-Port Forwarding
-^^^^^^^^^^^^^^^
-
-Both kubectl and pachctl need a port forwarded so they can talk with their servers.  If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
-
-
-```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
-
-Deploy Kubernetes
-^^^^^^^^^^^^^^^^^
-
-From the root of this repo you can deploy Kubernetes with:
-
-```shell
-$ make launch-kube
-```
-
-This step can take a while the first time you run it, since some Docker images need to be pulled.
-
-Deploy Pachyderm
-^^^^^^^^^^^^^^^^
-
-From the root of this repo you can deploy Pachyderm on Kubernetes with:
-
-```shell
-$ make launch
-```
-
-This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
-
-
-Google Cloud Platform
----------------------
 
 Google Cloud Platform has excellent support for Kubernetes through the [Google Container Engine](https://cloud.google.com/container-engine/).
 
-Prerequisites
-^^^^^^^^^^^^^
+### Prerequisites
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 106.0.0
 
@@ -76,10 +26,11 @@ After the SDK is installed, run:
 $ gcloud components install kubectl
 ```
 
-Set up the infrastructure
-^^^^^^^^^^^^^^^^^^^^^^^^^
+### Set up the infrastructure
 
-Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
+Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  
+
+We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
 
 First of all, set the required environment variables. Choose a name for both the bucket and disk, as well as a capacity for the disk (in GB):
 
@@ -89,7 +40,7 @@ $ export STORAGE_NAME=pach-disk
 $ export STORAGE_SIZE=200
 ```
 
-You may need to visit the [Console] to fully initialize Container Engine in a new project. Then, simply run the following command:
+You may need to visit the GCP console to fully initialize Container Engine in a new project. Then, simply run the following command:
 
 ```shell
 $ make google-cluster
@@ -108,8 +59,8 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-Deploy Pachyderm
-^^^^^^^^^^^^^^^^
+### Deploy Pachyderm
+
 
 First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
 
@@ -125,7 +76,7 @@ $ export ADDRESS=[the external address]:30650
 # export ADDRESS=104.197.179.185:30650
 ```
 
-This is so we can use [`pachctl`](#pachctl) to talk to our cluster later.
+This is so we can use `pachctl` to talk to our cluster later.
 
 Now you can deploy Pachyderm with:
 
@@ -136,26 +87,28 @@ $ make MANIFEST=manifest launch
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
-Amazon Web Services (AWS)
--------------------------
+## Amazon Web Services (AWS)
 
-Prerequisites
-^^^^^^^^^^^^^
+### Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/)
 
-Deploy Kubernetes
-^^^^^^^^^^^^^^^^^
+### Deploy Kubernetes
 
-Deploying Kubernetes on AWS is still a relatively lengthy and manual process comparing to doing it on GCE.  However, here are a few good tutorials that walk through the process:
+Deploying Kubernetes on AWS can be a little harder than GCE, but there are a few good tutorials that walk you through the process:
 
-* http://kubernetes.io/docs/getting-started-guides/aws/
-* https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html
+* CoreOS has a great tool called[kube-aws](https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html)
 
-Set up the infrastructure
-^^^^^^^^^^^^^^^^^^^^^^^^^
+* If you don't want to use CoreOS, Kubernetes has their [own guides] (http://kubernetes.io/docs/getting-started-guides/aws/)
 
-First of all, set these environment variables:
+### Set up the infrastructure
+
+Pachyderm needs a cluster (https://aws.amazon.com/documentation/ec2/), an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)(EBS) to function correctly.  
+
+We've made this very easy for you by creating the `make amazon-cluster` helper, which will create all of these resources for you.
+
+First of all, set the required environment variables. Choose a name for both the bucket and disk, as well as a capacity for the disk (in GB):
+
 
 ```shell
 $ export KUBECTLFLAGS="-s [the IP address of the node where Kubernetes runs]"
@@ -184,10 +137,9 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-Deploy Pachyderm
-^^^^^^^^^^^^^^^^
+### Deploy Pachyderm
 
-First of all, get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
+First get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
 
 ```shell
 $ aws sts get-session-token
@@ -202,8 +154,7 @@ $ make MANIFEST=manifest launch
 
 It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
 
-OpenShift
----------
+## OpenShift
 
 [OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
 
@@ -212,8 +163,7 @@ OpenShift
 
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
 
-Usage Metrics
--------------
+## Usage Metrics
 
 Pachyderm automatically reports anonymized usage metrics. These metrics help us
 understand how people are using Pachyderm and make it better.  They can be

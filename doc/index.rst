@@ -8,24 +8,29 @@
 Pachyderm Developer Documentation
 =================================
 
-* :ref:`user_docs`
-* :ref:`feature_docs`
+:ref: `user_docs`
+:ref: `feature_docs`
+:ref: `development/development`
+:ref: `development`
+
+
 
 .. _user_docs:
 
 .. toctree::
     :maxdepth: 2
-    :caption: User Documentation
+    :caption: Getting Started
 
     getting_started/getting_started
-    getting_started/installation
+    getting_started/local_installation
     getting_started/beginner_tutorial
     getting_started/troubleshooting
 
 .. toctree::
     :maxdepth: 2
     :caption: Analyze Your Data
-
+    
+    development/analyze_your_data
     development/deploying_on_the_cloud
     development/inputing_your_data
     development/customizing_your_images
@@ -39,6 +44,7 @@ Pachyderm Developer Documentation
     :maxdepth: 2
     :caption: Advanced Workflows
 
+    advanced/advanced
     advanced/provenance
     advanced/incrementality
     advanced/composing_pipelines
@@ -47,12 +53,13 @@ Pachyderm Developer Documentation
     :maxdepth: 2
     :caption: Going To Production
 
+    production/production
     production/collaboration
     production/connecting_to_other_data_sources
     production/outputting_results
     production/best_practices
-    production/performance_benchmarks_and_optimization
-    production/cluster_maintenance
+    production/performance_benchmarks
+    production/maintenance
 
 
 .. _feature_docs:
