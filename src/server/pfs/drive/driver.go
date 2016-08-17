@@ -1503,10 +1503,10 @@ func validateRepoName(name string) error {
 		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
 	}
 	if strings.Contains(name, "/") {
-		fmt.Errorf("repo names cannot contain /")
+		return fmt.Errorf("repo names cannot contain /")
 	}
 	if client.ReservedRepoNames[name] {
-		fmt.Errorf("repo name %s is a reserved keyword")
+		return fmt.Errorf("repo name %s is a reserved keyword", name)
 	}
 	return nil
 }
