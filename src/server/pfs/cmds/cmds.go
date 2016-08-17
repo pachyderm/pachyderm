@@ -438,10 +438,10 @@ Files and URLs should be newline delimited.
 				}
 				defer func() {
 					if retErr != nil {
-						// something errored so we try to cancel the commit, if
-						// we error doing this we don't report because retErr
-						// occurred first
-						_ = client.CancelCommit(commit.Repo.Name, commit.ID)
+						// something errored so we try to cancel the commit
+						if err := client.CancelCommit(commit.Repo.Name, commit.ID); err != nil {
+							fmt.Printf("Error cancelling commit: %s", err.Error())
+						}
 					} else {
 						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
 							retErr = err
