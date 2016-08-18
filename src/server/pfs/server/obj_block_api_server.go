@@ -199,8 +199,7 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 	} else {
 		data = nil
 	}
-	getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
-	return nil
+	return getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
 }
 
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
