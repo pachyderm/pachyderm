@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
@@ -1744,6 +1745,33 @@ func TestArchiveAll(t *testing.T) {
 	commitInfos, err = client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
+}
+
+func TestBigListFile(t *testing.T) {
+	t.Skip("test fails, unskip when pfs refactor is done")
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "TestBigListFile"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	var eg errgroup.Group
+	for i := 0; i < 25; i++ {
+		for j := 0; j < 25; j++ {
+			eg.Go(func() error {
+				_, err = client.PutFile(repo, "master", fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+				return err
+			})
+		}
+	}
+	require.NoError(t, eg.Wait())
+	require.NoError(t, client.FinishCommit(repo, "master"))
+	for i := 0; i < 25; i++ {
+		files, err := client.ListFile(repo, "master", fmt.Sprintf("dir%d", i), "", false, nil, false)
+		require.NoError(t, err)
+		require.Equal(t, 25, len(files))
+	}
 }
 
 func generateRandomString(n int) string {
