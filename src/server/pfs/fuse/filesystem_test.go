@@ -702,6 +702,25 @@ func TestReadCancelledCommit(t *testing.T) {
 	})
 }
 
+func TestListBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestListBranch"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "master")
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(dirs))
+		require.OneOfEquals(t, commit.ID, []interface{}{dirs[0].Name(), dirs[1].Name()})
+		require.OneOfEquals(t, "master", []interface{}{dirs[0].Name(), dirs[1].Name()})
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),

@@ -105,7 +105,7 @@ func TestSimple(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -834,14 +834,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, false, nil)
+		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, pclient.CommitStatusNormal, nil)
 		close(ch)
 	}()
 
@@ -869,10 +869,10 @@ func TestListCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, true, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusAll, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)
@@ -1427,7 +1427,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	_, err = client.StartCommit("zzzzz", "", "")
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
-	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, true, []*pfsclient.Commit{})
+	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.InspectRepo("bogusrepo")
@@ -1650,6 +1650,64 @@ func TestPutFileNullCharacter(t *testing.T) {
 	// null characters error because when you `ls` files with null characters
 	// they truncate things after the null character leading to strange results
 	require.YesError(t, err)
+}
+
+func TestArchiveCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo1 := "TestArchiveCommit1"
+	repo2 := "TestArchiveCommit2"
+	require.NoError(t, client.CreateRepo(repo1))
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Repo{{repo1}},
+		})
+	require.NoError(t, err)
+
+	// create a commit on repo1
+	commit1, err := client.StartCommit(repo1, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, commit1.ID))
+	// create a commit on repo2 with the previous commit as provenance
+	commit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit2.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
+
+	commitInfos, err := client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	require.NoError(t, client.ArchiveCommit(repo1, commit1.ID))
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+
+	// commits whose provenance has been archived should be archived on creation
+	commit3, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit3.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
+	// there should still be no commits to list
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func generateRandomString(n int) string {
