@@ -12,7 +12,7 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, Pachyderm c
 ## Google Cloud Platform
 
 
-Google Cloud Platform has excellent support for Kubernetes through the [Google Container Engine](https://cloud.google.com/container-engine/).
+Google Cloud Platform has excellent support for Kubernetes through [Google Container Engine](https://cloud.google.com/container-engine/).
 
 ### Prerequisites
 

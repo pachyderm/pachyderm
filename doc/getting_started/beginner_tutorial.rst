@@ -127,9 +127,12 @@ Create a Pipeline
 ^^^^^^^^^^^^^^^^^
 
 Now that we've got some data in our repo it's time to do something with it.
-``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and
-they're specified with a JSON encoding. We're going to create a pipeline with 2
-transformations in it. The first transformation filters the sales logs into separate records for apples,
+`Pipelines` are the core primitive for Pachyderm's processing system (pps) and
+they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at ``pipeline.json`` on Github. Please open a new tab to view the pipeline while we talk through it.
+
+When you want to create your own pipelines later, you can refer to the full ``pipeline spec`` to use more advanced options. 
+
+For now, we're going to create a pipeline with 2 transformations in it. The first transformation filters the sales logs into separate records for apples,
 oranges and bananas using ``grep``. The second one uses ``awk`` to sum these sales numbers into a final sales count.
 
 .. code-block:: shell
@@ -138,11 +141,7 @@ oranges and bananas using ``grep``. The second one uses ``awk`` to sum these sal
  |input data| --> |filter pipline| --> |sum pipeline|
  +----------+     +--------------+     +------------+
 
-The pipeline we're creating can be found at `pipeline.json`_ on Github.  Please open a new tab to view the pipeline while we talk through it.
-
-In the first step of this pipeline, we are grepping for the terms "apple", "orange", and
-"banana" and writing that line to the corresponding file. Notice we read data
-from ``/pfs/data`` (/pfs/[input_repo_name]) and write data to ``/pfs/out/``. 
+In the first step of this pipeline, we are grepping for the terms "apple", "orange", and "banana" and writing that line to the corresponding file. Notice we read data from ``/pfs/data`` (/pfs/[input_repo_name]) and write data to ``/pfs/out/``. 
 
 The second step of this pipeline takes each file, removes the fruit name, and sums up the purchases. The output of our complete pipeline is three files, one for each type of fruit with a single number showing the total quantity sold. 
 
