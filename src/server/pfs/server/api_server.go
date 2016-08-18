@@ -322,7 +322,9 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 
 	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
 
-	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
+	if len(commitInfos) != 1 ||
+		(commitInfos[0].Commit.ID != request.Commit.ID &&
+			commitInfos[0].Branch != request.Commit.ID) {
 		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")
 	}
 

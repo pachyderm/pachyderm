@@ -647,9 +647,16 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	if err != nil {
 		return nil, err
 	}
+	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
+	if err != nil {
+		return nil, err
+	}
 	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
 		result = append(result, fuse.Dirent{Name: commitInfo.Commit.ID, Type: fuse.DT_Dir})
+	}
+	for _, commitInfo := range branchCommitInfos {
+		result = append(result, fuse.Dirent{Name: commitInfo.Branch, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }

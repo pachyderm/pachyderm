@@ -588,7 +588,7 @@ Files and URLs should be newline delimited.
 		}),
 	}
 	addShardFlags(mount)
-	finishCommit.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
 
 	var result []*cobra.Command
 	result = append(result, repo)
