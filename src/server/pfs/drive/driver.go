@@ -415,14 +415,9 @@ func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	for _, commitInfo := range commitInfos {
 		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
 	}
-	return d.archiveCommits(commitsToArchive, shards)
-}
-
-func (d *driver) archiveCommits(commitsToArchive []*pfs.Commit, shards map[uint64]bool) error {
 	for _, commit := range commitsToArchive {
 		for shard := range shards {
 			diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
-			fmt.Printf("!!! Err getting diffinfo? %v\n", ok)
 			if !ok {
 				return pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
 			}
@@ -840,9 +835,13 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	// Thus when we sort by length we guarantee that A will have a lower index than B
 	// Because we want to make sure we delete the higher indexes first we traverse in reverse
 	sort.Sort(byProvenance(repoInfos))
-
 	var repos []*pfs.Repo
 	for _, repoInfo := range repoInfos {
+		// We only need to archive repos with no provenance
+		// i.e. all raw repos
+		if len(repoInfo.Provenance) > 0 {
+			break
+		}
 		repos = append(repos, repoInfo.Repo)
 	}
 	commitInfos, err := d.listCommit(
@@ -856,13 +855,13 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	if err != nil {
 		return err
 	}
-
-	var commitsToArchive []*pfs.Commit
 	for _, commitInfo := range commitInfos {
-		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
+		err := d.ArchiveCommit(commitInfo.Commit, shards)
+		if err != nil {
+			return err
+		}
 	}
-	fmt.Printf("!!! going to archive commits: %v\n", commitsToArchive)
-	return d.archiveCommits(commitsToArchive, shards)
+	return nil
 }
 
 func (d *driver) AddShard(shard uint64) error {

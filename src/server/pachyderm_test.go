@@ -2667,7 +2667,6 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 			false,
 		))
 	}
-	fmt.Printf("!!! constructed pipelines\n")
 	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("file1\n"))
@@ -2675,25 +2674,20 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit.ID, "file3", strings.NewReader("file3\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	fmt.Printf("!!! wrote data to input repo\n")
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
-	fmt.Printf("!!! flushed commit\n")
 	require.NoError(t, err)
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	require.NoError(t, c.ArchiveAll())
-	fmt.Printf("!!! archived everything\n")
-
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       outputRepos,
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_NONE,
-		Block:      true,
+		Block:      false,
 	}
 	listCommitResponse, err := c.PfsAPIClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
 	)
-	fmt.Printf("!!! listed all commits: %v\n", listCommitResponse)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(listCommitResponse.CommitInfo))
 }
