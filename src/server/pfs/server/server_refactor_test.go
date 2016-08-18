@@ -734,7 +734,7 @@ func TestSquashMergeDiffOrderingRF(t *testing.T) {
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
-func TestReplayMergeDiffOrdering(t *testing.T) {
+func TestReplayMergeDiffOrderingRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
@@ -766,7 +766,7 @@ func TestReplayMergeDiffOrdering(t *testing.T) {
 	require.Equal(t, 2, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file", 0, 0, "", nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
