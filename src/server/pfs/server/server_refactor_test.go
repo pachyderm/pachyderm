@@ -771,7 +771,7 @@ func TestReplayMergeDiffOrdering(t *testing.T) {
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
-func TestReplayMergeBranches(t *testing.T) {
+func TestReplayMergeBranchesRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
@@ -816,12 +816,12 @@ func TestReplayMergeBranches(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Merge(repo, []string{"A"}, "B", pfsclient.MergeStrategy_REPLAY)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[2].ID, "file", 0, 0, "", nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentB1 + contentB2 + contentA1 + contentA2 + contentA3}, buffer.String())
 }
