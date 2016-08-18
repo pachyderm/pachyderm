@@ -826,19 +826,18 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	if err != nil {
 		return err
 	}
-	// We want to make sure we archive repos after archiving their provenance.
-	// The reason is that if a pipeline see's missing output Commits for a set of input Commits, it will trigger the pipeline, creating new output commits. This is a race.
-
 	// Provenance has a nice invariant:
 	// A in Provenance(B) => len(Provenance(A)) < len(Provenance(B))
 	// Since Provenance is transitive
 	// Thus when we sort by length we guarantee that A will have a lower index than B
-	// Because we want to make sure we delete the higher indexes first we traverse in reverse
 	sort.Sort(byProvenance(repoInfos))
+
 	var repos []*pfs.Repo
 	for _, repoInfo := range repoInfos {
-		// We only need to archive repos with no provenance
-		// i.e. all raw repos
+		// We break if we find a repo with provenance
+		// Repos w provenance should already be archived, since
+		// archiving is transitive over provenance
+
 		if len(repoInfo.Provenance) > 0 {
 			break
 		}
@@ -849,7 +848,7 @@ func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 		pfs.CommitType_COMMIT_TYPE_NONE,
 		nil,
 		nil,
-		pfs.CommitStatus_ALL,
+		pfs.CommitStatus_NORMAL,
 		shards,
 	)
 	if err != nil {

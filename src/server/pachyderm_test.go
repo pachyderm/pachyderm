@@ -2679,17 +2679,16 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	require.NoError(t, c.ArchiveAll())
-	listCommitRequest := &pfsclient.ListCommitRequest{
-		Repo:       outputRepos,
-		CommitType: pfsclient.CommitType_COMMIT_TYPE_NONE,
-		Block:      false,
-	}
-	listCommitResponse, err := c.PfsAPIClient.ListCommit(
-		context.Background(),
-		listCommitRequest,
+	commitInfos, err = c.ListCommit(
+		[]string{dataRepo},
+		nil,
+		client.CommitTypeNone,
+		false,
+		client.CommitStatusNormal,
+		nil,
 	)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(listCommitResponse.CommitInfo))
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func getPachClient(t *testing.T) *client.APIClient {

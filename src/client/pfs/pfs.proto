@@ -315,7 +315,7 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // ArchiveAll deletes everything
+  // ArchiveAll archives everything
   rpc ArchiveAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
@@ -363,7 +363,7 @@ service InternalAPI {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // ArchiveAll deletes everything
+  // ArchiveAll archives everything
   rpc ArchiveAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
