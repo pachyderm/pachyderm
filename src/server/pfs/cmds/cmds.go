@@ -590,6 +590,19 @@ Files and URLs should be newline delimited.
 	addShardFlags(mount)
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
 
+	archiveAll := &cobra.Command{
+		Use:   "archive-all",
+		Short: "Archives all commits in all repos",
+		Long:  "Archives all commits in all repos",
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			return client.ArchiveAll()
+		}),
+	}
+
 	var result []*cobra.Command
 	result = append(result, repo)
 	result = append(result, createRepo)
@@ -610,6 +623,7 @@ Files and URLs should be newline delimited.
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
+	result = append(result, archiveAll)
 	return result
 }
 
