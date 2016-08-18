@@ -185,9 +185,17 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
-		return nil, err
-	}
+	backoff.RetryNotify(func() error {
+		if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+		protolion.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
+			Err:               err.Error(),
+			TimeTillNextRetry: d.String(),
+		})
+	})
 	return google_protobuf.EmptyInstance, nil
 }
 
