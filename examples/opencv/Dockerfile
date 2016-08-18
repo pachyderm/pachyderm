@@ -24,5 +24,4 @@ RUN cd \
 
 RUN sudo pip3 install matplotlib
 
-ADD histogram.py /histogram.py
 ADD edges.py /edges.py
