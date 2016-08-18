@@ -55,6 +55,7 @@ type appEnv struct {
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
+	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824` //default = 1 gigabyte
 }
 
 func main() {
@@ -183,7 +184,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.BlockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}

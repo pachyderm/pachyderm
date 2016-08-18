@@ -31,7 +31,7 @@ type objBlockAPIServer struct {
 	cache       *groupcache.Group
 }
 
-func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer, error) {
+func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
 	localServer, err := newLocalBlockAPIServer(dir)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer,
 	}, nil
 }
 
-func newAmazonBlockAPIServer(dir string) (*objBlockAPIServer, error) {
+func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
 	if err != nil {
 		return nil, err
@@ -99,10 +99,10 @@ func newAmazonBlockAPIServer(dir string) (*objBlockAPIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
-func newGoogleBlockAPIServer(dir string) (*objBlockAPIServer, error) {
+func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	bucket, err := ioutil.ReadFile("/google-secret/bucket")
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func newGoogleBlockAPIServer(dir string) (*objBlockAPIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
