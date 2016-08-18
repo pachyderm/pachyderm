@@ -823,42 +823,94 @@ func TestReplayMergeBranchesRF(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, mergedCommits[2].ID, "file", 0, 0, "", nil, buffer))
 	// The ordering of commits within the same branch should be preserved
-	require.EqualOneOf(t, []interface{}{contentB1 + contentB2 + contentA1 + contentA2 + contentA3}, buffer.String())
+	require.Equal(t, contentB1+contentB2+contentA1+contentA2+contentA3, buffer.String())
 }
 
-/*
+func TestReplayMergeMultipleFilesRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
 
-Other Merge Test Case Stubs
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
 
-- test equivalency -- squash and merge should produce same results
-- other case in the index tests that is currently causing a failure ...
-  - Merge (master 2, foo 5) onto (master 2, bar 3)
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
 
-func TestMergeSquashMultipleFiles(t *testing.t) {
+	contentB1 := "bar1\n"
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file2", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
 
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file1", 0, 0, "", nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentB1 + contentA1, contentA1 + contentB1}, buffer.String())
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file2", 0, 0, "", nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentB2 + contentA2, contentA2 + contentB2}, buffer.String())
 }
 
-func TestMergeSquashValidateDiffOrder(t *testing.t) {
-	// Diffs from separate commits don't need to be in any order, but
-	// Diffs within a particular commit should be
+func TestSquashMergeMultipleFilesRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file2", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
-
-func TestMergeSquashTwoBranchesToThird(t *testing.t) {
-	// This is the graph Derek mentioned in slack ... basically something like:
-
-       /       \
-1 --- 2 --- 3 - ?
-       \       /
-	    4 --- 5
-
-}
-
-func TestMergeReplay(t *testing.t) {
-	// Test equal # of commits created
-	// Test that their branchclocks are updated appropriately
-}
-
-func TestMergeReplayMultipleFiles(t *testing.t) {
-}
-
-*/
