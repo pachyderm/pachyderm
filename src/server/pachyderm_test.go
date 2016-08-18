@@ -26,7 +26,6 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
