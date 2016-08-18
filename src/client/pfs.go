@@ -598,7 +598,7 @@ func (c APIClient) ArchiveAll() error {
 		context.Background(),
 		google_protobuf.EmptyInstance,
 	)
-	return err
+	return sanitizeErr(err)
 }
 
 type putFileWriteCloser struct {
