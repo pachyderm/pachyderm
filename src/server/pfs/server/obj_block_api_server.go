@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"sync"
 	"time"
 
 	"go.pedge.io/lion/proto"
@@ -15,6 +14,7 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
@@ -98,8 +98,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 		server: putBlockServer,
 		buffer: bytes.NewBuffer(putBlockRequest.Value),
 	})
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	decoder := json.NewDecoder(reader)
 	for {
 		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader, decoder)
@@ -107,49 +106,34 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() (retErr error) {
 			path := s.localServer.blockPath(blockRef.Block)
 			// We don't want to overwrite blocks that already exist, since:
 			// 1) blocks are content-addressable, so it will be the same block
 			// 2) we risk exceeding the object store's rate limit
 			if s.objClient.Exists(path) {
-				return
+				return nil
 			}
 			writer, err := s.objClient.Writer(path)
 			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
+				return err
 			}
 			defer func() {
-				if err := writer.Close(); err != nil {
-					select {
-					case errCh <- err:
-					default:
-					}
-					return
+				if err := writer.Close(); err != nil && retErr == nil {
+					retErr = err
 				}
 			}()
 			if _, err := writer.Write(data); err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
+				return err
 			}
-		}()
+			return nil
+		})
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
 		}
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
-	default:
 	}
 	return putBlockServer.SendAndClose(result)
 }
