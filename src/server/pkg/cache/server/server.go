@@ -45,6 +45,7 @@ func (s *groupCacheServer) Get(
 	ctx context.Context,
 	request *groupcachepb.GetRequest,
 ) (response *groupcachepb.GetResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
 	// response is too big to log
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	result := &groupcachepb.GetResponse{}
