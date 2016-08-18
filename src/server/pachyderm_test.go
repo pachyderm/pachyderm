@@ -2648,7 +2648,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
+	// This test cannot be run in parallel, since it archives all repos
 	c := getUsablePachClient(t)
 	dataRepo := uniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
