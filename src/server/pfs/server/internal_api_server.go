@@ -586,6 +586,23 @@ func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_proto
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.ArchiveAll(shards); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *internalAPIServer) AddShard(shard uint64) error {
 	return a.driver.AddShard(shard)
 }

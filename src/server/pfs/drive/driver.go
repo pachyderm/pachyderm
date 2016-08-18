@@ -821,6 +821,48 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 	return nil
 }
 
+func (d *driver) ArchiveAll(shards map[uint64]bool) error {
+	repoInfos, err := d.ListRepo(nil, shards)
+	if err != nil {
+		return err
+	}
+	// Provenance has a nice invariant:
+	// A in Provenance(B) => len(Provenance(A)) < len(Provenance(B))
+	// Since Provenance is transitive
+	// Thus when we sort by length we guarantee that A will have a lower index than B
+	sort.Sort(byProvenance(repoInfos))
+
+	var repos []*pfs.Repo
+	for _, repoInfo := range repoInfos {
+		// We break if we find a repo with provenance
+		// Repos w provenance should already be archived, since
+		// archiving is transitive over provenance
+
+		if len(repoInfo.Provenance) > 0 {
+			break
+		}
+		repos = append(repos, repoInfo.Repo)
+	}
+	commitInfos, err := d.listCommit(
+		repos,
+		pfs.CommitType_COMMIT_TYPE_NONE,
+		nil,
+		nil,
+		pfs.CommitStatus_NORMAL,
+		shards,
+	)
+	if err != nil {
+		return err
+	}
+	for _, commitInfo := range commitInfos {
+		err := d.ArchiveCommit(commitInfo.Commit, shards)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *driver) AddShard(shard uint64) error {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
