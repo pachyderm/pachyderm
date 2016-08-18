@@ -149,4 +149,5 @@ $ git clone git@github.com:pachyderm/pachyderm
 
 ## Next
 
-Now that you have the command line interface installed, [deploy your pachyderm cluster](./deploying.html)
+Now that you have everything installed and working, check out our [beginner_tutorial](LINK) to learn the basics of Pachyderm.
+

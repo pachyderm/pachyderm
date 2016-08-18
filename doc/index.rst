@@ -18,7 +18,7 @@ Pachyderm Developer Documentation
 .. _user_docs:
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Getting Started
 
     getting_started/getting_started
@@ -27,13 +27,13 @@ Pachyderm Developer Documentation
     getting_started/troubleshooting
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Analyze Your Data
-    
+
     development/analyze_your_data
     development/deploying_on_the_cloud
     development/inputing_your_data
-    development/customizing_your_images
+    development/custom_pipelines
     development/tracking_your_data
     development/updating_pipelines
     development/scaling
@@ -41,16 +41,17 @@ Pachyderm Developer Documentation
     development/python_example
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Advanced Workflows
 
     advanced/advanced
     advanced/provenance
     advanced/incrementality
     advanced/composing_pipelines
+    advanced/on_prem
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Going To Production
 
     production/production
