@@ -25,8 +25,7 @@ message JobInfo {
   uint64 pods_succeeded = 13;
   uint64 pods_failed = 14;
   repeated uint64 shard_moduli = 15;
-  map<uint64, string> pod_commits = 16;
-  string output_repo_name = 17;
+  map<string, string> pod_commits = 16;
 }
 
 message JobInfos {
