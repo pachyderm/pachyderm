@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	jobInfosTable              Table = "JobInfos"
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
@@ -485,7 +488,7 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
-			"PodCommits": map[uint64]string{request.PodIndex: request.CommitID},
+			"PodCommits": map[string]string{strconv.FormatUint(request.PodIndex, 10): request.CommitID},
 		},
 	).RunWrite(a.session)
 
@@ -502,6 +505,7 @@ func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist
 	return google_protobuf.EmptyInstance, err
 }
 
+// TODO - delete (pfs-refactor)
 func (a *rethinkAPIServer) AddOutputRepo(ctx context.Context, request *persist.AddOutputRepoRequest) (response *google_protobuf.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{

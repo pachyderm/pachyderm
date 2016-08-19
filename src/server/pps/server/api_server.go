@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -225,18 +226,21 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 		}
 	}
-	fmt.Printf("!!! Output repo: %v\n", outputRepo)
-	_, err = persistClient.AddOutputRepo(
-		ctx,
-		&persist.AddOutputRepoRequest{
-			JobID:    jobID,
-			RepoName: outputRepo.Name,
-		},
-	)
-	fmt.Printf("!!! Added output repo %v\n", err)
-	if err != nil {
-		return nil, err
-	}
+
+	/*
+		fmt.Printf("!!! zzOutput repo: %v\n", outputRepo)
+		/*
+		_, err = persistClient.AddOutputRepo(
+			ctx,
+			&persist.AddOutputRepoRequest{
+				JobID:    jobID,
+				RepoName: outputRepo.Name,
+			},
+		)
+		fmt.Printf("!!! Added output repo, err: %v\n", err)
+		if err != nil {
+			return nil, err
+		}*/
 
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
@@ -253,10 +257,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		JobID:     jobID,
-		Transform: request.Transform,
-		Inputs:    request.Inputs,
-		ParentJob: request.ParentJob,
+		JobID:        jobID,
+		Transform:    request.Transform,
+		Inputs:       request.Inputs,
+		ParentJob:    request.ParentJob,
+		OutputCommit: client.NewCommit(outputRepo.Name, ""),
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -605,7 +610,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
 	}
 
-	startCommitRequest.Repo = &pfsclient.Repo{Name: jobInfo.OutputRepoName}
+	startCommitRequest.Repo = jobInfo.OutputCommit.Repo
 
 	if parentJobInfo != nil {
 		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
@@ -737,7 +742,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// Finish this shard's commit
-	podCommit, ok := jobInfo.PodCommits[request.PodIndex]
+	podCommit, ok := jobInfo.PodCommits[strconv.FormatUint(request.PodIndex, 10)]
 	if !ok {
 		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
 	}
@@ -777,7 +782,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
 			&pfsclient.MergeRequest{
-				Repo:        jobInfo.OutputRepoName,
+				Repo:        jobInfo.OutputCommit.Repo.Name,
 				FromCommits: commitsToMerge,
 				ToBranch:    "master",
 				Strategy:    pfsclient.MergeStrategy_SQUASH,
