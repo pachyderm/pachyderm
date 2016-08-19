@@ -25,6 +25,8 @@ message JobInfo {
   uint64 pods_succeeded = 13;
   uint64 pods_failed = 14;
   repeated uint64 shard_moduli = 15;
+  map<uint64, string> pod_commits = 16;
+  string output_repo_name = 17;
 }
 
 message JobInfos {
@@ -40,6 +42,22 @@ message JobState {
 	string job_id = 1;
 	pps.JobState state = 2;
     google.protobuf.Timestamp finished = 3; // set when state == FINISHED
+}
+
+message AddPodCommitRequest {
+    string job_id = 1;
+    uint64 pod_index = 2;
+    string commit_id = 3;
+}
+
+message AddOutputCommitRequest {
+    string job_id = 1;
+    string commit_id = 2;
+}
+
+message AddOutputRepoRequest {
+    string job_id = 1;
+    string repo_name = 2;
 }
 
 message PipelineInfo {
@@ -105,6 +123,11 @@ service API {
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
   rpc StartJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+
+  // Job commit rpcs
+  rpc AddPodCommit(AddPodCommitRequest) returns (google.protobuf.Empty) {}
+  rpc AddOutputCommit(AddOutputCommitRequest) returns (google.protobuf.Empty) {}
+  rpc AddOutputRepo(AddOutputRepoRequest) returns (google.protobuf.Empty) {}
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}

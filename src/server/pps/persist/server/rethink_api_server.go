@@ -19,8 +19,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	jobInfosTable              Table = "JobInfos"
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
@@ -484,20 +482,30 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	return google_protobuf.EmptyInstance, err
 }
 
-func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, job *ppsclient.Job, podIndex uint64, commitID string) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(
-		map[string]interface{
-			"PodCommits" : map[uint64]string{podIndex: commitID},
-		}
+func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
+		map[string]interface{}{
+			"PodCommits": map[uint64]string{request.PodIndex: request.CommitID},
+		},
 	).RunWrite(a.session)
 
 	return google_protobuf.EmptyInstance, err
 }
 
-func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, job *ppsclient.Job, commitID string) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(
+func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist.AddOutputCommitRequest) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
-			"OutputCommit": commitID,
+			"OutputCommit": request.CommitID,
+		},
+	).RunWrite(a.session)
+
+	return google_protobuf.EmptyInstance, err
+}
+
+func (a *rethinkAPIServer) AddOutputRepo(ctx context.Context, request *persist.AddOutputRepoRequest) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
+		map[string]interface{}{
+			"OutputRepoName": request.RepoName,
 		},
 	).RunWrite(a.session)
 
