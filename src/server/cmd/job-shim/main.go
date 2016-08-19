@@ -66,7 +66,8 @@ func do(appEnvObj interface{}) error {
 							Job: &ppsclient.Job{
 								ID: args[0],
 							},
-							Success: false,
+							Success:  false,
+							PodIndex: response.PodIndex,
 						},
 					); err != nil {
 						errorAndExit(err.Error())
