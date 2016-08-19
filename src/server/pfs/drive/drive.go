@@ -19,9 +19,10 @@ type Driver interface {
 	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error
 	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) error
 	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error
+	ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-		provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
+		provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, shard uint64, reader io.Reader) error
@@ -32,6 +33,7 @@ type Driver interface {
 	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error
 	DeleteAll(shards map[uint64]bool) error
+	ArchiveAll(shards map[uint64]bool) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
 	Dump()

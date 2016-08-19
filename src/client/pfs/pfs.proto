@@ -59,7 +59,8 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 6;
   uint64 size_bytes = 7;
   bool cancelled = 8;
-  repeated Commit provenance = 9;
+  bool archived = 9;
+  repeated Commit provenance = 10;
 }
 
 message CommitInfos {
@@ -130,6 +131,7 @@ message DiffInfo {
   uint64 size_bytes = 7;
   bool cancelled = 8;
   repeated Commit provenance = 9;
+  bool archived = 10;
 }
 
 message Shard {
@@ -173,8 +175,19 @@ message FinishCommitRequest {
   google.protobuf.Timestamp finished = 3;
 }
 
+message ArchiveCommitRequest {
+  Commit commit = 1;
+}
+
 message InspectCommitRequest {
   Commit commit = 1;
+}
+
+enum CommitStatus {
+    NORMAL = 0;
+    ARCHIVED = 1;
+    CANCELLED = 2;
+    ALL = 3;
 }
 
 message ListCommitRequest {
@@ -182,7 +195,7 @@ message ListCommitRequest {
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
   repeated Commit provenance = 4;
-  bool all = 5;
+  CommitStatus status = 5;
   bool block = 6;
 }
 
@@ -232,6 +245,7 @@ message PutFileRequest {
   bytes value = 3;
   string handle = 4;
   Delimiter delimiter = 5;
+  string url = 6;
 }
 
 message InspectFileRequest {
@@ -274,6 +288,8 @@ service API {
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ArchiveCommit marks a commit as archived, it will be excluded from ListCommit.
+  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -299,6 +315,8 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // ArchiveAll archives everything
+  rpc ArchiveAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 service InternalAPI {
@@ -318,6 +336,8 @@ service InternalAPI {
   rpc StartCommit(StartCommitRequest) returns (google.protobuf.Empty) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // ArchiveCommit marks a commit as archived, it will be excluded from ListCommit.
+  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -343,6 +363,8 @@ service InternalAPI {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // ArchiveAll archives everything
+  rpc ArchiveAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutBlockRequest {

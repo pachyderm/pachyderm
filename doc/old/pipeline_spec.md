@@ -13,6 +13,13 @@ This document discusses each of the fields present in a pipeline specification. 
     "image": string,
     "cmd": [ string ],
     "stdin": [ string ]
+    "env": {
+        "foo": "bar"
+    },
+    "secrets": [ {
+        "name": "secret_name",
+        "mountPath": "/path/in/container"
+    } ]
   },
   "parallelism": int,
   "inputs": [
@@ -20,6 +27,7 @@ This document discusses each of the fields present in a pipeline specification. 
       "repo": {
         "name": string
       },
+      "runEmpty": false,
       "method": "map"/"reduce"/"global"
       // alternatively, method can be specified as an object.
       // this is only for advanced use cases; most of the time, one of the four
@@ -45,6 +53,10 @@ This document discusses each of the fields present in a pipeline specification. 
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
 
+`transform.env is a map from key to value of environment variables that will be injected into the container
+
+`transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
+
 ### Parallelism
 
 `parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
@@ -52,6 +64,8 @@ This document discusses each of the fields present in a pipeline specification. 
 ### Inputs
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
+
+`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.

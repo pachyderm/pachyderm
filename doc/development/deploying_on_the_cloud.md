@@ -169,4 +169,3 @@ Pachyderm automatically reports anonymized usage metrics. These metrics help us
 understand how people are using Pachyderm and make it better.  They can be
 disabled by setting the env variable `METRICS` to `false` in the pachd
 container.
-
