@@ -49,6 +49,27 @@ To understand what's going on take a look at
 [`examples/opencv/Dockerfile`](/examples/opencv/Dockerfile). And
 [`examples/opencv/edges.py`](/examples/opencv/edges.py).
 
+### Distribute the Docker Image
+If you're running a local version of Pachyderm then you can proceed to the next
+step. If you're unsure if you're running locally do:
+
+```sh
+$ docker ps | grep pachd
+```
+
+if that command errors it means pachd isn't running on your local docker host
+and won't be able to see that `opencv` image that you just built because it's
+only available locally. To fix this you need to push the image to a registry
+such as DockerHub. You can do this with:
+
+```sh
+docker tag opencv <your-docker-hub-username>/opencv
+docker push <your-docker-hub-username>/opencv
+```
+
+Now the image can be referenced on any Docker host as
+`<your-docker-hub-username>/opencv` and Docker will be able to find it.
+
 ## Deploy the Pipeline
 
 ## Stream More Data In.
