@@ -55,6 +55,7 @@ message JobInfo {
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  map<uint64, string> shard_commits = 11;
 }
 
 message JobInfos {
