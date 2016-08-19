@@ -1,21 +1,51 @@
 Getting Your Data into Pachyderm
-===========================
-Data lives in object storage and pachyderm needs control of its own bucket because conent addressed... add more info
+================================
+
+If you're running Pachyderm in the cloud, data in Pachyderm is backed an object store such as S3 or GCS. Files in Pachyderm are content-addressed as part of how we buid our version control semantics and are therefore not "human-readable." We recommend you give Pachyderm its own bucket.
+
+There a bunch of different ways to get your data into Pachyderm.
+
+`PFS Mount`_: This is the easiest method if you just have some local files (or dummy files) and you just want to test things out in Pachyderm.
+
+`Pachtl CLI`_: This is the best option for real use cases and scripting the input process.
+
+`Golang Client`_: Ideal for Golang users who want to script the file input process.
+
+`Other Language Clients`_: Pachyderm uses a protocol buffer API which supports many other languages, we just haven't built full clients yet. 
 
 
 
-Input Mechanisms
-----------------
 
-## Inputting data into PFS
+PFS  Mount
+----------
 
-To start using Pachyderm, you'll need to input some of your data into a [PFS](./pachyderm_file_system.html) repo.
+To mount pfs locally use ``pachctl mount``. You can follow the first section of the :doc:`beginner_tutorial` or use the :doc:`pachctl` documentation.
 
-There are a handful of ways to do this:
+Once you have pfs mounted, you can add files to Pachyderm via whatever method you prefer to manipulate a local file system:  ``mv``, ``cp``, ``>``, ``|``, etc.
 
-1) You can do this via a [PFS](./pachyderm_file_system.html) mount
+Don't forget, you'll need create a repo in Pachyderm first with ``pachctl create-repo <repo_name>`` and add the files to ``~/pfs/<repo_name>``.
 
-The [Fruit Stand](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand) example uses this method. This is probably the easiest to use if you're poking around and make some dummy repo's to get the hang of Pachyderm.
+
+Pachctl CLI
+-----------
+
+The pachctl CLI is the primary method of interaction with Pachyderm. To get data into Pachyderm, you should use the ``put-file`` command. Below are a examples uses of ``put-file``. Go to :doc:`pachctl/pachctl_put-file`` for complete documentation. 
+
+.. note::
+
+  Commits in Pachyderm must be explicitly started and finished so put-file can only be called on an open (started, but not finished) commit. The ``-c`` option allows you to start and finish the commit in addition to putting data as a one-line command. 
+
+
+-c to start and finish put-file as a oneliner. 
+
+Adding a single file:
+
+Adding multiple files at once:
+
+Scraping a URL:
+
+
+
 
 2) You can do it via the [pachctl](./pachctl.html) CLI
 
@@ -28,17 +58,13 @@ You can find the docs for the client [here](https://godoc.org/github.com/pachyde
 Again, helpful if you're scripting something, and helpful if you're already using go.
 
 
-Pachctl Mount
-^^^^^^^^^^^^^
 
-Pachctl CLI
-^^^^^^^^^^^
 
 Golang Client
-^^^^^^^^^^^^^
+-------------
 
-Other Clients
-^^^^^^^^^^^^^
+Other Language Clients
+----------------------
 
 
 Data Sources
