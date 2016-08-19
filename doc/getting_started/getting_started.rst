@@ -5,7 +5,7 @@ Welcome to the documentation portal for first time Pachyderm users! We've organi
 
 :doc:`local_installation`: Get Pachyderm deployed locally on OSX or Linux.
 
-:doc:`beginner_tutorial`: Learn to use Pachdyerm through a simple tutorial.
+:doc:`beginner_tutorial`: Learn to use Pachdyerm through a quick and simple tutorial.
 
 :doc:`troubleshooting`: Common getting started issues and how to fix them.
 
