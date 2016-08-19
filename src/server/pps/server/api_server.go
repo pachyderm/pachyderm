@@ -1343,13 +1343,6 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 	}
 
 	var jobEnv []api.EnvVar
-	jobEnv = append(
-		jobEnv,
-		api.EnvVar{
-			Name:  "PACH_OUTPUT_COMMIT_ID",
-			Value: jobInfo.OutputCommit.ID,
-		},
-	)
 	for _, input := range jobInfo.Inputs {
 		jobEnv = append(
 			jobEnv,
