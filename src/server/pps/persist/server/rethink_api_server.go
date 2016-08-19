@@ -484,6 +484,26 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	return google_protobuf.EmptyInstance, err
 }
 
+func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, job *ppsclient.Job, podIndex uint64, commitID string) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(
+		map[string]interface{
+			"PodCommits" : map[uint64]string{podIndex: commitID},
+		}
+	).RunWrite(a.session)
+
+	return google_protobuf.EmptyInstance, err
+}
+
+func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, job *ppsclient.Job, commitID string) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(
+		map[string]interface{}{
+			"OutputCommit": commitID,
+		},
+	).RunWrite(a.session)
+
+	return google_protobuf.EmptyInstance, err
+}
+
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
 	_, err := a.getTerm(table).Insert(message).RunWrite(a.session)
 	return err
