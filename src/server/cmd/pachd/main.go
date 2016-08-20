@@ -15,6 +15,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	pfs_persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -76,6 +77,11 @@ func do(appEnvObj interface{}) error {
 		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil && !isDBCreated(err) {
 			return err
 		}
+		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
+		err := pfs_persist.InitDB(rethinkAddress, "pfs")
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 	if readinessCheck {
@@ -132,7 +138,8 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := drive.NewDriver(address)
+	driver, err := getPFSDriver(address, appEnv)
+	//	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
 	}
@@ -234,6 +241,11 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 		Insecure: true,
 	}
 	return kube.New(config)
+}
+
+func getPFSDriver(address string, env *appEnv) (drive.Driver, error) {
+	rethinkAddress := fmt.Sprintf("%s:28015", env.DatabaseAddress)
+	return pfs_persist.NewDriver(address, rethinkAddress, "pfs")
 }
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
