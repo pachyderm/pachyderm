@@ -724,11 +724,12 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	fmt.Printf("!!! in FinishJob\n")
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("!!! pod success? %v\n", request.Success)
 	var jobInfo *persist.JobInfo
 	if request.Success {
 		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)

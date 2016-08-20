@@ -1214,7 +1214,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
 	}
-
+	fmt.Printf("!!! in driver.MergE()\n")
 	if strategy == pfs.MergeStrategy_SQUASH {
 		_repo := &pfs.Repo{
 			Name: repo,
