@@ -38,8 +38,9 @@ local filesystem instead of URLs.
 ## Build and Distribute the Docker Image
 
 Now that you've got some data in Pachyderm it's time to process it. To process
-data in Pachyderm you first have to create a Docker image describing the
-environment you want it to run in. You can build this image with:
+data in Pachyderm you create a Docker image describing the environment you want
+your code to run in. For this example the Docker image is defined by
+`examples/opencv/Dockerfile`. You can build it with:
 
 ```sh
 $ docker build -t opencv examples/opencv
@@ -58,18 +59,31 @@ $ docker ps | grep pachd
 ```
 
 if that command errors it means pachd isn't running on your local docker host
-and won't be able to see that `opencv` image that you just built because it's
-only available locally. To fix this you need to push the image to a registry
-such as DockerHub. You can do this with:
+and won't be able to see that `opencv` image that you just built. To fix this
+you need to push the image to a registry such as DockerHub. You can do this
+with:
 
 ```sh
-docker tag opencv <your-docker-hub-username>/opencv
-docker push <your-docker-hub-username>/opencv
+$ docker tag opencv <your-docker-hub-username>/opencv
+$ docker push <your-docker-hub-username>/opencv
 ```
 
 Now the image can be referenced on any Docker host as
 `<your-docker-hub-username>/opencv` and Docker will be able to find it.
 
 ## Deploy the Pipeline
+
+Now that you have an image you need to tell Pachyderm how to run it. You do this
+by creating a Pipeline, the pipeline for this example is at
+[`examples/opencv/edges.json`](/examples/opencv/edges.json).  Notice that this
+file references the image you just created in the field `transform.image`. If
+you pushed your image to DockerHub then you chould change the value of that
+field to match the name of the image you created.
+
+To create the pipeline you do:
+
+```sh
+$ pachctl create-pipeline -f examples/opencv/edges.json
+```
 
 ## Stream More Data In.
