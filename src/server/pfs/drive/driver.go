@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -92,10 +93,8 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for shard := range shards {
-		wg.Add(1)
 		diffInfo := &pfs.DiffInfo{
 			Diff:     client.NewDiff(repo.Name, "", shard),
 			Finished: created,
@@ -106,24 +105,12 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		if err := d.diffs.insert(diffInfo); err != nil {
 			return err
 		}
-		go func() {
-			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
-			}
-		}()
+		eg.Go(func() error {
+			_, err := blockClient.CreateDiff(context.Background(), diffInfo)
+			return err
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	return nil
+	return eg.Wait()
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
@@ -139,40 +126,31 @@ func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pf
 }
 
 func (d *driver) listRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	var result []*pfs.RepoInfo
 	var lock sync.Mutex
 	for repoName := range d.diffs {
-		wg.Add(1)
 		repoName := repoName
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shards)
 			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
+				return err
 			}
 			provSet := repoSet(repoInfo.Provenance)
 			for _, repo := range provenance {
 				if !provSet[repo.Name] {
 					// this repo doesn't match the provenance we want, ignore it
-					return
+					return nil
 				}
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			result = append(result, repoInfo)
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return result, nil
 }
@@ -217,32 +195,15 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	if err != nil {
 		return err
 	}
-	errCh := make(chan error, 1)
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if _, err := blockClient.DeleteDiff(
-				context.Background(),
-				&pfs.DeleteDiffRequest{Diff: diffInfo.Diff},
-			); err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
-			}
-		}()
+		eg.Go(func() error {
+			_, err := blockClient.DeleteDiff(context.Background(), &pfs.DeleteDiffRequest{Diff: diffInfo.Diff})
+			return err
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	return nil
+	return eg.Wait()
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
@@ -357,27 +318,16 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
-			}
-		}()
+		eg.Go(func() error {
+			_, err := blockClient.CreateDiff(context.Background(), diffInfo)
+			return err
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
-	default:
 	}
 
 	d.lock.Lock()

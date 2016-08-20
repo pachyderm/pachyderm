@@ -21,6 +21,7 @@ import (
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -99,33 +100,23 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	}
 
 	var lock sync.Mutex
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var repoInfos []*pfs.RepoInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			repoInfos = append(repoInfos, repoInfo)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 
 	repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
@@ -146,36 +137,27 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	var lock sync.Mutex
 	var repoInfos []*pfs.RepoInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		clientConn := clientConn
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			response, err := pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
 			if err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
-				return
+				return err
 			}
 			lock.Lock()
+			defer lock.Unlock()
 			repoInfos = append(repoInfos, response.RepoInfo...)
-			lock.Unlock()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	default:
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
 	return &pfs.RepoInfos{RepoInfo: pfsserver.ReduceRepoInfos(repoInfos)}, nil
@@ -291,33 +273,23 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	}
 
 	var lock sync.Mutex
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, commitInfo)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 
 	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
@@ -344,34 +316,24 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -389,34 +351,23 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -455,34 +406,24 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).FlushCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -525,8 +466,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
 	requests := []*pfs.PutFileRequest{request}
 	// For a file like foo/bar/buzz, we want to send two requests to create two
 	// directories foo/ and foo/bar/
@@ -586,31 +525,14 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		return nil
 	}
 
+	var eg errgroup.Group
 	for _, req := range requests {
-		wg.Add(1)
 		req := req
-		go func() {
-			defer wg.Done()
-			if err := sendReq(req); err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
+		eg.Go(func() error {
+			return sendReq(req)
+		})
 	}
-
-	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
+	return eg.Wait()
 }
 
 func dirs(path string) []string {
@@ -691,26 +613,18 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subFileInfos, err := pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			for _, fileInfo := range subFileInfos.FileInfo {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
@@ -721,13 +635,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 				}
 				fileInfos = append(fileInfos, fileInfo)
 			}
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
@@ -765,30 +677,16 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, clientConn := range clientConns {
-		wg.Add(1)
 		clientConn := clientConn
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			_, err := pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
+			return err
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return google_protobuf.EmptyInstance, nil
 }

@@ -542,22 +542,16 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(pods))
 	logs := make([][]byte, len(pods))
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for i, pod := range pods {
 		i := i
 		pod := pod
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
 				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
+				return err
 			}
 			var buffer bytes.Buffer
 			scanner := bufio.NewScanner(bytes.NewBuffer(value))
@@ -565,12 +559,10 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
 			}
 			logs[i] = buffer.Bytes()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	default:
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 	for _, log := range logs {
@@ -1636,26 +1628,17 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 				// we don't return on failure here because jobs may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
 				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
 			}
-			pods, err := a.jobPods(client.NewJob(jobInfo.JobID))
-			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-			}
+			pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 			for _, pod := range pods {
 				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
 					// we don't return on failure here because pods may get deleted
@@ -1664,13 +1647,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
 				}
 			}
-		}()
+			return jobPodsErr
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
-	default:
 	}
 
 	// The reason we need to do this, is that if we don't, then if the very same
