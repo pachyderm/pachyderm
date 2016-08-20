@@ -86,4 +86,36 @@ To create the pipeline you do:
 $ pachctl create-pipeline -f examples/opencv/edges.json
 ```
 
+You can check on the status of the pipeline with:
+
+```sh
+$ pachctl inspect-pipeline edges
+```
+
+You should see that a single job has been run, it was run on the commit you made
+in the images repo.
+
+## Inspect the Results
+
+Results from a pipeline are stored in an output repo whose name matches the name
+of the pipeline. You can see it with `list-repo`
+
+```sh
+$ pachctl list-repo
+NAME    CREATED             SIZE
+edges   11 minutes ago      557.7 KiB
+images  15 minutes ago      1.136 MiB
+```
+
+You can view this data by mounting it locally:
+
+```sh
+$ mkdir /tmp/pfs
+$ pachctl mount /tmp/pfs
+# THIS COMMAND SHOULD BLOCK
+```
+
+While the mount is up navigate to [`file:///tmp/pfs`](file:///tmp/pfs) in your
+web browser. Here you can browse the contents of pfs.
+
 ## Stream More Data In.
