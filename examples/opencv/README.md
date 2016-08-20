@@ -118,4 +118,11 @@ $ pachctl mount /tmp/pfs
 While the mount is up navigate to [`file:///tmp/pfs`](file:///tmp/pfs) in your
 web browser. Here you can browse the contents of pfs.
 
-## Stream More Data In.
+## Stream More Data In
+
+Pipelines are smart, they don't just process the input data that's present when
+they're created they also process and data that's added later in a streaming
+fashion. You can process any image on the internet or your local disk, all you
+have to do is put it in the images repo (with `put-file`) and your pipeline will
+automatically trigger and run the edge detection code.
+
