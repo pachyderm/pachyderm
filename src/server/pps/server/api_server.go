@@ -639,7 +639,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		&persist.AddPodCommitRequest{
 			JobID:    request.Job.ID,
 			PodIndex: podIndex,
-			CommitID: commit.ID,
+			Commit:   commit,
 		},
 	)
 	if err != nil {
@@ -703,6 +703,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		})
 	}
 
+	fmt.Printf("!!! StartJob returning podindex: %v\n", podIndex)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
@@ -742,6 +743,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// Finish this shard's commit
+	fmt.Printf("!!! Got pod commits: %v, looking for key: %v\n", jobInfo.PodCommits, request.PodIndex)
 	podCommit, ok := jobInfo.PodCommits[strconv.FormatUint(request.PodIndex, 10)]
 	if !ok {
 		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
@@ -750,13 +752,17 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("!!! Going to finish this commit")
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-		Commit: &pfsclient.Commit{ID: podCommit},
+		//		Commit: &pfsclient.Commit{ID: podCommit},
+		Commit: podCommit,
 	}); err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("!!! FinishJob() has finished the commit %v for the pod %v\n", podCommit, request.PodIndex)
 	// All shards completed, job is finished
+	fmt.Printf("!!! FinishJob(), current Job Info: %v\n", jobInfo)
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
@@ -776,9 +782,10 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		// (pfs-refactor) : TODO : need to handle cancelled case
 		// probably need to pass that as an arg to the merge function
 		var commitsToMerge []*pfsclient.Commit
-		for _, commitID := range jobInfo.PodCommits {
-			commitsToMerge = append(commitsToMerge, &pfsclient.Commit{ID: commitID})
+		for _, podCommit := range jobInfo.PodCommits {
+			commitsToMerge = append(commitsToMerge, podCommit)
 		}
+		fmt.Printf("!!! going to merge\n")
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
 			&pfsclient.MergeRequest{
@@ -788,6 +795,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 				Strategy:    pfsclient.MergeStrategy_SQUASH,
 			},
 		)
+		fmt.Printf("!!! merged\n")
 		if err != nil {
 			return nil, err
 		}
