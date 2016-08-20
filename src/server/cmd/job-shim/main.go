@@ -51,7 +51,7 @@ func do(appEnvObj interface{}) error {
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
 			}
-
+			fmt.Printf("!!! JOBSHIM - looking for podindex: %v\n", response.PodIndex)
 			// We want to make sure that we only send FinishJob once.
 			// The most bulletproof way would be to check that on server side,
 			// but this is easier.
@@ -108,8 +108,9 @@ func do(appEnvObj interface{}) error {
 				if _, err := ppsClient.FinishJob(
 					context.Background(),
 					&ppsserver.FinishJobRequest{
-						Job:     client.NewJob(args[0]),
-						Success: false,
+						Job:      client.NewJob(args[0]),
+						Success:  false,
+						PodIndex: response.PodIndex,
 					},
 				); err != nil {
 					errorAndExit(err.Error())
@@ -140,8 +141,9 @@ func do(appEnvObj interface{}) error {
 			if _, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
-					Job:     client.NewJob(args[0]),
-					Success: success,
+					Job:      client.NewJob(args[0]),
+					Success:  success,
+					PodIndex: response.PodIndex,
 				},
 			); err != nil {
 				errorAndExit(err.Error())

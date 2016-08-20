@@ -25,7 +25,7 @@ message JobInfo {
   uint64 pods_succeeded = 13;
   uint64 pods_failed = 14;
   repeated uint64 shard_moduli = 15;
-  map<string, string> pod_commits = 16;
+  map<string, pfs.Commit> pod_commits = 16;
 }
 
 message JobInfos {
@@ -46,7 +46,7 @@ message JobState {
 message AddPodCommitRequest {
     string job_id = 1;
     uint64 pod_index = 2;
-    string commit_id = 3;
+    pfs.Commit commit = 3;
 }
 
 message AddOutputCommitRequest {

@@ -488,7 +488,7 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
-			"PodCommits": map[string]string{strconv.FormatUint(request.PodIndex, 10): request.CommitID},
+			"PodCommits": map[string]string{strconv.FormatUint(request.PodIndex, 10): request.Commit.ID},
 		},
 	).RunWrite(a.session)
 
