@@ -3,8 +3,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "app": "",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": ""
     }
   },
   "kind": "ServiceAccount",
@@ -158,8 +158,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "app": "rethink",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "rethink"
     }
   },
   "spec": {
@@ -320,7 +320,7 @@
     }
   },
   "spec": {
-    "replicas": 2,
+    "replicas": 1,
     "selector": {
       "app": "pachd"
     },

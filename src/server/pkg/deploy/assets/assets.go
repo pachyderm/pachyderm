@@ -124,7 +124,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 			MountPath: "/" + googleSecretName,
 		})
 	}
-	replicas := int32(2)
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",

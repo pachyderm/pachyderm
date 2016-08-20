@@ -79,7 +79,7 @@ func do(appEnvObj interface{}) error {
 		}
 		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 		err := pfs_persist.InitDB(rethinkAddress, "pfs")
-		if err != nil {
+		if err != nil && !isDBCreated(err) {
 			return err
 		}
 		return nil
