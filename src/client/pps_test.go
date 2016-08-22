@@ -28,6 +28,7 @@ func Example_pps() {
 			// map over "repo"
 			client.NewPipelineInput("repo", client.MapMethod),
 		},
+		false, // not an update
 	); err != nil {
 		return // handle error
 	}
@@ -41,6 +42,7 @@ func Example_pps() {
 			// reduce over "map"
 			client.NewPipelineInput("map", client.ReduceMethod),
 		},
+		false, // not an update
 	); err != nil {
 		return // handle error
 	}
@@ -49,9 +51,9 @@ func Example_pps() {
 		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
 		nil,                // starting at the beginning of time
 		client.CommitTypeRead, // are readable
-		true,  // block until commits are available
-		false, // ignore cancelled commits
-		nil,   // have no provenance
+		true, // block until commits are available
+		client.CommitStatusNormal, // ignore cancelled commits
+		nil, // have no provenance
 	)
 	if err != nil {
 		return // handle error

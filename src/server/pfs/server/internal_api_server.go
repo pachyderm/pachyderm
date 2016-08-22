@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +53,7 @@ func newInternalAPIServer(
 }
 
 func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -67,6 +70,7 @@ func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateR
 }
 
 func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -80,6 +84,7 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -94,6 +99,7 @@ func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoR
 }
 
 func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -114,6 +120,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 }
 
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -134,6 +141,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -152,7 +160,25 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.ArchiveCommit(request.Commit, shards); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -166,6 +192,7 @@ func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.Insp
 }
 
 func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -176,7 +203,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		return nil, err
 	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.All, shards)
+		request.FromCommit, request.Provenance, request.Status, shards)
 	_, ok := err.(*pfsserver.ErrRepoNotFound)
 	if err != nil && (!request.Block || !ok) {
 		return nil, err
@@ -199,6 +226,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 }
 
 func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -218,6 +246,7 @@ func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBra
 }
 
 func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -235,6 +264,7 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 }
 
 func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -246,6 +276,10 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	}
 	var provenanceRepos []*pfs.Repo
 	for _, commit := range request.Commit {
+		_, err := a.driver.InspectCommit(commit, shards)
+		if err != nil {
+			return nil, err
+		}
 		provenanceRepos = append(provenanceRepos, commit.Repo)
 	}
 	repoInfos, err := a.driver.ListRepo(provenanceRepos, shards)
@@ -284,7 +318,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 				Provenance: request.Commit,
 				Block:      true,
-				All:        true,
+				Status:     pfs.CommitStatus_CANCELLED,
 			})
 			if err != nil {
 				select {
@@ -296,8 +330,12 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 			lock.Lock()
 			defer lock.Unlock()
 			for _, commitInfo := range commitInfos.CommitInfo {
+				if commitInfo.Archived {
+					// we don't consider archived commits for provenance
+					continue
+				}
 				if commitInfo.Cancelled {
-					// one of the commits was cancelled so downstream commits might now show up
+					// one of the commits was cancelled so downstream commits might not show up
 					// cancel everything
 					cancel()
 					select {
@@ -321,6 +359,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if request != nil {
 			request.Value = nil // we set the value to nil so as not to spam logs
@@ -360,14 +399,39 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 			return err
 		}
 	} else {
-		reader := putFileReader{
-			server: putFileServer,
+		var r io.Reader
+		var delimiter pfs.Delimiter
+		if request.Url != "" {
+			resp, err := http.Get(request.Url)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+			switch resp.Header.Get("Content-Type") {
+			case "application/json":
+				delimiter = pfs.Delimiter_JSON
+			case "application/text":
+				delimiter = pfs.Delimiter_LINE
+			default:
+				delimiter = pfs.Delimiter_NONE
+			}
+		} else {
+			reader := putFileReader{
+				server: putFileServer,
+			}
+			_, err = reader.buffer.Write(request.Value)
+			if err != nil {
+				return err
+			}
+			r = &reader
+			delimiter = request.Delimiter
 		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		if err := a.driver.PutFile(request.File, request.Handle, request.Delimiter, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, delimiter, shard, r); err != nil {
 			return err
 		}
 	}
@@ -375,6 +439,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
@@ -398,6 +463,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -411,6 +477,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -458,6 +525,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 }
 
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -502,6 +570,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 }
 
 func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -588,7 +657,7 @@ type commitWait struct {
 	repos          []*pfs.Repo
 	provenance     []*pfs.Commit
 	commitType     pfs.CommitType
-	all            bool
+	status         pfs.CommitStatus
 	commitInfoChan chan []*pfs.CommitInfo
 }
 
@@ -597,7 +666,7 @@ func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards
 		repos:          request.Repo,
 		provenance:     request.Provenance,
 		commitType:     request.CommitType,
-		all:            request.All,
+		status:         request.Status,
 		commitInfoChan: make(chan []*pfs.CommitInfo, 1),
 	}
 	a.commitWaitersLock.Lock()
@@ -605,7 +674,7 @@ func (a *internalAPIServer) newCommitWait(request *pfs.ListCommitRequest, shards
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.All, shards)
+		request.FromCommit, request.Provenance, request.Status, shards)
 	_, ok := err.(*pfsserver.ErrRepoNotFound)
 	if err != nil && !ok {
 		return nil, err
@@ -635,7 +704,10 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 WaitersLoop:
 	for commitWaiter := range a.commitWaiters {
 		if (commitWaiter.commitType == pfs.CommitType_COMMIT_TYPE_NONE || commitType == commitWaiter.commitType) &&
-			(commitWaiter.all || !commitInfo.Cancelled) &&
+			(commitWaiter.status == pfs.CommitStatus_ALL ||
+				(commitInfo.Cancelled && commitWaiter.status == pfs.CommitStatus_CANCELLED) ||
+				(commitInfo.Archived && commitWaiter.status == pfs.CommitStatus_ARCHIVED) ||
+				(!commitInfo.Archived && !commitInfo.Cancelled)) &&
 			drive.MatchProvenance(commitWaiter.provenance, commitInfo.Provenance) {
 			for _, repo := range commitWaiter.repos {
 				if repo.Name == commit.Repo.Name {
