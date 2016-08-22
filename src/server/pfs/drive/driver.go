@@ -135,6 +135,10 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	return d.listRepo(provenance, shards)
+}
+
+func (d *driver) listRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	var result []*pfs.RepoInfo
@@ -254,6 +258,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		}
 	}
 
+	archived := false
 	for shard := range shards {
 		if len(provenance) != 0 {
 			diffInfo, ok := d.diffs.get(client.NewDiff(repo.Name, "", shard))
@@ -266,6 +271,13 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 					return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
 						provCommit.Repo.Name, provCommit.ID, provCommit.Repo.Name, repo.Name)
 				}
+				diffInfo, ok := d.diffs.get(client.NewDiff(provCommit.Repo.Name, provCommit.ID, shard))
+				if !ok {
+					return pfsserver.NewErrCommitNotFound(provCommit.Repo.Name, provCommit.ID)
+				}
+				if diffInfo.Archived {
+					archived = true
+				}
 			}
 		}
 		diffInfo := &pfs.DiffInfo{
@@ -274,6 +286,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			Appends:    make(map[string]*pfs.Append),
 			Branch:     branch,
 			Provenance: provenance,
+			Archived:   archived,
 		}
 		if branch != "" {
 			parentCommit, err := d.branchParent(client.NewCommit(repo.Name, commitID), branch)
@@ -379,6 +392,41 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return nil
 }
 
+// FinishCommit blocks until its parent has been finished/cancelled
+func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	canonicalCommit, err := d.canonicalCommit(commit)
+	if err != nil {
+		return err
+	}
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	// Find all the commits that have this one as provenance
+	repoInfos, err := d.listRepo([]*pfs.Repo{canonicalCommit.Repo}, shards)
+	if err != nil {
+		return err
+	}
+	var repos []*pfs.Repo
+	for _, repoInfo := range repoInfos {
+		repos = append(repos, repoInfo.Repo)
+	}
+	commitInfos, err := d.listCommit(repos, pfs.CommitType_COMMIT_TYPE_NONE, nil,
+		[]*pfs.Commit{canonicalCommit}, pfs.CommitStatus_ALL, shards)
+	commitsToArchive := []*pfs.Commit{commit}
+	for _, commitInfo := range commitInfos {
+		commitsToArchive = append(commitsToArchive, commitInfo.Commit)
+	}
+	for _, commit := range commitsToArchive {
+		for shard := range shards {
+			diffInfo, ok := d.diffs.get(client.NewDiff(commit.Repo.Name, commit.ID, shard))
+			if !ok {
+				return pfsserver.NewErrCommitNotFound(commit.Repo.Name, commit.ID)
+			}
+			diffInfo.Archived = true
+		}
+	}
+	return nil
+}
+
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -386,7 +434,14 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-	provenance []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.listCommit(repos, commitType, fromCommit, provenance, status, shards)
+}
+
+func (d *driver) listCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
+	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := repoSet(repos)
 	var canonicalProvenance []*pfs.Commit
 	for _, provCommit := range provenance {
@@ -403,8 +458,6 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		}
 		breakCommitIDs[commit.ID] = true
 	}
-	d.lock.RLock()
-	defer d.lock.RUnlock()
 	var result []*pfs.CommitInfo
 	for _, repo := range repos {
 		_, ok := d.diffs[repo.Name]
@@ -424,7 +477,10 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 					return nil, err
 				}
 				commit = commitInfo.ParentCommit
-				if commitInfo.Cancelled && !all {
+				if commitInfo.Cancelled && status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_CANCELLED {
+					continue
+				}
+				if commitInfo.Archived && status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_ARCHIVED {
 					continue
 				}
 				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
@@ -956,6 +1012,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.Finished = diffInfo.Finished
 		commitInfo.SizeBytes = diffInfo.SizeBytes
 		commitInfo.Cancelled = diffInfo.Cancelled
+		commitInfo.Archived = diffInfo.Archived
 		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)
@@ -1293,8 +1350,6 @@ type fileReader struct {
 	offset      int64
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
-	ctx         context.Context
-	cancel      context.CancelFunc
 }
 
 func newFileReader(blockClient pfs.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {
@@ -1448,10 +1503,10 @@ func validateRepoName(name string) error {
 		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
 	}
 	if strings.Contains(name, "/") {
-		fmt.Errorf("repo names cannot contain /")
+		return fmt.Errorf("repo names cannot contain /")
 	}
 	if client.ReservedRepoNames[name] {
-		fmt.Errorf("repo name %s is a reserved keyword")
+		return fmt.Errorf("repo name %s is a reserved keyword", name)
 	}
 	return nil
 }
