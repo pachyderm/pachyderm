@@ -501,7 +501,7 @@ func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.Ad
 func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist.AddOutputCommitRequest) (response *google_protobuf.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
-			"OutputCommit": request.CommitID,
+			"OutputCommit": request.Commit,
 		},
 	).RunWrite(a.session)
 
