@@ -60,13 +60,6 @@ func main() {
 	env.Main(do, &appEnv{})
 }
 
-// isDBCreated is used to tell when we are trying to initialize a database,
-// whether we are getting an error because the database has already been
-// initialized.
-func isDBCreated(err error) bool {
-	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
-}
-
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
@@ -74,15 +67,11 @@ func do(appEnvObj interface{}) error {
 		if err := setClusterID(etcdClient); err != nil {
 			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
 		}
-		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil && !isDBCreated(err) {
+		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil {
 			return err
 		}
 		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
-		err := pfs_persist.InitDB(rethinkAddress, appEnv.DatabaseName)
-		if err != nil && !isDBCreated(err) {
-			return err
-		}
-		return nil
+		return pfs_persist.InitDB(rethinkAddress, appEnv.DatabaseName)
 	}
 	if readinessCheck {
 		//c, err := client.NewInCluster()

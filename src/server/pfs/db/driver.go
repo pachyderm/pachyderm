@@ -112,16 +112,11 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 	}, nil
 }
 
-func CreateDB(address, databaseName string) error {
-	session, err := dbConnect(address)
-	if err != nil {
-		return err
-	}
-	defer session.Close()
-
-	// Create the database
-	_, err = gorethink.DBCreate(databaseName).RunWrite(session)
-	return err
+// isDBCreated is used to tell when we are trying to initialize a database,
+// whether we are getting an error because the database has already been
+// initialized.
+func isDBCreated(err error) bool {
+	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
 }
 
 func InitDB(address string, databaseName string) error {
@@ -130,6 +125,11 @@ func InitDB(address string, databaseName string) error {
 		return err
 	}
 	defer session.Close()
+
+	_, err = gorethink.DBCreate(databaseName).RunWrite(session)
+	if err != nil && !isDBCreated(err) {
+		return err
+	}
 
 	// Create tables
 	for _, table := range tables {
