@@ -15,8 +15,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -85,8 +85,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -234,8 +234,8 @@
     "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachd-init",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
@@ -297,6 +297,12 @@
         "port": 650,
         "targetPort": 0,
         "nodePort": 30650
+      },
+      {
+        "name": "trace-port",
+        "port": 651,
+        "targetPort": 0,
+        "nodePort": 30651
       }
     ],
     "selector": {
@@ -354,7 +360,7 @@
               },
               {
                 "name": "trace-port",
-                "containerPort": 1050
+                "containerPort": 651
               }
             ],
             "env": [
