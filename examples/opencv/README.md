@@ -116,7 +116,8 @@ $ pachctl mount /tmp/pfs
 ```
 
 While the mount is up navigate to [`file:///tmp/pfs`](file:///tmp/pfs) in your
-web browser. Here you can browse the contents of pfs.
+web browser. Here you can browse the contents of pfs which should be the raw
+images and the results of the edge detection.
 
 ## Stream More Data In
 
@@ -126,3 +127,10 @@ fashion. You can process any image on the internet or your local disk, all you
 have to do is put it in the images repo (with `put-file`) and your pipeline will
 automatically trigger and run the edge detection code.
 
+## Next Steps
+
+OpenCV can do a lot more than edge detection, and now that you've built the
+container image everything it can do can be run on Pachyderm. OpenCV has several
+[Python tutorials available
+online](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_tutorials.html)
+if you're looking for inspiration.
