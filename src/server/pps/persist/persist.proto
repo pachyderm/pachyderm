@@ -51,7 +51,7 @@ message AddPodCommitRequest {
 
 message AddOutputCommitRequest {
     string job_id = 1;
-    string commit_id = 2;
+    pfs.Commit commit = 2;
 }
 
 message AddOutputRepoRequest {

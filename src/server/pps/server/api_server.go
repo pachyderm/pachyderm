@@ -477,6 +477,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	}
 
 	persistJobInfo, err := persistClient.InspectJob(ctx, request)
+	fmt.Printf("SSS persist inspect job failed?: %v\n", err)
 	if err != nil {
 		return nil, err
 	}
@@ -808,8 +809,8 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		_, err = persistClient.AddOutputCommit(
 			ctx,
 			&persist.AddOutputCommitRequest{
-				JobID:    request.Job.ID,
-				CommitID: outputCommits.Commit[0].ID,
+				JobID:  request.Job.ID,
+				Commit: outputCommits.Commit[0],
 			},
 		)
 		fmt.Printf("!!! FinishJob() added output commit\n")
@@ -830,6 +831,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if failed || commitInfo.Cancelled {
 			jobState = ppsclient.JobState_JOB_FAILURE
 		}
+		fmt.Printf("SSS creating job state\n")
 		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
 			State: jobState,
@@ -837,6 +839,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 	}
+	fmt.Printf("SSS finished finishjob()\n")
 	return google_protobuf.EmptyInstance, nil
 }
 
