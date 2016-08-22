@@ -184,10 +184,10 @@ $ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[session token] m
 $ make MANIFEST=manifest launch
 ```
 
-It may take a while to complete for the first time, as a lot of Docker images need to be pulled. User can tear down the pachyderm bu running:
+It may take a while to complete for the first time, as a lot of Docker images need to be pulled. User can tear down the Pachyderm service by running:
 
 ```shell
-$ make amazon-clean$
+$ make amazon-clean
 ```
 
 It may take about 30 seconds to delete the pachyderm components.
