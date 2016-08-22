@@ -43,7 +43,7 @@ func TestJob(t *testing.T) {
 	testJob(t, 4)
 }
 
-func TestJobNoShard(t *testing.T) {
+func TestJobNoShardRF(t *testing.T) {
 	t.Parallel()
 	testJob(t, 0)
 }
