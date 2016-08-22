@@ -96,7 +96,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		if retErr == nil {
+		if retErr == nil || retErr == fuse.ENOENT {
 			protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 		} else {
 			protolion.Error(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
@@ -643,13 +643,20 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-		nil, client.CommitTypeNone, false, true, nil)
+		nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
+	if err != nil {
+		return nil, err
+	}
+	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
 	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
 		result = append(result, fuse.Dirent{Name: commitInfo.Commit.ID, Type: fuse.DT_Dir})
+	}
+	for _, commitInfo := range branchCommitInfos {
+		result = append(result, fuse.Dirent{Name: commitInfo.Branch, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }

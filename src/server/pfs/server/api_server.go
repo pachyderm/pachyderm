@@ -21,6 +21,7 @@ import (
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -56,6 +57,7 @@ func newAPIServer(
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -84,6 +86,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 }
 
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -97,33 +100,23 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	}
 
 	var lock sync.Mutex
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var repoInfos []*pfs.RepoInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			repoInfos = append(repoInfos, repoInfo)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 
 	repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
@@ -136,6 +129,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -143,42 +137,34 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	ctx, done := a.getVersionContext(ctx)
 	defer close(done)
 
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	var lock sync.Mutex
 	var repoInfos []*pfs.RepoInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		clientConn := clientConn
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			response, err := pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
 			if err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
-				return
+				return err
 			}
 			lock.Lock()
+			defer lock.Unlock()
 			repoInfos = append(repoInfos, response.RepoInfo...)
-			lock.Unlock()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	default:
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
 	return &pfs.RepoInfos{RepoInfo: pfsserver.ReduceRepoInfos(repoInfos)}, nil
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -199,6 +185,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -229,6 +216,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -249,7 +237,29 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	for _, clientConn := range clientConns {
+		if _, err := pfs.NewInternalAPIClient(clientConn).ArchiveCommit(ctx, request); err != nil {
+			return nil, err
+		}
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -263,38 +273,30 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	}
 
 	var lock sync.Mutex
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, commitInfo)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 
 	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
 
-	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
+	if len(commitInfos) != 1 ||
+		(commitInfos[0].Commit.ID != request.Commit.ID &&
+			commitInfos[0].Branch != request.Commit.ID) {
 		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")
 	}
 
@@ -302,6 +304,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -313,39 +316,30 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -357,39 +351,29 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -410,6 +394,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 }
 
 func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -421,40 +406,31 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).FlushCommit(ctx, request)
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
+	func() { a.Log(request, nil, nil, 0) }()
 	var err error
 	defer func(start time.Time) {
 		if request != nil {
@@ -490,8 +466,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
 	requests := []*pfs.PutFileRequest{request}
 	// For a file like foo/bar/buzz, we want to send two requests to create two
 	// directories foo/ and foo/bar/
@@ -551,31 +525,14 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		return nil
 	}
 
+	var eg errgroup.Group
 	for _, req := range requests {
-		wg.Add(1)
 		req := req
-		go func() {
-			defer wg.Done()
-			if err := sendReq(req); err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
+		eg.Go(func() error {
+			return sendReq(req)
+		})
 	}
-
-	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
+	return eg.Wait()
 }
 
 func dirs(path string) []string {
@@ -591,6 +548,7 @@ func dirs(path string) []string {
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -612,6 +570,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 }
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -642,6 +601,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -653,26 +613,18 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
-	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
+		clientConn := clientConn
+		eg.Go(func() error {
 			subFileInfos, err := pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			for _, fileInfo := range subFileInfos.FileInfo {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
@@ -683,13 +635,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 				}
 				fileInfos = append(fileInfos, fileInfo)
 			}
-		}(clientConn)
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
@@ -697,6 +647,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 }
 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -726,35 +677,22 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, clientConn := range clientConns {
-		wg.Add(1)
 		clientConn := clientConn
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			_, err := pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
-			if err != nil {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
+			return err
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
@@ -768,6 +706,28 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	}
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteAll(ctx, request); err != nil {
+			return nil, err
+		}
+	}
+
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	for _, clientConn := range clientConns {
+		if _, err := pfs.NewInternalAPIClient(clientConn).ArchiveAll(ctx, request); err != nil {
 			return nil, err
 		}
 	}
