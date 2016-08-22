@@ -601,7 +601,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			}
 		}
 	}
-
+	fmt.Printf("!!! strating to construct start commit request\n")
 	/////// SJ - beginning of startcommit logic
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
@@ -625,7 +625,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("!!! starting commit via: %v\n", startCommitRequest)
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -683,11 +683,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	outputCommitMount := &fuse.CommitMount{
-		Commit: jobInfo.OutputCommit,
+		Commit: commit,
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 
+	fmt.Printf("SSS Going to inspect commit: %v\n", outputCommitMount.Commit)
 	// If a job has a parent commit, we expose the parent commit
 	// to the job under /pfs/prev
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{

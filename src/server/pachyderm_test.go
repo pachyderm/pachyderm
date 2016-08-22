@@ -52,11 +52,15 @@ func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	fmt.Printf("TTT in job test\n")
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
+	fmt.Printf("TTT creating repo\n")
 	require.NoError(t, c.CreateRepo(dataRepo))
+	fmt.Printf("TTT created repo, starting commit\n")
 	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
+	fmt.Printf("TTT started commit\n")
 	fileContent := "foo\n"
 	// We want to create lots of files so that each parallel job will be
 	// started with some files
@@ -65,7 +69,9 @@ func testJob(t *testing.T, shards int) {
 		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
 		require.NoError(t, err)
 	}
+	fmt.Printf("TTT put a bunch of files\n")
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	fmt.Printf("TTT finished commit\n")
 	job, err := c.CreateJob(
 		"",
 		[]string{"bash"},
@@ -77,6 +83,7 @@ func testJob(t *testing.T, shards int) {
 		}},
 		"",
 	)
+	fmt.Printf("TTT created job\n")
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job,
@@ -84,8 +91,10 @@ func testJob(t *testing.T, shards int) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
+	fmt.Printf("TTT inspecting job\n")
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
+	fmt.Printf("TTT got job info: %v\n", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Parallelism > 0)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)

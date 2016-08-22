@@ -112,7 +112,7 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 	}, nil
 }
 
-func InitDB(address string, databaseName string) error {
+func CreateDB(address, databaseName string) error {
 	session, err := dbConnect(address)
 	if err != nil {
 		return err
@@ -120,9 +120,16 @@ func InitDB(address string, databaseName string) error {
 	defer session.Close()
 
 	// Create the database
-	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
+	_, err = gorethink.DBCreate(databaseName).RunWrite(session)
+	return err
+}
+
+func InitDB(address string, databaseName string) error {
+	session, err := dbConnect(address)
+	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	// Create tables
 	for _, table := range tables {
@@ -323,7 +330,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			Repo: c.Repo.Name,
 		})
 	}
-
+	fmt.Printf("DDD going to inspect commits for all provenance (%v)\n", provenance)
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c, shards)
@@ -349,7 +356,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Started:    now(),
 		Provenance: _provenance,
 	}
-
+	fmt.Printf("DDD have basic commit skeleton: %v\n", commit)
 	var clockID *persist.ClockID
 	if parentID == "" {
 		if branch == "" {
@@ -422,7 +429,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			}
 		}
 	}()
-
+	fmt.Printf("DDD set clocks for commit too: %v\n", commit)
 	// TODO: what if the program exits here?  There will be an entry in the Clocks
 	// table, but not in the Commits table.  Now you won't be able to create this
 	// commit anymore.

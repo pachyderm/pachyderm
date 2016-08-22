@@ -78,7 +78,7 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
-		err := pfs_persist.InitDB(rethinkAddress, "pfs")
+		err := pfs_persist.InitDB(rethinkAddress, appEnv.DatabaseName)
 		if err != nil && !isDBCreated(err) {
 			return err
 		}
@@ -245,7 +245,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 
 func getPFSDriver(address string, env *appEnv) (drive.Driver, error) {
 	rethinkAddress := fmt.Sprintf("%s:28015", env.DatabaseAddress)
-	return pfs_persist.NewDriver(address, rethinkAddress, "pfs")
+	return pfs_persist.NewDriver(address, rethinkAddress, env.DatabaseName)
 }
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
