@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 
@@ -26,6 +28,7 @@ import (
 
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/env"
+	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
@@ -67,6 +70,9 @@ func isDBCreated(err error) bool {
 }
 
 func do(appEnvObj interface{}) error {
+	go func() {
+		lion.Println(http.ListenAndServe(":651", nil))
+	}()
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
 	if appEnv.Init {
