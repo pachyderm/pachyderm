@@ -373,7 +373,7 @@ Files can be read from finished commits with get-file.`,
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
 			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], url.Path, url.String())
+				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
 			}
 			return client.PutFileURL(args[0], args[1], args[2], url.String())
 		}
@@ -463,16 +463,24 @@ Files and URLs should be newline delimited.
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := inputFile.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
 					r = inputFile
 				}
 				// scan line by line
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
-					eg.Go(func() error { return putFilePath(client, args, scanner.Text()) })
+					if filePath := scanner.Text(); filePath != "" {
+						eg.Go(func() error { return putFilePath(client, args, filePath) })
+					}
 				}
-			}
-			for _, filePath := range filePaths {
-				eg.Go(func() error { return putFilePath(client, args, filePath) })
+			} else {
+				for _, filePath := range filePaths {
+					eg.Go(func() error { return putFilePath(client, args, filePath) })
+				}
 			}
 			return eg.Wait()
 		}),
