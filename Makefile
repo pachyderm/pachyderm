@@ -241,7 +241,7 @@ dev-manifest: install
 	pach-deploy >$(DEV_MANIFEST)
 
 manifest: install
-	pach-deploy -v $(VERSION) >$(DEV_MANIFEST)
+	pach-deploy -v $(VERSION) >$(MANIFEST)
 
 google-cluster-manifest: install
 	@pach-deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
