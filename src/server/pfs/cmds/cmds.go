@@ -1,8 +1,10 @@
 package cmds
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -253,7 +255,11 @@ Examples:
 			if err != nil {
 				return err
 			}
-			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, all, provenance)
+			status := pfsclient.CommitStatus_NORMAL
+			if all {
+				status = pfsclient.CommitStatus_ALL
+			}
+			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, status, provenance)
 			if err != nil {
 				return err
 			}
@@ -351,15 +357,55 @@ Files can be read from finished commits with get-file.`,
 		}),
 	}
 
-	var filePath string
+	var filePaths []string
 	var recursive bool
 	var commitFlag bool
+	var inputFile string
+	// putFilePath is a helper for putFile
+	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
+		if filePath == "-" {
+			if len(args) < 3 {
+				return errors.New("either a path or the -f flag needs to be provided")
+			}
+			_, err := client.PutFile(args[0], args[1], args[2], os.Stdin)
+			return err
+		}
+		// try parsing the filename as a url, if it is one do a PutFileURL
+		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+			if len(args) < 3 {
+				return client.PutFileURL(args[0], args[1], url.Path, url.String())
+			}
+			return client.PutFileURL(args[0], args[1], args[2], url.String())
+		}
+		if !recursive {
+			if len(args) == 3 {
+				return cpFile(client, args[0], args[1], args[2], filePath)
+			}
+			return cpFile(client, args[0], args[1], filePath, filePath)
+		}
+		var eg errgroup.Group
+		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			if len(args) == 3 {
+				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+			}
+			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+			return nil
+		})
+		return eg.Wait()
+	}
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
-Put data from stdin as repo/commit/path :
+Put data from stdin as repo/commit/path:
 	echo "data" | pachctl put-file repo commit path
+
+Start a new commmit on branch, put data from stdin as repo/branch/path and
+finish the commit:
+	echo "data" | pachctl put-file -c repo branch path
 
 Put a file from the local filesystem as repo/commit/path:
 	pachctl put-file repo commit path -f file
@@ -378,6 +424,10 @@ Put the data from a URL as repo/commit/path:
 
 Put the data from a URL as repo/commit/url_path:
 	pachctl put-file repo commit -f http://host/url_path
+
+Put several files or URLs that are listed in file.
+Files and URLs should be newline delimited.
+	pachctl put-file repo commit -i file
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
@@ -391,46 +441,44 @@ Put the data from a URL as repo/commit/url_path:
 					return err
 				}
 				defer func() {
-					if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
-						retErr = err
+					if retErr != nil {
+						// something errored so we try to cancel the commit
+						if err := client.CancelCommit(commit.Repo.Name, commit.ID); err != nil {
+							fmt.Printf("Error cancelling commit: %s", err.Error())
+						}
+					} else {
+						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+							retErr = err
+						}
 					}
 				}()
 			}
-			if filePath == "-" {
-				if len(args) < 3 {
-					return errors.New("either a path or the -f flag needs to be provided")
-				}
-				_, err = client.PutFile(args[0], args[1], args[2], os.Stdin)
-				return err
-			}
-			// try parsing the filename as a url, if it is one do a PutFileURL
-			if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
-				if len(args) < 3 {
-					return client.PutFileURL(args[0], args[1], url.Path, url.String())
-				}
-				return client.PutFileURL(args[0], args[1], args[2], url.String())
-			}
-			if !recursive {
-				if len(args) == 3 {
-					return cpFile(client, args[0], args[1], args[2], filePath)
-				}
-				return cpFile(client, args[0], args[1], filePath, filePath)
-			}
 			var eg errgroup.Group
-			filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-				if info.IsDir() {
-					return nil
+			if inputFile != "" {
+				var r io.Reader
+				if inputFile == "-" {
+					r = os.Stdin
+				} else {
+					inputFile, err := os.Open(inputFile)
+					if err != nil {
+						return err
+					}
+					r = inputFile
 				}
-				if len(args) == 3 {
-					eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+				// scan line by line
+				scanner := bufio.NewScanner(r)
+				for scanner.Scan() {
+					eg.Go(func() error { return putFilePath(client, args, scanner.Text()) })
 				}
-				eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
-				return nil
-			})
+			}
+			for _, filePath := range filePaths {
+				eg.Go(func() error { return putFilePath(client, args, filePath) })
+			}
 			return eg.Wait()
 		}),
 	}
-	putFile.Flags().StringVarP(&filePath, "file", "f", "-", "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 
@@ -540,7 +588,20 @@ Put the data from a URL as repo/commit/url_path:
 		}),
 	}
 	addShardFlags(mount)
-	finishCommit.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+
+	archiveAll := &cobra.Command{
+		Use:   "archive-all",
+		Short: "Archives all commits in all repos",
+		Long:  "Archives all commits in all repos",
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			return client.ArchiveAll()
+		}),
+	}
 
 	var result []*cobra.Command
 	result = append(result, repo)
@@ -562,6 +623,7 @@ Put the data from a URL as repo/commit/url_path:
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
+	result = append(result, archiveAll)
 	return result
 }
 

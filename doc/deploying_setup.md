@@ -208,7 +208,11 @@ understand how people are using Pachyderm and make it better.  They can be
 disabled by setting the env variable `METRICS` to `false` in the pachd
 container.
 
+# Pachctl
+
+Instructions for setting up pachctl can be found [here](http://pachyderm.readthedocs.io/en/latest/installation.html#)
+
 # Next
 
-Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](examples/fruit_stand/README.md).
+Ready to jump into data analytics with Pachyderm?  Head to our [quick start guide](../examples/fruit_stand/README.md).
 
