@@ -821,7 +821,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		// parent might have been cancelled, which would automatically result
 		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit: outputCommits.Commit[0],
 		})
 		if err != nil {
 			return nil, err
