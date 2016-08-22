@@ -30,7 +30,7 @@ This document discusses each of the fields present in a pipeline specification. 
       "runEmpty": false,
       "method": "map"/"reduce"/"global"
       // alternatively, method can be specified as an object.
-      // this is only for advanced use cases; most of the time, one of the four
+      // this is only for advanced use cases; most of the time, one of the three
       // strategies above should suffice.
       "method": {
         "partition": "block"/"file"/"repo",
