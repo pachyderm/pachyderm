@@ -1,3 +1,4 @@
+# from : http://www.chris.com/ascii/index.php?art=animals/elephants
 cat etc/refactor/progress.txt
 
 total=0

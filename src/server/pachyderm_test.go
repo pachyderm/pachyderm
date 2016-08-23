@@ -89,7 +89,7 @@ func testJob(t *testing.T, shards int) {
 		Job:        job,
 		BlockState: true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
 	fmt.Printf("TTT inspecting job\n")
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
