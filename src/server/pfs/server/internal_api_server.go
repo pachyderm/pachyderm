@@ -14,6 +14,7 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -301,18 +302,15 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var result []*pfs.CommitInfo
 	var lock sync.Mutex
-	errCh := make(chan error, 1)
 	for _, repoInfo := range repoInfos {
 		if len(repoWhiteList) > 0 && !repoWhiteList[repoInfo.Repo.Name] {
 			continue
 		}
 		repoInfo := repoInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			commitInfos, err := a.ListCommit(ctx, &pfs.ListCommitRequest{
 				Repo:       []*pfs.Repo{repoInfo.Repo},
 				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
@@ -321,11 +319,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 				Status:     pfs.CommitStatus_CANCELLED,
 			})
 			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
@@ -338,21 +332,15 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 					// one of the commits was cancelled so downstream commits might not show up
 					// cancel everything
 					cancel()
-					select {
-					case errCh <- fmt.Errorf("commit %s/%s was cancelled", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID):
-					default:
-					}
-					return
+					return fmt.Errorf("commit %s/%s was cancelled", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 				}
 				result = append(result, commitInfo)
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: result}, nil
 }
@@ -487,37 +475,26 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
-	errCh := make(chan error, 1)
 	for shard := range shards {
 		shard := shard
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard,
 				request.DiffMethod, shard, request.Recurse, request.Unsafe, request.Handle)
 			_, ok := err.(*pfsserver.ErrFileNotFound)
 			if err != nil && !ok {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
 			fileInfos = append(fileInfos, subFileInfos...)
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,
@@ -535,13 +512,10 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	if err != nil {
 		return nil, err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for shard := range shards {
 		shard := shard
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			err := a.driver.DeleteFile(request.File, shard, request.Unsafe, request.Handle)
 			// We are ignoring ErrFileNotFound because the file being
 			// deleted can be a directory, and directory is scattered
@@ -550,21 +524,13 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 			// directory, so some of them will report FileNotFound
 			_, ok := err.(*pfsserver.ErrFileNotFound)
 			if err != nil && !ok {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
+				return err
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return nil, err
-	default:
 	}
 	return google_protobuf.EmptyInstance, nil
 }
@@ -581,6 +547,23 @@ func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_proto
 		return nil, err
 	}
 	if err := a.driver.DeleteAll(shards); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *internalAPIServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.ArchiveAll(shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil

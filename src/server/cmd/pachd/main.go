@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 
@@ -17,6 +19,8 @@ import (
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
+	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
@@ -26,6 +30,7 @@ import (
 
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/env"
+	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
@@ -53,6 +58,7 @@ type appEnv struct {
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
+	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824` //default = 1 gigabyte
 }
 
 func main() {
@@ -67,6 +73,9 @@ func isDBCreated(err error) bool {
 }
 
 func do(appEnvObj interface{}) error {
+	go func() {
+		lion.Println(http.ListenAndServe(":651", nil))
+	}()
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
 	if appEnv.Init {
@@ -136,21 +145,23 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	router := shard.NewRouter(
+		sharder,
+		grpcutil.NewDialer(
+			grpc.WithInsecure(),
+		),
+		address,
+	)
 	apiServer := pfs_server.NewAPIServer(
 		pfsmodel.NewHasher(
 			appEnv.NumShards,
 			1,
 		),
-		shard.NewRouter(
-			sharder,
-			grpcutil.NewDialer(
-				grpc.WithInsecure(),
-			),
-			address,
-		),
+		router,
 	)
+	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
 	go func() {
-		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{apiServer}); err != nil {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{apiServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
@@ -175,11 +186,11 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 	)
 	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer}); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.BlockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
@@ -191,6 +202,7 @@ func do(appEnvObj interface{}) error {
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)
+			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 		},
 		protoserver.ServeOptions{
 			Version: version.Version,

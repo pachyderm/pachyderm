@@ -2627,21 +2627,51 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestPutFileURL(t *testing.T) {
+func TestArchiveAllWithPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
-	c := getPachClient(t)
-	repo := uniqueString("TestPutFileURL")
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.StartCommit(repo, "", "master")
+	// This test cannot be run in parallel, since it archives all repos
+	c := getUsablePachClient(t)
+	dataRepo := uniqueString("TestUpdatePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	numPipelines := 10
+	var outputRepos []*pfsclient.Repo
+	for i := 0; i < numPipelines; i++ {
+		pipelineName := uniqueString("pipeline")
+		outputRepos = append(outputRepos, &pfsclient.Repo{Name: pipelineName})
+		require.NoError(t, c.CreatePipeline(
+			pipelineName,
+			"",
+			[]string{"cp", path.Join("/pfs", dataRepo, "file1"), "/pfs/out/file"},
+			nil,
+			1,
+			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(dataRepo)}},
+			false,
+		))
+	}
+	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFileURL(repo, "master", "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md"))
-	require.NoError(t, c.FinishCommit(repo, "master"))
-	fileInfo, err := c.InspectFile(repo, "master", "readme", "", false, nil)
+	_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("file1\n"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file2", strings.NewReader("file2\n"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file3", strings.NewReader("file3\n"))
 	require.NoError(t, err)
-	require.True(t, fileInfo.SizeBytes > 0)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, numPipelines, len(commitInfos))
+
+	require.NoError(t, c.ArchiveAll())
+	commitInfos, err = c.ListCommit(
+		[]string{dataRepo},
+		nil,
+		client.CommitTypeNone,
+		false,
+		client.CommitStatusNormal,
+		nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func getPachClient(t *testing.T) *client.APIClient {

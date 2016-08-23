@@ -1711,6 +1711,59 @@ func TestArchiveCommit(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
+func TestPutFileURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := getClientAndServer(t)
+	repo := "TestPutFileURL"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL(repo, "master", "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	fileInfo, err := c.InspectFile(repo, "master", "readme", "", false, nil)
+	require.NoError(t, err)
+	require.True(t, fileInfo.SizeBytes > 0)
+}
+
+func TestArchiveAll(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	numRepos := 10
+	var repoNames []string
+	for i := 0; i < numRepos; i++ {
+		repo := fmt.Sprintf("repo%d", i)
+		require.NoError(t, client.CreateRepo(repo))
+		repoNames = append(repoNames, repo)
+
+		commit1, err := client.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("aaa\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("bbb\n"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	}
+
+	commitInfos, err := client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, numRepos, len(commitInfos))
+
+	err = client.ArchiveAll()
+	require.NoError(t, err)
+
+	repoInfos, err := client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, numRepos, len(repoInfos))
+
+	commitInfos, err = client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
 func TestBigListFile(t *testing.T) {
 	t.Skip("test fails, unskip when pfs refactor is done")
 	t.Parallel()

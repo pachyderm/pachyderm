@@ -373,7 +373,7 @@ Files can be read from finished commits with get-file.`,
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
 			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], url.Path, url.String())
+				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
 			}
 			return client.PutFileURL(args[0], args[1], args[2], url.String())
 		}
@@ -463,16 +463,24 @@ Files and URLs should be newline delimited.
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := inputFile.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
 					r = inputFile
 				}
 				// scan line by line
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
-					eg.Go(func() error { return putFilePath(client, args, scanner.Text()) })
+					if filePath := scanner.Text(); filePath != "" {
+						eg.Go(func() error { return putFilePath(client, args, filePath) })
+					}
 				}
-			}
-			for _, filePath := range filePaths {
-				eg.Go(func() error { return putFilePath(client, args, filePath) })
+			} else {
+				for _, filePath := range filePaths {
+					eg.Go(func() error { return putFilePath(client, args, filePath) })
+				}
 			}
 			return eg.Wait()
 		}),
@@ -590,6 +598,19 @@ Files and URLs should be newline delimited.
 	addShardFlags(mount)
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
 
+	archiveAll := &cobra.Command{
+		Use:   "archive-all",
+		Short: "Archives all commits in all repos",
+		Long:  "Archives all commits in all repos",
+		Run: cmd.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			return client.ArchiveAll()
+		}),
+	}
+
 	var result []*cobra.Command
 	result = append(result, repo)
 	result = append(result, createRepo)
@@ -610,6 +631,7 @@ Files and URLs should be newline delimited.
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
+	result = append(result, archiveAll)
 	return result
 }
 
