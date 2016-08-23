@@ -2627,23 +2627,6 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestPutFileURL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
-	repo := uniqueString("TestPutFileURL")
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.StartCommit(repo, "", "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFileURL(repo, "master", "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md"))
-	require.NoError(t, c.FinishCommit(repo, "master"))
-	fileInfo, err := c.InspectFile(repo, "master", "readme", "", false, nil)
-	require.NoError(t, err)
-	require.True(t, fileInfo.SizeBytes > 0)
-}
-
 func TestArchiveAllWithPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
