@@ -7,6 +7,7 @@ import (
 	"net/textproto"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime/internal"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -148,7 +149,7 @@ func streamChunk(result proto.Message, err error) map[string]proto.Message {
 		grpcCode := grpc.Code(err)
 		httpCode := HTTPStatusFromCode(grpcCode)
 		return map[string]proto.Message{
-			"error": &StreamError{
+			"error": &internal.StreamError{
 				GrpcCode:   int32(grpcCode),
 				HttpCode:   int32(httpCode),
 				Message:    err.Error(),
