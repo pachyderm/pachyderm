@@ -87,7 +87,7 @@ func testJob(t *testing.T, shards int) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-	require.True(t, jobInfo.Parallelism > 0)
+	require.True(t, jobInfo.ParallelismSpec.GetNumWorkers() > 0)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
@@ -161,7 +161,7 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-	require.True(t, jobInfo.Parallelism > 0)
+	require.True(t, jobInfo.ParallelismSpec.GetNumWorkers() > 0)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
@@ -675,7 +675,7 @@ func TestPipelineWithNoInputs(t *testing.T) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-	require.Equal(t, 3, int(jobInfo.Parallelism))
+	require.Equal(t, 3, int(jobInfo.ParallelismSpec.GetNumWorkers()))
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
@@ -1649,7 +1649,7 @@ func TestFailedJobReadData(t *testing.T) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_FAILURE.String(), jobInfo.State.String())
-	require.True(t, jobInfo.Parallelism > 0)
+	require.True(t, jobInfo.ParallelismSpec.GetNumWorkers() > 0)
 	c.GetLogs(jobInfo.Job.ID, os.Stdout)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)

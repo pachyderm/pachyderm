@@ -110,9 +110,13 @@ func (c APIClient) CreateJob(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Parallelism: parallelism,
-			Inputs:      inputs,
-			ParentJob:   parentJob,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: &pps.ParallelismSpec_NumWorkers{
+					NumWorkers: parallelism,
+				},
+			},
+			Inputs:    inputs,
+			ParentJob: parentJob,
 		},
 	)
 	return job, sanitizeErr(err)
@@ -193,7 +197,7 @@ func (c APIClient) CreatePipeline(
 	image string,
 	cmd []string,
 	stdin []string,
-	parallelism uint64,
+	parallelism_spec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
 	update bool,
 ) error {
@@ -206,9 +210,9 @@ func (c APIClient) CreatePipeline(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Parallelism: parallelism,
-			Inputs:      inputs,
-			Update:      update,
+			ParallelismSpec: parallelism_spec,
+			Inputs:          inputs,
+			Update:          update,
 		},
 	)
 	return sanitizeErr(err)

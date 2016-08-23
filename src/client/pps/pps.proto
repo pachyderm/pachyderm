@@ -64,11 +64,26 @@ message JobInput {
   bool run_empty = 3;
 }
 
+message ParallelismSpec {
+  oneof strategy {
+    // If set, this pachyderm job creates exactly 'num_workers' workers
+    uint64 num_workers = 1;
+
+    // If set, the number of workers created is 'coefficient' * N, where N
+    // is the number of nodes in the kubernetes cluster. For example, if each
+    // node in the cluster has 4 CPUs, you might set 'coefficient' to 4, so that
+    // each worker gets exactly one CPU. If you want to reserve half the nodes
+    // in your cluster for other tasks, you might set 'coefficient' to 0.5.
+    float coefficient = 2;
+  }
+}
+
 message JobInfo {
+  reserved 4;
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
-  uint64 parallelism = 4;
+  ParallelismSpec parallelism_spec = 11;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
@@ -112,9 +127,10 @@ enum PipelineState {
 }
 
 message PipelineInfo {
+  reserved 3;
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -128,9 +144,10 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
+  reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
   Job parent_job = 5;
   bool force = 6;
@@ -151,9 +168,10 @@ message GetLogsRequest {
 }
 
 message CreatePipelineRequest {
+  reserved 3;
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true

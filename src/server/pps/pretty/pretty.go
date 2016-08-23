@@ -106,7 +106,7 @@ Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
-Parallelism: {{.Parallelism}}
+ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
