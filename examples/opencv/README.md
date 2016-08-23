@@ -26,19 +26,15 @@ $ pachctl put-file images master -c -i examples/opencv/images.txt
 ```
 
 With this command you're telling Pachyderm that you want to put files in the
-`images` repo on the branch `master`. You're also passing two flags, `-c` means
+`images` repo on the branch `master`. You're also passing two flags, `-c` and `-i`.`-c` means
 that you want Pachyderm to start and finish the commit for you. If you wanted
 to have multiple `put-files` write to the same commit you'd use `start-commit`
-and `finish-commit`. `-i` is where you actually specify the images you're
-inserting, `examples/opencv/images.txt` contains URLs for images, one per line.
-Those images get scraped and inserted into Pachyderm, if you want to use your
-own images pass a different file to `-i`. You can also reference files on the
-local filesystem instead of URLs.
+and `finish-commit`. `-i` lets you specify a line-delimited input file. Each line can be a URL to scrape or a local file to add. In our case, we've got a file `examples/opencv/images.txt`with a few image URLs that we'll add to Pachyderm. 
 
 ## Build and Distribute the Docker Image
 
-Now that you've got some data in Pachyderm it's time to process it. To process
-data in Pachyderm you create a Docker image describing the environment you want
+Now that you've got some data in Pachyderm, it's time to process it. First, you 
+need to create a Docker image describing the environment you want
 your code to run in. For this example the Docker image is defined by
 `examples/opencv/Dockerfile`. You can build it with:
 
@@ -46,20 +42,20 @@ your code to run in. For this example the Docker image is defined by
 $ docker build -t opencv examples/opencv
 ```
 
-To understand what's going on take a look at
+To understand what's going on, take a look at
 [`examples/opencv/Dockerfile`](/examples/opencv/Dockerfile). And
 [`examples/opencv/edges.py`](/examples/opencv/edges.py).
 
 ### Distribute the Docker Image
 If you're running a local version of Pachyderm then you can proceed to the next
-step. If you're unsure if you're running locally do:
+step as you image is built locally and accessible. If you're unsure if you're running locally do:
 
 ```sh
 $ docker ps | grep pachd
 ```
 
 if that command errors it means pachd isn't running on your local docker host
-and won't be able to see that `opencv` image that you just built. To fix this
+and won't be able to see that `opencv` image that you just built. To fix this,
 you need to push the image to a registry such as DockerHub. You can do this
 with:
 
@@ -77,7 +73,7 @@ Now that you have an image you need to tell Pachyderm how to run it. You do this
 by creating a Pipeline, the pipeline for this example is at
 [`examples/opencv/edges.json`](/examples/opencv/edges.json).  Notice that this
 file references the image you just created in the field `transform.image`. If
-you pushed your image to DockerHub then you chould change the value of that
+you pushed your image to DockerHub then you should change the value of that
 field to match the name of the image you created.
 
 To create the pipeline you do:
@@ -121,16 +117,16 @@ images and the results of the edge detection.
 
 ## Stream More Data In
 
-Pipelines are smart, they don't just process the input data that's present when
-they're created they also process and data that's added later in a streaming
-fashion. You can process any image on the internet or your local disk, all you
+Pipelines are smart. They don't just process the input data that's present when
+they're created, they also process any new data that's added later.
+You can process any image on the internet or your local disk, all you
 have to do is put it in the images repo (with `put-file`) and your pipeline will
 automatically trigger and run the edge detection code.
 
 ## Next Steps
 
 OpenCV can do a lot more than edge detection, and now that you've built the
-container image everything it can do can be run on Pachyderm. OpenCV has several
+container image, you can use anything in OpenCV on Pachyderm. OpenCV has several
 [Python tutorials available
 online](https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_tutorials.html)
 if you're looking for inspiration.
