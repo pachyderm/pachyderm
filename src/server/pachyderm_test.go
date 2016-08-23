@@ -340,7 +340,7 @@ func TestGrep(t *testing.T) {
 	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
 }
 
-func TestJobLongOutputLine(t *testing.T) {
+func TestJobLongOutputLineRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1766,7 +1766,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)])
 }
 
-func TestJobState(t *testing.T) {
+func TestJobStateRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
