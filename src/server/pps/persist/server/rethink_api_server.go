@@ -515,17 +515,6 @@ func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist
 	return google_protobuf.EmptyInstance, err
 }
 
-// TODO - delete (pfs-refactor)
-func (a *rethinkAPIServer) AddOutputRepo(ctx context.Context, request *persist.AddOutputRepoRequest) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
-		map[string]interface{}{
-			"OutputRepoName": request.RepoName,
-		},
-	).RunWrite(a.session)
-
-	return google_protobuf.EmptyInstance, err
-}
-
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
 	_, err := a.getTerm(table).Insert(message).RunWrite(a.session)
 	return err
