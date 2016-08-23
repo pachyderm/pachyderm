@@ -1328,7 +1328,7 @@ func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
-func TestAssets(t *testing.T) {
+func TestAssetsRF(t *testing.T) {
 	assetPaths := []string{"doc/pipeline_spec.md"}
 
 	for _, path := range assetPaths {
