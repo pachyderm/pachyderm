@@ -227,21 +227,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	/*
-		fmt.Printf("!!! zzOutput repo: %v\n", outputRepo)
-		/*
-		_, err = persistClient.AddOutputRepo(
-			ctx,
-			&persist.AddOutputRepoRequest{
-				JobID:    jobID,
-				RepoName: outputRepo.Name,
-			},
-		)
-		fmt.Printf("!!! Added output repo, err: %v\n", err)
-		if err != nil {
-			return nil, err
-		}*/
-
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
