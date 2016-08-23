@@ -1711,6 +1711,23 @@ func TestArchiveCommit(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
+func TestPutFileURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := getClientAndServer(t)
+	repo := "TestPutFileURL"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL(repo, "master", "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	fileInfo, err := c.InspectFile(repo, "master", "readme", "", false, nil)
+	require.NoError(t, err)
+	require.True(t, fileInfo.SizeBytes > 0)
+}
+
 func TestArchiveAll(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
