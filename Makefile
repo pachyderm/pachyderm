@@ -170,7 +170,7 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test -v ./src/server -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
