@@ -273,12 +273,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
+		fmt.Printf("SSS Setting jobInfo parallelism\n")
 		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
 		if err != nil {
 			return nil, err
 		}
-
+		fmt.Printf("SSS shardModuli: %v\n", shardModuli)
 		persistJobInfo.Parallelism = product(shardModuli)
+		fmt.Printf("SSS parallelism %v\n", persistJobInfo.Parallelism)
 		persistJobInfo.ShardModuli = shardModuli
 	}
 
