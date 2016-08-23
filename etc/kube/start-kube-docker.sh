@@ -8,7 +8,7 @@ docker run \
     --volume=/sys:/sys:ro \
     --volume=/dev:/dev \
     --volume=/var/lib/docker/:/var/lib/docker:rw \
-    --volume=/var/lib/kubelet/:/var/lib/kubelet:rw \
+    --volume=/var/lib/kubelet/:/var/lib/kubelet:rw,rslave \
     --volume=/var/run:/var/run:rw \
     --net=host \
     --pid=host \
