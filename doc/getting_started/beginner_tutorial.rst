@@ -141,7 +141,7 @@ oranges and bananas using ``grep``. The second one uses ``awk`` to sum these sal
  |input data| --> |filter pipline| --> |sum pipeline|
  +----------+     +--------------+     +------------+
 
-In the first step of this pipeline, we are grepping for the terms "apple", "orange", and "banana" and writing that line to the corresponding file. Notice we read data from ``/pfs/data`` (/pfs/[input_repo_name]) and write data to ``/pfs/out/``. 
+In the first step of this pipeline, we are grepping for the terms "apple", "orange", and "banana" and writing that line to the corresponding file. Notice we read data from ``/pfs/data`` (/pfs/[input_repo_name]) and write data to ``/pfs/out/``. These are special local directories that Pachyderm creates. All the input data will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``. 
 
 The second step of this pipeline takes each file, removes the fruit name, and sums up the purchases. The output of our complete pipeline is three files, one for each type of fruit with a single number showing the total quantity sold. 
 
