@@ -2,10 +2,6 @@
 
 set -Ee
 
-mkdir -p /var/lib/kubelet
-mount -o bind /var/lib/kubelet /var/lib/kubelet
-mount --make-shared /var/lib/kubelet
-
 docker run \
     -d \
     --volume=/:/rootfs:ro \
