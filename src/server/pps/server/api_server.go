@@ -636,7 +636,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
+	fmt.Printf("SSS StartJob() - filterNumbers: %v\n", filterNumbers)
 	for i, jobInput := range jobInfo.Inputs {
+		fmt.Printf("SSS mounting input: %v\n", jobInput)
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
 		}
@@ -667,6 +669,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			return nil, fmt.Errorf("unrecognized partition method: %v; this is likely a bug", jobInput.Method.Partition)
 		}
 
+		fmt.Printf("SSS commitMount shard: %v\n", commitMount.Shard)
 		commitMounts = append(commitMounts, commitMount)
 	}
 
