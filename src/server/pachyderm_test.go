@@ -38,7 +38,7 @@ const (
 	KB       = 1024 * 1024
 )
 
-func TestJob(t *testing.T) {
+func TestJobRF(t *testing.T) {
 	t.Parallel()
 	testJob(t, 4)
 }
