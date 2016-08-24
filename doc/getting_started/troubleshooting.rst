@@ -9,7 +9,7 @@ Error:
 Solution:
 
 
-Client-Server version mismatch
+Client-Server version mismatch -unmarshalling...
 
 Setting gopath correctly
 

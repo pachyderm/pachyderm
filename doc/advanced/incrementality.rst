@@ -72,9 +72,9 @@ The root mount point is at ``/pfs``, which contains:
 
 - ``/pfs/input_repo`` which is where you would find the latest commit from each input repo you specified.
   - Each input repo will be found here by name
-  - Note: Unlike when mounting locally for debugging, there is no ``Commit`` ID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the ``incrementality`` flag above
+  - Note: Unlike when mounting pfs locally, there is no CommitID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the incrementality flag above.
 - ``/pfs/out`` which is where you write any output
-- ``/pfs/prev`` which is this ``Job`` or ``Pipeline``'s previous output, if it exists. (You can think of it as this job's output commit's parent). 
+- ``/pfs/prev`` which is this pipeline's previous output, if it exists. (You can think of it as this job's output commit's parent). 
 
 The easiest way to understand how to use incrementality and ``/pfs/prev`` is through a simple example.
 
