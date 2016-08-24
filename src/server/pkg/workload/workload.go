@@ -177,7 +177,11 @@ func (w *worker) work(c *client.APIClient) error {
 			"",
 			[]string{"bash"},
 			w.grepCmd(inputs, outFilename),
-			1,
+			&ppsclient.ParallelismSpec{
+				Strategy: &ppsclient.ParallelismSpec_NumWorkers{
+					NumWorkers: 1,
+				},
+			},
 			pipelineInputs,
 			false,
 		); err != nil {
