@@ -59,13 +59,13 @@ This document discusses each of the fields present in a pipeline specification. 
 
 ### Parallelism
 
-`parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
+`parallelism` is how many copies of your container (maximum) should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
 
 ### Inputs
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
-`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
+`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo of this pipeline.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
@@ -188,11 +188,11 @@ This pipeline runs when the repo `my-input` gets a new commit.  The pipeline wil
 
 The root mount point is at `/pfs`, which contains:
 
-- `/pfs/input_repo_a` which is where you would find the latest commit from the `input_repo_a` input `Repo` you specified.
+- `/pfs/input_repo` which is where you would find the latest commit from each input repo you specified.
   - Each input repo will be found here by name
   - Note: Unlike when mounting locally for debugging, there is no `Commit` ID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the `incrementality` flag above
 - `/pfs/out` which is where you write any output
-- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent). 
+- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent).
 
 ### Output Formats
 
