@@ -110,7 +110,7 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
-func TestPachCommitIdEnvVarInJob(t *testing.T) {
+func TestPachCommitIdEnvVarInJobRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -253,6 +253,8 @@ func TestDuplicatedJob(t *testing.T) {
 	require.Equal(t, fileContent, buffer.String())
 }
 
+// passes ... except for debug output, but we need that for now, so wont tag
+// this one quite yet
 func TestLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -288,7 +290,7 @@ func TestLogs(t *testing.T) {
 	require.YesError(t, c.GetLogs("nonexistent", &buffer))
 }
 
-func TestGrep(t *testing.T) {
+func TestGrepRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -463,7 +465,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
-func TestPipelineWithTooMuchParallelism(t *testing.T) {
+func TestPipelineWithTooMuchParallelismRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1269,7 +1271,7 @@ fi
 	require.Equal(t, "foo", lines[2])
 }
 
-func TestPipelineThatUseNonexistentInputs(t *testing.T) {
+func TestPipelineThatUseNonexistentInputsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2125,7 +2127,7 @@ func TestRecursiveCp(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPipelineUniqueness(t *testing.T) {
+func TestPipelineUniquenessRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
