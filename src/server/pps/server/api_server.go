@@ -779,12 +779,21 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
 		fmt.Printf("!!! going to merge\n")
+		outputBranch := uuid.NewWithoutDashes()
+		if jobInfo.ParentJob != nil {
+			inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
+			parentJobInfo, err := persistClient.InspectJob(ctx, inspectJobRequest)
+			if err != nil {
+				return nil, err
+			}
+			outputBranch = parentJobInfo.Branch
+		}
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
 			&pfsclient.MergeRequest{
 				Repo:        jobInfo.OutputCommit.Repo.Name,
 				FromCommits: commitsToMerge,
-				ToBranch:    uuid.NewWithoutDashes(),
+				ToBranch:    outputBranch,
 				Strategy:    pfsclient.MergeStrategy_SQUASH,
 			},
 		)
@@ -801,6 +810,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			&persist.AddOutputCommitRequest{
 				JobID:  request.Job.ID,
 				Commit: outputCommits.Commit[0],
+				Branch: outputBranch,
 			},
 		)
 		fmt.Printf("!!! FinishJob() added output commit\n")
