@@ -1584,7 +1584,10 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 			Repo: file.Commit.Repo,
 			ID:   diff.CommitID(),
 		}
-		fileInfos = append(fileInfos, fileInfo)
+		// TODO - This filtering should be done at the DB level
+		if pfsserver.FileInShard(filterShard, fileInfo.File) {
+			fileInfos = append(fileInfos, fileInfo)
+		}
 	}
 
 	return fileInfos, nil
