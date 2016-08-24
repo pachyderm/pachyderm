@@ -2674,7 +2674,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
-func getPachClient(t *testing.T) *client.APIClient {
+func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
