@@ -607,7 +607,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 	}
 
-	startCommitRequest.Branch = uuid.NewWithoutDashes()
+	startCommitRequest.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -784,7 +784,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			&pfsclient.MergeRequest{
 				Repo:        jobInfo.OutputCommit.Repo.Name,
 				FromCommits: commitsToMerge,
-				ToBranch:    "master",
+				ToBranch:    uuid.NewWithoutDashes(),
 				Strategy:    pfsclient.MergeStrategy_SQUASH,
 			},
 		)

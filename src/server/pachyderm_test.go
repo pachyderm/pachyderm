@@ -183,7 +183,7 @@ func TestPachCommitIdEnvVarInJobRF(t *testing.T) {
 	require.Equal(t, jobInfo.Inputs[1].Commit.ID, strings.TrimSpace(buffer.String()))
 }
 
-func TestDuplicatedJob(t *testing.T) {
+func TestDuplicatedJobRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1677,7 +1677,7 @@ func TestRecreatePipeline(t *testing.T) {
 	createPipeline()
 }
 
-func TestPipelineStateRF(t *testing.T) {
+func TestPipelineState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
