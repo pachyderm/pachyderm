@@ -946,7 +946,7 @@ func TestLeadingSlashesBreakThis(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
 }
 
-func TestListFileWithFiltering(t *testing.T) {
+func TestListFileWithFilteringRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
