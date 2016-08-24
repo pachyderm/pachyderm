@@ -220,7 +220,7 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs: check-kubectl
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
+	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
 kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
