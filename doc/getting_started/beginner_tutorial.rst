@@ -151,6 +151,18 @@ Now let's create the pipeline in Pachyderm:
 
  $ pachctl create-pipeline -f examples/fruit_stand/pipeline.json
 
+.. note::
+	A common error we see here is ``error marshalling JSON into protobuf``. This is due to a version mismatch. If you're running Pachyderm v1.1.0, the version of pipeline.json isn't compatible anymore. You should delete your current pipeline and repo and grab the v1.1.0 version.
+
+	.. code-block:: shell
+	
+		pachctl delete-pipeline filter
+		pachctl delete-repo filter
+		git checkout v1.1.0
+		pachctl create-pipeline -f examples/fruit_stand/pipeline.json
+
+	For any other errors, check out our :doc:`troubleshooting` section.
+
 
 What Happens When You Create a Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
