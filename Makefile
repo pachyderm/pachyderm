@@ -265,9 +265,24 @@ amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION) --availability-zone $(AWS_AVAILABILITY_ZONE) --volume-type gp2
 
-clean-amazon-cluster:
+amazon-clean-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 detach-volume --force --volume-id $(STORAGE_NAME)
+	sleep 20
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
+
+amazon-clean-launch: clean-launch
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secrets amazon-secret
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
+
+amazon-clean: 
+	@while :; \
+        do if echo "The following script will delete your AWS bucket and volume. The action cannot be undone. Do you want to proceed? (Y/n)";read REPLY; then \
+        case $$REPLY in Y|y) make amazon-clean-launch;make amazon-clean-cluster;break;; \
+	N|n) echo "The amazon clean process has been cancelled by user!";break;; \ 
+	*) echo "input parameter error, please input again ";continue;;esac; \
+        fi;done;
 
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
@@ -356,7 +371,9 @@ goxc-build:
 	clean-google-cluster \
 	amazon-cluster-manifest \
 	amazon-cluster \
-	clean-amazon-cluster \
+	amazon-clean-cluster \
+	amazon-clean-launch \
+	amazon-clean \
 	install-go-bindata \
 	assets \
 	lint \
