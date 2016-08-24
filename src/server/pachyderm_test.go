@@ -867,7 +867,7 @@ func TestWorkload(t *testing.T) {
 	require.NoError(t, workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100))
 }
 
-func TestSharding(t *testing.T) {
+func TestShardingRF(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -917,7 +917,7 @@ func TestSharding(t *testing.T) {
 	wg.Wait()
 }
 
-func TestFromCommit(t *testing.T) {
+func TestFromCommitRF(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -950,7 +950,7 @@ func TestFromCommit(t *testing.T) {
 	require.Equal(t, buffer.Len(), 2*KB)
 }
 
-func TestSimple(t *testing.T) {
+func TestSimpleRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1418,7 +1418,7 @@ func TestProvenance(t *testing.T) {
 	}
 }
 
-func TestDirectory(t *testing.T) {
+func TestDirectoryRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1677,7 +1677,7 @@ func TestRecreatePipeline(t *testing.T) {
 	createPipeline()
 }
 
-func TestPipelineState(t *testing.T) {
+func TestPipelineStateRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1883,7 +1883,7 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Equal(t, "job bogusJobId not found", err.Error())
 }
 
-func TestAcceptReturnCode(t *testing.T) {
+func TestAcceptReturnCodeRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
