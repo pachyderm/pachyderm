@@ -914,3 +914,65 @@ func TestSquashMergeMultipleFilesRF(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", nil, buffer))
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
+
+func TestLeadingSlashesBreakThis(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	commit1, err := client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "dir/file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "dir/file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	shard1 := &pfsclient.Shard{
+		FileNumber:  0,
+		FileModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "dir", "", shard1,
+		false)
+	require.NoError(t, err)
+	shard2 := &pfsclient.Shard{
+		FileNumber:  1,
+		FileModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "dir", "", shard2, false)
+	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+}
+
+func TestListFileWithFiltering(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	commit1, err := client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	shard1 := &pfsclient.Shard{
+		FileNumber:  0,
+		FileModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "", "", shard1,
+		false)
+	require.NoError(t, err)
+	shard2 := &pfsclient.Shard{
+		FileNumber:  1,
+		FileModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", shard2, false)
+	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+}
