@@ -109,6 +109,7 @@ func (c APIClient) CreateJob(
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
+				Debug: true,
 			},
 			Parallelism: parallelism,
 			Inputs:      inputs,
