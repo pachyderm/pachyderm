@@ -1,7 +1,7 @@
 Composing Pipelines
 ===================
 
-In any reasonably complex analysis isn't just going be computed in a single pipeline, but instead a chain of pipelines. We often refer to chains of pipelines as dependency graph or DAG (directed acyclic graph).  
+Any reasonably complex analysis isn't just going be computed in a single pipeline, but instead a chain of pipelines. We often refer to chains of pipelines as dependency graph or DAG (directed acyclic graph).  Before we jump into dealing with chains of pipelines, it's important to understand how pipelines deal with multiple inputs. 
 
 Multiple Inputs
 ---------------
@@ -43,7 +43,14 @@ job3:
 
 `job3` sees all the files because it's triggered by commit2 in `bar`, and `bar` uses a non-incremental input method (`reduce`).
 
-Transitive Reductions
----------------------
+Non-transitive Reductions
+-------------------------
+
+A non-transitive reduction is a DAG of pipelines that look like:
+
+A -> B -> C         TODO -- use image
+ \_______/^
+
+
 
 
