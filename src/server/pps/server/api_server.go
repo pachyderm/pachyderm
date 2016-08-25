@@ -619,6 +619,15 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
+	// We archive the commit before we finish it, to ensure that a pipeline
+	// that is listing finished commits do not end up seeing this commit
+	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
+		Commits: []*pfsclient.Commit{commit},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	/////// SJ - end of startcommit logic
 
 	podIndex := jobInfo.PodsStarted
