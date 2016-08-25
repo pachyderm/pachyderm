@@ -564,6 +564,26 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return err
 }
 
+// ArchiveCommit archives the given commit and all commits for whom it's a
+// provenance
+func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		return commit.Field("Provenance").Contains(c.ID)
+	}).Append(d.getTerm(commitTable).Get(commit.ID)).Update(map[string]interface{}{
+		"Archived": true,
+	}).RunWrite(d.dbClient)
+	if err != nil {
+		return nil
+	}
+
+	return nil
+}
+
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
@@ -609,12 +629,13 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 		Started:    rawCommit.Started,
 		Finished:   rawCommit.Finished,
 		Cancelled:  rawCommit.Cancelled,
+		Archived:   rawCommit.Archived,
 		CommitType: commitType,
 		SizeBytes:  rawCommit.Size,
 	}
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
 	repoToFromCommit := make(map[string]string)
 	for _, repo := range repos {
 		// make sure that the repos exist
@@ -647,9 +668,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		}
 	}
 	query := gorethink.Union(queries...)
-	if !all {
+	if status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_CANCELLED {
 		query = query.Filter(map[string]interface{}{
 			"Cancelled": false,
+		})
+	}
+	if status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_ARCHIVED {
+		query = query.Filter(map[string]interface{}{
+			"Archived": false,
 		})
 	}
 	switch commitType {
@@ -1653,6 +1679,10 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 }
 
 func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	return nil
 }
 
