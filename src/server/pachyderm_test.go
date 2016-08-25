@@ -1843,8 +1843,8 @@ func TestPipelineState(t *testing.T) {
 	// So the state of the pipeline will alternate between running and
 	// restarting.  We just want to make sure that it has definitely restarted.
 	var states []interface{}
-	for i := 0; i < 10; i++ {
-		time.Sleep(1 * time.Second)
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
 		pipelineInfo, err = c.InspectPipeline(pipeline)
 		require.NoError(t, err)
 		states = append(states, pipelineInfo.State)
