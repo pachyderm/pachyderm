@@ -331,9 +331,12 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		})
 	}
 	fmt.Printf("DDD going to inspect commits for all provenance (%v)\n", provenance)
+	// If any of the commit's provenance is archived, the commit should be archived
+	var archived bool
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c, shards)
+		archived = archived || commitInfo.Archived
 		if err != nil {
 			return err
 		}
@@ -355,6 +358,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Repo:       repo.Name,
 		Started:    now(),
 		Provenance: _provenance,
+		Archived:   archived,
 	}
 	fmt.Printf("DDD have basic commit skeleton: %v\n", commit)
 	var clockID *persist.ClockID
