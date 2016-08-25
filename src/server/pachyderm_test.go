@@ -1586,7 +1586,7 @@ func TestFlushCommit(t *testing.T) {
 
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
-func TestFlushCommitWithFailureRF(t *testing.T) {
+func TestFlushCommitWithFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
