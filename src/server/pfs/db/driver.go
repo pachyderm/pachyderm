@@ -1216,7 +1216,7 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 }
 
 // TODO: rollback
-func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (retCommits *pfs.Commits, retErr error) {
+func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (retCommits *pfs.Commits, retErr error) {
 	// TODO: rollback in the case of a failed merge
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
@@ -1259,7 +1259,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		err = d.FinishCommit(newCommit, nil, false, nil)
+		err = d.FinishCommit(newCommit, nil, cancel, nil)
 		retCommits.Commit = append(retCommits.Commit, newCommit)
 	} else if strategy == pfs.MergeStrategy_REPLAY {
 		commits, err := d.getCommitsToMerge(repo, commits, toBranch)
@@ -1308,7 +1308,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 				return nil, err
 			}
 
-			err = d.FinishCommit(newCommit, nil, false, nil)
+			err = d.FinishCommit(newCommit, nil, cancel, nil)
 			retCommits.Commit = append(retCommits.Commit, newCommit)
 		}
 

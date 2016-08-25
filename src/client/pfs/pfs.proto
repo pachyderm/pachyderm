@@ -261,6 +261,7 @@ message MergeRequest {
   repeated Commit from_commits = 2;
   string to_branch = 3;
   MergeStrategy strategy = 4;  
+  bool cancel = 5;
 }
 
 service API {
