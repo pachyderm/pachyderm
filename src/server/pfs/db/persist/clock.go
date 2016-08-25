@@ -64,6 +64,22 @@ func NewChild(parent FullClock) FullClock {
 	}
 }
 
+// FullClockParent returns the parent of a full clock, or nil if the clock has no parent
+// [(master, 2), (foo, 1)] -> [(master, 2), (foo, 0)]
+// [(master, 2), (foo, 0)] -> [(master, 2)]
+func FullClockParent(child FullClock) FullClock {
+	if len(child) > 0 {
+		lastClock := CloneClock(FullClockHead(child))
+		if lastClock.Clock > 0 {
+			lastClock.Clock -= 1
+			return append(child[:len(child)-1], lastClock)
+		} else if len(child) > 1 {
+			return child[:len(child)-1]
+		}
+	}
+	return nil
+}
+
 // FullClock is an array of clocks, e.g. [(master, 2), (foo, 3)]
 type FullClock []*Clock
 

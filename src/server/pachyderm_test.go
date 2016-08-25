@@ -368,6 +368,7 @@ func TestJobLongOutputLineRF(t *testing.T) {
 
 func TestPipeline(t *testing.T) {
 
+	fmt.Println("BP1")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -388,6 +389,7 @@ func TestPipeline(t *testing.T) {
 		1,
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 	))
+	fmt.Println("BP2")
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
@@ -399,12 +401,15 @@ func TestPipeline(t *testing.T) {
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
+	fmt.Println("BP3")
 	listCommitResponse, err := c.PfsAPIClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
 	)
+	fmt.Println("BP4")
 	require.NoError(t, err)
 	outCommits := listCommitResponse.CommitInfo
+	fmt.Printf("outCommits: %v\n", outCommits)
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
@@ -415,6 +420,7 @@ func TestPipeline(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	fmt.Println("BP5")
 	listCommitRequest = &pfsclient.ListCommitRequest{
 		Repo:       []*pfsclient.Repo{outRepo},
 		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
@@ -425,6 +431,7 @@ func TestPipeline(t *testing.T) {
 		context.Background(),
 		listCommitRequest,
 	)
+	fmt.Println("BP6")
 	require.NoError(t, err)
 	require.NotNil(t, listCommitResponse.CommitInfo[0].ParentCommit)
 	require.Equal(t, outCommits[0].Commit.ID, listCommitResponse.CommitInfo[0].ParentCommit.ID)

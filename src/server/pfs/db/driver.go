@@ -580,16 +580,23 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 		commitIDs = append(commitIDs, c.ID)
 	}
 
-	_, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+	commitIDsTerm := gorethink.Expr(commitIDs)
+	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		// We want to select all commits that have any of the given commits as
 		// provenance
-		return commit.Field("Provenance").SetIntersection(commitIDs).Count().Ne(0)
-	}).Append(d.getTerm(commitTable).GetAll(commitIDs...)).Update(map[string]interface{}{
+		return gorethink.Or(commit.Field("Provenance").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
+	}).Update(map[string]interface{}{
 		"Archived": true,
-	}).RunWrite(d.dbClient)
+	})
+	fmt.Printf("query: %s\n", query.String())
+
+	wr, err := query.RunWrite(d.dbClient)
 	if err != nil {
-		return nil
+		return err
 	}
+	fmt.Printf("updated %d rows\n", wr.Updated)
+
+	d.getTerm(commitTable).GetAll(commitIDs...)
 
 	return nil
 }
@@ -630,18 +637,35 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
 	}
+
+	// OBSOLETE
+	// Here we manually infer the commit ID of this commit's parent.
+	// We do this because some code uses the ParentCommit field of
+	// CommitInfo.
+	// In the future, the client code should be able to directly infer
+	// the commit ID of the parent.
+	parentClock := persist.FullClockParent(rawCommit.FullClock)
+	var parentCommit *pfs.Commit
+	if parentClock != nil {
+		parentCommit = &pfs.Commit{
+			Repo: &pfs.Repo{rawCommit.Repo},
+			ID:   persist.FullClockHead(parentClock).ToCommitID(),
+		}
+	}
+
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{rawCommit.Repo},
 			ID:   rawCommit.ID,
 		},
-		Branch:     branch,
-		Started:    rawCommit.Started,
-		Finished:   rawCommit.Finished,
-		Cancelled:  rawCommit.Cancelled,
-		Archived:   rawCommit.Archived,
-		CommitType: commitType,
-		SizeBytes:  rawCommit.Size,
+		Branch:       branch,
+		Started:      rawCommit.Started,
+		Finished:     rawCommit.Finished,
+		Cancelled:    rawCommit.Cancelled,
+		Archived:     rawCommit.Archived,
+		CommitType:   commitType,
+		SizeBytes:    rawCommit.Size,
+		ParentCommit: parentCommit,
 	}
 }
 
@@ -724,6 +748,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		return nil, err
 	}
 
+	fmt.Printf("BP list commit")
 	var commitInfos []*pfs.CommitInfo
 	if len(commits) > 0 {
 		for _, commit := range commits {
@@ -733,6 +758,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		query = query.Changes(gorethink.ChangesOpts{
 			IncludeInitial: true,
 		}).Field("new_val")
+		fmt.Printf("list commit query: %s\n", query.String())
 		cursor, err := query.Run(d.dbClient)
 		if err != nil {
 			return nil, err
