@@ -99,6 +99,7 @@ func BenchmarkPachyderm(b *testing.B) {
 			repoInfo, err = c.InspectRepo(pipeline)
 			require.NoError(b, err)
 			b.SetBytes(int64(repoInfo.SizeBytes))
+			b.StartTimer()
 		}
 	}) {
 		return
