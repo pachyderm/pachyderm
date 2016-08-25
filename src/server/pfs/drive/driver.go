@@ -395,59 +395,8 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-	provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
-	repoSet := repoSet(repos)
-	var canonicalProvenance []*pfs.Commit
-	for _, provCommit := range provenance {
-		canonicalCommit, err := d.canonicalCommit(provCommit)
-		if err != nil {
-			return nil, err
-		}
-		canonicalProvenance = append(canonicalProvenance, canonicalCommit)
-	}
-	breakCommitIDs := make(map[string]bool)
-	for _, commit := range fromCommit {
-		if !repoSet[commit.Repo.Name] {
-			return nil, fmt.Errorf("commit %s/%s is from a repo that isn't being listed", commit.Repo.Name, commit.ID)
-		}
-		breakCommitIDs[commit.ID] = true
-	}
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-	var result []*pfs.CommitInfo
-	for _, repo := range repos {
-		_, ok := d.diffs[repo.Name]
-		if !ok {
-			return nil, pfsserver.NewErrRepoNotFound(repo.Name)
-		}
-		for _, commitID := range d.dags[repo.Name].Leaves() {
-			commit := &pfs.Commit{
-				Repo: repo,
-				ID:   commitID,
-			}
-			for commit != nil && !breakCommitIDs[commit.ID] {
-				// we add this commit to breakCommitIDs so we won't see it twice
-				breakCommitIDs[commit.ID] = true
-				commitInfo, err := d.inspectCommit(commit, shards)
-				if err != nil {
-					return nil, err
-				}
-				commit = commitInfo.ParentCommit
-				if commitInfo.Cancelled && !all {
-					continue
-				}
-				if !MatchProvenance(canonicalProvenance, commitInfo.Provenance) {
-					continue
-				}
-				if commitType != pfs.CommitType_COMMIT_TYPE_NONE &&
-					commitType != commitInfo.CommitType {
-					continue
-				}
-				result = append(result, commitInfo)
-			}
-		}
-	}
-	return result, nil
+	provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
+	return nil, nil
 }
 
 func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
@@ -1137,6 +1086,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		}
 	}
 	return fileInfo, blockRefs, nil
+}
+
+func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) ArchiveAll(shards map[uint64]bool) error {
+	return nil
 }
 
 // lastRef assumes the diffInfo file exists in finished

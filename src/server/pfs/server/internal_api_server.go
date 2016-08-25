@@ -141,6 +141,23 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.ArchiveCommit(request.Commit, shards); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
@@ -165,7 +182,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		return nil, err
 	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.All, shards, request.Block)
+		request.FromCommit, request.Provenance, request.Status, shards, request.Block)
 	if err != nil {
 		return nil, err
 	}
@@ -384,6 +401,23 @@ func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_proto
 		return nil, err
 	}
 	if err := a.driver.DeleteAll(shards); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *internalAPIServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.ArchiveAll(shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
