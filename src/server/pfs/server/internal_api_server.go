@@ -152,7 +152,7 @@ func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.Arch
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.ArchiveCommit(request.Commit, shards); err != nil {
+	if err := a.driver.ArchiveCommit(request.Commits, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil

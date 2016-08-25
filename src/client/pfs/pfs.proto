@@ -185,7 +185,7 @@ message FinishCommitRequest {
 }
 
 message ArchiveCommitRequest {
-  Commit commit = 1;
+  repeated Commit commits = 1;
 }
 
 message InspectCommitRequest {

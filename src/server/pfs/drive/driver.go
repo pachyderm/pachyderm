@@ -1088,7 +1088,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	return fileInfo, blockRefs, nil
 }
 
-func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) ArchiveCommit(commit []*pfs.Commit, shards map[uint64]bool) error {
 	return nil
 }
 

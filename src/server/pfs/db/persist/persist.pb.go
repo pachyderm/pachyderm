@@ -84,10 +84,11 @@ func (*ClockID) ProtoMessage()               {}
 func (*ClockID) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 type Repo struct {
-	Name       string                     `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Created    *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
-	Size       uint64                     `protobuf:"varint,3,opt,name=size" json:"size,omitempty"`
-	Provenance []string                   `protobuf:"bytes,4,rep,name=provenance" json:"provenance,omitempty"`
+	Name    string                     `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Created *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
+	Size    uint64                     `protobuf:"varint,3,opt,name=size" json:"size,omitempty"`
+	// The immediate provenance of this repo
+	Provenance []string `protobuf:"bytes,4,rep,name=provenance" json:"provenance,omitempty"`
 }
 
 func (m *Repo) Reset()                    { *m = Repo{} }
@@ -153,15 +154,18 @@ func (m *Diff) GetModified() *google_protobuf.Timestamp {
 }
 
 type Commit struct {
-	ID         string                     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Repo       string                     `protobuf:"bytes,2,opt,name=repo" json:"repo,omitempty"`
-	FullClock  []*Clock                   `protobuf:"bytes,3,rep,name=full_clock,json=fullClock" json:"full_clock,omitempty"`
-	Started    *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
-	Finished   *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=finished" json:"finished,omitempty"`
-	Cancelled  bool                       `protobuf:"varint,6,opt,name=cancelled" json:"cancelled,omitempty"`
-	Archived   bool                       `protobuf:"varint,7,opt,name=archived" json:"archived,omitempty"`
-	Provenance []*ProvenanceCommit        `protobuf:"bytes,8,rep,name=provenance" json:"provenance,omitempty"`
-	Size       uint64                     `protobuf:"varint,9,opt,name=size" json:"size,omitempty"`
+	ID        string                     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Repo      string                     `protobuf:"bytes,2,opt,name=repo" json:"repo,omitempty"`
+	FullClock []*Clock                   `protobuf:"bytes,3,rep,name=full_clock,json=fullClock" json:"full_clock,omitempty"`
+	Started   *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
+	Finished  *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=finished" json:"finished,omitempty"`
+	Cancelled bool                       `protobuf:"varint,6,opt,name=cancelled" json:"cancelled,omitempty"`
+	Archived  bool                       `protobuf:"varint,7,opt,name=archived" json:"archived,omitempty"`
+	// The complete set of commits that are the provenance of this commit.
+	// We store the complete set of provenance as opposed to just the immediate
+	// provenance in order to make ListCommit(provenance) fast.
+	Provenance []*ProvenanceCommit `protobuf:"bytes,8,rep,name=provenance" json:"provenance,omitempty"`
+	Size       uint64              `protobuf:"varint,9,opt,name=size" json:"size,omitempty"`
 }
 
 func (m *Commit) Reset()                    { *m = Commit{} }
