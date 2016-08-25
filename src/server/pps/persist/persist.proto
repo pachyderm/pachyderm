@@ -19,6 +19,7 @@ message JobInfo {
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
+  string branch = 17;
   pps.JobState state = 10;
   string commit_index = 11;
   uint64 pods_started = 12;
@@ -52,6 +53,7 @@ message AddPodCommitRequest {
 message AddOutputCommitRequest {
     string job_id = 1;
     pfs.Commit commit = 2;
+	string branch = 3;
 }
 
 message PipelineInfo {

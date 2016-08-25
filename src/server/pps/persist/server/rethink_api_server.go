@@ -509,6 +509,7 @@ func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
 			"OutputCommit": request.Commit,
+			"Branch":       request.Branch,
 		},
 	).RunWrite(a.session)
 
