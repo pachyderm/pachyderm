@@ -510,7 +510,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, archive bool, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return err
