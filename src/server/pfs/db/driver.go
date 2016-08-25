@@ -564,17 +564,23 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return err
 }
 
-// ArchiveCommit archives the given commit and all commits for whom it's a
-// provenance
-func (d *driver) ArchiveCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
-	if err != nil {
-		return err
+// ArchiveCommit archives the given commits and all commits that have any of the
+// given commits as provenance
+func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) error {
+	var commitIDs []interface{}
+	for _, commit := range commits {
+		c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return err
+		}
+		commitIDs = append(commitIDs, c.ID)
 	}
 
-	_, err = d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
-		return commit.Field("Provenance").Contains(c.ID)
-	}).Append(d.getTerm(commitTable).Get(commit.ID)).Update(map[string]interface{}{
+	_, err := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		// We want to select all commits that have any of the given commits as
+		// provenance
+		return commit.Field("Provenance").SetIntersection(commitIDs).Count().Ne(0)
+	}).Append(d.getTerm(commitTable).GetAll(commitIDs...)).Update(map[string]interface{}{
 		"Archived": true,
 	}).RunWrite(d.dbClient)
 	if err != nil {
