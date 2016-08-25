@@ -795,6 +795,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 				FromCommits: commitsToMerge,
 				ToBranch:    outputBranch,
 				Strategy:    pfsclient.MergeStrategy_SQUASH,
+				Cancel:      failed,
 			},
 		)
 		fmt.Printf("!!! merged\n")

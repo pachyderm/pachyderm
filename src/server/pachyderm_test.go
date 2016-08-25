@@ -1476,7 +1476,7 @@ func TestDirectoryRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
 }
 
-func TestFailedJobReadData(t *testing.T) {
+func TestFailedJobReadDataRF(t *testing.T) {
 	// We want to enable users to be able to read data from cancelled commits for debugging purposes`
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
