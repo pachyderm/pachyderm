@@ -35,7 +35,7 @@ import (
 
 const (
 	NUMFILES = 25
-	KB       = 1024 * 1024
+	KB       = 1024
 )
 
 func TestJob(t *testing.T) {
