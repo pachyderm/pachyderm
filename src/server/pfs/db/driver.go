@@ -333,6 +333,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	fmt.Printf("DDD going to inspect commits for all provenance (%v)\n", provenance)
 	// If any of the commit's provenance is archived, the commit should be archived
 	var archived bool
+	// We compute the complete set of provenance.  That is, the provenance of this
+	// commit includes the provenance of its immediate provenance.
+	// This is so that running ListCommit with provenance is fast.
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c, shards)
@@ -1298,7 +1301,34 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+		// We first compute the union of the input commits' provenance,
+		// which will be the provenance of this merged commit.
+		commitsToMerge, err := d.getCommitsToMerge(repo, commits, toBranch)
+		if err != nil {
+			return nil, err
+		}
+
+		cursor, err := commitsToMerge.Map(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("Provenance")
+		}).Fold(nil, func(acc, provenance gorethink.Term) gorethink.Term {
+			return acc.SetUnion(provenance)
+		}).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+
+		var provenanceUnion []*persist.ProvenanceCommit
+		if err := cursor.All(&provenanceUnion); err != nil {
+			return nil, err
+		}
+
+		if _, err := d.getTerm(commitTable).Get(newCommit.ID).Update(map[string]interface{}{
+			"Provenance": provenanceUnion,
+		}).RunWrite(d.dbClient); err != nil {
+			return nil, err
+		}
+
+		cursor, err = d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
 		var newPersistCommit persist.Commit
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
