@@ -821,6 +821,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		return gorethink.And(
+			commit.Field("Archived").Eq(false),
 			commit.Field("Provenance").Contains(provenanceIDs...),
 			gorethink.Expr(repos).Contains(commit.Field("Repo")),
 		)
