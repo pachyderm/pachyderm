@@ -1586,7 +1586,7 @@ func TestFlushCommit(t *testing.T) {
 
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
-func TestFlushCommitWithFailure(t *testing.T) {
+func TestFlushCommitWithFailureRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1723,7 +1723,7 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
-func TestPipelineJobCounts(t *testing.T) {
+func TestPipelineJobCountsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
