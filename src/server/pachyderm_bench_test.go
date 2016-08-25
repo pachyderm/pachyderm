@@ -3,12 +3,14 @@ package server
 import (
 	"fmt"
 	"math/rand"
+	"path"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
 )
@@ -28,8 +30,8 @@ func (w *CountWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func BenchmarkPutGetFile(b *testing.B) {
-	repo := uniqueString("BenchmarkPutGetFile")
+func BenchmarkPachyderm(b *testing.B) {
+	repo := uniqueString("BenchmarkPachyderm")
 	c, err := client.NewInCluster()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
@@ -72,6 +74,31 @@ func BenchmarkPutGetFile(b *testing.B) {
 				}
 			}
 			require.NoError(b, eg.Wait())
+		}
+	}) {
+		return
+	}
+	if !b.Run("Pipeline", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			pipeline := uniqueString("BenchmarkPachydermPipeline")
+			require.NoError(b, c.CreatePipeline(
+				pipeline,
+				"",
+				[]string{"cp", "-R", path.Join("/pfs", repo), "/pfs/out/"},
+				nil,
+				1,
+				[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+				false,
+			))
+			_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
+			require.NoError(b, err)
+			b.StopTimer()
+			repoInfo, err := c.InspectRepo(repo)
+			require.NoError(b, err)
+			b.SetBytes(int64(repoInfo.SizeBytes))
+			repoInfo, err = c.InspectRepo(pipeline)
+			require.NoError(b, err)
+			b.SetBytes(int64(repoInfo.SizeBytes))
 		}
 	}) {
 		return
