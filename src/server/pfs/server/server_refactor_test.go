@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -86,7 +88,7 @@ func TestListCommitBasicRF(t *testing.T) {
 		nil,
 		pclient.CommitTypeNone,
 		false,
-		false,
+		pfsclient.CommitStatus_NORMAL,
 		nil,
 	)
 	require.NoError(t, err)
@@ -975,4 +977,60 @@ func TestListFileWithFilteringRF(t *testing.T) {
 	}
 	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", shard2, false)
 	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+}
+
+func TestMergeProvenanceRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo1 := "test1"
+	require.NoError(t, client.CreateRepo(repo1))
+	repo2 := "test2"
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Provenance: []*pfsclient.Repo{pclient.NewRepo(repo1)},
+		},
+	)
+	require.NoError(t, err)
+
+	// Create two commits in repo1
+	p1, err := client.StartCommit(repo1, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, "master"))
+	p2, err := client.StartCommit(repo1, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, "master"))
+
+	// Create two commits in repo 2, on different branches
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Branch:     "A",
+			Provenance: []*pfsclient.Commit{p1},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, "A"))
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Branch:     "B",
+			Provenance: []*pfsclient.Commit{p2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, "B"))
+
+	mergedCommits, err := client.Merge(repo2, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	commitInfo, err := client.InspectCommit(mergedCommits[0].Repo.Name, mergedCommits[0].ID)
+	fmt.Printf("provenance: %v\n", commitInfo.Provenance)
+	require.Equal(t, 2, len(commitInfo.Provenance))
+	require.Equal(t, p1.ID, commitInfo.Provenance[0].ID)
+	require.Equal(t, p2.ID, commitInfo.Provenance[1].ID)
 }

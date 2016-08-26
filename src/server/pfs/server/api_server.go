@@ -220,6 +220,27 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	for _, clientConn := range clientConns {
+		if _, err := pfs.NewInternalAPIClient(clientConn).ArchiveCommit(ctx, request); err != nil {
+			return nil, err
+		}
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
@@ -603,6 +624,28 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	}
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteAll(ctx, request); err != nil {
+			return nil, err
+		}
+	}
+
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	a.Log(request, nil, nil, 0)
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+
+	ctx, done := a.getVersionContext(ctx)
+	defer close(done)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	for _, clientConn := range clientConns {
+		if _, err := pfs.NewInternalAPIClient(clientConn).ArchiveAll(ctx, request); err != nil {
 			return nil, err
 		}
 	}

@@ -201,7 +201,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
 func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, all bool, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
+	commitType pfs.CommitType, block bool, status pfs.CommitStatus, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
 	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &pfs.Repo{Name: repoName})
@@ -219,7 +219,7 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 			Repo:       repos,
 			FromCommit: fromCommits,
 			Block:      block,
-			All:        all,
+			Status:     status,
 			Provenance: provenance,
 		},
 	)
