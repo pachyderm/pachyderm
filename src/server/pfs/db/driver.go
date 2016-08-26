@@ -204,6 +204,10 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		Created:    created,
 		Provenance: provenanceIDs,
 	}).RunWrite(d.dbClient)
+
+	if strings.Contains(err.Error(), "Duplicate primary key") {
+		return fmt.Errorf("repo %v exists", repo.Name)
+	}
 	return err
 }
 
