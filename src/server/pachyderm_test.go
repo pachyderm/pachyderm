@@ -1711,6 +1711,38 @@ func TestFlushCommit(t *testing.T) {
 	test(commit)
 }
 
+func TestFlushCommitAfterCreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("TestFlushCommitAfterCreatePipeline")
+	require.NoError(t, c.CreateRepo(repo))
+
+	for i := 0; i < 10; i++ {
+		_, err := c.StartCommit(repo, "", "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, "master"))
+	}
+
+	pipeline := uniqueString("TestFlushCommitAfterCreatePipelinePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+		false,
+	))
+	_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+}
+
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
 func TestFlushCommitWithFailure(t *testing.T) {
