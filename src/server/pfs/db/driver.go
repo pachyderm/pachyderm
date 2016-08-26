@@ -1451,8 +1451,11 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 			gorethink.Error(ErrConflictFileTypeMsg),
 			gorethink.Branch(
 				diff.Field("Delete"),
-				acc.Merge(diff),
 				acc.Merge(diff).Merge(map[string]interface{}{
+					"Delete": acc.Field("Delete").Or(diff.Field("Delete")),
+				}),
+				acc.Merge(diff).Merge(map[string]interface{}{
+					"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 					"Size":      acc.Field("Size").Add(diff.Field("Size")),
 				}),
@@ -1474,6 +1477,7 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 			acc.Field("FileType").Ne(persist.FileType_NONE).And(diff.Field("FileType").Ne(persist.FileType_NONE).And(acc.Field("FileType").Ne(diff.Field("FileType")))),
 			gorethink.Error(ErrConflictFileTypeMsg),
 			acc.Merge(diff).Merge(map[string]interface{}{
+				"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 				"Size":      acc.Field("Size").Add(diff.Field("Size")),
 			}),

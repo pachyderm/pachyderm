@@ -1034,3 +1034,47 @@ func TestMergeProvenanceRF(t *testing.T) {
 	require.Equal(t, p1.ID, commitInfo.Provenance[0].ID)
 	require.Equal(t, p2.ID, commitInfo.Provenance[1].ID)
 }
+
+func TestSquashMergeDeletionRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	createThreeCommits := func(branch string) {
+		_, err = client.StartCommit(repo, commitRoot.ID, branch)
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, branch, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, branch))
+
+		_, err = client.StartCommit(repo, "", branch)
+		require.NoError(t, err)
+		require.NoError(t, client.DeleteFile(repo, branch, "file", false, ""))
+		require.NoError(t, client.FinishCommit(repo, branch))
+
+		_, err = client.StartCommit(repo, "", branch)
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, branch, "file", strings.NewReader("bar"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, branch))
+	}
+
+	createThreeCommits("A")
+	createThreeCommits("B")
+	createThreeCommits("C")
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B", "C"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.Equal(t, "barbarbar", buffer.String())
+}
