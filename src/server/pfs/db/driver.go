@@ -618,13 +618,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		}
 	}
 
-	for _, c := range rawCommit.Provenance {
-		commitInfo.Provenance = append(commitInfo.Provenance, &pfs.Commit{
-			ID:   c.ID,
-			Repo: &pfs.Repo{c.Repo},
-		})
-	}
-
 	// OBSOLETE
 	// Old API Server expects request commit ID to match results commit ID
 	commitInfo.Commit.ID = commit.ID
@@ -639,6 +632,14 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	}
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
+	}
+
+	var provenance []*pfs.Commit
+	for _, c := range rawCommit.Provenance {
+		provenance = append(provenance, &pfs.Commit{
+			Repo: &pfs.Repo{c.Repo},
+			ID:   c.ID,
+		})
 	}
 
 	// OBSOLETE
@@ -669,6 +670,7 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 		CommitType:   commitType,
 		SizeBytes:    rawCommit.Size,
 		ParentCommit: parentCommit,
+		Provenance:   provenance,
 	}
 }
 
@@ -1310,7 +1312,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 
 		cursor, err := commitsToMerge.Map(func(commit gorethink.Term) gorethink.Term {
 			return commit.Field("Provenance")
-		}).Fold(nil, func(acc, provenance gorethink.Term) gorethink.Term {
+		}).Fold(gorethink.Expr([]interface{}{}), func(acc, provenance gorethink.Term) gorethink.Term {
 			return acc.SetUnion(provenance)
 		}).Run(d.dbClient)
 		if err != nil {
@@ -1321,6 +1323,8 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		if err := cursor.All(&provenanceUnion); err != nil {
 			return nil, err
 		}
+
+		fmt.Printf("provenance union: %v\n", provenanceUnion)
 
 		if _, err := d.getTerm(commitTable).Get(newCommit.ID).Update(map[string]interface{}{
 			"Provenance": provenanceUnion,
