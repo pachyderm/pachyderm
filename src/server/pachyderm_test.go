@@ -635,7 +635,7 @@ func TestPipelineThatWritesToOneFileRF(t *testing.T) {
 	require.Equal(t, 30, buffer.Len())
 }
 
-func TestPipelineThatOverwritesFile(t *testing.T) {
+func TestPipelineThatOverwritesFileRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -711,7 +711,7 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestPipelineThatAppendsToFile(t *testing.T) {
+func TestPipelineThatAppendsToFileRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -785,11 +785,11 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestRemoveAndAppend(t *testing.T) {
+func TestRemoveAndAppendRF(t *testing.T) {
 	testParellelRemoveAndAppend(t, 1)
 }
 
-func TestParellelRemoveAndAppend(t *testing.T) {
+func TestParellelRemoveAndAppendRF(t *testing.T) {
 	// This test does not pass on Travis which is why it's skipped right now As
 	// soon as we have a hypothesis for why this fails on travis but not
 	// locally we should un skip this test and try to fix it.
@@ -983,7 +983,7 @@ func TestSimpleRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestPipelineWithMultipleInputs(t *testing.T) {
+func TestPipelineWithMultipleInputsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1121,7 +1121,7 @@ done
 	}
 }
 
-func TestPipelineWithGlobalMethod(t *testing.T) {
+func TestPipelineWithGlobalMethodRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1189,7 +1189,7 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
-func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
+func TestPipelineWithPrevRepoAndIncrementalReduceMethodRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1586,7 +1586,7 @@ func TestFlushCommit(t *testing.T) {
 
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
-func TestFlushCommitWithFailure(t *testing.T) {
+func TestFlushCommitWithFailureRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1630,7 +1630,7 @@ func TestFlushCommitWithFailure(t *testing.T) {
 }
 
 // TestRecreatePipeline tracks #432
-func TestRecreatePipeline(t *testing.T) {
+func TestRecreatePipelineRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
