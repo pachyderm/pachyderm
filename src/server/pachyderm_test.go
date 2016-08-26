@@ -2674,6 +2674,50 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
+// This test / failure pattern shouldn't be possible after
+// the pfs-refactor branch lands
+func TestListCommitReturnsBlankCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+
+	// create repos
+	dataRepo := uniqueString("TestRestartAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "", "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{&pfsclient.Repo{dataRepo}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	commitInfos, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos.CommitInfo))
+	restartAll(t)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+	commitInfos, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	// After restarting we see 2 commits, one of which is the 'blank'
+	// commit that's created when creating a repo
+	require.Equal(t, 1, len(commitInfos.CommitInfo))
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
