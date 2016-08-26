@@ -366,7 +366,7 @@ func TestJobLongOutputLineRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
-func TestPipeline(t *testing.T) {
+func TestPipelineRF(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
