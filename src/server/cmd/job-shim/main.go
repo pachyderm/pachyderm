@@ -88,7 +88,7 @@ func do(appEnvObj interface{}) error {
 					nil,
 					response.CommitMounts,
 					ready,
-					response.Transform.Debug,
+					true,
 				); err != nil {
 					errorAndExit(err.Error())
 				}
