@@ -1233,32 +1233,45 @@ func (d *driver) getRangesToMerge(repo string, commits []*pfs.Commit, toBranch s
 
 // getDiffsToMerge returns the diffs that need to be updated in case of a Merge
 func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) (nilTerm gorethink.Term, retErr error) {
-	ranges, err := d.getRangesToMerge(repo, commits, toBranch)
-	if err != nil {
-		return nilTerm, err
-	}
+	var fullQuery gorethink.Term
+	for i, commit := range commits {
+		ranges, err := d.getRangesToMerge(repo, []*pfs.Commit{commit}, toBranch)
+		if err != nil {
+			return nilTerm, err
+		}
 
-	var query gorethink.Term
-	for i, r := range ranges.Ranges() {
-		q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
-			Index: DiffClockIndex.GetName(),
-		}).Between(
-			DiffClockIndex.Key(repo, r.Branch, r.Left),
-			DiffClockIndex.Key(repo, r.Branch, r.Right),
-			gorethink.BetweenOpts{
-				LeftBound:  "closed",
-				RightBound: "closed",
-			},
-		)
+		var query gorethink.Term
+		for j, r := range ranges.Ranges() {
+			q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+				Index: DiffClockIndex.GetName(),
+			}).Between(
+				DiffClockIndex.Key(repo, r.Branch, r.Left),
+				DiffClockIndex.Key(repo, r.Branch, r.Right),
+				gorethink.BetweenOpts{
+					LeftBound:  "closed",
+					RightBound: "closed",
+				},
+			)
+			if j == 0 {
+				query = q
+			} else {
+				query = query.UnionWithOpts(gorethink.UnionOpts{
+					Interleave: false,
+				}, q)
+			}
+		}
+
+		query = query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs)
 		if i == 0 {
-			query = q
+			fullQuery = query
 		} else {
-			query = query.UnionWithOpts(gorethink.UnionOpts{
-				Interleave: false,
-			}, q)
+			fullQuery = fullQuery.Union(query)
 		}
 	}
-	return query, nil
+
+	fullQuery = fullQuery.Group("Path").Ungroup().Field("reduction").Map(foldDiffsWithoutDelete)
+
+	return fullQuery, nil
 }
 
 func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (nilTerm gorethink.Term, retErr error) {
@@ -1349,7 +1362,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		_, err = d.getTerm(diffTable).Insert(diffs.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Merge(func(diff gorethink.Term) map[string]interface{} {
+		_, err = d.getTerm(diffTable).Insert(diffs.Merge(func(diff gorethink.Term) map[string]interface{} {
 			return map[string]interface{}{
 				// diff IDs are of the form:
 				// commitID:path
@@ -1439,16 +1452,31 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 			gorethink.Branch(
 				diff.Field("Delete"),
 				acc.Merge(diff),
-				acc.Merge(map[string]interface{}{
-					"Repo":      diff.Field("Repo"),
-					"Path":      diff.Field("Path"),
+				acc.Merge(diff).Merge(map[string]interface{}{
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 					"Size":      acc.Field("Size").Add(diff.Field("Size")),
-					"FileType":  diff.Field("FileType"),
-					"Modified":  diff.Field("Modified"),
-					"Clock":     diff.Field("Clock"),
 				}),
 			),
+		)
+	})
+}
+
+// foldDiffsWithoutDelete is the same as foldDiffs, except that it doesn't remove
+// blockrefs ever.
+func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
+	return diffs.Fold(gorethink.Expr(&persist.Diff{}), func(acc gorethink.Term, diff gorethink.Term) gorethink.Term {
+		// TODO: the fold function can easily take offset and size into account,
+		// only returning blockrefs that fall into the range specified by offset
+		// and size.
+		return gorethink.Branch(
+			// If neither the acc nor the new diff has FileType_NONE, and they have
+			// different FileTypes, then it's a file type conflict.
+			acc.Field("FileType").Ne(persist.FileType_NONE).And(diff.Field("FileType").Ne(persist.FileType_NONE).And(acc.Field("FileType").Ne(diff.Field("FileType")))),
+			gorethink.Error(ErrConflictFileTypeMsg),
+			acc.Merge(diff).Merge(map[string]interface{}{
+				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
+				"Size":      acc.Field("Size").Add(diff.Field("Size")),
+			}),
 		)
 	})
 }
