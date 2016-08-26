@@ -620,6 +620,15 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
+	// We archive the commit before we finish it, to ensure that a pipeline
+	// that is listing finished commits do not end up seeing this commit
+	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
+		Commits: []*pfsclient.Commit{commit},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	/////// SJ - end of startcommit logic
 
 	podIndex := jobInfo.PodsStarted
@@ -789,15 +798,16 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			}
 			outputBranch = parentJobInfo.Branch
 		}
+		mergeReq := &pfsclient.MergeRequest{
+			Repo:        jobInfo.OutputCommit.Repo.Name,
+			FromCommits: commitsToMerge,
+			ToBranch:    outputBranch,
+			Strategy:    pfsclient.MergeStrategy_SQUASH,
+			Cancel:      failed,
+		}
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
-			&pfsclient.MergeRequest{
-				Repo:        jobInfo.OutputCommit.Repo.Name,
-				FromCommits: commitsToMerge,
-				ToBranch:    outputBranch,
-				Strategy:    pfsclient.MergeStrategy_SQUASH,
-				Cancel:      failed,
-			},
+			mergeReq,
 		)
 		fmt.Printf("!!! merged\n")
 		if err != nil {

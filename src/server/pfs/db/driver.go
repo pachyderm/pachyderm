@@ -331,9 +331,15 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		})
 	}
 	fmt.Printf("DDD going to inspect commits for all provenance (%v)\n", provenance)
+	// If any of the commit's provenance is archived, the commit should be archived
+	var archived bool
+	// We compute the complete set of provenance.  That is, the provenance of this
+	// commit includes the provenance of its immediate provenance.
+	// This is so that running ListCommit with provenance is fast.
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c, shards)
+		archived = archived || commitInfo.Archived
 		if err != nil {
 			return err
 		}
@@ -355,6 +361,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Repo:       repo.Name,
 		Started:    now(),
 		Provenance: _provenance,
+		Archived:   archived,
 	}
 	fmt.Printf("DDD have basic commit skeleton: %v\n", commit)
 	var clockID *persist.ClockID
@@ -564,25 +571,51 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return err
 }
 
+// ArchiveCommit archives the given commits and all commits that have any of the
+// given commits as provenance
+func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) error {
+	var commitIDs []interface{}
+	for _, commit := range commits {
+		c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return err
+		}
+		commitIDs = append(commitIDs, c.ID)
+	}
+
+	commitIDsTerm := gorethink.Expr(commitIDs)
+	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+		// We want to select all commits that have any of the given commits as
+		// provenance
+		return gorethink.Or(commit.Field("Provenance").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
+	}).Update(map[string]interface{}{
+		"Archived": true,
+	})
+	fmt.Printf("query: %s\n", query.String())
+
+	wr, err := query.RunWrite(d.dbClient)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("updated %d rows\n", wr.Updated)
+
+	d.getTerm(commitTable).GetAll(commitIDs...)
+
+	return nil
+}
+
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	commitInfo := rawCommitToCommitInfo(rawCommit)
+	commitInfo := d.rawCommitToCommitInfo(rawCommit)
 	if commitInfo.Finished == nil {
 		commitInfo.SizeBytes, err = d.computeCommitSize(rawCommit)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	for _, c := range rawCommit.Provenance {
-		commitInfo.Provenance = append(commitInfo.Provenance, &pfs.Commit{
-			ID:   c.ID,
-			Repo: &pfs.Repo{c.Repo},
-		})
 	}
 
 	// OBSOLETE
@@ -591,7 +624,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo, nil
 }
 
-func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
+func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	commitType := pfs.CommitType_COMMIT_TYPE_READ
 	var branch string
 	if len(rawCommit.FullClock) > 0 {
@@ -600,21 +633,55 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	if rawCommit.Finished == nil {
 		commitType = pfs.CommitType_COMMIT_TYPE_WRITE
 	}
+
+	var provenance []*pfs.Commit
+	for _, c := range rawCommit.Provenance {
+		provenance = append(provenance, &pfs.Commit{
+			Repo: &pfs.Repo{c.Repo},
+			ID:   c.ID,
+		})
+	}
+
+	// OBSOLETE
+	//
+	// Here we retrieve the parent commit from the database.
+	// This is a HUGE performance issue because we are doing a DB round trip
+	// per commit.
+	//
+	// We do this because some code needs the ParentCommit field of
+	// CommitInfo, and they need the ParentCommit to have the actual commit ID.
+	//
+	// In the future, the client code should be able to directly infer
+	// the commit ID (alias) of the parent, e.g. master/1 -> master/0
+	parentClock := persist.FullClockParent(rawCommit.FullClock)
+	var parentCommit *pfs.Commit
+	if parentClock != nil {
+		parentClockID := persist.FullClockHead(parentClock).ToCommitID()
+		rawParentCommit, _ := d.getCommitByAmbiguousID(rawCommit.Repo, parentClockID)
+		parentCommit = &pfs.Commit{
+			Repo: &pfs.Repo{rawCommit.Repo},
+			ID:   rawParentCommit.ID,
+		}
+	}
+
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{rawCommit.Repo},
 			ID:   rawCommit.ID,
 		},
-		Branch:     branch,
-		Started:    rawCommit.Started,
-		Finished:   rawCommit.Finished,
-		Cancelled:  rawCommit.Cancelled,
-		CommitType: commitType,
-		SizeBytes:  rawCommit.Size,
+		Branch:       branch,
+		Started:      rawCommit.Started,
+		Finished:     rawCommit.Finished,
+		Cancelled:    rawCommit.Cancelled,
+		Archived:     rawCommit.Archived,
+		CommitType:   commitType,
+		SizeBytes:    rawCommit.Size,
+		ParentCommit: parentCommit,
+		Provenance:   provenance,
 	}
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, all bool, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
 	repoToFromCommit := make(map[string]string)
 	for _, repo := range repos {
 		// make sure that the repos exist
@@ -647,9 +714,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		}
 	}
 	query := gorethink.Union(queries...)
-	if !all {
+	if status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_CANCELLED {
 		query = query.Filter(map[string]interface{}{
 			"Cancelled": false,
+		})
+	}
+	if status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_ARCHIVED {
+		query = query.Filter(map[string]interface{}{
+			"Archived": false,
 		})
 	}
 	switch commitType {
@@ -688,15 +760,17 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		return nil, err
 	}
 
+	fmt.Printf("BP list commit")
 	var commitInfos []*pfs.CommitInfo
 	if len(commits) > 0 {
 		for _, commit := range commits {
-			commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+			commitInfos = append(commitInfos, d.rawCommitToCommitInfo(commit))
 		}
 	} else if block {
 		query = query.Changes(gorethink.ChangesOpts{
 			IncludeInitial: true,
 		}).Field("new_val")
+		fmt.Printf("list commit query: %s\n", query.String())
 		cursor, err := query.Run(d.dbClient)
 		if err != nil {
 			return nil, err
@@ -706,7 +780,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		if err := cursor.Err(); err != nil {
 			return nil, err
 		}
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(&commit))
+		commitInfos = append(commitInfos, d.rawCommitToCommitInfo(&commit))
 	}
 
 	return commitInfos, nil
@@ -759,6 +833,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		return gorethink.And(
+			commit.Field("Archived").Eq(false),
 			commit.Field("Provenance").Contains(provenanceIDs...),
 			gorethink.Expr(repos).Contains(commit.Field("Repo")),
 		)
@@ -785,7 +860,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		if commit.Cancelled {
 			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
 		}
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+		commitInfos = append(commitInfos, d.rawCommitToCommitInfo(commit))
 		delete(repoSet, commit.Repo)
 		// Return when we have seen at least one commit from each repo that we
 		// care about.
@@ -1235,7 +1310,36 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+		// We first compute the union of the input commits' provenance,
+		// which will be the provenance of this merged commit.
+		commitsToMerge, err := d.getCommitsToMerge(repo, commits, toBranch)
+		if err != nil {
+			return nil, err
+		}
+
+		cursor, err := commitsToMerge.Map(func(commit gorethink.Term) gorethink.Term {
+			return commit.Field("Provenance")
+		}).Fold(gorethink.Expr([]interface{}{}), func(acc, provenance gorethink.Term) gorethink.Term {
+			return acc.SetUnion(provenance)
+		}).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+
+		var provenanceUnion []*persist.ProvenanceCommit
+		if err := cursor.All(&provenanceUnion); err != nil {
+			return nil, err
+		}
+
+		fmt.Printf("provenance union: %v\n", provenanceUnion)
+
+		if _, err := d.getTerm(commitTable).Get(newCommit.ID).Update(map[string]interface{}{
+			"Provenance": provenanceUnion,
+		}).RunWrite(d.dbClient); err != nil {
+			return nil, err
+		}
+
+		cursor, err = d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
 		var newPersistCommit persist.Commit
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
@@ -1336,23 +1440,15 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 			gorethink.Error(ErrConflictFileTypeMsg),
 			gorethink.Branch(
 				diff.Field("Delete"),
+				acc.Merge(diff),
 				acc.Merge(map[string]interface{}{
-					"Path":      diff.Field("Path"),
-					"BlockRefs": diff.Field("BlockRefs"),
-					"FileType":  diff.Field("FileType"),
-					"Size":      diff.Field("Size"),
-					"Modified":  diff.Field("Modified"),
-					"Clock":     diff.Field("Clock"),
 					"Repo":      diff.Field("Repo"),
-				}),
-				acc.Merge(map[string]interface{}{
 					"Path":      diff.Field("Path"),
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 					"Size":      acc.Field("Size").Add(diff.Field("Size")),
 					"FileType":  diff.Field("FileType"),
 					"Modified":  diff.Field("Modified"),
 					"Clock":     diff.Field("Clock"),
-					"Repo":      diff.Field("Repo"),
 				}),
 			),
 		)
@@ -1653,6 +1749,10 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 }
 
 func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	return nil
+}
+
+func (d *driver) ArchiveAll(shards map[uint64]bool) error {
 	return nil
 }
 

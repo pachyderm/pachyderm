@@ -125,7 +125,7 @@ func TestSimpleRF(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -848,14 +848,14 @@ func TestListCommitRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, false, nil)
+		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, pfsclient.CommitStatus_NORMAL, nil)
 		close(ch)
 	}()
 
@@ -883,10 +883,10 @@ func TestListCommitRF(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, false, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, true, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)
@@ -1445,7 +1445,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	_, err = client.StartCommit("zzzzz", "", "")
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
-	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, true, []*pfsclient.Commit{})
+	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, pfsclient.CommitStatus_ALL, []*pfsclient.Commit{})
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.InspectRepo("bogusrepo")
