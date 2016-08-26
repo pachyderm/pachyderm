@@ -298,6 +298,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		if diffInfo.ParentCommit == nil && parentID != "" {
 			diffInfo.ParentCommit = client.NewCommit(repo.Name, parentID)
 		}
+		fmt.Printf("DDD Creating diffInfo for commit %v with parent ID %v\n", commitID, diffInfo.ParentCommit)
 		if err := d.insertDiffInfo(diffInfo); err != nil {
 			return err
 		}
