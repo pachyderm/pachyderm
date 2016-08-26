@@ -785,7 +785,7 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestRemoveAndAppend(t *testing.T) {
+func TestRemoveAndAppendRF(t *testing.T) {
 	testParellelRemoveAndAppend(t, 1)
 }
 
