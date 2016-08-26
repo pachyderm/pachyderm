@@ -788,7 +788,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
 		fmt.Printf("!!! going to merge\n")
-		fmt.Printf("jobInfo: %v\n", jobInfo)
 		outputBranch := uuid.NewWithoutDashes()
 		if jobInfo.ParentJob != nil {
 			inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
@@ -804,12 +803,10 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			ToBranch:    outputBranch,
 			Strategy:    pfsclient.MergeStrategy_SQUASH,
 		}
-		fmt.Printf("merge request: %v\n", mergeReq)
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
 			mergeReq,
 		)
-		fmt.Printf("outputCommits: %v\n", outputCommits)
 		fmt.Printf("!!! merged\n")
 		if err != nil {
 			return nil, err
@@ -1197,10 +1194,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		if err != nil {
 			return err
 		}
-		fmt.Printf("commitInfos in runPipeline: %v\n", commitInfos)
 		for _, commitInfo := range commitInfos.CommitInfo {
-			fmt.Printf("commitInfo: %v\n", commitInfo)
-			fmt.Printf("commitInfo.ParentCommit: %v\n", commitInfo.ParentCommit)
 			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.ID] = true
 			if commitInfo.ParentCommit != nil {
 				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.ID)

@@ -610,7 +610,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		return nil, err
 	}
 
-	commitInfo := rawCommitToCommitInfo(rawCommit)
+	commitInfo := d.rawCommitToCommitInfo(rawCommit)
 	if commitInfo.Finished == nil {
 		commitInfo.SizeBytes, err = d.computeCommitSize(rawCommit)
 		if err != nil {
@@ -624,7 +624,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo, nil
 }
 
-func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
+func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	commitType := pfs.CommitType_COMMIT_TYPE_READ
 	var branch string
 	if len(rawCommit.FullClock) > 0 {
@@ -643,17 +643,24 @@ func rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInfo {
 	}
 
 	// OBSOLETE
-	// Here we manually infer the commit ID of this commit's parent.
-	// We do this because some code uses the ParentCommit field of
-	// CommitInfo.
+	//
+	// Here we retrieve the parent commit from the database.
+	// This is a HUGE performance issue because we are doing a DB round trip
+	// per commit.
+	//
+	// We do this because some code needs the ParentCommit field of
+	// CommitInfo, and they need the ParentCommit to have the actual commit ID.
+	//
 	// In the future, the client code should be able to directly infer
-	// the commit ID of the parent.
+	// the commit ID (alias) of the parent, e.g. master/1 -> master/0
 	parentClock := persist.FullClockParent(rawCommit.FullClock)
 	var parentCommit *pfs.Commit
 	if parentClock != nil {
+		parentClockID := persist.FullClockHead(parentClock).ToCommitID()
+		rawParentCommit, _ := d.getCommitByAmbiguousID(rawCommit.Repo, parentClockID)
 		parentCommit = &pfs.Commit{
 			Repo: &pfs.Repo{rawCommit.Repo},
-			ID:   persist.FullClockHead(parentClock).ToCommitID(),
+			ID:   rawParentCommit.ID,
 		}
 	}
 
@@ -757,7 +764,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	var commitInfos []*pfs.CommitInfo
 	if len(commits) > 0 {
 		for _, commit := range commits {
-			commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+			commitInfos = append(commitInfos, d.rawCommitToCommitInfo(commit))
 		}
 	} else if block {
 		query = query.Changes(gorethink.ChangesOpts{
@@ -773,7 +780,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		if err := cursor.Err(); err != nil {
 			return nil, err
 		}
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(&commit))
+		commitInfos = append(commitInfos, d.rawCommitToCommitInfo(&commit))
 	}
 
 	return commitInfos, nil
@@ -853,7 +860,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		if commit.Cancelled {
 			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
 		}
-		commitInfos = append(commitInfos, rawCommitToCommitInfo(commit))
+		commitInfos = append(commitInfos, d.rawCommitToCommitInfo(commit))
 		delete(repoSet, commit.Repo)
 		// Return when we have seen at least one commit from each repo that we
 		// care about.
@@ -1433,23 +1440,15 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 			gorethink.Error(ErrConflictFileTypeMsg),
 			gorethink.Branch(
 				diff.Field("Delete"),
+				acc.Merge(diff),
 				acc.Merge(map[string]interface{}{
-					"Path":      diff.Field("Path"),
-					"BlockRefs": diff.Field("BlockRefs"),
-					"FileType":  diff.Field("FileType"),
-					"Size":      diff.Field("Size"),
-					"Modified":  diff.Field("Modified"),
-					"Clock":     diff.Field("Clock"),
 					"Repo":      diff.Field("Repo"),
-				}),
-				acc.Merge(map[string]interface{}{
 					"Path":      diff.Field("Path"),
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
 					"Size":      acc.Field("Size").Add(diff.Field("Size")),
 					"FileType":  diff.Field("FileType"),
 					"Modified":  diff.Field("Modified"),
 					"Clock":     diff.Field("Clock"),
-					"Repo":      diff.Field("Repo"),
 				}),
 			),
 		)
