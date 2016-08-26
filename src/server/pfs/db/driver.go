@@ -760,7 +760,6 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		return nil, err
 	}
 
-	fmt.Printf("BP list commit")
 	var commitInfos []*pfs.CommitInfo
 	if len(commits) > 0 {
 		for _, commit := range commits {
@@ -1224,10 +1223,11 @@ func (d *driver) getRangesToMerge(repo string, commits []*pfs.Commit, toBranch s
 		ranges.AddFullClock(clock)
 	}
 	var head persist.Commit
-	if err := d.getHeadOfBranch(repo, toBranch, &head); err != nil {
+	if err := d.getHeadOfBranch(repo, toBranch, &head); err == nil {
+		ranges.SubFullClock(head.FullClock)
+	} else if err != gorethink.ErrEmptyResult {
 		return nil, err
 	}
-	ranges.SubFullClock(head.FullClock)
 	return &ranges, nil
 }
 

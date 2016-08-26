@@ -1070,11 +1070,20 @@ func TestSquashMergeDeletionRF(t *testing.T) {
 	createThreeCommits("B")
 	createThreeCommits("C")
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B", "C"}, "master", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := client.Merge(repo, []string{"A", "B", "C"}, "squash", pfsclient.MergeStrategy_SQUASH)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
 	require.Equal(t, "barbarbar", buffer.String())
+
+	mergedCommits, err = client.Merge(repo, []string{"A", "B", "C"}, "replay", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	// 3 commits on each branch plus 1 commit on master
+	require.Equal(t, 10, len(mergedCommits))
+
+	buffer = &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[9].ID, "file", 0, 0, "", nil, buffer))
+	require.Equal(t, "bar", buffer.String())
 }
