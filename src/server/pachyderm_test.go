@@ -520,7 +520,7 @@ func TestPipelineWithTooMuchParallelismRF(t *testing.T) {
 	require.Equal(t, false, outCommits[0].Cancelled)
 }
 
-func TestPipelineWithEmptyInputs(t *testing.T) {
+func TestPipelineWithEmptyInputsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -587,7 +587,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	require.True(t, job.ID != job2.ID)
 }
 
-func TestPipelineThatWritesToOneFile(t *testing.T) {
+func TestPipelineThatWritesToOneFileRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

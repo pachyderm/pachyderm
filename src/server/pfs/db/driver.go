@@ -1331,8 +1331,6 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		fmt.Printf("provenance union: %v\n", provenanceUnion)
-
 		if _, err := d.getTerm(commitTable).Get(newCommit.ID).Update(map[string]interface{}{
 			"Provenance": provenanceUnion,
 		}).RunWrite(d.dbClient); err != nil {
