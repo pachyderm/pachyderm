@@ -2190,7 +2190,6 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "repo .* exists", err.Error())
-	fmt.Printf("couldnt create pipeline ... thats good. now inspecting\n")
 	_, err = c.InspectPipeline(pipelineName)
 	require.YesError(t, err)
 	require.Matches(t, "not found", err.Error())

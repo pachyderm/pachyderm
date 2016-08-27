@@ -189,6 +189,9 @@ func (d *driver) getTerm(table Table) gorethink.Term {
 
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	provenance []*pfs.Repo, shards map[uint64]bool) error {
+	if repo == nil {
+		return fmt.Errorf("repo cannot be nil")
+	}
 	err := validateRepoName(repo.Name)
 	if err != nil {
 		return err
@@ -204,8 +207,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		Created:    created,
 		Provenance: provenanceIDs,
 	}).RunWrite(d.dbClient)
-
-	if strings.Contains(err.Error(), "Duplicate primary key") {
+	if err != nil && gorethink.IsConflictErr(err) {
 		return fmt.Errorf("repo %v exists", repo.Name)
 	}
 	return err
@@ -234,14 +236,13 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 		return nil, err
 	}
 
-	var provenance []*pfs.Repo
+	// The full set of this repo's provenance, i.e. its immediate provenance
+	// plus the provenance of those repos.
+	fullProvenance := make(map[string]bool)
 	for _, repoName := range rawRepo.Provenance {
-		provenance = append(provenance, &pfs.Repo{
-			Name: repoName,
-		})
+		fullProvenance[repoName] = true
 	}
 
-	fullProvenance := make(map[string]bool)
 	for _, repoName := range rawRepo.Provenance {
 		repoInfo, err := d.InspectRepo(&pfs.Repo{repoName}, shards)
 		if err != nil {
@@ -252,6 +253,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 		}
 	}
 
+	var provenance []*pfs.Repo
 	for repoName := range fullProvenance {
 		provenance = append(provenance, &pfs.Repo{
 			Name: repoName,
@@ -851,6 +853,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		return gorethink.And(
 			commit.Field("Archived").Eq(false),
+			commit.Field("Finished").Ne(nil),
 			commit.Field("Provenance").Contains(provenanceIDs...),
 			gorethink.Expr(repos).Contains(commit.Field("Repo")),
 		)
