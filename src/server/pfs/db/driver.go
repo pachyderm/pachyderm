@@ -308,6 +308,20 @@ nextRepo:
 }
 
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+	if !force {
+		// Make sure that this repo is not the provenance of any other repo
+		repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+		if err != nil {
+			return err
+		}
+		if len(repoInfos) > 0 {
+			var repoNames []string
+			for _, repoInfo := range repoInfos {
+				repoNames = append(repoNames, repoInfo.Repo.Name)
+			}
+			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
+		}
+	}
 	_, err := d.getTerm(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
 	return err
 }

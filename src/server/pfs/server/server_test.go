@@ -372,6 +372,51 @@ func TestDeleteRepoRF(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
+func TestDeleteProvenanceRepoRF(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	// Create two repos, one as another's provenance
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+		},
+	)
+	require.NoError(t, err)
+
+	// Delete the provenance repo; that should fail.
+	require.YesError(t, client.DeleteRepo("A", false))
+
+	// Delete the leaf repo, then the provenance repo; that should succeed
+	require.NoError(t, client.DeleteRepo("B", false))
+	require.NoError(t, client.DeleteRepo("A", false))
+
+	repoInfos, err := client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+
+	// Create two repos again
+	require.NoError(t, client.CreateRepo("A"))
+	_, err = client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       pclient.NewRepo("B"),
+			Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+		},
+	)
+	require.NoError(t, err)
+
+	// Force delete should succeed
+	require.NoError(t, client.DeleteRepo("A", true))
+
+	repoInfos, err = client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfos))
+}
+
 func TestInspectCommitRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
