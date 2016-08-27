@@ -857,7 +857,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
-func TestWorkload(t *testing.T) {
+func TestWorkloadRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1723,7 +1723,7 @@ func TestPipelineState(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
-func TestPipelineJobCounts(t *testing.T) {
+func TestPipelineJobCountsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2190,6 +2190,7 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "repo .* exists", err.Error())
+	fmt.Printf("couldnt create pipeline ... thats good. now inspecting\n")
 	_, err = c.InspectPipeline(pipelineName)
 	require.YesError(t, err)
 	require.Matches(t, "not found", err.Error())
