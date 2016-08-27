@@ -1355,7 +1355,7 @@ func TestAssetsRF(t *testing.T) {
 // v  v
 // B-->C
 // When we commit to A we expect to see 1 commit on C rather than 2.
-func TestProvenance(t *testing.T) {
+func TestProvenanceRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
