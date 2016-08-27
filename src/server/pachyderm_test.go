@@ -1293,7 +1293,7 @@ func TestPipelineThatUseNonexistentInputsRF(t *testing.T) {
 	))
 }
 
-func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
+func TestPipelineWhoseInputsGetDeletedRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1317,8 +1317,8 @@ func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 		},
 	))
 
-	// Shouldn't be able to delete the input repo because the pipeline
-	// is still running
+	// Shouldn't be able to delete the input repo because it's the provenance
+	// of the output repo.
 	require.YesError(t, c.DeleteRepo(repo, false))
 
 	// The correct flow to delete the input repo
