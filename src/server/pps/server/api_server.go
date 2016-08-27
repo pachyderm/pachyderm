@@ -1190,10 +1190,12 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 			FromCommit: fromCommits,
 			Block:      true,
 		}
+		fmt.Printf("listing commit: %v\n", listCommitRequest)
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("got commitInfos: %v\n", commitInfos)
 		for _, commitInfo := range commitInfos.CommitInfo {
 			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.ID] = true
 			if commitInfo.ParentCommit != nil {
