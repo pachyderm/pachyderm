@@ -604,6 +604,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
+		fmt.Printf("SSS starting commit for job %v w parent commitID %v\n", jobInfo, parentJobInfo.OutputCommit.ID)
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 	}
 
@@ -802,6 +803,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			FromCommits: commitsToMerge,
 			ToBranch:    outputBranch,
 			Strategy:    pfsclient.MergeStrategy_SQUASH,
+			Cancel:      failed,
 		}
 		outputCommits, err := pfsAPIClient.Merge(
 			ctx,
