@@ -298,6 +298,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		if diffInfo.ParentCommit == nil && parentID != "" {
 			diffInfo.ParentCommit = client.NewCommit(repo.Name, parentID)
 		}
+		fmt.Printf("DDD Creating diffInfo for commit %v with parent ID %v\n", commitID, diffInfo.ParentCommit)
 		if err := d.insertDiffInfo(diffInfo); err != nil {
 			return err
 		}
@@ -403,7 +404,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	return nil, nil
 }
 
-func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error) {
+func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error) {
 	return nil, nil
 }
 

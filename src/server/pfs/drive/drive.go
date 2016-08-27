@@ -38,7 +38,7 @@ type Driver interface {
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
 	Dump()
-	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error)
+	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
 }
 
 type CommitID string // master/0
