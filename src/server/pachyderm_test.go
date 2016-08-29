@@ -1814,7 +1814,7 @@ func TestJobStateRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
+func TestClusterFunctioningAfterMembershipChangeRF(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1826,7 +1826,7 @@ func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	testJob(t, 4)
 }
 
-func TestDeleteAfterMembershipChange(t *testing.T) {
+func TestDeleteAfterMembershipChangeRF(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1912,7 +1912,7 @@ func TestAcceptReturnCodeRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
-func TestRestartAll(t *testing.T) {
+func TestRestartAllRF(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1957,7 +1957,7 @@ func TestRestartAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRestartOne(t *testing.T) {
+func TestRestartOneRF(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2045,7 +2045,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
 }
 
-func TestDeleteAll(t *testing.T) {
+func TestDeleteAllRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

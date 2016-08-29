@@ -119,14 +119,18 @@ func isDBCreated(err error) bool {
 	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
 }
 
-func InitDB(address string, databaseName string) error {
+func InitDB(address string, dbName string) error {
 	session, err := dbConnect(address)
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	_, err = gorethink.DBCreate(databaseName).RunWrite(session)
+	return initDB(session, dbName)
+}
+
+func initDB(session *gorethink.Session, dbName string) error {
+	_, err := gorethink.DBCreate(dbName).RunWrite(session)
 	if err != nil && !isDBCreated(err) {
 		return err
 	}
@@ -134,33 +138,41 @@ func InitDB(address string, databaseName string) error {
 	// Create tables
 	for _, table := range tables {
 		tableCreateOpts := tableToTableCreateOpts[table]
-		if _, err := gorethink.DB(databaseName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
+		if _, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
 			return err
 		}
 	}
 
 	// Create indexes
 	for _, someIndex := range Indexes {
-		if _, err := gorethink.DB(databaseName).Table(someIndex.GetTable()).IndexCreateFunc(someIndex.GetName(), someIndex.GetCreateFunction(), someIndex.GetCreateOptions()).RunWrite(session); err != nil {
+		if _, err := gorethink.DB(dbName).Table(someIndex.GetTable()).IndexCreateFunc(someIndex.GetName(), someIndex.GetCreateFunction(), someIndex.GetCreateOptions()).RunWrite(session); err != nil {
 			return err
 		}
-		if _, err := gorethink.DB(databaseName).Table(someIndex.GetTable()).IndexWait(someIndex.GetName()).RunWrite(session); err != nil {
+		if _, err := gorethink.DB(dbName).Table(someIndex.GetTable()).IndexWait(someIndex.GetName()).RunWrite(session); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func RemoveDB(address string, databaseName string) error {
+// RemoveDB removes the tables in the database that are relavant to PFS
+// It keeps the database around tho, as it might contain other tables that
+// others created (e.g. PPS).
+func RemoveDB(address string, dbName string) error {
 	session, err := dbConnect(address)
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	// Create the database
-	if _, err := gorethink.DBDrop(databaseName).RunWrite(session); err != nil {
-		return err
+	return removeDB(session, dbName)
+}
+
+func removeDB(session *gorethink.Session, dbName string) error {
+	for _, table := range tables {
+		if _, err := gorethink.DB(dbName).TableDrop(table).RunWrite(session); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1810,11 +1822,20 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 }
 
 func (d *driver) DeleteAll(shards map[uint64]bool) error {
+	for _, table := range tables {
+		if _, err := d.getTerm(table).Delete().RunWrite(d.dbClient); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (d *driver) ArchiveAll(shards map[uint64]bool) error {
-	return nil
+	_, err := d.getTerm(commitTable).Update(map[string]interface{}{
+		"Archived": true,
+	}).RunWrite(d.dbClient)
+	return err
 }
 
 func (d *driver) AddShard(shard uint64) error {
