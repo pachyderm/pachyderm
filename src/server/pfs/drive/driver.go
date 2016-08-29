@@ -1257,6 +1257,9 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 			updateIndexes = false
 		}
 	}
+	if diffInfo.Diff.Commit.ID == "" {
+		updateIndexes = false
+	}
 	if err := d.diffs.insert(diffInfo); err != nil {
 		return err
 	}
