@@ -1999,7 +1999,7 @@ func TestRestartOneRF(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPrettyPrinting(t *testing.T) {
+func TestPrettyPrintingRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2084,7 +2084,7 @@ func TestDeleteAllRF(t *testing.T) {
 	require.Equal(t, 0, len(jobInfos))
 }
 
-func TestRecursiveCp(t *testing.T) {
+func TestRecursiveCpRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2166,7 +2166,7 @@ func TestPipelineUniquenessRF(t *testing.T) {
 	require.Matches(t, "pipeline .*? already exists", err.Error())
 }
 
-func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
+func TestPipelineInfoDestroyedIfRepoCreationFailsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
