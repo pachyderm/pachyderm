@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -98,7 +99,7 @@ func (w *worker) work(c *client.APIClient) error {
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := c.StartCommit(commit.Repo.Name, commit.ID, "")
+			commit, err := c.StartCommit(commit.Repo.Name, commit.ID, uuid.NewWithoutDashes())
 			if err != nil {
 				return err
 			}

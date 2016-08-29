@@ -428,10 +428,13 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 
 		parentBranch := persist.FullClockBranch(parentCommit.FullClock)
 
+		var newBranch bool
 		if branch == "" {
+			// Create a commit on the same branch as this parent
 			commit.FullClock = persist.NewChild(parentCommit.FullClock)
-			branch = parentBranch
 		} else {
+			// Create a new branch based off this parent
+			newBranch = true
 			commit.FullClock = append(parentCommit.FullClock, persist.NewClock(branch))
 			if err != nil {
 				return err
@@ -442,9 +445,16 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		clockID = getClockID(repo.Name, head)
 		if err := d.insertMessage(clockTable, clockID); err != nil {
 			if gorethink.IsConflictErr(err) {
-				// This should only happen if there's another process creating the
-				// very same branch at the same time, and we lost the race.
-				return ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
+				if newBranch {
+					// This should only happen if there's another process creating the
+					// very same branch at the same time, and we lost the race.
+					return ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
+				} else {
+					// This should only happen if there's another process creating a
+					// new commit off the same parent, but on the parent's own branch,
+					// and we lost the race.
+					return fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
+				}
 			}
 			return err
 		}
