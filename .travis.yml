@@ -31,7 +31,7 @@ script:
 - make docker-build
 - make clean-launch-dev
 - make launch-dev
-- go test -v ./src/server -run=Test.*RF\$
+- travis_wait go test -v ./src/server -run=Test.*RF\$
 - ./etc/refactor/progress.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
