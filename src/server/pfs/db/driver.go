@@ -631,7 +631,7 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 		"Archived": true,
 	})
 
-	wr, err := query.RunWrite(d.dbClient)
+	_, err := query.RunWrite(d.dbClient)
 	if err != nil {
 		return err
 	}
