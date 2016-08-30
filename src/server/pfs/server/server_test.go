@@ -1479,7 +1479,10 @@ func TestGetFileInvalidCommitRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
-func TestScrubbedErrorStrings(t *testing.T) {
+func TestScrubbedErrorStringsRF(t *testing.T) {
+	// REFACTOR todo (pfs-refactor): skipped because we didn't want to make an extra hop to validate repo existence for Put/Get file requests
+	// post refactor, these APIs will be updated to only accept a commit, not a repo, and so we'll update the error messages then as well
+	t.Skip()
 
 	t.Parallel()
 	client, _ := getClientAndServer(t)
