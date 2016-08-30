@@ -46,10 +46,16 @@ func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
 }
 
 // CommitTypes alias pfs.CommitType_*
+// or pfs.CommitStatus_*
 const (
 	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE
 	CommitTypeRead  = pfs.CommitType_COMMIT_TYPE_READ
 	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
+
+	CommitStatusNormal    = pfs.CommitStatus_NORMAL
+	CommitStatusArchived  = pfs.CommitStatus_ARCHIVED
+	CommitStatusCancelled = pfs.CommitStatus_CANCELLED
+	CommitStatusAll       = pfs.CommitStatus_ALL
 )
 
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
