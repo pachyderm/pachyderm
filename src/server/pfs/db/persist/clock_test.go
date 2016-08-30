@@ -43,7 +43,7 @@ func TestClockRangeRF(t *testing.T) {
 	require.Equal(t, &ClockRange{Branch: "foo", Left: 0, Right: 5}, clockRangeList.ranges[1])
 }
 
-func TestGetClockIntervals(t *testing.T) {
+func TestGetClockIntervalsRF(t *testing.T) {
 	c, err := StringToClock("master/0")
 	require.NoError(t, err)
 
