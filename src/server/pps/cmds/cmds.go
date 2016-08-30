@@ -126,7 +126,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			decoder := json.NewDecoder(jobReader)
 			s, err := replaceMethodAliases(decoder)
 			if err != nil {
-				return sanitizeErr(err)
+				return describeSyntaxError(err, buf)
 			}
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
 				return sanitizeErr(err)
@@ -294,8 +294,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					}
-					err = describeSyntaxError(err, buf)
-					return err
+					return describeSyntaxError(err, buf)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
 					return err
