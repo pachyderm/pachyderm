@@ -202,7 +202,10 @@ func TestBranchRF(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
-func TestDisallowReadsDuringCommitWF(t *testing.T) {
+func TestDisallowReadsDuringCommitRF(t *testing.T) {
+	// OBSOLETE - we no longer accept file handles, and the default behavior is to
+	// allow reads within a commit
+	t.Skip()
 	t.Parallel()
 	client, server := getClientAndServer(t)
 	repo := "test"
