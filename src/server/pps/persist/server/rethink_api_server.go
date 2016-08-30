@@ -463,7 +463,6 @@ func (a *rethinkAPIServer) FailPod(ctx context.Context, request *ppsclient.Job) 
 }
 
 func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, field string) (response *persist.JobInfo, retErr error) {
-	fmt.Printf("!!! shardOp ... trying to update job %v\n", request.ID)
 	cursor, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
 		field: gorethink.Row.Field(field).Add(1).Default(0),
 	}, gorethink.UpdateOpts{
@@ -472,15 +471,12 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("!!! going to get jobinfo now\n")
 	var jobInfo persist.JobInfo
 	success := cursor.Next(&jobInfo)
 	if !success {
-		fmt.Printf("!!! got ojobinfo: %v, err: %v\n", jobInfo, cursor.Err())
 		return nil, cursor.Err()
 	}
 
-	fmt.Printf("!!! got ojobinfo: %v, err: %v\n", jobInfo, nil)
 	return &jobInfo, nil
 }
 
