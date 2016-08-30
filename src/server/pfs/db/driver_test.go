@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -13,6 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 
 	"github.com/dancannon/gorethink"
+	"go.pedge.io/pb/go/google/protobuf"
+	"go.pedge.io/proto/time"
 )
 
 const (
@@ -41,7 +44,11 @@ func persistCommitToPFSCommit(rawCommit *persist.Commit) *pfs.Commit {
 	}
 }
 
-func TestStartCommitRace(t *testing.T) {
+func timestampNow() *google_protobuf.Timestamp {
+	return prototime.TimeToTimestamp(time.Now())
+}
+
+func TestStartCommitRaceRF(t *testing.T) {
 	d, err := NewDriver("localhost:1523", RethinkAddress, RethinkTestDB)
 	require.NoError(t, err)
 
