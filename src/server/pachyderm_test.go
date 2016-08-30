@@ -1836,7 +1836,7 @@ func TestDeleteAfterMembershipChangeRF(t *testing.T) {
 	test(false)
 }
 
-func TestScrubbedErrors(t *testing.T) {
+func TestScrubbedErrorsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1858,8 +1858,7 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Equal(t, "repo test not found", err.Error())
 
 	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
-	fmt.Printf("TTT create job error: %v\n", err)
-	require.Matches(t, "repo job_.* not found", err.Error())
+	require.Matches(t, "commit bogusCommit not found in repo bogusRepo", err.Error())
 
 	_, err = c.InspectJob("blah", true)
 	require.Equal(t, "JobInfos blah not found", err.Error())
