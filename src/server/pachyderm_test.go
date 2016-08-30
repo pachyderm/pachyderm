@@ -253,9 +253,7 @@ func TestDuplicatedJobRF(t *testing.T) {
 	require.Equal(t, fileContent, buffer.String())
 }
 
-// passes ... except for debug output, but we need that for now, so wont tag
-// this one quite yet
-func TestLogs(t *testing.T) {
+func TestLogsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
