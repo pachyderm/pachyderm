@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSimple(t *testing.T) {
+func TestSimpleRF(t *testing.T) {
 	r := repairedFileBytes("example1_pb_go")
 
 	expected, _ := ioutil.ReadFile("example1_output_pb_go")
