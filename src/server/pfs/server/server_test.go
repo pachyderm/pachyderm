@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestBlock(t *testing.T) {
+func TestBlockRF(t *testing.T) {
 	t.Parallel()
 	blockClient := getBlockClient(t)
 	_, err := blockClient.CreateDiff(
@@ -454,7 +454,7 @@ func TestInspectCommitRF(t *testing.T) {
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
 }
 
-func TestDeleteCommitFuture(t *testing.T) {
+func TestDeleteCommitFutureRF(t *testing.T) {
 	// For when DeleteCommit gets implemented
 	t.Skip()
 
