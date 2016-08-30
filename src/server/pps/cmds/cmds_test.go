@@ -68,7 +68,6 @@ func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue
 
 	require.YesError(t, err)
 	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
-		fmt.Printf("expectedOutput: %s\nout: %s\n", expectedOutput, string(out))
 		require.Equal(t, expectedOutput, string(out))
 		return
 	}

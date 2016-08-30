@@ -406,7 +406,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
@@ -427,12 +427,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("error opening %s: %v", specPath, err)
+					return err
 				}
 
 				defer func() {
-					if err := specFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("error closing%s: %v", specPath, err)
+					if err := specFile.Close(); err != nil && retErr == nil {
+						retErr = err
 					}
 				}()
 
@@ -440,12 +440,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				decoder := json.NewDecoder(specReader)
 				s, err := replaceMethodAliases(decoder)
 				if err != nil {
-					err = describeSyntaxError(err, buf)
-					pkgcmd.ErrorAndExit("error parsing pipeline spec: %v", err)
+					return describeSyntaxError(err, buf)
 				}
 
 				if err := jsonpb.UnmarshalString(s, request); err != nil {
-					pkgcmd.ErrorAndExit("error reading from stdin: %v", err)
+					return err
 				}
 			}
 
@@ -454,7 +453,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from RunPipeline: %v", err)
+				return sanitizeErr(err)
 			}
 			fmt.Println(job.ID)
 			return nil
