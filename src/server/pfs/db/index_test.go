@@ -16,7 +16,7 @@ var (
 	port           = 40651
 )
 
-func TestDiffPathIndex(t *testing.T) {
+func TestDiffPathIndexRF(t *testing.T) {
 	dbClient := getClient(t)
 	path := "/foo/bar/fizz/buzz"
 	cursor, err := gorethink.Expr(DiffPathIndex.CreateFunction(gorethink.Expr(&persist.Diff{
@@ -33,7 +33,7 @@ func TestDiffPathIndex(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", path, []interface{}{"branch", 1}}), fmt.Sprintf("%v", key))
 }
 
-func TestDiffPrefixIndex(t *testing.T) {
+func TestDiffPrefixIndexRF(t *testing.T) {
 	dbClient := getClient(t)
 	cursor, err := gorethink.Expr(DiffPrefixIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
@@ -60,6 +60,73 @@ func TestDiffPrefixIndex(t *testing.T) {
 		// even though their underlying values are equal.
 		require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", expectedPrefixes[i], []interface{}{"branch", 1}}), fmt.Sprintf("%v", key))
 	}
+}
+
+func TestDiffParentIndexRF(t *testing.T) {
+	dbClient := getClient(t)
+	path := "/foo/bar/fizz/buzz"
+	cursor, err := gorethink.Expr(DiffParentIndex.CreateFunction(gorethink.Expr(&persist.Diff{
+		Repo: "repo",
+		Path: path,
+		Clock: &persist.Clock{
+			Branch: "branch",
+			Clock:  1,
+		},
+	}))).Run(dbClient)
+	require.NoError(t, err)
+	var key []interface{}
+	require.NoError(t, cursor.All(&key))
+	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "/foo/bar/fizz", []interface{}{"branch", 1}}), fmt.Sprintf("%v", key))
+}
+
+func TestDiffClockIndexRF(t *testing.T) {
+	dbClient := getClient(t)
+	path := "/foo/bar/fizz/buzz"
+	cursor, err := gorethink.Expr(DiffClockIndex.CreateFunction(gorethink.Expr(&persist.Diff{
+		Repo: "repo",
+		Path: path,
+		Clock: &persist.Clock{
+			Branch: "branch",
+			Clock:  1,
+		},
+	}))).Run(dbClient)
+	require.NoError(t, err)
+	var key []interface{}
+	require.NoError(t, cursor.All(&key))
+	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch", 1}), fmt.Sprintf("%v", key))
+}
+
+func TestClockBranchIndexRF(t *testing.T) {
+	dbClient := getClient(t)
+	cursor, err := gorethink.Expr(ClockBranchIndex.CreateFunction(gorethink.Expr(&persist.ClockID{
+		Repo:   "repo",
+		Branch: "branch",
+	}))).Run(dbClient)
+	require.NoError(t, err)
+	var key []interface{}
+	require.NoError(t, cursor.All(&key))
+	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch"}), fmt.Sprintf("%v", key))
+}
+
+func TestCommitClockIndexRF(t *testing.T) {
+	dbClient := getClient(t)
+	cursor, err := gorethink.Expr(CommitClockIndex.CreateFunction(gorethink.Expr(&persist.Commit{
+		Repo: "repo",
+		FullClock: []*persist.Clock{
+			&persist.Clock{
+				Branch: "master",
+				Clock:  0,
+			},
+			&persist.Clock{
+				Branch: "branch",
+				Clock:  1,
+			},
+		},
+	}))).Run(dbClient)
+	require.NoError(t, err)
+	var key []interface{}
+	require.NoError(t, cursor.All(&key))
+	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch", 1}), fmt.Sprintf("%v", key))
 }
 
 func getClient(t *testing.T) *gorethink.Session {
