@@ -104,7 +104,6 @@ func (inputs JobInputs) Swap(i, j int) {
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
-	fmt.Printf("!!! In CreateJob\n")
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -196,12 +195,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// If JobInfo.Pipeline is set, use the pipeline repo
 	var outputRepo *pfsclient.Repo
 	if request.Pipeline != nil {
-		fmt.Printf("!!! request pipeline: %v\n", request.Pipeline)
 		outputRepo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
-		fmt.Printf("!!! parentJob info should have outputcommit: %v\n", parentJobInfo)
-		// SJ TODO (pfs-refactor) : Is the following condition even valid
-		// anymore? We can only assign an output commit once we call the
-		// FinishJob() method for hte last time and perform the merge
 		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != outputRepo.Name {
 			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
@@ -258,14 +252,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
-		fmt.Printf("SSS Setting jobInfo parallelism\n")
 		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("SSS shardModuli: %v\n", shardModuli)
 		persistJobInfo.Parallelism = product(shardModuli)
-		fmt.Printf("SSS parallelism %v\n", persistJobInfo.Parallelism)
 		persistJobInfo.ShardModuli = shardModuli
 	}
 
@@ -464,7 +455,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	}
 
 	persistJobInfo, err := persistClient.InspectJob(ctx, request)
-	fmt.Printf("SSS persist inspect job failed?: %v\n", err)
 	if err != nil {
 		return nil, err
 	}
@@ -559,7 +549,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	jobInfo, err := persistClient.StartPod(ctx, request.Job)
-	fmt.Printf("!!! startJob() got persist job info: %v\n", jobInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -589,8 +578,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			}
 		}
 	}
-	fmt.Printf("!!! strating to construct start commit request\n")
-	/////// SJ - beginning of startcommit logic
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
@@ -604,7 +591,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
-		fmt.Printf("SSS starting commit for job %v w parent commitID %v\n", jobInfo, parentJobInfo.OutputCommit.ID)
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 	}
 
@@ -614,7 +600,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("!!! starting commit via: %v\n", startCommitRequest)
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -628,8 +613,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if err != nil {
 		return nil, err
 	}
-
-	/////// SJ - end of startcommit logic
 
 	podIndex := jobInfo.PodsStarted
 	_, err = persistClient.AddPodCommit(
@@ -646,9 +629,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
-	fmt.Printf("SSS StartJob() - filterNumbers: %v\n", filterNumbers)
 	for i, jobInput := range jobInfo.Inputs {
-		fmt.Printf("SSS mounting input: %v\n", jobInput)
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
 		}
@@ -679,7 +660,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			return nil, fmt.Errorf("unrecognized partition method: %v; this is likely a bug", jobInput.Method.Partition)
 		}
 
-		fmt.Printf("SSS commitMount shard: %v\n", commitMount.Shard)
 		commitMounts = append(commitMounts, commitMount)
 	}
 
@@ -689,7 +669,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 
-	fmt.Printf("SSS Going to inspect commit: %v\n", outputCommitMount.Commit)
 	// If a job has a parent commit, we expose the parent commit
 	// to the job under /pfs/prev
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
@@ -705,7 +684,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		})
 	}
 
-	fmt.Printf("!!! StartJob returning podindex: %v\n", podIndex)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
@@ -726,12 +704,10 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	fmt.Printf("!!! in FinishJob\n")
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("!!! pod success? %v\n", request.Success)
 	var jobInfo *persist.JobInfo
 	if request.Success {
 		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)
@@ -746,7 +722,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// Finish this shard's commit
-	fmt.Printf("!!! Got pod commits: %v, looking for key: %v\n", jobInfo.PodCommits, request.PodIndex)
 	podCommit, ok := jobInfo.PodCommits[strconv.FormatUint(request.PodIndex, 10)]
 	if !ok {
 		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
@@ -755,7 +730,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("!!! Going to finish this commit")
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
 		//		Commit: &pfsclient.Commit{ID: podCommit},
 		Commit: podCommit,
@@ -763,9 +737,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		return nil, err
 	}
 
-	fmt.Printf("!!! FinishJob() has finished the commit %v for the pod %v\n", podCommit, request.PodIndex)
 	// All shards completed, job is finished
-	fmt.Printf("!!! FinishJob(), current Job Info: %v\n", jobInfo)
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
@@ -775,20 +747,10 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
-		/*
-			if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Cancel: failed,
-			}); err != nil {
-				return nil, err
-			}*/
-		// (pfs-refactor) : TODO : need to handle cancelled case
-		// probably need to pass that as an arg to the merge function
 		var commitsToMerge []*pfsclient.Commit
 		for _, podCommit := range jobInfo.PodCommits {
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
-		fmt.Printf("!!! going to merge\n")
 		outputBranch := uuid.NewWithoutDashes()
 		if jobInfo.ParentJob != nil {
 			inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
@@ -809,7 +771,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			ctx,
 			mergeReq,
 		)
-		fmt.Printf("!!! merged\n")
 		if err != nil {
 			return nil, err
 		}
@@ -825,7 +786,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 				Branch: outputBranch,
 			},
 		)
-		fmt.Printf("!!! FinishJob() added output commit\n")
 		if err != nil {
 			return nil, err
 		}
@@ -843,7 +803,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if failed || commitInfo.Cancelled {
 			jobState = ppsclient.JobState_JOB_FAILURE
 		}
-		fmt.Printf("SSS creating job state\n")
 		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
 			State: jobState,
@@ -851,7 +810,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 	}
-	fmt.Printf("SSS finished finishjob()\n")
 	return google_protobuf.EmptyInstance, nil
 }
 
