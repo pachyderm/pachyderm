@@ -1,7 +1,6 @@
 package persist
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -179,10 +178,7 @@ func TestGetClockIntervals(t *testing.T) {
 	}
 	// QUESTION: This case erred before. What do we expect here?
 	rangeList = NewClockRangeList(a, b)
-	fmt.Printf("# of ranges: %v\n", len(rangeList.ranges))
-	fmt.Printf("rnage list: %v\n", rangeList.ranges[0])
-	require.Equal(t, 2, len(rangeList.ranges))
-	require.Equal(t, &ClockRange{Branch: "foo", Left: 0, Right: 2}, rangeList.ranges[0])
-	require.Equal(t, &ClockRange{Branch: "bar", Left: 0, Right: 1}, rangeList.ranges[1])
+	require.Equal(t, 1, len(rangeList.ranges))
+	require.Equal(t, &ClockRange{Branch: "bar", Left: 0, Right: 1}, rangeList.ranges[0])
 
 }
