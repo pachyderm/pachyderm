@@ -15,5 +15,5 @@ echo "Only $(($total - $passing)) more tests to go!"
 
 # Print remaining tests:
 echo "Remaining tests:"
-grep -R "func Test" ./src | grep -v vendor | grep -v "func TestMain" | grep -v "RF("  | cut -f 2 -d " " | cut -f 1 -d "("
+grep -R "func Test" ./src | grep -v vendor | grep -v "func TestMain" | grep -v "RF("  | cut -f 1 -d "("
 
