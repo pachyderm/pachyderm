@@ -1858,6 +1858,7 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Equal(t, "repo test not found", err.Error())
 
 	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	fmt.Printf("TTT create job error: %v\n", err)
 	require.Matches(t, "repo job_.* not found", err.Error())
 
 	_, err = c.InspectJob("blah", true)
