@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestCommandsSimple(t *testing.T) {
+func TestCommandsSimpleRF(t *testing.T) {
 	testRun(
 		t,
 		"ubuntu:14.04",
@@ -21,7 +21,7 @@ func TestCommandsSimple(t *testing.T) {
 	)
 }
 
-func TestCommandsForLoops(t *testing.T) {
+func TestCommandsForLoopsRF(t *testing.T) {
 	testRun(
 		t,
 		"ubuntu:14.04",

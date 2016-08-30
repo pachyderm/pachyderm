@@ -31,7 +31,9 @@ script:
 - make docker-build
 - make clean-launch-dev
 - make launch-dev
+# Now run integration tests:
 - travis_wait go test ./src/server -run=Test.*RF\$
+- go test -v ./src/server/pkg/container
 - ./etc/refactor/progress.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
