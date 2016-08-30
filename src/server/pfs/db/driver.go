@@ -554,7 +554,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
-	rawRepo, err := d.inspectRepo(repo)
+	_, err := d.inspectRepo(commit.Repo)
 	if err != nil {
 		return err
 	}
