@@ -362,7 +362,6 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			Repo: c.Repo.Name,
 		})
 	}
-	fmt.Printf("DDD going to inspect commits for all provenance (%v)\n", provenance)
 	// If any of the commit's provenance is archived, the commit should be archived
 	var archived bool
 	// We compute the complete set of provenance.  That is, the provenance of this
@@ -395,7 +394,6 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		Provenance: _provenance,
 		Archived:   archived,
 	}
-	fmt.Printf("DDD have basic commit skeleton: %v\n", commit)
 	var clockID *persist.ClockID
 	if parentID == "" {
 		if branch == "" {
@@ -478,7 +476,6 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			}
 		}
 	}()
-	fmt.Printf("DDD set clocks for commit too: %v\n", commit)
 	// TODO: what if the program exits here?  There will be an entry in the Clocks
 	// table, but not in the Commits table.  Now you won't be able to create this
 	// commit anymore.
@@ -556,6 +553,11 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
+	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
+	_, err := d.inspectRepo(commit.Repo)
+	if err != nil {
+		return err
+	}
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return err
@@ -633,13 +635,11 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 	}).Update(map[string]interface{}{
 		"Archived": true,
 	})
-	fmt.Printf("query: %s\n", query.String())
 
-	wr, err := query.RunWrite(d.dbClient)
+	_, err := query.RunWrite(d.dbClient)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("updated %d rows\n", wr.Updated)
 
 	d.getTerm(commitTable).GetAll(commitIDs...)
 
@@ -811,7 +811,6 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 		query = query.Changes(gorethink.ChangesOpts{
 			IncludeInitial: true,
 		}).Field("new_val")
-		fmt.Printf("list commit query: %s\n", query.String())
 		cursor, err := query.Run(d.dbClient)
 		if err != nil {
 			return nil, err
@@ -1352,7 +1351,6 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
 	}
-	fmt.Printf("!!! in driver.MergE()\n")
 	if strategy == pfs.MergeStrategy_SQUASH {
 		_repo := &pfs.Repo{
 			Name: repo,
@@ -1662,16 +1660,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	if err != nil {
 		return nil, err
 	}
-
-	//var all []*persist.Diff
-	//cursor2, err := query.Run(d.dbClient)
-	//if err != nil {
-	//return nil, err
-	//}
-	//if err := cursor2.All(&all); err != nil {
-	//return nil, err
-	//}
-	//fmt.Printf("diffs: %v\n", all)
 
 	cursor, err := foldDiffs(query).Run(d.dbClient)
 	if err != nil {

@@ -52,7 +52,6 @@ func do(appEnvObj interface{}) error {
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
 			}
-			fmt.Printf("!!! JOBSHIM - looking for podindex: %v\n", response.PodIndex)
 			// We want to make sure that we only send FinishJob once.
 			// The most bulletproof way would be to check that on server side,
 			// but this is easier.
@@ -90,7 +89,7 @@ func do(appEnvObj interface{}) error {
 					nil,
 					response.CommitMounts,
 					ready,
-					true,
+					response.Transform.Debug,
 				); err != nil {
 					errCh <- err
 				}
