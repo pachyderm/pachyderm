@@ -188,10 +188,6 @@ message ArchiveCommitRequest {
   repeated Commit commits = 1;
 }
 
-message ArchiveCommitRequest {
-  Commit commit = 1;
-}
-
 message InspectCommitRequest {
   Commit commit = 1;
 }
