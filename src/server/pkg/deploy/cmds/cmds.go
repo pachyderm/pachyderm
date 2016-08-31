@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
@@ -14,12 +15,16 @@ import (
 func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string
-	var version string
+	var dev bool
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region [volume-name volume-size-in-GB] | google bucket [volume-name volume-size-in-GB]]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
+			version := version.PrettyPrintVersion(version.Version)
+			if dev {
+				version = ""
+			}
 			if len(args) == 0 {
 				assets.WriteLocalAssets(os.Stdout, uint64(shards), hostPath, version)
 			} else {
@@ -53,6 +58,6 @@ func DeployCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
 	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
-	cmd.Flags().StringVarP(&version, "version", "v", "", "The version of pachd images to use. E.g. v1.0.0-849")
+	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "If true the generated manifest won't use a specific version of pachyderm/pachd.")
 	return cmd
 }
