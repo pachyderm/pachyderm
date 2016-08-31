@@ -115,6 +115,23 @@ func TestInvalidRepoRF(t *testing.T) {
 	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
+func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
+	// This method of calling CreateRepo
+	// is used within pps CreateJob()
+
+	client, _ := getClientAndServer(t)
+	var provenance []*pfsclient.Repo
+	provenance = append(provenance, pclient.NewRepo("bogusABC"))
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       pclient.NewRepo("foo"),
+			Provenance: provenance,
+		},
+	)
+	require.YesError(t, err)
+}
+
 func TestSimpleRF(t *testing.T) {
 	t.Parallel()
 	client, server := getClientAndServer(t)

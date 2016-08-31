@@ -212,6 +212,19 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			for _, input := range request.Inputs {
 				provenance = append(provenance, input.Commit.Repo)
 			}
+			defer func() {
+				if retErr != nil {
+					req := &pfsclient.DeleteRepoRequest{
+						Repo: outputRepo,
+					}
+					_, err := pfsAPIClient.DeleteRepo(ctx, req)
+					if err != nil {
+						protolion.Errorf("could not rollback repo creation %s", err.Error())
+						a.Log(req, nil, err, 0)
+					}
+				}
+			}()
+
 			if _, err := pfsAPIClient.CreateRepo(ctx,
 				&pfsclient.CreateRepoRequest{
 					Repo:       outputRepo,
