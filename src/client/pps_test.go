@@ -24,9 +24,8 @@ func Example_pps() {
 		[]string{"map"},        // the command run in your docker image
 		nil,                    // no stdin
 		&pps.ParallelismSpec{
-			Strategy: &pps.ParallelismSpec_NumWorkers{
-				NumWorkers: 0, // let pachyderm decide the parallelism
-			},
+			Strategy:    pps.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1.0,
 		},
 		[]*pps.PipelineInput{
 			// map over "repo"
@@ -42,9 +41,8 @@ func Example_pps() {
 		[]string{"reduce"},     // the command run in your docker image
 		nil,                    // no stdin
 		&pps.ParallelismSpec{
-			Strategy: &pps.ParallelismSpec_NumWorkers{
-				NumWorkers: 0, // let pachyderm decide the parallelism
-			},
+			Strategy:    pps.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1.0,
 		},
 		[]*pps.PipelineInput{
 			// reduce over "map"

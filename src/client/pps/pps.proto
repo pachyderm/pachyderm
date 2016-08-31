@@ -65,17 +65,28 @@ message JobInput {
 }
 
 message ParallelismSpec {
-  oneof strategy {
-    // If set, this pachyderm job creates exactly 'num_workers' workers
-    uint64 num_workers = 1;
-
-    // If set, the number of workers created is 'coefficient' * N, where N
-    // is the number of nodes in the kubernetes cluster. For example, if each
-    // node in the cluster has 4 CPUs, you might set 'coefficient' to 4, so that
-    // each worker gets exactly one CPU. If you want to reserve half the nodes
-    // in your cluster for other tasks, you might set 'coefficient' to 0.5.
-    float coefficient = 2;
+  // Which Parallelism strategy to use. Depending on the value of
+  // 'strategy', other messages in the spec will or will not be set.
+  enum Strategy {
+    UNDEFINED = 0;
+    CONSTANT = 1;
+    COEFFICIENT = 2;
   }
+  Strategy strategy = 1;
+
+  // If 'strategy' is set to CONSTANT, then the pipeline will start up
+  // with a constant, pre-determined number of workers.
+  uint64 constant = 2;
+
+  // If 'strategy' is set to COEFFICIENT, then the pipeline starts up with a
+  // number of workers equal to 'coefficient' * N, where N is the number of
+  // nodes in the kubernetes cluster.
+  //
+  // For example, if each node in the cluster has 4 CPUs, you might set
+  // 'coefficient' to 4, so that each worker gets exactly one CPU. If you want
+  // to reserve half the nodes in your cluster for other tasks, you might set
+  // 'coefficient' to 0.5.
+  float coefficient = 3;
 }
 
 message JobInfo {

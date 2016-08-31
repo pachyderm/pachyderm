@@ -503,7 +503,12 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 		return nil, err
 	}
 
-	var jobInfo persist.JobInfo
+	jobInfo := persist.JobInfo{
+		ParallelismSpec: &ppsclient.ParallelismSpec{
+			Strategy:    ppsclient.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1,
+		},
+	}
 	success := cursor.Next(&jobInfo)
 	if !success {
 		return nil, cursor.Err()

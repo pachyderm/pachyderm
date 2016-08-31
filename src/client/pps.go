@@ -111,9 +111,8 @@ func (c APIClient) CreateJob(
 				Stdin: stdin,
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: &pps.ParallelismSpec_NumWorkers{
-					NumWorkers: parallelism,
-				},
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: parallelism,
 			},
 			Inputs:    inputs,
 			ParentJob: parentJob,

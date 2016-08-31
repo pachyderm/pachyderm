@@ -103,6 +103,19 @@ func (inputs JobInputs) Swap(i, j int) {
 	inputs[i], inputs[j] = inputs[j], inputs[i]
 }
 
+// TODO(msteffen): Use new ParallelismSpec API. Previously, parallelism == 0
+// meant "use |kubernetes nodes| workers", but now it might be a multiple. In
+// effect, this only supports Coefficient == 1.
+//
+// This is only exported for testing purposes
+func GetExpectedNumWorkers(spec ppsclient.ParallelismSpec) uint64 {
+	if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
+		return spec.Constant
+	} else {
+		return 0
+	}
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -137,8 +150,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 	}
 
-	// TODO(msteffen) Fix this to use new API
-	if request.ParallelismSpec.GetNumWorkers() == 0 {
+	if request.ParallelismSpec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
+		// TODO(msteffen): Use new ParallelismSpec API
+		if request.ParallelismSpec.Coefficient != 1.0 {
+			return nil, fmt.Errorf("Unsupported: coefficient != 1. Currently only coefficient == 1 is supported")
+		}
 		nodeList, err := a.kubeClient.Nodes().List(api.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
@@ -149,9 +165,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 
 		request.ParallelismSpec = &ppsclient.ParallelismSpec{
-			Strategy: &ppsclient.ParallelismSpec_NumWorkers{
-				NumWorkers: uint64(len(nodeList.Items)),
-			},
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(len(nodeList.Items)),
 		}
 	}
 	repoSet := make(map[string]bool)
@@ -269,8 +284,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.ParallelismSpec = request.ParallelismSpec
 	} else {
-		// TODO(msteffen) GetNumWorkers may not be right here
-		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.ParallelismSpec.GetNumWorkers(), repoToFromCommit)
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, GetExpectedNumWorkers(*request.ParallelismSpec), repoToFromCommit)
 		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
@@ -298,9 +312,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 
 		persistJobInfo.ParallelismSpec = &ppsclient.ParallelismSpec{
-			Strategy: &ppsclient.ParallelismSpec_NumWorkers{
-				NumWorkers: product(shardModuli),
-			},
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: product(shardModuli),
 		}
 		persistJobInfo.ShardModuli = shardModuli
 	}
@@ -602,9 +615,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	// TODO(msteffen): NumWorkers may not be right here
-	if jobInfo.PodsStarted > jobInfo.ParallelismSpec.GetNumWorkers() {
-		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, jobInfo.ParallelismSpec.GetNumWorkers()) // TODO(msteffen) GetNumWorkers used here too
+	numWorkers := GetExpectedNumWorkers(*jobInfo.ParallelismSpec)
+	if jobInfo.PodsStarted > numWorkers {
+		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, numWorkers)
 	}
 
 	if jobInfo.Transform == nil {
@@ -733,13 +746,12 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 	}
-	// TODO(msteffen) NumWorkers may not be right here
-	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.ParallelismSpec.GetNumWorkers() {
+	numWorkers := GetExpectedNumWorkers(*jobInfo.ParallelismSpec)
+	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
-		// TODO(msteffen): NumWorkers may not be right here
-		failed := jobInfo.PodsSucceeded != jobInfo.ParallelismSpec.GetNumWorkers()
+		failed := jobInfo.PodsSucceeded != numWorkers
 		pfsAPIClient, err := a.getPfsClient()
 		if err != nil {
 			return nil, err
@@ -1517,8 +1529,7 @@ func RepoNameToEnvString(repoName string) string {
 
 func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
 	labels := labels(jobInfo.JobID)
-	// TODO(msteffen): Fix this
-	parallelism := int32(jobInfo.ParallelismSpec.GetNumWorkers())
+	parallelism := int32(GetExpectedNumWorkers(*jobInfo.ParallelismSpec))
 	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
