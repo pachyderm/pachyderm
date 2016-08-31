@@ -25,6 +25,7 @@ import (
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -39,30 +40,29 @@ var (
 	suite   = "pachyderm"
 )
 
-// NewErrJobNotFound creates a job-not-found error.
-func NewErrJobNotFound(job string) error {
+func newErrJobNotFound(job string) error {
 	return fmt.Errorf("job %v not found", job)
 }
 
-// NewErrPipelineNotFound creates a pipeline-not-found error.
-func NewErrPipelineNotFound(pipeline string) error {
+func newErrPipelineNotFound(pipeline string) error {
 	return fmt.Errorf("pipeline %v not found", pipeline)
 }
 
-// ErrEmptyInput is an input returned for empty inputs.
-type ErrEmptyInput struct {
+func newErrPipelineExists(pipeline string) error {
+	return fmt.Errorf("pipeline %v already exists", pipeline)
+}
+
+type errEmptyInput struct {
 	error
 }
 
-// NewErrEmptyInput creates a new ErrEmptyInput
-func NewErrEmptyInput(commitID string) *ErrEmptyInput {
-	return &ErrEmptyInput{
+func newErrEmptyInput(commitID string) *errEmptyInput {
+	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
 }
 
-// NewErrParentInputsMismatch creates an error for mismatched job parents.
-func NewErrParentInputsMismatch(parent string) error {
+func newErrParentInputsMismatch(parent string) error {
 	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
@@ -104,7 +104,12 @@ func (inputs JobInputs) Swap(i, j int) {
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
+<<<<<<< HEAD
 	fmt.Printf("!!! In CreateJob\n")
+||||||| merged common ancestors
+=======
+	func() { a.Log(request, nil, nil, 0) }()
+>>>>>>> master
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -167,12 +172,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 		// Check that the parent job has the same set of inputs as the current job
 		if len(parentJobInfo.Inputs) != len(request.Inputs) {
-			return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
+			return nil, newErrParentInputsMismatch(parentJobInfo.JobID)
 		}
 
 		for i, input := range request.Inputs {
 			if parentJobInfo.Inputs[i].Commit.Repo.Name != input.Commit.Repo.Name {
-				return nil, NewErrParentInputsMismatch(parentJobInfo.JobID)
+				return nil, newErrParentInputsMismatch(parentJobInfo.JobID)
 			}
 		}
 	}
@@ -233,8 +238,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
 		for i, jobInput := range request.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -260,10 +264,38 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	} else {
 		fmt.Printf("SSS Setting jobInfo parallelism\n")
 		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
-		if err != nil {
+		_, ok := err.(*errEmptyInput)
+		if err != nil && !ok {
 			return nil, err
 		}
+<<<<<<< HEAD
 		fmt.Printf("SSS shardModuli: %v\n", shardModuli)
+||||||| merged common ancestors
+
+=======
+
+		if ok {
+			// If an input is empty, and RunEmpty flag is not set, then we simply
+			// create an empty job and finish the commit.
+			persistJobInfo.State = ppsclient.JobState_JOB_EMPTY
+			_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+				Commit: commit,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return &ppsclient.Job{
+				ID: jobID,
+			}, nil
+		}
+
+>>>>>>> master
 		persistJobInfo.Parallelism = product(shardModuli)
 		fmt.Printf("SSS parallelism %v\n", persistJobInfo.Parallelism)
 		persistJobInfo.ShardModuli = shardModuli
@@ -316,7 +348,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 
 	var shardModuli []uint64
 	var inputSizes []uint64
-	for _, input := range inputs {
+	limitHit := make(map[int]bool)
+	for i, input := range inputs {
 		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: input.Commit,
 		})
@@ -325,14 +358,18 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 		}
 
 		if commitInfo.SizeBytes == 0 {
-			return nil, NewErrEmptyInput(input.Commit.ID)
+			if input.RunEmpty {
+				// An empty input will always have a modulus of 1
+				limitHit[i] = true
+			} else {
+				return nil, newErrEmptyInput(input.Commit.ID)
+			}
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
 		shardModuli = append(shardModuli, 1)
 	}
 
-	limitHit := make(map[int]bool)
 	for product(shardModuli) < parallelism && len(limitHit) < len(inputs) {
 		max := float64(0)
 		modulusIndex := 0
@@ -402,7 +439,10 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 		}
 		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
 		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
-			listFileRequest.FromCommit = parentInputCommit
+			listFileRequest.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentInputCommit,
+				FullFile:   input.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch input.Method.Partition {
@@ -457,6 +497,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 }
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -472,6 +513,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -496,33 +538,28 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 }
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
 	}
 	if len(pods) == 0 {
-		return NewErrJobNotFound(request.Job.ID)
+		return newErrJobNotFound(request.Job.ID)
 	}
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(pods))
 	logs := make([][]byte, len(pods))
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for i, pod := range pods {
 		i := i
 		pod := pod
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
 				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
+				return err
 			}
 			var buffer bytes.Buffer
 			scanner := bufio.NewScanner(bytes.NewBuffer(value))
@@ -530,12 +567,10 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
 			}
 			logs[i] = buffer.Bytes()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	default:
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 	for _, log := range logs {
@@ -547,6 +582,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -583,8 +619,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	repoToParentJobCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		for i, jobInput := range jobInfo.Inputs {
-			if jobInput.Method.Incremental {
-				// input isn't being reduced, do it incrementally
+			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToParentJobCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
 			}
 		}
@@ -658,7 +693,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// repo than our parent.
 			// This means that only the commit that triggered this pipeline will be
 			// done incrementally, the other repos will be shown in full
-			commitMount.FromCommit = parentJobCommit
+			commitMount.DiffMethod = &pfsclient.DiffMethod{
+				FromCommit: parentJobCommit,
+				FullFile:   jobInput.Method != nil && jobInput.Method.Incremental == ppsclient.Incremental_FULL,
+			}
 		}
 
 		switch jobInput.Method.Partition {
@@ -725,6 +763,7 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	fmt.Printf("!!! in FinishJob\n")
 	persistClient, err := a.getPersistClient()
@@ -856,6 +895,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 }
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -893,6 +933,34 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	for _, input := range request.Inputs {
 		provenance = append(provenance, input.Repo)
 	}
+	if !request.Update { // repo exists if it's an update
+		// This function needs to return newErrPipelineExists if the pipeline
+		// already exists
+		if _, err := a.InspectPipeline(
+			ctx,
+			&ppsclient.InspectPipelineRequest{Pipeline: request.Pipeline},
+		); err == nil {
+			return nil, newErrPipelineExists(request.Pipeline.Name)
+		}
+		if _, err := pfsAPIClient.CreateRepo(
+			ctx,
+			&pfsclient.CreateRepoRequest{
+				Repo:       repo,
+				Provenance: provenance,
+			}); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if retErr != nil {
+				// we don't return the error here because the function has
+				// already errored, if this fails there's nothing we can do but
+				// log it
+				if _, err := pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo}); err != nil {
+					protolion.Errorf("error deleting repo %s: %s", repo, err.Error())
+				}
+			}
+		}()
+	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -902,22 +970,72 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
 		State:        ppsclient.PipelineState_PIPELINE_IDLE,
 	}
-	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
-		if alreadyExists := strings.Contains(err.Error(), "Duplicate primary key `PipelineName`"); alreadyExists {
-			err = fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+	if !request.Update {
+		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+			if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
+				return nil, fmt.Errorf("pipeline %v already exists", request.Pipeline.Name)
+			}
 		}
-		return nil, err
-	}
-	if _, err := pfsAPIClient.CreateRepo(
-		ctx,
-		&pfsclient.CreateRepoRequest{
-			Repo:       repo,
-			Provenance: provenance,
-		}); err != nil {
-		if _, err := persistClient.DeletePipelineInfo(ctx, &ppsclient.Pipeline{Name: request.Pipeline.Name}); err != nil {
-			return nil, fmt.Errorf("could not delete PipelineInfo, this is likely a bug: %v\n", err)
+	} else {
+		if !request.NoArchive {
+			if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+				return nil, err
+			}
+			// archive the existing commits from the pipeline
+			commitInfos, err := pfsAPIClient.ListCommit(
+				ctx,
+				&pfsclient.ListCommitRequest{
+					Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
+				})
+			if err != nil {
+				return nil, err
+			}
+			for _, commitInfo := range commitInfos.CommitInfo {
+				_, err := pfsAPIClient.ArchiveCommit(
+					ctx,
+					&pfsclient.ArchiveCommitRequest{
+						Commit: commitInfo.Commit,
+					})
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
-		return nil, err
+		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+			return nil, err
+		}
+		if !request.NoArchive {
+			// Downstream pipelines need to be restarted as well so that they know
+			// there's new stuff to process.
+			repoInfos, err := pfsAPIClient.ListRepo(
+				ctx,
+				&pfsclient.ListRepoRequest{
+					Provenance: []*pfsclient.Repo{client.NewRepo(request.Pipeline.Name)},
+				})
+			if err != nil {
+				return nil, err
+			}
+			var eg errgroup.Group
+			for _, repoInfo := range repoInfos.RepoInfo {
+				repoInfo := repoInfo
+				eg.Go(func() error {
+					// here we use the fact that pipelines have the same names as their output repos
+					request := &persist.UpdatePipelineStoppedRequest{PipelineName: repoInfo.Repo.Name}
+					request.Stopped = true
+					if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+						return err
+					}
+					request.Stopped = false
+					if _, err := persistClient.UpdatePipelineStopped(ctx, request); err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+			if err := eg.Wait(); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return google_protobuf.EmptyInstance, nil
 }
@@ -943,6 +1061,7 @@ func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -957,6 +1076,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 }
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -977,6 +1097,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
@@ -984,7 +1105,48 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *google_protobuf.Empty, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	_, err = persistClient.UpdatePipelineStopped(ctx, &persist.UpdatePipelineStoppedRequest{
+		PipelineName: request.Pipeline.Name,
+		Stopped:      false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return persistClient.BlockPipelineState(ctx, &persist.BlockPipelineStateRequest{
+		PipelineName: request.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
+	})
+}
+
+func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *google_protobuf.Empty, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	_, err = persistClient.UpdatePipelineStopped(ctx, &persist.UpdatePipelineStoppedRequest{
+		PipelineName: request.Pipeline.Name,
+		Stopped:      true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return persistClient.BlockPipelineState(ctx, &persist.BlockPipelineStateRequest{
+		PipelineName: request.Pipeline.Name,
+		State:        ppsclient.PipelineState_PIPELINE_STOPPED,
+	})
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1012,14 +1174,32 @@ func (a *apiServer) Version(version int64) error {
 	return nil
 }
 
+func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.cancelFuncsLock.Lock()
+	defer a.cancelFuncsLock.Unlock()
+	a.cancelFuncs[pipelineName] = cancel
+	return ctx
+}
+
+func (a *apiServer) cancelPipeline(pipelineName string) {
+	a.cancelFuncsLock.Lock()
+	defer a.cancelFuncsLock.Unlock()
+	cancel, ok := a.cancelFuncs[pipelineName]
+	if ok {
+		cancel()
+		delete(a.cancelFuncs, pipelineName)
+	} else {
+		protolion.Errorf("trying to cancel a pipeline %s which has not been started; this is likely a bug", pipelineName)
+	}
+}
+
 func (a *apiServer) AddShard(shard uint64) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return err
 	}
-
 	ctx, cancel := context.WithCancel(context.Background())
-
 	a.shardCancelFuncsLock.Lock()
 	defer a.shardCancelFuncsLock.Unlock()
 	if _, ok := a.shardCancelFuncs[shard]; ok {
@@ -1039,31 +1219,28 @@ func (a *apiServer) AddShard(shard uint64) error {
 		for {
 			pipelineChange, err := client.Recv()
 			if err != nil {
+				protolion.Errorf("error from receive: %s", err.Error())
 				return
 			}
 			pipelineName := pipelineChange.Pipeline.PipelineName
 
-			if pipelineChange.Removed {
-				a.cancelFuncsLock.Lock()
-				cancel, ok := a.cancelFuncs[pipelineName]
-				if ok {
-					cancel()
-					delete(a.cancelFuncs, pipelineName)
-				} else {
-					protolion.Printf("trying to cancel a pipeline that has not been started; this is likely a bug")
-				}
-				a.cancelFuncsLock.Unlock()
-			} else {
-				a.cancelFuncsLock.Lock()
-				pipelineCtx, cancel := context.WithCancel(ctx)
-				if _, ok := a.cancelFuncs[pipelineName]; ok {
-					a.cancelFuncsLock.Unlock()
+			switch pipelineChange.Type {
+			case persist.ChangeType_DELETE:
+				a.cancelPipeline(pipelineName)
+			case persist.ChangeType_UPDATE:
+				a.cancelPipeline(pipelineName)
+				fallthrough
+			case persist.ChangeType_CREATE:
+				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
+				if pipelineChange.Pipeline.Stopped {
+					if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+						PipelineName: pipelineName,
+						State:        ppsclient.PipelineState_PIPELINE_STOPPED,
+					}); err != nil {
+						protolion.Errorf("error updating pipeline state: %v", err)
+					}
 					continue
 				}
-				a.cancelFuncs[pipelineName] = cancel
-				a.cancelFuncsLock.Unlock()
-				// We only want to start a goro to run the pipeline if the
-				// pipeline has more than one inputs
 				go func() {
 					b := backoff.NewExponentialBackOff()
 					// We set MaxElapsedTime to 0 because we want the retry to
@@ -1106,7 +1283,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 			}
 		}
 	}()
-
 	return nil
 }
 
@@ -1148,7 +1324,6 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		// this pipeline does not have inputs; there is nothing to be done
 		return nil
 	}
-	protolion.Infof("running pipeline %s", pipelineInfo.Pipeline.Name)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1244,8 +1419,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParentJob:   parentJob,
 					},
 				)
-				_, ok := err.(*ErrEmptyInput)
-				if err != nil && !ok {
+				if err != nil {
 					return err
 				}
 			}
@@ -1303,7 +1477,8 @@ func inputsAreParental(
 	sort.Sort(JobInputs(parentTrueInputs))
 	for i, trueInput := range trueInputs {
 		parentTrueInput := parentTrueInputs[i]
-		if trueInput.Commit.ID != parentTrueInput.Commit.ID && !trueInput.Method.Incremental {
+		if trueInput.Commit.ID != parentTrueInput.Commit.ID &&
+			trueInput.Method.Incremental == ppsclient.Incremental_NONE {
 			return false, nil
 		}
 	}
@@ -1369,8 +1544,9 @@ func (a *apiServer) trueInputs(
 		if ok {
 			result = append(result,
 				&ppsclient.JobInput{
-					Commit: commit,
-					Method: pipelineInput.Method,
+					Commit:   commit,
+					Method:   pipelineInput.Method,
+					RunEmpty: pipelineInput.RunEmpty,
 				})
 		}
 	}
@@ -1395,8 +1571,9 @@ func (a *apiServer) trueInputs(
 		if ok {
 			result = append(result,
 				&ppsclient.JobInput{
-					Commit: commitInfo.Commit,
-					Method: pipelineInput.Method,
+					Commit:   commitInfo.Commit,
+					Method:   pipelineInput.Method,
+					RunEmpty: pipelineInput.RunEmpty,
 				})
 		}
 	}
@@ -1477,6 +1654,32 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 			},
 		)
 	}
+	for name, value := range jobInfo.Transform.Env {
+		jobEnv = append(
+			jobEnv,
+			api.EnvVar{
+				Name:  name,
+				Value: value,
+			},
+		)
+	}
+
+	var volumes []api.Volume
+	var volumeMounts []api.VolumeMount
+	for _, secret := range jobInfo.Transform.Secrets {
+		volumes = append(volumes, api.Volume{
+			Name: secret.Name,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: secret.Name,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      secret.Name,
+			MountPath: secret.MountPath,
+		})
+	}
 
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
@@ -1510,9 +1713,11 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 							},
 							ImagePullPolicy: "IfNotPresent",
 							Env:             jobEnv,
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",
+					Volumes:       volumes,
 				},
 			},
 		},
@@ -1551,26 +1756,17 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 				// we don't return on failure here because jobs may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
 				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
 			}
-			pods, err := a.jobPods(client.NewJob(jobInfo.JobID))
-			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-			}
+			pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 			for _, pod := range pods {
 				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
 					// we don't return on failure here because pods may get deleted
@@ -1579,13 +1775,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
 				}
 			}
-		}()
+			return jobPodsErr
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
-	default:
 	}
 
 	// The reason we need to do this, is that if we don't, then if the very same

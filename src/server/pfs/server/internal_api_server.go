@@ -3,9 +3,10 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"go.pedge.io/pb/go/google/protobuf"
@@ -16,8 +17,6 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 )
 
@@ -25,117 +24,64 @@ var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
-type internalAPIServer struct {
+type APIServer struct {
 	protorpclog.Logger
-	hasher *pfsserver.Hasher
-	router shard.Router
 	driver drive.Driver
 }
 
-func newInternalAPIServer(
-	hasher *pfsserver.Hasher,
-	router shard.Router,
-	driver drive.Driver,
-) *internalAPIServer {
-	return &internalAPIServer{
+func newAPIServer(driver drive.Driver) *internalAPIServer {
+	return &APIServer{
 		Logger: protorpclog.NewLogger("pachyderm.pfsserver.InternalAPI"),
-		hasher: hasher,
-		router: router,
 		driver: driver,
 	}
 }
 
 func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.CreateRepo(request.Repo, request.Created, request.Provenance, shards); err != nil {
+	if err := a.driver.CreateRepo(request.Repo, request.Created, request.Provenance, nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	return a.driver.InspectRepo(request.Repo, shards)
+	return a.driver.InspectRepo(request.Repo, nil)
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	repoInfos, err := a.driver.ListRepo(request.Provenance, shards)
+	repoInfos, err := a.driver.ListRepo(request.Provenance, nil)
 	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 }
 
 func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
+	err := a.driver.DeleteRepo(request.Repo, nil, request.Force)
 	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-
-	err = a.driver.DeleteRepo(request.Repo, shards, request.Force)
-	_, ok := err.(*pfsserver.ErrRepoNotFound)
-
-	if err != nil && !ok {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
 	if err := a.driver.StartCommit(request.Repo, request.ID, request.ParentID,
-		request.Branch, request.Started, request.Provenance, shards); err != nil {
+		request.Branch, request.Started, request.Provenance, nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.FinishCommit(request.Commit, request.Finished, request.Cancel, shards); err != nil {
+	if err := a.driver.FinishCommit(request.Commit, request.Finished, request.Cancel, nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -144,45 +90,32 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
+	if err := a.driver.ArchiveCommit(request.Commits, nil); err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.ArchiveCommit(request.Commits, shards); err != nil {
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *internalAPIServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.ArchiveCommit(request.Commit, nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	return a.driver.InspectCommit(request.Commit, shards)
+	return a.driver.InspectCommit(request.Commit, nil)
 }
 
 func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.CommitType,
-		request.FromCommit, request.Provenance, request.Status, shards, request.Block)
+		request.FromCommit, request.Provenance, request.Status, nil, request.Block)
 	if err != nil {
 		return nil, err
 	}
@@ -192,21 +125,15 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 }
 
 func (a *internalAPIServer) Merge(ctx context.Context, request *pfs.MergeRequest) (response *pfs.Commits, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.driver.Merge(request.Repo, request.FromCommits, request.ToBranch, request.Strategy, request.Cancel)
 }
 
 func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	commitInfos, err := a.driver.ListBranch(request.Repo, shards)
+	commitInfos, err := a.driver.ListBranch(request.Repo, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -216,23 +143,16 @@ func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBra
 }
 
 func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
+	if err := a.driver.DeleteCommit(request.Commit, nil); err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.DeleteCommit(request.Commit, shards); err != nil {
-		return nil, err
-	}
-	// TODO push delete to replicas
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	commitInfos, err := a.driver.FlushCommit(request.Commit, request.ToRepo)
 	if err != nil {
@@ -245,6 +165,7 @@ func (a *internalAPIServer) FlushCommit(ctx context.Context, request *pfs.FlushC
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if request != nil {
 			request.Value = nil // we set the value to nil so as not to spam logs
@@ -252,10 +173,6 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 	defer drainFileServer(putFileServer)
-	version, err := a.getVersion(putFileServer.Context())
-	if err != nil {
-		return err
-	}
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
@@ -272,26 +189,47 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 		// ways so we forbid leading slashes.
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	shard, err := a.getMasterShardForFile(request.File, version)
-	if err != nil {
-		return err
-	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
-		if err := a.driver.MakeDirectory(request.File, shard); err != nil {
+		if err := a.driver.MakeDirectory(request.File, nil); err != nil {
 			return err
 		}
 	} else {
-		reader := putFileReader{
-			server: putFileServer,
+		var r io.Reader
+		var delimiter pfs.Delimiter
+		if request.Url != "" {
+			resp, err := http.Get(request.Url)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+			switch resp.Header.Get("Content-Type") {
+			case "application/json":
+				delimiter = pfs.Delimiter_JSON
+			case "application/text":
+				delimiter = pfs.Delimiter_LINE
+			default:
+				delimiter = pfs.Delimiter_NONE
+			}
+		} else {
+			reader := putFileReader{
+				server: putFileServer,
+			}
+			_, err = reader.buffer.Write(request.Value)
+			if err != nil {
+				return err
+			}
+			r = &reader
+			delimiter = request.Delimiter
 		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		if err := a.driver.PutFile(request.File, request.Handle, request.Delimiter, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, delimiter, nil, r); err != nil {
 			return err
 		}
 	}
@@ -299,17 +237,10 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(apiGetFileServer.Context())
-	if err != nil {
-		return err
-	}
-	shard, err := a.getShardForFile(request.File, version)
-	if err != nil {
-		return err
-	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes,
-		request.FromCommit, shard, request.Unsafe, request.Handle)
+		request.DiffMethod, nil, request.Unsafe, request.Handle)
 	if err != nil {
 		return err
 	}
@@ -322,19 +253,13 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shard, err := a.getShardForFile(request.File, version)
-	if err != nil {
-		return nil, err
-	}
-	return a.driver.InspectFile(request.File, request.Shard, request.FromCommit, shard, request.Unsafe, request.Handle)
+	return a.driver.InspectFile(request.File, request.Shard, request.DiffMethod, shard, request.Unsafe, request.Handle)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
 		request.FromCommit, 0, request.Recurse, request.Unsafe, request.Handle)
@@ -347,60 +272,19 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 }
 
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
+	err := a.driver.DeleteFile(request.File, nil, request.Unsafe, request.Handle)
 	if err != nil {
 		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
-	for shard := range shards {
-		shard := shard
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := a.driver.DeleteFile(request.File, shard, request.Unsafe, request.Handle)
-			// We are ignoring ErrFileNotFound because the file being
-			// deleted can be a directory, and directory is scattered
-			// across many DiffInfos across many shards.  Yet not all
-			// shards necessarily contain DiffInfos that contain the
-			// directory, so some of them will report FileNotFound
-			_, ok := err.(*pfsserver.ErrFileNotFound)
-			if err != nil && !ok {
-				select {
-				case errCh <- err:
-					// error reported
-				default:
-					// not the first error
-				}
-				return
-			}
-		}()
-	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
 	}
 	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.DeleteAll(shards); err != nil {
+	if err := a.driver.DeleteAll(nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -409,15 +293,7 @@ func (a *internalAPIServer) DeleteAll(ctx context.Context, request *google_proto
 func (a *internalAPIServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.ArchiveAll(shards); err != nil {
+	if err := a.driver.ArchiveAll(nil); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -429,32 +305,6 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 
 func (a *internalAPIServer) DeleteShard(shard uint64) error {
 	return a.driver.DeleteShard(shard)
-}
-
-func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard := a.hasher.HashFile(file)
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return 0, err
-	}
-	_, ok := shards[shard]
-	if !ok {
-		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
-	}
-	return shard, nil
-}
-
-func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard := a.hasher.HashFile(file)
-	shards, err := a.router.GetShards(version)
-	if err != nil {
-		return 0, err
-	}
-	_, ok := shards[shard]
-	if !ok {
-		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
-	}
-	return shard, nil
 }
 
 type putFileReader struct {

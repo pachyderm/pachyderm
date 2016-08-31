@@ -18,7 +18,7 @@ ifdef VENDOR_ALL
 	VENDOR_IGNORE_DIRS =
 endif
 
-COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
 MANIFEST = etc/kube/pachyderm-versioned.json
 DEV_MANIFEST = etc/kube/pachyderm.json
@@ -96,19 +96,30 @@ release-pachctl:
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
-docker-build-job-shim: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
+docker-clean-job-shim:
+	docker stop job_shim_compile || true
+	docker rm job_shim_compile || true
 
-docker-build-pachd: docker-build-compile
-	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+docker-build-job-shim: docker-clean-job-shim docker-build-compile
+	docker run --name job_shim_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
-docker-build: docker-build-job-shim docker-build-pachd docker-build-fruitstand
+docker-wait-job-shim:
+	docker wait job_shim_compile
+
+docker-clean-pachd:
+	docker stop pachd_compile || true
+	docker rm pachd_compile || true
+
+docker-build-pachd: docker-clean-pachd docker-build-compile
+	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+
+docker-wait-pachd:
+	docker wait pachd_compile
+
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
-
-docker-build-fruitstand:
-	docker build -t fruit_stand examples/fruit_stand
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -159,7 +170,7 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test -v ./src/server -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
@@ -226,7 +237,10 @@ kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
-google-cluster-manifest:
+dev-manifest: install
+	pach-deploy >$(DEV_MANIFEST)
+
+google-cluster-manifest: install
 	@pach-deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
@@ -240,19 +254,35 @@ google-cluster:
 
 clean-google-cluster:
 	gcloud container clusters delete $(CLUSTER_NAME)
+	gcloud compute firewall-rules delete pachd
 	gsutil -m rm -r gs://$(BUCKET_NAME)
 	gcloud compute disks delete $(STORAGE_NAME)
 
-amazon-cluster-manifest:
+amazon-cluster-manifest: install
 	@pach-deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
 	aws ec2 create-volume --size $(STORAGE_SIZE) --region $(AWS_REGION) --availability-zone $(AWS_AVAILABILITY_ZONE) --volume-type gp2
 
-clean-amazon-cluster:
+amazon-clean-cluster:
 	aws s3api delete-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
+	aws ec2 detach-volume --force --volume-id $(STORAGE_NAME)
+	sleep 20
 	aws ec2 delete-volume --volume-id $(STORAGE_NAME)
+
+amazon-clean-launch: clean-launch
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secrets amazon-secret
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
+
+amazon-clean: 
+	@while :; \
+        do if echo "The following script will delete your AWS bucket and volume. The action cannot be undone. Do you want to proceed? (Y/n)";read REPLY; then \
+        case $$REPLY in Y|y) make amazon-clean-launch;make amazon-clean-cluster;break;; \
+	N|n) echo "The amazon clean process has been cancelled by user!";break;; \ 
+	*) echo "input parameter error, please input again ";continue;;esac; \
+        fi;done;
 
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
@@ -261,7 +291,8 @@ assets: install-go-bindata
 	go-bindata -o assets.go -pkg pachyderm doc/
 
 lint:
-	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' |grep -v '\.pb\.go'); do \
+	@go get -u github.com/golang/lint/golint
+	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
 		golint $$file; \
 		if [ -n "$$(golint $$file)" ]; then \
 			echo "golint errors!" && echo && exit 1; \
@@ -318,7 +349,6 @@ clean-launch-rethinkdb:
 	docker-build-pachd \
 	docker-build \
 	docker-build-proto \
-	docker-build-fruitstand \
 	docker-push-job-shim \
 	docker-push-pachd \
 	docker-push \
@@ -349,7 +379,9 @@ clean-launch-rethinkdb:
 	clean-google-cluster \
 	amazon-cluster-manifest \
 	amazon-cluster \
-	clean-amazon-cluster \
+	amazon-clean-cluster \
+	amazon-clean-launch \
+	amazon-clean \
 	install-go-bindata \
 	assets \
 	lint \

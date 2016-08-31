@@ -216,6 +216,7 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.In
 		func(jobInfo gorethink.Term) gorethink.Term {
 			if request.BlockState {
 				return gorethink.Or(
+					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_EMPTY),
 					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_SUCCESS),
 					jobInfo.Field("State").Eq(ppsclient.JobState_JOB_FAILURE))
 			}
@@ -321,6 +322,26 @@ func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *per
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) UpdatePipelineStopped(ctx context.Context, request *persist.UpdatePipelineStoppedRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *persist.BlockPipelineStateRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	pipelineInfo := &persist.PipelineInfo{}
+	if err := a.waitMessageByPrimaryKey(pipelineInfosTable, request.PipelineName, pipelineInfo,
+		func(pipelineInfo gorethink.Term) gorethink.Term {
+			return gorethink.Eq(pipelineInfo.Field("State"), request.State)
+		}); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
@@ -333,7 +354,7 @@ func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protob
 }
 
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
@@ -342,7 +363,18 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return request, nil
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.CreatedAt != nil {
+		return nil, ErrTimestampSet
+	}
+	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {
@@ -422,7 +454,7 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
 	}
 
-	cursor, err := query.Changes(gorethink.ChangesOpts{
+	cursor, err := query.Without("State").Changes(gorethink.ChangesOpts{
 		IncludeInitial: request.IncludeInitial,
 	}).Run(a.session)
 	if err != nil {
@@ -431,14 +463,20 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 
 	var change PipelineChangeFeed
 	for cursor.Next(&change) {
-		if change.NewVal != nil {
+		if change.NewVal != nil && change.OldVal != nil {
 			server.Send(&persist.PipelineInfoChange{
 				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_UPDATE,
+			})
+		} else if change.NewVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_CREATE,
 			})
 		} else if change.OldVal != nil {
 			server.Send(&persist.PipelineInfoChange{
 				Pipeline: change.OldVal,
-				Removed:  true,
+				Type:     persist.ChangeType_DELETE,
 			})
 		} else {
 			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
@@ -534,7 +572,7 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, 
 	if cursor.IsNil() {
 		return fmt.Errorf("%v %v not found", table, key)
 	}
-	if cursor.Next(message) {
+	if !cursor.Next(message) {
 		return cursor.Err()
 	}
 	return nil
