@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
@@ -142,11 +143,11 @@ func TestSimpleRF(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
@@ -155,19 +156,19 @@ func TestSimpleRF(t *testing.T) {
 	err = client.FinishCommit(repo, commit2.ID)
 	require.NoError(t, err)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	// restart the server and make sure data is still there
 	restartServer(server, t)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
@@ -182,7 +183,7 @@ func TestBranchRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
@@ -195,10 +196,10 @@ func TestBranchRF(t *testing.T) {
 	err = client.FinishCommit(repo, "master")
 	require.NoError(t, err)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 	branches, err = client.ListBranch(repo)
 	require.NoError(t, err)
@@ -208,10 +209,10 @@ func TestBranchRF(t *testing.T) {
 	// restart the server and make sure data is still there
 	restartServer(server, t)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 	branches, err = client.ListBranch(repo)
 	require.NoError(t, err)
@@ -234,12 +235,12 @@ func TestDisallowReadsDuringCommitRF(t *testing.T) {
 
 	// Make sure we can't get the file before the commit is finished
 	var buffer bytes.Buffer
-	require.YesError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.YesError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "", buffer.String())
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
 	require.NoError(t, err)
@@ -248,19 +249,19 @@ func TestDisallowReadsDuringCommitRF(t *testing.T) {
 	err = client.FinishCommit(repo, commit2.ID)
 	require.NoError(t, err)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	// restart the server and make sure data is still there
 	restartServer(server, t)
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
@@ -543,7 +544,7 @@ func TestPutFileRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	commit2, err := client.StartCommit(repo, commit1.ID, "")
@@ -570,10 +571,10 @@ func TestPutFileRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit4.ID))
 
 	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", nil, &buffer))
+	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", false, nil, &buffer))
 }
 
 func TestListFileTwoCommitsRF(t *testing.T) {
@@ -605,11 +606,11 @@ func TestListFileTwoCommitsRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))
 
-	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
+	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2*numFiles, len(fileInfos))
 }
@@ -636,7 +637,7 @@ func TestPutSameFileInParallelRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 }
 
@@ -654,7 +655,7 @@ func TestInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	fileInfo, err := client.InspectFile(repo, commit1.ID, "foo", "", nil)
+	fileInfo, err := client.InspectFile(repo, commit1.ID, "foo", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, commit1, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
@@ -663,11 +664,11 @@ func TestInspectFileRF(t *testing.T) {
 	// We inspect the file with two filter shards that have different block
 	// numbers, so that only one of the filter shards should match the file
 	// since the file only contains one block.
-	_, err1 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+	_, err1 := client.InspectFile(repo, commit1.ID, "foo", "", false, &pfsclient.Shard{
 		BlockNumber:  0,
 		BlockModulus: 2,
 	})
-	_, err2 := client.InspectFile(repo, commit1.ID, "foo", "", &pfsclient.Shard{
+	_, err2 := client.InspectFile(repo, commit1.ID, "foo", "", false, &pfsclient.Shard{
 		BlockNumber:  1,
 		BlockModulus: 2,
 	})
@@ -680,13 +681,13 @@ func TestInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo", commit1.ID, nil)
+	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo", commit1.ID, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 
-	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo", "", nil)
+	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
@@ -699,7 +700,7 @@ func TestInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	fileInfos, err := client.ListFile(repo, commit3.ID, "", "", nil, false)
+	fileInfos, err := client.ListFile(repo, commit3.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, len(fileInfos), 2)
 }
@@ -724,13 +725,13 @@ func TestListFileRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	fileInfos, err := client.ListFile(repo, commit.ID, "dir", "", nil, true)
+	fileInfos, err := client.ListFile(repo, commit.ID, "dir", "", false, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
-	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo", "", nil, false)
+	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 	require.True(t, fileInfos[0].File.Path == "/dir/foo")
@@ -761,11 +762,11 @@ func TestDeleteFileRF(t *testing.T) {
 
 	// foo should still be here because we can't remove a file that we are adding
 	// in the same commit
-	_, err = client.InspectFile(repo, commit1.ID, "foo", "", nil)
-	require.YesError(t, err)
+	_, err = client.InspectFile(repo, commit1.ID, "foo", "", false, nil)
+	require.NoError(t, err)
 
-	// Should see one files
-	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
+	// Should see one file
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -775,7 +776,7 @@ func TestDeleteFileRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	// Should still see one files
-	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", nil, false)
+	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -785,13 +786,12 @@ func TestDeleteFileRF(t *testing.T) {
 	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar", false, ""))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	// Should see one file
-	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", nil, false)
+	// Should see no file
+	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
-	// The removed file should not exist
-	_, err = client.InspectFile(repo, commit3.ID, "bar", "", nil)
+	_, err = client.InspectFile(repo, commit3.ID, "bar", "", false, nil)
 	require.YesError(t, err)
 }
 
@@ -811,10 +811,10 @@ func TestInspectDirRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	_, err = client.InspectFile(repo, commit1.ID, "dir/foo", "", nil)
+	_, err = client.InspectFile(repo, commit1.ID, "dir/foo", "", false, nil)
 	require.NoError(t, err)
 
-	_, err = client.InspectFile(repo, commit1.ID, "dir", "", nil)
+	_, err = client.InspectFile(repo, commit1.ID, "dir", "", false, nil)
 	require.NoError(t, err)
 
 	// This is a limitation in our system: we cannot inspect .
@@ -822,7 +822,7 @@ func TestInspectDirRF(t *testing.T) {
 	// In order to be able to inspect the root directory, we have to have each
 	// PutFile send a concurrent request to create an entry for ".", which is
 	// a price we are not willing to pay.
-	_, err = client.InspectFile(repo, commit1.ID, "", "", nil)
+	_, err = client.InspectFile(repo, commit1.ID, "", "", false, nil)
 	require.YesError(t, err)
 }
 
@@ -847,12 +847,12 @@ func TestDeleteDirRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", nil, false)
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
 	// dir should not exist
-	_, err = client.InspectFile(repo, commit1.ID, "dir", "", nil)
+	_, err = client.InspectFile(repo, commit1.ID, "dir", "", false, nil)
 	require.YesError(t, err)
 
 	// Commit 2: Delete the directory and add the same two files
@@ -869,16 +869,16 @@ func TestDeleteDirRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	// Should see two files
-	fileInfos, err = client.ListFile(repo, commit2.ID, "dir", "", nil, false)
+	fileInfos, err = client.ListFile(repo, commit2.ID, "dir", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo2", buffer.String())
 
 	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/bar", 0, 0, "", nil, &buffer2))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/bar", 0, 0, "", false, nil, &buffer2))
 	require.Equal(t, "bar2", buffer2.String())
 
 	// Commit 3: delete the directory
@@ -890,7 +890,7 @@ func TestDeleteDirRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see zero files
-	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", nil, false)
+	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
@@ -913,14 +913,14 @@ func TestListCommitRF(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, pfsclient.CommitStatus_NORMAL, nil)
+		_, err = client.ListCommit([]string{repo}, []string{commit.ID}, pclient.CommitTypeNone, true, pclient.CommitStatusNormal, nil)
 		close(ch)
 	}()
 
@@ -948,10 +948,10 @@ func TestListCommitRF(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusAll, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[0].Commit)
@@ -971,7 +971,7 @@ func TestOffsetReadRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, "master", "foo", int64(len(fileData)*2)+1, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master", "foo", int64(len(fileData)*2)+1, 0, "", false, nil, &buffer))
 	require.Equal(t, "", buffer.String())
 }
 
@@ -992,25 +992,25 @@ func TestUnsafeOperationsRF(t *testing.T) {
 
 	// A safe read should not be able to see the file
 	var buffer bytes.Buffer
-	require.YesError(t, client.GetFile(repo, "master", "foo", 0, 0, "", nil, &buffer))
+	require.YesError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 
 	// An unsafe read should
 	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", nil, "", &buffer2))
+	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", false, nil, "", &buffer2))
 	require.Equal(t, "foo", buffer2.String())
 
-	fileInfo, err := client.InspectFile(repo, "master", "foo", "", nil)
+	fileInfo, err := client.InspectFile(repo, "master", "foo", "", false, nil)
 	require.YesError(t, err)
 
-	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", nil, "")
+	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", false, nil, "")
 	require.NoError(t, err)
 	require.Equal(t, 3, int(fileInfo.SizeBytes))
 
-	fileInfos, err := client.ListFile(repo, "master", "", "", nil, true)
+	fileInfos, err := client.ListFile(repo, "master", "", "", false, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
-	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", nil, true, "")
+	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", false, nil, true, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -1128,7 +1128,7 @@ func TestHandleRaceRF(t *testing.T) {
 	require.NoError(t, writer1.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.EqualOneOf(t, []interface{}{"foofoobar", "barfoofoo"}, buffer.String())
 }
 
@@ -1143,13 +1143,13 @@ func Test0ModulusRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 	zeroModulusShard := &pfsclient.Shard{}
-	fileInfo, err := client.InspectFile(repo, commit.ID, "foo", "", zeroModulusShard)
+	fileInfo, err := client.InspectFile(repo, commit.ID, "foo", "", false, zeroModulusShard)
 	require.NoError(t, err)
 	require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", zeroModulusShard, &buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, "", false, zeroModulusShard, &buffer))
 	require.Equal(t, 4, buffer.Len())
-	fileInfos, err := client.ListFile(repo, commit.ID, "", "", zeroModulusShard, false)
+	fileInfos, err := client.ListFile(repo, commit.ID, "", "", false, zeroModulusShard, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
@@ -1454,7 +1454,7 @@ func TestShardingInTopLevelRF(t *testing.T) {
 			// You should either see all files in the folder (if the folder
 			// matches the shard), or a NotFound error (if the folder does not
 			// match the shard).
-			fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", shard, false)
+			fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", false, shard, false)
 			require.True(t, err != nil || len(fileInfos) == filesPerFolder)
 			totalFiles += len(fileInfos)
 		}
@@ -1474,7 +1474,7 @@ func TestCreateRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
-	_, err = client.InspectFileUnsafe(repo, commit.ID, "foo", "", nil, "handle")
+	_, err = client.InspectFileUnsafe(repo, commit.ID, "foo", "", false, nil, "handle")
 	require.NoError(t, err)
 }
 
@@ -1491,9 +1491,9 @@ func TestGetFileInvalidCommitRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", false, nil, &buffer)
 	require.YesError(t, err)
 
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
@@ -1513,7 +1513,7 @@ func TestScrubbedErrorStringsRF(t *testing.T) {
 	_, err = client.StartCommit("zzzzz", "", "")
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
-	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, pfsclient.CommitStatus_ALL, []*pfsclient.Commit{})
+	_, err = client.ListCommit([]string{"zzzzz"}, []string{}, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.InspectRepo("bogusrepo")
@@ -1545,7 +1545,7 @@ func TestScrubbedErrorStringsRF(t *testing.T) {
 	_, err = client.ListBranch("blah")
 	require.Equal(t, "repo blah not found", err.Error())
 
-	_, err = client.InspectFile(repo, commit1.ID, "file", "", nil)
+	_, err = client.InspectFile(repo, commit1.ID, "file", "", false, nil)
 	require.Equal(t, fmt.Sprintf("file file not found in repo %v at commit %v", repo, commit1.ID), err.Error())
 
 	err = client.MakeDirectory(repo, "sdf", "foo")
@@ -1554,9 +1554,9 @@ func TestScrubbedErrorStringsRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", nil, &buffer)
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, "", false, nil, &buffer)
 	require.YesError(t, err)
 
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
@@ -1606,7 +1606,7 @@ func TestATonOfPutsRF(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, string(expectedOutput), buffer.String())
 }
 
@@ -1639,7 +1639,7 @@ func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 
 	// Make sure all the content is there
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, len(expectedOutput), buffer.Len())
 	require.Equal(t, string(expectedOutput), buffer.String())
 
@@ -1652,7 +1652,7 @@ func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 		}
 
 		buffer.Reset()
-		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, blockFilter, &buffer) != nil {
 			continue
 		}
 
@@ -1709,7 +1709,7 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 
 	// Make sure all the content is there
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 	require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
 
@@ -1723,7 +1723,7 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 		}
 
 		buffer.Reset()
-		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", blockFilter, &buffer) != nil {
+		if client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, blockFilter, &buffer) != nil {
 			continue
 		}
 
@@ -1736,6 +1736,160 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 		require.EqualOneOf(t, blockLengths, buffer.Len())
 	}
 
+}
+
+func TestPutFileNullCharacter(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n"))
+	// null characters error because when you `ls` files with null characters
+	// they truncate things after the null character leading to strange results
+	require.YesError(t, err)
+}
+
+func TestArchiveCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo1 := "TestArchiveCommit1"
+	repo2 := "TestArchiveCommit2"
+	require.NoError(t, client.CreateRepo(repo1))
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Repo{{repo1}},
+		})
+	require.NoError(t, err)
+
+	// create a commit on repo1
+	commit1, err := client.StartCommit(repo1, "", "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, commit1.ID))
+	// create a commit on repo2 with the previous commit as provenance
+	commit2, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit2.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
+
+	commitInfos, err := client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	require.NoError(t, client.ArchiveCommit(repo1, commit1.ID))
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+
+	// commits whose provenance has been archived should be archived on creation
+	commit3, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       &pfsclient.Repo{repo2},
+			Provenance: []*pfsclient.Commit{commit1},
+		})
+	require.NoError(t, err)
+	_, err = client.PutFile(repo2, commit3.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
+	// there should still be no commits to list
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
+func TestPutFileURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := getClientAndServer(t)
+	repo := "TestPutFileURL"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL(repo, "master", "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	fileInfo, err := c.InspectFile(repo, "master", "readme", "", false, nil)
+	require.NoError(t, err)
+	require.True(t, fileInfo.SizeBytes > 0)
+}
+
+func TestArchiveAll(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	numRepos := 10
+	var repoNames []string
+	for i := 0; i < numRepos; i++ {
+		repo := fmt.Sprintf("repo%d", i)
+		require.NoError(t, client.CreateRepo(repo))
+		repoNames = append(repoNames, repo)
+
+		commit1, err := client.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("aaa\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("bbb\n"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	}
+
+	commitInfos, err := client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, numRepos, len(commitInfos))
+
+	err = client.ArchiveAll()
+	require.NoError(t, err)
+
+	repoInfos, err := client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, numRepos, len(repoInfos))
+
+	commitInfos, err = client.ListCommit(repoNames, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
+func TestBigListFile(t *testing.T) {
+	t.Skip("test fails, unskip when pfs refactor is done")
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+
+	repo := "TestBigListFile"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	var eg errgroup.Group
+	for i := 0; i < 25; i++ {
+		for j := 0; j < 25; j++ {
+			eg.Go(func() error {
+				_, err = client.PutFile(repo, "master", fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+				return err
+			})
+		}
+	}
+	require.NoError(t, eg.Wait())
+	require.NoError(t, client.FinishCommit(repo, "master"))
+	for i := 0; i < 25; i++ {
+		files, err := client.ListFile(repo, "master", fmt.Sprintf("dir%d", i), "", false, nil, false)
+		require.NoError(t, err)
+		require.Equal(t, 25, len(files))
+	}
 }
 
 func generateRandomString(n int) string {

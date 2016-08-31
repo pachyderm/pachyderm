@@ -39,9 +39,9 @@ message JobOutput {
 }
 
 message JobState {
-	string job_id = 1;
-	pps.JobState state = 2;
-    google.protobuf.Timestamp finished = 3; // set when state == FINISHED
+  string job_id = 1;
+  pps.JobState state = 2;
+  google.protobuf.Timestamp finished = 3; // set when state == FINISHED
 }
 
 message AddPodCommitRequest {
@@ -67,11 +67,18 @@ message PipelineInfo {
   pps.PipelineState state = 8;
   string recent_error = 9;
   map<int32, int32> job_counts = 10;
+  bool stopped = 11;
+}
+
+enum ChangeType {
+  CREATE = 0;
+  UPDATE = 1;
+  DELETE = 2;
 }
 
 message PipelineInfoChange {
   PipelineInfo pipeline = 1;
-  bool removed = 2;
+  ChangeType type = 2;
 }
 
 message PipelineInfos {
@@ -91,6 +98,16 @@ message UpdatePipelineStateRequest {
   string pipeline_name = 1;
   pps.PipelineState state = 2;
   string recent_error = 3;
+}
+
+message UpdatePipelineStoppedRequest {
+  string pipeline_name = 1;
+  bool stopped = 2;
+}
+
+message BlockPipelineStateRequest {
+  string pipeline_name = 1;
+  pps.PipelineState state = 2;
 }
 
 // As in, sharding
@@ -125,13 +142,16 @@ service API {
   rpc AddOutputCommit(AddOutputCommitRequest) returns (google.protobuf.Empty) {}
 
   // Pipeline rpcs
-  rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
+  rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
+  rpc UpdatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
   rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
+  rpc UpdatePipelineStopped(UpdatePipelineStoppedRequest) returns (google.protobuf.Empty) {}
+  rpc BlockPipelineState(BlockPipelineStateRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}

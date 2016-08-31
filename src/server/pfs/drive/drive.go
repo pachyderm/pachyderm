@@ -5,11 +5,17 @@ package drive
 
 import (
 	"io"
+	"strings"
 
 	"go.pedge.io/pb/go/google/protobuf"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
+
+// IsPermissionError returns true if a given error is a permission error.
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already been finished")
+}
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
@@ -29,9 +35,9 @@ type Driver interface {
 	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, shard uint64, reader io.Reader) error
 	MakeDirectory(file *pfs.File, shard uint64) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-		size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error)
-	InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
+		size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error)
+	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error
 	DeleteAll(shards map[uint64]bool) error
 	ArchiveAll(shards map[uint64]bool) error
@@ -72,9 +78,4 @@ type PfsRefactorDriver interface {
 	Squash(from []*pfs.Commit, to *pfs.Commit) error
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 	Dump()
-}
-
-// NewDriver creates a Driver.
-func NewDriver(blockAddress string) (Driver, error) {
-	return newDriver(blockAddress)
 }
