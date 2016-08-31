@@ -1873,6 +1873,29 @@ func TestScrubbedErrorsRF(t *testing.T) {
 	require.Equal(t, "job bogusJobId not found", err.Error())
 }
 
+func TestLeakingRepo(t *testing.T) {
+	// If CreateJob fails, it should also destroy the output repo it creates
+	// If it doesn't, it can cause flush commit to fail, as a bogus repo will
+	// be listed in the output repo's provenance
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+
+	_, err = c.CreateJob("bogusImage", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	require.Matches(t, "commit bogusCommit not found in repo bogusRepo", err.Error())
+
+	repoInfos, err = c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+}
+
 func TestAcceptReturnCodeRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
