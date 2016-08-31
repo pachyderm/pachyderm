@@ -23,7 +23,9 @@ if [ -z ${PROFILE} ]
 then
     docker-compose build ${BINARY}
     docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
+else
+    cd _tmp
+    tar cf - ${BINARY}
 fi
 
-tar cf - _tmp/${BINARY}
 
