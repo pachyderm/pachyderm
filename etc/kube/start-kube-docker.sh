@@ -8,12 +8,12 @@ docker run \
     --volume=/sys:/sys:ro \
     --volume=/dev:/dev \
     --volume=/var/lib/docker/:/var/lib/docker:rw \
-    --volume=/var/lib/kubelet/:/var/lib/kubelet:rw \
+    --volume=/var/lib/kubelet/:/var/lib/kubelet:rw,shared \
     --volume=/var/run:/var/run:rw \
     --net=host \
     --pid=host \
     --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.2.2 \
+    gcr.io/google_containers/hyperkube:v1.3.5 \
     /hyperkube kubelet \
         --containerized \
         --hostname-override="127.0.0.1" \

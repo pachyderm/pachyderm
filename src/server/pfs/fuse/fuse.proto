@@ -7,9 +7,10 @@ package fuse;
 
 message CommitMount {
     pfs.Commit commit = 1;
-    pfs.Commit from_commit = 2;
-    string alias = 3;
-	pfs.Shard shard = 4;
+    pfs.DiffMethod diff_method = 2;
+    bool full_file = 3;
+    string alias = 4;
+    pfs.Shard shard = 5;
 }
 
 message Filesystem {

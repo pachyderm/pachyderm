@@ -3,7 +3,6 @@
     "name": "filter"
   },
   "transform": {
-    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
         "for fruit in apple orange banana; do",
@@ -26,7 +25,6 @@
     "name": "sum"
   },
   "transform": {
-    "image": "fruit_stand",
     "cmd": [ "sh" ],
     "stdin": [
         "for fruit in apple orange banana; do",
@@ -42,7 +40,7 @@
       },
       "method": {
         "partition": "file",
-        "incremental": true
+        "incremental": "DIFF"
       }
     }
   ]

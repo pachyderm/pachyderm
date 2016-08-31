@@ -180,6 +180,7 @@ func (w *worker) work(c *client.APIClient) error {
 			w.grepCmd(inputs, outFilename),
 			1,
 			pipelineInputs,
+			false,
 		); err != nil {
 			return err
 		}
