@@ -46,22 +46,27 @@ func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) { // S
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
-	return newObjBlockAPIServer(dir, objClient)
+func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
-func NewBlockAPIServer(dir string, backend string) (pfsclient.BlockAPIServer, error) {
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.BlockAPIServer, error) {
 	switch backend {
 	case AmazonBackendEnvVar:
-		blockAPIServer, err := newAmazonBlockAPIServer(dir)
+		// amazon doesn't like leading slashes
+		if dir[0] == '/' {
+			dir = dir[1:]
+		}
+		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case GoogleBackendEnvVar:
-		blockAPIServer, err := newGoogleBlockAPIServer(dir)
+		// TODO figure out if google likes leading slashses
+		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes)
 		if err != nil {
 			return nil, err
 		}

@@ -9,7 +9,9 @@ Create a new pipeline from a spec
 
 # Pipeline Specification
 
-## Format
+This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](./pachctl/pachctl_create-pipeline.html) doc.
+
+## JSON Manifest Format
 
 ```
 {
@@ -20,6 +22,13 @@ Create a new pipeline from a spec
     "image": string,
     "cmd": [ string ],
     "stdin": [ string ]
+    "env": {
+        "foo": "bar"
+    },
+    "secrets": [ {
+        "name": "secret_name",
+        "mountPath": "/path/in/container"
+    } ]
   },
   "parallelism": int,
   "inputs": [
@@ -27,6 +36,7 @@ Create a new pipeline from a spec
       "repo": {
         "name": string
       },
+      "runEmpty": false,
       "method": "map"/"reduce"/"global"
       // alternatively, method can be specified as an object.
       // this is only for advanced use cases; most of the time, one of the four
@@ -40,7 +50,11 @@ Create a new pipeline from a spec
 }
 ```
 
+### Name
+
 `pipeline.name` is the name of the pipeline that you are creating.  Each pipeline needs to have a unique name.
+
+### Transform
 
 `transform.image` is the name of the Docker image that your jobs run in.  Currently, this image needs to [inherit from a Pachyderm-provided image known as `job-shim`](https://github.com/pachyderm/pachyderm/blob/fae98e54af0d6932e258e4b0df4ea784414c921e/examples/fruit_stand/Dockerfile#L1).
 
@@ -48,9 +62,19 @@ Create a new pipeline from a spec
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
 
+`transform.env is a map from key to value of environment variables that will be injected into the container
+
+`transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
+
+### Parallelism
+
 `parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
 
+### Inputs
+
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
+
+`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
@@ -167,9 +191,21 @@ job3:
 
 This pipeline runs when the repo `my-input` gets a new commit.  The pipeline will spawn 4 parallel jobs, each of which runs the command `my-binary` in the Docker image `my-image`, with `arg1` and `arg2` as arguments to the command and `my-std-input` as the standard input.  Each job will get a set of blocks from the new commit as its input because `method` is set to `map`.
 
-## Accessing the output of a job's parent
+## PPS Mounts and File Access
 
-Sometimes in a job, you might want to use the output of the job's parent.  See the "sum" part of the [fruit stand demo](../examples/fruit_stand/README.md) as an example.  If the job does have a parent, the output of its parent will be available under `/pfs/prev`. 
+### Mount Paths
+
+The root mount point is at `/pfs`, which contains:
+
+- `/pfs/input_repo_a` which is where you would find the latest commit from the `input_repo_a` input `Repo` you specified.
+  - Each input repo will be found here by name
+  - Note: Unlike when mounting locally for debugging, there is no `Commit` ID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the `incrementality` flag above
+- `/pfs/out` which is where you write any output
+- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent). 
+
+### Output Formats
+
+PFS supports considers data to be delimited by line, JSON, or binary blobs. [Refer here for more information on delimiters](./pachyderm_file_system.html#block-delimiters)
 
 ## Environment Variables
 
@@ -181,42 +217,14 @@ When the pipeline runs, the input and output commit IDs are exposed via environm
     - `$PACH_FOO_COMMIT_ID`
     - `$PACH_BAR_COMMIT_ID`
 
-## Custom Chunked Data
 
-Data is exposed to each job via the FUSE mount at `/pfs`. Your job will write its output to `/pfs/out`
+## Flash-crowd behavior
 
-By default, the data is line delimited and stored internally as a block of no more than ~8MBs. This means that your data will never be broken up within any line.
+In distributed systems, a flash-crowd behavior occurs when a large number of nodes send traffic to a particular node in an uncoordinated fashion, causing the node to become a hotspot, resulting in performance degradation.
 
-This is important because this also determines the granularity of how the data is exposed as an input. Specifically, during a `map` job, each container will see a slice of your data file. That slice will be one or more Blocks.
+To understand how such a behavior can occur in Pachyderm, it's important to understand the way requests are sharded in a Pachyderm cluster.  Pachyderm currently employs a simple sharding scheme that shards based on file names.  That is, requests pertaining to a certain file will be sent to a specific node.  As a result, if you have a number of nodes processing a large dataset in parallel, it's advantageous for them to process files in a random order.
 
-But line delimiting doesn't make sense for JSON or binary data.
-
-### JSON Delimiting
-
-For JSON data, you might have input like this:
-
-```
-{
-    "foo": "bar",
-    "bax": "baz"
-}
-{
-    "foo": "cat",
-    "bax": "dog"
-}
-```
-
-You can see quickly how line delimiting will not work. If a block happens to terminate not at the end of a JSON object, the result during a `map` job will be a partial / invalid JSON object.
-
-To enable delimiting by JSON, just add the suffix `.json` to your filename when you write the output to `/pfs/out`. Supplying the suffix tells PFS to delimit by JSON objects, and guarantees that blocks won't truncate any JSON object.
-
-### Binary Delimiting
-
-Another common use case is writing binary data. In this case, in addition to not wanting to delimit by line (because that may truncate the binary data in a way that makes it invalid), you may want to store binary data of size larger than 8MB.
-
-To enable delimiting by binary blob, just add the `.bin` suffix to your filename you write to `/pfs/out`.
-
-We enable this by treating every single write to that file as a separate block, no matter what the size. E.g. if you open `/pfs/out/foo.bin` and within your code write to it several times, each time you write the data will be treated as a separate block. This guarantees that a `map` job consuming your data will always see it at least at the granularity you have provided by your writes.
+For instance, imagine that you have a dataset that contains `file_A`, `file_B`, and `file_C`, each of of which is 1TB in size.  Now, each of your nodes will get a portion of each of these files.  If your nodes independently start processing files in alphanumeric order, they will all start with `file_A`, causing all traffic to be sent to the node that handles `file_A`.  In contrast, if your nodes process files in a random order, traffic will be distributed between three nodes.
 
 
 
@@ -240,4 +248,4 @@ We enable this by treating every single write to that file as a separate block, 
 ### SEE ALSO
 * [./pachctl](./pachctl.md)	 - 
 
-###### Auto generated by spf13/cobra on 8-Jul-2016
+###### Auto generated by spf13/cobra on 19-Aug-2016

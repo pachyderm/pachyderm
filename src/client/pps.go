@@ -20,22 +20,22 @@ var (
 	// MapMethod defines a pps.Method for mapper pipelines.
 	MapMethod = &pps.Method{
 		Partition:   pps.Partition_BLOCK,
-		Incremental: true,
+		Incremental: pps.Incremental_DIFF,
 	}
 	// ReduceMethod defines a pps.Method for non-incremental reducer pipelines.
 	ReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
-		Incremental: false,
+		Incremental: pps.Incremental_NONE,
 	}
 	// IncrementalReduceMethod defines a pps.Method for incremental reducer pipelines.
 	IncrementalReduceMethod = &pps.Method{
 		Partition:   pps.Partition_FILE,
-		Incremental: true,
+		Incremental: pps.Incremental_DIFF,
 	}
 	// GlobalMethod defines a pps.Method for non-incremental, non-partitioned pipelines.
 	GlobalMethod = &pps.Method{
 		Partition:   pps.Partition_REPO,
-		Incremental: false,
+		Incremental: pps.Incremental_NONE,
 	}
 	// DefaultMethod defines the default pps.Method for a pipeline.
 	DefaultMethod = MapMethod
@@ -188,6 +188,7 @@ func (c APIClient) GetLogs(
 // on availabe resources.
 // inputs specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
+// update indicates that you want to update an existing pipeline
 func (c APIClient) CreatePipeline(
 	name string,
 	image string,
@@ -195,6 +196,7 @@ func (c APIClient) CreatePipeline(
 	stdin []string,
 	parallelism uint64,
 	inputs []*pps.PipelineInput,
+	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -207,6 +209,7 @@ func (c APIClient) CreatePipeline(
 			},
 			Parallelism: parallelism,
 			Inputs:      inputs,
+			Update:      update,
 		},
 	)
 	return sanitizeErr(err)
@@ -240,6 +243,29 @@ func (c APIClient) DeletePipeline(name string) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		context.Background(),
 		&pps.DeletePipelineRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// StartPipeline restarts a stopped pipeline.
+func (c APIClient) StartPipeline(name string) error {
+	_, err := c.PpsAPIClient.StartPipeline(
+		context.Background(),
+		&pps.StartPipelineRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// StopPipeline prevents a pipeline from processing things, it can be restarted
+// with StartPipeline.
+func (c APIClient) StopPipeline(name string) error {
+	_, err := c.PpsAPIClient.StopPipeline(
+		context.Background(),
+		&pps.StopPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
 	)

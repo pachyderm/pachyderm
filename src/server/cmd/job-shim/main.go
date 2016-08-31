@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
@@ -32,10 +33,10 @@ func do(appEnvObj interface{}) error {
 		Use:   os.Args[0] + " job-id",
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
-		Run: func(_ *cobra.Command, args []string) {
+		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
 			ppsClient, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
-				errorAndExit(err.Error())
+				return err
 			}
 			response, err := ppsClient.StartJob(
 				context.Background(),
@@ -44,8 +45,8 @@ func do(appEnvObj interface{}) error {
 						ID: args[0],
 					}})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-				os.Exit(0)
+				lion.Errorf("error from StartJob: %s", err.Error())
+				return err
 			}
 
 			if response.Transform.Debug {
@@ -69,19 +70,20 @@ func do(appEnvObj interface{}) error {
 							Success:  false,
 							PodIndex: response.PodIndex,
 						},
-					); err != nil {
-						errorAndExit(err.Error())
+					); err != nil && retErr == nil {
+						retErr = err
 					}
 				}
 			}()
 
 			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
-				errorAndExit(err.Error())
+				return err
 			}
 
 			mounter := fuse.NewMounter(appEnv.PachydermAddress, c.PfsAPIClient)
 			ready := make(chan bool)
+			errCh := make(chan error)
 			go func() {
 				if err := mounter.MountAndCreate(
 					"/pfs",
@@ -90,13 +92,17 @@ func do(appEnvObj interface{}) error {
 					ready,
 					true,
 				); err != nil {
-					errorAndExit(err.Error())
+					errCh <- err
 				}
 			}()
-			<-ready
+			select {
+			case <-ready:
+			case err := <-errCh:
+				return err
+			}
 			defer func() {
-				if err := mounter.Unmount("/pfs"); err != nil {
-					errorAndExit(err.Error())
+				if err := mounter.Unmount("/pfs"); err != nil && retErr == nil {
+					retErr = err
 				}
 			}()
 			var readers []io.Reader
@@ -113,7 +119,7 @@ func do(appEnvObj interface{}) error {
 						PodIndex: response.PodIndex,
 					},
 				); err != nil {
-					errorAndExit(err.Error())
+					return err
 				}
 				finished = true
 				return
@@ -146,16 +152,12 @@ func do(appEnvObj interface{}) error {
 					PodIndex: response.PodIndex,
 				},
 			); err != nil {
-				errorAndExit(err.Error())
+				return err
 			}
 			finished = true
-		},
+			return nil
+		}),
 	}
 
 	return rootCmd.Execute()
-}
-
-func errorAndExit(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
-	os.Exit(1)
 }

@@ -555,7 +555,7 @@ func TestDelimitJSONRF(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		// Make sure all the content is there
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, len(expectedOutput), buffer.Len())
 		require.Equal(t, string(expectedOutput), buffer.String())
 
@@ -568,7 +568,7 @@ func TestDelimitJSONRF(t *testing.T) {
 			}
 
 			buffer.Reset()
-			if c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", blockFilter, &buffer) != nil {
+			if c.GetFile(repo, commit.ID, "foo.json", 0, 0, "", false, blockFilter, &buffer) != nil {
 				// ignore file not found
 				continue
 			}
@@ -630,7 +630,7 @@ func TestNoDelimiterRF(t *testing.T) {
 
 		// Make sure all the content is there
 		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", nil, &buffer))
+		require.NoError(t, c.GetFile(repo, commit1.ID, name, 0, 0, "", false, nil, &buffer))
 		require.Equal(t, len(expectedOutputA)+len(expectedOutputB), buffer.Len())
 		require.Equal(t, string(append(expectedOutputA, expectedOutputB...)), buffer.String())
 
@@ -644,7 +644,7 @@ func TestNoDelimiterRF(t *testing.T) {
 			}
 
 			buffer.Reset()
-			if c.GetFile(repo, commit1.ID, name, 0, 0, "", blockFilter, &buffer) != nil {
+			if c.GetFile(repo, commit1.ID, name, 0, 0, "", false, blockFilter, &buffer) != nil {
 				continue
 			}
 
@@ -719,6 +719,25 @@ func TestReadCancelledCommitRF(t *testing.T) {
 		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
+	})
+}
+
+func TestListBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestListBranch"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "master")
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(dirs))
+		require.OneOfEquals(t, commit.ID, []interface{}{dirs[0].Name(), dirs[1].Name()})
+		require.OneOfEquals(t, "master", []interface{}{dirs[0].Name(), dirs[1].Name()})
 	})
 }
 
