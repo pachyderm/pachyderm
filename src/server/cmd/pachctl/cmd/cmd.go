@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
+	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
 	"go.pedge.io/lion"
@@ -59,6 +60,7 @@ Envronment variables:
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
+	rootCmd.AddCommand(deploycmds.DeployCmd())
 
 	version := &cobra.Command{
 		Use:   "version",
