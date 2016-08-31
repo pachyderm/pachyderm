@@ -14,8 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
-	"github.com/pachyderm/pachyderm/src/client/version"
-	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	"github.com/pachyderm/pachyderm/src/client/version"       // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	pfs_persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -153,20 +152,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
-	internalAPIServer := pfs_server.NewInternalAPIServer(
-		pfsmodel.NewHasher(
-			appEnv.NumShards,
-			1,
-		),
-		shard.NewRouter(
-			sharder,
-			grpcutil.NewDialer(
-				grpc.WithInsecure(),
-			),
-			address,
-		),
-		driver,
-	)
+	apiServer := pfs_server.NewAPIServer(driver)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -174,7 +160,7 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 	)
 	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer, cacheServer}); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
@@ -185,7 +171,6 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
-			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)

@@ -5,11 +5,17 @@ package drive
 
 import (
 	"io"
+	"strings"
 
 	"go.pedge.io/pb/go/google/protobuf"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
+
+// IsPermissionError returns true if a given error is a permission error.
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already been finished")
+}
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
@@ -72,9 +78,4 @@ type PfsRefactorDriver interface {
 	Squash(from []*pfs.Commit, to *pfs.Commit) error
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 	Dump()
-}
-
-// NewDriver creates a Driver.
-func NewDriver(blockAddress string) (Driver, error) {
-	return newDriver(blockAddress)
 }

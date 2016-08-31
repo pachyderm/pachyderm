@@ -267,6 +267,19 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 				return nil, err
 			}
 
+			startCommitRequest := &pfsclient.StartCommitRequest{}
+			for _, input := range request.Inputs {
+				startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+			}
+			startCommitRequest.Repo = outputRepo
+			if parentJobInfo != nil {
+				startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+			}
+			commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+			if err != nil {
+				return nil, err
+			}
+
 			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
 				Commit: commit,
 			})
@@ -939,15 +952,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			if err != nil {
 				return nil, err
 			}
+			var commits []*pfsclient.Commit
 			for _, commitInfo := range commitInfos.CommitInfo {
-				_, err := pfsAPIClient.ArchiveCommit(
-					ctx,
-					&pfsclient.ArchiveCommitRequest{
-						Commit: commitInfo.Commit,
-					})
-				if err != nil {
-					return nil, err
-				}
+				commits = append(commits, commitInfo.Commit)
+			}
+			_, err = pfsAPIClient.ArchiveCommit(
+				ctx,
+				&pfsclient.ArchiveCommitRequest{
+					Commits: commits,
+				})
+			if err != nil {
+				return nil, err
 			}
 		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {

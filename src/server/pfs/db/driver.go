@@ -1116,9 +1116,9 @@ func fixPath(file *pfs.File) {
 }
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-	size int64, from *pfs.Commit, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
+	size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	fixPath(file)
-	diff, err := d.inspectFile(file, filterShard, from)
+	diff, err := d.inspectFile(file, filterShard, diffMethod.FromCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -1205,8 +1205,9 @@ func (r *fileReader) Close() error {
 	return nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
+	from := diffMethod.FromCommit
 	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
@@ -1691,11 +1692,12 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	return diff, nil
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
+	from := diffMethod.FromCommit
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
-		fileInfo, err := d.InspectFile(file, filterShard, from, shard, unsafe, handle)
+		fileInfo, err := d.InspectFile(file, filterShard, diffMethod, shard, unsafe, handle)
 		if err != nil {
 			return nil, err
 		}
