@@ -1,153 +1,93 @@
 # Local Installation
+This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux using VirtualBox and Minikube. 
+
+There are a few [alternative setups](LINK) such as runing Kubernetes directly in Docker or use xhyve instead of VirtualBox if you prefer. 
 
 ## Prerequisites
-
-- [Kubectl (Kubernetes CLI)](#kubectl) >= 1.2.2
+- [Minikube](#minikube) (and VirtualBox)
 - [Pachyderm Command Line Interface](#pachctl)
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
 
-### Kubectl
+### Minikube
 
-
-Make sure you have version 1.2.2 or higher.
-
-```shell
-# Darwin (OS X)
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/darwin/amd64/kubectl
-
-# Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.2/bin/linux/amd64/kubectl
-
-# Copy kubectl to your path
-chmod +x kubectl
-mv kubectl /usr/local/bin/
-```
-
----
+Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikibe, and Kubectl. Then come back here to install Pachyderm. 
 
 ### Pachctl
-
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
 
-### FUSE
-
-Having FUSE installed allows you to mount PFS locally, which can be nice if you want to play around with PFS and is used in the beginner tutorial.
-
-FUSE comes pre-installed on most Linux distributions.  For OS X, install [OS X FUSE](https://osxfuse.github.io/)
-
-
-## Deploying Kubernetes
-
-
-There are two easy ways to get kubernetes running locally. If you have Docker set up already, you can run kubernetes in Docker. If not, we recommend you use minikube.
-
-
-### Kubernetes in Docker
-- [Docker](https://docs.docker.com/engine/installation) >= 1.10
-
-### Minikube
-
-
-
-
-
-### Port Forwarding
-
-Both kubectl and pachctl need a port forwarded so they can talk with their servers
-If your Docker daemon is running locally you can skip this step.  Otherwise (e.g. you are running Docker through [Docker Machine](https://docs.docker.com/machine/)), do the following:
-
-
 ```shell
-$ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-```
-
-### Deploy Kubernetes
-
-From the root of this repo you can deploy Kubernetes with:
-
-```shell
-$ make launch-kube
-```
-
-This step can take a while the first time you run it, since some Docker images need to be pulled.
-
-## Deploy Pachyderm
-
-
-From the root of this repo you can deploy Pachyderm on Kubernetes with:
-
-```shell
-$ make launch
-```
-
-This step can take a while the first time you run it, since a lot of Docker images need to be pulled.
-
-
-## Installation
-
-### Homebrew
-
-```shell
+# For OSX:
 $ brew tap pachyderm/tap && brew install pachctl
-```
 
-### Deb Package
-
-If you're on linux 64 bit amd, you can use our pre-built deb package like so:
-
-```shell
+# For Linux (64 bit):
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-### From Source
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
 
-To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.1.0
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded
 
-```shell
-$ go get github.com/pachyderm/pachyderm
-$ cd $GOPATH/src/github.com/pachyderm/pachyderm
-$ make install
+please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 ```
 
-Make sure you add `GOPATH/bin` to your `PATH` env variable:
+### Deploy Pachyderm
+Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
+
+```sh
+kubectl create -f https://pachyderm.io/manifest.json
+```
+This pulls the default Pachyderm manifest from our website and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+
+```sh
+$ kubectl get all
+NAME            DESIRED      CURRENT       AGE
+etcd            1            1             6s
+pachd           2            2             6s
+rethink         1            1             6s
+NAME            CLUSTER-IP   EXTERNAL-IP   PORT(S)                        AGE
+etcd            10.0.0.45    <none>        2379/TCP,2380/TCP              6s
+kubernetes      10.0.0.1     <none>        443/TCP                        6m
+pachd           10.0.0.101   <nodes>       650/TCP                        6s
+rethink         10.0.0.182   <nodes>       8080/TCP,28015/TCP,29015/TCP   6s
+NAME            READY        STATUS        RESTARTS                       AGE
+etcd-swoag      1/1          Running       0                              6s
+pachd-7xyse     0/1          Running       0                              6s
+pachd-gfdc6     0/1          Running       0                              6s
+rethink-v5rsx   1/1          Running       0                              6s
+```
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
+
+### Port Forwarding
+
+The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. You'll need to use the name of one of the pachd processes displayed using `kubectl get all`. Either one will do. 
 
 ```shell
-$ export PATH=$PATH:$GOPATH/bin
+$ kubectl port-forward pachd-7xyse 30650:650 &
+Forwarding from 127.0.0.1:30650 -> 650
+Forwarding from [::1]:30650 -> 650
 ```
 
-## Usage
-
-If Pachyderm is running locally, you are good to go.  Otherwise, you need to make sure that `pachctl` can find the node on which you deployed Pachyderm:
+Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working. 
 
 ```shell
-$ export ADDRESS=[the IP address of the node where Pachyderm runs]:30650
-# for example:
-# export ADDRESS=104.197.179.185:30650
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.1.0
+Handling connection for 30650
+pachd               1.1.0
 ```
+We're good to go!
 
-Now, create an empty repo to make sure that everything has been set up correctly:
 
-```shell
-pachctl create-repo test
-pachctl list-repo
-# should see "test"
-```
+## Next Steps
 
----
+Now that you have everything installed and working, check out our [beginner_tutorial](LINK) to learn the basics of Pachyderm such as adding data and building analysis pipelines. 
 
-## Pachyderm
 
-Even if you haven't installed pachctl from source, you'll need some make tasks located in the pachyderm repositoriy. If you haven't already cloned the repo, do so:
-
-```shell
-$ git clone git@github.com:pachyderm/pachyderm
-```
-
----
-
-## Next
-
-Now that you have everything installed and working, check out our [beginner_tutorial](LINK) to learn the basics of Pachyderm.
 
