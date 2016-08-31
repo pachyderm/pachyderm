@@ -2000,7 +2000,7 @@ func TestScrubbedErrorsRF(t *testing.T) {
 	require.Equal(t, "repo test not found", err.Error())
 
 	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
-	require.Matches(t, "commit bogusCommit not found in repo bogusRepo", err.Error())
+	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	_, err = c.InspectJob("blah", true)
 	require.Equal(t, "JobInfos blah not found", err.Error())
@@ -2013,6 +2013,30 @@ func TestScrubbedErrorsRF(t *testing.T) {
 	require.NoError(t, err)
 	err = c.GetLogs("bogusJobId", f)
 	require.Equal(t, "job bogusJobId not found", err.Error())
+}
+
+func TestLeakingRepoRF(t *testing.T) {
+	// If CreateJob fails, it should also destroy the output repo it creates
+	// If it doesn't, it can cause flush commit to fail, as a bogus repo will
+	// be listed in the output repo's provenance
+
+	// This test can't be run in parallel, since it requires using the repo counts as controls
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	initialCount := len(repoInfos)
+
+	_, err = c.CreateJob("bogusImage", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
+
+	repoInfos, err = c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, initialCount, len(repoInfos))
 }
 
 func TestAcceptReturnCodeRF(t *testing.T) {
