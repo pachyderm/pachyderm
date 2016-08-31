@@ -238,10 +238,10 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 dev-manifest: install
-	pachctl deploy -d >$(DEV_MANIFEST)
+	pachctl deploy -d --dry-run >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
-	@pachctl deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
@@ -259,7 +259,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@pachctl deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
