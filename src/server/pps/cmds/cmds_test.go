@@ -75,7 +75,7 @@ func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue
 
 }
 
-func TestJSONSyntaxErrorsReportedCreateJob(t *testing.T) {
+func TestJSONSyntaxErrorsReportedCreateJobRF(t *testing.T) {
 	descriptiveOutput := `error parsing job spec: Syntax Error on line 3:
 
 "356weryt
@@ -87,7 +87,7 @@ invalid character '\n' in string literal
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob", "bad1.json", badJSON1, cmd, descriptiveOutput)
 }
 
-func TestJSONSyntaxErrorsReportedCreateJob2(t *testing.T) {
+func TestJSONSyntaxErrorsReportedCreateJob2RF(t *testing.T) {
 	descriptiveOutput := `error parsing job spec: Syntax Error on line 5:
 
     "c": {a
@@ -98,7 +98,7 @@ invalid character 'a' looking for beginning of object key string
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreateJob2", "bad2.json", badJSON2, cmd, descriptiveOutput)
 }
 
-func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
+func TestJSONSyntaxErrorsReportedCreatePipelineRF(t *testing.T) {
 	descriptiveOutput := `error parsing pipeline spec: Syntax Error on line 5:
 
     "c": {a
@@ -109,7 +109,7 @@ invalid character 'a' looking for beginning of object key string
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreatePipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
 }
 
-func TestJSONSyntaxErrorsReportedRunPipeline(t *testing.T) {
+func TestJSONSyntaxErrorsReportedRunPipelineRF(t *testing.T) {
 	descriptiveOutput := `error parsing pipeline spec: Syntax Error on line 5:
 
     "c": {a
@@ -120,7 +120,7 @@ invalid character 'a' looking for beginning of object key string
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedRunPipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
 }
 
-func TestJSONSyntaxErrorsReportedCreatePipelineFromStdin(t *testing.T) {
+func TestJSONSyntaxErrorsReportedCreatePipelineFromStdinRF(t *testing.T) {
 	descriptiveOutput := `Reading from stdin.
 error parsing pipeline spec: Syntax Error on line 5:
 

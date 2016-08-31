@@ -52,15 +52,11 @@ func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	fmt.Printf("TTT in job test\n")
 	c := getPachClient(t)
 	dataRepo := uniqueString("TestJob_data")
-	fmt.Printf("TTT creating repo\n")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	fmt.Printf("TTT created repo, starting commit\n")
 	commit, err := c.StartCommit(dataRepo, "", "")
 	require.NoError(t, err)
-	fmt.Printf("TTT started commit\n")
 	fileContent := "foo\n"
 	// We want to create lots of files so that each parallel job will be
 	// started with some files
@@ -69,9 +65,7 @@ func testJob(t *testing.T, shards int) {
 		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
 		require.NoError(t, err)
 	}
-	fmt.Printf("TTT put a bunch of files\n")
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	fmt.Printf("TTT finished commit\n")
 	job, err := c.CreateJob(
 		"",
 		[]string{"bash"},
@@ -83,7 +77,6 @@ func testJob(t *testing.T, shards int) {
 		}},
 		"",
 	)
-	fmt.Printf("TTT created job\n")
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job,
@@ -91,10 +84,8 @@ func testJob(t *testing.T, shards int) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
-	fmt.Printf("TTT inspecting job\n")
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
-	fmt.Printf("TTT got job info: %v\n", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Parallelism > 0)
 	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -257,9 +248,7 @@ func TestDuplicatedJobRF(t *testing.T) {
 	require.Equal(t, fileContent, buffer.String())
 }
 
-// passes ... except for debug output, but we need that for now, so wont tag
-// this one quite yet
-func TestLogs(t *testing.T) {
+func TestLogsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1988,7 +1977,7 @@ func TestDeleteAfterMembershipChangeRF(t *testing.T) {
 	test(false)
 }
 
-func TestScrubbedErrors(t *testing.T) {
+func TestScrubbedErrorsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2011,7 +2000,7 @@ func TestScrubbedErrors(t *testing.T) {
 	require.Equal(t, "repo test not found", err.Error())
 
 	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, 0, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
-	require.Matches(t, "repo job_.* not found", err.Error())
+	require.Matches(t, "commit bogusCommit not found in repo bogusRepo", err.Error())
 
 	_, err = c.InspectJob("blah", true)
 	require.Equal(t, "JobInfos blah not found", err.Error())

@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestBlock(t *testing.T) {
+func TestBlockRF(t *testing.T) {
 	t.Parallel()
 	blockClient := getBlockClient(t)
 	_, err := blockClient.CreateDiff(
@@ -203,7 +203,10 @@ func TestBranchRF(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
-func TestDisallowReadsDuringCommitWF(t *testing.T) {
+func TestDisallowReadsDuringCommitRF(t *testing.T) {
+	// OBSOLETE - we no longer accept file handles, and the default behavior is to
+	// allow reads within a commit
+	t.Skip()
 	t.Parallel()
 	client, server := getClientAndServer(t)
 	repo := "test"
@@ -455,7 +458,7 @@ func TestInspectCommitRF(t *testing.T) {
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
 }
 
-func TestDeleteCommitFuture(t *testing.T) {
+func TestDeleteCommitFutureRF(t *testing.T) {
 	// For when DeleteCommit gets implemented
 	t.Skip()
 
@@ -1479,7 +1482,10 @@ func TestGetFileInvalidCommitRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
-func TestScrubbedErrorStrings(t *testing.T) {
+func TestScrubbedErrorStringsRF(t *testing.T) {
+	// REFACTOR todo (pfs-refactor): skipped because we didn't want to make an extra hop to validate repo existence for Put/Get file requests
+	// post refactor, these APIs will be updated to only accept a commit, not a repo, and so we'll update the error messages then as well
+	t.Skip()
 
 	t.Parallel()
 	client, _ := getClientAndServer(t)

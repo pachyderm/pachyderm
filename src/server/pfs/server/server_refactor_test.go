@@ -917,7 +917,7 @@ func TestSquashMergeMultipleFilesRF(t *testing.T) {
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
-func TestLeadingSlashesBreakThis(t *testing.T) {
+func TestLeadingSlashesBreakThisRF(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
 	repo := "test"
@@ -939,7 +939,6 @@ func TestLeadingSlashesBreakThis(t *testing.T) {
 	}
 	fileInfos1, err := client.ListFile(repo, commit1.ID, "dir", "", shard1,
 		false)
-	require.NoError(t, err)
 	shard2 := &pfsclient.Shard{
 		FileNumber:  1,
 		FileModulus: 2,
