@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/pkg/exec"
 	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
 )
@@ -110,8 +112,24 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
+	var port int
+	portForward := &cobra.Command{
+		Use:   "port-forward",
+		Short: "Forward a port on the local machine to pachd. This command blocks.",
+		Long:  "Forward a port on the local machine to pachd. This command blocks.",
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			stdin := strings.NewReader(fmt.Sprintf(`
+set -x
+pod=$(kubectl get pod -l app=pachd |  awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl port-forward "$pod" %d:650
+`, port))
+			return pkgexec.RunStdin(stdin, "sh")
+		}),
+	}
+	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
+	rootCmd.AddCommand(portForward)
 	return rootCmd, nil
 }
 
