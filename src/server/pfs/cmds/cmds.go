@@ -579,8 +579,8 @@ Files and URLs should be newline delimited.
 	var debug bool
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
-		Short: "Mount pfs locally.",
-		Long:  "Mount pfs locally.",
+		Short: "Mount pfs locally. This command blocks.",
+		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
