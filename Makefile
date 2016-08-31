@@ -238,7 +238,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 dev-manifest: install
-	pachctl deploy >$(DEV_MANIFEST)
+	pachctl deploy -d >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
 	@pachctl deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
