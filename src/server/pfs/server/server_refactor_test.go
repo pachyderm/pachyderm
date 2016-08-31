@@ -16,7 +16,7 @@ import (
 
 func TestBranchSimpleRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -35,7 +35,7 @@ func TestBranchSimpleRF(t *testing.T) {
 
 func TestListBranchRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -71,7 +71,7 @@ func TestListBranchRF(t *testing.T) {
 
 func TestListCommitBasicRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	require.NoError(t, client.CreateRepo("test"))
 	numCommits := 10
@@ -101,7 +101,7 @@ func TestListCommitBasicRF(t *testing.T) {
 
 func TestStartAndFinishCommitRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -114,7 +114,7 @@ func TestStartAndFinishCommitRF(t *testing.T) {
 
 func TestInspectCommitBasicRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -148,7 +148,7 @@ func TestInspectCommitBasicRF(t *testing.T) {
 func TestStartCommitFromParentIDRF(t *testing.T) {
 	t.Parallel()
 
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -196,7 +196,7 @@ func TestStartCommitFromParentIDRF(t *testing.T) {
 
 func TestInspectRepoMostBasicRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -209,7 +209,7 @@ func TestInspectRepoMostBasicRF(t *testing.T) {
 
 func TestStartCommitLatestOnBranchRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -236,7 +236,7 @@ func TestStartCommitLatestOnBranchRF(t *testing.T) {
 
 func TestListBranchRedundantRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -259,7 +259,7 @@ func TestListBranchRedundantRF(t *testing.T) {
 
 func TestNEWAPIStartCommitFromBranchRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -277,7 +277,7 @@ func TestNEWAPIStartCommitFromBranchRF(t *testing.T) {
 
 func TestNEWAPIStartCommitNewBranchRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -297,7 +297,7 @@ func TestNEWAPIStartCommitNewBranchRF(t *testing.T) {
 
 func TestNEWAPIPutFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit1, err := client.StartCommit(repo, "", "master")
@@ -312,10 +312,10 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 
 	expected := "foo\nbar\nbuzz\n"
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, expected, buffer.String())
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "master/0", "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, "master/0", "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, expected, buffer.String())
 
 	commit2, err := client.StartCommit(repo, "", "master")
@@ -330,10 +330,10 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 
 	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, expected, buffer.String())
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, expected, buffer.String())
 
 	_, err = client.StartCommit(repo, "master/1", "foo")
@@ -343,13 +343,13 @@ func TestNEWAPIPutFileRF(t *testing.T) {
 
 	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "foo/0", "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, "foo/0", "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, expected, buffer.String())
 }
 
 func TestNEWAPIDeleteFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -369,7 +369,7 @@ func TestNEWAPIDeleteFileRF(t *testing.T) {
 
 	expected := "bar\n"
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "master/0", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "master/0", false, nil, &buffer))
 	require.Equal(t, expected, buffer.String())
 
 	_, err = client.StartCommit(repo, "", "master")
@@ -384,13 +384,13 @@ func TestNEWAPIDeleteFileRF(t *testing.T) {
 
 	expected = "foo\n"
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, "master/2", "file", 0, 0, "master/0", nil, &buffer))
+	require.NoError(t, client.GetFile(repo, "master/2", "file", 0, 0, "master/0", false, nil, &buffer))
 	require.Equal(t, expected, buffer.String())
 }
 
 func TestNEWAPIInspectFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -403,7 +403,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
 
-	fileInfo, err := client.InspectFile(repo, "master/0", "file", "", nil)
+	fileInfo, err := client.InspectFile(repo, "master/0", "file", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 	require.Equal(t, "/file", fileInfo.File.Path)
@@ -415,7 +415,7 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfo, err = client.InspectFile(repo, "master/1", "file", "", nil)
+	fileInfo, err = client.InspectFile(repo, "master/1", "file", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
 	require.Equal(t, "/file", fileInfo.File.Path)
@@ -428,14 +428,14 @@ func TestNEWAPIInspectFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfo, err = client.InspectFile(repo, "master/2", "file", "", nil)
+	fileInfo, err = client.InspectFile(repo, "master/2", "file", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 }
 
 func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -449,7 +449,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
 
-	fileInfo, err := client.InspectFile(repo, "master/0", "dir", "", nil)
+	fileInfo, err := client.InspectFile(repo, "master/0", "dir", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfo.Children))
 	require.Equal(t, "/dir", fileInfo.File.Path)
@@ -461,7 +461,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "", nil)
+	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "", false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfo.Children))
 
@@ -471,7 +471,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", nil)
+	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", false, nil)
 	require.NoError(t, err)
 	fmt.Printf("children: %+v", fileInfo.Children)
 	require.Equal(t, 2, len(fileInfo.Children))
@@ -479,7 +479,7 @@ func TestNEWAPIInspectDirectoryRF(t *testing.T) {
 
 func TestNEWAPIListFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -493,7 +493,7 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
 
-	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", nil, false)
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
@@ -503,7 +503,7 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", nil, false)
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 
@@ -513,14 +513,14 @@ func TestNEWAPIListFileRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", nil, false)
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 }
 
 func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -534,7 +534,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
 
-	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", nil, true)
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", false, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
@@ -546,7 +546,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
-	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", nil, true)
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", false, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
@@ -557,7 +557,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
-	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", nil, true)
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", false, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
@@ -565,7 +565,7 @@ func TestNEWAPIListFileRecurseRF(t *testing.T) {
 
 func TestNEWAPIPutFileTypeConflictRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -586,7 +586,7 @@ func TestNEWAPIPutFileTypeConflictRF(t *testing.T) {
 
 func TestRootDirectoryRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -598,14 +598,14 @@ func TestRootDirectoryRF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	fileInfos, err := client.ListFile(repo, "master", "", "", nil, false)
+	fileInfos, err := client.ListFile(repo, "master", "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 }
 
 func TestSquashMergeSameFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -646,14 +646,14 @@ func TestSquashMergeSameFileRF(t *testing.T) {
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
 }
 
 func TestReplayMergeSameFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -694,14 +694,14 @@ func TestReplayMergeSameFileRF(t *testing.T) {
 	require.Equal(t, 4, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[3].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[3].ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
 }
 
 func TestSquashMergeDiffOrderingRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -731,14 +731,14 @@ func TestSquashMergeDiffOrderingRF(t *testing.T) {
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
 func TestReplayMergeDiffOrderingRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -768,14 +768,14 @@ func TestReplayMergeDiffOrderingRF(t *testing.T) {
 	require.Equal(t, 2, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
 func TestReplayMergeBranchesRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -823,14 +823,14 @@ func TestReplayMergeBranchesRF(t *testing.T) {
 	require.Equal(t, 3, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[2].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[2].ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.Equal(t, contentB1+contentB2+contentA1+contentA2+contentA3, buffer.String())
 }
 
 func TestReplayMergeMultipleFilesRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -863,17 +863,17 @@ func TestReplayMergeMultipleFilesRF(t *testing.T) {
 	require.Equal(t, 2, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file1", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file1", 0, 0, "", false, nil, buffer))
 	require.EqualOneOf(t, []interface{}{contentB1 + contentA1, contentA1 + contentB1}, buffer.String())
 
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file2", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file2", 0, 0, "", false, nil, buffer))
 	require.EqualOneOf(t, []interface{}{contentB2 + contentA2, contentA2 + contentB2}, buffer.String())
 }
 
 func TestSquashMergeMultipleFilesRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -913,13 +913,13 @@ func TestSquashMergeMultipleFilesRF(t *testing.T) {
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", false, nil, buffer))
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
 func TestLeadingSlashesBreakThisRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -937,19 +937,18 @@ func TestLeadingSlashesBreakThisRF(t *testing.T) {
 		FileNumber:  0,
 		FileModulus: 2,
 	}
-	fileInfos1, err := client.ListFile(repo, commit1.ID, "dir", "", shard1,
-		false)
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "dir", "", false, shard1, false)
 	shard2 := &pfsclient.Shard{
 		FileNumber:  1,
 		FileModulus: 2,
 	}
-	fileInfos2, err := client.ListFile(repo, commit1.ID, "dir", "", shard2, false)
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "dir", "", false, shard2, false)
 	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
 }
 
 func TestListFileWithFilteringRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -967,20 +966,19 @@ func TestListFileWithFilteringRF(t *testing.T) {
 		FileNumber:  0,
 		FileModulus: 2,
 	}
-	fileInfos1, err := client.ListFile(repo, commit1.ID, "", "", shard1,
-		false)
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "", "", false, shard1, false)
 	require.NoError(t, err)
 	shard2 := &pfsclient.Shard{
 		FileNumber:  1,
 		FileModulus: 2,
 	}
-	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", shard2, false)
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", false, shard2, false)
 	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
 }
 
 func TestMergeProvenanceRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo1 := "test1"
 	require.NoError(t, client.CreateRepo(repo1))
 	repo2 := "test2"
@@ -1036,7 +1034,7 @@ func TestMergeProvenanceRF(t *testing.T) {
 
 func TestSquashMergeDeletionRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1074,7 +1072,7 @@ func TestSquashMergeDeletionRF(t *testing.T) {
 	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, "barbarbar", buffer.String())
 
 	mergedCommits, err = client.Merge(repo, []string{"A", "B", "C"}, "replay", pfsclient.MergeStrategy_REPLAY)
@@ -1083,6 +1081,6 @@ func TestSquashMergeDeletionRF(t *testing.T) {
 	require.Equal(t, 10, len(mergedCommits))
 
 	buffer = &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[9].ID, "file", 0, 0, "", nil, buffer))
+	require.NoError(t, client.GetFile(repo, mergedCommits[9].ID, "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, "bar", buffer.String())
 }

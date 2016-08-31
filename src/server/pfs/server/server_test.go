@@ -22,12 +22,9 @@ import (
 
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 )
 
@@ -101,7 +98,7 @@ func TestBlockRF(t *testing.T) {
 
 func TestInvalidRepoRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
 
 	require.NoError(t, client.CreateRepo("lenny"))
@@ -119,7 +116,7 @@ func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
 	// This method of calling CreateRepo
 	// is used within pps CreateJob()
 
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	var provenance []*pfsclient.Repo
 	provenance = append(provenance, pclient.NewRepo("bogusABC"))
 	_, err := client.PfsAPIClient.CreateRepo(
@@ -134,7 +131,7 @@ func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
 
 func TestSimpleRF(t *testing.T) {
 	t.Parallel()
-	client, server := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -161,20 +158,11 @@ func TestSimpleRF(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
-
-	// restart the server and make sure data is still there
-	restartServer(server, t)
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
 func TestBranchRF(t *testing.T) {
 	t.Parallel()
-	client, server := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit1, err := client.StartCommit(repo, "", "master")
@@ -205,19 +193,6 @@ func TestBranchRF(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit2, branches[0].Commit)
 	require.Equal(t, "master", branches[0].Branch)
-
-	// restart the server and make sure data is still there
-	restartServer(server, t)
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\nfoo\n", buffer.String())
-	branches, err = client.ListBranch(repo)
-	require.NoError(t, err)
-	require.Equal(t, commit2, branches[0].Commit)
-	require.Equal(t, "master", branches[0].Branch)
 }
 
 func TestDisallowReadsDuringCommitRF(t *testing.T) {
@@ -225,7 +200,7 @@ func TestDisallowReadsDuringCommitRF(t *testing.T) {
 	// allow reads within a commit
 	t.Skip()
 	t.Parallel()
-	client, server := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit1, err := client.StartCommit(repo, "", "")
@@ -254,20 +229,11 @@ func TestDisallowReadsDuringCommitRF(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
-
-	// restart the server and make sure data is still there
-	restartServer(server, t)
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
 func TestInspectRepoSimpleRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -293,7 +259,7 @@ func TestInspectRepoSimpleRF(t *testing.T) {
 
 func TestInspectRepoComplexRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -333,7 +299,7 @@ func TestInspectRepoComplexRF(t *testing.T) {
 
 func TestListRepoRF(t *testing.T) {
 	t.Parallel()
-	client, server := getClientAndServer(t)
+	client := getClient(t)
 
 	numRepos := 10
 	var repoNames []string
@@ -343,27 +309,19 @@ func TestListRepoRF(t *testing.T) {
 		repoNames = append(repoNames, repo)
 	}
 
-	test := func() {
-		repoInfos, err := client.ListRepo(nil)
-		require.NoError(t, err)
+	repoInfos, err := client.ListRepo(nil)
+	require.NoError(t, err)
 
-		for i, repoInfo := range repoInfos {
-			require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
-		}
-
-		require.Equal(t, len(repoInfos), numRepos)
+	for i, repoInfo := range repoInfos {
+		require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
 	}
 
-	test()
-
-	restartServer(server, t)
-
-	test()
+	require.Equal(t, len(repoInfos), numRepos)
 }
 
 func TestDeleteRepoRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	numRepos := 10
 	repoNames := make(map[string]bool)
@@ -395,7 +353,7 @@ func TestDeleteRepoRF(t *testing.T) {
 
 func TestDeleteProvenanceRepoRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	// Create two repos, one as another's provenance
 	require.NoError(t, client.CreateRepo("A"))
@@ -440,7 +398,7 @@ func TestDeleteProvenanceRepoRF(t *testing.T) {
 
 func TestInspectCommitRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -480,7 +438,7 @@ func TestDeleteCommitFutureRF(t *testing.T) {
 	t.Skip()
 
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -508,7 +466,7 @@ func TestDeleteCommitFutureRF(t *testing.T) {
 
 func TestDeleteCommitRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -528,7 +486,7 @@ func TestDeleteCommitRF(t *testing.T) {
 
 func TestPutFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -579,7 +537,7 @@ func TestPutFileRF(t *testing.T) {
 
 func TestListFileTwoCommitsRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -617,7 +575,7 @@ func TestListFileTwoCommitsRF(t *testing.T) {
 
 func TestPutSameFileInParallelRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -643,7 +601,7 @@ func TestPutSameFileInParallelRF(t *testing.T) {
 
 func TestInspectFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -707,7 +665,7 @@ func TestInspectFileRF(t *testing.T) {
 
 func TestListFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -739,7 +697,7 @@ func TestListFileRF(t *testing.T) {
 
 func TestDeleteFileRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -797,7 +755,7 @@ func TestDeleteFileRF(t *testing.T) {
 
 func TestInspectDirRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -828,7 +786,7 @@ func TestInspectDirRF(t *testing.T) {
 
 func TestDeleteDirRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -899,7 +857,7 @@ func TestDeleteDirRF(t *testing.T) {
 
 func TestListCommitRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -959,7 +917,7 @@ func TestListCommitRF(t *testing.T) {
 
 func TestOffsetReadRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
 	_, err := client.StartCommit(repo, "", "master")
@@ -979,7 +937,7 @@ func TestUnsafeOperationsRF(t *testing.T) {
 	t.Parallel()
 	// Unsafe is not a thing anymore
 	t.Skip()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "TestUnsafeOperations"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1021,7 +979,7 @@ func TestUnsafeOperationsRF(t *testing.T) {
 func TestFinishCommitRF(t *testing.T) {
 	t.Parallel()
 
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "TestFinishCommit"
 
 	require.NoError(t, client.CreateRepo(repo))
@@ -1057,7 +1015,7 @@ func TestFinishCommitRF(t *testing.T) {
 
 func TestStartCommitWithNonexistentParentRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "TestStartCommitWithNonexistentParent"
 	require.NoError(t, client.CreateRepo(repo))
 	_, err := client.StartCommit(repo, "nonexistent", "")
@@ -1068,7 +1026,7 @@ func TestStartCommitWithNonexistentParentRF(t *testing.T) {
 func TestFinishCommitParentCancelledRF(t *testing.T) {
 	t.Parallel()
 
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "TestFinishCommitParentCancelled"
 
 	require.NoError(t, client.CreateRepo(repo))
@@ -1108,7 +1066,7 @@ func TestHandleRaceRF(t *testing.T) {
 	t.Parallel()
 	// handle is not a thing anymore
 	t.Skip()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1134,7 +1092,7 @@ func TestHandleRaceRF(t *testing.T) {
 
 func Test0ModulusRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "", "")
@@ -1157,7 +1115,7 @@ func Test0ModulusRF(t *testing.T) {
 
 func TestProvenanceRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
 		Repo:       pclient.NewRepo("B"),
@@ -1335,7 +1293,7 @@ func TestProvenanceRF(t *testing.T) {
 
 func TestFlushRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
 		Repo:       pclient.NewRepo("B"),
@@ -1426,7 +1384,7 @@ func TestFlushRF(t *testing.T) {
 
 func TestShardingInTopLevelRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1464,7 +1422,7 @@ func TestShardingInTopLevelRF(t *testing.T) {
 
 func TestCreateRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1480,7 +1438,7 @@ func TestCreateRF(t *testing.T) {
 
 func TestGetFileInvalidCommitRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1505,7 +1463,7 @@ func TestScrubbedErrorStringsRF(t *testing.T) {
 	t.Skip()
 
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	err := client.CreateRepo("foo||@&#$TYX")
 	require.Equal(t, "repo name (foo||@&#$TYX) invalid: only alphanumeric and underscore characters allowed", err.Error())
@@ -1567,7 +1525,7 @@ func TestATonOfPutsRF(t *testing.T) {
 		t.Skip("Skipping long tests in short mode")
 	}
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1612,7 +1570,7 @@ func TestATonOfPutsRF(t *testing.T) {
 
 func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1678,7 +1636,7 @@ func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 
 func TestPutFileWithNoDelimiterRF(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1740,7 +1698,7 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 
 func TestPutFileNullCharacter(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1756,7 +1714,7 @@ func TestPutFileNullCharacter(t *testing.T) {
 
 func TestArchiveCommit(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo1 := "TestArchiveCommit1"
 	repo2 := "TestArchiveCommit2"
@@ -1817,7 +1775,7 @@ func TestPutFileURL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := getClientAndServer(t)
+	c := getClient(t)
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "", "master")
@@ -1831,7 +1789,7 @@ func TestPutFileURL(t *testing.T) {
 
 func TestArchiveAll(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	numRepos := 10
 	var repoNames []string
@@ -1868,7 +1826,7 @@ func TestArchiveAll(t *testing.T) {
 func TestBigListFile(t *testing.T) {
 	t.Skip("test fails, unskip when pfs refactor is done")
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 
 	repo := "TestBigListFile"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1925,13 +1883,12 @@ func getBlockClient(t *testing.T) pfsclient.BlockAPIClient {
 }
 
 func runServers(t *testing.T, port int32, apiServer pfsclient.APIServer,
-	internalAPIServer pfsclient.InternalAPIServer, blockAPIServer pfsclient.BlockAPIServer) {
+	blockAPIServer pfsclient.BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
 		err := protoserver.Serve(
 			func(s *grpc.Server) {
 				pfsclient.RegisterAPIServer(s, apiServer)
-				pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
 				pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
@@ -1943,7 +1900,7 @@ func runServers(t *testing.T, port int32, apiServer pfsclient.APIServer,
 	<-ready
 }
 
-func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) {
+func getClient(t *testing.T) pclient.APIClient {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
@@ -1961,44 +1918,18 @@ func getClientAndServer(t *testing.T) (pclient.APIClient, []*internalAPIServer) 
 	for _, port := range ports {
 		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
 	}
-	sharder := shard.NewLocalSharder(addresses, shards)
-	var internalAPIServers []*internalAPIServer
 	for i, port := range ports {
 		address := addresses[i]
 		driver, err := persist.NewDriver(address, RethinkAddress, dbName)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
-		hasher := pfsserver.NewHasher(shards, 1)
-		dialer := grpcutil.NewDialer(grpc.WithInsecure())
-		apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
-		internalAPIServer := newInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
-		internalAPIServers = append(internalAPIServers, internalAPIServer)
-		runServers(t, port, apiServer, internalAPIServer, blockAPIServer)
-		for i := 0; i < shards; i++ {
-			require.NoError(t, internalAPIServer.AddShard(uint64(i)))
-		}
+		apiServer := newAPIServer(driver)
+		runServers(t, port, apiServer, blockAPIServer)
 	}
 	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
 	require.NoError(t, err)
-	return pclient.APIClient{PfsAPIClient: pfsclient.NewAPIClient(clientConn)}, internalAPIServers
-}
-
-func restartServer(servers []*internalAPIServer, t *testing.T) {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	for _, server := range servers {
-		server := server
-		for i := 0; i < shards; i++ {
-			i := i
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				require.NoError(t, server.DeleteShard(uint64(i)))
-				require.NoError(t, server.AddShard(uint64(i)))
-			}()
-		}
-	}
+	return pclient.APIClient{PfsAPIClient: pfsclient.NewAPIClient(clientConn)}
 }
 
 func uniqueString(prefix string) string {
