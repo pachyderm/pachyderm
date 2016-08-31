@@ -210,22 +210,24 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 	}
 
 	var provenanceIDs []string
-	var intProvenanceIDs []interface{}
 	for _, repo := range provenance {
 		provenanceIDs = append(provenanceIDs, repo.Name)
-		intProvenanceIDs = append(intProvenanceIDs, repo.Name)
 	}
 
+	var provenanceRepo *pfs.Repo
 	var provenantRepos []*pfs.Repo
-	cursor, err := d.getTerm(repoTable).GetAll(intProvenanceIDs...).Run(d.dbClient)
+	cursor, err := d.getTerm(repoTable).GetAll(provenanceIDs).Run(d.dbClient)
 	if err != nil {
 		return err
 	}
-	if err := cursor.All(&provenantRepos); err != nil {
-		return err
+	defer cursor.Close()
+	for cursor.Next(provenanceRepo) {
+		if err := cursor.Err(); err != nil {
+			return err
+		}
+		provenantRepos = append(provenantRepos, provenanceRepo)
 	}
-	if len(provenantRepos) != len(intProvenanceIDs) {
-		fmt.Printf("provenantRepos: %v\n provenanceIDs: %v\n", provenantRepos, provenanceIDs)
+	if len(provenantRepos) != len(provenanceIDs) {
 		return fmt.Errorf("could not create repo %v, not all provenance repos exist", repo.Name)
 	}
 
