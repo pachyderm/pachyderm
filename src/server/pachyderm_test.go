@@ -1873,7 +1873,7 @@ func TestScrubbedErrorsRF(t *testing.T) {
 	require.Equal(t, "job bogusJobId not found", err.Error())
 }
 
-func TestLeakingRepo(t *testing.T) {
+func TestLeakingRepoRF(t *testing.T) {
 	// If CreateJob fails, it should also destroy the output repo it creates
 	// If it doesn't, it can cause flush commit to fail, as a bogus repo will
 	// be listed in the output repo's provenance
