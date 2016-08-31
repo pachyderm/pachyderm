@@ -119,11 +119,13 @@ This resets the cluster to its initial state.`,
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
 			stdin := strings.NewReader(fmt.Sprintf(`
-set -x
 pod=$(kubectl get pod -l app=pachd |  awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl port-forward "$pod" %d:650
 `, port))
-			return pkgexec.RunStdin(stdin, "sh")
+			return pkgexec.RunIO(pkgexec.IO{
+				Stdin:  stdin,
+				Stderr: os.Stderr,
+			}, "sh")
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
