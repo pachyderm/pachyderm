@@ -114,7 +114,7 @@ func TestInvalidRepoRF(t *testing.T) {
 	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
-func TestCreateRepoNonexistantProvenance(t *testing.T) {
+func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
 	// This method of calling CreateRepo
 	// is used within pps CreateJob()
 
