@@ -104,7 +104,7 @@ docker-build-job-shim: docker-clean-job-shim docker-build-compile
 	docker run --name job_shim_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
 
 docker-wait-job-shim:
-	docker wait job_shim_compile
+	etc/compile/wait.sh job_shim_compile
 
 docker-clean-pachd:
 	docker stop pachd_compile || true
@@ -114,7 +114,7 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-wait-pachd:
-	docker wait pachd_compile
+	etc/compile/wait.sh pachd_compile
 
 docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
 
