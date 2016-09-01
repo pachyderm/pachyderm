@@ -1143,7 +1143,11 @@ func fixPath(file *pfs.File) {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	fixPath(file)
-	diff, err := d.inspectFile(file, filterShard, diffMethod.FromCommit)
+	var fromCommit *pfs.Commit
+	if diffMethod != nil {
+		fromCommit = diffMethod.FromCommit
+	}
+	diff, err := d.inspectFile(file, filterShard, fromCommit)
 	if err != nil {
 		return nil, err
 	}

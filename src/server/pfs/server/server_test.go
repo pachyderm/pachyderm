@@ -1696,7 +1696,7 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 
 }
 
-func TestPutFileNullCharacter(t *testing.T) {
+func TestPutFileNullCharacterRF(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
