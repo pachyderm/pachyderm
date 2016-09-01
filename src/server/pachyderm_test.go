@@ -459,7 +459,7 @@ func TestPipelineRF(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
-func TestPipelineWithEmptyInputs(t *testing.T) {
+func TestPipelineWithEmptyInputsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

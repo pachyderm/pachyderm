@@ -274,12 +274,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if ok {
 			// If an input is empty, and RunEmpty flag is not set, then we simply
 			// create an empty job and finish the commit.
-			persistJobInfo.State = ppsclient.JobState_JOB_EMPTY
-			_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-			if err != nil {
-				return nil, err
-			}
-
 			startCommitRequest := &pfsclient.StartCommitRequest{}
 			for _, input := range request.Inputs {
 				startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
@@ -289,6 +283,15 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 				startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 			}
 			commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+			if err != nil {
+				return nil, err
+			}
+
+			// We create the job in between starting and finishing the commit,
+			// because that's how the flow would be if the input wasn't empty.
+			persistJobInfo.State = ppsclient.JobState_JOB_EMPTY
+			persistJobInfo.OutputCommit = commit
+			_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
 			if err != nil {
 				return nil, err
 			}
