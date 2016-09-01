@@ -656,7 +656,7 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		// We want to select all commits that have any of the given commits as
 		// provenance
-		return gorethink.Or(commit.Field("Provenance").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
+		return gorethink.Or(commit.Field("Provenance").Field("ID").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
 	}).Update(map[string]interface{}{
 		"Archived": true,
 	})
