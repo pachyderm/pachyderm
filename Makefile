@@ -61,7 +61,7 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
@@ -139,25 +139,25 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-launch: check-kubectl
+launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
+	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
+	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
+	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
 
 clean-launch-dev: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(DEV_MANIFEST)
+	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -244,10 +244,10 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 dev-manifest: install
-	pach-deploy >$(DEV_MANIFEST)
+	pachctl deploy -d --dry-run >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
-	@pach-deploy google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
@@ -265,7 +265,7 @@ clean-google-cluster:
 	gcloud compute disks delete $(STORAGE_NAME)
 
 amazon-cluster-manifest: install
-	@pach-deploy amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --dry-run amazon $(BUCKET_NAME) $(AWS_ID) $(AWS_KEY) $(AWS_TOKEN) $(AWS_REGION) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 amazon-cluster:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION)
