@@ -1851,6 +1851,61 @@ func TestBigListFileRF(t *testing.T) {
 	}
 }
 
+func TestFullFileRF(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "TestFullFile"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, "", true, nil, &buffer))
+	require.Equal(t, "foo", buffer.String())
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, "master/0", true, nil, &buffer))
+	require.Equal(t, "foobar", buffer.String())
+}
+
+func TestFullFileDirRF(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "TestFullFile"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file0", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err := client.ListFile(repo, "master", "", "", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file1", strings.NewReader("bar"))
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	fileInfos, err = client.ListFile(repo, "master", "", "master/0", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
