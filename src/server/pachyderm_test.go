@@ -2651,7 +2651,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestArchiveAllWithPipelines(t *testing.T) {
+func TestArchiveAllWithPipelinesRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
