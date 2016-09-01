@@ -2472,7 +2472,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 }
 
-func TestStopPipeline(t *testing.T) {
+func TestStopPipelineRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2518,7 +2518,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineEnv(t *testing.T) {
+func TestPipelineEnvRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2583,7 +2583,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
-func TestFlushNonExistantCommit(t *testing.T) {
+func TestFlushNonExistantCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2651,7 +2651,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestArchiveAllWithPipelines(t *testing.T) {
+func TestArchiveAllWithPipelinesRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2700,7 +2700,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 
 // This test / failure pattern shouldn't be possible after
 // the pfs-refactor branch lands
-func TestListCommitReturnsBlankCommit(t *testing.T) {
+func TestListCommitReturnsBlankCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

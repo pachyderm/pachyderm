@@ -18,11 +18,8 @@ import (
 	"bazil.org/fuse/fs/fstestutil"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -111,37 +108,47 @@ func TestRepoReadDirRF(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
+		commitAInfo, err := c.InspectCommit(repoName, commitA.ID)
+		require.NoError(t, err)
+		commitBInfo, err := c.InspectCommit(repoName, commitB.ID)
+		require.NoError(t, err)
+
+		checkA := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+		checkB := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0775; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, ??? as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			commitB.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0775; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, ??? as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
+			commitA.ID:         checkA,
+			commitAInfo.Branch: checkA,
+			commitB.ID:         checkB,
+			commitBInfo.Branch: checkB,
 		}))
 	})
 }
@@ -714,15 +721,20 @@ func TestReadCancelledCommitRF(t *testing.T) {
 		require.NoError(t, c.CancelCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(dirs))
-		require.Equal(t, commit.ID, dirs[0].Name())
+		require.Equal(t, 2, len(dirs))
+		var actualDirs []interface{}
+		for _, dir := range dirs {
+			actualDirs = append(actualDirs, dir.Name())
+		}
+		expected := interface{}(commit.ID)
+		require.OneOfEquals(t, expected, actualDirs)
 		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
 	})
 }
 
-func TestListBranch(t *testing.T) {
+func TestListBranchRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -771,16 +783,6 @@ func testFuse(
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
-	hasher := pfsserver.NewHasher(numShards, 1)
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		localAddress,
-	)
-
 	blockDir := filepath.Join(tmp, "blocks")
 	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
 	require.NoError(t, err)
@@ -795,18 +797,8 @@ func testFuse(
 	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(
-		hasher,
-		router,
-	)
+	apiServer := server.NewAPIServer(driver)
 	pfsclient.RegisterAPIServer(srv, apiServer)
-
-	internalAPIServer := server.NewInternalAPIServer(
-		hasher,
-		router,
-		driver,
-	)
-	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
