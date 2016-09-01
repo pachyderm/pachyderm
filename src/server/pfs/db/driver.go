@@ -1232,7 +1232,10 @@ func (r *fileReader) Close() error {
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
-	from := diffMethod.FromCommit
+	var from *pfs.Commit
+	if diffMethod != nil {
+		from = diffMethod.FromCommit
+	}
 	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
@@ -1711,7 +1714,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
-	from := diffMethod.FromCommit
+	var from *pfs.Commit
+	if diffMethod != nil {
+		from = diffMethod.FromCommit
+	}
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod, shard, unsafe, handle)

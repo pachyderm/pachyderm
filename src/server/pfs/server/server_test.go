@@ -1770,7 +1770,7 @@ func TestArchiveCommitRF(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
-func TestPutFileURL(t *testing.T) {
+func TestPutFileURLRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1787,7 +1787,7 @@ func TestPutFileURL(t *testing.T) {
 	require.True(t, fileInfo.SizeBytes > 0)
 }
 
-func TestArchiveAll(t *testing.T) {
+func TestArchiveAllRF(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1824,7 +1824,6 @@ func TestArchiveAll(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-	t.Skip("test fails, unskip when pfs refactor is done")
 	t.Parallel()
 	client := getClient(t)
 
