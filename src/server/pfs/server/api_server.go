@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
@@ -72,11 +71,12 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.StartCommit(request.Repo, request.ID, request.ParentID,
-		request.Branch, request.Started, request.Provenance, nil); err != nil {
+	commit, err := a.driver.StartCommit(request.Repo, request.ID, request.ParentID,
+		request.Branch, request.Started, request.Provenance, nil)
+	if err != nil {
 		return nil, err
 	}
-	return client.NewCommit(request.Repo.Name, request.ID), nil
+	return commit, nil
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
