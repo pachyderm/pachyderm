@@ -2597,7 +2597,7 @@ func TestFlushNonExistantCommitRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestPipelineWithFullObjects(t *testing.T) {
+func TestPipelineWithFullObjectsRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
