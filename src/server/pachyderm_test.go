@@ -2359,7 +2359,7 @@ func TestPipelineInfoDestroyedIfRepoCreationFailsRF(t *testing.T) {
 	require.Matches(t, "not found", err.Error())
 }
 
-func TestUpdatePipeline(t *testing.T) {
+func TestUpdatePipelineRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2406,6 +2406,18 @@ func TestUpdatePipeline(t *testing.T) {
 		require.Equal(t, "file1\n", buffer.String())
 	}
 
+	// We archive the temporary commits created per job/pod
+	// So the total we see here is 2, but 'real' commits is just 1
+	outputRepoCommitInfos, err := c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(outputRepoCommitInfos))
+
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputRepoCommitInfos))
+
 	// Update the pipeline to look at file2
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2424,6 +2436,15 @@ func TestUpdatePipeline(t *testing.T) {
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file2\n", buffer.String())
 	}
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(outputRepoCommitInfos))
+	// Expect real commits to still be 1
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputRepoCommitInfos))
 
 	// Update the pipeline to look at file3
 	require.NoError(t, c.CreatePipeline(
@@ -2443,7 +2464,18 @@ func TestUpdatePipeline(t *testing.T) {
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file3\n", buffer.String())
 	}
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 6, len(outputRepoCommitInfos))
+	// Expect real commits to still be 1
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputRepoCommitInfos))
 
+	commitInfos, _ = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusAll, nil)
 	// Do an update that shouldn't cause archiving
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -2469,7 +2501,12 @@ func TestUpdatePipeline(t *testing.T) {
 	commitInfos, err = c.ListCommit([]string{pipelineName}, nil,
 		client.CommitTypeRead, false, client.CommitStatusAll, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 6, len(commitInfos))
+	// Expect real commits to still be 1
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil,
+		client.CommitTypeRead, false, client.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputRepoCommitInfos))
 }
 
 func TestStopPipelineRF(t *testing.T) {
