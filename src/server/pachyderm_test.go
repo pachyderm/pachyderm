@@ -2518,7 +2518,7 @@ func TestStopPipelineRF(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineEnv(t *testing.T) {
+func TestPipelineEnvRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
