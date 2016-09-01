@@ -2472,7 +2472,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 }
 
-func TestStopPipeline(t *testing.T) {
+func TestStopPipelineRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
