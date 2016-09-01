@@ -18,11 +18,8 @@ import (
 	"bazil.org/fuse/fs/fstestutil"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -722,7 +719,7 @@ func TestReadCancelledCommitRF(t *testing.T) {
 	})
 }
 
-func TestListBranch(t *testing.T) {
+func TestListBranchRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -771,16 +768,6 @@ func testFuse(
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
-	hasher := pfsserver.NewHasher(numShards, 1)
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		localAddress,
-	)
-
 	blockDir := filepath.Join(tmp, "blocks")
 	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
 	require.NoError(t, err)
@@ -795,18 +782,8 @@ func testFuse(
 	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(
-		hasher,
-		router,
-	)
+	apiServer := server.NewAPIServer(driver)
 	pfsclient.RegisterAPIServer(srv, apiServer)
-
-	internalAPIServer := server.NewInternalAPIServer(
-		hasher,
-		router,
-		driver,
-	)
-	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {

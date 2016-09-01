@@ -21,7 +21,7 @@ type APIServer interface {
 	pfsclient.APIServer // SJ: also bad naming
 }
 
-// NewInternalAPIServer creates an InternalAPIServer.
+// NewAPIServer creates an InternalAPIServer.
 func NewAPIServer(driver drive.Driver) APIServer {
 	return newAPIServer(driver)
 }
