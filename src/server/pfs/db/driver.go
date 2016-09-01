@@ -209,32 +209,30 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 		return err
 	}
 
-	var provenanceIDs []string
+	// Verify that all provenent repos exist
+	var provenantRepoNames []interface{}
+	var provenantIDs []string
 	for _, repo := range provenance {
-		provenanceIDs = append(provenanceIDs, repo.Name)
+		provenantRepoNames = append(provenantRepoNames, repo.Name)
+		provenantIDs = append(provenantIDs, repo.Name)
 	}
 
-	var provenanceRepo *pfs.Repo
-	var provenantRepos []*pfs.Repo
-	cursor, err := d.getTerm(repoTable).GetAll(provenanceIDs).Run(d.dbClient)
+	var numProvenantRepos int
+	cursor, err := d.getTerm(repoTable).GetAll(provenantRepoNames...).Count().Run(d.dbClient)
 	if err != nil {
 		return err
 	}
-	defer cursor.Close()
-	for cursor.Next(provenanceRepo) {
-		if err := cursor.Err(); err != nil {
-			return err
-		}
-		provenantRepos = append(provenantRepos, provenanceRepo)
+	if err := cursor.One(&numProvenantRepos); err != nil {
+		return err
 	}
-	if len(provenantRepos) != len(provenanceIDs) {
+	if numProvenantRepos != len(provenance) {
 		return fmt.Errorf("could not create repo %v, not all provenance repos exist", repo.Name)
 	}
 
 	_, err = d.getTerm(repoTable).Insert(&persist.Repo{
 		Name:       repo.Name,
 		Created:    created,
-		Provenance: provenanceIDs,
+		Provenance: provenantIDs,
 	}).RunWrite(d.dbClient)
 	if err != nil && gorethink.IsConflictErr(err) {
 		return fmt.Errorf("repo %v exists", repo.Name)
@@ -357,10 +355,14 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return err
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (retErr error) {
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (_commit *pfs.Commit, retErr error) {
+	if commitID == "" {
+		commitID = uuid.NewWithoutDashes()
+	}
+
 	rawRepo, err := d.inspectRepo(repo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	repoSet := make(map[string]bool)
@@ -371,7 +373,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	var _provenance []*persist.ProvenanceCommit
 	for _, c := range provenance {
 		if !repoSet[c.Repo.Name] {
-			return fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
+			return nil, fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
 				c.Repo.Name, c.ID, c.Repo.Name, repo.Name)
 		}
 		_provenance = append(_provenance, &persist.ProvenanceCommit{
@@ -389,7 +391,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		commitInfo, err := d.InspectCommit(c, shards)
 		archived = archived || commitInfo.Archived
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, p := range commitInfo.Provenance {
@@ -421,7 +423,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			parentCommit := &persist.Commit{}
 			err := d.getHeadOfBranch(repo.Name, branch, parentCommit)
 			if err != nil && err != gorethink.ErrEmptyResult {
-				return err
+				return nil, err
 			} else if err == gorethink.ErrEmptyResult {
 				// we don't have a parent :(
 				// so we create a new clock
@@ -432,7 +434,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				// and increment the last component by 1
 				commit.FullClock = persist.NewChild(parentCommit.FullClock)
 				if err != nil {
-					return err
+					return nil, err
 				}
 			}
 			clock := persist.FullClockHead(commit.FullClock)
@@ -443,14 +445,14 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				// at the same time.  We lost the race, but we can try again
 				continue
 			} else if err != nil {
-				return err
+				return nil, err
 			}
 			break
 		}
 	} else {
 		parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parentID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		parentBranch := persist.FullClockBranch(parentCommit.FullClock)
@@ -464,7 +466,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			newBranch = true
 			commit.FullClock = append(parentCommit.FullClock, persist.NewClock(branch))
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
@@ -475,15 +477,15 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				if newBranch {
 					// This should only happen if there's another process creating the
 					// very same branch at the same time, and we lost the race.
-					return ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
+					return nil, ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
 				} else {
 					// This should only happen if there's another process creating a
 					// new commit off the same parent, but on the parent's own branch,
 					// and we lost the race.
-					return fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
+					return nil, fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
 				}
 			}
-			return err
+			return nil, err
 		}
 	}
 	defer func() {
@@ -496,7 +498,13 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	// TODO: what if the program exits here?  There will be an entry in the Clocks
 	// table, but not in the Commits table.  Now you won't be able to create this
 	// commit anymore.
-	return d.insertMessage(commitTable, commit)
+	if err := d.insertMessage(commitTable, commit); err != nil {
+		return nil, err
+	}
+	return &pfs.Commit{
+		Repo: repo,
+		ID:   commitID,
+	}, nil
 }
 
 func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Commit) error {
@@ -648,7 +656,7 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		// We want to select all commits that have any of the given commits as
 		// provenance
-		return gorethink.Or(commit.Field("Provenance").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
+		return gorethink.Or(commit.Field("Provenance").Field("ID").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
 	}).Update(map[string]interface{}{
 		"Archived": true,
 	})
@@ -1224,7 +1232,10 @@ func (r *fileReader) Close() error {
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
-	from := diffMethod.FromCommit
+	var from *pfs.Commit
+	if diffMethod != nil {
+		from = diffMethod.FromCommit
+	}
 	diff, err := d.inspectFile(file, filterShard, from)
 	if err != nil {
 		return nil, err
@@ -1373,11 +1384,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		_repo := &pfs.Repo{
 			Name: repo,
 		}
-		newCommit := &pfs.Commit{
-			Repo: _repo,
-			ID:   uuid.NewWithoutDashes(),
-		}
-		err := d.StartCommit(_repo, newCommit.ID, "", toBranch, nil, nil, nil)
+		newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1452,13 +1459,9 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			_repo := &pfs.Repo{
 				Name: repo,
 			}
-			newCommit := &pfs.Commit{
-				Repo: _repo,
-				ID:   uuid.NewWithoutDashes(),
-			}
 			// TODO: what if someone else is creating commits on toBranch while we
 			// are replaying?
-			err := d.StartCommit(_repo, newCommit.ID, "", toBranch, nil, nil, nil)
+			newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -1711,7 +1714,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
 	fixPath(file)
-	from := diffMethod.FromCommit
+	var from *pfs.Commit
+	if diffMethod != nil {
+		from = diffMethod.FromCommit
+	}
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod, shard, unsafe, handle)
