@@ -1712,7 +1712,7 @@ func TestPutFileNullCharacter(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestArchiveCommit(t *testing.T) {
+func TestArchiveCommitRF(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
