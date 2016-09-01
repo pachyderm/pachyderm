@@ -296,7 +296,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 }
 
 func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
-	cursor, err := d.getTerm(repoTable).Run(d.dbClient)
+	cursor, err := d.getTerm(repoTable).OrderBy("Name").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
