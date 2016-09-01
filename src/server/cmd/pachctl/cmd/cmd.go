@@ -122,6 +122,7 @@ This resets the cluster to its initial state.`,
 pod=$(kubectl get pod -l app=pachd |  awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl port-forward "$pod" %d:650
 `, port))
+			fmt.Println("Port forwarded, CTRL-C to exit.")
 			return pkgexec.RunIO(pkgexec.IO{
 				Stdin:  stdin,
 				Stderr: os.Stderr,
