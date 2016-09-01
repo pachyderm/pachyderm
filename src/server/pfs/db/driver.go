@@ -1143,11 +1143,7 @@ func fixPath(file *pfs.File) {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
 	fixPath(file)
-	var fromCommit *pfs.Commit
-	if diffMethod != nil {
-		fromCommit = diffMethod.FromCommit
-	}
-	diff, err := d.inspectFile(file, filterShard, fromCommit)
+	diff, err := d.inspectFile(file, filterShard, diffMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -1236,11 +1232,7 @@ func (r *fileReader) Close() error {
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
 	fixPath(file)
-	var from *pfs.Commit
-	if diffMethod != nil {
-		from = diffMethod.FromCommit
-	}
-	diff, err := d.inspectFile(file, filterShard, from)
+	diff, err := d.inspectFile(file, filterShard, diffMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -1270,7 +1262,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	case persist.FileType_DIR:
 		res.FileType = pfs.FileType_FILE_TYPE_DIR
 		res.Modified = diff.Modified
-		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, from, file.Commit)
+		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod.FromCommit, file.Commit)
 		if err != nil {
 			return nil, err
 		}
@@ -1674,7 +1666,12 @@ func (d *driver) getFullClockByAmbiguousID(repo string, commitID string) (persis
 	return commit.FullClock, nil
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit) (*persist.Diff, error) {
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*persist.Diff, error) {
+	var from *pfs.Commit
+	if diffMethod != nil {
+		from = diffMethod.FromCommit
+	}
+
 	if !pfsserver.FileInShard(filterShard, file) {
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
@@ -1684,6 +1681,29 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if diffMethod != nil && diffMethod.FullFile {
+		// If FullFile is set to true, we first figure out if anything
+		// has changed since FromCommit.  If so, we set FromCommit to nil
+		cursor, err := query.Count().Gt(0).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+		var hasDiff bool
+		if err := cursor.One(&hasDiff); err != nil {
+			return nil, err
+		}
+
+		if hasDiff {
+			from = nil
+			query, err = d.getDiffsInCommitRange(from, file.Commit, false, DiffPathIndex.GetName(), func(clock interface{}) interface{} {
+				return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clock)
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	cursor, err := foldDiffs(query).Run(d.dbClient)

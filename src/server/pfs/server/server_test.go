@@ -1851,6 +1851,31 @@ func TestBigListFileRF(t *testing.T) {
 	}
 }
 
+func TestFullFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "TestFullFile"
+	require.NoError(t, client.CreateRepo(repo))
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, "", true, nil, &buffer))
+	require.Equal(t, "foo", buffer.String())
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, "master/0", true, nil, &buffer))
+	require.Equal(t, "foobar", buffer.String())
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
