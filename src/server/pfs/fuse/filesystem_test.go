@@ -721,8 +721,13 @@ func TestReadCancelledCommitRF(t *testing.T) {
 		require.NoError(t, c.CancelCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(dirs))
-		require.Equal(t, commit.ID, dirs[0].Name())
+		require.Equal(t, 2, len(dirs))
+		var actualDirs []interface{}
+		for _, dir := range dirs {
+			actualDirs = append(actualDirs, dir.Name())
+		}
+		expected := interface{}(commit.ID)
+		require.OneOfEquals(t, expected, actualDirs)
 		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
