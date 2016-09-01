@@ -139,25 +139,25 @@ launch-kube: check-kubectl
 clean-launch-kube:
 	docker kill $$(docker ps -q)
 
-launch: check-kubectl
+launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(MANIFEST)
+	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl install
 	$(eval STARTTIME := $(shell date +%s))
-	kubectl $(KUBECTLFLAGS) create -f $(DEV_MANIFEST)
+	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(MANIFEST)
+	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
 
 clean-launch-dev: check-kubectl
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f $(DEV_MANIFEST)
+	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
