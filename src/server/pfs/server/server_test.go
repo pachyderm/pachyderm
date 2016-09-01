@@ -1823,7 +1823,7 @@ func TestArchiveAllRF(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
-func TestBigListFile(t *testing.T) {
+func TestBigListFileRF(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1834,6 +1834,8 @@ func TestBigListFile(t *testing.T) {
 	var eg errgroup.Group
 	for i := 0; i < 25; i++ {
 		for j := 0; j < 25; j++ {
+			i := i
+			j := j
 			eg.Go(func() error {
 				_, err = client.PutFile(repo, "master", fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
 				return err
