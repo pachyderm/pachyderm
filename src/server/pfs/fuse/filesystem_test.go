@@ -108,37 +108,47 @@ func TestRepoReadDirRF(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
+		commitAInfo, err := c.InspectCommit(repoName, commitA.ID)
+		require.NoError(t, err)
+		commitBInfo, err := c.InspectCommit(repoName, commitB.ID)
+		require.NoError(t, err)
+
+		checkA := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+		checkB := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0775; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, ??? as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			commitB.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0775; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, ??? as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
+			commitA.ID:         checkA,
+			commitAInfo.Branch: checkA,
+			commitB.ID:         checkB,
+			commitBInfo.Branch: checkB,
 		}))
 	})
 }
