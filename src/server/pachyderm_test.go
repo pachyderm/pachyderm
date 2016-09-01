@@ -2583,7 +2583,7 @@ func TestPipelineEnvRF(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
-func TestFlushNonExistantCommit(t *testing.T) {
+func TestFlushNonExistantCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
