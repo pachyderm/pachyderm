@@ -179,6 +179,12 @@ proto: docker-build-proto
 	| docker run -i pachyderm_proto \
 	| tar xf -
 
+# Use this to grab a binary for profiling purposes
+pachd-profiling-binary: docker-clean-pachd docker-build-compile
+	docker run -i  pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
+	| tar xf -
+	# Binary emitted to ./pachd
+
 protofix:
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
