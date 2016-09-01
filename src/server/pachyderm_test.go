@@ -2700,7 +2700,7 @@ func TestArchiveAllWithPipelinesRF(t *testing.T) {
 
 // This test / failure pattern shouldn't be possible after
 // the pfs-refactor branch lands
-func TestListCommitReturnsBlankCommit(t *testing.T) {
+func TestListCommitReturnsBlankCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
