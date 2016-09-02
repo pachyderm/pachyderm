@@ -721,7 +721,7 @@ func TestDeleteFileRF(t *testing.T) {
 	// foo should still be here because we can't remove a file that we are adding
 	// in the same commit
 	_, err = client.InspectFile(repo, commit1.ID, "foo", "", false, nil)
-	require.NoError(t, err)
+	require.YesError(t, err)
 
 	// Should see one file
 	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
