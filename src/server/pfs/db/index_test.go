@@ -16,7 +16,7 @@ var (
 	port           = 40651
 )
 
-func TestDiffPathIndexRF(t *testing.T) {
+func TestDiffPathIndex(t *testing.T) {
 	dbClient := getClient(t)
 	path := "/foo/bar/fizz/buzz"
 	cursor, err := gorethink.Expr(DiffPathIndex.CreateFunction(gorethink.Expr(&persist.Diff{
@@ -33,7 +33,7 @@ func TestDiffPathIndexRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", path, []interface{}{"branch", 1}}), fmt.Sprintf("%v", key))
 }
 
-func TestDiffPrefixIndexRF(t *testing.T) {
+func TestDiffPrefixIndex(t *testing.T) {
 	dbClient := getClient(t)
 	cursor, err := gorethink.Expr(DiffPrefixIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
@@ -62,7 +62,7 @@ func TestDiffPrefixIndexRF(t *testing.T) {
 	}
 }
 
-func TestDiffParentIndexRF(t *testing.T) {
+func TestDiffParentIndex(t *testing.T) {
 	dbClient := getClient(t)
 	path := "/foo/bar/fizz/buzz"
 	cursor, err := gorethink.Expr(DiffParentIndex.CreateFunction(gorethink.Expr(&persist.Diff{
@@ -79,7 +79,7 @@ func TestDiffParentIndexRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "/foo/bar/fizz", []interface{}{"branch", 1}}), fmt.Sprintf("%v", key))
 }
 
-func TestDiffClockIndexRF(t *testing.T) {
+func TestDiffClockIndex(t *testing.T) {
 	dbClient := getClient(t)
 	path := "/foo/bar/fizz/buzz"
 	cursor, err := gorethink.Expr(DiffClockIndex.CreateFunction(gorethink.Expr(&persist.Diff{
@@ -96,7 +96,7 @@ func TestDiffClockIndexRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch", 1}), fmt.Sprintf("%v", key))
 }
 
-func TestClockBranchIndexRF(t *testing.T) {
+func TestClockBranchIndex(t *testing.T) {
 	dbClient := getClient(t)
 	cursor, err := gorethink.Expr(ClockBranchIndex.CreateFunction(gorethink.Expr(&persist.ClockID{
 		Repo:   "repo",
@@ -108,7 +108,7 @@ func TestClockBranchIndexRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch"}), fmt.Sprintf("%v", key))
 }
 
-func TestCommitClockIndexRF(t *testing.T) {
+func TestCommitClockIndex(t *testing.T) {
 	dbClient := getClient(t)
 	cursor, err := gorethink.Expr(CommitClockIndex.CreateFunction(gorethink.Expr(&persist.Commit{
 		Repo: "repo",
