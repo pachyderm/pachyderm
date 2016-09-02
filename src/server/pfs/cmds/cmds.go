@@ -579,8 +579,8 @@ Files and URLs should be newline delimited.
 	var debug bool
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
-		Short: "Mount pfs locally.",
-		Long:  "Mount pfs locally.",
+		Short: "Mount pfs locally. This command blocks.",
+		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
@@ -588,7 +588,12 @@ Files and URLs should be newline delimited.
 			}
 			mounter := fuse.NewMounter(address, client.PfsAPIClient)
 			mountPoint := args[0]
-			err = mounter.Mount(mountPoint, shard(), nil, nil, debug)
+			ready := make(chan bool)
+			go func() {
+				<-ready
+				fmt.Println("Filesystem mounted, CTRL-C to exit.")
+			}()
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug)
 			if err != nil {
 				return err
 			}
