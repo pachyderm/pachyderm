@@ -9,7 +9,7 @@ RUN unzip protoc.zip -d /bin
 
 RUN go get -u -v github.com/golang/protobuf/proto
 RUN go get -u -v github.com/golang/protobuf/protoc-gen-go
-RUN go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
+RUN go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 RUN go get -v go.pedge.io/protoeasy/cmd/protoeasy
 RUN go get -v github.com/pachyderm/pachyderm/src/server/cmd/protofix
 

@@ -3,6 +3,6 @@
 set -x
 
 tar xf /dev/stdin
-protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src >/dev/null
+protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src >/dev/null
 protofix fix src >/dev/null
 find src -regex ".*\.go" | xargs tar cf -
