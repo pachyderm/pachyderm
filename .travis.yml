@@ -27,15 +27,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
-- make launch-rethinkdb
-# Do the fuse tests separately ... otherwise they seem to take a while and make CI time out
-- travis_wait go test ./src/server/pfs/fuse -run=Test.*RF\$
-- go test $(go list ./src/server/pfs/... | grep -v '/src/server/pfs/fuse') -run=Test.*RF\$
-- make docker-build
-- make clean-launch-dev
-- make launch-dev
-# Now run integration tests:
-- travis_wait go test ./src/server -run=Test.*RF\$
+- travis_wait make test 
 - ./etc/refactor/progress.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
