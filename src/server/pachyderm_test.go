@@ -2737,6 +2737,7 @@ func TestListCommitReturnsBlankCommitRF(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Skip("This test does a restart which seems to break other tests.")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
 
