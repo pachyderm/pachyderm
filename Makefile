@@ -324,7 +324,7 @@ launch-rethinkdb:
 
 clean-launch-rethinkdb:
 	docker stop pachyderm-test-rethinkdb || true
-	docker rm pachyderm-test-rethinkdb
+	docker rm pachyderm-test-rethinkdb || true
 
 .PHONY:
 	all \
