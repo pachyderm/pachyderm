@@ -2741,7 +2741,7 @@ func TestListCommitReturnsBlankCommitRF(t *testing.T) {
 	c := getPachClient(t)
 
 	// create repos
-	dataRepo := uniqueString("TestRestartAll_data")
+	dataRepo := uniqueString("TestListCommitReturnsBlankCommit")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// Do first commit to repo
 	commit, err := c.StartCommit(dataRepo, "", "")
@@ -2770,8 +2770,8 @@ func TestListCommitReturnsBlankCommitRF(t *testing.T) {
 		listCommitRequest,
 	)
 	require.NoError(t, err)
-	// After restarting we see 2 commits, one of which is the 'blank'
-	// commit that's created when creating a repo
+	// In the buggy behaviour, after restarting we'd see 2 commits, one of
+	// which is the 'blank' commit that's created when creating a repo
 	require.Equal(t, 1, len(commitInfos.CommitInfo))
 }
 
