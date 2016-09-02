@@ -87,7 +87,7 @@ func PrintPipelineInputHeader(w io.Writer) {
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
-	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t\n", pipelineInput.Method.Incremental)
 }
 
 // PrintJobCountsHeader prints a job counts header.

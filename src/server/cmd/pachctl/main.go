@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
+	"github.com/spf13/pflag"
 	"go.pedge.io/env"
 )
 
@@ -14,6 +17,7 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
+	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 	appEnv := appEnvObj.(*appEnv)
 	rootCmd, err := cmd.PachctlCmd(appEnv.Address)
 	if err != nil {
