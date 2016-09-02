@@ -204,7 +204,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest clean-launch-rethinkdb launch-rethinkdb test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
 test-client:
 	rm -rf src/client/vendor
@@ -214,11 +214,13 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse:
+test-fuse: clean-launch-test-rethinkdb launch-test-rethinkdb
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+	make launch-test-rethinkdb
 
-test-local:
+test-local:clean-launch-test-rethinkdb launch-test-rethinkdb
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
+	make launch-test-rethinkdb
 
 clean: clean-launch clean-launch-kube
 
@@ -324,11 +326,11 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
-launch-rethinkdb:
+launch-test-rethinkdb:
 	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 rethinkdb:2.3.3 
 	sleep 10  # wait for rethinkdb to start up
 
-clean-launch-rethinkdb:
+clean-launch-test-rethinkdb:
 	docker stop pachyderm-test-rethinkdb || true
 	docker rm pachyderm-test-rethinkdb || true
 
