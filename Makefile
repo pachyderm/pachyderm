@@ -323,7 +323,7 @@ launch-rethinkdb:
 	sleep 10  # wait for rethinkdb to start up
 
 clean-launch-rethinkdb:
-	docker stop  pachyderm-test-rethinkdb
+	docker stop pachyderm-test-rethinkdb || true
 	docker rm pachyderm-test-rethinkdb
 
 .PHONY:
