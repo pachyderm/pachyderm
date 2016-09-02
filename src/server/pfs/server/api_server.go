@@ -171,8 +171,12 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}()
 	request, err := putFileServer.Recv()
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return err
+	}
+	if err == io.EOF {
+		// tolerate people calling and immediately hanging up
+		return nil
 	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
