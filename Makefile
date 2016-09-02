@@ -216,11 +216,11 @@ test-client:
 
 test-fuse: clean-launch-test-rethinkdb launch-test-rethinkdb
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
-	make launch-test-rethinkdb
+	make clean-launch-test-rethinkdb
 
 test-local:clean-launch-test-rethinkdb launch-test-rethinkdb
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
-	make launch-test-rethinkdb
+	make clean-launch-test-rethinkdb
 
 clean: clean-launch clean-launch-kube
 
