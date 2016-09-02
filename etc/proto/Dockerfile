@@ -1,4 +1,4 @@
-FROM golang:1.7
+FROM golang:1.7.0
 MAINTAINER derek@pachyderm.io
 
 RUN apt-get update -yq
