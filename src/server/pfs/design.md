@@ -1,6 +1,11 @@
 # PFS v2 Design Doc
 
-PFS v2 is a new implementation of the Pachyderm File System (PFS).
+PFS v2 is a new implementation of the Pachyderm File System (PFS).  Architecturally, the most notable difference between v1 and v2 is that in v1, we store commit information in a custom distributed data store, whereas in v2 we store the information in RethinkDB.
+
+As you shall see, there are two major attributes of RethinkDB that significantly influence the design of PFS v2:
+
+* First-class support for secondary indexes
+* Lack of multi-document transactions
 
 ## Motivation
 
@@ -57,4 +62,21 @@ PutFile(commitID, fileName, "another bunch of bytes")
 
 Each of these `PutFile` calls results in an upsert to the same `Diff` document.  The two calls know to modify the same document because we construct the Diff document ID by concatenating `commitID` and `fileName`.  The first call is going to create the document, while the second call is going to update the document by appending references to the new blocks (i.e. the new content written).
 
-## 
+## Directories
+
+The most obvious approach to represent file system hierarchy is to have "directory documents" that store the names of the files they contain.  Since RethinkDB does not support multi-document transactions, this approach has the consistency issue wherein the database can be stuck in a state where a file exists, but its name has not been added to the "directory document" that should contain it.
+
+In PFS, the file system hierarchy is indirectly represented by indexes.  Consider the following example:
+
+```Go
+PutFile(commitID, "/foo/bar/buzz", "a bunch of bytes")
+```
+
+Here we are writing a file located at `/foo/bar/buzz`.  This `PutFile` call will actually upsert three `Diff` documents: `/foo`, `/foo/bar`, and `/foo/bar/buzz`.
+
+Each `Diff` document is then indexed into a `DiffParentIndex`, where a document's index key is the path of its parent.  For instance, `/foo/bar/buzz` will have the key `/foo/bar` in the index, and `/foo`'s key will be `/`.
+
+Therefore, to get all files under a path such as `/foo/bar`, we just query the index with the key `/foo/bar`.
+
+## GetFile and Deletion
+
