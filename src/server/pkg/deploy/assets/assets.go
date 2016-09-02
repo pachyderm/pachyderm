@@ -183,6 +183,10 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 									Name:          "api-grpc-port",
 								},
 								{
+									ContainerPort: 80,
+									Name:          "api-http-port",
+								},
+								{
 									ContainerPort: 651,
 									Name:          "trace-port",
 								},
@@ -224,6 +228,11 @@ func PachdService() *api.Service {
 					Port:     650,
 					Name:     "api-grpc-port",
 					NodePort: 30650,
+				},
+				{
+					Port:     80,
+					Name:     "api-http-port",
+					NodePort: 30080,
 				},
 				{
 					Port:     651,

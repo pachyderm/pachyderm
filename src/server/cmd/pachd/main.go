@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
@@ -27,12 +28,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
-
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/env"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
+	"go.pedge.io/pkg/http"
 	"go.pedge.io/proto/server"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -48,6 +50,7 @@ func init() {
 
 type appEnv struct {
 	Port            uint16 `env:"PORT,default=650"`
+	HTTPPort        uint16 `env:"HTTP_PORT,default=80"`
 	NumShards       uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot     string `env:"PACH_ROOT,required"`
 	StorageBackend  string `env:"STORAGE_BACKEND,default="`
@@ -194,7 +197,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	return protoserver.Serve(
+	return protoserver.ServeWithHTTP(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
@@ -204,11 +207,22 @@ func do(appEnvObj interface{}) error {
 			persist.RegisterAPIServer(s, rethinkAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 		},
-		protoserver.ServeOptions{
-			Version: version.Version,
+		func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			if err := pfsclient.RegisterAPIHandler(ctx, mux, conn); err != nil {
+				return err
+			}
+			return nil
+		},
+		protoserver.ServeWithHTTPOptions{
+			ServeOptions: protoserver.ServeOptions{
+				Version: version.Version,
+			},
 		},
 		protoserver.ServeEnv{
 			GRPCPort: appEnv.Port,
+		},
+		pkghttp.HandlerEnv{
+			Port: appEnv.HTTPPort,
 		},
 	)
 }
