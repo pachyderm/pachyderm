@@ -91,40 +91,80 @@ It may take a while to complete for the first time, as a lot of Docker images ne
 
 ### Prerequisites
 
-- [AWS CLI](https://aws.amazon.com/cli/)
+- Make sure you have the [AWS CLI](https://aws.amazon.com/cli/) installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
+
 
 ### Deploy Kubernetes
 
-Deploying Kubernetes on AWS can be a little harder than GCE, but there are a few good tutorials that walk you through the process:
+The rest of the guide assumes you already have Kubernetes running in AWS. If you do, jump to [deploying Pachyderm](#Deploy_Pachyderm).
 
-* CoreOS has a great tool called[kube-aws](https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws.html)
+If you don't have a Kubernetes cluster yet you can either set up a [demo cluster](http://kubernetes.io/docs/getting-started-guides/aws/) to get started quickly or [deploy a production-grade cluster](TODO). 
 
-* If you don't want to use CoreOS, Kubernetes has their [own guides] (http://kubernetes.io/docs/getting-started-guides/aws/)
+WARNING: As of 9/1/16, the demo cluster guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524. 
 
-### Set up the infrastructure
+```
+function build-kube-env {
+  local master=$1
+  local file=$2
 
-Pachyderm needs a cluster (https://aws.amazon.com/documentation/ec2/), an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)(EBS) to function correctly.  
+  # Add these lines
+  KUBE_MANIFESTS_TAR_URL="${SERVER_BINARY_TAR_URL/server-linux-amd64/manifests}"
+  MASTER_OS_DISTRIBUTION="${KUBE_MASTER_OS_DISTRIBUTION}"
+  NODE_OS_DISTRIBUTION="${KUBE_NODE_OS_DISTRIBUTION}"
 
-We've made this very easy for you by creating the `make amazon-cluster` helper, which will create all of these resources for you.
+  local server_binary_tar_url=$SERVER_BINARY_TAR_URL
+  local salt_tar_url=$SALT_TAR_URL
+  local kube_manifests_tar_url="${KUBE_MANIFESTS_TAR_URL:-}"
+  if [[ "${master}" == "true" && "${MASTER_OS_DISTRIBUTION}" == "coreos" ]] || \
+     [[ "${master}" == "false" && "${NODE_OS_DISTRIBUTION}" == "coreos" ]] ; then
+    # TODO: Support fallback .tar.gz settings on CoreOS
+    server_binary_tar_url=$(split_csv "${SERVER_BINARY_TAR_URL}")
+    salt_tar_url=$(split_csv "${SALT_TAR_URL}")
+    kube_manifests_tar_url=$(split_csv "${KUBE_MANIFESTS_TAR_URL}")
+  fi
+ ```
 
-First of all, set the required environment variables. Choose a name for both the bucket and disk, as well as a capacity for the disk (in GB):
+ NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:
+ ```
+ kubectl config use-context minikube
+ ``` 
 
+ Now we've got Kubernetes up and running, it's time to deploy Pachyderm!
+
+## Deploy Pachyderm
+
+Before we deploy Pachyderm, we need to add some storage resources to our cluster so that Pachyderm has a place to put data. 
+
+### Set up the storage infrastructure
+
+Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)(EBS) to function correctly.  
+
+Here are the parameters to set up these resources:
 
 ```shell
-$ export KUBECTLFLAGS="-s [the IP address of the node where Kubernetes runs]"
-$ export BUCKET_NAME=[the name of the bucket where your data will be stored; this name needs to be unique across the entire AWS region]
-$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs]
-$ export AWS_REGION=[the AWS region where you want the bucket and EBS volume to reside]
-$ export AWS_AVAILABILITY_ZONE=[the AWS availability zone where you want your EBS volume to reside]
+$ export KUBECTLFLAGS="-s [The public IP of the Kubernetes master:`kubectl cluster-info`]"
+
+# BUCKET_NAME needs to be globally unique across the entire AWS region
+$ export BUCKET_NAME=[The name of the S3 bucket where your data will be stored] 
+
+# We recommend between 1 and 10 GB. This stores PFS metadata. For reference 1GB
+# should work for 1000 commits on 1000 files. 
+$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
+
+$ export AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2"]
+
+$ export AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
+
 ```
 
-Then, simply run:
+And then run:
+```
+$ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
 
-```shell
-$ make amazon-cluster
+$ aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2
 ```
 
-Record the "volume-id" in the output, then export it:
+Record the "volume-id" that is output (e.g. "vol-8050b807"). You can also view it in the aws console or with  `aws ec2 describe-volumes`. Export the volume-id:
 
 ```shell
 $ export STORAGE_NAME=[volume id]
@@ -137,9 +177,31 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-### Deploy Pachyderm
 
-First get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html):
+### Install Pachctl 
+
+`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
+
+
+```shell
+# For OSX:
+$ brew tap pachyderm/tap && brew install pachctl
+
+# For Linux (64 bit):
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+```
+
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.1.0
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+
+### Start Pachyderm
+
+First get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html) by using this command:
 
 ```shell
 $ aws sts get-session-token
@@ -148,7 +210,12 @@ $ aws sts get-session-token
 Then run the following commands with the credentials you get:
 
 ```shell
-$ AWS_ID=[access key ID] AWS_KEY=[secret access key] AWS_TOKEN=[session token] make amazon-cluster-manifest > manifest
+$ AWS_ID=[access key ID] 
+
+$ AWS_KEY=[secret access key]
+
+$ AWS_TOKEN=[session token] make amazon-cluster-manifest > manifest
+
 $ make MANIFEST=manifest launch
 ```
 
