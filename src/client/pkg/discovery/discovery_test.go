@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestEtcdClientRF(t *testing.T) {
+func TestEtcdClient(t *testing.T) {
 
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
@@ -21,7 +21,7 @@ func TestEtcdClientRF(t *testing.T) {
 	runTest(t, client)
 }
 
-func TestEtcdWatchRF(t *testing.T) {
+func TestEtcdWatch(t *testing.T) {
 
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
