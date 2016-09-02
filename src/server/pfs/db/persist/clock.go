@@ -8,14 +8,6 @@ import (
 	"github.com/dancannon/gorethink"
 )
 
-type ErrBranchExists struct {
-	error
-}
-
-type ErrBranchNotFound struct {
-	error
-}
-
 func (b *BlockRef) Size() uint64 {
 	return b.Upper - b.Lower
 }
