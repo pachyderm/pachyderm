@@ -166,10 +166,6 @@ func TestPachCommitIdEnvVarInJobRF(t *testing.T) {
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "id", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, jobInfo.OutputCommit.ID, strings.TrimSpace(buffer.String()))
-
-	buffer.Reset()
 	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("input-id-%v", repos[0]), 0, 0, "", false, nil, &buffer))
 	require.Equal(t, jobInfo.Inputs[0].Commit.ID, strings.TrimSpace(buffer.String()))
 
