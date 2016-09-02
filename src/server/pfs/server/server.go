@@ -16,12 +16,12 @@ const (
 	GoogleBackendEnvVar = "GOOGLE"
 )
 
-// APIServer represents and internal api server.
+// APIServer represents and api server.
 type APIServer interface {
 	pfsclient.APIServer // SJ: also bad naming
 }
 
-// NewAPIServer creates an InternalAPIServer.
+// NewAPIServer creates an APIServer.
 func NewAPIServer(driver drive.Driver) APIServer {
 	return newAPIServer(driver)
 }
