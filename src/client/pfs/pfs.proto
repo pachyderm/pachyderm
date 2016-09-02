@@ -275,7 +275,11 @@ service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
-  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {
+      option (google.api.http) = {
+        post: "/v1/pfs/{repo.name}"
+      };
+  }
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
