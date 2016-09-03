@@ -604,9 +604,20 @@ type commitChangeFeed struct {
 // using diffs.
 func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 	head := persist.FullClockHead(commit.FullClock)
+	keyDiff := &persist.Diff{
+		Repo: commit.Repo,
+		Clock: &persist.Clock{
+			Branch: head.Branch,
+			Clock:  head.Clock,
+		},
+	}
+	key, err := d.getKey(DiffClockIndex, keyDiff)
+	if err != nil {
+		return 0, err
+	}
 	cursor, err := d.getTerm(diffTable).GetAllByIndex(
 		DiffClockIndex.Name,
-		DiffClockIndex.Key(commit.Repo, head.Branch, head.Clock),
+		key,
 	).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		return left.Merge(map[string]interface{}{
 			"Size": left.Field("Size").Add(right.Field("Size")),
@@ -823,9 +834,38 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 				return nil, err
 			}
 			head := persist.FullClockHead(fullClock)
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(CommitClockIndex.Name),
-			}).Between(CommitClockIndex.Key(repo, head.Branch, head.Clock+1), CommitClockIndex.Key(repo, head.Branch, gorethink.MaxVal)))
+			startCommit := &persist.Commit{
+				Repo: repo,
+				FullClock: []*persist.Clock{
+					&persist.Clock{
+						Branch: head.Branch,
+						Clock:  head.Clock + 1,
+					},
+				},
+			}
+			start, err := d.getKey(CommitClockIndex, startCommit)
+			if err != nil {
+				return nil, err
+			}
+			endCommit := &persist.Commit{
+				Repo: repo,
+				FullClock: []*persist.Clock{
+					&persist.Clock{
+						Branch: head.Branch,
+						Clock:  math.MaxUint64,
+					},
+				},
+			}
+			end, err := d.getKey(CommitClockIndex, endCommit)
+			if err != nil {
+				return nil, err
+			}
+			queries = append(
+				queries,
+				d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+					Index: gorethink.Desc(CommitClockIndex.Name),
+				}).Between(start, end),
+			)
 		}
 	}
 	query := gorethink.Union(queries...)
@@ -1357,11 +1397,33 @@ func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch st
 
 		var query gorethink.Term
 		for j, r := range ranges.Ranges() {
+			leftDiff := &persist.Diff{
+				Repo: repo,
+				Clock: &persist.Clock{
+					Branch: r.Branch,
+					Clock:  r.Left,
+				},
+			}
+			left, err := d.getKey(DiffClockIndex, leftDiff)
+			if err != nil {
+				return nilTerm, err
+			}
+			rightDiff := &persist.Diff{
+				Repo: repo,
+				Clock: &persist.Clock{
+					Branch: r.Branch,
+					Clock:  r.Right,
+				},
+			}
+			right, err := d.getKey(DiffClockIndex, rightDiff)
+			if err != nil {
+				return nilTerm, err
+			}
 			q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
 				Index: DiffClockIndex.Name,
 			}).Between(
-				DiffClockIndex.Key(repo, r.Branch, r.Left),
-				DiffClockIndex.Key(repo, r.Branch, r.Right),
+				left,
+				right,
 				gorethink.BetweenOpts{
 					LeftBound:  "closed",
 					RightBound: "closed",
@@ -1397,11 +1459,37 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 
 	var query gorethink.Term
 	for i, r := range ranges.Ranges() {
+		leftCommit := &persist.Commit{
+			Repo: repo,
+			FullClock: []*persist.Clock{
+				&persist.Clock{
+					Branch: r.Branch,
+					Clock:  r.Left,
+				},
+			},
+		}
+		left, err := d.getKey(CommitClockIndex, leftCommit)
+		if err != nil {
+			return nilTerm, err
+		}
+		rightCommit := &persist.Commit{
+			Repo: repo,
+			FullClock: []*persist.Clock{
+				&persist.Clock{
+					Branch: r.Branch,
+					Clock:  r.Right,
+				},
+			},
+		}
+		right, err := d.getKey(CommitClockIndex, rightCommit)
+		if err != nil {
+			return nilTerm, err
+		}
 		q := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 			Index: CommitClockIndex.Name,
 		}).Between(
-			CommitClockIndex.Key(repo, r.Branch, r.Left),
-			CommitClockIndex.Key(repo, r.Branch, r.Right),
+			left,
+			right,
 			gorethink.BetweenOpts{
 				LeftBound:  "closed",
 				RightBound: "closed",
@@ -1519,7 +1607,18 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			oldClock := persist.FullClockHead(rawCommit.FullClock)
 
 			// TODO: conflict detection
-			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, DiffClockIndex.Key(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
+			keyDiff := &persist.Diff{
+				Repo: repo,
+				Clock: &persist.Clock{
+					Branch: oldClock.Branch,
+					Clock:  oldClock.Clock,
+				},
+			}
+			key, err := d.getKey(DiffClockIndex, keyDiff)
+			if err != nil {
+				return nil, err
+			}
+			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, key).Merge(func(diff gorethink.Term) map[string]interface{} {
 				return map[string]interface{}{
 					"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
 					"Clock": newClock,
@@ -1593,6 +1692,12 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 
 func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
 	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		/*keyDiff := &persist.Diff{
+			Repo:  repo,
+			Path:  parent,
+			Clock: clock,
+		}
+		key, err :=  */
 		return DiffParentIndex.Key(repo, parent, clock)
 	})
 	if err != nil {
