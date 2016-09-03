@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestBlockRF(t *testing.T) {
+func TestBlock(t *testing.T) {
 	t.Parallel()
 	blockClient := getBlockClient(t)
 	_, err := blockClient.CreateDiff(
@@ -96,7 +96,7 @@ func TestBlockRF(t *testing.T) {
 	require.Equal(t, 3, len(diffInfos))
 }
 
-func TestInvalidRepoRF(t *testing.T) {
+func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
@@ -112,7 +112,7 @@ func TestInvalidRepoRF(t *testing.T) {
 	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
-func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
+func TestCreateRepoNonexistantProvenance(t *testing.T) {
 	// This method of calling CreateRepo
 	// is used within pps CreateJob()
 
@@ -129,7 +129,7 @@ func TestCreateRepoNonexistantProvenanceRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestSimpleRF(t *testing.T) {
+func TestSimple(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -160,7 +160,7 @@ func TestSimpleRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestBranchRF(t *testing.T) {
+func TestBranch(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -195,7 +195,7 @@ func TestBranchRF(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
-func TestDisallowReadsDuringCommitRF(t *testing.T) {
+func TestDisallowReadsDuringCommit(t *testing.T) {
 	// OBSOLETE - we no longer accept file handles, and the default behavior is to
 	// allow reads within a commit
 	t.Skip()
@@ -231,7 +231,7 @@ func TestDisallowReadsDuringCommitRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestInspectRepoSimpleRF(t *testing.T) {
+func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -257,7 +257,7 @@ func TestInspectRepoSimpleRF(t *testing.T) {
 	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
 }
 
-func TestInspectRepoComplexRF(t *testing.T) {
+func TestInspectRepoComplex(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -297,7 +297,7 @@ func TestInspectRepoComplexRF(t *testing.T) {
 	require.Equal(t, int(info.SizeBytes), totalSize)
 }
 
-func TestListRepoRF(t *testing.T) {
+func TestListRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -319,7 +319,7 @@ func TestListRepoRF(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos)
 }
 
-func TestDeleteRepoRF(t *testing.T) {
+func TestDeleteRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -351,7 +351,7 @@ func TestDeleteRepoRF(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
-func TestDeleteProvenanceRepoRF(t *testing.T) {
+func TestDeleteProvenanceRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -396,7 +396,7 @@ func TestDeleteProvenanceRepoRF(t *testing.T) {
 	require.Equal(t, 1, len(repoInfos))
 }
 
-func TestInspectCommitRF(t *testing.T) {
+func TestInspectCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -433,7 +433,7 @@ func TestInspectCommitRF(t *testing.T) {
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
 }
 
-func TestDeleteCommitFutureRF(t *testing.T) {
+func TestDeleteCommitFuture(t *testing.T) {
 	// For when DeleteCommit gets implemented
 	t.Skip()
 
@@ -464,7 +464,7 @@ func TestDeleteCommitFutureRF(t *testing.T) {
 	require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
-func TestDeleteCommitRF(t *testing.T) {
+func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -484,7 +484,7 @@ func TestDeleteCommitRF(t *testing.T) {
 	require.YesError(t, client.DeleteCommit(repo, commit.ID))
 }
 
-func TestPutFileRF(t *testing.T) {
+func TestPutFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -535,7 +535,7 @@ func TestPutFileRF(t *testing.T) {
 	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", false, nil, &buffer))
 }
 
-func TestListFileTwoCommitsRF(t *testing.T) {
+func TestListFileTwoCommits(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -573,7 +573,7 @@ func TestListFileTwoCommitsRF(t *testing.T) {
 	require.Equal(t, 2*numFiles, len(fileInfos))
 }
 
-func TestPutSameFileInParallelRF(t *testing.T) {
+func TestPutSameFileInParallel(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -599,7 +599,7 @@ func TestPutSameFileInParallelRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
 }
 
-func TestInspectFileRF(t *testing.T) {
+func TestInspectFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -663,7 +663,7 @@ func TestInspectFileRF(t *testing.T) {
 	require.Equal(t, len(fileInfos), 2)
 }
 
-func TestListFileRF(t *testing.T) {
+func TestListFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -695,7 +695,7 @@ func TestListFileRF(t *testing.T) {
 	require.True(t, fileInfos[0].File.Path == "/dir/foo")
 }
 
-func TestDeleteFileRF(t *testing.T) {
+func TestDeleteFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -753,7 +753,7 @@ func TestDeleteFileRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestInspectDirRF(t *testing.T) {
+func TestInspectDir(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -784,7 +784,7 @@ func TestInspectDirRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestDeleteDirRF(t *testing.T) {
+func TestDeleteDir(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -855,7 +855,7 @@ func TestDeleteDirRF(t *testing.T) {
 	// TODO: test deleting "."
 }
 
-func TestListCommitRF(t *testing.T) {
+func TestListCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -915,7 +915,7 @@ func TestListCommitRF(t *testing.T) {
 	require.Equal(t, commit3, commitInfos[0].Commit)
 }
 
-func TestOffsetReadRF(t *testing.T) {
+func TestOffsetRead(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "TestOffsetRead"
@@ -933,7 +933,7 @@ func TestOffsetReadRF(t *testing.T) {
 	require.Equal(t, "", buffer.String())
 }
 
-func TestUnsafeOperationsRF(t *testing.T) {
+func TestUnsafeOperations(t *testing.T) {
 	t.Parallel()
 	// Unsafe is not a thing anymore
 	t.Skip()
@@ -976,7 +976,7 @@ func TestUnsafeOperationsRF(t *testing.T) {
 }
 
 // FinishCommit should block until the parent has been finished
-func TestFinishCommitRF(t *testing.T) {
+func TestFinishCommit(t *testing.T) {
 	t.Parallel()
 
 	client := getClient(t)
@@ -1013,7 +1013,7 @@ func TestFinishCommitRF(t *testing.T) {
 	}
 }
 
-func TestStartCommitWithNonexistentParentRF(t *testing.T) {
+func TestStartCommitWithNonexistentParent(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "TestStartCommitWithNonexistentParent"
@@ -1023,7 +1023,7 @@ func TestStartCommitWithNonexistentParentRF(t *testing.T) {
 }
 
 // If a commit's parent has been cancelled, the commit should be cancelled too
-func TestFinishCommitParentCancelledRF(t *testing.T) {
+func TestFinishCommitParentCancelled(t *testing.T) {
 	t.Parallel()
 
 	client := getClient(t)
@@ -1062,7 +1062,7 @@ func TestFinishCommitParentCancelledRF(t *testing.T) {
 	require.True(t, commit3Info.Cancelled)
 }
 
-func TestHandleRaceRF(t *testing.T) {
+func TestHandleRace(t *testing.T) {
 	t.Parallel()
 	// handle is not a thing anymore
 	t.Skip()
@@ -1090,7 +1090,7 @@ func TestHandleRaceRF(t *testing.T) {
 	require.EqualOneOf(t, []interface{}{"foofoobar", "barfoofoo"}, buffer.String())
 }
 
-func Test0ModulusRF(t *testing.T) {
+func Test0Modulus(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -1113,7 +1113,7 @@ func Test0ModulusRF(t *testing.T) {
 	require.Equal(t, uint64(4), fileInfos[0].SizeBytes)
 }
 
-func TestProvenanceRF(t *testing.T) {
+func TestProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
@@ -1291,7 +1291,7 @@ func TestProvenanceRF(t *testing.T) {
 	}
 }
 
-func TestFlushRF(t *testing.T) {
+func TestFlush(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
@@ -1382,7 +1382,7 @@ func TestFlushRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestShardingInTopLevelRF(t *testing.T) {
+func TestShardingInTopLevel(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1420,7 +1420,7 @@ func TestShardingInTopLevelRF(t *testing.T) {
 	require.Equal(t, folders*filesPerFolder, totalFiles)
 }
 
-func TestCreateRF(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1436,7 +1436,7 @@ func TestCreateRF(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetFileInvalidCommitRF(t *testing.T) {
+func TestGetFileInvalidCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1457,7 +1457,7 @@ func TestGetFileInvalidCommitRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
-func TestScrubbedErrorStringsRF(t *testing.T) {
+func TestScrubbedErrorStrings(t *testing.T) {
 	// REFACTOR todo (pfs-refactor): skipped because we didn't want to make an extra hop to validate repo existence for Put/Get file requests
 	// post refactor, these APIs will be updated to only accept a commit, not a repo, and so we'll update the error messages then as well
 	t.Skip()
@@ -1520,7 +1520,7 @@ func TestScrubbedErrorStringsRF(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("commit %v not found in repo %v", "aninvalidcommitid", repo), err.Error())
 }
 
-func TestATonOfPutsRF(t *testing.T) {
+func TestATonOfPuts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
@@ -1568,7 +1568,7 @@ func TestATonOfPutsRF(t *testing.T) {
 	require.Equal(t, string(expectedOutput), buffer.String())
 }
 
-func TestPutFileWithJSONDelimiterRF(t *testing.T) {
+func TestPutFileWithJSONDelimiter(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1634,7 +1634,7 @@ func TestPutFileWithJSONDelimiterRF(t *testing.T) {
 	}
 }
 
-func TestPutFileWithNoDelimiterRF(t *testing.T) {
+func TestPutFileWithNoDelimiter(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1696,7 +1696,7 @@ func TestPutFileWithNoDelimiterRF(t *testing.T) {
 
 }
 
-func TestPutFileNullCharacterRF(t *testing.T) {
+func TestPutFileNullCharacter(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1712,7 +1712,7 @@ func TestPutFileNullCharacterRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestArchiveCommitRF(t *testing.T) {
+func TestArchiveCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1770,7 +1770,7 @@ func TestArchiveCommitRF(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
-func TestPutFileURLRF(t *testing.T) {
+func TestPutFileURL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1787,7 +1787,7 @@ func TestPutFileURLRF(t *testing.T) {
 	require.True(t, fileInfo.SizeBytes > 0)
 }
 
-func TestArchiveAllRF(t *testing.T) {
+func TestArchiveAll(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1823,7 +1823,7 @@ func TestArchiveAllRF(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
-func TestBigListFileRF(t *testing.T) {
+func TestBigListFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1851,7 +1851,7 @@ func TestBigListFileRF(t *testing.T) {
 	}
 }
 
-func TestFullFileRF(t *testing.T) {
+func TestFullFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1878,7 +1878,7 @@ func TestFullFileRF(t *testing.T) {
 	require.Equal(t, "foobar", buffer.String())
 }
 
-func TestFullFileDirRF(t *testing.T) {
+func TestFullFileDir(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1904,6 +1904,1077 @@ func TestFullFileDirRF(t *testing.T) {
 	fileInfos, err = client.ListFile(repo, "master", "", "master/0", true, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
+}
+
+func TestBranchSimple(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	heads, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(heads))
+	require.Equal(t, "branchA", heads[0].Branch)
+
+}
+
+func TestListBranch(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	// Don't specify a branch because we already should have it from parent
+	commit2, err := client.StartCommit(repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	// Specify branch, because branching off of commit1
+	commit3, err := client.StartCommit(repo, commit1.ID, "branchB")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, len(branches))
+	branchNames := []interface{}{
+		branches[0].Branch,
+		branches[1].Branch,
+	}
+
+	require.EqualOneOf(t, branchNames, "branchA")
+	require.EqualOneOf(t, branchNames, "branchB")
+}
+
+func TestListCommitBasic(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	require.NoError(t, client.CreateRepo("test"))
+	numCommits := 10
+	var commitIDs []string
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit("test", "", "master")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("test", commit.ID))
+		commitIDs = append(commitIDs, commit.ID)
+	}
+
+	commitInfos, err := client.ListCommit(
+		[]string{"test"},
+		nil,
+		pclient.CommitTypeNone,
+		false,
+		pfsclient.CommitStatus_NORMAL,
+		nil,
+	)
+	require.NoError(t, err)
+
+	require.Equal(t, len(commitInfos), numCommits)
+	for i, commitInfo := range commitInfos {
+		require.Equal(t, commitIDs[len(commitIDs)-i-1], commitInfo.Commit.ID)
+	}
+}
+
+func TestStartAndFinishCommit(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+}
+
+func TestInspectCommitBasic(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	started := time.Now()
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	commitInfo, err := client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, commit, commitInfo.Commit)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
+	require.Equal(t, 0, int(commitInfo.SizeBytes))
+	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.Nil(t, commitInfo.Finished)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	finished := time.Now()
+
+	commitInfo, err = client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, commit.ID, commitInfo.Commit.ID)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, 0, int(commitInfo.SizeBytes))
+	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+}
+
+func TestStartCommitFromParentID(t *testing.T) {
+	t.Parallel()
+
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+
+	// Should create commit off of parent on the same branch
+	commit1, err := client.StartCommit(repo, commit.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	existingBranch := branches[0].Branch
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+
+	// Should create commit off of parent on a new branch by name
+	commit2, err := client.StartCommit(repo, commit.ID, "foo")
+	require.NoError(t, err)
+
+	branches2, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	uniqueBranches := make(map[string]bool)
+
+	for _, thisBranch := range branches2 {
+		uniqueBranches[thisBranch.Branch] = true
+	}
+
+	require.Equal(t, 2, len(uniqueBranches))
+	delete(uniqueBranches, existingBranch)
+	require.Equal(t, 1, len(uniqueBranches))
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+}
+
+func TestInspectRepoMostBasic(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	repoInfo, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, int(repoInfo.SizeBytes), 0)
+}
+
+func TestStartCommitLatestOnBranch(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit3, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	branches, err := client.ListBranch(repo)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, commit3.ID, branches[0].Commit.ID)
+}
+
+func TestListBranchRedundant(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "branchA")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	// Can't create branch if it exists
+	_, err = client.StartCommit(repo, commit1.ID, "branchA")
+	require.YesError(t, err)
+
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "branchA", branches[0].Branch)
+}
+
+func TestNEWAPIStartCommitFromBranch(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+
+	commitInfo, err := client.InspectCommit(repo, "master/0")
+	require.NoError(t, err)
+	require.Equal(t, "master", commitInfo.Branch)
+	require.Equal(t, "test", commitInfo.Commit.Repo.Name)
+
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+}
+
+func TestNEWAPIStartCommitNewBranch(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	_, err = client.StartCommit(repo, commit1.ID, "foo")
+	require.NoError(t, err)
+
+	commitInfo, err := client.InspectCommit(repo, "foo/0")
+	require.NoError(t, err)
+	require.Equal(t, "foo", commitInfo.Branch)
+	require.Equal(t, "test", commitInfo.Commit.Repo.Name)
+}
+
+func TestNEWAPIPutFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	expected := "foo\nbar\nbuzz\n"
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, expected, buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master/0", "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, expected, buffer.String())
+
+	commit2, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, expected, buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, expected, buffer.String())
+
+	_, err = client.StartCommit(repo, "master/1", "foo")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "foo/0", "file", strings.NewReader("foo\nbar\nbuzz\n"))
+	require.NoError(t, client.FinishCommit(repo, "foo/0"))
+
+	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "foo/0", "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, expected, buffer.String())
+}
+
+func TestNEWAPIDeleteFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/1", "file", false, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	expected := "bar\n"
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, "master/0", false, nil, &buffer))
+	require.Equal(t, expected, buffer.String())
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "file", false, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	expected = "foo\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master/2", "file", 0, 0, "master/0", false, nil, &buffer))
+	require.Equal(t, expected, buffer.String())
+}
+
+func TestNEWAPIInspectFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent1 := "foo\n"
+	fileContent2 := "buzz\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfo, err := client.InspectFile(repo, "master/0", "file", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+	require.Equal(t, "/file", fileInfo.File.Path)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfo, err = client.InspectFile(repo, "master/1", "file", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
+	require.Equal(t, "/file", fileInfo.File.Path)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "file", false, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfo, err = client.InspectFile(repo, "master/2", "file", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
+}
+
+func TestNEWAPIInspectDirectory(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfo, err := client.InspectFile(repo, "master/0", "dir", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfo.Children))
+	require.Equal(t, "/dir", fileInfo.File.Path)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_DIR, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfo, err = client.InspectFile(repo, "master/1", "dir", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfo.Children))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", false, nil)
+	require.NoError(t, err)
+	fmt.Printf("children: %+v", fileInfo.Children)
+	require.Equal(t, 2, len(fileInfo.Children))
+}
+
+func TestNEWAPIListFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+}
+
+func TestNEWAPIListFileRecurse(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfos, err := client.ListFile(repo, "master/0", "dir", "", false, nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3/foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/3/bar", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "dir", "", false, nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master/2", "dir/3/bar", false, "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/2"))
+
+	fileInfos, err = client.ListFile(repo, "master/2", "dir", "", false, nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
+}
+
+func TestNEWAPIPutFileTypeConflict(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir", strings.NewReader(fileContent))
+	require.YesError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+}
+
+func TestRootDirectory(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err := client.ListFile(repo, "master", "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+}
+
+func TestSquashMergeSameFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, "", "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestReplayMergeSameFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, "", "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[3].ID, "file", 0, 0, "", false, nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestSquashMergeDiffOrdering(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestReplayMergeDiffOrdering(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file", 0, 0, "", false, nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestReplayMergeBranches(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA3 := "foo3\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA3))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, "", "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A"}, "B", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[2].ID, "file", 0, 0, "", false, nil, buffer))
+	// The ordering of commits within the same branch should be preserved
+	require.Equal(t, contentB1+contentB2+contentA1+contentA2+contentA3, buffer.String())
+}
+
+func TestReplayMergeMultipleFiles(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	contentB2 := "bar2\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file2", strings.NewReader(contentB2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file1", 0, 0, "", false, nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentB1 + contentA1, contentA1 + contentB1}, buffer.String())
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, mergedCommits[1].ID, "file2", 0, 0, "", false, nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentB2 + contentA2, contentA2 + contentB2}, buffer.String())
+}
+
+func TestSquashMergeMultipleFiles(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	contentA1 := "foo1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentA2 := "foo2\n"
+	_, err = client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	contentB1 := "bar1\n"
+	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "B", "file2", strings.NewReader(contentB1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "B"))
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", false, nil, buffer))
+	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
+}
+
+func TestLeadingSlashesBreakThis(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	commit1, err := client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "dir/file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "dir/file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	shard1 := &pfsclient.Shard{
+		FileNumber:  0,
+		FileModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "dir", "", false, shard1, false)
+	shard2 := &pfsclient.Shard{
+		FileNumber:  1,
+		FileModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "dir", "", false, shard2, false)
+	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+}
+
+func TestListFileWithFiltering(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	contentA1 := "foo1\n"
+	contentA2 := "foo2\n"
+	commit1, err := client.StartCommit(repo, "", "A")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "A"))
+
+	shard1 := &pfsclient.Shard{
+		FileNumber:  0,
+		FileModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit1.ID, "", "", false, shard1, false)
+	require.NoError(t, err)
+	shard2 := &pfsclient.Shard{
+		FileNumber:  1,
+		FileModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", false, shard2, false)
+	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+}
+
+func TestMergeProvenance(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo1 := "test1"
+	require.NoError(t, client.CreateRepo(repo1))
+	repo2 := "test2"
+	_, err := client.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfsclient.CreateRepoRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Provenance: []*pfsclient.Repo{pclient.NewRepo(repo1)},
+		},
+	)
+	require.NoError(t, err)
+
+	// Create two commits in repo1
+	p1, err := client.StartCommit(repo1, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, "master"))
+	p2, err := client.StartCommit(repo1, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, "master"))
+
+	// Create two commits in repo 2, on different branches
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Branch:     "A",
+			Provenance: []*pfsclient.Commit{p1},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, "A"))
+	_, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfsclient.StartCommitRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Branch:     "B",
+			Provenance: []*pfsclient.Commit{p2},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo2, "B"))
+
+	mergedCommits, err := client.Merge(repo2, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	commitInfo, err := client.InspectCommit(mergedCommits[0].Repo.Name, mergedCommits[0].ID)
+	fmt.Printf("provenance: %v\n", commitInfo.Provenance)
+	require.Equal(t, 2, len(commitInfo.Provenance))
+	require.Equal(t, p1.ID, commitInfo.Provenance[0].ID)
+	require.Equal(t, p2.ID, commitInfo.Provenance[1].ID)
+}
+
+func TestSquashMergeDeletion(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitRoot, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	createThreeCommits := func(branch string) {
+		_, err = client.StartCommit(repo, commitRoot.ID, branch)
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, branch, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, branch))
+
+		_, err = client.StartCommit(repo, "", branch)
+		require.NoError(t, err)
+		require.NoError(t, client.DeleteFile(repo, branch, "file", false, ""))
+		require.NoError(t, client.FinishCommit(repo, branch))
+
+		_, err = client.StartCommit(repo, "", branch)
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, branch, "file", strings.NewReader("bar"))
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, branch))
+	}
+
+	createThreeCommits("A")
+	createThreeCommits("B")
+	createThreeCommits("C")
+
+	mergedCommits, err := client.Merge(repo, []string{"A", "B", "C"}, "squash", pfsclient.MergeStrategy_SQUASH)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mergedCommits))
+
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, "barbarbar", buffer.String())
+
+	mergedCommits, err = client.Merge(repo, []string{"A", "B", "C"}, "replay", pfsclient.MergeStrategy_REPLAY)
+	require.NoError(t, err)
+	// 3 commits on each branch plus 1 commit on master
+	require.Equal(t, 10, len(mergedCommits))
+
+	buffer = &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, mergedCommits[9].ID, "file", 0, 0, "", false, nil, buffer))
+	require.Equal(t, "bar", buffer.String())
 }
 
 func generateRandomString(n int) string {

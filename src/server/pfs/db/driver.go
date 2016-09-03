@@ -30,15 +30,17 @@ type Table string
 // A PrimaryKey is a rethinkdb primary key identifier.
 type PrimaryKey string
 
-// Errors
+// ErrCommitNotFound is specified when the commit is not found
 type ErrCommitNotFound struct {
 	error
 }
 
+// ErrBranchExists is specified if the branch already exists
 type ErrBranchExists struct {
 	error
 }
 
+// ErrCommitFinished is specified if the operation is disallowed on Finished Commits
 type ErrCommitFinished struct {
 	error
 }
@@ -53,6 +55,7 @@ const (
 )
 
 const (
+	// ErrConflictFileTypeMsg is used when we see a file that is both a file and directory
 	ErrConflictFileTypeMsg = "file type conflict"
 )
 
@@ -94,6 +97,7 @@ type driver struct {
 	dbClient    *gorethink.Session
 }
 
+// NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
 	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
 	if err != nil {
@@ -119,6 +123,7 @@ func isDBCreated(err error) bool {
 	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
 }
 
+//InitDB is used to setup the database with the tables and indices that PFS requires
 func InitDB(address string, dbName string) error {
 	session, err := dbConnect(address)
 	if err != nil {
@@ -478,12 +483,11 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 					// This should only happen if there's another process creating the
 					// very same branch at the same time, and we lost the race.
 					return nil, ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
-				} else {
-					// This should only happen if there's another process creating a
-					// new commit off the same parent, but on the parent's own branch,
-					// and we lost the race.
-					return nil, fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
 				}
+				// This should only happen if there's another process creating a
+				// new commit off the same parent, but on the parent's own branch,
+				// and we lost the race.
+				return nil, fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
 			}
 			return nil, err
 		}
@@ -548,7 +552,7 @@ func parseClock(clock string) (*persist.Clock, error) {
 	}, nil
 }
 
-type CommitChangeFeed struct {
+type commitChangeFeed struct {
 	NewVal *persist.Commit `gorethink:"new_val,omitempty"`
 }
 
@@ -608,7 +612,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			return err
 		}
 
-		var change CommitChangeFeed
+		var change commitChangeFeed
 		for cursor.Next(&change) {
 			if change.NewVal != nil && change.NewVal.Finished != nil {
 				parentCancelled = change.NewVal.Cancelled
@@ -877,7 +881,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 	// The list of the repos that we care about.
 	var repos []string
-	for repoName, _ := range repoSet1 {
+	for repoName := range repoSet1 {
 		if len(repoSet2) == 0 || repoSet2[repoName] {
 			repos = append(repos, repoName)
 		}
@@ -1606,9 +1610,9 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 	return diffs, nil
 }
 
-type ClockToIndexKeyFunc func(interface{}) interface{}
+type clockToIndexKeyFunc func(interface{}) interface{}
 
-func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc ClockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
+func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
 	var from *pfs.Commit
 	if diffMethod != nil {
 		from = diffMethod.FromCommit
@@ -1643,7 +1647,7 @@ func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, toCommit *pfs
 // getDiffsInCommitRange takes a [fromClock, toClock] interval and returns
 // an ordered stream of diffs in this range that matches a given index.
 // If reverse is set to true, the commits will be in reverse order.
-func (d *driver) _getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc ClockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
+func (d *driver) _getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
 	var err error
 	var fromClock persist.FullClock
 	if fromCommit != nil {
@@ -1674,20 +1678,19 @@ func (d *driver) _getDiffsInCommitRange(fromCommit *pfs.Commit, toCommit *pfs.Co
 				},
 			)
 		}), nil
-	} else {
-		return gorethink.Expr(ranges).ConcatMap(func(r gorethink.Term) gorethink.Term {
-			return d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
-				Index: indexName,
-			}).Between(
-				keyFunc([]interface{}{r.Field("Branch"), r.Field("Left")}),
-				keyFunc([]interface{}{r.Field("Branch"), r.Field("Right")}),
-				gorethink.BetweenOpts{
-					LeftBound:  "closed",
-					RightBound: "closed",
-				},
-			)
-		}), nil
 	}
+	return gorethink.Expr(ranges).ConcatMap(func(r gorethink.Term) gorethink.Term {
+		return d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
+			Index: indexName,
+		}).Between(
+			keyFunc([]interface{}{r.Field("Branch"), r.Field("Left")}),
+			keyFunc([]interface{}{r.Field("Branch"), r.Field("Right")}),
+			gorethink.BetweenOpts{
+				LeftBound:  "closed",
+				RightBound: "closed",
+			},
+		)
+	}), nil
 }
 
 func (d *driver) getFullClockByAmbiguousID(repo string, commitID string) (persist.FullClock, error) {
@@ -1951,7 +1954,7 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 		}
 		clock = commit.FullClock[len(commit.FullClock)-2]
 	} else {
-		clock.Clock -= 1
+		clock.Clock--
 	}
 
 	parentCommit := &persist.Commit{}

@@ -38,12 +38,12 @@ const (
 	KB       = 1024 * 1024
 )
 
-func TestJobRF(t *testing.T) {
+func TestJob(t *testing.T) {
 	t.Parallel()
 	testJob(t, 4)
 }
 
-func TestJobNoShardRF(t *testing.T) {
+func TestJobNoShard(t *testing.T) {
 	t.Parallel()
 	testJob(t, 0)
 }
@@ -101,7 +101,7 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
-func TestPachCommitIdEnvVarInJobRF(t *testing.T) {
+func TestPachCommitIdEnvVarInJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -174,7 +174,7 @@ func TestPachCommitIdEnvVarInJobRF(t *testing.T) {
 	require.Equal(t, jobInfo.Inputs[1].Commit.ID, strings.TrimSpace(buffer.String()))
 }
 
-func TestDuplicatedJobRF(t *testing.T) {
+func TestDuplicatedJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -244,7 +244,7 @@ func TestDuplicatedJobRF(t *testing.T) {
 	require.Equal(t, fileContent, buffer.String())
 }
 
-func TestLogsRF(t *testing.T) {
+func TestLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -279,7 +279,7 @@ func TestLogsRF(t *testing.T) {
 	require.YesError(t, c.GetLogs("nonexistent", &buffer))
 }
 
-func TestGrepRF(t *testing.T) {
+func TestGrep(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -331,7 +331,7 @@ func TestGrepRF(t *testing.T) {
 	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
 }
 
-func TestJobLongOutputLineRF(t *testing.T) {
+func TestJobLongOutputLine(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -355,7 +355,7 @@ func TestJobLongOutputLineRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
-func TestPipelineRF(t *testing.T) {
+func TestPipeline(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -455,7 +455,7 @@ func TestPipelineRF(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
-func TestPipelineWithEmptyInputsRF(t *testing.T) {
+func TestPipelineWithEmptyInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -574,7 +574,7 @@ func TestPipelineWithEmptyInputsRF(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 }
 
-func TestPipelineWithTooMuchParallelismRF(t *testing.T) {
+func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -630,7 +630,7 @@ func TestPipelineWithTooMuchParallelismRF(t *testing.T) {
 	require.Equal(t, false, outCommits[0].Cancelled)
 }
 
-func TestPipelineWithNoInputsRF(t *testing.T) {
+func TestPipelineWithNoInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -698,7 +698,7 @@ func TestPipelineWithNoInputsRF(t *testing.T) {
 	require.True(t, job.ID != job2.ID)
 }
 
-func TestPipelineThatWritesToOneFileRF(t *testing.T) {
+func TestPipelineThatWritesToOneFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -747,7 +747,7 @@ func TestPipelineThatWritesToOneFileRF(t *testing.T) {
 	require.Equal(t, 30, buffer.Len())
 }
 
-func TestPipelineThatOverwritesFileRF(t *testing.T) {
+func TestPipelineThatOverwritesFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -824,7 +824,7 @@ func TestPipelineThatOverwritesFileRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestPipelineThatAppendsToFileRF(t *testing.T) {
+func TestPipelineThatAppendsToFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -899,11 +899,11 @@ func TestPipelineThatAppendsToFileRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestRemoveAndAppendRF(t *testing.T) {
+func TestRemoveAndAppend(t *testing.T) {
 	testParellelRemoveAndAppend(t, 1)
 }
 
-func TestParellelRemoveAndAppendRF(t *testing.T) {
+func TestParellelRemoveAndAppend(t *testing.T) {
 	// This test does not pass on Travis which is why it's skipped right now As
 	// soon as we have a hypothesis for why this fails on travis but not
 	// locally we should un skip this test and try to fix it.
@@ -971,7 +971,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
-func TestWorkloadRF(t *testing.T) {
+func TestWorkload(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -981,7 +981,7 @@ func TestWorkloadRF(t *testing.T) {
 	require.NoError(t, workload.RunWorkload(c, rand.New(rand.NewSource(seed)), 100))
 }
 
-func TestShardingRF(t *testing.T) {
+func TestSharding(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1031,7 +1031,7 @@ func TestShardingRF(t *testing.T) {
 	wg.Wait()
 }
 
-func TestFromCommitRF(t *testing.T) {
+func TestFromCommit(t *testing.T) {
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1064,7 +1064,7 @@ func TestFromCommitRF(t *testing.T) {
 	require.Equal(t, buffer.Len(), 2*KB)
 }
 
-func TestSimpleRF(t *testing.T) {
+func TestSimple(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1097,7 +1097,7 @@ func TestSimpleRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestPipelineWithMultipleInputsRF(t *testing.T) {
+func TestPipelineWithMultipleInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1236,7 +1236,7 @@ done
 	}
 }
 
-func TestPipelineWithGlobalMethodRF(t *testing.T) {
+func TestPipelineWithGlobalMethod(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1305,7 +1305,7 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
-func TestPipelineWithPrevRepoAndIncrementalReduceMethodRF(t *testing.T) {
+func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1388,7 +1388,7 @@ fi
 	require.Equal(t, "foo", lines[2])
 }
 
-func TestPipelineThatUseNonexistentInputsRF(t *testing.T) {
+func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1411,7 +1411,7 @@ func TestPipelineThatUseNonexistentInputsRF(t *testing.T) {
 	))
 }
 
-func TestPipelineWhoseInputsGetDeletedRF(t *testing.T) {
+func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1449,7 +1449,7 @@ func TestPipelineWhoseInputsGetDeletedRF(t *testing.T) {
 // This test fails if you updated some static assets (such as doc/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
-func TestAssetsRF(t *testing.T) {
+func TestAssets(t *testing.T) {
 	assetPaths := []string{"doc/pipeline_spec.md"}
 
 	for _, path := range assetPaths {
@@ -1474,7 +1474,7 @@ func TestAssetsRF(t *testing.T) {
 // v  v
 // B-->C
 // When we commit to A we expect to see 1 commit on C rather than 2.
-func TestProvenanceRF(t *testing.T) {
+func TestProvenance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1539,7 +1539,7 @@ func TestProvenanceRF(t *testing.T) {
 	}
 }
 
-func TestDirectoryRF(t *testing.T) {
+func TestDirectory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1597,7 +1597,7 @@ func TestDirectoryRF(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
 }
 
-func TestFailedJobReadDataRF(t *testing.T) {
+func TestFailedJobReadData(t *testing.T) {
 	// We want to enable users to be able to read data from cancelled commits for debugging purposes`
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1658,7 +1658,7 @@ func TestFailedJobReadDataRF(t *testing.T) {
 }
 
 // TestFlushCommit
-func TestFlushCommitRF(t *testing.T) {
+func TestFlushCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1708,7 +1708,7 @@ func TestFlushCommitRF(t *testing.T) {
 
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
-func TestFlushCommitWithFailureRF(t *testing.T) {
+func TestFlushCommitWithFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1753,7 +1753,7 @@ func TestFlushCommitWithFailureRF(t *testing.T) {
 }
 
 // TestRecreatePipeline tracks #432
-func TestRecreatePipelineRF(t *testing.T) {
+func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1801,7 +1801,7 @@ func TestRecreatePipelineRF(t *testing.T) {
 	createPipeline()
 }
 
-func TestPipelineStateRF(t *testing.T) {
+func TestPipelineState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1849,7 +1849,7 @@ func TestPipelineStateRF(t *testing.T) {
 	require.EqualOneOf(t, states, ppsclient.PipelineState_PIPELINE_RESTARTING)
 }
 
-func TestPipelineJobCountsRF(t *testing.T) {
+func TestPipelineJobCounts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1895,7 +1895,7 @@ func TestPipelineJobCountsRF(t *testing.T) {
 	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(ppsclient.JobState_JOB_SUCCESS)])
 }
 
-func TestJobStateRF(t *testing.T) {
+func TestJobState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1940,7 +1940,7 @@ func TestJobStateRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestClusterFunctioningAfterMembershipChangeRF(t *testing.T) {
+func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1952,7 +1952,7 @@ func TestClusterFunctioningAfterMembershipChangeRF(t *testing.T) {
 	testJob(t, 4)
 }
 
-func TestDeleteAfterMembershipChangeRF(t *testing.T) {
+func TestDeleteAfterMembershipChange(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1973,7 +1973,7 @@ func TestDeleteAfterMembershipChangeRF(t *testing.T) {
 	test(false)
 }
 
-func TestScrubbedErrorsRF(t *testing.T) {
+func TestScrubbedErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2011,7 +2011,7 @@ func TestScrubbedErrorsRF(t *testing.T) {
 	require.Equal(t, "job bogusJobId not found", err.Error())
 }
 
-func TestLeakingRepoRF(t *testing.T) {
+func TestLeakingRepo(t *testing.T) {
 	// If CreateJob fails, it should also destroy the output repo it creates
 	// If it doesn't, it can cause flush commit to fail, as a bogus repo will
 	// be listed in the output repo's provenance
@@ -2035,7 +2035,7 @@ func TestLeakingRepoRF(t *testing.T) {
 	require.Equal(t, initialCount, len(repoInfos))
 }
 
-func TestAcceptReturnCodeRF(t *testing.T) {
+func TestAcceptReturnCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2063,7 +2063,7 @@ func TestAcceptReturnCodeRF(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
-func TestRestartAllRF(t *testing.T) {
+func TestRestartAll(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2109,7 +2109,7 @@ func TestRestartAllRF(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRestartOneRF(t *testing.T) {
+func TestRestartOne(t *testing.T) {
 	t.Skip("this test is flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2152,7 +2152,7 @@ func TestRestartOneRF(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPrettyPrintingRF(t *testing.T) {
+func TestPrettyPrinting(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2199,7 +2199,7 @@ func TestPrettyPrintingRF(t *testing.T) {
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
 }
 
-func TestDeleteAllRF(t *testing.T) {
+func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2239,7 +2239,7 @@ func TestDeleteAllRF(t *testing.T) {
 	require.Equal(t, 0, len(jobInfos))
 }
 
-func TestRecursiveCpRF(t *testing.T) {
+func TestRecursiveCp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2284,7 +2284,7 @@ func TestRecursiveCpRF(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPipelineUniquenessRF(t *testing.T) {
+func TestPipelineUniqueness(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2324,7 +2324,7 @@ func TestPipelineUniquenessRF(t *testing.T) {
 	require.Matches(t, "pipeline .*? already exists", err.Error())
 }
 
-func TestPipelineInfoDestroyedIfRepoCreationFailsRF(t *testing.T) {
+func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2355,7 +2355,7 @@ func TestPipelineInfoDestroyedIfRepoCreationFailsRF(t *testing.T) {
 	require.Matches(t, "not found", err.Error())
 }
 
-func TestUpdatePipelineRF(t *testing.T) {
+func TestUpdatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2505,7 +2505,7 @@ func TestUpdatePipelineRF(t *testing.T) {
 	require.Equal(t, 1, len(outputRepoCommitInfos))
 }
 
-func TestStopPipelineRF(t *testing.T) {
+func TestStopPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2551,7 +2551,7 @@ func TestStopPipelineRF(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineEnvRF(t *testing.T) {
+func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2616,7 +2616,7 @@ func TestPipelineEnvRF(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
-func TestFlushNonExistantCommitRF(t *testing.T) {
+func TestFlushNonExistantCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2630,7 +2630,7 @@ func TestFlushNonExistantCommitRF(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestPipelineWithFullObjectsRF(t *testing.T) {
+func TestPipelineWithFullObjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2684,7 +2684,7 @@ func TestPipelineWithFullObjectsRF(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestArchiveAllWithPipelinesRF(t *testing.T) {
+func TestArchiveAllWithPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2733,10 +2733,11 @@ func TestArchiveAllWithPipelinesRF(t *testing.T) {
 
 // This test / failure pattern shouldn't be possible after
 // the pfs-refactor branch lands
-func TestListCommitReturnsBlankCommitRF(t *testing.T) {
+func TestListCommitReturnsBlankCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Skip("This test does a restart which seems to break other tests.")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
 
