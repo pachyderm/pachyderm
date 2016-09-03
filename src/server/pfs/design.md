@@ -62,6 +62,8 @@ PutFile(commitID, fileName, "another bunch of bytes")
 
 Each of these `PutFile` calls results in an upsert to the same `Diff` document.  The two calls know to modify the same document because we construct the Diff document ID by concatenating `commitID` and `fileName`.  The first call is going to create the document, while the second call is going to update the document by appending references to the new blocks (i.e. the new content written).
 
+Note that a `DeleteFile` call also creates a diff.  This diff contains no references to blocks and instead only has a `Delete` field set to `true`.
+
 ## Directories
 
 The most obvious approach to represent file system hierarchy is to have "directory documents" that store the names of the files they contain.  Since RethinkDB does not support multi-document transactions, this approach has the consistency issue wherein the database can be stuck in a state where a file exists, but its name has not been added to the "directory document" that should contain it.
@@ -80,3 +82,44 @@ Therefore, to get all files under a path such as `/foo/bar`, we just query the i
 
 ## GetFile and Deletion
 
+Recall that PFS is a version-controlled file system similar in spirit to Git.  In PFS, one of the most common operations is to read a file in a certain commit range.  Consider this example:
+
+```Go
+PutFile(commit1, fileName, "foo")
+PutFile(commit2, fileName, "bar")
+PutFile(commit3, fileName, "buzz")
+
+GetFile(fromCommit=commit1, toCommit=commit3, fileName)
+```
+
+The `GetFile` call should return "barbuzz", because that's what's been written since `fromCommit` (i.e. commit1) to `toCommit` (i.e. commit3). 
+
+Intuitively, we can start streaming bytes to the client as soon as we find the first diff in the commit range for the given path.  We do this through the `DiffClockIndex`.  This index maps a diff to a key that contains the path and the clock of the diff.  Consider this example:
+
+```Go
+PutFile([(master, 2)], "/foo/bar", "a bunch of bytes")
+PutFile([(master, 4)], "/foo/bar", "a bunch of bytes")
+```
+
+These will create two `Diff` documents that have the keys `["/foo/bar", [(master, 2)]]` and `["/foo/bar", [(master, 4)]]` respectively.  Now imagine that we want to read `/foo/bar` between `(master, 1)` and `(master 5)`.  The database query we issue looks like this:
+
+```Go
+query = Between(index=DiffClockIndex, left=["/foo/bar", [(master, 1)]], right=["/foo/bar", [(master, 5)]])
+```
+
+It's easy to see how the two diff documents will be returned from this query, in the order we want.
+
+However, the situation is complicated in the face of deletions.  Consider this example:
+
+```Go
+PutFile(commit1, fileName, "foo")
+PutFile(commit2, fileName, "bar")
+DeleteFile(commit3, fileName)
+PutFile(commit4, fileName, "buzz")
+
+GetFile(fromCommit=commit1, toCommit=commit4, fileName)
+```
+
+Here we need to return `buzz`, because the file has been deleted in commit 3.  Therefore, we can't just start streaming from commit 2.
+
+What we need is a way to stream only the blocks that are added since the most recent deletion.  To that end, we use RethinkDB's [`fold`](https://rethinkdb.com/api/javascript/fold/) operation to transform a series of diffs into a single diff that contains only the blocks we want.  The details are not important; just know that the `fold` happens inside of the database, so in the end we still only need to send one query before we can start streaming data.
