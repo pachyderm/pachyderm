@@ -6,7 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestLineRF(t *testing.T) {
+func TestLine(t *testing.T) {
 	d := NewDAG(map[string][]string{
 		"1": {},
 		"2": {"1"},
@@ -24,7 +24,7 @@ func TestLineRF(t *testing.T) {
 	require.Equal(t, 0, len(d.Ghosts()))
 }
 
-func TestDiamondRF(t *testing.T) {
+func TestDiamond(t *testing.T) {
 	d := NewDAG(map[string][]string{
 		"1": {},
 		"2": {"1"},
@@ -67,7 +67,7 @@ func TestDiamondRF(t *testing.T) {
 	require.Equal(t, 0, len(d.Ghosts()))
 }
 
-func TestGhostsRF(t *testing.T) {
+func TestGhosts(t *testing.T) {
 	d := NewDAG(map[string][]string{
 		"1": {},
 		"2": {"1", "3"},

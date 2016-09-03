@@ -7,14 +7,20 @@ import (
 )
 
 var (
-	DiffPathIndex    = NewDiffPathIndex()
-	DiffPrefixIndex  = NewDiffPrefixIndex()
-	DiffParentIndex  = NewDiffParentIndex()
-	DiffClockIndex   = NewDiffClockIndex()
-	ClockBranchIndex = NewClockBranchIndex()
-	CommitClockIndex = NewCommitClockIndex()
+	//DiffPathIndex maps a path to diffs for that path
+	DiffPathIndex = newDiffPathIndex()
+	//DiffPrefixIndex maps a path to diffs that have the path as a prefix
+	DiffPrefixIndex = newDiffPrefixIndex()
+	//DiffParentIndex maps a path to diffs that have the path as a direct parent
+	DiffParentIndex = newDiffParentIndex()
+	//DiffClockIndex maps a clock to diffs
+	DiffClockIndex = newDiffClockIndex()
+	//ClockBranchIndex maps a branch to a clock
+	ClockBranchIndex = newClockBranchIndex()
+	//CommitClockIndex maps clocks to commits
+	CommitClockIndex = newCommitClockIndex()
 
-	// Collect them all for easier initialization
+	// Indexes is a collection of indexes for easier initialization
 	Indexes = []Index{
 		DiffPathIndex,
 		DiffPrefixIndex,
@@ -66,7 +72,7 @@ type diffPathIndex struct {
 	index
 }
 
-func NewDiffPathIndex() *diffPathIndex {
+func newDiffPathIndex() *diffPathIndex {
 	return &diffPathIndex{index{
 		Name:  "diffPathIndex",
 		Table: diffTable,
@@ -91,7 +97,7 @@ type diffPrefixIndex struct {
 	index
 }
 
-func NewDiffPrefixIndex() *diffPrefixIndex {
+func newDiffPrefixIndex() *diffPrefixIndex {
 	return &diffPrefixIndex{index{
 		Name:  "DiffPrefixIndex",
 		Table: diffTable,
@@ -130,7 +136,7 @@ type diffParentIndex struct {
 	index
 }
 
-func NewDiffParentIndex() *diffParentIndex {
+func newDiffParentIndex() *diffParentIndex {
 	return &diffParentIndex{index{
 		Name:  "DiffParentIndex",
 		Table: diffTable,
@@ -158,7 +164,7 @@ type diffClockIndex struct {
 	index
 }
 
-func NewDiffClockIndex() *diffClockIndex {
+func newDiffClockIndex() *diffClockIndex {
 	return &diffClockIndex{index{
 		Name:  "DiffClockIndex",
 		Table: diffTable,
@@ -177,7 +183,7 @@ type clockBranchIndex struct {
 	index
 }
 
-func NewClockBranchIndex() *clockBranchIndex {
+func newClockBranchIndex() *clockBranchIndex {
 	return &clockBranchIndex{index{
 		Name:  "ClockBranchIndex",
 		Table: clockTable,
@@ -204,7 +210,7 @@ func (i *commitClockIndex) Key(repo interface{}, branch interface{}, clock inter
 	return []interface{}{repo, branch, clock}
 }
 
-func NewCommitClockIndex() *commitClockIndex {
+func newCommitClockIndex() *commitClockIndex {
 	return &commitClockIndex{index{
 		Name:  "CommitClockIndex",
 		Table: commitTable,
