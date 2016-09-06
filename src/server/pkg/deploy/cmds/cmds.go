@@ -27,7 +27,7 @@ func DeployCmd() *cobra.Command {
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
-				version = ""
+				version = "local"
 			}
 			var out io.Writer
 			var manifest bytes.Buffer
