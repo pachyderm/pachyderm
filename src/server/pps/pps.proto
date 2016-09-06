@@ -15,7 +15,7 @@ message StartJobRequest {
 
 message StartJobResponse {
     Transform transform = 1;
-	repeated fuse.CommitMount commit_mounts = 2;
+    repeated fuse.CommitMount commit_mounts = 2;
     uint64 pod_index = 3;
 }
 
