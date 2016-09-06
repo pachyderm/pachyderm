@@ -613,13 +613,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
 
-	// OBSOLETE: We need to remove the leading slash because of old error handling in pfs api/internalAPI layers
-	// This can go away once we collaps those layers
-
-	if len(directory.File.Path) > 0 && directory.File.Path[0] == '/' {
-		directory.File.Path = directory.File.Path[1:]
-	}
-
 	switch fileInfo.FileType {
 	case pfsclient.FileType_FILE_TYPE_REGULAR:
 		return &file{

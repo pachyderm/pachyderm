@@ -49,6 +49,7 @@ func TestMain(m *testing.M) {
 	}
 	os.Exit(code)
 }
+
 func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
