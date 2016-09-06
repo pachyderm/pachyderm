@@ -2752,7 +2752,9 @@ func TestListCommitReturnsBlankCommit(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
-		Repo:       []*pfsclient.Repo{&pfsclient.Repo{dataRepo}},
+		Repo: []*pfsclient.Repo{&pfsclient.Repo{
+			Name: dataRepo,
+		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
