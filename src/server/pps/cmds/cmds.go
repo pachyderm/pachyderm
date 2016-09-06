@@ -142,7 +142,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			return nil
 		}),
 	}
-	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, - reads from stdin.")
+	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -309,7 +309,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return nil
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
