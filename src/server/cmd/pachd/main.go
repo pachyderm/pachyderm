@@ -59,6 +59,7 @@ type appEnv struct {
 	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
 	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824` //default = 1 gigabyte
+	ImageTag        string `env:"IMAGE_TAG,default="`
 }
 
 func main() {
@@ -184,6 +185,7 @@ func do(appEnvObj interface{}) error {
 		address,
 		kubeClient,
 		getNamespace(),
+		appEnv.ImageTag,
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer, cacheServer}); err != nil {
