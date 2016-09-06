@@ -8,6 +8,7 @@ import (
 	"github.com/dancannon/gorethink"
 )
 
+// Size returns the size of a block ref
 func (b *BlockRef) Size() uint64 {
 	return b.Upper - b.Lower
 }
@@ -17,10 +18,12 @@ func NewClock(branch string) *Clock {
 	return &Clock{branch, 0}
 }
 
+// ClockEq returns if two clocks are equal
 func ClockEq(c1 *Clock, c2 *Clock) bool {
 	return c1.Branch == c2.Branch && c1.Clock == c2.Clock
 }
 
+// CloneClock clones a clock
 func CloneClock(c *Clock) *Clock {
 	return &Clock{
 		Branch: c.Branch,
@@ -28,7 +31,7 @@ func CloneClock(c *Clock) *Clock {
 	}
 }
 
-// "master/2"
+// StringToClock converts a string like "master/2" to a clock
 func StringToClock(s string) (*Clock, error) {
 	parts := strings.Split(s, "/")
 	if len(parts) != 2 {
@@ -49,11 +52,10 @@ func StringToClock(s string) (*Clock, error) {
 func NewChild(parent FullClock) FullClock {
 	if len(parent) == 0 {
 		return parent
-	} else {
-		lastClock := CloneClock(FullClockHead(parent))
-		lastClock.Clock += 1
-		return append(parent[:len(parent)-1], lastClock)
 	}
+	lastClock := CloneClock(FullClockHead(parent))
+	lastClock.Clock++
+	return append(parent[:len(parent)-1], lastClock)
 }
 
 // FullClockParent returns the parent of a full clock, or nil if the clock has no parent
@@ -63,7 +65,7 @@ func FullClockParent(child FullClock) FullClock {
 	if len(child) > 0 {
 		lastClock := CloneClock(FullClockHead(child))
 		if lastClock.Clock > 0 {
-			lastClock.Clock -= 1
+			lastClock.Clock--
 			return append(child[:len(child)-1], lastClock)
 		} else if len(child) > 1 {
 			return child[:len(child)-1]
@@ -75,19 +77,7 @@ func FullClockParent(child FullClock) FullClock {
 // FullClock is an array of clocks, e.g. [(master, 2), (foo, 3)]
 type FullClock []*Clock
 
-/*
-func (fc FullClock) Size() int {
-	return len(fc)
-}
-
-// ToArray converts a FullClock to an array of arrays.
-// This is useful in indexing BranchClocks in RethinkDB.
-func (fc FullClock) ToArray() (res []interface{}) {
-	for _, clock := range fc {
-		res = append(res, []interface{}{clock.Branch, clock.Clock})
-	}
-	return res
-}*/
+// FullClockHead returns the last element of a FullClock
 func FullClockHead(fc FullClock) *Clock {
 	if len(fc) == 0 {
 		return nil
@@ -95,40 +85,45 @@ func FullClockHead(fc FullClock) *Clock {
 	return fc[len(fc)-1]
 }
 
+// FullClockBranch returns the branch of the last element of the FullClock
 func FullClockBranch(fc FullClock) string {
 	return FullClockHead(fc).Branch
 }
 
-// BranchClockToArray converts a BranchClock to an array.
-// Putting this function here so it stays in sync with ToArray.
+// FullClockToArray converts a FullClock to an array.
 func FullClockToArray(fullClock gorethink.Term) gorethink.Term {
 	return fullClock.Map(func(clock gorethink.Term) []interface{} {
 		return []interface{}{clock.Field("Branch"), clock.Field("Clock")}
 	})
 }
 
+// ToArray converts a clock to an array
 func (c *Clock) ToArray() []interface{} {
 	return []interface{}{c.Branch, c.Clock}
 }
 
+// ClockToArray is the same as Clock.ToArray except that it operates on a
+// gorethink Term
 func ClockToArray(clock gorethink.Term) []interface{} {
 	return []interface{}{clock.Field("Branch"), clock.Field("Clock")}
 }
 
+// ToCommitID converts a clock to a string like "master/2"
 func (c *Clock) ToCommitID() string {
 	return fmt.Sprintf("%s/%d", c.Branch, c.Clock)
 }
 
+// CommitID returns the CommitID of the clock associated with the diff
 func (d *Diff) CommitID() string {
 	return d.Clock.ToCommitID()
 }
 
-// A ClockRangeList is an ordered list of ClockRanges
+// ClockRangeList is an ordered list of ClockRanges
 type ClockRangeList struct {
 	ranges []*ClockRange
 }
 
-// A ClockRange represents a range of clocks
+// ClockRange represents a range of clocks
 type ClockRange struct {
 	Branch string
 	Left   uint64
@@ -144,6 +139,7 @@ func NewClockRangeList(from FullClock, to FullClock) ClockRangeList {
 	return crl
 }
 
+// AddFullClock adds a FullClock to the ClockRange
 func (l *ClockRangeList) AddFullClock(fc FullClock) {
 	for _, c := range fc {
 		l.AddClock(c)
@@ -167,6 +163,7 @@ func (l *ClockRangeList) AddClock(c *Clock) {
 	})
 }
 
+// SubFullClock subtracts a FullClock from the ClockRange
 func (l *ClockRangeList) SubFullClock(fc FullClock) {
 	for _, c := range fc {
 		l.SubClock(c)
@@ -188,6 +185,7 @@ func (l *ClockRangeList) SubClock(c *Clock) {
 	l.ranges = newRanges
 }
 
+// Ranges return the clock ranges stored in a ClockRangeList
 func (l *ClockRangeList) Ranges() []*ClockRange {
 	return l.ranges
 }
