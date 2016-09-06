@@ -206,6 +206,9 @@ pretest:
 
 test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
+bench:
+	go test ./src/server -run=XXX -bench=.
+
 test-client:
 	rm -rf src/client/vendor
 	rm -rf src/server/vendor/github.com/pachyderm
