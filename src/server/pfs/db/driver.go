@@ -694,7 +694,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	}
 
 	// OBSOLETE
-	// Old API Server expects request commit ID to match results commit ID
+	// TestInspectCommit expects request commit ID to match results commit ID
 	commitInfo.Commit.ID = commit.ID
 	return commitInfo, nil
 }

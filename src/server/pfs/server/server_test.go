@@ -195,42 +195,6 @@ func TestBranch(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
-func TestDisallowReadsDuringCommit(t *testing.T) {
-	// OBSOLETE - we no longer accept file handles, and the default behavior is to
-	// allow reads within a commit
-	t.Skip()
-	t.Parallel()
-	client := getClient(t)
-	repo := "test"
-	require.NoError(t, client.CreateRepo(repo))
-	commit1, err := client.StartCommit(repo, "", "")
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-
-	// Make sure we can't get the file before the commit is finished
-	var buffer bytes.Buffer
-	require.YesError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "", buffer.String())
-
-	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
-	commit2, err := client.StartCommit(repo, commit1.ID, "")
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	err = client.FinishCommit(repo, commit2.ID)
-	require.NoError(t, err)
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\nfoo\n", buffer.String())
-}
-
 func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
