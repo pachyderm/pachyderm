@@ -1722,8 +1722,12 @@ func TestArchiveCommit(t *testing.T) {
 	_, err := client.PfsAPIClient.CreateRepo(
 		context.Background(),
 		&pfsclient.CreateRepoRequest{
-			Repo:       &pfsclient.Repo{repo2},
-			Provenance: []*pfsclient.Repo{{repo1}},
+			Repo: &pfsclient.Repo{
+				Name: repo2,
+			},
+			Provenance: []*pfsclient.Repo{{
+				Name: repo1,
+			}},
 		})
 	require.NoError(t, err)
 
@@ -1737,7 +1741,9 @@ func TestArchiveCommit(t *testing.T) {
 	commit2, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfsclient.StartCommitRequest{
-			Repo:       &pfsclient.Repo{repo2},
+			Repo: &pfsclient.Repo{
+				Name: repo2,
+			},
 			Provenance: []*pfsclient.Commit{commit1},
 		})
 	require.NoError(t, err)
@@ -1757,7 +1763,9 @@ func TestArchiveCommit(t *testing.T) {
 	commit3, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfsclient.StartCommitRequest{
-			Repo:       &pfsclient.Repo{repo2},
+			Repo: &pfsclient.Repo{
+				Name: repo2,
+			},
 			Provenance: []*pfsclient.Commit{commit1},
 		})
 	require.NoError(t, err)

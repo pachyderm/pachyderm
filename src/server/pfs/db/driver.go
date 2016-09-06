@@ -293,7 +293,9 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	}
 
 	return &pfs.RepoInfo{
-		Repo:       &pfs.Repo{rawRepo.Name},
+		Repo: &pfs.Repo{
+			Name: rawRepo.Name,
+		},
 		Created:    rawRepo.Created,
 		SizeBytes:  rawRepo.Size,
 		Provenance: provenance,
@@ -332,7 +334,9 @@ nextRepo:
 			}
 		}
 		repoInfos = append(repoInfos, &pfs.RepoInfo{
-			Repo:      &pfs.Repo{repo.Name},
+			Repo: &pfs.Repo{
+				Name: repo.Name,
+			},
 			Created:   repo.Created,
 			SizeBytes: repo.Size,
 		})
@@ -540,11 +544,11 @@ func getClockID(repo string, c *persist.Clock) *persist.ClockID {
 func parseClock(clock string) (*persist.Clock, error) {
 	parts := strings.Split(clock, "/")
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid commit ID %s")
+		return nil, fmt.Errorf("invalid commit ID %s", clock)
 	}
 	c, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("invalid commit ID %s")
+		return nil, fmt.Errorf("invalid commit ID %s", clock)
 	}
 	return &persist.Clock{
 		Branch: parts[0],
@@ -708,8 +712,10 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 	var provenance []*pfs.Commit
 	for _, c := range rawCommit.Provenance {
 		provenance = append(provenance, &pfs.Commit{
-			Repo: &pfs.Repo{c.Repo},
-			ID:   c.ID,
+			Repo: &pfs.Repo{
+				Name: c.Repo,
+			},
+			ID: c.ID,
 		})
 	}
 
@@ -730,15 +736,19 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 		parentClockID := persist.FullClockHead(parentClock).ToCommitID()
 		rawParentCommit, _ := d.getCommitByAmbiguousID(rawCommit.Repo, parentClockID)
 		parentCommit = &pfs.Commit{
-			Repo: &pfs.Repo{rawCommit.Repo},
-			ID:   rawParentCommit.ID,
+			Repo: &pfs.Repo{
+				Name: rawCommit.Repo,
+			},
+			ID: rawParentCommit.ID,
 		}
 	}
 
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{rawCommit.Repo},
-			ID:   rawCommit.ID,
+			Repo: &pfs.Repo{
+				Name: rawCommit.Repo,
+			},
+			ID: rawCommit.ID,
 		},
 		Branch:       branch,
 		Started:      rawCommit.Started,
@@ -938,7 +948,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 			return commitInfos, nil
 		}
 	}
-	return nil, errors.New("unreachable")
+	panic("unreachable")
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
@@ -1272,8 +1282,11 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 		}
 		for _, diff := range childrenDiffs {
 			res.Children = append(res.Children, &pfs.File{
-				Commit: &pfs.Commit{file.Commit.Repo, diff.CommitID()},
-				Path:   diff.Path,
+				Commit: &pfs.Commit{
+					Repo: file.Commit.Repo,
+					ID:   diff.CommitID(),
+				},
+				Path: diff.Path,
 			})
 		}
 	case persist.FileType_NONE:

@@ -57,7 +57,7 @@ type appEnv struct {
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
-	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824` //default = 1 gigabyte
+	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
 }
 
 func main() {
