@@ -592,7 +592,13 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// Merge combines commits
+// Merge merges commits in `fromCommits` to a branch named `toBranch`.
+// `strategy` dictates the behavior of merge.
+// There are currently two strategies:
+//
+// * Squash: create a single commit that contains all diffs in `fromCommits`
+// * Replay: create a series of commits, each of which corresponds to a single
+// commit in `fromCommits`.
 func (c APIClient) Merge(repo string, fromCommits []string, toBranch string, strategy pfs.MergeStrategy) ([]*pfs.Commit, error) {
 
 	var realFromCommits []*pfs.Commit

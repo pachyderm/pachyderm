@@ -45,15 +45,15 @@ message JobState {
 }
 
 message AddPodCommitRequest {
-    string job_id = 1;
-    uint64 pod_index = 2;
-    pfs.Commit commit = 3;
+  string job_id = 1;
+  uint64 pod_index = 2;
+  pfs.Commit commit = 3;
 }
 
 message AddOutputCommitRequest {
-    string job_id = 1;
-    pfs.Commit commit = 2;
-	string branch = 3;
+  string job_id = 1;
+  pfs.Commit commit = 2;
+  string branch = 3;
 }
 
 message PipelineInfo {

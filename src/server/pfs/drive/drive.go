@@ -47,9 +47,11 @@ type Driver interface {
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
 }
 
+// CommitID is an alias for string
 type CommitID string // master/0
 
-// Driver represents a low-level pfs storage driver.
+// PfsRefactorDriver is only here for documentation purposes, showing how we
+// envision the new PFS API to be like.
 type PfsRefactorDriver interface {
 	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)

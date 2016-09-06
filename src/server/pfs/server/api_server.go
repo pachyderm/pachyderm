@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -177,13 +176,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	if err == io.EOF {
 		// tolerate people calling and immediately hanging up
 		return nil
-	}
-	if strings.HasPrefix(request.File.Path, "/") {
-		// This is a subtle error case, the paths foo and /foo will hash to
-		// different shards but will produce the same change once they get to
-		// those shards due to how path.Join. This can go wrong in a number of
-		// ways so we forbid leading slashes.
-		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
