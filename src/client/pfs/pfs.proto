@@ -291,7 +291,6 @@ service API {
   rpc ListRepo(ListRepoRequest) returns (RepoInfos) {
     option (google.api.http) = {
       get: "/v1/pfs/repo/list"
-      body: "*"
     };
   }
   // DeleteRepo deletes a repo.
@@ -320,7 +319,6 @@ service API {
   rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/v1/pfs/commit/archive/{commit.repo.name}/{commit.id}"
-      body: "*"
     };
   }
   // InspectCommit returns the info about a commit.
@@ -332,7 +330,7 @@ service API {
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {
     option (google.api.http) = {
-      get: "/v1/pfs/commit/list/{repo.name}"
+      post: "/v1/pfs/commit/list"
       body: "*"
     };
   }
@@ -345,17 +343,22 @@ service API {
   // FlushCommit waits for downstream commits to finish
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {
     option (google.api.http) = {
-      delete: "/v1/pfs/commit/flush/{commit.repo.name}/{commit.id}"
+      post: "/v1/pfs/commit/flush"
+      body: "*"
     };
   }
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {
+    option (google.api.http) = {
+      get: "/v1/pfs/branch/list/{repo.name}"
+    };
+  }
 
   // File rpcs
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/v1/pfs/file/put/{file.commit.repo.name}/{file.commit.id}/{file.path}"
+      post: "/v1/pfs/file/put"
       body: "*"
     };
   }
@@ -363,28 +366,24 @@ service API {
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {
     option (google.api.http) = {
       get: "/v1/pfs/file/get/{file.commit.repo.name}/{file.commit.id}/{file.path}"
-      body: "*"
     };
   }
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {
     option (google.api.http) = {
       get: "/v1/pfs/file/inspect/{file.commit.repo.name}/{file.commit.id}/{file.path}"
-      body: "*"
     };
   }
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {
     option (google.api.http) = {
       get: "/v1/pfs/file/list/{file.commit.repo.name}/{file.commit.id}/{file.path}"
-      body: "*"
     };
   }
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/v1/pfs/file/delete/{file.commit.repo.name}/file.commit.id}/{file.path}"
-      body: "*"
+      delete: "/v1/pfs/file/delete/{file.commit.repo.name}/{file.commit.id}/{file.path}"
     };
   }
   // DeleteAll deletes everything
