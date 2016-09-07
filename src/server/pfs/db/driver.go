@@ -1062,8 +1062,7 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 	return nil
 }
 
-func (d *driver) PutFile(file *pfs.File, handle string,
-	delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
 	// TODO: eventually optimize this with a cache so that we don't have to
 	// go to the database to figure out if the commit exists

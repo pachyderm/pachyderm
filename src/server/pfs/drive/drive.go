@@ -32,7 +32,7 @@ type Driver interface {
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit) error
-	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, reader io.Reader) error
+	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
 	MakeDirectory(file *pfs.File) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error)
