@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -150,10 +151,10 @@ func initDB(session *gorethink.Session, dbName string) error {
 
 	// Create indexes
 	for _, someIndex := range Indexes {
-		if _, err := gorethink.DB(dbName).Table(someIndex.GetTable()).IndexCreateFunc(someIndex.GetName(), someIndex.GetCreateFunction(), someIndex.GetCreateOptions()).RunWrite(session); err != nil {
+		if _, err := gorethink.DB(dbName).Table(someIndex.Table).IndexCreateFunc(someIndex.Name, someIndex.CreateFunction, someIndex.CreateOptions).RunWrite(session); err != nil {
 			return err
 		}
-		if _, err := gorethink.DB(dbName).Table(someIndex.GetTable()).IndexWait(someIndex.GetName()).RunWrite(session); err != nil {
+		if _, err := gorethink.DB(dbName).Table(someIndex.Table).IndexWait(someIndex.Name).RunWrite(session); err != nil {
 			return err
 		}
 	}
@@ -515,11 +516,54 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	}, nil
 }
 
+func (d *driver) getKey(i *index, desiredOutputDocument interface{}) ([]interface{}, error) {
+	cursor, err := gorethink.Expr(i.CreateFunction(gorethink.Expr(desiredOutputDocument))).Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+	var key []interface{}
+	err = cursor.All(&key)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
 func (d *driver) getHeadOfBranch(repo string, branch string, commit *persist.Commit) error {
+	startCommit := &persist.Commit{
+		Repo: repo,
+		FullClock: []*persist.Clock{
+			&persist.Clock{
+				Branch: branch,
+				Clock:  0,
+			},
+		},
+	}
+	start, err := d.getKey(CommitClockIndex, startCommit)
+	if err != nil {
+		return err
+	}
+	endCommit := &persist.Commit{
+		Repo: repo,
+		FullClock: []*persist.Clock{
+			&persist.Clock{
+				Branch: branch,
+				Clock:  0,
+			},
+			&persist.Clock{
+				Branch: branch,
+				Clock:  math.MaxUint64,
+			},
+		},
+	}
+	end, err := d.getKey(CommitClockIndex, endCommit)
+	if err != nil {
+		return err
+	}
 	cursor, err := d.betweenIndex(
-		commitTable, CommitClockIndex.GetName(),
-		CommitClockIndex.Key(repo, branch, 0),
-		CommitClockIndex.Key(repo, branch, gorethink.MaxVal),
+		commitTable, CommitClockIndex.Name,
+		start,
+		end,
 		true,
 	).Run(d.dbClient)
 	if err != nil {
@@ -565,8 +609,8 @@ type commitChangeFeed struct {
 func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 	head := persist.FullClockHead(commit.FullClock)
 	cursor, err := d.getTerm(diffTable).GetAllByIndex(
-		DiffClockIndex.GetName(),
-		DiffClockIndex.Key(commit.Repo, head.Branch, head.Clock),
+		DiffClockIndex.Name,
+		diffClockIndexKey(commit.Repo, head.Branch, head.Clock),
 	).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		return left.Merge(map[string]interface{}{
 			"Size": left.Field("Size").Add(right.Field("Size")),
@@ -779,7 +823,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	for repo, commit := range repoToFromCommit {
 		if commit == "" {
 			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(CommitClockIndex.GetName()),
+				Index: gorethink.Desc(CommitClockIndex.Name),
 			}).Filter(map[string]interface{}{
 				"Repo": repo,
 			}))
@@ -790,8 +834,8 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			}
 			head := persist.FullClockHead(fullClock)
 			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(CommitClockIndex.GetName()),
-			}).Between(CommitClockIndex.Key(repo, head.Branch, head.Clock+1), CommitClockIndex.Key(repo, head.Branch, gorethink.MaxVal)))
+				Index: gorethink.Desc(CommitClockIndex.Name),
+			}).Between(commitClockIndexKey(repo, head.Branch, head.Clock+1), commitClockIndexKey(repo, head.Branch, gorethink.MaxVal)))
 		}
 	}
 	query := gorethink.Union(queries...)
@@ -954,7 +998,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	// Get all branches
 	cursor, err := d.getTerm(clockTable).OrderBy(gorethink.OrderByOpts{
-		Index: ClockBranchIndex.GetName(),
+		Index: ClockBranchIndex.Name,
 	}).Between(
 		[]interface{}{repo.Name, gorethink.MinVal},
 		[]interface{}{repo.Name, gorethink.MaxVal},
@@ -1327,10 +1371,10 @@ func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch st
 		var query gorethink.Term
 		for j, r := range ranges.Ranges() {
 			q := d.getTerm(diffTable).OrderBy(gorethink.OrderByOpts{
-				Index: DiffClockIndex.GetName(),
+				Index: DiffClockIndex.Name,
 			}).Between(
-				DiffClockIndex.Key(repo, r.Branch, r.Left),
-				DiffClockIndex.Key(repo, r.Branch, r.Right),
+				diffClockIndexKey(repo, r.Branch, r.Left),
+				diffClockIndexKey(repo, r.Branch, r.Right),
 				gorethink.BetweenOpts{
 					LeftBound:  "closed",
 					RightBound: "closed",
@@ -1367,10 +1411,10 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 	var query gorethink.Term
 	for i, r := range ranges.Ranges() {
 		q := d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-			Index: CommitClockIndex.GetName(),
+			Index: CommitClockIndex.Name,
 		}).Between(
-			CommitClockIndex.Key(repo, r.Branch, r.Left),
-			CommitClockIndex.Key(repo, r.Branch, r.Right),
+			commitClockIndexKey(repo, r.Branch, r.Left),
+			commitClockIndexKey(repo, r.Branch, r.Right),
 			gorethink.BetweenOpts{
 				LeftBound:  "closed",
 				RightBound: "closed",
@@ -1488,7 +1532,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			oldClock := persist.FullClockHead(rawCommit.FullClock)
 
 			// TODO: conflict detection
-			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.GetName(), DiffClockIndex.Key(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
+			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 				return map[string]interface{}{
 					"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
 					"Clock": newClock,
@@ -1561,8 +1605,8 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 }
 
 func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.GetName(), func(clock interface{}) interface{} {
-		return DiffParentIndex.Key(repo, parent, clock)
+	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, parent, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1583,8 +1627,8 @@ func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMet
 }
 
 func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffPrefixIndex.GetName(), func(clock interface{}) interface{} {
-		return DiffPrefixIndex.Key(repo, parent, clock)
+	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+		return diffPrefixIndexKey(repo, parent, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1719,8 +1763,8 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 
-	query, err := d.getDiffsInCommitRange(diffMethod, file.Commit, false, DiffPathIndex.GetName(), func(clock interface{}) interface{} {
-		return DiffPathIndex.Key(file.Commit.Repo.Name, file.Path, clock)
+	query, err := d.getDiffsInCommitRange(diffMethod, file.Commit, false, DiffPathIndex.Name, func(clock interface{}) interface{} {
+		return diffPathIndexKey(file.Commit.Repo.Name, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1827,8 +1871,8 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	commitID := commit.ID
 	prefix := file.Path
 
-	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.GetName(), func(clock interface{}) interface{} {
-		return DiffPrefixIndex.Key(repo, prefix, clock)
+	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+		return diffPrefixIndexKey(repo, prefix, clock)
 	})
 	if err != nil {
 		return err
@@ -1924,14 +1968,14 @@ func (d *driver) getMessageByPrimaryKey(table Table, key interface{}, message pr
 	return err
 }
 
-func (d *driver) getMessageByIndex(table Table, index Index, key interface{}, message proto.Message) error {
-	cursor, err := d.getTerm(table).GetAllByIndex(index.GetName(), key).Run(d.dbClient)
+func (d *driver) getMessageByIndex(table Table, i *index, key interface{}, message proto.Message) error {
+	cursor, err := d.getTerm(table).GetAllByIndex(i.Name, key).Run(d.dbClient)
 	if err != nil {
 		return err
 	}
 	err = cursor.One(message)
 	if err == gorethink.ErrEmptyResult {
-		return fmt.Errorf("%v not found in index %v of table %v", key, index, table)
+		return fmt.Errorf("%v not found in index %v of table %v", key, i, table)
 	}
 	return err
 }
@@ -1971,7 +2015,7 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 	}
 
 	parentCommit := &persist.Commit{}
-	if err := d.getMessageByIndex(commitTable, CommitClockIndex, CommitClockIndex.Key(commit.Repo, clock.Branch, clock.Clock), parentCommit); err != nil {
+	if err := d.getMessageByIndex(commitTable, CommitClockIndex, commitClockIndexKey(commit.Repo, clock.Branch, clock.Clock), parentCommit); err != nil {
 		return "", err
 	}
 	return parentCommit.ID, nil
@@ -2011,7 +2055,7 @@ func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *p
 		}
 	} else {
 		// If we can't parse
-		if err := d.getMessageByIndex(commitTable, CommitClockIndex, CommitClockIndex.Key(repo, alias.Branch, alias.Clock), commit); err != nil {
+		if err := d.getMessageByIndex(commitTable, CommitClockIndex, commitClockIndexKey(repo, alias.Branch, alias.Clock), commit); err != nil {
 			return nil, err
 		}
 	}
@@ -2023,7 +2067,7 @@ func (d *driver) updateCommitWithAmbiguousID(repo string, commitID string, value
 	if err != nil {
 		_, err = d.getTerm(commitTable).Get(commitID).Update(values).RunWrite(d.dbClient)
 	} else {
-		_, err = d.getTerm(commitTable).GetAllByIndex(CommitClockIndex.GetName(), CommitClockIndex.Key(repo, alias.Branch, alias.Clock)).Update(values).RunWrite(d.dbClient)
+		_, err = d.getTerm(commitTable).GetAllByIndex(CommitClockIndex.Name, commitClockIndexKey(repo, alias.Branch, alias.Clock)).Update(values).RunWrite(d.dbClient)
 	}
 	return err
 }
