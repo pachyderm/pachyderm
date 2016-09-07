@@ -23,6 +23,7 @@ if [ -z ${PROFILE} ]
 then
     docker-compose build ${BINARY}
     docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
+    docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
 else
     cd _tmp
     tar cf - ${BINARY}
