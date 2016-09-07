@@ -65,7 +65,7 @@ func TestSeekRead(t *testing.T) {
 
 		fmt.Printf("==== Read word len %v : %v\n", n2, string(word2)) */
 
-	})
+	}, false)
 }
 
 func TestSeekWriteGap(t *testing.T) {
@@ -108,7 +108,7 @@ func TestSeekWriteGap(t *testing.T) {
 		require.Equal(t, 3, n1)
 
 		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
-	})
+	}, false)
 }
 
 func TestSeekWriteBackwards(t *testing.T) {
@@ -153,5 +153,5 @@ func TestSeekWriteBackwards(t *testing.T) {
 		fmt.Printf("==== %v - write word len %v\n", time.Now(), n1)
 
 		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
-	})
+	}, false)
 }
