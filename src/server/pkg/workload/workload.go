@@ -215,6 +215,9 @@ func NewReader(rand *rand.Rand, bytes int) io.Reader {
 
 func (r *reader) Read(p []byte) (int, error) {
 	for i := range p {
+		if i > r.bytes {
+			return r.bytes, io.EOF
+		}
 		if i%128 == 127 {
 			p[i] = '\n'
 		} else {
