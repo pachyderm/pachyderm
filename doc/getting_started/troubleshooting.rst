@@ -27,3 +27,8 @@ From chris:
 
 "If the pipeline fails for some reason, I have no idea how to debug that, fix it, or reset it to a known state. "
 
+Cluster gets into bad state such as killing the VM:
+minikube stop
+minikube delete
+minikube start
+

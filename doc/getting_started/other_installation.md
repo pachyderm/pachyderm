@@ -1,7 +1,6 @@
+# Other Installation Methods
 
-TODO
-
-# Local Installation
+Local Installation
 
 ## Prerequisites
 

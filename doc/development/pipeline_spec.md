@@ -65,7 +65,7 @@ This document discusses each of the fields present in a pipeline specification. 
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
-`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo of this pipeline.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
+`inputs.runEmpty` specifies what happens when an empty commit (i.e. No data) comes into the input repo of this pipeline. This can easily happen if a previous pipeline produces no data. This flag specifies if it makes sense for your pipeline to still run if it has no new data to process. If this flag is set to false (the default), then an empty commit won't trigger a job.  If set to true, an empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
@@ -156,7 +156,7 @@ The root mount point is at `/pfs`, which contains:
 
 ### Output Formats
 
-PFS supports considers data to be delimited by line, JSON, or binary blobs. [Refer here for more information on delimiters](./pachyderm_file_system.html#block-delimiters)
+PFS supports data to be delimited by line, JSON, or binary blobs. [Refer here for more information on delimiters](./pachyderm_file_system.html#block-delimiters)
 
 ## Environment Variables
 
