@@ -16,37 +16,74 @@ Google Cloud Platform has excellent support for Kubernetes through [Google Conta
 
 ### Prerequisites
 
-- [Google Cloud SDK](https://cloud.google.com/sdk/) >= 106.0.0
+- [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 
-If this is the first time you use the SDK, make sure to follow through the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts).
+If this is the first time you use the SDK, make sure to follow through the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts). This may update your `~/.bash_profile` and point your `$PATH` at the location where you extracted `google-cloud-sdk`. We recommend extracting this to `~/bin`.
 
-After the SDK is installed, run:
+If you do not already have `kubectl` installed: after the SDK is installed, run:
 
 ```shell
 $ gcloud components install kubectl
 ```
 
+This will download the `kubectl` binary to `google-cloud-sdk/bin`
+
+## Deploy Kubernetes
+
+To create a new Kubernetes cluster in GKE, just run:
+
+```
+$ CLUSTER_NAME=[any unique name, e.g. pach-cluster]
+
+$ GCP_ZONE=[a GCP availability zone. e.g. us-west1-a]
+
+$ gcloud config set compute/zone ${GCP_ZONE}
+
+$ gcloud config set container/cluster ${CLUSTER_NAME}
+
+# By default this spins up a 3-node cluster. You can change the default with `--num-nodes VAL`
+$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw
+```
+This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances). 
+
+```
+# Update your kubeconfig to point at your newly created cluster
+$ gcloud container clusters get-credentials ${CLUSTER_NAME}
+```
+
+Check to see that your cluster is up and running:
+```
+$ kubectl get all
+NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   10.3.240.1   <none>        443/TCP   10m
+```
+
+## Deploy Pachyderm
+
 ### Set up the infrastructure
 
-Pachyderm needs a [container cluster](https://cloud.google.com/container-engine/), a [GCS bucket](https://cloud.google.com/storage/docs/), and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
 
-We've made this very easy for you by creating the `make google-cluster` helper, which will create all of these resources for you.
-
-First of all, set the required environment variables. Choose a name for both the bucket and disk, as well as a capacity for the disk (in GB):
+Here are the parameters to create these resources:
 
 ```shell
-$ export BUCKET_NAME=some-unique-bucket-name
-$ export STORAGE_NAME=pach-disk
-$ export STORAGE_SIZE=200
+# BUCKET_NAME needs to be globally unique across the entire GCP region
+$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored] 
+
+# Name this whatever you want, we chose pach-disk as a default
+$ STORAGE_NAME=pach-disk 
+
+# For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
+# should work for 1000 commits on 1000 files. 
+$ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
 ```
 
-You may need to visit the GCP console to fully initialize Container Engine in a new project. Then, simply run the following command:
-
+And then run:
 ```shell
-$ make google-cluster
+$ gsutil mb gs://${BUCKET_NAME}
+$ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 ```
-
-This creates a Kubernetes cluster named "pachyderm", a bucket, and a persistent disk.  To check that everything has been set up correctly, try:
+To check that everything has been set up correctly, try:
 
 ```shell
 $ gcloud compute instances list
@@ -59,33 +96,73 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Deploy Pachyderm
+### Install Pachctl 
 
+`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
-First of all, record the external IP address of one of the nodes in your Kubernetes cluster:
 
 ```shell
-$ gcloud compute instances list
+# For OSX:
+$ brew tap pachyderm/tap && brew install pachctl
+
+# For Linux (64 bit):
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-Then export it with port 30650:
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
 
-```shell
-$ export ADDRESS=[the external address]:30650
-# for example:
-# export ADDRESS=104.197.179.185:30650
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.1.0
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
-This is so we can use `pachctl` to talk to our cluster later.
+### Start Pachyderm
 
-Now you can deploy Pachyderm with:
-
-```shell
-$ make google-cluster-manifest > manifest
-$ make MANIFEST=manifest launch
+Now we're ready to boot up Pachyderm:
+```
+$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_NAME} ${STORAGE_SIZE}
 ```
 
-It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
+It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+
+```sh
+$ kubectl get all
+NAME                   DESIRED        CURRENT          AGE
+etcd                   1              1                1m
+pachd                  2              2                1m
+rethink                1              1                1m
+NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
+etcd                   10.3.253.161   <none>           2379/TCP,2380/TCP              1m
+kubernetes             10.3.240.1     <none>           443/TCP                        47m
+pachd                  10.3.254.31    <nodes>          650/TCP,651/TCP                1m
+rethink                10.3.241.56    <nodes>          8080/TCP,28015/TCP,29015/TCP   1m
+NAME                   READY          STATUS           RESTARTS                       AGE
+etcd-1mv3v             1/1            Running          0                              1m
+pachd-6vjpc            1/1            Running          3                              1m
+pachd-nxj54            1/1            Running          3                              1m
+rethink-e4v60          1/1            Running          0                              1m
+NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
+rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
+```
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+
+Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+
+```sh
+# Forward the ports. We background this process because it blocks. 
+$ pachctl portforward &
+```
+
+And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
+
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.2.0
+pachd               1.2.0
+```
 
 ## Amazon Web Services (AWS)
 
@@ -142,18 +219,18 @@ Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a 
 Here are the parameters to set up these resources:
 
 ```shell
-$ export KUBECTLFLAGS="-s [The public IP of the Kubernetes master:`kubectl cluster-info`]"
+$ KUBECTLFLAGS="-s [The public IP of the Kubernetes master:`kubectl cluster-info`]"
 
 # BUCKET_NAME needs to be globally unique across the entire AWS region
-$ export BUCKET_NAME=[The name of the S3 bucket where your data will be stored] 
+$ BUCKET_NAME=[The name of the S3 bucket where your data will be stored] 
 
 # We recommend between 1 and 10 GB. This stores PFS metadata. For reference 1GB
 # should work for 1000 commits on 1000 files. 
-$ export STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
+$ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
 
-$ export AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2"]
+$ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2"]
 
-$ export AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
+$ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
 
 ```
 
@@ -167,7 +244,7 @@ $ aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availabi
 Record the "volume-id" that is output (e.g. "vol-8050b807"). You can also view it in the aws console or with  `aws ec2 describe-volumes`. Export the volume-id:
 
 ```shell
-$ export STORAGE_NAME=[volume id]
+$ STORAGE_NAME=[volume id]
 ```
 
 Now you should be able to see the bucket and the EBS volume that are just created:
@@ -176,7 +253,6 @@ Now you should be able to see the bucket and the EBS volume that are just create
 aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
-
 
 ### Install Pachctl 
 
@@ -206,20 +282,57 @@ First get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/la
 ```shell
 $ aws sts get-session-token
 ```
-
-Then run the following commands with the credentials you get:
-
-```shell
+Then set these variables:
+```sh
 $ AWS_ID=[access key ID] 
 
 $ AWS_KEY=[secret access key]
 
-$ AWS_TOKEN=[session token] make amazon-cluster-manifest > manifest
+$ AWS_TOKEN=[session token] 
+```
+Run the following command to deploy your Pachyderm cluster:
 
-$ make MANIFEST=manifest launch
+```shell
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ID} ${AWS_KEY} ${AWS_TOKEN} ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
 ```
 
-It may take a while to complete for the first time, as a lot of Docker images need to be pulled.
+It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+
+```sh
+$ kubectl get all
+NAME                   DESIRED        CURRENT          AGE
+etcd                   1              1                17m
+pachd                  2              2                17m
+rethink                1              1                17m
+NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
+etcd                   10.0.255.155   <none>           2379/TCP,2380/TCP              17m
+kubernetes             10.0.0.1       <none>           443/TCP                        4h
+pachd                  10.0.43.148    <nodes>          650/TCP,651/TCP                17m
+rethink                10.0.249.8     <nodes>          8080/TCP,28015/TCP,29015/TCP   17m
+NAME                   READY          STATUS           RESTARTS                       AGE
+etcd-04jbq             1/1            Running          0                              17m
+pachd-7a8sp            1/1            Running          2                              17m
+pachd-9egd7            1/1            Running          3                              17m
+rethink-xd7sc          1/1            Running          0                              17m
+NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
+rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           17m
+```
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+
+Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+
+```sh
+# Forward the ports. We background this process because it blocks. 
+$ pachctl portforward &
+```
+
+And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.2.0
+pachd               1.2.0
+```
 
 ## OpenShift
 

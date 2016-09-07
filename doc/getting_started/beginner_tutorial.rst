@@ -180,7 +180,7 @@ We can also view the parental structure of the commits we just created.
 
 Exploring the File System
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Another nifty feature of Pachyderm is that you can mount the filst system locally tno poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install [OSX FUSE](https://osxfuse.github.io/) 
+Another nifty feature of Pachyderm is that you can mount the file system locally to poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install [OSX FUSE](https://osxfuse.github.io/) 
 
 
 The first thing we need to do is mount Pachyderm's filesystem (pfs).
