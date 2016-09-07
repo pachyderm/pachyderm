@@ -328,7 +328,9 @@ goxc-build:
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
 launch-test-rethinkdb:
-	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 rethinkdb:2.3.3 
+	@# Expose port 8081 so you can connect to the rethink dashboard
+	@# (You may need to forward port 8081 if you're running docker machine)
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
 	sleep 20  # wait for rethinkdb to start up
 
 clean-launch-test-rethinkdb:
