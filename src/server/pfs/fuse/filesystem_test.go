@@ -485,6 +485,22 @@ func TestCreateFileInDir(t *testing.T) {
 	})
 }
 
+func TestCreateDirConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "file"), []byte("foo"), 0644))
+
+		require.YesError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "file"), 0700))
+		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	})
+}
+
 func TestOverwriteFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")

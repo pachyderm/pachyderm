@@ -216,7 +216,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			r = &reader
 			delimiter = request.Delimiter
 		}
-		if err := a.driver.PutFile(request.File, request.Handle, delimiter, r); err != nil {
+		if err := a.driver.PutFile(request.File, delimiter, r); err != nil {
 			return err
 		}
 	}
