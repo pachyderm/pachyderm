@@ -1,5 +1,5 @@
 # Local Installation
-This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux. For GCE or AWS, try our [Deploying on the Cloud]() guide.
+This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
 
 If you hit any errors not covered in this guide submit an issue on [GitHub](github.com/pachyderm/pachyderm) or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.  
 
