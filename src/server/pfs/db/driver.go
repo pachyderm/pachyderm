@@ -1178,7 +1178,26 @@ func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
 }
 
 func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
-	return errors.New("MakeDirectory is not implemented")
+	fixPath(file)
+	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
+	if err != nil {
+		return err
+	}
+	if commit.Finished != nil {
+		return ErrCommitFinished{fmt.Errorf("commit %v has already been finished", commit.ID)}
+	}
+
+	diff := &persist.Diff{
+		ID:       getDiffID(commit.ID, file.Path),
+		Repo:     commit.Repo,
+		Delete:   false,
+		Path:     file.Path,
+		Clock:    persist.FullClockHead(commit.FullClock),
+		FileType: persist.FileType_DIR,
+		Modified: now(),
+	}
+	_, err = d.getTerm(diffTable).Insert(diff).RunWrite(d.dbClient)
+	return err
 }
 
 func reverseSlice(s []*persist.ClockRange) {
