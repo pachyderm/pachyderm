@@ -201,8 +201,9 @@ func (w *worker) randString(n int) string {
 }
 
 type reader struct {
-	rand  *rand.Rand
-	bytes int
+	rand      *rand.Rand
+	bytes     int
+	bytesRead int
 }
 
 // NewReader returns a Reader which generates strings of characters.
@@ -214,22 +215,23 @@ func NewReader(rand *rand.Rand, bytes int) io.Reader {
 }
 
 func (r *reader) Read(p []byte) (int, error) {
+	var bytesReadThisTime int
 	for i := range p {
-		if i > r.bytes {
-			return r.bytes, io.EOF
+		if r.bytesRead+bytesReadThisTime == r.bytes {
+			break
 		}
 		if i%128 == 127 {
 			p[i] = '\n'
 		} else {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 		}
+		bytesReadThisTime++
 	}
-	p[len(p)-1] = '\n'
-	r.bytes -= len(p)
-	if r.bytes <= 0 {
-		return len(p), io.EOF
+	r.bytesRead += bytesReadThisTime
+	if r.bytesRead == r.bytes {
+		return bytesReadThisTime, io.EOF
 	}
-	return len(p), nil
+	return bytesReadThisTime, nil
 }
 
 func (w *worker) reader() io.Reader {
