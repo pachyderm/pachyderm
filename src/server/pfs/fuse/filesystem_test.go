@@ -781,9 +781,6 @@ func testFuse(
 	// functions
 	localAddress := listener.Addr().String()
 	srv := grpc.NewServer()
-	const (
-		numShards = 1
-	)
 	blockDir := filepath.Join(tmp, "blocks")
 	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
 	require.NoError(t, err)

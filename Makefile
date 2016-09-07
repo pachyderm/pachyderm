@@ -400,4 +400,6 @@ clean-launch-test-rethinkdb:
 	goxc-release \
 	goxc-build \
 	launch-rethinkdb \
-	clean-launch-rethinkdb
+	clean-launch-rethinkdb \
+	launch-test-rethinkdb \
+	clean-launch-test-rethinkdb
