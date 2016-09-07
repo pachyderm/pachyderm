@@ -206,7 +206,7 @@ func (d *driver) getTerm(table Table) gorethink.Term {
 }
 
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
-	provenance []*pfs.Repo, shards map[uint64]bool) error {
+	provenance []*pfs.Repo) error {
 	if repo == nil {
 		return fmt.Errorf("repo cannot be nil")
 	}
@@ -263,7 +263,7 @@ func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
 	return rawRepo, nil
 }
 
-func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	rawRepo, err := d.inspectRepo(repo)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	}
 
 	for _, repoName := range rawRepo.Provenance {
-		repoInfo, err := d.InspectRepo(&pfs.Repo{repoName}, shards)
+		repoInfo, err := d.InspectRepo(&pfs.Repo{repoName})
 		if err != nil {
 			return nil, err
 		}
@@ -303,7 +303,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	}, nil
 }
 
-func (d *driver) ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) (repoInfos []*pfs.RepoInfo, retErr error) {
+func (d *driver) ListRepo(provenance []*pfs.Repo) (repoInfos []*pfs.RepoInfo, retErr error) {
 	cursor, err := d.getTerm(repoTable).OrderBy("Name").Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ nextRepo:
 	for _, repo := range repos {
 		if len(provenance) != 0 {
 			// Filter out the repos that don't have the given provenance
-			repoInfo, err := d.InspectRepo(&pfs.Repo{repo.Name}, shards)
+			repoInfo, err := d.InspectRepo(&pfs.Repo{repo.Name})
 			if err != nil {
 				return nil, err
 			}
@@ -346,10 +346,10 @@ nextRepo:
 	return repoInfos, nil
 }
 
-func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error {
+func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 	if !force {
 		// Make sure that this repo is not the provenance of any other repo
-		repoInfos, err := d.ListRepo([]*pfs.Repo{repo}, shards)
+		repoInfos, err := d.ListRepo([]*pfs.Repo{repo})
 		if err != nil {
 			return err
 		}
@@ -365,7 +365,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) 
 	return err
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (_commit *pfs.Commit, retErr error) {
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit) (_commit *pfs.Commit, retErr error) {
 	if commitID == "" {
 		commitID = uuid.NewWithoutDashes()
 	}
@@ -398,7 +398,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	// This is so that running ListCommit with provenance is fast.
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
-		commitInfo, err := d.InspectCommit(c, shards)
+		commitInfo, err := d.InspectCommit(c)
 		archived = archived || commitInfo.Archived
 		if err != nil {
 			return nil, err
@@ -629,7 +629,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool) error {
 	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
 	_, err := d.inspectRepo(commit.Repo)
 	if err != nil {
@@ -694,7 +694,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 
 // ArchiveCommit archives the given commits and all commits that have any of the
 // given commits as provenance
-func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) ArchiveCommit(commits []*pfs.Commit) error {
 	var commitIDs []interface{}
 	for _, commit := range commits {
 		c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
@@ -723,7 +723,7 @@ func (d *driver) ArchiveCommit(commits []*pfs.Commit, shards map[uint64]bool) er
 	return nil
 }
 
-func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
+func (d *driver) InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	rawCommit, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
@@ -806,7 +806,7 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 	}
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
 	repoToFromCommit := make(map[string]string)
 	for _, repo := range repos {
 		// make sure that the repos exist
@@ -912,7 +912,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
 	repoSet1 := make(map[string]bool)
 	for _, commit := range fromCommits {
-		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo}, nil)
+		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
 		if err != nil {
 			return nil, err
 		}
@@ -923,7 +923,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 	repoSet2 := make(map[string]bool)
 	for _, repo := range toRepos {
-		repoInfo, err := d.InspectRepo(repo, nil)
+		repoInfo, err := d.InspectRepo(repo)
 		if err != nil {
 			return nil, err
 		}
@@ -995,7 +995,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	panic("unreachable")
 }
 
-func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 	// Get all branches
 	cursor, err := d.getTerm(clockTable).OrderBy(gorethink.OrderByOpts{
 		Index: ClockBranchIndex.Name,
@@ -1032,8 +1032,8 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 	return commitInfos, nil
 }
 
-func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	return errors.New("DeleteCommit is not supported")
+func (d *driver) DeleteCommit(commit *pfs.Commit) error {
+	return errors.New("DeleteCommit is not implemented")
 }
 
 // checkFileType returns an error if the given type conflicts with the preexisting
@@ -1063,7 +1063,7 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 }
 
 func (d *driver) PutFile(file *pfs.File, handle string,
-	delimiter pfs.Delimiter, shard uint64, reader io.Reader) (retErr error) {
+	delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
 	// TODO: eventually optimize this with a cache so that we don't have to
 	// go to the database to figure out if the commit exists
@@ -1177,8 +1177,8 @@ func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
 	return commitID.Add(":" + path)
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
-	return nil
+func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
+	return errors.New("MakeDirectory is not implemented")
 }
 
 func reverseSlice(s []*persist.ClockRange) {
@@ -1199,7 +1199,7 @@ func fixPath(file *pfs.File) {
 }
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-	size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error) {
+	size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error) {
 	fixPath(file)
 	diff, err := d.inspectFile(file, filterShard, diffMethod)
 	if err != nil {
@@ -1288,7 +1288,7 @@ func (r *fileReader) Close() error {
 	return nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error) {
 	fixPath(file)
 	diff, err := d.inspectFile(file, filterShard, diffMethod)
 	if err != nil {
@@ -1441,7 +1441,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		_repo := &pfs.Repo{
 			Name: repo,
 		}
-		newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil, nil)
+		newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1497,7 +1497,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			return nil, err
 		}
 
-		err = d.FinishCommit(newCommit, nil, cancel, nil)
+		err = d.FinishCommit(newCommit, nil, cancel)
 		retCommits.Commit = append(retCommits.Commit, newCommit)
 	} else if strategy == pfs.MergeStrategy_REPLAY {
 		commits, err := d.getCommitsToMerge(repo, commits, toBranch)
@@ -1518,7 +1518,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			}
 			// TODO: what if someone else is creating commits on toBranch while we
 			// are replaying?
-			newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil, nil)
+			newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -1542,7 +1542,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 				return nil, err
 			}
 
-			err = d.FinishCommit(newCommit, nil, cancel, nil)
+			err = d.FinishCommit(newCommit, nil, cancel)
 			retCommits.Commit = append(retCommits.Commit, newCommit)
 		}
 
@@ -1800,11 +1800,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	return diff, nil
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error) {
 	fixPath(file)
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
-		fileInfo, err := d.InspectFile(file, filterShard, diffMethod, shard, unsafe, handle)
+		fileInfo, err := d.InspectFile(file, filterShard, diffMethod)
 		if err != nil {
 			return nil, err
 		}
@@ -1859,7 +1859,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 	return fileInfos, nil
 }
 
-func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error {
+func (d *driver) DeleteFile(file *pfs.File) error {
 	fixPath(file)
 
 	commit, err := d.getCommitByAmbiguousID(file.Commit.Repo.Name, file.Commit.ID)
@@ -1918,7 +1918,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle st
 	return err
 }
 
-func (d *driver) DeleteAll(shards map[uint64]bool) error {
+func (d *driver) DeleteAll() error {
 	for _, table := range tables {
 		if _, err := d.getTerm(table).Delete().RunWrite(d.dbClient); err != nil {
 			return err
@@ -1928,19 +1928,11 @@ func (d *driver) DeleteAll(shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) ArchiveAll(shards map[uint64]bool) error {
+func (d *driver) ArchiveAll() error {
 	_, err := d.getTerm(commitTable).Update(map[string]interface{}{
 		"Archived": true,
 	}).RunWrite(d.dbClient)
 	return err
-}
-
-func (d *driver) AddShard(shard uint64) error {
-	return nil
-}
-
-func (d *driver) DeleteShard(shard uint64) error {
-	return nil
 }
 
 func (d *driver) Dump() {

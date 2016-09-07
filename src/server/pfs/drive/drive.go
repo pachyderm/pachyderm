@@ -41,8 +41,6 @@ type Driver interface {
 	DeleteFile(file *pfs.File) error
 	DeleteAll() error
 	ArchiveAll() error
-	AddShard() error
-	DeleteShard() error
 	Dump()
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
 }
@@ -75,8 +73,6 @@ type PfsRefactorDriver interface {
 	DeleteFile(file *pfs.File, unsafe bool) error
 	DeleteAll() error
 	ArchiveAll() error
-	AddShard() error
-	DeleteShard() error
 	Squash(from []*pfs.Commit, to *pfs.Commit) error
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 	Dump()
