@@ -8,7 +8,7 @@ added the pipeline will automatically process it and materialize the results.
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](https://github.com/pachyderm/pachyderm/blob/master/doc/deploying_setup.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../doc/installation.md).
 
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
