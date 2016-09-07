@@ -450,17 +450,11 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // blocks in the file. shard may be left nil in which case the entire file will be returned
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
-	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, false, "", writer)
-}
-
-// GetFileUnsafe is identical to GetFile except that it will consider files in unfinished commits.
-func (c APIClient) GetFileUnsafe(repoName string, commitID string, path string, offset int64,
-	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, handle string, writer io.Writer) error {
-	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, true, handle, writer)
+	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, writer)
 }
 
 func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
-	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, unsafe bool, handle string, writer io.Writer) error {
+	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
 	apiGetFileClient, err := c.PfsAPIClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
@@ -469,8 +463,6 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 			OffsetBytes: offset,
 			SizeBytes:   size,
 			DiffMethod:  newDiffMethod(repoName, fromCommitID, fullFile),
-			Unsafe:      unsafe,
-			Handle:      handle,
 		},
 	)
 	if err != nil {
@@ -489,25 +481,17 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 // returned
 func (c APIClient) InspectFile(repoName string, commitID string, path string,
 	fromCommitID string, fullFile bool, shard *pfs.Shard) (*pfs.FileInfo, error) {
-	return c.inspectFile(repoName, commitID, path, fromCommitID, fullFile, shard, false, "")
-}
-
-// InspectFileUnsafe is identical to InspectFile except that it will consider files in unfinished commits.
-func (c APIClient) InspectFileUnsafe(repoName string, commitID string, path string,
-	fromCommitID string, fullFile bool, shard *pfs.Shard, handle string) (*pfs.FileInfo, error) {
-	return c.inspectFile(repoName, commitID, path, fromCommitID, fullFile, shard, true, handle)
+	return c.inspectFile(repoName, commitID, path, fromCommitID, fullFile, shard)
 }
 
 func (c APIClient) inspectFile(repoName string, commitID string, path string,
-	fromCommitID string, fullFile bool, shard *pfs.Shard, unsafe bool, handle string) (*pfs.FileInfo, error) {
+	fromCommitID string, fullFile bool, shard *pfs.Shard) (*pfs.FileInfo, error) {
 	fileInfo, err := c.PfsAPIClient.InspectFile(
 		context.Background(),
 		&pfs.InspectFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
 			DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
-			Unsafe:     unsafe,
-			Handle:     handle,
 		},
 	)
 	if err != nil {
@@ -525,18 +509,11 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string,
 // recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
 func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string,
 	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recurse, false, "")
-}
-
-// ListFileUnsafe is identical to ListFile except that it will consider files in unfinished commits.
-// handle can be used to specify a specific set of dirty writes that you're interested in.
-func (c APIClient) ListFileUnsafe(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool, handle string) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recurse, true, handle)
+	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recursed)
 }
 
 func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error) {
+	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		context.Background(),
 		&pfs.ListFileRequest{
@@ -544,8 +521,6 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 			Shard:      shard,
 			DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
 			Recurse:    recurse,
-			Unsafe:     unsafe,
-			Handle:     handle,
 		},
 	)
 	if err != nil {
@@ -559,13 +534,11 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 // to later attempting to get the file from the finished commit will result in
 // not found error.
 // The file will of course remain intact in the Commit's parent.
-func (c APIClient) DeleteFile(repoName string, commitID string, path string, unsafe bool, handle string) error {
+func (c APIClient) DeleteFile(repoName string, commitID string, path string) error {
 	_, err := c.PfsAPIClient.DeleteFile(
 		context.Background(),
 		&pfs.DeleteFileRequest{
-			File:   NewFile(repoName, commitID, path),
-			Unsafe: unsafe,
-			Handle: handle,
+			File: NewFile(repoName, commitID, path),
 		},
 	)
 	return err

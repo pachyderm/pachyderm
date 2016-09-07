@@ -28,9 +28,8 @@ import (
 type filesystem struct {
 	apiClient client.APIClient
 	Filesystem
-	inodes   map[string]uint64
-	lock     sync.RWMutex
-	handleID string
+	inodes map[string]uint64
+	lock   sync.RWMutex
 }
 
 func newFilesystem(
@@ -44,8 +43,7 @@ func newFilesystem(
 			shard,
 			commitMounts,
 		},
-		inodes:   make(map[string]uint64),
-		handleID: uuid.NewWithoutDashes(),
+		inodes: make(map[string]uint64),
 	}
 }
 
@@ -195,7 +193,7 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 		}
 	}()
 	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name,
-		d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name), true, d.fs.handleID)
+		d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
 }
 
 type file struct {
@@ -213,14 +211,13 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 			protolion.Error(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 		}
 	}()
-	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err := f.fs.apiClient.InspectFile(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
 		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
-		f.fs.handleID,
 	)
 	if err != nil {
 		return err
@@ -244,7 +241,7 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 	}()
 	if req.Size == 0 && (req.Valid&fuse.SetattrSize) > 0 {
 		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
-			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
+			f.Node.File.Commit.ID, f.Node.File.Path)
 		if err != nil {
 			return err
 		}
@@ -269,14 +266,13 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		}
 	}()
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err := f.fs.apiClient.InspectFile(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
 		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
-		f.fs.handleID,
 	)
 	if err != nil {
 		return nil, err
@@ -315,7 +311,6 @@ func (f *file) touch() error {
 		f.File.Commit.ID,
 		f.File.Path,
 		f.delimiter(),
-		f.fs.handleID,
 	)
 	if err != nil {
 		return err
@@ -373,7 +368,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		}
 	}()
 	var buffer bytes.Buffer
-	if err := h.f.fs.apiClient.GetFileUnsafe(
+	if err := h.f.fs.apiClient.GetFile(
 		h.f.File.Commit.Repo.Name,
 		h.f.File.Commit.ID,
 		h.f.File.Path,
@@ -382,7 +377,6 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
 		h.f.fs.getFullFile(h.f.getRepoOrAliasName()),
 		h.f.Shard,
-		h.f.fs.handleID,
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
@@ -408,7 +402,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	defer h.lock.Unlock()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), h.f.fs.handleID)
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter())
 		if err != nil {
 			return err
 		}
@@ -592,14 +586,13 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	fileInfo, err = d.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err = d.fs.apiClient.InspectFile(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
 		d.fs.getFromCommitID(d.getRepoOrAliasName()),
 		d.fs.getFullFile(d.getRepoOrAliasName()),
 		d.Shard,
-		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, fuse.ENOENT
@@ -669,7 +662,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := d.fs.apiClient.ListFileUnsafe(
+	fileInfos, err := d.fs.apiClient.ListFile(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		d.File.Path,
@@ -679,7 +672,6 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		// setting recurse to false for performance reasons
 		// it does however means that we won't know the correct sizes of directories
 		false,
-		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, err

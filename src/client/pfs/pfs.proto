@@ -238,8 +238,6 @@ message GetFileRequest {
   int64 size_bytes = 3;
   Shard shard = 4;
   DiffMethod diff_method = 5;
-  bool unsafe = 7;
-  string handle = 8;
 }
 
 enum Delimiter {
@@ -261,8 +259,6 @@ message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
   DiffMethod diff_method = 3;
-  bool unsafe = 4;
-  string handle = 5;
 }
 
 message ListFileRequest {
@@ -270,14 +266,10 @@ message ListFileRequest {
   Shard shard = 2;
   DiffMethod diff_method = 3;
   bool recurse = 4;
-  bool unsafe = 5;
-  string handle = 6;
 }
 
 message DeleteFileRequest {
   File file = 1;
-  bool unsafe = 2;
-  string handle = 3;
 }
 
 // TODO (pfs-refactor) : make repo an obj
