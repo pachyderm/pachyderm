@@ -331,7 +331,7 @@ goxc-build:
 
 launch-test-rethinkdb:
 	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 rethinkdb:2.3.3 
-	sleep 10  # wait for rethinkdb to start up
+	sleep 20  # wait for rethinkdb to start up
 
 clean-launch-test-rethinkdb:
 	docker stop pachyderm-test-rethinkdb || true
