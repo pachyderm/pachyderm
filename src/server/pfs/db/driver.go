@@ -1187,6 +1187,10 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		return ErrCommitFinished{fmt.Errorf("commit %v has already been finished", commit.ID)}
 	}
 
+	if err := d.checkFileType(commit.Repo, commit.ID, file.Path, persist.FileType_DIR); err != nil {
+		return err
+	}
+
 	diff := &persist.Diff{
 		ID:       getDiffID(commit.ID, file.Path),
 		Repo:     commit.Repo,
