@@ -90,6 +90,7 @@ func do(appEnvObj interface{}) error {
 					response.CommitMounts,
 					ready,
 					response.Transform.Debug,
+					false,
 				); err != nil {
 					errCh <- err
 				}

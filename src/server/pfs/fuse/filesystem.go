@@ -28,15 +28,17 @@ import (
 type filesystem struct {
 	apiClient client.APIClient
 	Filesystem
-	inodes   map[string]uint64
-	lock     sync.RWMutex
-	handleID string
+	inodes     map[string]uint64
+	lock       sync.RWMutex
+	handleID   string
+	allCommits bool
 }
 
 func newFilesystem(
 	pfsAPIClient pfsclient.APIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
+	allCommits bool,
 ) *filesystem {
 	return &filesystem{
 		apiClient: client.APIClient{PfsAPIClient: pfsAPIClient},
@@ -44,8 +46,9 @@ func newFilesystem(
 			shard,
 			commitMounts,
 		},
-		inodes:   make(map[string]uint64),
-		handleID: uuid.NewWithoutDashes(),
+		inodes:     make(map[string]uint64),
+		handleID:   uuid.NewWithoutDashes(),
+		allCommits: allCommits,
 	}
 }
 
@@ -642,8 +645,15 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-		nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
+	var commitInfos []*pfsclient.CommitInfo
+	var err error
+	if d.fs.allCommits {
+		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
+			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
+	} else {
+		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
+			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+	}
 	if err != nil {
 		return nil, err
 	}
