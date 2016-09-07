@@ -16,8 +16,29 @@ There a bunch of different ways to get your data into Pachyderm.
 
 PFS Mount
 ----------
+This is the easiest method if you just have some local files (or dummy files) and you just want to test things out in Pachyderm. This is NOT a production method for getting data into Pachyderm. 
 
-To mount pfs locally use ``pachctl mount``. You can follow the first section of the :doc:`beginner_tutorial` or use the :doc:`pachctl` documentation.
+Pachyderm allows you to mount data in the distributed file system locally using and explore it using FUSE.
+
+FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install [OSX FUSE](https://osxfuse.github.io/) 
+
+First create the mount point:
+
+.. code-block:: shell
+
+    $ mkdir ~/pfs
+
+
+And then mount it:
+
+.. code-block:: bash
+
+ # We background this process because it blocks.
+ $ pachctl mount ~/pfs &
+
+
+This will mount pfs on ``~/pfs`` you can inspect the filesystem like you would any
+other local filesystem using ``ls`` or a web browser. 
 
 Once you have pfs mounted, you can add files to Pachyderm via whatever method you prefer to manipulate a local file system:  ``mv``, ``cp``, ``>``, ``|``, etc.
 

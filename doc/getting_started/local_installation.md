@@ -39,9 +39,9 @@ please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-kubectl create -f https://pachyderm.io/manifest.json
+pachctl deploy
 ```
-This pulls the default Pachyderm manifest from our website and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
 
 ```sh
 $ kubectl get all
@@ -60,16 +60,14 @@ pachd-7xyse     0/1          Running       0                              6s
 pachd-gfdc6     0/1          Running       0                              6s
 rethink-v5rsx   1/1          Running       0                              6s
 ```
-Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
+Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
 
 ### Port Forwarding
 
-The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. You'll need to use the name of one of the pachd processes displayed using `kubectl get all`. Either one will do. 
+The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. We background this process since port forwarding blocks. 
 
 ```shell
-$ kubectl port-forward pachd-7xyse 30650:650 &
-Forwarding from 127.0.0.1:30650 -> 650
-Forwarding from [::1]:30650 -> 650
+$ pachctl port-forward &
 ```
 
 Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working. 
@@ -78,9 +76,9 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 $ pachctl version
 COMPONENT           VERSION
 pachctl             1.1.0
-Handling connection for 30650
 pachd               1.1.0
 ```
+
 We're good to go!
 
 
