@@ -16,7 +16,6 @@ import (
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
