@@ -13,7 +13,6 @@ import (
 
 var (
 	RethinkAddress = "localhost:28015"
-	port           = 40651
 )
 
 func TestDiffPathIndex(t *testing.T) {
