@@ -87,9 +87,5 @@ commit in the input repo(s) as well as *all future commits* that happen after th
 
 You can think of this pipeline as being "subscribed" to any new commits that are made on any of its input repos. It will automatically process the new data as it comes in. 
 
-## Next steps:
-
-
-Learn how to update pipelines as you develop code and explore your data
 
 
