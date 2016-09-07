@@ -204,7 +204,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: clean-launch-test-rethinkdb launch-test-rethinkdb pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
@@ -217,13 +217,11 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: clean-launch-test-rethinkdb launch-test-rethinkdb
+test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
-	make clean-launch-test-rethinkdb
 
-test-local:clean-launch-test-rethinkdb launch-test-rethinkdb
+test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
-	make clean-launch-test-rethinkdb
 
 clean: clean-launch clean-launch-kube
 
