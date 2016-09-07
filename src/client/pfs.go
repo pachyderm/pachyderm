@@ -388,13 +388,10 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 }
 
 // PutFileWriter writes a file to PFS.
-// handle is used to perform multiple writes that are guaranteed to wind up
-// contiguous in the final file. It may be safely left empty and likely won't
-// be needed in most use cases.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c APIClient) PutFileWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, handle)
+func (c APIClient) PutFileWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -405,7 +402,7 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 //PutFileWithDelimiter writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path string, delimiter pfs.Delimiter, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter, "")
+	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter)
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -509,7 +506,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string,
 // recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
 func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string,
 	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recursed)
+	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recurse)
 }
 
 func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
@@ -609,7 +606,7 @@ type putFileWriteCloser struct {
 	sent          bool
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, handle string) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
 	if err != nil {
 		return nil, err
@@ -618,7 +615,6 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 		request: &pfs.PutFileRequest{
 			File:      NewFile(repoName, commitID, path),
 			FileType:  pfs.FileType_FILE_TYPE_REGULAR,
-			Handle:    handle,
 			Delimiter: delimiter,
 		},
 		putFileClient: putFileClient,
