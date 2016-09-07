@@ -2392,6 +2392,9 @@ func TestUpdatePipeline(t *testing.T) {
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		true,
 	))
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.NotNil(t, pipelineInfo.CreatedAt)
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
