@@ -19,30 +19,30 @@ func IsPermissionError(err error) bool {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, provenance []*pfs.Repo, shards map[uint64]bool) error
-	InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error)
-	ListRepo(provenance []*pfs.Repo, shards map[uint64]bool) ([]*pfs.RepoInfo, error)
-	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool, force bool) error
-	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit, shards map[uint64]bool) (*pfs.Commit, error)
-	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error
-	ArchiveCommit(commit []*pfs.Commit, shards map[uint64]bool) error
-	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
+	CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, provenance []*pfs.Repo) error
+	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
+	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
+	DeleteRepo(repo *pfs.Repo, force bool) error
+	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit) (*pfs.Commit, error)
+	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool) error
+	ArchiveCommit(commit []*pfs.Commit) error
+	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
-		provenance []*pfs.Commit, status pfs.CommitStatus, shards map[uint64]bool, block bool) ([]*pfs.CommitInfo, error)
+		provenance []*pfs.Commit, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
-	ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
-	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
-	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, shard uint64, reader io.Reader) error
-	MakeDirectory(file *pfs.File, shard uint64) error
+	ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error)
+	DeleteCommit(commit *pfs.Commit) error
+	PutFile(file *pfs.File, handle string, delimiter pfs.Delimiter, reader io.Reader) error
+	MakeDirectory(file *pfs.File) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-		size int64, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (io.ReadCloser, error)
-	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, unsafe bool, handle string) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, shard uint64, recurse bool, unsafe bool, handle string) ([]*pfs.FileInfo, error)
-	DeleteFile(file *pfs.File, shard uint64, unsafe bool, handle string) error
-	DeleteAll(shards map[uint64]bool) error
-	ArchiveAll(shards map[uint64]bool) error
-	AddShard(shard uint64) error
-	DeleteShard(shard uint64) error
+		size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error)
+	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error)
+	DeleteFile(file *pfs.File) error
+	DeleteAll() error
+	ArchiveAll() error
+	AddShard() error
+	DeleteShard() error
 	Dump()
 	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
 }
