@@ -1373,6 +1373,13 @@ func TestFlushOpenCommit(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
+func TestEmptyFlush(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	_, err := client.FlushCommit(nil, nil)
+	require.NoError(t, err)
+}
+
 func TestShardingInTopLevel(t *testing.T) {
 	t.Parallel()
 	client, _ := getClientAndServer(t)
