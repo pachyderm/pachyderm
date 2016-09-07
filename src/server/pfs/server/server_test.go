@@ -677,7 +677,7 @@ func TestDeleteFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "bar", strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit1.ID, "foo", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "foo"))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -704,7 +704,7 @@ func TestDeleteFile(t *testing.T) {
 	// Delete bar
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar"))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see no file
@@ -764,7 +764,7 @@ func TestDeleteDir(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "dir/bar", strings.NewReader("bar1"))
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit1.ID, "dir", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "dir"))
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -806,7 +806,7 @@ func TestDeleteDir(t *testing.T) {
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir", false, ""))
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir"))
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
@@ -894,48 +894,6 @@ func TestOffsetRead(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, "master", "foo", int64(len(fileData)*2)+1, 0, "", false, nil, &buffer))
 	require.Equal(t, "", buffer.String())
-}
-
-func TestUnsafeOperations(t *testing.T) {
-	t.Parallel()
-	// Unsafe is not a thing anymore
-	t.Skip()
-	client := getClient(t)
-	repo := "TestUnsafeOperations"
-	require.NoError(t, client.CreateRepo(repo))
-
-	_, err := client.StartCommit(repo, "", "master")
-	require.NoError(t, err)
-
-	fileData := "foo"
-	_, err = client.PutFile(repo, "master", "foo", strings.NewReader(fileData))
-	require.NoError(t, err)
-
-	// A safe read should not be able to see the file
-	var buffer bytes.Buffer
-	require.YesError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
-
-	// An unsafe read should
-	var buffer2 bytes.Buffer
-	require.NoError(t, client.GetFileUnsafe(repo, "master", "foo", 0, 0, "", false, nil, "", &buffer2))
-	require.Equal(t, "foo", buffer2.String())
-
-	fileInfo, err := client.InspectFile(repo, "master", "foo", "", false, nil)
-	require.YesError(t, err)
-
-	fileInfo, err = client.InspectFileUnsafe(repo, "master", "foo", "", false, nil, "")
-	require.NoError(t, err)
-	require.Equal(t, 3, int(fileInfo.SizeBytes))
-
-	fileInfos, err := client.ListFile(repo, "master", "", "", false, nil, true)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
-
-	fileInfos, err = client.ListFileUnsafe(repo, "master", "", "", false, nil, true, "")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
-
-	require.NoError(t, client.FinishCommit(repo, "master"))
 }
 
 // FinishCommit should block until the parent has been finished
@@ -1035,11 +993,11 @@ func TestHandleRace(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "", "")
 	require.NoError(t, err)
-	writer1, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle1")
+	writer1, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE)
 	require.NoError(t, err)
 	_, err = writer1.Write([]byte("foo"))
 	require.NoError(t, err)
-	writer2, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle2")
+	writer2, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE)
 	require.NoError(t, err)
 	_, err = writer2.Write([]byte("bar"))
 	require.NoError(t, err)
@@ -1391,11 +1349,11 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "", "")
 	require.NoError(t, err)
-	w, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE, "handle")
+	w, err := client.PutFileWriter(repo, commit.ID, "foo", pfsclient.Delimiter_LINE)
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
-	_, err = client.InspectFileUnsafe(repo, commit.ID, "foo", "", false, nil, "handle")
+	_, err = client.InspectFile(repo, commit.ID, "foo", "", false, nil)
 	require.NoError(t, err)
 }
 
@@ -2224,7 +2182,7 @@ func TestNEWAPIDeleteFile(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/1", "file", false, "")
+	err = client.DeleteFile(repo, "master/1", "file")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/1", "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
@@ -2239,7 +2197,7 @@ func TestNEWAPIDeleteFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/2", "file", false, "")
+	err = client.DeleteFile(repo, "master/2", "file")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -2285,7 +2243,7 @@ func TestNEWAPIInspectFile(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/2", "file", false, "")
+	err = client.DeleteFile(repo, "master/2", "file")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/2", "file", strings.NewReader(fileContent2))
 	require.NoError(t, err)
@@ -2330,7 +2288,7 @@ func TestNEWAPIInspectDirectory(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	err = client.DeleteFile(repo, "master/2", "dir/2")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
@@ -2372,7 +2330,7 @@ func TestNEWAPIListFile(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/2", "dir/2", false, "")
+	err = client.DeleteFile(repo, "master/2", "dir/2")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
@@ -2416,7 +2374,7 @@ func TestNEWAPIListFileRecurse(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "", "master")
 	require.NoError(t, err)
-	err = client.DeleteFile(repo, "master/2", "dir/3/bar", false, "")
+	err = client.DeleteFile(repo, "master/2", "dir/3/bar")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/2"))
 
@@ -2916,7 +2874,7 @@ func TestSquashMergeDeletion(t *testing.T) {
 
 		_, err = client.StartCommit(repo, "", branch)
 		require.NoError(t, err)
-		require.NoError(t, client.DeleteFile(repo, branch, "file", false, ""))
+		require.NoError(t, client.DeleteFile(repo, branch, "file"))
 		require.NoError(t, client.FinishCommit(repo, branch))
 
 		_, err = client.StartCommit(repo, "", branch)
