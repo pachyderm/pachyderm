@@ -2906,6 +2906,21 @@ func TestSquashMergeDeletion(t *testing.T) {
 	require.Equal(t, "bar", buffer.String())
 }
 
+func TestCreateDirConflict(t *testing.T) {
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	require.YesError(t, client.MakeDirectory(repo, commit.ID, "file"))
+
+	require.NoError(t, client.FinishCommit(repo, "master"))
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
