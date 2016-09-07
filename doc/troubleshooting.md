@@ -171,3 +171,10 @@ place.
 
 We'll update this section of the guid as we learn more about this issue.
 
+## Profiling
+
+Sometimes if your pachyderm cluster is misbehaving profiling it can give more
+information about what's going on. Pachyderm exposes the standard go profiling
+tool pprof over http. You can access it at http://host:30651 host should be the
+same host you point `pachctl` at. To learn more about using pprof check
+[here](https://golang.org/pkg/net/http/pprof/).
