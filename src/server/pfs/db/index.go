@@ -38,6 +38,10 @@ var DiffPathIndex = &index{
 	},
 }
 
+func diffPathIndexKey(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
+}
+
 // DiffPrefixIndex maps a path to diffs that have the path as prefix // Format: [repo, prefix, clocks]
 // Example:
 // For the diff: "/foo/bar/buzz", (master, 1)
@@ -68,6 +72,10 @@ var DiffPrefixIndex = &index{
 	},
 }
 
+func diffPrefixIndexKey(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
+}
+
 // DiffParentIndex maps a path to diffs that have the path as direct parent
 // Format: [repo, parent, clocks]
 // Example:
@@ -89,6 +97,10 @@ var DiffParentIndex = &index{
 	},
 }
 
+func diffParentIndexKey(repo interface{}, path interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, path, clock}
+}
+
 // DiffClockIndex maps a clock to diffs
 // Format: [repo, branch, clock]
 // Example: ["test", "master", 1]
@@ -99,6 +111,10 @@ var DiffClockIndex = &index{
 		clock := row.Field("Clock")
 		return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock")}
 	},
+}
+
+func diffClockIndexKey(repo interface{}, branch interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, branch, clock}
 }
 
 // ClockBranchIndex maps a branch to a clock
@@ -129,4 +145,8 @@ var CommitClockIndex = &index{
 			lastClock.Field("Clock"),
 		}
 	},
+}
+
+func commitClockIndexKey(repo interface{}, branch interface{}, clock interface{}) interface{} {
+	return []interface{}{repo, branch, clock}
 }
