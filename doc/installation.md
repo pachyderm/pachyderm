@@ -24,16 +24,7 @@ $ brew tap pachyderm/tap && brew install pachctl
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
-
-```sh
-$ pachctl version
-COMPONENT           VERSION
-pachctl             1.1.0
-pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded
-
-please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
-```
+You can try running `pachctl help` to check that this worked correctly, which should return if pachctl is installed correctly.
 
 ### Deploy Pachyderm
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
