@@ -297,22 +297,18 @@ Examples:
 			if err != nil {
 				return err
 			}
-
 			c, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-
 			var toRepos []*pfsclient.Repo
 			for _, repoName := range repos {
 				toRepos = append(toRepos, client.NewRepo(repoName))
 			}
-
 			commitInfos, err := c.FlushCommit(commits, toRepos)
 			if err != nil {
 				return err
 			}
-
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintCommitInfoHeader(writer)
 			for _, commitInfo := range commitInfos {
