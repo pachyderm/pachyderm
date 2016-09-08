@@ -819,7 +819,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			outputBranch = parentJobInfo.Branch
 		}
 		mergeReq := &pfsclient.MergeRequest{
-			Repo:        jobInfo.OutputCommit.Repo.Name,
+			Repo:        jobInfo.OutputCommit.Repo,
 			FromCommits: commitsToMerge,
 			ToBranch:    outputBranch,
 			Strategy:    pfsclient.MergeStrategy_SQUASH,
