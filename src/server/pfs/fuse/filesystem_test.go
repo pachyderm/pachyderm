@@ -68,7 +68,7 @@ func TestRootReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestRepoReadDir(t *testing.T) {
@@ -120,7 +120,7 @@ func TestRepoReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestCommitOpenReadDir(t *testing.T) {
@@ -178,7 +178,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestCommitFinishedReadDir(t *testing.T) {
@@ -237,7 +237,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestWriteAndRead(t *testing.T) {
@@ -260,7 +260,7 @@ func TestWriteAndRead(t *testing.T) {
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(t, []byte(greeting), data)
-	})
+	}, false)
 }
 
 func TestBigWrite(t *testing.T) {
@@ -280,7 +280,7 @@ func TestBigWrite(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
-	})
+	}, false)
 }
 
 func Test296Appends(t *testing.T) {
@@ -309,7 +309,7 @@ func Test296Appends(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "1\n2\n3\n", string(data))
-	})
+	}, false)
 }
 
 func Test296(t *testing.T) {
@@ -338,7 +338,7 @@ func Test296(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "3\n", string(data))
-	})
+	}, false)
 }
 
 func TestSpacedWrites(t *testing.T) {
@@ -363,7 +363,7 @@ func TestSpacedWrites(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "foofoo", string(data))
-	})
+	}, false)
 }
 
 func TestMountCachingViaWalk(t *testing.T) {
@@ -402,7 +402,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 		require.OneOfEquals(t, "/foo", filesSeen)
 		require.OneOfEquals(t, "/bar", filesSeen)
 
-	})
+	}, false)
 }
 
 func TestMountCachingViaShell(t *testing.T) {
@@ -438,7 +438,7 @@ func TestMountCachingViaShell(t *testing.T) {
 
 		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
 
-	})
+	}, false)
 }
 
 func TestCreateFileInDir(t *testing.T) {
@@ -454,7 +454,7 @@ func TestCreateFileInDir(t *testing.T) {
 		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
-	})
+	}, false)
 }
 
 func TestOverwriteFile(t *testing.T) {
@@ -477,7 +477,7 @@ func TestOverwriteFile(t *testing.T) {
 		result, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "bar\n", string(result))
-	})
+	}, false)
 }
 
 func TestOpenAndWriteFile(t *testing.T) {
@@ -506,7 +506,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 		result, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%v%v", string(data1), string(data2)), string(result))
-	})
+	}, false)
 }
 
 func TestDelimitJSON(t *testing.T) {
@@ -571,7 +571,7 @@ func TestDelimitJSON(t *testing.T) {
 				require.Equal(t, rawMessage, string(value))
 			}
 		}
-	})
+	}, false)
 }
 
 func TestNoDelimiter(t *testing.T) {
@@ -636,7 +636,7 @@ func TestNoDelimiter(t *testing.T) {
 			}
 			require.EqualOneOf(t, blockLengths, buffer.Len())
 		}
-	})
+	}, false)
 }
 
 func TestWriteToReadOnlyPath(t *testing.T) {
@@ -657,7 +657,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 		err = pkgexec.RunStdin(stdin, "sh")
 		require.YesError(t, err)
 		require.Matches(t, "Operation not permitted", err.Error())
-	})
+	}, false)
 }
 
 func TestWriteManyFiles(t *testing.T) {
@@ -676,7 +676,7 @@ func TestWriteManyFiles(t *testing.T) {
 			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
 			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
 		}
-	})
+	}, false)
 }
 
 func TestReadCancelledCommit(t *testing.T) {
@@ -699,7 +699,31 @@ func TestReadCancelledCommit(t *testing.T) {
 		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
-	})
+	}, true)
+}
+
+func TestNoReadCancelledCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestReadCancelledCommit"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.CancelCommit(repo, commit.ID))
+		commit2, err := c.StartCommit(repo, "", "")
+		require.NoError(t, c.FinishCommit(repo, commit2.ID))
+		require.NoError(t, c.ArchiveCommit(repo, commit2.ID))
+		// we shouldn't see any directories because the mount doesn't show
+		// archived or cancelled commits
+		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(dirs))
+	}, false)
 }
 
 func TestListBranch(t *testing.T) {
@@ -718,12 +742,13 @@ func TestListBranch(t *testing.T) {
 		require.Equal(t, 2, len(dirs))
 		require.OneOfEquals(t, commit.ID, []interface{}{dirs[0].Name(), dirs[1].Name()})
 		require.OneOfEquals(t, "master", []interface{}{dirs[0].Name(), dirs[1].Name()})
-	})
+	}, false)
 }
 
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
+	allCommits bool,
 ) {
 	// don't leave goroutines running
 	var wg sync.WaitGroup
@@ -806,7 +831,7 @@ func testFuse(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, true))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, true, allCommits))
 	}()
 
 	<-ready
