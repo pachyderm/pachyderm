@@ -29,6 +29,5 @@ before_script:
 script:
 - make lint
 - travis_wait 30 make test
-- ./etc/refactor/progress.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
