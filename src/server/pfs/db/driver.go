@@ -205,8 +205,7 @@ func (d *driver) getTerm(table Table) gorethink.Term {
 	return gorethink.DB(d.dbName).Table(table)
 }
 
-func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
-	provenance []*pfs.Repo) error {
+func (d *driver) CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error {
 	if repo == nil {
 		return fmt.Errorf("repo cannot be nil")
 	}
@@ -237,7 +236,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp,
 
 	_, err = d.getTerm(repoTable).Insert(&persist.Repo{
 		Name:       repo.Name,
-		Created:    created,
+		Created:    now(),
 		Provenance: provenantIDs,
 	}).RunWrite(d.dbClient)
 	if err != nil && gorethink.IsConflictErr(err) {

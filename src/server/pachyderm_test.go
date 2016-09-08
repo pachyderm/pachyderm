@@ -375,7 +375,10 @@ func TestPipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		1,
-		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
 		false,
 	))
 	// Do first commit to repo

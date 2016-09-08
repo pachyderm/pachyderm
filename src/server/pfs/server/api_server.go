@@ -38,7 +38,7 @@ func newAPIServer(driver drive.Driver) *apiServer {
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.CreateRepo(request.Repo, request.Created, request.Provenance); err != nil {
+	if err := a.driver.CreateRepo(request.Repo, request.Provenance); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
