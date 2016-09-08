@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -532,7 +531,7 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
 		map[string]interface{}{
-			"PodCommits": map[string]*pfs.Commit{strconv.FormatUint(request.PodIndex, 10): request.Commit},
+			"PodCommits": map[string]*pfs.Commit{fmt.Sprintf("%d", request.PodIndex): request.Commit},
 		},
 	).RunWrite(a.session)
 

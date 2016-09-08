@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -781,7 +780,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// Finish this shard's commit
-	podCommit, ok := jobInfo.PodCommits[strconv.FormatUint(request.PodIndex, 10)]
+	podCommit, ok := jobInfo.PodCommits[fmt.Sprintf("%d", request.PodIndex)]
 	if !ok {
 		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
 	}

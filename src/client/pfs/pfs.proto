@@ -150,8 +150,7 @@ message Shard {
 
 message CreateRepoRequest {
   Repo repo = 1;
-  google.protobuf.Timestamp created = 2;
-  repeated Repo provenance = 3;
+  repeated Repo provenance = 2;
 }
 
 message InspectRepoRequest {
