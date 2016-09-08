@@ -1453,23 +1453,20 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 }
 
 // TODO: rollback
-func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (retCommits *pfs.Commits, retErr error) {
+func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (retCommits *pfs.Commits, retErr error) {
 	// TODO: rollback in the case of a failed merge
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
 	}
 	if strategy == pfs.MergeStrategy_SQUASH {
-		_repo := &pfs.Repo{
-			Name: repo,
-		}
-		newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
+		newCommit, err := d.StartCommit(repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		// We first compute the union of the input commits' provenance,
 		// which will be the provenance of this merged commit.
-		commitsToMerge, err := d.getCommitsToMerge(repo, commits, toBranch)
+		commitsToMerge, err := d.getCommitsToMerge(repo.Name, commits, toBranch)
 		if err != nil {
 			return nil, err
 		}
@@ -1501,7 +1498,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		}
 		newClock := persist.FullClockHead(newPersistCommit.FullClock)
 
-		diffs, err := d.getDiffsToMerge(repo, commits, toBranch)
+		diffs, err := d.getDiffsToMerge(repo.Name, commits, toBranch)
 		if err != nil {
 			return nil, err
 		}
@@ -1521,7 +1518,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		err = d.FinishCommit(newCommit, nil, cancel)
 		retCommits.Commit = append(retCommits.Commit, newCommit)
 	} else if strategy == pfs.MergeStrategy_REPLAY {
-		commits, err := d.getCommitsToMerge(repo, commits, toBranch)
+		commits, err := d.getCommitsToMerge(repo.Name, commits, toBranch)
 		if err != nil {
 			return nil, err
 		}
@@ -1534,12 +1531,9 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 		var rawCommit persist.Commit
 		for cursor.Next(&rawCommit) {
 			// Copy each commit and their diffs
-			_repo := &pfs.Repo{
-				Name: repo,
-			}
 			// TODO: what if someone else is creating commits on toBranch while we
 			// are replaying?
-			newCommit, err := d.StartCommit(_repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
+			newCommit, err := d.StartCommit(repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -1553,7 +1547,7 @@ func (d *driver) Merge(repo string, commits []*pfs.Commit, toBranch string, stra
 			oldClock := persist.FullClockHead(rawCommit.FullClock)
 
 			// TODO: conflict detection
-			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
+			_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo.Name, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 				return map[string]interface{}{
 					"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
 					"Clock": newClock,
