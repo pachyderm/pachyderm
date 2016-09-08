@@ -76,7 +76,7 @@ func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue
 }
 
 func TestJSONSyntaxErrorsReportedCreateJob(t *testing.T) {
-	descriptiveOutput := `error parsing job spec: Syntax Error on line 3:
+	descriptiveOutput := `Syntax Error on line 3:
 
 "356weryt
 
@@ -88,7 +88,7 @@ invalid character '\n' in string literal
 }
 
 func TestJSONSyntaxErrorsReportedCreateJob2(t *testing.T) {
-	descriptiveOutput := `error parsing job spec: Syntax Error on line 5:
+	descriptiveOutput := `Syntax Error on line 5:
 
     "c": {a
           ^
@@ -99,7 +99,7 @@ invalid character 'a' looking for beginning of object key string
 }
 
 func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
-	descriptiveOutput := `error parsing pipeline spec: Syntax Error on line 5:
+	descriptiveOutput := `Syntax Error on line 5:
 
     "c": {a
           ^
@@ -110,7 +110,7 @@ invalid character 'a' looking for beginning of object key string
 }
 
 func TestJSONSyntaxErrorsReportedRunPipeline(t *testing.T) {
-	descriptiveOutput := `error parsing pipeline spec: Syntax Error on line 5:
+	descriptiveOutput := `Syntax Error on line 5:
 
     "c": {a
           ^
@@ -122,7 +122,7 @@ invalid character 'a' looking for beginning of object key string
 
 func TestJSONSyntaxErrorsReportedCreatePipelineFromStdin(t *testing.T) {
 	descriptiveOutput := `Reading from stdin.
-error parsing pipeline spec: Syntax Error on line 5:
+Syntax Error on line 5:
 
     "c": {a
           ^
