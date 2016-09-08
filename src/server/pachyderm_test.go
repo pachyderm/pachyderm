@@ -2718,6 +2718,59 @@ func TestListCommitReturnsBlankCommit(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos.CommitInfo))
 }
 
+// TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
+func TestChainedPipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+
+	dRepo := uniqueString("D")
+	require.NoError(t, c.CreateRepo(dRepo))
+
+	aCommit, err := c.StartCommit(aRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, "master"))
+
+	dCommit, err := c.StartCommit(dRepo, "", "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dRepo, "master", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dRepo, "master"))
+
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo)}},
+		false,
+	))
+
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
+			fmt.Sprintf("cp /pfs/%s/file /pfs/put/dFile", dRepo)},
+		1,
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline)},
+			{Repo: client.NewRepo(dRepo)}},
+		false,
+	))
+	results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, dCommit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(results))
+}
+
 func getPachClient(t *testing.T) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
