@@ -1077,7 +1077,6 @@ func (m *DeleteFileRequest) GetFile() *File {
 	return nil
 }
 
-// TODO (pfs-refactor) : make repo an obj
 type MergeRequest struct {
 	Repo        *Repo         `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	FromCommits []*Commit     `protobuf:"bytes,2,rep,name=from_commits,json=fromCommits" json:"from_commits,omitempty"`
