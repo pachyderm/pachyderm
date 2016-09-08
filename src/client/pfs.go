@@ -579,7 +579,7 @@ func (c APIClient) Merge(repo string, fromCommits []string, toBranch string, str
 	commits, err := c.PfsAPIClient.Merge(
 		context.Background(),
 		&pfs.MergeRequest{
-			Repo:        repo,
+			Repo:        NewRepo(repo),
 			FromCommits: realFromCommits,
 			ToBranch:    toBranch,
 			Strategy:    strategy,

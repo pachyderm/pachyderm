@@ -268,9 +268,8 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-// TODO (pfs-refactor) : make repo an obj
 message MergeRequest {
-  string repo = 1;
+  Repo repo = 1;
   repeated Commit from_commits = 2;
   string to_branch = 3;
   MergeStrategy strategy = 4;  
