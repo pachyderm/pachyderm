@@ -473,7 +473,7 @@ func TestPutFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n"))
-	require.NoError(t, err)
+	require.YesError(t, err) // because path starts with a slash
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
@@ -2919,6 +2919,55 @@ func TestCreateDirConflict(t *testing.T) {
 	require.YesError(t, client.MakeDirectory(repo, commit.ID, "file"))
 
 	require.NoError(t, client.FinishCommit(repo, "master"))
+}
+
+func TestListCommitOrder(t *testing.T) {
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	errCh := make(chan error)
+	commitCh := make(chan *pfsclient.CommitInfo)
+	go func() {
+		var lastCommit *pfsclient.Commit
+		for {
+			var fromCommitIDs []string
+			if lastCommit != nil {
+				fromCommitIDs = append(fromCommitIDs, lastCommit.ID)
+			}
+			commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeWrite, true, pclient.CommitStatusNormal, nil)
+			if err != nil {
+				errCh <- err
+			}
+			for _, commitInfo := range commitInfos {
+				commitCh <- commitInfo
+				lastCommit = commitInfo.Commit
+			}
+		}
+	}()
+
+	numCommits := 100
+	for i := 0; i < numCommits; i++ {
+		_, err := client.StartCommit(repo, "", "master")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, "master"))
+	}
+
+	var lastCommit *pfsclient.Commit
+	var received int
+	for {
+		select {
+		case err := <-errCh:
+			require.NoError(t, err)
+		case commitInfo := <-commitCh:
+			received++
+			require.Equal(t, lastCommit, commitInfo.ParentCommit)
+			lastCommit = commitInfo.Commit
+			if received == numCommits {
+				break
+			}
+		}
+	}
 }
 
 func generateRandomString(n int) string {
