@@ -1,7 +1,7 @@
 # Local Installation
-This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux using VirtualBox and Minikube. 
+This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux. 
 
-There are a few [alternative setups](LINK) such as runing Kubernetes directly in Docker or using xhyve instead of VirtualBox if you prefer. 
+If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.  
 
 ## Prerequisites
 - [Minikube](#minikube) (and VirtualBox)

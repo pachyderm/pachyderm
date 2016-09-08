@@ -32,3 +32,11 @@ minikube stop
 minikube delete
 minikube start
 
+
+
+pachctl delete all
+
+pachctl archive all
+
+reset k8s cluster: pachctl deploy --dry-run | kubectl delete -f -
+

@@ -10,6 +10,8 @@ and `awk` to do our processing. Thanks to Pachyderm's processing system we'll
 be able to run the pipeline in a distributed, streaming fashion. As new data is
 added the pipeline will automatically process it and materialize the results.
 
+If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
+
 Prerequisites
 ^^^^^^^^^^^^^
 
@@ -224,7 +226,7 @@ You've now got Pachyderm running locally with data and a pipeline! If you want t
 
 You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
-- :doc:'deploying_on_the_cloud`
+- :doc:`../development/deploying_on_the_cloud`
 - :doc:'inputing_your_data` from other sources
 - :doc:'create_custom_pipelines`
 

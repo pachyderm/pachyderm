@@ -49,7 +49,6 @@ For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/
 For convenience, we have defined aliases for the three most commonly used input methods: map, reduce, and global.  They are defined below:
 
 
-.. code-block::
 
 	+----------------+----------+-----------------------+-----------+
 	|                | Block(1) |  Top-level Objects(2) |  Repo(3)  |

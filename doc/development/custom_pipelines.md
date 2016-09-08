@@ -81,6 +81,7 @@ After you create the JSON manifest, you can add the pipeline to Pachyderm using:
 ```
  $ pachctl create-pipeline -f your_pipeline.json
 ```
+`-f` can also take a URL if your JSON manifest is hosted on GitHub for instance. 
 
 Creating a pipeline tells Pachyderm to run your code on *every* finished
 commit in the input repo(s) as well as *all future commits* that happen after the pipeline is created. 
