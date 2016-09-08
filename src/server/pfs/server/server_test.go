@@ -473,7 +473,7 @@ func TestPutFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n"))
-	require.YesError(t, err) // because path starts with a slash
+	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	commit3, err := client.StartCommit(repo, commit2.ID, "")
