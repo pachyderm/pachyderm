@@ -133,6 +133,9 @@ check-kubectl:
 	# check that kubectl is installed
 	which kubectl
 
+check-kubectl-connection:
+	kubectl get all > /dev/null
+
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
@@ -146,12 +149,18 @@ launch: install check-kubectl
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl install
-	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
-	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+launch-dev: check-kubectl check-kubectl-connection install
+	./etc/kube/check_pachd_ready.sh > /dev/null ; \
+	if [ $$? -ne 0 ]; then \
+		echo "Starting pachyderm cluster..."; \
+		STARTTIME=$(shell date +%s); \
+		pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f - ; \
+		echo "wait for the pachyderm cluster to come up"; \
+		until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done; \
+		echo "pachd launch took $$(($$(date +%s) - $$STARTTIME)) seconds"; \
+	else \
+		echo "Pachyderm cluster already up. Doing nothing."; \
+	fi
 
 clean-launch: check-kubectl
 	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -169,7 +178,7 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
-integration-tests:
+integration-tests: launch-dev
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
@@ -204,7 +213,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: clean-launch-test-rethinkdb launch-test-rethinkdb pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: clean-launch-dev pretest test-client test-fuse test-local docker-build integration-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
@@ -217,10 +226,10 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse:
+test-fuse: launch-dev
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local:
+test-local: launch-dev
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
@@ -327,16 +336,6 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
-launch-test-rethinkdb:
-	@# Expose port 8081 so you can connect to the rethink dashboard
-	@# (You may need to forward port 8081 if you're running docker machine)
-	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
-	sleep 20  # wait for rethinkdb to start up
-
-clean-launch-test-rethinkdb:
-	docker stop pachyderm-test-rethinkdb || true
-	docker rm pachyderm-test-rethinkdb || true
-
 .PHONY:
 	all \
 	version \
@@ -398,8 +397,4 @@ clean-launch-test-rethinkdb:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build \
-	launch-rethinkdb \
-	clean-launch-rethinkdb \
-	launch-test-rethinkdb \
-	clean-launch-test-rethinkdb
+	goxc-build
