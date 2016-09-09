@@ -14,6 +14,7 @@ var Indexes = []*index{
 	DiffClockIndex,
 	ClockBranchIndex,
 	CommitClockIndex,
+	CommitFullClockIndex,
 }
 
 // index is a rethinkdb index.
@@ -149,4 +150,15 @@ var CommitClockIndex = &index{
 
 func commitClockIndexKey(repo interface{}, branch interface{}, clock interface{}) interface{} {
 	return []interface{}{repo, branch, clock}
+}
+
+var CommitFullClockIndex = &index{
+	Name:  "CommitFullClockIndex",
+	Table: commitTable,
+	CreateFunction: func(row gorethink.Term) interface{} {
+		return []interface{}{
+			row.Field("Repo"),
+			persist.FullClockToArray(row.Field("FullClock")),
+		}
+	},
 }
