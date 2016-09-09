@@ -498,7 +498,7 @@ func TestCreateDirConflict(t *testing.T) {
 
 		require.YesError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "file"), 0700))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
-	})
+	}, false)
 }
 
 func TestOverwriteFile(t *testing.T) {
