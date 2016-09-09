@@ -271,7 +271,7 @@ message DeleteFileRequest {
 message MergeRequest {
   Repo repo = 1;
   repeated Commit from_commits = 2;
-  string to_branch = 3;
+  string to = 3;
   MergeStrategy strategy = 4;  
   bool cancel = 5;
 }

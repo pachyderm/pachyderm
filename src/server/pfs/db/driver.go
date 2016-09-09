@@ -1368,7 +1368,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	return res, nil
 }
 
-func (d *driver) getRangesToMerge(repo string, commits []*pfs.Commit, toBranch string) (*persist.ClockRangeList, error) {
+func (d *driver) getRangesToMerge(repo string, commits []*pfs.Commit, to string) (*persist.ClockRangeList, error) {
 	var ranges persist.ClockRangeList
 	for _, commit := range commits {
 		clock, err := d.getFullClockByAmbiguousID(commit.Repo.Name, commit.ID)
@@ -1377,20 +1377,19 @@ func (d *driver) getRangesToMerge(repo string, commits []*pfs.Commit, toBranch s
 		}
 		ranges.AddFullClock(clock)
 	}
-	var head persist.Commit
-	if err := d.getHeadOfBranch(repo, toBranch, &head); err == nil {
-		ranges.SubFullClock(head.FullClock)
-	} else if err != gorethink.ErrEmptyResult {
+	if commit, err := d.getCommitByAmbiguousID(repo, to); err == nil {
+		ranges.SubFullClock(commit.FullClock)
+	} else if _, ok := err.(*pfsserver.ErrCommitNotFound); !ok {
 		return nil, err
 	}
 	return &ranges, nil
 }
 
 // getDiffsToMerge returns the diffs that need to be updated in case of a Merge
-func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch string) (nilTerm gorethink.Term, retErr error) {
+func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, to string) (nilTerm gorethink.Term, retErr error) {
 	var fullQuery gorethink.Term
 	for i, commit := range commits {
-		ranges, err := d.getRangesToMerge(repo, []*pfs.Commit{commit}, toBranch)
+		ranges, err := d.getRangesToMerge(repo, []*pfs.Commit{commit}, to)
 		if err != nil {
 			return nilTerm, err
 		}
@@ -1429,8 +1428,8 @@ func (d *driver) getDiffsToMerge(repo string, commits []*pfs.Commit, toBranch st
 	return fullQuery, nil
 }
 
-func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch string) (nilTerm gorethink.Term, retErr error) {
-	ranges, err := d.getRangesToMerge(repo, commits, toBranch)
+func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, to string) (nilTerm gorethink.Term, retErr error) {
+	ranges, err := d.getRangesToMerge(repo, commits, to)
 	if err != nil {
 		return nilTerm, err
 	}
@@ -1459,20 +1458,27 @@ func (d *driver) getCommitsToMerge(repo string, commits []*pfs.Commit, toBranch 
 }
 
 // TODO: rollback
-func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (retCommits *pfs.Commits, retErr error) {
+func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, to string, strategy pfs.MergeStrategy, cancel bool) (retCommits *pfs.Commits, retErr error) {
 	// TODO: rollback in the case of a failed merge
 	retCommits = &pfs.Commits{
 		Commit: []*pfs.Commit{},
 	}
 	if strategy == pfs.MergeStrategy_SQUASH {
-		newCommit, err := d.StartCommit(repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
+		// Make sure that the commit exists and is open
+		commitInfo, err := d.InspectCommit(&pfs.Commit{
+			Repo: repo,
+			ID:   to,
+		})
 		if err != nil {
 			return nil, err
+		}
+		if commitInfo.CommitType != pfs.CommitType_COMMIT_TYPE_WRITE {
+			return nil, fmt.Errorf("commit %s/%s is not open", repo.Name, to)
 		}
 
 		// We first compute the union of the input commits' provenance,
 		// which will be the provenance of this merged commit.
-		commitsToMerge, err := d.getCommitsToMerge(repo.Name, commits, toBranch)
+		commitsToMerge, err := d.getCommitsToMerge(repo.Name, commits, to)
 		if err != nil {
 			return nil, err
 		}
@@ -1491,20 +1497,20 @@ func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, s
 			return nil, err
 		}
 
-		if _, err := d.getTerm(commitTable).Get(newCommit.ID).Update(map[string]interface{}{
+		if _, err := d.getTerm(commitTable).Get(to).Update(map[string]interface{}{
 			"Provenance": provenanceUnion,
 		}).RunWrite(d.dbClient); err != nil {
 			return nil, err
 		}
 
-		cursor, err = d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+		cursor, err = d.getTerm(commitTable).Get(to).Run(d.dbClient)
 		var newPersistCommit persist.Commit
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
 		}
 		newClock := persist.FullClockHead(newPersistCommit.FullClock)
 
-		diffs, err := d.getDiffsToMerge(repo.Name, commits, toBranch)
+		diffs, err := d.getDiffsToMerge(repo.Name, commits, to)
 		if err != nil {
 			return nil, err
 		}
@@ -1513,7 +1519,7 @@ func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, s
 			return map[string]interface{}{
 				// diff IDs are of the form:
 				// commitID:path
-				"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
+				"ID":    gorethink.Expr(to).Add(":", diff.Field("Path")),
 				"Clock": newClock,
 			}
 		})).RunWrite(d.dbClient)
@@ -1521,10 +1527,12 @@ func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, s
 			return nil, err
 		}
 
-		err = d.FinishCommit(newCommit, nil, cancel)
-		retCommits.Commit = append(retCommits.Commit, newCommit)
+		retCommits.Commit = append(retCommits.Commit, &pfs.Commit{
+			Repo: repo,
+			ID:   to,
+		})
 	} else if strategy == pfs.MergeStrategy_REPLAY {
-		commits, err := d.getCommitsToMerge(repo.Name, commits, toBranch)
+		commits, err := d.getCommitsToMerge(repo.Name, commits, to)
 		if err != nil {
 			return nil, err
 		}
@@ -1537,9 +1545,9 @@ func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, s
 		var rawCommit persist.Commit
 		for cursor.Next(&rawCommit) {
 			// Copy each commit and their diffs
-			// TODO: what if someone else is creating commits on toBranch while we
+			// TODO: what if someone else is creating commits on the `to` branch while we
 			// are replaying?
-			newCommit, err := d.StartCommit(repo, uuid.NewWithoutDashes(), "", toBranch, nil, nil)
+			newCommit, err := d.StartCommit(repo, uuid.NewWithoutDashes(), "", to, nil, nil)
 			if err != nil {
 				return nil, err
 			}

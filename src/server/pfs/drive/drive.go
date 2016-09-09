@@ -42,7 +42,9 @@ type Driver interface {
 	DeleteAll() error
 	ArchiveAll() error
 	Dump()
-	Merge(repo *pfs.Repo, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
+	// If strategy is SQUASH, to is the ID of an open commit
+	// If strategy is REPLAY, to is a branch name
+	Merge(repo *pfs.Repo, commits []*pfs.Commit, to string, strategy pfs.MergeStrategy, cancel bool) (*pfs.Commits, error)
 }
 
 // CommitID is an alias for string

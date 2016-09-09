@@ -569,7 +569,7 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 // * Squash: create a single commit that contains all diffs in `fromCommits`
 // * Replay: create a series of commits, each of which corresponds to a single
 // commit in `fromCommits`.
-func (c APIClient) Merge(repo string, fromCommits []string, toBranch string, strategy pfs.MergeStrategy) ([]*pfs.Commit, error) {
+func (c APIClient) Merge(repo string, fromCommits []string, to string, strategy pfs.MergeStrategy) ([]*pfs.Commit, error) {
 
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
@@ -581,7 +581,7 @@ func (c APIClient) Merge(repo string, fromCommits []string, toBranch string, str
 		&pfs.MergeRequest{
 			Repo:        NewRepo(repo),
 			FromCommits: realFromCommits,
-			ToBranch:    toBranch,
+			To:          to,
 			Strategy:    strategy,
 		},
 	)

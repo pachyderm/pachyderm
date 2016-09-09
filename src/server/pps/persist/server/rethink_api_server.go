@@ -538,17 +538,6 @@ func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.Ad
 	return google_protobuf.EmptyInstance, err
 }
 
-func (a *rethinkAPIServer) AddOutputCommit(ctx context.Context, request *persist.AddOutputCommitRequest) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
-		map[string]interface{}{
-			"OutputCommit": request.Commit,
-			"Branch":       request.Branch,
-		},
-	).RunWrite(a.session)
-
-	return google_protobuf.EmptyInstance, err
-}
-
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
 	_, err := a.getTerm(table).Insert(message).RunWrite(a.session)
 	return err
