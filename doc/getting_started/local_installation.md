@@ -24,24 +24,15 @@ $ brew tap pachyderm/tap && brew install pachctl
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
 
-```sh
-$ pachctl version
-COMPONENT           VERSION
-pachctl             1.1.0
-pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded
-
-please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
-```
-
-### Deploy Pachyderm
+## Deploy Pachyderm
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
 pachctl deploy
 ```
-This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
 ```sh
 $ kubectl get all
@@ -56,8 +47,8 @@ pachd           10.0.0.101   <nodes>       650/TCP                        6s
 rethink         10.0.0.182   <nodes>       8080/TCP,28015/TCP,29015/TCP   6s
 NAME            READY        STATUS        RESTARTS                       AGE
 etcd-swoag      1/1          Running       0                              6s
-pachd-7xyse     0/1          Running       0                              6s
-pachd-gfdc6     0/1          Running       0                              6s
+pachd-7xyse     1/1          Running       0                              6s
+pachd-gfdc6     1/1          Running       0                              6s
 rethink-v5rsx   1/1          Running       0                              6s
 ```
 Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
@@ -75,8 +66,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.1.0
-pachd               1.1.0
+pachctl             1.2.0
+pachd               1.2.0
 ```
 
 We're good to go!
@@ -84,7 +75,7 @@ We're good to go!
 
 ## Next Steps
 
-Now that you have everything installed and working, check out our [beginner_tutorial](LINK) to learn the basics of Pachyderm such as adding data and building analysis pipelines. 
+Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building analysis pipelines. 
 
 
 

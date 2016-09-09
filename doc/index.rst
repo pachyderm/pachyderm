@@ -8,15 +8,6 @@
 Pachyderm Developer Documentation
 =================================
 
-:ref: `user_docs`
-:ref: `feature_docs`
-:ref: `development/development`
-:ref: `development`
-
-
-
-.. _user_docs:
-
 .. toctree::
     :maxdepth: 1
     :caption: Getting Started
@@ -36,9 +27,6 @@ Pachyderm Developer Documentation
     development/custom_pipelines
     development/tracking_your_data
     development/updating_pipelines
-    development/scaling
-    development/cluster_hygiene
-    development/python_example
 
 .. toctree::
     :maxdepth: 1
@@ -48,22 +36,6 @@ Pachyderm Developer Documentation
     advanced/provenance
     advanced/incrementality
     advanced/composing_pipelines
-    advanced/on_prem
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Going To Production
-
-    production/production
-    production/collaboration
-    production/connecting_to_other_data_sources
-    production/outputting_results
-    production/best_practices
-    production/performance_benchmarks
-    production/maintenance
-
-
-.. _feature_docs:
 
 .. toctree::
     :maxdepth: 2

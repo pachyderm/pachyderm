@@ -1,4 +1,4 @@
-# Other Installation Methods
+# Other Installation Methods (k8s in Docker, from source)
 
 Local Installation
 
