@@ -1053,7 +1053,7 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("A")}, repoInfo.Provenance)
 	repoInfo, err = client.InspectRepo("C")
 	require.NoError(t, err)
-	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("B"), pclient.NewRepo("A")}, repoInfo.Provenance)
+	require.Equal(t, []*pfsclient.Repo{pclient.NewRepo("A"), pclient.NewRepo("B")}, repoInfo.Provenance)
 	ACommit, err := client.StartCommit("A", "", "")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
