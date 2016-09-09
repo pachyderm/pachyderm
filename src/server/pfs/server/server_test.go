@@ -1305,7 +1305,7 @@ func TestFlush(t *testing.T) {
 
 func TestFlushOpenCommit(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
 		Repo:       pclient.NewRepo("B"),
@@ -1337,7 +1337,7 @@ func TestFlushOpenCommit(t *testing.T) {
 
 func TestEmptyFlush(t *testing.T) {
 	t.Parallel()
-	client, _ := getClientAndServer(t)
+	client := getClient(t)
 	_, err := client.FlushCommit(nil, nil)
 	require.NoError(t, err)
 }

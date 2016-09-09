@@ -969,16 +969,21 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		})
 	}
 
+	if len(provenanceIDs) == 0 {
+		return nil, nil
+	}
+
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		return gorethink.And(
 			commit.Field("Archived").Eq(false),
 			commit.Field("Finished").Ne(nil),
-			commit.Field("Provenance").Contains(provenanceIDs...),
+			commit.Field("Provenance").SetIntersection(provenanceIDs).Count().Ne(0),
 			gorethink.Expr(repos).Contains(commit.Field("Repo")),
 		)
 	}).Changes(gorethink.ChangesOpts{
 		IncludeInitial: true,
 	}).Field("new_val")
+
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
