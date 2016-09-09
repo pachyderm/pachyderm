@@ -2462,7 +2462,7 @@ func TestSquashMergeSameFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
@@ -2547,7 +2547,7 @@ func TestSquashMergeDiffOrdering(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
@@ -2729,7 +2729,7 @@ func TestSquashMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
@@ -2842,7 +2842,7 @@ func TestMergeProvenance(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo2, "B"))
 
-	mergedCommits, err := client.Merge(repo2, []string{"A", "B"}, "master", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := squash(client, repo2, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
@@ -2888,7 +2888,7 @@ func TestSquashMergeDeletion(t *testing.T) {
 	createThreeCommits("B")
 	createThreeCommits("C")
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B", "C"}, "squash", pfsclient.MergeStrategy_SQUASH)
+	mergedCommits, err := squash(client, repo, []string{"A", "B", "C"}, "squash")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mergedCommits))
 
@@ -3038,4 +3038,19 @@ func getClient(t *testing.T) pclient.APIClient {
 
 func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()[0:12]
+}
+
+func squash(client pclient.APIClient, repo string, fromCommits []string, branch string) ([]*pfsclient.Commit, error) {
+	commit, err := client.StartCommit(repo, "", branch)
+	if err != nil {
+		return nil, err
+	}
+	mergedCommits, err := client.Merge(repo, fromCommits, commit.ID, pfsclient.MergeStrategy_SQUASH)
+	if err != nil {
+		return nil, err
+	}
+	if err := client.FinishCommit(repo, commit.ID); err != nil {
+		return nil, err
+	}
+	return mergedCommits, nil
 }

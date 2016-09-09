@@ -117,7 +117,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 func (a *apiServer) Merge(ctx context.Context, request *pfs.MergeRequest) (response *pfs.Commits, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.Merge(request.Repo, request.FromCommits, request.ToBranch, request.Strategy, request.Cancel)
+	return a.driver.Merge(request.Repo, request.FromCommits, request.To, request.Strategy, request.Cancel)
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {

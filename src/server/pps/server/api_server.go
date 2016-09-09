@@ -246,13 +246,26 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	startCommitRequest := &pfsclient.StartCommitRequest{}
+	for _, input := range request.Inputs {
+		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+	}
+	startCommitRequest.Repo = outputRepo
+	if parentJobInfo != nil {
+		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+	}
+	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
 		JobID:        jobID,
 		Transform:    request.Transform,
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
-		OutputCommit: client.NewCommit(outputRepo.Name, ""),
+		OutputCommit: outputCommit,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -273,30 +286,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if ok {
 			// If an input is empty, and RunEmpty flag is not set, then we simply
 			// create an empty job and finish the commit.
-			startCommitRequest := &pfsclient.StartCommitRequest{}
-			for _, input := range request.Inputs {
-				startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
-			}
-			startCommitRequest.Repo = outputRepo
-			if parentJobInfo != nil {
-				startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-			}
-			commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
-			if err != nil {
-				return nil, err
-			}
-
-			// We create the job in between starting and finishing the commit,
-			// because that's how the flow would be if the input wasn't empty.
 			persistJobInfo.State = ppsclient.JobState_JOB_EMPTY
-			persistJobInfo.OutputCommit = commit
 			_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
 			if err != nil {
 				return nil, err
 			}
 
 			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-				Commit: commit,
+				Commit: outputCommit,
 			})
 			if err != nil {
 				return nil, err
@@ -645,6 +642,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
+		fmt.Printf("parentJobInfo is: %v\n", parentJobInfo)
 		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 	}
 
@@ -809,19 +807,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		for _, podCommit := range jobInfo.PodCommits {
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
-		outputBranch := uuid.NewWithoutDashes()
-		if jobInfo.ParentJob != nil {
-			inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
-			parentJobInfo, err := persistClient.InspectJob(ctx, inspectJobRequest)
-			if err != nil {
-				return nil, err
-			}
-			outputBranch = parentJobInfo.Branch
-		}
+
 		mergeReq := &pfsclient.MergeRequest{
 			Repo:        jobInfo.OutputCommit.Repo,
 			FromCommits: commitsToMerge,
-			ToBranch:    outputBranch,
+			To:          jobInfo.OutputCommit.ID,
 			Strategy:    pfsclient.MergeStrategy_SQUASH,
 			Cancel:      failed,
 		}
@@ -832,20 +822,16 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
-		if len(outputCommits.Commit) != 1 {
-			return nil, fmt.Errorf("wrong length for job output commits, expected 1, actual %v", len(outputCommits.Commit))
-		}
 
-		_, err = persistClient.AddOutputCommit(
-			ctx,
-			&persist.AddOutputCommitRequest{
-				JobID:  request.Job.ID,
-				Commit: outputCommits.Commit[0],
-				Branch: outputBranch,
-			},
-		)
+		_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+		})
 		if err != nil {
 			return nil, err
+		}
+
+		if len(outputCommits.Commit) != 1 {
+			return nil, fmt.Errorf("wrong length for job output commits, expected 1, actual %v", len(outputCommits.Commit))
 		}
 
 		// The reason why we need to inspect the commit is that the commit's
@@ -1350,9 +1336,13 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		if err != nil {
 			return err
 		}
+		fmt.Printf("repoToLeaves: %v\n", repoToLeaves)
+		fmt.Printf("listCommitRequest: %v\n", listCommitRequest)
+		fmt.Printf("got commitInfos: %v\n", commitInfos)
 		for _, commitInfo := range commitInfos.CommitInfo {
 			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.ID] = true
 			if commitInfo.ParentCommit != nil {
+				fmt.Printf("removing parent for commit: %v\n", commitInfo)
 				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.ID)
 			}
 			// generate all the permutations of leaves we could use this commit with
@@ -1372,6 +1362,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				}
 				commitSets = newCommitSets
 			}
+			fmt.Printf("commitSets: %v\n", commitSets)
 			for _, commitSet := range commitSets {
 				// + 1 as the commitSet doesn't contain the commit we just got
 				if len(commitSet)+1 < len(rawInputRepos) {
@@ -1383,21 +1374,25 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				}
 				var parentJob *ppsclient.Job
 				if commitInfo.ParentCommit != nil {
+					fmt.Printf("computing parent job; trueInputs: %v; commitSet: %v; parent commit: %v, pipelineInfo: %v\n", trueInputs, commitSet, commitInfo.ParentCommit, pipelineInfo)
 					parentJob, err = a.parentJob(ctx, trueInputs, commitSet, commitInfo.ParentCommit, pipelineInfo)
 					if err != nil {
 						return err
 					}
 				}
-				_, err = a.CreateJob(
+				createJobReq := &ppsclient.CreateJobRequest{
+					Transform:   pipelineInfo.Transform,
+					Pipeline:    pipelineInfo.Pipeline,
+					Parallelism: pipelineInfo.Parallelism,
+					Inputs:      trueInputs,
+					ParentJob:   parentJob,
+				}
+				j, err := a.CreateJob(
 					ctx,
-					&ppsclient.CreateJobRequest{
-						Transform:   pipelineInfo.Transform,
-						Pipeline:    pipelineInfo.Pipeline,
-						Parallelism: pipelineInfo.Parallelism,
-						Inputs:      trueInputs,
-						ParentJob:   parentJob,
-					},
+					createJobReq,
 				)
+				fmt.Printf("createJobReq: %v\n", createJobReq)
+				fmt.Printf("job ID: %v\n", j)
 				if err != nil {
 					return err
 				}

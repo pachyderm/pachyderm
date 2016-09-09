@@ -139,7 +139,6 @@ service API {
 
   // Job commit rpcs
   rpc AddPodCommit(AddPodCommitRequest) returns (google.protobuf.Empty) {}
-  rpc AddOutputCommit(AddOutputCommitRequest) returns (google.protobuf.Empty) {}
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
