@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -262,6 +263,13 @@ func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
 	return rawRepo, nil
 }
 
+// Sort repos by name
+type ByName []*pfs.Repo
+
+func (n ByName) Len() int           { return len(n) }
+func (n ByName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n ByName) Less(i, j int) bool { return n[i].Name < n[j].Name }
+
 func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	rawRepo, err := d.inspectRepo(repo)
 	if err != nil {
@@ -291,6 +299,8 @@ func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 			Name: repoName,
 		})
 	}
+
+	sort.Sort(ByName(provenance))
 
 	return &pfs.RepoInfo{
 		Repo: &pfs.Repo{
