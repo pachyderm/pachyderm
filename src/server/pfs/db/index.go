@@ -152,6 +152,7 @@ func commitClockIndexKey(repo interface{}, branch interface{}, clock interface{}
 	return []interface{}{repo, branch, clock}
 }
 
+// CommitFullClockIndex indexes the FullClock of a commit
 var CommitFullClockIndex = &index{
 	Name:  "CommitFullClockIndex",
 	Table: commitTable,
