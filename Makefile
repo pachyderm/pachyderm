@@ -150,17 +150,11 @@ launch: install check-kubectl
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
-	@./etc/kube/check_pachd_ready.sh > /dev/null ; \
-	if [ $$? -ne 0 ]; then \
-		echo "Starting pachyderm cluster..."; \
-		STARTTIME=$(shell date +%s); \
-		pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f - ; \
-		echo "wait for the pachyderm cluster to come up"; \
-		until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done; \
-		echo "pachd launch took $$(($$(date +%s) - $$STARTTIME)) seconds"; \
-	else \
-		echo "Pachyderm cluster already up. Doing nothing."; \
-	fi
+	$(eval STARTTIME := $(shell date +%s))
+	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
+	# wait for the pachyderm to come up
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -174,11 +168,21 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
+launch-test-rethinkdb:
+	@# Expose port 8081 so you can connect to the rethink dashboard
+	@# (You may need to forward port 8081 if you're running docker machine)
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
+	sleep 20  # wait for rethinkdb to start up
+
+clean-launch-test-rethinkdb:
+	docker stop pachyderm-test-rethinkdb || true
+	docker rm pachyderm-test-rethinkdb || true
+
 clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
-integration-tests: launch-dev
+integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
@@ -213,7 +217,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: clean-launch-dev pretest test-client test-fuse test-local docker-build integration-tests
+test: pretest test-client clean-launch-test-rehinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
@@ -226,12 +230,10 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: launch-dev check-kubectl check-kubectl-connection
-	kubectl port-forward `kubectl get pods | grep rethink | cut -f 1 -d " "` 28015:28015
+test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local: launch-dev check-kubectl check-kubectl-connection
-	kubectl port-forward `kubectl get pods | grep rethink | cut -f 1 -d " "` 28015:28015
+test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
