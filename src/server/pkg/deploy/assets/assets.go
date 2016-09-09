@@ -173,6 +173,10 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 									},
 								},
 								{
+									Name:  "IMAGE_TAG",
+									Value: version,
+								},
+								{
 									Name:  "METRICS",
 									Value: metrics,
 								},

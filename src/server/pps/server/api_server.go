@@ -84,6 +84,7 @@ type apiServer struct {
 	// requests using version have returned
 	versionLock sync.RWMutex
 	namespace   string
+	imageTag    string
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -328,7 +329,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo, a.imageTag)); err != nil {
 		return nil, err
 	}
 
@@ -1601,10 +1602,10 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func job(jobInfo *persist.JobInfo) *batch.Job {
+func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
 	labels := labels(jobInfo.JobID)
 	parallelism := int32(jobInfo.Parallelism)
-	image := "pachyderm/job-shim"
+	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
 	}
