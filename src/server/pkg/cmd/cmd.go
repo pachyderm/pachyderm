@@ -54,7 +54,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
 		parts := strings.Split(arg, "/")
-		if len(parts) != 2 {
+		if len(parts) > 2 {
 			return nil, fmt.Errorf("invalid argument: %s, arguments must be of the form \"repo/commit\"", arg)
 		}
 		commit := &pfs.Commit{

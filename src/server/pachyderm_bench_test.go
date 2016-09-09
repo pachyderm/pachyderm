@@ -37,7 +37,7 @@ func BenchmarkPachyderm(b *testing.B) {
 
 	commit, err := c.StartCommit(repo, "", "master")
 	require.NoError(b, err)
-	if !b.Run("PutFile", func(b *testing.B) {
+	if !b.Run(fmt.Sprintf("Put%dFiles", nFiles), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			var eg errgroup.Group
 			for k := 0; k < nFiles; k++ {
@@ -56,7 +56,7 @@ func BenchmarkPachyderm(b *testing.B) {
 	}
 	require.NoError(b, c.FinishCommit(repo, "master"))
 
-	if !b.Run("GetFile", func(b *testing.B) {
+	if !b.Run(fmt.Sprintf("Get%dFiles", nFiles), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			var eg errgroup.Group
 			w := &CountWriter{}
@@ -72,7 +72,7 @@ func BenchmarkPachyderm(b *testing.B) {
 	}) {
 		return
 	}
-	if !b.Run("Pipeline", func(b *testing.B) {
+	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", nFiles), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			pipeline := uniqueString("BenchmarkPachydermPipeline")
 			require.NoError(b, c.CreatePipeline(
