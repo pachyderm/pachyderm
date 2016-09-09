@@ -263,12 +263,12 @@ func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
 	return rawRepo, nil
 }
 
-// Sort repos by name
-type ByName []*pfs.Repo
+// byName sorts repos by name
+type byName []*pfs.Repo
 
-func (n ByName) Len() int           { return len(n) }
-func (n ByName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
-func (n ByName) Less(i, j int) bool { return n[i].Name < n[j].Name }
+func (n byName) Len() int           { return len(n) }
+func (n byName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n byName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
 func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	rawRepo, err := d.inspectRepo(repo)
@@ -300,7 +300,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 		})
 	}
 
-	sort.Sort(ByName(provenance))
+	sort.Sort(byName(provenance))
 
 	return &pfs.RepoInfo{
 		Repo: &pfs.Repo{
