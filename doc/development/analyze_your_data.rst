@@ -5,17 +5,17 @@ This section of documentation covers everything you'll need to know to deploy a 
 
 If you're brand new to Pachyderm, you should check out our :doc:`../getting_started/getting_started` documentation to install Pachyderm locally and learn the basic concepts. 
 
-.. toctree::
-    :maxdepth: 1
-    
-    deploying_on_the_cloud
-    inputing_your_data
-    custom_pipelines
-    tracking_your_data
-    updating_pipelines
-    scaling
-    cluster_hygiene
-    python_example
+:doc:`deploying_on_the_cloud`: Get Pachyderm deployed on AWS, GCE, or OpenShift.
+
+:doc:`inputing_your_data`: Analyze your own data and connect Pachyderm to your data feeds
+
+:doc:`custom_pipelines`: Get your code running in Pachyderm and processing data
+
+:doc:`pipeline_spec`: A complete reference on the advanced features of Pachyderm pipelines
+
+:doc:`tracking_your_data`: Understand your data lineage using Provenance.
+
+:doc:`updating_pipelines`: Interate on pipelines as you learn from your data
 
 
 Usage Metrics

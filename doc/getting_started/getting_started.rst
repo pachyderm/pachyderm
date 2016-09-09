@@ -13,21 +13,13 @@ Welcome to the documentation portal for first time Pachyderm users! We've organi
 ---
 
 
-If you've already got a Kubernetes cluster running, you can deploy Pachyderm in one line:
-
-``$ kubectl create -f https://pachyderm.io/manifest.json``
-
-You'll still need to install ``pachctl`` so check out our :doc:`deploying_on_the_cloud` documentation.
+If you've already got a Kubernetes cluster running or would rather use AWS or GCE, check out our :doc:`../development/deploying_on_the_cloud` documentation.
 
 
 ---
 
 
 Looking for in-depth development docs?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Analyze Your Data
-
-Advanced Workflows
-
-Going to Production
-
+Learn how to :doc:`../development/analyze_your_data` check out more advanced Pachyderm examples such as `image processing with OpenCV <https://github.com/pachyderm/pachyderm/tree/master/examples/opencv>`_ or `machine learning with TensorFlow <https://github.com/pachyderm/pachyderm/tree/master/examples/tensor_flow>`_. 

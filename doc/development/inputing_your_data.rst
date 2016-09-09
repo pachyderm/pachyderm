@@ -5,7 +5,7 @@ If you're running Pachyderm in the cloud, data in Pachyderm is backed an object 
 
 There a bunch of different ways to get your data into Pachyderm.
 
-`PFS Mount`_: This is the easiest method if you just have some local files (or dummy files) and you just want to test things out in Pachyderm.
+`PFS Mount`_: This is a "toy" method for getting data into Pachyderm if you just have some local files (or dummy files) and you just want to test things out.
 
 `Pachctl CLI`_: This is the best option for real use cases and scripting the input process.
 
@@ -42,13 +42,24 @@ other local filesystem using ``ls`` or a web browser.
 
 Once you have pfs mounted, you can add files to Pachyderm via whatever method you prefer to manipulate a local file system:  ``mv``, ``cp``, ``>``, ``|``, etc.
 
-Don't forget, you'll need create a repo in Pachyderm first with ``pachctl create-repo <repo_name>`` and add the files to ``~/pfs/<repo_name>``.
+Don't forget, you'll need create a repo and commit in Pachyderm first with:
+
+.. code-block::
+ # Create a repo called "data"
+ $ pachctl create-repo data
+
+ # Start a commit on repo "data"
+ $ pachctl start-commit data
+
+
+
+ Now add whatever files you want to ``~/pfs/<repo_name>/<commit_ID>/<file_name>``.
 
 
 Pachctl CLI
 -----------
 
-The pachctl CLI is the primary method of interaction with Pachyderm. To get data into Pachyderm, you should use the ``put-file`` command. Below are a example uses of ``put-file``. Go to :doc:`pachctl/pachctl_put-file`` for complete documentation. 
+The pachctl CLI is the primary method of interaction with Pachyderm. To get data into Pachyderm, you should use the ``put-file`` command. Below are a example uses of ``put-file``. Go to :doc:`../pachctl/pachctl_put-file` for complete documentation. 
 
 .. note:: Commits in Pachyderm must be explicitly started and finished so ``put-file`` can only be called on an open commit (started, but not finished). The ``-c`` option allows you to start and finish the commit in addition to putting data as a one-line command. 
 

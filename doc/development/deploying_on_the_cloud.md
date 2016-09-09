@@ -173,11 +173,9 @@ pachd               1.2.0
 
 ### Deploy Kubernetes
 
-The rest of the guide assumes you already have Kubernetes running in AWS. If you do, jump to [deploying Pachyderm](#Deploy_Pachyderm).
+The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/).
 
-If you don't have a Kubernetes cluster yet you can either set up a [demo cluster](http://kubernetes.io/docs/getting-started-guides/aws/) to get started quickly or [deploy a production-grade cluster](TODO). 
-
-WARNING: As of 9/1/16, the demo cluster guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524. 
+WARNING: As of 9/1/16, the guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524. 
 
 ```
 function build-kube-env {
