@@ -575,6 +575,7 @@ Files and URLs should be newline delimited.
 	}
 
 	var debug bool
+	var allCommits bool
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally. This command blocks.",
@@ -591,7 +592,7 @@ Files and URLs should be newline delimited.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
 			if err != nil {
 				return err
 			}
@@ -599,7 +600,8 @@ Files and URLs should be newline delimited.
 		}),
 	}
 	addShardFlags(mount)
-	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
+	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
 
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",

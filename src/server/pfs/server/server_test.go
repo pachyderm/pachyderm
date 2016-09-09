@@ -1303,6 +1303,45 @@ func TestFlush(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestFlushOpenCommit(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfsclient.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfsclient.Repo{pclient.NewRepo("A")},
+	})
+	ACommit, err := client.StartCommit("A", "", "")
+	require.NoError(t, err)
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		time.Sleep(5 * time.Second)
+		require.NoError(t, client.FinishCommit("A", ACommit.ID))
+		BCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfsclient.StartCommitRequest{
+				Repo:       pclient.NewRepo("B"),
+				Provenance: []*pfsclient.Commit{ACommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	}()
+
+	// Flush ACommit
+	commitInfos, err := client.FlushCommit([]*pfsclient.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+}
+
+func TestEmptyFlush(t *testing.T) {
+	t.Parallel()
+	client, _ := getClientAndServer(t)
+	_, err := client.FlushCommit(nil, nil)
+	require.NoError(t, err)
+}
+
 func TestShardingInTopLevel(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
