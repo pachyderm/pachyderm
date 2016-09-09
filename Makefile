@@ -336,6 +336,16 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
+launch-test-rethinkdb:
+	@# Expose port 8081 so you can connect to the rethink dashboard
+	@# (You may need to forward port 8081 if you're running docker machine)
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
+	sleep 20  # wait for rethinkdb to start up
+
+clean-launch-test-rethinkdb:
+	docker stop pachyderm-test-rethinkdb || true
+	docker rm pachyderm-test-rethinkdb || true
+
 .PHONY:
 	all \
 	version \
@@ -397,4 +407,6 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build
+	goxc-build \
+	launch-test-rethinkdb \
+	clean-launch-test-rethinkdb

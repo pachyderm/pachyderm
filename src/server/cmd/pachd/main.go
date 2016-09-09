@@ -51,8 +51,8 @@ type appEnv struct {
 	StorageRoot     string `env:"PACH_ROOT,required"`
 	StorageBackend  string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
-	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
-	PFSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pfs"`
+	PPSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pps"`
+	PFSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pfs"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
@@ -75,10 +75,10 @@ func do(appEnvObj interface{}) error {
 		if err := setClusterID(etcdClient); err != nil {
 			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
 		}
-		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.PPSDatabaseName); err != nil {
+		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
+		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
 			return err
 		}
-		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
 	if readinessCheck {

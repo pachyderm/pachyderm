@@ -2926,27 +2926,8 @@ func TestListCommitOrder(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	errCh := make(chan error)
-	commitCh := make(chan *pfsclient.CommitInfo)
-	go func() {
-		var lastCommit *pfsclient.Commit
-		for {
-			var fromCommitIDs []string
-			if lastCommit != nil {
-				fromCommitIDs = append(fromCommitIDs, lastCommit.ID)
-			}
-			commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeWrite, true, pclient.CommitStatusNormal, nil)
-			if err != nil {
-				errCh <- err
-			}
-			for _, commitInfo := range commitInfos {
-				commitCh <- commitInfo
-				lastCommit = commitInfo.Commit
-			}
-		}
-	}()
+	numCommits := 10
 
-	numCommits := 100
 	for i := 0; i < numCommits; i++ {
 		_, err := client.StartCommit(repo, "", "master")
 		require.NoError(t, err)
@@ -2956,16 +2937,19 @@ func TestListCommitOrder(t *testing.T) {
 	var lastCommit *pfsclient.Commit
 	var received int
 	for {
-		select {
-		case err := <-errCh:
-			require.NoError(t, err)
-		case commitInfo := <-commitCh:
+		var fromCommitIDs []string
+		if lastCommit != nil {
+			fromCommitIDs = append(fromCommitIDs, lastCommit.ID)
+		}
+		commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeWrite, true, pclient.CommitStatusNormal, nil)
+		require.NoError(t, err)
+		for _, commitInfo := range commitInfos {
 			received++
 			require.Equal(t, lastCommit, commitInfo.ParentCommit)
 			lastCommit = commitInfo.Commit
-			if received == numCommits {
-				break
-			}
+		}
+		if received == numCommits {
+			break
 		}
 	}
 }

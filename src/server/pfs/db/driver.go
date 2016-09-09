@@ -821,9 +821,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	var queries []interface{}
 	for repo, commit := range repoToFromCommit {
 		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(CommitClockIndex.Name),
-			}).Filter(map[string]interface{}{
+			queries = append(queries, d.getTerm(commitTable).OrderBy("FullClock").Filter(map[string]interface{}{
 				"Repo": repo,
 			}))
 		} else {
@@ -831,10 +829,12 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			if err != nil {
 				return nil, err
 			}
-			head := persist.FullClockHead(fullClock)
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: gorethink.Desc(CommitClockIndex.Name),
-			}).Between(commitClockIndexKey(repo, head.Branch, head.Clock+1), commitClockIndexKey(repo, head.Branch, gorethink.MaxVal)))
+			queries = append(queries, d.getTerm(commitTable).OrderBy("FullClock").Filter(func(r gorethink.Term) gorethink.Term {
+				return gorethink.And(
+					r.Field("Repo").Eq(repo),
+					r.Field("FullClock").Gt(fullClock),
+				)
+			}))
 		}
 	}
 	query := gorethink.Union(queries...)
