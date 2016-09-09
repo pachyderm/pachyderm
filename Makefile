@@ -150,7 +150,7 @@ launch: install check-kubectl
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
-	./etc/kube/check_pachd_ready.sh > /dev/null ; \
+	@./etc/kube/check_pachd_ready.sh > /dev/null ; \
 	if [ $$? -ne 0 ]; then \
 		echo "Starting pachyderm cluster..."; \
 		STARTTIME=$(shell date +%s); \
@@ -226,10 +226,12 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse: launch-dev
+test-fuse: launch-dev check-kubectl check-kubectl-connection
+	kubectl port-forward `kubectl get pods | grep rethink | cut -f 1 -d " "` 28015:28015
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
-test-local: launch-dev
+test-local: launch-dev check-kubectl check-kubectl-connection
+	kubectl port-forward `kubectl get pods | grep rethink | cut -f 1 -d " "` 28015:28015
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
