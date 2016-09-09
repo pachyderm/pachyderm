@@ -1783,7 +1783,6 @@ func TestFlushCommitWithFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
 	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
-	fmt.Println(err.Error())
 	require.YesError(t, err)
 }
 
