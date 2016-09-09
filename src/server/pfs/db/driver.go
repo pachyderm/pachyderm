@@ -821,7 +821,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 	var queries []interface{}
 	for repo, commit := range repoToFromCommit {
 		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).OrderBy("FullClock").Filter(map[string]interface{}{
+			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+				Index: CommitFullClockIndex.Name,
+			}).Filter(map[string]interface{}{
 				"Repo": repo,
 			}))
 		} else {
@@ -829,10 +831,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCo
 			if err != nil {
 				return nil, err
 			}
-			queries = append(queries, d.getTerm(commitTable).OrderBy("FullClock").Filter(func(r gorethink.Term) gorethink.Term {
+			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+				Index: CommitFullClockIndex.Name,
+			}).Filter(func(r gorethink.Term) gorethink.Term {
 				return gorethink.And(
 					r.Field("Repo").Eq(repo),
 					r.Field("FullClock").Gt(fullClock),
+					// TODO: this is buggy.  "master/0" would be greater than
+					// "foo/1" even though "master/0" is not "foo/1"'s descendent.
 				)
 			}))
 		}

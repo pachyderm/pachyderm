@@ -875,7 +875,7 @@ func TestListCommit(t *testing.T) {
 	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusAll, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-	require.Equal(t, commit3, commitInfos[0].Commit)
+	require.Equal(t, commit3, commitInfos[2].Commit)
 }
 
 func TestOffsetRead(t *testing.T) {
@@ -1916,7 +1916,7 @@ func TestListCommitBasic(t *testing.T) {
 
 	require.Equal(t, len(commitInfos), numCommits)
 	for i, commitInfo := range commitInfos {
-		require.Equal(t, commitIDs[len(commitIDs)-i-1], commitInfo.Commit.ID)
+		require.Equal(t, commitIDs[i], commitInfo.Commit.ID)
 	}
 }
 
@@ -2941,7 +2941,7 @@ func TestListCommitOrder(t *testing.T) {
 		if lastCommit != nil {
 			fromCommitIDs = append(fromCommitIDs, lastCommit.ID)
 		}
-		commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeWrite, true, pclient.CommitStatusNormal, nil)
+		commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeRead, true, pclient.CommitStatusNormal, nil)
 		require.NoError(t, err)
 		for _, commitInfo := range commitInfos {
 			received++
