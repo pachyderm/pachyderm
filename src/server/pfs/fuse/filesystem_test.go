@@ -715,7 +715,7 @@ func TestWriteManyFiles(t *testing.T) {
 		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			fileName := fmt.Sprintf("file-%d", i)
 			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
 			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
