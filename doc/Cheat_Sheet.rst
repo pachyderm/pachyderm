@@ -5,12 +5,13 @@ one off link
 
 
 Reference link:
-.. _Go Client: https://godoc.org/github.com/pachyderm/pachyderm/src/client
+.. _Go_Client: https://godoc.org/github.com/pachyderm/pachyderm/src/client
 
-`Go Client`_
+`Go_Client`_
 
 Reference other docs within ReadTheDocs
 :doc:`../development/deploying_on_the_cloud`
 
 Reference to header in same document:
+
 `PFS Mount`_

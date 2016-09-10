@@ -10,7 +10,7 @@ There are three steps to writing analysis in Pachyderm.
 
 Analysis code in Pachyderm can be written using any languages or libraries you want. At the end of the day, all the dependencies and code will be built into a container so it can run anywhere. We've got demonstrative [examples on GitHub](https://github.com/pachyderm/pachyderm/tree/master/examples) using bash, Python, TensorFlow, and OpenCV and we're constantly adding more.
 
-As we touch on briefly in the :doc: [beginner tutorial](../getting_started/beginner_tutorial), your code itself only needs to read and write data from the local file system. 
+As we touch on briefly in the [beginner tutorial](../getting_started/beginner_tutorial), your code itself only needs to read and write data from the local file system. 
 
 For reading, Pachyderm will automatically mount each input data repo as `/pfs/<repo_name>`. Your analysis code doesn't have to deal with distributed processing as Pachyderm will automatically shard the input data across parallel containers. For example, if you've got four containers running your Python code, `/pfs/<repo_name>` in each container will only have 1/4 of the data. You have a lot of control over how that input data is split across containers. Check out our guide on :doc: `parallelization` to see the details of that.
 
@@ -22,7 +22,7 @@ As part of a pipeline, you need to specify a Docker image including the code you
 
 There are two ways to construct the image. Both require some familiarity with [Dockerfiles](https://docs.docker.com/engine/tutorials/dockerimages/#/building-an-image-from-a-dockerfile).
 
-In short, you need to include a bit of Pachyderm code, called the Job Shim, in your image, but a Dockerfile can only have a single `FROM` directive. Therefore, you can either base your image of of our `job-shim image` or you can add our job-shim code to your own image. 
+In short, you need to include a bit of Pachyderm code, called the Job Shim, in your image, but a Dockerfile can only have a single `FROM` directive. Therefore, you can either add your code to our job-shim image or you can add our job-shim code to your own image. 
 
 ### Using the Pachyderm Job Shim
 
@@ -74,14 +74,39 @@ RUN go get github.com/pachyderm/pachyderm && \
 
 ## Creating a Pipeline
 
-Now that you've got your code and image built, the final step is to add a pipeline manifest to Pachyderm. Pachdyerm pipelines are described using a JSON file. There are four main components to a pipeline: name, transform, parallelism and inputs. Detailed explanations of parameters and how they work can be found in the :doc:`pipeline_spec`. 
+Now that you've got your code and image built, the final step is to add a pipeline manifest to Pachyderm. Pachdyerm pipelines are described using a JSON file. There are four main components to a pipeline: name, transform, parallelism and inputs. Detailed explanations of parameters and how they work can be found in the [pipeline_spec](./pipeline_spec.html). 
+
+Here's a template pipeline:
+```json
+{
+  "pipeline": {
+    "name": "my-pipeline"
+  },
+  "transform": {
+    "image": "my-image",
+    "cmd": [ "my-binary", "arg1", "arg2"],
+    "stdin": [
+        "my-std-input"
+    ]
+  },
+  "parallelism": "4",
+  "inputs": [
+    {
+      "repo": {
+        "name": "my-input"
+      },
+      "method": "map"
+    }
+  ]
+}
+```
 
 After you create the JSON manifest, you can add the pipeline to Pachyderm using:
 
 ```
  $ pachctl create-pipeline -f your_pipeline.json
 ```
-`-f` can also take a URL if your JSON manifest is hosted on GitHub for instance. 
+`-f` can also take a URL if your JSON manifest is hosted on GitHub for instance. Keeping pipeline manifests under version control too is a great idea so you can track changes and seamlessly view or deploy older pipelines if needed.
 
 Creating a pipeline tells Pachyderm to run your code on *every* finished
 commit in the input repo(s) as well as *all future commits* that happen after the pipeline is created. 

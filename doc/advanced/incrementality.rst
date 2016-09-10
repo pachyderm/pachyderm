@@ -27,13 +27,13 @@ Partition unit specifies the granularity at which input data is parallelized acr
 
 	/foo 
 	/bar
-	/buzz
+	/baz
 	   /a
 	   /b
 
-then there are only three top-level objects, ``/foo``, ``/bar``, and ``/buzz``, each of which will remain grouped in the same container. 
+then there are only three top-level objects, ``/foo``, ``/bar``, and ``/baz``. ``/baz/a`` and ``/baz/b`` will always be seen by the same container but there are no guarantees about where ``foo`` or ``bar`` are processed relative to ``baz``. 
 
-3. ``repo``: the entire repo.  In this case, the input won't be partitioned at all. 
+3. ``repo``: the entire repo.  In this case, the input won't be partitioned at all and all data in the repo will be available. 
 
 
 Incrementality

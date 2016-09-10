@@ -1,29 +1,32 @@
 Troubleshooting
 ===============
 
-common rookie mistakes
-----------------------
+Below a list of common errors we run accross with users trying to run Pachyderm locally and following the :doc:`beginner_tutorial`. 
+
 
 Error: 
 
 Solution:
 
 
+
 Client-Server version mismatch -unmarshalling...
 
-Setting gopath correctly
+Setting gopath correctly, which pachctl, which kubectl
 
-mount issues
+Grep term not found. 
 
 Stuck in "pulling" -- job-shim image
 
-port forwarding not set up correctly -- maybe be different for k8s in docker and minikube
+Not being able to unmount correctly
 
-requiring "timeout"
+requiring "timeout" -- not a problem anymore?
+
 
 From chris:
 
 "Right now if I make a new terminal window, it seems like it wouldn't be able to find pachyderm anymore."
+
 
 "If the pipeline fails for some reason, I have no idea how to debug that, fix it, or reset it to a known state. "
 

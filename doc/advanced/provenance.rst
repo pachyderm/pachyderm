@@ -1,7 +1,7 @@
 Provenance
 ==========
 
-
+Refer to Provenance Blog post
 
 Understanding Where Your Data Came From
 ---------------------------------------

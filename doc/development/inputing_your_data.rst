@@ -31,7 +31,7 @@ First create the mount point:
 
 And then mount it:
 
-.. code-block:: bash
+.. code-block:: shell
 
  # We background this process because it blocks.
  $ pachctl mount ~/pfs &
@@ -44,7 +44,8 @@ Once you have pfs mounted, you can add files to Pachyderm via whatever method yo
 
 Don't forget, you'll need create a repo and commit in Pachyderm first with:
 
-.. code-block::
+.. code-block:: shell
+
  # Create a repo called "data"
  $ pachctl create-repo data
 
