@@ -193,34 +193,41 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
-
-	for _, input := range request.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
-	}
-
 	// If JobInfo.Pipeline is set, use the pipeline repo
+	var outputRepo *pfsclient.Repo
 	if request.Pipeline != nil {
-		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
-		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
+		outputRepo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
+		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != outputRepo.Name {
 			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
 	} else {
-		// If parent is set, use the parent's repo
 		if parentJobInfo != nil {
-			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
+			outputRepo = parentJobInfo.OutputCommit.Repo
 		} else {
-			// Otherwise, create a repo for this job
-			startCommitRequest.Repo = ppsserver.JobRepo(&ppsclient.Job{
+			// Create a repo for this job
+			outputRepo = ppsserver.JobRepo(&ppsclient.Job{
 				ID: jobID,
 			})
 			var provenance []*pfsclient.Repo
 			for _, input := range request.Inputs {
 				provenance = append(provenance, input.Commit.Repo)
 			}
+			defer func() {
+				if retErr != nil {
+					req := &pfsclient.DeleteRepoRequest{
+						Repo: outputRepo,
+					}
+					_, err := pfsAPIClient.DeleteRepo(ctx, req)
+					if err != nil {
+						protolion.Errorf("could not rollback repo creation %s", err.Error())
+						a.Log(req, nil, err, 0)
+					}
+				}
+			}()
+
 			if _, err := pfsAPIClient.CreateRepo(ctx,
 				&pfsclient.CreateRepoRequest{
-					Repo:       startCommitRequest.Repo,
+					Repo:       outputRepo,
 					Provenance: provenance,
 				}); err != nil {
 				return nil, err
@@ -233,7 +240,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
@@ -241,7 +247,15 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	startCommitRequest := &pfsclient.StartCommitRequest{}
+	for _, input := range request.Inputs {
+		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+	}
+	startCommitRequest.Repo = outputRepo
+	if parentJobInfo != nil {
+		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+	}
+	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +266,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Transform:    request.Transform,
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
-		OutputCommit: commit,
+		OutputCommit: outputCommit,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -280,7 +294,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 
 			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-				Commit: commit,
+				Commit: outputCommit,
 			})
 			if err != nil {
 				return nil, err
@@ -617,8 +631,52 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 
-	if jobInfo.OutputCommit == nil {
-		return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
+	startCommitRequest := &pfsclient.StartCommitRequest{}
+
+	for _, input := range jobInfo.Inputs {
+		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+	}
+
+	startCommitRequest.Repo = jobInfo.OutputCommit.Repo
+
+	if parentJobInfo != nil {
+		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
+		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+	}
+
+	startCommitRequest.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// We archive the commit before we finish it, to ensure that a pipeline
+	// that is listing finished commits do not end up seeing this commit
+	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
+		Commits: []*pfsclient.Commit{commit},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	podIndex := jobInfo.PodsStarted
+	_, err = persistClient.AddPodCommit(
+		ctx,
+		&persist.AddPodCommitRequest{
+			JobID:    request.Job.ID,
+			PodIndex: podIndex,
+			Commit:   commit,
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	var commitMounts []*fuse.CommitMount
@@ -661,17 +719,13 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	outputCommitMount := &fuse.CommitMount{
-		Commit: jobInfo.OutputCommit,
+		Commit: commit,
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 
 	// If a job has a parent commit, we expose the parent commit
 	// to the job under /pfs/prev
-	pfsAPIClient, err := a.getPfsClient()
-	if err != nil {
-		return nil, err
-	}
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 		Commit: outputCommitMount.Commit,
 	})
@@ -688,6 +742,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
+		PodIndex:     podIndex,
 	}, nil
 }
 
@@ -709,7 +764,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	if err != nil {
 		return nil, err
 	}
-
 	var jobInfo *persist.JobInfo
 	if request.Success {
 		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)
@@ -722,6 +776,24 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 	}
+
+	// Finish this shard's commit
+	podCommit, ok := jobInfo.PodCommits[fmt.Sprintf("%d", request.PodIndex)]
+	if !ok {
+		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
+	}
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+		//		Commit: &pfsclient.Commit{ID: podCommit},
+		Commit: podCommit,
+	}); err != nil {
+		return nil, err
+	}
+
+	// All shards completed, job is finished
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
@@ -731,17 +803,43 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if err != nil {
 			return nil, err
 		}
-		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-			Cancel: failed,
-		}); err != nil {
+		var commitsToMerge []*pfsclient.Commit
+		for _, podCommit := range jobInfo.PodCommits {
+			commitsToMerge = append(commitsToMerge, podCommit)
+		}
+
+		mergeReq := &pfsclient.MergeRequest{
+			Repo:        jobInfo.OutputCommit.Repo,
+			FromCommits: commitsToMerge,
+			To:          jobInfo.OutputCommit.ID,
+			Strategy:    pfsclient.MergeStrategy_SQUASH,
+			Cancel:      failed,
+		}
+		outputCommits, err := pfsAPIClient.Merge(
+			ctx,
+			mergeReq,
+		)
+		if err != nil {
 			return nil, err
 		}
+
+		_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Cancel: failed,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if len(outputCommits.Commit) != 1 {
+			return nil, fmt.Errorf("wrong length for job output commits, expected 1, actual %v", len(outputCommits.Commit))
+		}
+
 		// The reason why we need to inspect the commit is that the commit's
 		// parent might have been cancelled, which would automatically result
 		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit: outputCommits.Commit[0],
 		})
 		if err != nil {
 			return nil, err
@@ -856,15 +954,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			if err != nil {
 				return nil, err
 			}
+			var commits []*pfsclient.Commit
 			for _, commitInfo := range commitInfos.CommitInfo {
-				_, err := pfsAPIClient.ArchiveCommit(
-					ctx,
-					&pfsclient.ArchiveCommitRequest{
-						Commit: commitInfo.Commit,
-					})
-				if err != nil {
-					return nil, err
-				}
+				commits = append(commits, commitInfo.Commit)
+			}
+			_, err = pfsAPIClient.ArchiveCommit(
+				ctx,
+				&pfsclient.ArchiveCommitRequest{
+					Commits: commits,
+				})
+			if err != nil {
+				return nil, err
 			}
 		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -1511,13 +1611,6 @@ func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
 	}
 
 	var jobEnv []api.EnvVar
-	jobEnv = append(
-		jobEnv,
-		api.EnvVar{
-			Name:  "PACH_OUTPUT_COMMIT_ID",
-			Value: jobInfo.OutputCommit.ID,
-		},
-	)
 	for _, input := range jobInfo.Inputs {
 		jobEnv = append(
 			jobEnv,

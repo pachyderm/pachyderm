@@ -133,6 +133,9 @@ check-kubectl:
 	# check that kubectl is installed
 	which kubectl
 
+check-kubectl-connection:
+	kubectl get all > /dev/null
+
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
@@ -146,12 +149,12 @@ launch: install check-kubectl
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl install
+launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -164,6 +167,16 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
+
+launch-test-rethinkdb:
+	@# Expose port 8081 so you can connect to the rethink dashboard
+	@# (You may need to forward port 8081 if you're running docker machine)
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
+	sleep 20  # wait for rethinkdb to start up
+
+clean-launch-test-rethinkdb:
+	docker stop pachyderm-test-rethinkdb || true
+	docker rm pachyderm-test-rethinkdb || true
 
 clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
@@ -204,7 +217,10 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+
+bench:
+	go test ./src/server -run=XXX -bench=.
 
 test-client:
 	rm -rf src/client/vendor
@@ -237,7 +253,7 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs: check-kubectl
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
+	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
 kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
@@ -385,4 +401,6 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build
+	goxc-build \
+	launch-test-rethinkdb \
+	clean-launch-test-rethinkdb
