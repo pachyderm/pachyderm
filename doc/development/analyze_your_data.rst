@@ -7,15 +7,15 @@ If you're brand new to Pachyderm, you should check out our :doc:`../getting_star
 
 :doc:`deploying_on_the_cloud`: Get Pachyderm deployed on AWS, GCE, or OpenShift.
 
-:doc:`inputing_your_data`: Analyze your own data and connect Pachyderm to your data feeds
+:doc:`inputing_your_data`: Get your own data into Pachyderm.
 
-:doc:`custom_pipelines`: Get your code running in Pachyderm and processing data
+:doc:`custom_pipelines`: Get your code running in Pachyderm and processing data.
 
-:doc:`pipeline_spec`: A complete reference on the advanced features of Pachyderm pipelines
+:doc:`pipeline_spec`: A complete reference on the advanced features of Pachyderm pipelines.
 
 :doc:`tracking_your_data`: Understand your data lineage using Provenance.
 
-:doc:`updating_pipelines`: Interate on pipelines as you learn from your data
+:doc:`updating_pipelines`: Interate on pipelines as you learn from your data.
 
 
 Usage Metrics

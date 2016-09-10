@@ -8,6 +8,11 @@
 Pachyderm Developer Documentation
 =================================
 
+Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experiences Pachyderm users. You'll also find API references docs and an FAQ. 
+
+If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on GitHub, our Users Slack channel, or email us at support@pachyderm.io. 
+
+
 .. toctree::
     :maxdepth: 1
     :caption: Getting Started
@@ -25,6 +30,7 @@ Pachyderm Developer Documentation
     development/deploying_on_the_cloud
     development/inputing_your_data
     development/custom_pipelines
+    development/pipeline_spec
     development/tracking_your_data
     development/updating_pipelines
 

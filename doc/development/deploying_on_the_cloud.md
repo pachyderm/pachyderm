@@ -28,7 +28,7 @@ $ gcloud components install kubectl
 
 This will download the `kubectl` binary to `google-cloud-sdk/bin`
 
-## Deploy Kubernetes
+### Deploy Kubernetes
 
 To create a new Kubernetes cluster in GKE, just run:
 
@@ -58,9 +58,9 @@ NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 kubernetes   10.3.240.1   <none>        443/TCP   10m
 ```
 
-## Deploy Pachyderm
+### Deploy Pachyderm
 
-### Set up the infrastructure
+#### Set up the storage infrastructure
 
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
 
@@ -96,7 +96,7 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-### Install Pachctl 
+#### Install Pachctl 
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -118,7 +118,7 @@ pachctl             1.2.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
-### Start Pachyderm
+#### Start Pachyderm
 
 Now we're ready to boot up Pachyderm:
 ```
@@ -206,11 +206,11 @@ function build-kube-env {
 
  Now we've got Kubernetes up and running, it's time to deploy Pachyderm!
 
-## Deploy Pachyderm
+### Deploy Pachyderm
 
 Before we deploy Pachyderm, we need to add some storage resources to our cluster so that Pachyderm has a place to put data. 
 
-### Set up the storage infrastructure
+#### Set up the storage infrastructure
 
 Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)(EBS) to function correctly.  
 
@@ -252,7 +252,7 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-### Install Pachctl 
+#### Install Pachctl 
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -273,7 +273,7 @@ COMPONENT           VERSION
 pachctl             1.1.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 
-### Start Pachyderm
+#### Start Pachyderm
 
 First get a set of [temporary AWS credentials](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html) by using this command:
 

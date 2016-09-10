@@ -1,6 +1,6 @@
 # Pipeline Specification
 
-This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](./pachctl/pachctl_create-pipeline.html) doc.
+This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 
 ## JSON Manifest Format
 
