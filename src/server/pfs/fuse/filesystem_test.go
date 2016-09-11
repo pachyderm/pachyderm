@@ -3,6 +3,7 @@ package fuse_test
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,17 +18,37 @@ import (
 	"bazil.org/fuse/fs/fstestutil"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
 )
+
+const (
+	RethinkAddress = "localhost:28015"
+)
+
+var (
+	port int32 = 30651
+)
+
+var testDBs []string
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	code := m.Run()
+	if code == 0 {
+		for _, name := range testDBs {
+			if err := persist.RemoveDB(RethinkAddress, name); err != nil {
+				panic(err)
+			}
+		}
+	}
+	os.Exit(code)
+}
 
 func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
@@ -88,37 +109,47 @@ func TestRepoReadDir(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
+		commitAInfo, err := c.InspectCommit(repoName, commitA.ID)
+		require.NoError(t, err)
+		commitBInfo, err := c.InspectCommit(repoName, commitB.ID)
+		require.NoError(t, err)
+
+		checkA := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+		checkB := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0775; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, ??? as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			commitB.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0775; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, ??? as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
+			commitA.ID:         checkA,
+			commitAInfo.Branch: checkA,
+			commitB.ID:         checkB,
+			commitBInfo.Branch: checkB,
 		}))
 	}, false)
 }
@@ -284,7 +315,6 @@ func TestBigWrite(t *testing.T) {
 }
 
 func Test296Appends(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -313,7 +343,6 @@ func Test296Appends(t *testing.T) {
 }
 
 func Test296(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -442,7 +471,6 @@ func TestMountCachingViaShell(t *testing.T) {
 }
 
 func TestCreateFileInDir(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -453,6 +481,22 @@ func TestCreateFileInDir(t *testing.T) {
 
 		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
+		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	}, false)
+}
+
+func TestCreateDirConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit, err := c.StartCommit("repo", "", "")
+		require.NoError(t, err)
+
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "file"), []byte("foo"), 0644))
+
+		require.YesError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "file"), 0700))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
 	}, false)
 }
@@ -671,7 +715,7 @@ func TestWriteManyFiles(t *testing.T) {
 		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			fileName := fmt.Sprintf("file-%d", i)
 			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
 			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
@@ -694,8 +738,13 @@ func TestReadCancelledCommit(t *testing.T) {
 		require.NoError(t, c.CancelCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(dirs))
-		require.Equal(t, commit.ID, dirs[0].Name())
+		require.Equal(t, 2, len(dirs))
+		var actualDirs []interface{}
+		for _, dir := range dirs {
+			actualDirs = append(actualDirs, dir.Name())
+		}
+		expected := interface{}(commit.ID)
+		require.OneOfEquals(t, expected, actualDirs)
 		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
@@ -722,7 +771,8 @@ func TestNoReadCancelledCommit(t *testing.T) {
 		// archived or cancelled commits
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		require.Equal(t, 0, len(dirs))
+		// We still see the branches, but not the commits
+		require.Equal(t, 2, len(dirs))
 	}, false)
 }
 
@@ -773,39 +823,22 @@ func testFuse(
 	// functions
 	localAddress := listener.Addr().String()
 	srv := grpc.NewServer()
-	const (
-		numShards = 1
-	)
-	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
-	hasher := pfsserver.NewHasher(numShards, 1)
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		localAddress,
-	)
-
 	blockDir := filepath.Join(tmp, "blocks")
 	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
 	require.NoError(t, err)
 	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
-	driver, err := drive.NewDriver(localAddress)
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	testDBs = append(testDBs, dbName)
+
+	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
+		panic(err)
+	}
+	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(
-		hasher,
-		router,
-	)
+	apiServer := server.NewAPIServer(driver)
 	pfsclient.RegisterAPIServer(srv, apiServer)
-
-	internalAPIServer := server.NewInternalAPIServer(
-		hasher,
-		router,
-		driver,
-	)
-	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -831,7 +864,7 @@ func testFuse(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, true, allCommits))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits))
 	}()
 
 	<-ready

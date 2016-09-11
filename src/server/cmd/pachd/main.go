@@ -6,7 +6,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -15,8 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
-	"github.com/pachyderm/pachyderm/src/client/version"
-	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	"github.com/pachyderm/pachyderm/src/client/version"       // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	pfs_persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -52,25 +51,19 @@ type appEnv struct {
 	StorageRoot     string `env:"PACH_ROOT,required"`
 	StorageBackend  string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
-	DatabaseName    string `env:"DATABASE_NAME,default=pachyderm"`
+	PPSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pps"`
+	PFSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pfs"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
-	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824` //default = 1 gigabyte
+	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
 	ImageTag        string `env:"IMAGE_TAG,default="`
 }
 
 func main() {
 	env.Main(do, &appEnv{})
-}
-
-// isDBCreated is used to tell when we are trying to initialize a database,
-// whether we are getting an error because the database has already been
-// initialized.
-func isDBCreated(err error) bool {
-	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
 }
 
 func do(appEnvObj interface{}) error {
@@ -83,10 +76,11 @@ func do(appEnvObj interface{}) error {
 		if err := setClusterID(etcdClient); err != nil {
 			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
 		}
-		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil && !isDBCreated(err) {
+		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
+		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
 			return err
 		}
-		return nil
+		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
 	if readinessCheck {
 		//c, err := client.NewInCluster()
@@ -142,7 +136,8 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := drive.NewDriver(address)
+	driver, err := getPFSDriver(address, appEnv)
+	//	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
 	}
@@ -153,33 +148,13 @@ func do(appEnvObj interface{}) error {
 		),
 		address,
 	)
-	apiServer := pfs_server.NewAPIServer(
-		pfsmodel.NewHasher(
-			appEnv.NumShards,
-			1,
-		),
-		router,
-	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
 	go func() {
-		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{apiServer, cacheServer}); err != nil {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
-	internalAPIServer := pfs_server.NewInternalAPIServer(
-		pfsmodel.NewHasher(
-			appEnv.NumShards,
-			1,
-		),
-		shard.NewRouter(
-			sharder,
-			grpcutil.NewDialer(
-				grpc.WithInsecure(),
-			),
-			address,
-		),
-		driver,
-	)
+	apiServer := pfs_server.NewAPIServer(driver)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -188,7 +163,7 @@ func do(appEnvObj interface{}) error {
 		appEnv.ImageTag,
 	)
 	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer, cacheServer}); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
@@ -199,7 +174,6 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
-			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
@@ -250,11 +224,16 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 	return kube.New(config)
 }
 
+func getPFSDriver(address string, env *appEnv) (drive.Driver, error) {
+	rethinkAddress := fmt.Sprintf("%s:28015", env.DatabaseAddress)
+	return pfs_persist.NewDriver(address, rethinkAddress, env.PFSDatabaseName)
+}
+
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
-	if err := persist_server.CheckDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
+	if err := persist_server.CheckDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.PPSDatabaseName); err != nil {
 		return nil, err
 	}
-	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
+	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.PPSDatabaseName)
 }
 
 // getNamespace returns the kubernetes namespace that this pachd pod runs in
