@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/pkg/exec"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -610,10 +612,49 @@ Files and URLs should be newline delimited.
 		Use:   "unmount path/to/mount/point",
 		Short: "Unmount pfs.",
 		Long:  "Unmount pfs.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			return syscall.Unmount(args[0], 0)
+		Run: cmd.RunBoundedArgs(0, 1, func(args []string) error {
+			if len(args) == 1 {
+				return syscall.Unmount(args[0], 0)
+			}
+
+			if all {
+				stdin := strings.NewReader(`
+mount | grep pfs:// | cut -f 3 -d " "
+`)
+				var stdout bytes.Buffer
+				if err := pkgexec.RunIO(pkgexec.IO{
+					Stdin:  stdin,
+					Stdout: &stdout,
+					Stderr: os.Stderr,
+				}, "sh"); err != nil {
+					return err
+				}
+				scanner := bufio.NewScanner(&stdout)
+				var mounts []string
+				for scanner.Scan() {
+					mounts = append(mounts, scanner.Text())
+				}
+				fmt.Printf("Unmount the following filesystems? yN\n")
+				for _, mount := range mounts {
+					fmt.Printf("%s\n", mount)
+				}
+				r := bufio.NewReader(os.Stdin)
+				bytes, err := r.ReadBytes('\n')
+				if err != nil {
+					return err
+				}
+				if bytes[0] == 'y' || bytes[0] == 'Y' {
+					for _, mount := range mounts {
+						if err := syscall.Unmount(mount, 0); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			return nil
 		}),
 	}
+	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",
