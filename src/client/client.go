@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
@@ -29,7 +30,8 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	BlockAPIClient
-	gRPCConn *grpc.ClientConn
+	gRPCConn     *grpc.ClientConn
+	healthClient health.HealthClient
 }
 
 // NewFromAddress constructs a new APIClient for the server at pachAddr.
@@ -44,6 +46,7 @@ func NewFromAddress(pachAddr string) (*APIClient, error) {
 		pps.NewAPIClient(clientConn),
 		pfs.NewBlockAPIClient(clientConn),
 		clientConn,
+		health.NewHealthClient(clientConn),
 	}, nil
 }
 

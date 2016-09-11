@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	"github.com/pachyderm/pachyderm/src/client/version"       // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -171,6 +173,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	healthServer := health.NewHealthServer()
 	return protoserver.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
@@ -179,6 +182,7 @@ func do(appEnvObj interface{}) error {
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
+			healthclient.RegisterHealthServer(s, healthServer)
 		},
 		protoserver.ServeOptions{
 			Version: version.Version,
