@@ -634,6 +634,10 @@ mount | grep pfs:// | cut -f 3 -d " "
 				for scanner.Scan() {
 					mounts = append(mounts, scanner.Text())
 				}
+				if len(mounts) == 0 {
+					fmt.Println("No mounts found.")
+					return nil
+				}
 				fmt.Printf("Unmount the following filesystems? yN\n")
 				for _, mount := range mounts {
 					fmt.Printf("%s\n", mount)
