@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"golang.org/x/sync/errgroup"
@@ -605,6 +606,15 @@ Files and URLs should be newline delimited.
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
 
+	unmount := &cobra.Command{
+		Use:   "unmount path/to/mount/point",
+		Short: "Unmount pfs.",
+		Long:  "Unmount pfs.",
+		Run: cmd.RunFixedArgs(1, func(args []string) error {
+			return syscall.Unmount(args[0], 0)
+		}),
+	}
+
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",
 		Short: "Archives all commits in all repos",
@@ -638,6 +648,7 @@ Files and URLs should be newline delimited.
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
+	result = append(result, unmount)
 	result = append(result, archiveAll)
 	return result
 }
