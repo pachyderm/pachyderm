@@ -588,6 +588,7 @@ Files and URLs should be newline delimited.
 			if err != nil {
 				return err
 			}
+			go func() { client.KeepConnected(nil) }()
 			mounter := fuse.NewMounter(address, client)
 			mountPoint := args[0]
 			ready := make(chan bool)
