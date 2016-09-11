@@ -25,7 +25,7 @@ import (
 )
 
 type filesystem struct {
-	apiClient client.APIClient
+	apiClient *client.APIClient
 	Filesystem
 	inodes     map[string]uint64
 	lock       sync.RWMutex
@@ -33,13 +33,13 @@ type filesystem struct {
 }
 
 func newFilesystem(
-	pfsAPIClient pfsclient.APIClient,
+	apiClient *client.APIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	allCommits bool,
 ) *filesystem {
 	return &filesystem{
-		apiClient: client.APIClient{PfsAPIClient: pfsAPIClient},
+		apiClient: apiClient,
 		Filesystem: Filesystem{
 			shard,
 			commitMounts,

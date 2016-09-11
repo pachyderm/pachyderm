@@ -7,6 +7,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/lion"
 )
@@ -18,10 +19,10 @@ const (
 
 type mounter struct {
 	address   string
-	apiClient pfsclient.APIClient
+	apiClient *client.APIClient
 }
 
-func newMounter(address string, apiClient pfsclient.APIClient) Mounter {
+func newMounter(address string, apiClient *client.APIClient) Mounter {
 	return &mounter{
 		address,
 		apiClient,
