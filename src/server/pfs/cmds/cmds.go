@@ -588,7 +588,7 @@ Files and URLs should be newline delimited.
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(address, client.PfsAPIClient)
+			mounter := fuse.NewMounter(address, client)
 			mountPoint := args[0]
 			ready := make(chan bool)
 			go func() {
