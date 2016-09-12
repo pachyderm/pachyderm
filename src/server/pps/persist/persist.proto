@@ -14,18 +14,20 @@ message JobInfo {
   string job_id = 1;
   pps.Transform transform = 2;
   string pipeline_name = 3;
-  ParallelismSpec parallelism_spec = 16;
+  ParallelismSpec parallelism_spec = 18;
   repeated pps.JobInput inputs = 5;
   pps.Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
+  string branch = 17;
   pps.JobState state = 10;
   string commit_index = 11;
   uint64 pods_started = 12;
   uint64 pods_succeeded = 13;
   uint64 pods_failed = 14;
   repeated uint64 shard_moduli = 15;
+  map<string, pfs.Commit> pod_commits = 16;
 }
 
 message JobInfos {
@@ -41,6 +43,18 @@ message JobState {
   string job_id = 1;
   pps.JobState state = 2;
   google.protobuf.Timestamp finished = 3; // set when state == FINISHED
+}
+
+message AddPodCommitRequest {
+  string job_id = 1;
+  uint64 pod_index = 2;
+  pfs.Commit commit = 3;
+}
+
+message AddOutputCommitRequest {
+  string job_id = 1;
+  pfs.Commit commit = 2;
+  string branch = 3;
 }
 
 message PipelineInfo {
@@ -124,6 +138,9 @@ service API {
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
   rpc StartJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+
+  // Job commit rpcs
+  rpc AddPodCommit(AddPodCommitRequest) returns (google.protobuf.Empty) {}
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}

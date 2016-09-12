@@ -94,13 +94,14 @@ message JobInfo {
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
-  ParallelismSpec parallelism_spec = 11;
+  ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  map<uint64, string> pod_commits = 11;
 }
 
 message JobInfos {

@@ -2,8 +2,6 @@ package server
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -18,26 +16,14 @@ const (
 	GoogleBackendEnvVar = "GOOGLE"
 )
 
-// APIServer represents an api server.
+// APIServer represents and api server.
 type APIServer interface {
-	pfsclient.APIServer // SJ: WOW this is bad naming
-	shard.Frontend
-}
-
-// InternalAPIServer represents and internal api server.
-type InternalAPIServer interface {
-	pfsclient.InternalAPIServer // SJ: also bad naming
-	shard.Server
+	pfsclient.APIServer // SJ: also bad naming
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(hasher *pfsserver.Hasher, router shard.Router) APIServer {
-	return newAPIServer(hasher, router)
-}
-
-// NewInternalAPIServer creates an InternalAPIServer.
-func NewInternalAPIServer(hasher *pfsserver.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
-	return newInternalAPIServer(hasher, router, driver)
+func NewAPIServer(driver drive.Driver) APIServer {
+	return newAPIServer(driver)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.
