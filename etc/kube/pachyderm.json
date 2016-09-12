@@ -15,8 +15,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -172,8 +172,8 @@
         "name": "rethink",
         "creationTimestamp": null,
         "labels": {
-          "app": "rethink",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "rethink"
         }
       },
       "spec": {
@@ -217,18 +217,6 @@
                 "mountPath": "/var/rethinkdb/"
               }
             ],
-            "readinessProbe": {
-              "initialDelaySeconds": 15,
-              "timeoutSeconds": 3,
-              "periodSeconds": 5,
-              "successThreshold": 1,
-              "failureThreshold": 3,
-              "httpGet": {
-                "path": "/",
-                "port": 8080,
-                "host": "localhost"
-              }
-            },
             "imagePullPolicy": "IfNotPresent"
           }
         ]
@@ -347,8 +335,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "app": "pachd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "pachd"
         }
       },
       "spec": {
