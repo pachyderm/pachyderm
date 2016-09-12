@@ -103,6 +103,17 @@ func (inputs JobInputs) Swap(i, j int) {
 	inputs[i], inputs[j] = inputs[j], inputs[i]
 }
 
+// TODO(msteffen): Compute expected number of workers using ParallelismSpec
+//
+// This is only exported for testing purposes
+func GetExpectedNumWorkers(spec ppsclient.ParallelismSpec) uint64 {
+	if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
+		return spec.Constant
+	} else {
+		return 0
+	}
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -247,7 +258,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
@@ -939,13 +949,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		}()
 	}
 	persistPipelineInfo := &persist.PipelineInfo{
-		PipelineName: request.Pipeline.Name,
-		Transform:    request.Transform,
-		Parallelism:  request.Parallelism,
-		Inputs:       request.Inputs,
-		OutputRepo:   repo,
-		Shard:        a.hasher.HashPipeline(request.Pipeline),
-		State:        ppsclient.PipelineState_PIPELINE_IDLE,
+		PipelineName:    request.Pipeline.Name,
+		Transform:       request.Transform,
+		ParallelismSpec: request.ParallelismSpec,
+		Inputs:          request.Inputs,
+		OutputRepo:      repo,
+		Shard:           a.hasher.HashPipeline(request.Pipeline),
+		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -1287,14 +1297,14 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform:   persistPipelineInfo.Transform,
-		Parallelism: persistPipelineInfo.Parallelism,
-		Inputs:      persistPipelineInfo.Inputs,
-		OutputRepo:  persistPipelineInfo.OutputRepo,
-		CreatedAt:   persistPipelineInfo.CreatedAt,
-		State:       persistPipelineInfo.State,
-		RecentError: persistPipelineInfo.RecentError,
-		JobCounts:   persistPipelineInfo.JobCounts,
+		Transform:       persistPipelineInfo.Transform,
+		ParallelismSpec: persistPipelineInfo.ParallelismSpec,
+		Inputs:          persistPipelineInfo.Inputs,
+		OutputRepo:      persistPipelineInfo.OutputRepo,
+		CreatedAt:       persistPipelineInfo.CreatedAt,
+		State:           persistPipelineInfo.State,
+		RecentError:     persistPipelineInfo.RecentError,
+		JobCounts:       persistPipelineInfo.JobCounts,
 	}
 }
 
@@ -1391,11 +1401,11 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				_, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
-						Transform:   pipelineInfo.Transform,
-						Pipeline:    pipelineInfo.Pipeline,
-						Parallelism: pipelineInfo.Parallelism,
-						Inputs:      trueInputs,
-						ParentJob:   parentJob,
+						Transform:       pipelineInfo.Transform,
+						Pipeline:        pipelineInfo.Pipeline,
+						ParallelismSpec: pipelineInfo.ParallelismSpec,
+						Inputs:          trueInputs,
+						ParentJob:       parentJob,
 					},
 				)
 				if err != nil {

@@ -1641,7 +1641,7 @@ func TestDirectory(t *testing.T) {
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 3,
 		},
-		ParentJob:   job1,
+		ParentJob: job1,
 	})
 	require.NoError(t, err)
 	inspectJobRequest2 := &ppsclient.InspectJobRequest{
@@ -1793,7 +1793,10 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
 		false,
 	))
@@ -2189,7 +2192,10 @@ func TestRestartAll(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		false,
 	))
@@ -2235,7 +2241,10 @@ func TestRestartOne(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		false,
 	))
@@ -2278,7 +2287,10 @@ func TestPrettyPrinting(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		false,
 	))
@@ -2324,7 +2336,10 @@ func TestDeleteAll(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		false,
 	))
@@ -2369,7 +2384,10 @@ func TestRecursiveCp(t *testing.T) {
 			fmt.Sprintf("mkdir /inputs"),
 			fmt.Sprintf("cp -r /pfs/%s /inputs", dataRepo),
 		},
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{
 			Repo:   client.NewRepo(dataRepo),
 			Method: client.IncrementalReduceMethod,
@@ -2408,7 +2426,10 @@ func TestPipelineUniqueness(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{""},
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{
 			{
 				Repo: &pfsclient.Repo{Name: repo},
@@ -2421,7 +2442,10 @@ func TestPipelineUniqueness(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{""},
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{
 			{
 				Repo: &pfsclient.Repo{Name: repo},
@@ -2449,7 +2473,10 @@ func TestPipelineInfoDestroyedIfRepoCreationFails(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{""},
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{
 			{
 				Repo: &pfsclient.Repo{Name: repo},
@@ -2608,9 +2635,9 @@ func TestUpdatePipeline(t *testing.T) {
 				Strategy: ppsclient.ParallelismSpec_CONSTANT,
 				Constant: 2,
 			},
-			Inputs:      []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
-			Update:      true,
-			NoArchive:   true,
+			Inputs:    []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			Update:    true,
+			NoArchive: true,
 		})
 	require.NoError(t, err)
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
@@ -2730,7 +2757,7 @@ func TestPipelineEnv(t *testing.T) {
 				Strategy: ppsclient.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			Inputs:      []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
@@ -2947,7 +2974,10 @@ func TestChainedPipelines(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo)}},
 		false,
 	))
@@ -2959,7 +2989,10 @@ func TestChainedPipelines(t *testing.T) {
 		[]string{"sh"},
 		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
 			fmt.Sprintf("cp /pfs/%s/file /pfs/out/dFile", dRepo)},
-		1,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline)},
 			{Repo: client.NewRepo(dRepo)}},
 		false,
