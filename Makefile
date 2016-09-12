@@ -69,7 +69,7 @@ point-release:
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
 release: release-version release-pachd release-job-shim release-pachctl doc
-	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+	@git commit -a -m "[Automated] Released $(shell cat VERSION)"
 	@rm VERSION
 	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
 
