@@ -11,7 +11,7 @@ fi
 echo "--- Releasing manifests w version: $VERSION"
 
 pach-deploy -s 32 > $DEV_MANIFEST
-pach-deploy -s 32 --version v$VERSION > $MANIFEST
+pach-deploy -s 32 --version $VERSION > $MANIFEST
 
 # Now upload the stable manifest to the corp site
 
