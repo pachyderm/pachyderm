@@ -2,6 +2,9 @@
 *~
 *#*
 
+# For context helper script config
+.ctx
+
 # Build artifacts
 .goxc.json
 /protofix
