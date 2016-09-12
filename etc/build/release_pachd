@@ -8,7 +8,8 @@ fi
 
 echo "--- Releasing pachd w version: $VERSION"
 
-make docker-push-pachd
+make docker-build-pachd
+make docker-wait-pachd
 docker tag pachyderm/pachd:latest pachyderm/pachd:$VERSION
 docker push pachyderm/pachd:$VERSION
 
