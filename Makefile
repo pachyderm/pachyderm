@@ -115,14 +115,6 @@ docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim dock
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
-docker-push-job-shim: docker-build-job-shim
-	docker push pachyderm/job-shim
-
-docker-push-pachd: docker-build-pachd
-	docker push pachyderm/pachd
-
-docker-push: docker-push-job-shim docker-push-pachd
-
 check-kubectl:
 	# check that kubectl is installed
 	which kubectl
