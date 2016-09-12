@@ -158,8 +158,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "app": "rethink",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "rethink"
     }
   },
   "spec": {
@@ -258,7 +258,7 @@
         "containers": [
           {
             "name": "pachd-init",
-            "image": "pachyderm/pachd:v1.1.0",
+            "image": "pachyderm/pachd:v1.2.0-RC1",
             "env": [
               {
                 "name": "PACH_ROOT",
@@ -297,6 +297,12 @@
         "port": 650,
         "targetPort": 0,
         "nodePort": 30650
+      },
+      {
+        "name": "trace-port",
+        "port": 651,
+        "targetPort": 0,
+        "nodePort": 30651
       }
     ],
     "selector": {
@@ -320,7 +326,7 @@
     }
   },
   "spec": {
-    "replicas": 2,
+    "replicas": 1,
     "selector": {
       "app": "pachd"
     },
@@ -345,7 +351,7 @@
         "containers": [
           {
             "name": "pachd",
-            "image": "pachyderm/pachd:v1.1.0",
+            "image": "pachyderm/pachd:v1.2.0-RC1",
             "ports": [
               {
                 "name": "api-grpc-port",
@@ -354,7 +360,7 @@
               },
               {
                 "name": "trace-port",
-                "containerPort": 1050
+                "containerPort": 651
               }
             ],
             "env": [
