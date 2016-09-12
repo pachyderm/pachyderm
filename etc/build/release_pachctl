@@ -54,7 +54,7 @@ cd ..
 rm -rf homebrew-tap
 
 rm -rf www || true
-curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
+curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/${VERSION}/pachctl_${VERSION}_amd64.deb"
 git clone git@github.com:pachyderm/www
 cp /tmp/pachctl.deb www/pachctl.deb
 cd www 

@@ -20,8 +20,6 @@ endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
-MANIFEST = etc/kube/pachyderm-versioned.json
-DEV_MANIFEST = etc/kube/pachyderm.json
 VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
@@ -258,9 +256,6 @@ logs: check-kubectl
 kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
-
-dev-manifest: install
-	pachctl deploy -d --dry-run >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
