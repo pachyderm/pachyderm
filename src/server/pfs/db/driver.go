@@ -1684,7 +1684,11 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 		// This query gives us the first component after the parent prefix.
 		// For instance, if the path is "/foo/bar/buzz" and parent is "/foo",
 		// this query gives us "bar".
-		return diff.Field("Path").Split(parent, 1).Nth(1).Split("/").Nth(1)
+		return gorethink.Branch(
+			gorethink.Expr(parent).Eq("/"),
+			diff.Field("Path").Split("/").Nth(1),
+			diff.Field("Path").Split(parent, 1).Nth(1).Split("/").Nth(1),
+		)
 	}).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		// Basically, we add up the sizes and discard the diff with the longer
 		// path.  That way, we will be left with the diff with the shortest path,
