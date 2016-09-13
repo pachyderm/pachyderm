@@ -118,18 +118,6 @@ func diffClockIndexKey(repo interface{}, branch interface{}, clock interface{}) 
 	return []interface{}{repo, branch, clock}
 }
 
-// ClockBranchIndex maps a branch to a clock
-var ClockBranchIndex = &index{
-	Name:  "ClockBranchIndex",
-	Table: clockTable,
-	CreateFunction: func(row gorethink.Term) interface{} {
-		return []interface{}{
-			row.Field("Repo"),
-			row.Field("Branch"),
-		}
-	},
-}
-
 // CommitClockIndex maps clocks to commits
 // Format: repo + head of clocks
 // Example:
