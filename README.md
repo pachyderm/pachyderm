@@ -6,7 +6,7 @@
 [![Slack](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 # Pachyderm: A Containerized Data Lake
-Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete version control for data and give your data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](pachyderm.readthedocs.io/advanced/provenance.html)). 
+Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](pachyderm.readthedocs.io/advanced/provenance.html)). 
 
 Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
