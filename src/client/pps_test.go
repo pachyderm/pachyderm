@@ -23,7 +23,10 @@ func Example_pps() {
 		"pachyderm/test_image", // your docker image
 		[]string{"map"},        // the command run in your docker image
 		nil,                    // no stdin
-		0,                      // let pachyderm decide the parallelism
+		&pps.ParallelismSpec{
+			Strategy:    pps.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1.0,
+		},
 		[]*pps.PipelineInput{
 			// map over "repo"
 			client.NewPipelineInput("repo", client.MapMethod),
@@ -37,7 +40,10 @@ func Example_pps() {
 		"pachyderm/test_image", // your docker image
 		[]string{"reduce"},     // the command run in your docker image
 		nil,                    // no stdin
-		0,                      // let pachyderm decide the parallelism
+		&pps.ParallelismSpec{
+			Strategy:    pps.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1.0,
+		},
 		[]*pps.PipelineInput{
 			// reduce over "map"
 			client.NewPipelineInput("map", client.ReduceMethod),

@@ -455,22 +455,22 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"doc/CHANGELOG.md": docChangelogMd,
-	"doc/FAQ.md": docFaqMd,
-	"doc/Makefile": docMakefile,
-	"doc/README.md": docReadmeMd,
-	"doc/about.md": docAboutMd,
-	"doc/conf.py": docConfPy,
-	"doc/deploying.md": docDeployingMd,
-	"doc/deploying_setup.md": docDeploying_setupMd,
-	"doc/index.rst": docIndexRst,
-	"doc/installation.md": docInstallationMd,
-	"doc/pachctl.rst": docPachctlRst,
-	"doc/pachyderm_file_system.md": docPachyderm_file_systemMd,
+	"doc/CHANGELOG.md":                 docChangelogMd,
+	"doc/FAQ.md":                       docFaqMd,
+	"doc/Makefile":                     docMakefile,
+	"doc/README.md":                    docReadmeMd,
+	"doc/about.md":                     docAboutMd,
+	"doc/conf.py":                      docConfPy,
+	"doc/deploying.md":                 docDeployingMd,
+	"doc/deploying_setup.md":           docDeploying_setupMd,
+	"doc/index.rst":                    docIndexRst,
+	"doc/installation.md":              docInstallationMd,
+	"doc/pachctl.rst":                  docPachctlRst,
+	"doc/pachyderm_file_system.md":     docPachyderm_file_systemMd,
 	"doc/pachyderm_pipeline_system.md": docPachyderm_pipeline_systemMd,
-	"doc/pipeline_spec.md": docPipeline_specMd,
-	"doc/release_instructions.md": docRelease_instructionsMd,
-	"doc/troubleshooting.md": docTroubleshootingMd,
+	"doc/pipeline_spec.md":             docPipeline_specMd,
+	"doc/release_instructions.md":      docRelease_instructionsMd,
+	"doc/troubleshooting.md":           docTroubleshootingMd,
 }
 
 // AssetDir returns the file names below a certain
@@ -512,24 +512,25 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"doc": &bintree{nil, map[string]*bintree{
-		"CHANGELOG.md": &bintree{docChangelogMd, map[string]*bintree{}},
-		"FAQ.md": &bintree{docFaqMd, map[string]*bintree{}},
-		"Makefile": &bintree{docMakefile, map[string]*bintree{}},
-		"README.md": &bintree{docReadmeMd, map[string]*bintree{}},
-		"about.md": &bintree{docAboutMd, map[string]*bintree{}},
-		"conf.py": &bintree{docConfPy, map[string]*bintree{}},
-		"deploying.md": &bintree{docDeployingMd, map[string]*bintree{}},
-		"deploying_setup.md": &bintree{docDeploying_setupMd, map[string]*bintree{}},
-		"index.rst": &bintree{docIndexRst, map[string]*bintree{}},
-		"installation.md": &bintree{docInstallationMd, map[string]*bintree{}},
-		"pachctl.rst": &bintree{docPachctlRst, map[string]*bintree{}},
-		"pachyderm_file_system.md": &bintree{docPachyderm_file_systemMd, map[string]*bintree{}},
+		"CHANGELOG.md":                 &bintree{docChangelogMd, map[string]*bintree{}},
+		"FAQ.md":                       &bintree{docFaqMd, map[string]*bintree{}},
+		"Makefile":                     &bintree{docMakefile, map[string]*bintree{}},
+		"README.md":                    &bintree{docReadmeMd, map[string]*bintree{}},
+		"about.md":                     &bintree{docAboutMd, map[string]*bintree{}},
+		"conf.py":                      &bintree{docConfPy, map[string]*bintree{}},
+		"deploying.md":                 &bintree{docDeployingMd, map[string]*bintree{}},
+		"deploying_setup.md":           &bintree{docDeploying_setupMd, map[string]*bintree{}},
+		"index.rst":                    &bintree{docIndexRst, map[string]*bintree{}},
+		"installation.md":              &bintree{docInstallationMd, map[string]*bintree{}},
+		"pachctl.rst":                  &bintree{docPachctlRst, map[string]*bintree{}},
+		"pachyderm_file_system.md":     &bintree{docPachyderm_file_systemMd, map[string]*bintree{}},
 		"pachyderm_pipeline_system.md": &bintree{docPachyderm_pipeline_systemMd, map[string]*bintree{}},
-		"pipeline_spec.md": &bintree{docPipeline_specMd, map[string]*bintree{}},
-		"release_instructions.md": &bintree{docRelease_instructionsMd, map[string]*bintree{}},
-		"troubleshooting.md": &bintree{docTroubleshootingMd, map[string]*bintree{}},
+		"pipeline_spec.md":             &bintree{docPipeline_specMd, map[string]*bintree{}},
+		"release_instructions.md":      &bintree{docRelease_instructionsMd, map[string]*bintree{}},
+		"troubleshooting.md":           &bintree{docTroubleshootingMd, map[string]*bintree{}},
 	}},
 }}
 
@@ -579,4 +580,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-
