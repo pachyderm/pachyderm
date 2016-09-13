@@ -23,7 +23,8 @@ type Driver interface {
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
 	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, force bool) error
-	StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit) (*pfs.Commit, error)
+	Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error)
+	StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool) error
 	ArchiveCommit(commit []*pfs.Commit) error
 	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
