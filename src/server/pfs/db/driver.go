@@ -1041,13 +1041,15 @@ func (d *driver) ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 		if err := d.getHeadOfBranch(repo.Name, branch, commit); err != nil {
 			return nil, err
 		}
-		commitInfos = append(commitInfos, &pfs.CommitInfo{
-			Commit: &pfs.Commit{
-				Repo: repo,
-				ID:   commit.ID,
-			},
-			Branch: branch,
-		})
+		if !commit.Cancelled && !commit.Archived {
+			commitInfos = append(commitInfos, &pfs.CommitInfo{
+				Commit: &pfs.Commit{
+					Repo: repo,
+					ID:   commit.ID,
+				},
+				Branch: branch,
+			})
+		}
 	}
 	return commitInfos, nil
 }
