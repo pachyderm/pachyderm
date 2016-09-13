@@ -1,9 +1,14 @@
 <img src='doc/GH_logo.png' width='250' height='250' title='Pachyderm'> 
 
-# A Containerized Data Lake
-
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
+[![Slack](http://slack.noms.io/badge.svg)](http://slack.pachyderm.io)
+
+# A Containerized Data Lake
+Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete version control for data and give your data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](pachyderm.readthedocs.io/advanced/provenance.html)). 
+
+Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
 * [Getting Started](http://pachyderm.readthedocs.io/)
 * [What is Pachyderm?](#what-is-pachyderm)
