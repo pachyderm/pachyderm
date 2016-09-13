@@ -7,7 +7,7 @@ RUN apt-get update \
 	&& apt-get upgrade -y \
 	&& apt-get install -y unzip wget build-essential \
 		cmake git pkg-config libswscale-dev \
-		python3-dev python3-numpy \
+		python3-dev python3-numpy python3-tk \
 		libtbb2 libtbb-dev libjpeg-dev \
 		libpng-dev libtiff-dev libjasper-dev \
 		bpython python3-pip libfreetype6-dev
