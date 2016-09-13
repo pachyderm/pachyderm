@@ -1,11 +1,14 @@
 # Pachyderm: A Containerized Data Lake
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![Slack](http://slack.noms.io/badge.svg)](http://slack.noms.io)
+
 
 * [Getting Started](http://pachyderm.readthedocs.io/)
 * [What is Pachyderm?](#what-is-pachyderm)
 * [What's new about Pachyderm? (How is it different from Hadoop?)](#whats-new-about-pachyderm-how-is-it-different-from-hadoop)
 * [Contributing](#contributing)
+* [Community](#community)
 * [Join Us](#join-us)
 * [Usage Metrics](#usage-metrics)
 
@@ -48,6 +51,12 @@ a streaming job, the same code will work for both!
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
 Send us PRs, we would love to see what you do!
+
+### Community
+
+[Please join our #users Slack channel!](http://pachyderm-slack.herokuapp.com/)
+
+You can also email us at info@pachyderm.io
 
 ### Join Us
 
