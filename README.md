@@ -49,7 +49,7 @@ a streaming job, the same code will work for both!
 Keep up to date and get Pachyderm support via:
 - [Twitter](twitter.com/pachydermio)
 - [Join our mailing list]
-- Join our [Community Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users
+- Join our community [Slack Channel](http://pachyderm-slack.herokuapp.com) to get help from the Pachyderm team and other users
 
 ### Contributing
 
