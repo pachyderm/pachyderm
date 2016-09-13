@@ -49,33 +49,33 @@ type Driver interface {
 
 // CommitID is an alias for string
 type CommitID string // master/0
+type Repo string
 
-// PfsRefactorDriver is only here for documentation purposes, showing how we
-// envision the new PFS API to be like.
-type PfsRefactorDriver interface {
-	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
+// NewDriver
+type NewDriver interface {
+	CreateRepo(repo, provenance []*pfs.Repo) error
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
 	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, force bool) error
-	StartCommit(repo *pfs.Repo, branch string, provenance []*pfs.Commit) (CommitID, error)
-	StartCommitNewBranch(repo *pfs.Repo, parentID string, branch string, provenance []*pfs.Commit) (CommitID, error)
-	FinishCommit(commit CommitID, cancel bool) error
-	ArchiveCommit(commit CommitID) error
-	InspectCommit(commit CommitID) (*pfs.CommitInfo, error)
-	ListCommit(repo *pfs.Repo, branch string, commitType pfs.CommitType, fromCommit *pfs.Commit, provenance []*pfs.Commit, all bool) ([]*pfs.CommitInfo, error)
+	Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error)
+	StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
+	FinishCommit(commit *pfs.Commit, cancel bool) error
+	ArchiveCommits(commit []*pfs.Commit) error
+	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
+	ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo) ([]string, error)
-	DeleteCommit(commit CommitID) error
+	DeleteCommit(commit *pfs.Commit) error
 	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
 	MakeDirectory(file *pfs.File) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-		size int64, from CommitID, unsafe bool) (io.ReadCloser, error)
-	InspectFile(file *pfs.File, filterShard *pfs.Shard, from CommitID, unsafe bool) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, from CommitID, recurse bool, unsafe bool) ([]*pfs.FileInfo, error)
-	DeleteFile(file *pfs.File, unsafe bool) error
+		size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error)
+	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error)
+	DeleteFile(file *pfs.File) error
 	DeleteAll() error
 	ArchiveAll() error
-	Squash(from []*pfs.Commit, to *pfs.Commit) error
-	Merge(repo string, commits []*pfs.Commit, toBranch string, strategy pfs.MergeStrategy) (*pfs.Commits, error)
 	Dump()
+	Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error
+	Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
 }
