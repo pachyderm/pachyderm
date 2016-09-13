@@ -11,7 +11,7 @@ Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete ve
 Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/getting_started/installation.html) or [http://pachyderm.readthedocs.io/development/deploying_on_the_cloud.html] in about 5 minutes. You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/getting_started/installation.html) or [deploy Pachyderm on AWS/GCE] (http://pachyderm.readthedocs.io/development/deploying_on_the_cloud.html) in about 5 minutes. You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 ## What is Pachyderm?
 
