@@ -1,7 +1,7 @@
 # Pachyderm: A Containerized Data Lake
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
-[![Slack](http://slack.noms.io/badge.svg)](http://slack.noms.io)
+[![Slack](http://pachyderm-slack.herokuapp.com/badge.svg)](http://pachyderm-slack.herokuapp.com)
 
 
 * [Getting Started](http://pachyderm.readthedocs.io/)
