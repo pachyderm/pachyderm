@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -106,12 +107,32 @@ func (inputs JobInputs) Swap(i, j int) {
 // TODO(msteffen): Compute expected number of workers using ParallelismSpec
 //
 // This is only exported for testing purposes
-func GetExpectedNumWorkers(spec ppsclient.ParallelismSpec) uint64 {
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec ppsclient.ParallelismSpec) (uint64, error) {
+	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
 	if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
-		return spec.Constant
+		if spec.Constant > 0 {
+			return spec.Constant, nil
+		} else {
+			coefficient = 1
+		}
+	} else if spec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
+		coefficient = spec.Coefficient
 	} else {
-		return 0
+		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
 	}
+	if coefficient == 0.0 {
+		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
+	}
+
+	// Input has been sanitized. Determine number of workers
+	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("Unable to retrieve node list from k8s to determine parallelism")
+	}
+	if len(nodeList.Items) == 0 {
+		return 0, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
+	}
+	return uint64(math.Floor(coefficient * float64(len(nodeList.Items)))), nil
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
@@ -146,26 +167,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
-	}
-
-	if request.ParallelismSpec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
-		// TODO(msteffen): Use new ParallelismSpec API
-		if request.ParallelismSpec.Coefficient != 1.0 {
-			return nil, fmt.Errorf("Unsupported: coefficient != 1. Currently only coefficient == 1 is supported")
-		}
-		nodeList, err := a.kubeClient.Nodes().List(api.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
-		}
-
-		if len(nodeList.Items) == 0 {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
-		}
-
-		request.ParallelismSpec = &ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: uint64(len(nodeList.Items)),
-		}
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -296,7 +297,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.ParallelismSpec = request.ParallelismSpec
 	} else {
-		shardModuli, err := a.shardModuli(ctx, request.Inputs, GetExpectedNumWorkers(*request.ParallelismSpec), repoToFromCommit)
+		numWorkers, err := GetExpectedNumWorkers(a.kubeClient, *request.ParallelismSpec)
+		if err != nil {
+			return nil, err
+		}
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, numWorkers, repoToFromCommit)
 		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
@@ -350,7 +355,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo, a.imageTag)); err != nil {
+	job, err := job(a.kubeClient, persistJobInfo, a.imageTag)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
 		return nil, err
 	}
 
@@ -627,7 +636,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	numWorkers := GetExpectedNumWorkers(*jobInfo.ParallelismSpec)
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, *jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
 	if jobInfo.PodsStarted > numWorkers {
 		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, numWorkers)
 	}
@@ -816,7 +828,10 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// All shards completed, job is finished
-	numWorkers := GetExpectedNumWorkers(*jobInfo.ParallelismSpec)
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, *jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
@@ -1625,9 +1640,14 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
+// Convert a persist.JobInfo into a Kubernetes batch.Job spec
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, imageTag string) (*batch.Job, error) {
 	labels := labels(jobInfo.JobID)
-	parallelism := int32(GetExpectedNumWorkers(*jobInfo.ParallelismSpec))
+	parallelism64, err := GetExpectedNumWorkers(kubeClient, *jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	parallelism := int32(parallelism64)
 	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
@@ -1710,7 +1730,7 @@ func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {

@@ -86,7 +86,7 @@ message ParallelismSpec {
   // 'coefficient' to 4, so that each worker gets exactly one CPU. If you want
   // to reserve half the nodes in your cluster for other tasks, you might set
   // 'coefficient' to 0.5.
-  float coefficient = 3;
+  double coefficient = 3;
 }
 
 message JobInfo {
