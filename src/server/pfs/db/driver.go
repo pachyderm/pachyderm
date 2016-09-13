@@ -31,21 +31,6 @@ type Table string
 // A PrimaryKey is a rethinkdb primary key identifier.
 type PrimaryKey string
 
-// ErrCommitNotFound is specified when the commit is not found
-type ErrCommitNotFound struct {
-	error
-}
-
-// ErrBranchExists is specified if the branch already exists
-type ErrBranchExists struct {
-	error
-}
-
-// ErrCommitFinished is specified if the operation is disallowed on Finished Commits
-type ErrCommitFinished struct {
-	error
-}
-
 const (
 	repoTable   Table = "Repos"
 	diffTable   Table = "Diffs"
@@ -386,14 +371,14 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 			Repo: c.Repo.Name,
 		})
 	}
-	// If any of the commit's provenance is archived, the commit should be archived
-	var archived bool
 	// We compute the complete set of provenance.  That is, the provenance of this
 	// commit includes the provenance of its immediate provenance.
 	// This is so that running ListCommit with provenance is fast.
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c)
+		// If any of the commit's provenance is archived, the commit should be
+		// archived
 		archived = archived || commitInfo.Archived
 		if err != nil {
 			return nil, false, err
@@ -421,14 +406,14 @@ func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commi
 	}
 
 	commit := &persist.Commit{
-		ID:         persist.NewCommitID(parent.Repo, persist.NewClock(branch, 0)),
+		ID:         persist.NewCommitID(parent.Repo.Name, persist.NewClock(branch)),
 		Repo:       parent.Repo.Name,
 		Started:    now(),
 		Provenance: fullProvenance,
 		Archived:   archived,
 	}
 
-	parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parent.ID)
+	parentCommit, err := d.getCommitByAmbiguousID(parent.Repo.Name, parent.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -443,9 +428,13 @@ func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commi
 	}
 
 	return &pfs.Commit{
-		Repo: repo,
+		Repo: parent.Repo,
 		ID:   commit.ID,
 	}, nil
+}
+
+func isBranchName(id string) bool {
+	return !strings.Contains(id, "/")
 }
 
 func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
@@ -462,8 +451,8 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 	}
 
 	var makeNewBranch bool
-	parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parent.ID)
-	if ok := err.(*pfsserver.NewErrCommitNotFound); ok && isBranchName(parent.ID) {
+	parentCommit, err := d.getCommitByAmbiguousID(parent.Repo.Name, parent.ID)
+	if _, ok := err.(*pfsserver.ErrCommitNotFound); ok && isBranchName(parent.ID) {
 		makeNewBranch = true
 	} else if err == gorethink.ErrEmptyResult {
 		return nil, pfsserver.NewErrCommitNotFound(parent.Repo.Name, parent.ID)
@@ -473,11 +462,14 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 
 	if makeNewBranch {
 		branch := parent.ID
-		clock := persist.NewClock(branch, 0)
+		clock := persist.NewClock(branch)
 		commit.ID = persist.NewCommitID(branch, clock)
 		commit.FullClock = append(commit.FullClock, clock)
 	} else {
-		commit.ID = getChildID(parent.ID)
+		commit.ID, err = persist.GetChildCommitID(parent.ID)
+		if err != nil {
+			return nil, err
+		}
 		commit.FullClock = persist.NewChild(parentCommit.FullClock)
 	}
 
@@ -489,7 +481,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 	}
 
 	return &pfs.Commit{
-		Repo: repo,
+		Repo: parent.Repo,
 		ID:   commit.ID,
 	}, nil
 }
@@ -984,41 +976,21 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	panic("unreachable")
 }
 
-func (d *driver) ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
 	// Get all branches
-	cursor, err := d.getTerm(clockTable).OrderBy(gorethink.OrderByOpts{
-		Index: ClockBranchIndex.Name,
-	}).Between(
-		[]interface{}{repo.Name, gorethink.MinVal},
-		[]interface{}{repo.Name, gorethink.MaxVal},
-	).Field("Branch").Distinct().Run(d.dbClient)
+	cursor, err := d.getTerm(commitTable).Distinct(&gorethink.DistinctOpts{
+		Index: CommitBranchIndex,
+	}).OrderBy().Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close()
 
 	var branches []string
 	if err := cursor.All(&branches); err != nil {
 		return nil, err
 	}
 
-	// OBSOLETE
-	// To maintain API compatibility, we return the heads of the branches
-	var commitInfos []*pfs.CommitInfo
-	for _, branch := range branches {
-		commit := &persist.Commit{}
-		if err := d.getHeadOfBranch(repo.Name, branch, commit); err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, &pfs.CommitInfo{
-			Commit: &pfs.Commit{
-				Repo: repo,
-				ID:   commit.ID,
-			},
-			Branch: branch,
-		})
-	}
-	return commitInfos, nil
+	return branches, nil
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit) error {
@@ -1060,7 +1032,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		return err
 	}
 	if commit.Finished != nil {
-		return ErrCommitFinished{fmt.Errorf("commit %v has already been finished", commit.ID)}
+		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 	_client := client.APIClient{BlockAPIClient: d.blockClient}
 	blockrefs, err := _client.PutBlock(delimiter, reader)
@@ -1172,7 +1144,7 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		return err
 	}
 	if commit.Finished != nil {
-		return ErrCommitFinished{fmt.Errorf("commit %v has already been finished", commit.ID)}
+		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 
 	if err := d.checkFileType(commit.Repo, commit.ID, file.Path, persist.FileType_DIR); err != nil {
@@ -2027,40 +1999,31 @@ func (d *driver) getIDOfParentCommit(repo string, commitID string) (string, erro
 }
 
 // getCommitByAmbiguousID accepts a repo name and an ID, and returns a Commit object.
-// The ID can be of 3 forms:
-// 1. Database primary key: we are only supporting this case to maintain compatibility
-// of the existing tests.  We will remove support for this case eventually.  OBSOLETE
-// 2. branch/clock: like "master/3"
-// 3. branch: like "master".  This would represent the head of the branch.
+// The ID can be of 2 forms:
+// 1. branch/clock: like "master/3"
+// 2. branch: like "master".  This would represent the head of the branch.
 func (d *driver) getCommitByAmbiguousID(repo string, commitID string) (commit *persist.Commit, retErr error) {
 	defer func() {
 		if retErr == gorethink.ErrEmptyResult {
 			retErr = pfsserver.NewErrCommitNotFound(repo, commitID)
 		}
 	}()
-	alias, err := parseClock(commitID)
 
+	clock, err := parseClock(commitID)
 	commit = &persist.Commit{}
 	if err != nil {
 		// We see if the commitID is a branch name
 		if err := d.getHeadOfBranch(repo, commitID, commit); err != nil {
-			if err != gorethink.ErrEmptyResult {
-				return nil, err
-			}
-
-			// If the commit ID is not a branch name, we see if it's a database key
-			cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
-			if err != nil {
-				return nil, err
-			}
-
-			if err := cursor.One(commit); err != nil {
-				return nil, err
-			}
+			return nil, err
 		}
 	} else {
-		// If we can't parse
-		if err := d.getMessageByIndex(commitTable, CommitClockIndex, commitClockIndexKey(repo, alias.Branch, alias.Clock), commit); err != nil {
+		fullCommitID := persist.NewCommitID(repo, clock)
+		cursor, err := d.getTerm(commitTable).Get(fullCommitID).Run(d.dbClient)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := cursor.One(commit); err != nil {
 			return nil, err
 		}
 	}
