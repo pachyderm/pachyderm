@@ -20,7 +20,6 @@ import (
 
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
-	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
@@ -50,7 +49,6 @@ type ErrCommitFinished struct {
 const (
 	repoTable   Table = "Repos"
 	diffTable   Table = "Diffs"
-	clockTable  Table = "Clocks"
 	commitTable Table = "Commits"
 
 	connectTimeoutSeconds = 5
@@ -66,7 +64,6 @@ var (
 		repoTable,
 		commitTable,
 		diffTable,
-		clockTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
@@ -81,11 +78,6 @@ var (
 			},
 		},
 		diffTable: []gorethink.TableCreateOpts{
-			gorethink.TableCreateOpts{
-				PrimaryKey: "ID",
-			},
-		},
-		clockTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: "ID",
 			},
@@ -374,14 +366,10 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 	return err
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string, started *google_protobuf.Timestamp, provenance []*pfs.Commit) (_commit *pfs.Commit, retErr error) {
-	if commitID == "" {
-		commitID = uuid.NewWithoutDashes()
-	}
-
+func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fullProvenance []*persist.ProvenanceCommit, archived bool, err error) {
 	rawRepo, err := d.inspectRepo(repo)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	repoSet := make(map[string]bool)
@@ -389,13 +377,11 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		repoSet[repoName] = true
 	}
 
-	var _provenance []*persist.ProvenanceCommit
 	for _, c := range provenance {
 		if !repoSet[c.Repo.Name] {
-			return nil, fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s",
-				c.Repo.Name, c.ID, c.Repo.Name, repo.Name)
+			return nil, false, fmt.Errorf("cannot use %s/%s as provenance, %s is not provenance of %s", c.Repo.Name, c.ID, c.Repo.Name, repo.Name)
 		}
-		_provenance = append(_provenance, &persist.ProvenanceCommit{
+		fullProvenance = append(fullProvenance, &persist.ProvenanceCommit{
 			ID:   c.ID,
 			Repo: c.Repo.Name,
 		})
@@ -410,7 +396,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 		commitInfo, err := d.InspectCommit(c)
 		archived = archived || commitInfo.Archived
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		for _, p := range commitInfo.Provenance {
@@ -419,109 +405,92 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	}
 
 	for _, c := range provenanceSet {
-		_provenance = append(_provenance, &persist.ProvenanceCommit{
+		fullProvenance = append(fullProvenance, &persist.ProvenanceCommit{
 			ID:   c.ID,
 			Repo: c.Repo.Name,
 		})
 	}
 
-	commit := &persist.Commit{
-		ID:         commitID,
-		Repo:       repo.Name,
-		Started:    now(),
-		Provenance: _provenance,
-		Archived:   archived,
-	}
-	var clockID *persist.ClockID
-	if parentID == "" {
-		if branch == "" {
-			branch = uuid.NewWithoutDashes()
-		}
-		for {
-			// The head of this branch will be our parent commit
-			parentCommit := &persist.Commit{}
-			err := d.getHeadOfBranch(repo.Name, branch, parentCommit)
-			if err != nil && err != gorethink.ErrEmptyResult {
-				return nil, err
-			} else if err == gorethink.ErrEmptyResult {
-				// we don't have a parent :(
-				// so we create a new clock
-				commit.FullClock = append(commit.FullClock, persist.NewClock(branch))
-			} else {
-				// we do have a parent :D
-				// so we inherit our parent's full clock
-				// and increment the last component by 1
-				commit.FullClock = persist.NewChild(parentCommit.FullClock)
-				if err != nil {
-					return nil, err
-				}
-			}
-			clock := persist.FullClockHead(commit.FullClock)
-			clockID = getClockID(repo.Name, clock)
-			err = d.insertMessage(clockTable, clockID)
-			if gorethink.IsConflictErr(err) {
-				// There is another process creating a commit on this branch
-				// at the same time.  We lost the race, but we can try again
-				continue
-			} else if err != nil {
-				return nil, err
-			}
-			break
-		}
-	} else {
-		parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parentID)
-		if err != nil {
-			return nil, err
-		}
+	return fullProvenance, archived, nil
+}
 
-		parentBranch := persist.FullClockBranch(parentCommit.FullClock)
-
-		var newBranch bool
-		if branch == "" {
-			// Create a commit on the same branch as this parent
-			commit.FullClock = persist.NewChild(parentCommit.FullClock)
-		} else {
-			// Create a new branch based off this parent
-			newBranch = true
-			commit.FullClock = append(parentCommit.FullClock, persist.NewClock(branch))
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		head := persist.FullClockHead(commit.FullClock)
-		clockID = getClockID(repo.Name, head)
-		if err := d.insertMessage(clockTable, clockID); err != nil {
-			if gorethink.IsConflictErr(err) {
-				if newBranch {
-					// This should only happen if there's another process creating the
-					// very same branch at the same time, and we lost the race.
-					return nil, ErrBranchExists{fmt.Errorf("branch %s already exists", branch)}
-				}
-				// This should only happen if there's another process creating a
-				// new commit off the same parent, but on the parent's own branch,
-				// and we lost the race.
-				return nil, fmt.Errorf("%s already has a child on its own branch (%s)", parentID, parentBranch)
-			}
-			return nil, err
-		}
-	}
-	defer func() {
-		if retErr != nil {
-			if err := d.deleteMessageByPrimaryKey(clockTable, clockID.ID); err != nil {
-				protolion.Debugf("Unable to remove clock after StartCommit fails; this will result in database inconsistency")
-			}
-		}
-	}()
-	// TODO: what if the program exits here?  There will be an entry in the Clocks
-	// table, but not in the Commits table.  Now you won't be able to create this
-	// commit anymore.
-	if err := d.insertMessage(commitTable, commit); err != nil {
+func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	fullProvenance, archived, err := d.getFullProvenance(parent.Repo, provenance)
+	if err != nil {
 		return nil, err
 	}
+
+	commit := &persist.Commit{
+		ID:         persist.NewCommitID(parent.Repo, persist.NewClock(branch, 0)),
+		Repo:       parent.Repo.Name,
+		Started:    now(),
+		Provenance: fullProvenance,
+		Archived:   archived,
+	}
+
+	parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parent.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	commit.FullClock = append(parentCommit.FullClock, persist.NewClock(branch))
+
+	if err := d.insertMessage(commitTable, commit); err != nil {
+		if gorethink.IsConflictErr(err) {
+			return nil, pfsserver.NewErrCommitExists(commit.Repo, commit.ID)
+		}
+		return nil, err
+	}
+
 	return &pfs.Commit{
 		Repo: repo,
-		ID:   commitID,
+		ID:   commit.ID,
+	}, nil
+}
+
+func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	fullProvenance, archived, err := d.getFullProvenance(parent.Repo, provenance)
+	if err != nil {
+		return nil, err
+	}
+
+	commit := &persist.Commit{
+		Repo:       parent.Repo.Name,
+		Started:    now(),
+		Provenance: fullProvenance,
+		Archived:   archived,
+	}
+
+	var makeNewBranch bool
+	parentCommit, err := d.getCommitByAmbiguousID(repo.Name, parent.ID)
+	if ok := err.(*pfsserver.NewErrCommitNotFound); ok && isBranchName(parent.ID) {
+		makeNewBranch = true
+	} else if err == gorethink.ErrEmptyResult {
+		return nil, pfsserver.NewErrCommitNotFound(parent.Repo.Name, parent.ID)
+	} else if err != nil {
+		return nil, err
+	}
+
+	if makeNewBranch {
+		branch := parent.ID
+		clock := persist.NewClock(branch, 0)
+		commit.ID = persist.NewCommitID(branch, clock)
+		commit.FullClock = append(commit.FullClock, clock)
+	} else {
+		commit.ID = getChildID(parent.ID)
+		commit.FullClock = persist.NewChild(parentCommit.FullClock)
+	}
+
+	if err := d.insertMessage(commitTable, commit); err != nil {
+		if gorethink.IsConflictErr(err) {
+			return nil, pfsserver.NewErrCommitExists(commit.Repo, commit.ID)
+		}
+		return nil, err
+	}
+
+	return &pfs.Commit{
+		Repo: repo,
+		ID:   commit.ID,
 	}, nil
 }
 
