@@ -1,4 +1,4 @@
-<img src='doc/GH_logo.png' width='450' height='450' title='Pachyderm'>
+<img src='doc/GH_logo.png' width='250' height='250' title='Pachyderm'>
 
 # Pachyderm: A Containerized Data Lake
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
