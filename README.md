@@ -1,3 +1,5 @@
+<img src='doc/GH_logo.png' width='350' title='Pachyderm'>
+
 # Pachyderm: A Containerized Data Lake
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
