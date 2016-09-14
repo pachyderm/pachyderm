@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
-[![Slack](http://pachyderm-slack.herokuapp.com/badge.svg)](http://pachyderm-slack.herokuapp.com)
+[![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 # Pachyderm: A Containerized Data Lake
 Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](pachyderm.readthedocs.io/advanced/provenance.html)). 
@@ -49,7 +49,7 @@ a streaming job, the same code will work for both!
 Keep up to date and get Pachyderm support via:
 - [Twitter](twitter.com/pachydermio)
 - [Join our mailing list]
-- Join our community [Slack Channel](http://pachyderm-slack.herokuapp.com) to get help from the Pachyderm team and other users
+- Join our community [Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users
 
 ### Contributing
 
