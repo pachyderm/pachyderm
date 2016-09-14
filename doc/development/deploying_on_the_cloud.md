@@ -196,7 +196,6 @@ function build-kube-env {
     server_binary_tar_url=$(split_csv "${SERVER_BINARY_TAR_URL}")
     salt_tar_url=$(split_csv "${SALT_TAR_URL}")
     kube_manifests_tar_url=$(split_csv "${KUBE_MANIFESTS_TAR_URL}")
-  fi
  ```
 
  NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:

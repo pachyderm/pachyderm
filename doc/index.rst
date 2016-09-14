@@ -31,7 +31,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     development/inputing_your_data
     development/custom_pipelines
     development/pipeline_spec
-    development/tracking_your_data
+    development/getting_your_results
     development/updating_pipelines
 
 .. toctree::
@@ -42,6 +42,15 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     advanced/provenance
     advanced/incrementality
     advanced/composing_pipelines
+
+ .. toctree::
+    :maxdepth: 1
+    :caption: Misc
+
+    FAQ
+    examples
+    troubleshooting
+    CHANGELOG  
 
 .. toctree::
     :maxdepth: 2
