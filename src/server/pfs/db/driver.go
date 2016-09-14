@@ -599,7 +599,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
 	_, err := d.inspectRepo(commit.Repo)
 	if err != nil {
@@ -652,10 +652,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 
-	if finished == nil {
-		finished = now()
-	}
-	rawCommit.Finished = finished
+	rawCommit.Finished = now()
 	rawCommit.Cancelled = parentCancelled || cancel
 	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
 
@@ -776,17 +773,14 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 	}
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, commitType pfs.CommitType, fromCommits []*pfs.Commit, provenance []*pfs.Commit, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
 	repoToFromCommit := make(map[string]string)
-	for _, repo := range repos {
+	for _, commit := range fromCommits {
 		// make sure that the repos exist
-		_, err := d.inspectRepo(repo)
+		_, err := d.inspectRepo(commit.Repo)
 		if err != nil {
 			return nil, err
 		}
-		repoToFromCommit[repo.Name] = ""
-	}
-	for _, commit := range fromCommits {
 		repoToFromCommit[commit.Repo.Name] = commit.ID
 	}
 	var queries []interface{}
@@ -1539,6 +1533,14 @@ func (d *driver) Merge(repo *pfs.Repo, commits []*pfs.Commit, to string, strateg
 	}
 
 	return retCommits, nil
+}
+
+func (d *driver) Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error {
+	return nil
+}
+
+func (d *driver) Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error) {
+	return nil, nil
 }
 
 // foldDiffs takes an ordered stream of diffs for a given path, and return

@@ -17,7 +17,7 @@ func IsPermissionError(err error) bool {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	CreateRepo(repo, provenance []*pfs.Repo) error
+	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
 	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, force bool) error
