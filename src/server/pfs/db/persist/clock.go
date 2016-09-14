@@ -132,14 +132,9 @@ func ClockToArray(clock gorethink.Term) []interface{} {
 	return []interface{}{clock.Field("Branch"), clock.Field("Clock")}
 }
 
-// ToCommitID converts a clock to a string like "master/2"
-func (c *Clock) ToCommitID() string {
-	return fmt.Sprintf("%s/%d", c.Branch, c.Clock)
-}
-
 // CommitID returns the CommitID of the clock associated with the diff
 func (d *Diff) CommitID() string {
-	return d.Clock.ToCommitID()
+	return NewCommitID(d.Repo, d.Clock)
 }
 
 // ClockRangeList is an ordered list of ClockRanges

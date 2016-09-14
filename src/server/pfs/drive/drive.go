@@ -40,6 +40,9 @@ type Driver interface {
 	DeleteAll() error
 	ArchiveAll() error
 	Dump()
+	// Squash merges the content of fromCommits into toCommit, which should be an
+	// open commit.
 	Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error
+	// Replay replays fromCommits onto toBranch
 	Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
 }
