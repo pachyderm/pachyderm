@@ -47,13 +47,13 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "BRANCH\tID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
+	fmt.Fprint(w, "BRANCH\tREPO/ID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
 }
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
+	fmt.Fprintf(w, "%s/%s\t", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
 		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
 	} else {
