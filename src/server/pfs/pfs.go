@@ -65,7 +65,7 @@ func NewErrCommitExists(repo string, commitID string) *ErrCommitExists {
 }
 
 // NewErrCommitFinished creates a new ErrCommitExists.
-func NewErrCommitFinished(repo string, commitID string) *ErrCommitExists {
+func NewErrCommitFinished(repo string, commitID string) *ErrCommitFinished {
 	return &ErrCommitFinished{
 		error: fmt.Errorf("commit %v in repo %v has already finished", commitID, repo),
 	}

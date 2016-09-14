@@ -662,9 +662,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return err
 }
 
-// ArchiveCommit archives the given commits and all commits that have any of the
+// ArchiveCommits archives the given commits and all commits that have any of the
 // given commits as provenance
-func (d *driver) ArchiveCommit(commits []*pfs.Commit) error {
+func (d *driver) ArchiveCommits(commits []*pfs.Commit) error {
 	var commitIDs []interface{}
 	for _, commit := range commits {
 		c, err := d.getCommitByAmbiguousID(commit.Repo.Name, commit.ID)
@@ -978,9 +978,9 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 
 func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
 	// Get all branches
-	cursor, err := d.getTerm(commitTable).Distinct(&gorethink.DistinctOpts{
+	cursor, err := d.getTerm(commitTable).Distinct(gorethink.DistinctOpts{
 		Index: CommitBranchIndex,
-	}).OrderBy().Run(d.dbClient)
+	}).Filter(gorethink.Row.Nth(0).Eq(repo.Name)).OrderBy(gorethink.Row.Nth(1)).Map(gorethink.Row.Nth(1)).Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
