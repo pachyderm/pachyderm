@@ -80,7 +80,10 @@ func BenchmarkPachyderm(b *testing.B) {
 				"",
 				[]string{"cp", "-R", path.Join("/pfs", repo), "/pfs/out/"},
 				nil,
-				1,
+				&ppsclient.ParallelismSpec{
+					Strategy: ppsclient.ParallelismSpec_CONSTANT,
+					Constant: 1,
+				},
 				[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
 				false,
 			))
