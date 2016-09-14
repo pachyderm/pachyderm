@@ -2867,6 +2867,18 @@ func TestChainedPipelines(t *testing.T) {
 	require.Equal(t, 2, len(results))
 }
 
+func TestFlushCommitReturnsFromCommit(t *testing.T) {
+	c := getPachClient(t)
+	repo := uniqueString("TestFlushCommitReturnsFromCommit")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
