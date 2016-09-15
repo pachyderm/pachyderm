@@ -970,7 +970,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
 	// Get all branches
 	cursor, err := d.getTerm(commitTable).Distinct(gorethink.DistinctOpts{
-		Index: CommitBranchIndex,
+		Index: CommitBranchIndex.Name,
 	}).Filter(gorethink.Row.Nth(0).Eq(repo.Name)).OrderBy(gorethink.Row.Nth(1)).Map(gorethink.Row.Nth(1)).Run(d.dbClient)
 	if err != nil {
 		return nil, err
