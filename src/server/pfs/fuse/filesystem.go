@@ -644,19 +644,16 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	var commitInfos []*pfsclient.CommitInfo
-	var err error
+	status := pfsclient.CommitStatus_NORMAL
 	if d.fs.allCommits {
-		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
-	} else {
-		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+		status = pfsclient.CommitStatus_ALL
 	}
+	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
+		nil, client.CommitTypeNone, false, status, nil)
 	if err != nil {
 		return nil, err
 	}
-	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
+	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name, status)
 	if err != nil {
 		return nil, err
 	}
