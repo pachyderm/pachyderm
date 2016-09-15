@@ -2467,39 +2467,38 @@ func TestSquashMergeSameFile(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	contentA1 := "foo1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, "", "A")
+	_, err = client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
 	contentB2 := "bar2\n"
-	_, err = client.StartCommit(repo, "", "B")
+	_, err = client.StartCommit(repo, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
+	commit, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1 + contentB2, contentB1 + contentB2 + contentA1 + contentA2}, buffer.String())
 }
@@ -2515,34 +2514,34 @@ func TestReplayMergeSameFile(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	contentA1 := "foo1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, "", "A")
+	_, err = client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
 	contentB2 := "bar2\n"
-	_, err = client.StartCommit(repo, "", "B")
+	_, err = client.StartCommit(repo, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfs.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Replay(repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 4, len(mergedCommits))
 
@@ -2564,7 +2563,7 @@ func TestSquashMergeDiffOrdering(t *testing.T) {
 
 	contentA1 := "foo1\n"
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2573,18 +2572,17 @@ func TestSquashMergeDiffOrdering(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
+	commit, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "file", 0, 0, "", false, nil, buffer))
 	// The ordering of commits within the same branch should be preserved
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
@@ -2601,7 +2599,7 @@ func TestReplayMergeDiffOrdering(t *testing.T) {
 
 	contentA1 := "foo1\n"
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2610,13 +2608,13 @@ func TestReplayMergeDiffOrdering(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfs.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Replay(repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(mergedCommits))
 
@@ -2637,41 +2635,41 @@ func TestReplayMergeBranches(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	contentA1 := "foo1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, "", "A")
+	_, err = client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentA3 := "foo3\n"
-	_, err = client.StartCommit(repo, "", "A")
+	_, err = client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file", strings.NewReader(contentA3))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
 	contentB2 := "bar2\n"
-	_, err = client.StartCommit(repo, "", "B")
+	_, err = client.StartCommit(repo, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file", strings.NewReader(contentB2))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A"}, "B", pfs.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Replay(repo, []string{"A"}, "B")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(mergedCommits))
 
@@ -2693,7 +2691,7 @@ func TestReplayMergeMultipleFiles(t *testing.T) {
 
 	contentA1 := "foo1\n"
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2703,7 +2701,7 @@ func TestReplayMergeMultipleFiles(t *testing.T) {
 
 	contentB1 := "bar1\n"
 	contentB2 := "bar2\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
 	require.NoError(t, err)
@@ -2711,7 +2709,7 @@ func TestReplayMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := client.Merge(repo, []string{"A", "B"}, "master", pfs.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Replay(repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(mergedCommits))
 
@@ -2735,7 +2733,7 @@ func TestSquashMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	contentA1 := "foo1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "A")
+	_, err = client.Fork(repo, commitRoot.ID, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2744,7 +2742,7 @@ func TestSquashMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentA2 := "foo2\n"
-	_, err = client.StartCommit(repo, "", "A")
+	_, err = client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA2))
 	require.NoError(t, err)
@@ -2753,7 +2751,7 @@ func TestSquashMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "A"))
 
 	contentB1 := "bar1\n"
-	_, err = client.StartCommit(repo, commitRoot.ID, "B")
+	_, err = client.Fork(repo, commitRoot.ID, "B")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "B", "file1", strings.NewReader(contentB1))
 	require.NoError(t, err)
@@ -2761,12 +2759,11 @@ func TestSquashMergeMultipleFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "B"))
 
-	mergedCommits, err := squash(client, repo, []string{"A", "B"}, "master")
+	commit, err := squash(client, repo, []string{"A", "B"}, "master")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file1", 0, 0, "", false, nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "file1", 0, 0, "", false, nil, buffer))
 	require.EqualOneOf(t, []interface{}{contentA1 + contentA2 + contentB1, contentB1 + contentA1 + contentA2}, buffer.String())
 }
 
@@ -2778,7 +2775,7 @@ func TestLeadingSlashesBreakThis(t *testing.T) {
 
 	contentA1 := "foo1\n"
 	contentA2 := "foo2\n"
-	commit1, err := client.StartCommit(repo, "", "A")
+	commit1, err := client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "dir/file1", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2807,7 +2804,7 @@ func TestListFileWithFiltering(t *testing.T) {
 
 	contentA1 := "foo1\n"
 	contentA2 := "foo2\n"
-	commit1, err := client.StartCommit(repo, "", "A")
+	commit1, err := client.StartCommit(repo, "A")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
 	require.NoError(t, err)
@@ -2845,10 +2842,10 @@ func TestMergeProvenance(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create two commits in repo1
-	p1, err := client.StartCommit(repo1, "", "master")
+	p1, err := client.StartCommit(repo1, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo1, "master"))
-	p2, err := client.StartCommit(repo1, "", "master")
+	p2, err := client.StartCommit(repo1, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo1, "master"))
 
@@ -2856,8 +2853,7 @@ func TestMergeProvenance(t *testing.T) {
 	_, err = client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Repo:       pclient.NewRepo(repo2),
-			Branch:     "A",
+			Parent:     pclient.NewCommit(repo2, "A"),
 			Provenance: []*pfs.Commit{p1},
 		},
 	)
@@ -2866,20 +2862,17 @@ func TestMergeProvenance(t *testing.T) {
 	_, err = client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Repo:       pclient.NewRepo(repo2),
-			Branch:     "B",
+			Parent:     pclient.NewCommit(repo2, "B"),
 			Provenance: []*pfs.Commit{p2},
 		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo2, "B"))
 
-	mergedCommits, err := squash(client, repo2, []string{"A", "B"}, "master")
+	commit, err := squash(client, repo2, []string{"A", "B"}, "master")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mergedCommits))
 
-	commitInfo, err := client.InspectCommit(mergedCommits[0].Repo.Name, mergedCommits[0].ID)
-	fmt.Printf("provenance: %v\n", commitInfo.Provenance)
+	commitInfo, err := client.InspectCommit(commit.Repo.Name, commit.ID)
 	require.Equal(t, 2, len(commitInfo.Provenance))
 	require.Equal(t, p1.ID, commitInfo.Provenance[0].ID)
 	require.Equal(t, p2.ID, commitInfo.Provenance[1].ID)
@@ -2898,18 +2891,18 @@ func TestSquashMergeDeletion(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	createThreeCommits := func(branch string) {
-		_, err = client.StartCommit(repo, commitRoot.ID, branch)
+		_, err = client.Fork(repo, commitRoot.ID, branch)
 		require.NoError(t, err)
 		_, err = client.PutFile(repo, branch, "file", strings.NewReader("foo"))
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, branch))
 
-		_, err = client.StartCommit(repo, "", branch)
+		_, err = client.StartCommit(repo, branch)
 		require.NoError(t, err)
 		require.NoError(t, client.DeleteFile(repo, branch, "file"))
 		require.NoError(t, client.FinishCommit(repo, branch))
 
-		_, err = client.StartCommit(repo, "", branch)
+		_, err = client.StartCommit(repo, branch)
 		require.NoError(t, err)
 		_, err = client.PutFile(repo, branch, "file", strings.NewReader("bar"))
 		require.NoError(t, err)
@@ -2920,15 +2913,14 @@ func TestSquashMergeDeletion(t *testing.T) {
 	createThreeCommits("B")
 	createThreeCommits("C")
 
-	mergedCommits, err := squash(client, repo, []string{"A", "B", "C"}, "squash")
+	commit, err := squash(client, repo, []string{"A", "B", "C"}, "squash")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(mergedCommits))
 
 	buffer := &bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, mergedCommits[0].ID, "file", 0, 0, "", false, nil, buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "file", 0, 0, "", false, nil, buffer))
 	require.Equal(t, "barbarbar", buffer.String())
 
-	mergedCommits, err = client.Merge(repo, []string{"A", "B", "C"}, "replay", pfs.MergeStrategy_REPLAY)
+	mergedCommits, err := client.Replay(repo, []string{"A", "B", "C"}, "replay")
 	require.NoError(t, err)
 	// 3 commits on each branch plus 1 commit on master
 	require.Equal(t, 10, len(mergedCommits))
@@ -2969,11 +2961,11 @@ func TestListCommitOrder(t *testing.T) {
 	var lastCommit *pfs.Commit
 	var received int
 	for {
-		var fromCommitIDs []string
+		var fromCommits []*pfs.Commit
 		if lastCommit != nil {
-			fromCommitIDs = append(fromCommitIDs, lastCommit.ID)
+			fromCommits = append(fromCommits, pclient.NewCommit(repo, lastCommit.ID))
 		}
-		commitInfos, err := client.ListCommit([]string{repo}, fromCommitIDs, pclient.CommitTypeRead, true, pclient.CommitStatusNormal, nil)
+		commitInfos, err := client.ListCommit(fromCommits, nil, pclient.CommitTypeRead, pclient.CommitStatusNormal, true)
 		require.NoError(t, err)
 		for _, commitInfo := range commitInfos {
 			received++
@@ -3072,17 +3064,16 @@ func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }
 
-func squash(client pclient.APIClient, repo string, fromCommits []string, branch string) ([]*pfs.Commit, error) {
-	commit, err := client.StartCommit(repo, "", branch)
+func squash(client pclient.APIClient, repo string, fromCommits []string, branch string) (*pfs.Commit, error) {
+	commit, err := client.StartCommit(repo, branch)
 	if err != nil {
 		return nil, err
 	}
-	mergedCommits, err := client.Merge(repo, fromCommits, commit.ID, pfs.MergeStrategy_SQUASH)
-	if err != nil {
+	if err := client.Squash(repo, fromCommits, commit.ID); err != nil {
 		return nil, err
 	}
 	if err := client.FinishCommit(repo, commit.ID); err != nil {
 		return nil, err
 	}
-	return mergedCommits, nil
+	return commit, nil
 }
