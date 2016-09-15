@@ -771,8 +771,7 @@ func TestNoReadCancelledCommit(t *testing.T) {
 		// archived or cancelled commits
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		// We still see the branches, but not the commits
-		require.Equal(t, 2, len(dirs))
+		require.Equal(t, 0, len(dirs))
 	}, false)
 }
 
