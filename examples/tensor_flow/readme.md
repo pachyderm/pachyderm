@@ -27,7 +27,7 @@ Getting this neural net running on Pachyderm will require a few steps:
 Since this data set isn't tiny, we've included some helpers to create the repos we need and input the data. To initialize the data set, just run:
 
 ```shell
-make input-data 
+make input-data
 ```
 
 This task does 2 things:
@@ -204,7 +204,7 @@ Actually, you can see how 'dumb' the model is. If you [read through the Tensor F
 
 ```
 $pachctl list-job
-$pachctl get-logs {job ID from GoT_generate job}
+$pachctl get-logs {job ID from GoT_train job}
 0 | Epoch: 1 Learning rate: 1.000
 0 | 0.002 perplexity: 8526.820 speed: 1558 wps
 0 | 0.102 perplexity: 880.494 speed: 1598 wps
