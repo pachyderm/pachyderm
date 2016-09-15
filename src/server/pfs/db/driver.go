@@ -1015,7 +1015,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	panic("unreachable")
 }
 
-func (d *driver) ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]*pfs.CommitInfo, error) {
 	// Get all branches
 	cursor, err := d.getTerm(clockTable).OrderBy(gorethink.OrderByOpts{
 		Index: ClockBranchIndex.Name,
@@ -1041,15 +1041,22 @@ func (d *driver) ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 		if err := d.getHeadOfBranch(repo.Name, branch, commit); err != nil {
 			return nil, err
 		}
-		if !commit.Cancelled && !commit.Archived {
-			commitInfos = append(commitInfos, &pfs.CommitInfo{
-				Commit: &pfs.Commit{
-					Repo: repo,
-					ID:   commit.ID,
-				},
-				Branch: branch,
-			})
+		// Check if we should skip the commit based on status
+		if status != pfs.CommitStatus_ALL {
+			if commit.Cancelled && status != pfs.CommitStatus_CANCELLED {
+				continue
+			}
+			if commit.Archived && status != pfs.CommitStatus_ARCHIVED {
+				continue
+			}
 		}
+		commitInfos = append(commitInfos, &pfs.CommitInfo{
+			Commit: &pfs.Commit{
+				Repo: repo,
+				ID:   commit.ID,
+			},
+			Branch: branch,
+		})
 	}
 	return commitInfos, nil
 }
