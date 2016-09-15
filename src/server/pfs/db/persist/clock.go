@@ -13,6 +13,12 @@ func (b *BlockRef) Size() uint64 {
 	return b.Upper - b.Lower
 }
 
+// ReadableCommitID returns a human-friendly commit ID for
+// displaying purposes.
+func (c *Clock) ReadableCommitID() string {
+	return fmt.Sprintf("%s/%d", c.Branch, c.Clock)
+}
+
 // NewCommitID generates a commitID to be used in a database
 // from a repo and a clock
 func NewCommitID(repo string, clock *Clock) string {
