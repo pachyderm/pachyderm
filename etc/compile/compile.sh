@@ -18,6 +18,8 @@ go build \
   -ldflags "${LD_FLAGS}" \
   src/server/cmd/${BINARY}/main.go
 
+echo "LD_FLAGS=$LD_FLAGS"
+
 # When creating profile binaries, we dont want to detach or do docker ops
 if [ -z ${PROFILE} ]
 then
