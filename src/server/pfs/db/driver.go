@@ -746,7 +746,7 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 			Repo: &pfs.Repo{
 				Name: rawCommit.Repo,
 			},
-			ID: persist.NewCommitID(rawCommit.Repo, persist.FullClockHead(parentClock)),
+			ID: persist.FullClockHead(parentClock).ReadableCommitID(),
 		}
 	}
 
@@ -755,7 +755,7 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 			Repo: &pfs.Repo{
 				Name: rawCommit.Repo,
 			},
-			ID: rawCommit.ID,
+			ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
 		},
 		Branch:       branch,
 		Started:      rawCommit.Started,
