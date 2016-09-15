@@ -61,6 +61,15 @@ func CloneClock(c *Clock) *Clock {
 	}
 }
 
+// CloneFullClock clones a FullClock
+func CloneFullClock(fc []*Clock) []*Clock {
+	var res []*Clock
+	for _, c := range fc {
+		res = append(res, CloneClock(c))
+	}
+	return res
+}
+
 // StringToClock converts a string like "master/2" to a clock
 func StringToClock(s string) (*Clock, error) {
 	parts := strings.Split(s, "/")
@@ -92,13 +101,14 @@ func NewChild(parent FullClock) FullClock {
 // [(master, 2), (foo, 1)] -> [(master, 2), (foo, 0)]
 // [(master, 2), (foo, 0)] -> [(master, 2)]
 func FullClockParent(child FullClock) FullClock {
-	if len(child) > 0 {
-		lastClock := CloneClock(FullClockHead(child))
+	clone := CloneFullClock(child)
+	if len(clone) > 0 {
+		lastClock := FullClockHead(clone)
 		if lastClock.Clock > 0 {
 			lastClock.Clock--
-			return append(child[:len(child)-1], lastClock)
+			return clone
 		} else if len(child) > 1 {
-			return child[:len(child)-1]
+			return clone[:len(clone)-1]
 		}
 	}
 	return nil
