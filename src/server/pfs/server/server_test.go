@@ -193,7 +193,7 @@ func TestBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(branches))
 	require.Equal(t, "master", branches[0])
-	require.Equal(t, "master1", branches[1])
+	require.Equal(t, "master2", branches[1])
 }
 
 func TestInspectRepoSimple(t *testing.T) {
