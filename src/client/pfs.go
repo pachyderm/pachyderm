@@ -252,11 +252,11 @@ func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commi
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		context.Background(),
 		&pfs.ListCommitRequest{
-			FromCommit: fromCommits,
-			Provenance: provenance,
-			CommitType: commitType,
-			Status:     status,
-			Block:      block,
+			FromCommits: fromCommits,
+			Provenance:  provenance,
+			CommitType:  commitType,
+			Status:      status,
+			Block:       block,
 		},
 	)
 	if err != nil {
