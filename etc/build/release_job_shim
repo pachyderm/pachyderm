@@ -8,8 +8,9 @@ fi
 
 echo "--- Releasing job-shim w version: $VERSION"
 
-make docker-push-job-shim
-docker tag pachyderm/job-shim:latest pachyderm/job-shim:v$VERSION
-docker push pachyderm/job-shim:v$VERSION
+make docker-build-job-shim
+make docker-wait-job-shim
+docker tag pachyderm/job-shim:latest pachyderm/job-shim:$VERSION
+docker push pachyderm/job-shim:$VERSION
 
 echo "--- Successfully released job-shim"
