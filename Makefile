@@ -20,8 +20,6 @@ endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
-MANIFEST = etc/kube/pachyderm-versioned.json
-DEV_MANIFEST = etc/kube/pachyderm.json
 VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
@@ -70,10 +68,9 @@ point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-job-shim release-manifest release-pachctl doc
-	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+release: release-version release-pachd release-job-shim release-pachctl doc
 	@rm VERSION
-	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
+	@echo "Release completed"
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -86,9 +83,6 @@ release-pachd:
 
 release-job-shim:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
-
-release-manifest:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
 
 release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
@@ -121,17 +115,12 @@ docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim dock
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
-docker-push-job-shim: docker-build-job-shim
-	docker push pachyderm/job-shim
-
-docker-push-pachd: docker-build-pachd
-	docker push pachyderm/pachd
-
-docker-push: docker-push-job-shim docker-push-pachd
-
 check-kubectl:
 	# check that kubectl is installed
 	which kubectl
+
+check-kubectl-connection:
+	kubectl get all > /dev/null
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
@@ -146,12 +135,12 @@ launch: install check-kubectl
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
-launch-dev: check-kubectl install
+launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -164,6 +153,16 @@ full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
+
+launch-test-rethinkdb:
+	@# Expose port 8081 so you can connect to the rethink dashboard
+	@# (You may need to forward port 8081 if you're running docker machine)
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
+	sleep 20  # wait for rethinkdb to start up
+
+clean-launch-test-rethinkdb:
+	docker stop pachyderm-test-rethinkdb || true
+	docker rm pachyderm-test-rethinkdb || true
 
 clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
@@ -204,7 +203,10 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+
+bench:
+	go test ./src/server -run=XXX -bench=.
 
 test-client:
 	rm -rf src/client/vendor
@@ -237,14 +239,11 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs: check-kubectl
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
+	kubectl $(KUBECTLFLAGS) get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl $(KUBECTLFLAGS) logs pod'
 
 kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
-
-dev-manifest: install
-	pachctl deploy -d --dry-run >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
@@ -385,4 +384,6 @@ goxc-build:
 	lint \
 	goxc-generate-local \
 	goxc-release \
-	goxc-build
+	goxc-build \
+	launch-test-rethinkdb \
+	clean-launch-test-rethinkdb

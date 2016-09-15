@@ -488,11 +488,9 @@ Files and URLs should be newline delimited.
 
 	var fromCommitID string
 	var fullFile bool
-	var unsafe bool
 	addFileFlags := func(cmd *cobra.Command) {
 		cmd.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 		cmd.Flags().BoolVar(&fullFile, "full-file", false, "if there has been data since the from commit return the full file")
-		cmd.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 	}
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
@@ -568,7 +566,7 @@ Files and URLs should be newline delimited.
 			if err != nil {
 				return err
 			}
-			return client.DeleteFile(args[0], args[1], args[2], false, "")
+			return client.DeleteFile(args[0], args[1], args[2])
 		}),
 	}
 

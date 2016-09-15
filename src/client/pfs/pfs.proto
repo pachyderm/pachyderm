@@ -18,6 +18,10 @@ message Commit {
   string id = 2;
 }
 
+message Commits {
+  repeated Commit commit = 1;
+}
+
 message File {
   Commit commit = 1;
   string path = 2;
@@ -67,6 +71,11 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
+enum MergeStrategy {
+  SQUASH = 0;
+  REPLAY = 1;
+}
+
 enum FileType {
   FILE_TYPE_NONE = 0;
   FILE_TYPE_REGULAR = 1;
@@ -105,9 +114,7 @@ message Append {
   map<string, bool> children = 2;
   Commit last_ref = 3;
   bool delete = 4;
-  map<string, BlockRefs> handles = 5;
-  map<string, bool> handle_deletes = 6;
-  FileType file_type = 7;
+  FileType file_type = 5;
 }
 
 message BlockInfo {
@@ -143,8 +150,7 @@ message Shard {
 
 message CreateRepoRequest {
   Repo repo = 1;
-  google.protobuf.Timestamp created = 2;
-  repeated Repo provenance = 3;
+  repeated Repo provenance = 2;
 }
 
 message InspectRepoRequest {
@@ -176,7 +182,7 @@ message FinishCommitRequest {
 }
 
 message ArchiveCommitRequest {
-  Commit commit = 1;
+  repeated Commit commits = 1;
 }
 
 message InspectCommitRequest {
@@ -184,10 +190,10 @@ message InspectCommitRequest {
 }
 
 enum CommitStatus {
-    NORMAL = 0;
-    ARCHIVED = 1;
-    CANCELLED = 2;
-    ALL = 3;
+  NORMAL = 0;
+  ARCHIVED = 1;
+  CANCELLED = 2;
+  ALL = 3;
 }
 
 message ListCommitRequest {
@@ -229,8 +235,6 @@ message GetFileRequest {
   int64 size_bytes = 3;
   Shard shard = 4;
   DiffMethod diff_method = 5;
-  bool unsafe = 7;
-  string handle = 8;
 }
 
 enum Delimiter {
@@ -243,17 +247,14 @@ message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
   bytes value = 3;
-  string handle = 4;
-  Delimiter delimiter = 5;
-  string url = 6;
+  Delimiter delimiter = 4;
+  string url = 5;
 }
 
 message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
   DiffMethod diff_method = 3;
-  bool unsafe = 4;
-  string handle = 5;
 }
 
 message ListFileRequest {
@@ -261,14 +262,18 @@ message ListFileRequest {
   Shard shard = 2;
   DiffMethod diff_method = 3;
   bool recurse = 4;
-  bool unsafe = 5;
-  string handle = 6;
 }
 
 message DeleteFileRequest {
   File file = 1;
-  bool unsafe = 2;
-  string handle = 3;
+}
+
+message MergeRequest {
+  Repo repo = 1;
+  repeated Commit from_commits = 2;
+  string to = 3;
+  MergeStrategy strategy = 4;  
+  bool cancel = 5;
 }
 
 service API {
@@ -300,6 +305,8 @@ service API {
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
+  // Merge returns the head of the commit of the merge
+  rpc Merge(MergeRequest) returns (Commits) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -342,6 +349,8 @@ service InternalAPI {
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // Merge merges commits
+  rpc Merge(MergeRequest) returns (Commits) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish

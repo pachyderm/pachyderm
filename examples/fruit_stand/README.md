@@ -8,7 +8,7 @@ added the pipeline will automatically process it and materialize the results.
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](https://github.com/pachyderm/pachyderm/blob/master/doc/deploying_setup.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../doc/installation.md).
 
 ## Mount the Filesystem
 The first thing we need to do is mount Pachyderm's filesystem (`pfs`) so that we
@@ -87,11 +87,15 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 $ cat examples/fruit_stand/set1.txt > ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 
-However, you'll notice that we can't read the file "sales" yet.
+You may notice that we can read the file "sales"
 
 ```shell
 $ cat ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
-cat: ~/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
+orange	4
+banana	2
+banana	9
+orange	9
+...
 ```
 
 ## Finish a Commit
@@ -152,12 +156,13 @@ You can view the job with:
 
 ```shell
 $ pachctl list-job
-ID                                 OUTPUT                                  STATE
-09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
+ID                                 OUTPUT                                    STARTED             DURATION            STATE               
+c1b8a9a4bffd42ce1ac7c8e919fb1438   sum/91a7f4d930884beb90b140c641ddf56c      5 seconds ago       1 seconds           success    
+0d0a6ba0b5e888584f30c400a6bc3be9   filter/01161c363ef24ddcbfa3bc62883e2bae   7 seconds ago       1 seconds           success 
 ```
 
-Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
-`JOB_STATE_SUCCESS` (hopefully you won't see `JOB_STATE_FAILURE`).
+Depending on how quickly you do the above, you may see `running` or
+`success` (hopefully you won't see `failure`).
 
 Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your job with:
 
