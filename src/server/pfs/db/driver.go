@@ -463,17 +463,16 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 		return nil, err
 	}
 
+	var clock *persist.Clock
 	if makeNewBranch {
 		branch := parent.ID
-		clock := persist.NewClock(branch)
+		clock = persist.NewClock(branch)
 		commit.ID = persist.NewCommitID(parent.Repo.Name, clock)
 		commit.FullClock = append(commit.FullClock, clock)
 	} else {
-		commit.ID, err = persist.GetChildCommitID(parent.ID)
-		if err != nil {
-			return nil, err
-		}
 		commit.FullClock = persist.NewChild(parentCommit.FullClock)
+		clock = persist.FullClockHead(commit.FullClock)
+		commit.ID = persist.NewCommitID(parent.Repo.Name, clock)
 	}
 
 	if err := d.insertMessage(commitTable, commit); err != nil {
@@ -485,8 +484,16 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 
 	return &pfs.Commit{
 		Repo: parent.Repo,
-		ID:   commit.ID,
+		ID:   clock.ReadableCommitID(),
 	}, nil
+}
+
+func getRawCommitID(repo string, readableCommitID string) (string, error) {
+	c, err := parseClock(readableCommitID)
+	if err != nil {
+		return "", err
+	}
+	return persist.NewCommitID(repo, c), nil
 }
 
 func (d *driver) getKey(i *index, desiredOutputDocument interface{}) ([]interface{}, error) {
@@ -1065,7 +1072,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 
 	// Make sure that there's no type conflict
 	for _, diff := range diffs {
-		if err := d.checkFileType(commit.Repo, commit.ID, diff.Path, diff.FileType); err != nil {
+		if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, diff.Path, diff.FileType); err != nil {
 			return err
 		}
 	}
@@ -1442,13 +1449,18 @@ func (d *driver) Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error {
 		return err
 	}
 
-	if _, err := d.getTerm(commitTable).Get(toCommit.ID).Update(map[string]interface{}{
+	rawCommitID, err := getRawCommitID(toCommit.Repo.Name, toCommit.ID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := d.getTerm(commitTable).Get(rawCommitID).Update(map[string]interface{}{
 		"Provenance": provenanceUnion,
 	}).RunWrite(d.dbClient); err != nil {
 		return err
 	}
 
-	cursor, err = d.getTerm(commitTable).Get(toCommit.ID).Run(d.dbClient)
+	cursor, err = d.getTerm(commitTable).Get(rawCommitID).Run(d.dbClient)
 	var newPersistCommit persist.Commit
 	if err := cursor.One(&newPersistCommit); err != nil {
 		return err
@@ -1519,7 +1531,12 @@ func (d *driver) Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Comm
 			return nil, err
 		}
 
-		cursor, err := d.getTerm(commitTable).Get(newCommit.ID).Run(d.dbClient)
+		rawCommitID, err := getRawCommitID(repo, newCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		cursor, err := d.getTerm(commitTable).Get(rawCommitID).Run(d.dbClient)
 		var newPersistCommit persist.Commit
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
@@ -1994,7 +2011,7 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 		}
 	}()
 
-	clock, err := parseClock(commit.ID)
+	commitID, err := getRawCommitID(commit.Repo.Name, commit.ID)
 	retCommit = &persist.Commit{}
 	if err != nil {
 		// We see if the commitID is a branch name
@@ -2002,8 +2019,7 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 			return nil, err
 		}
 	} else {
-		fullCommitID := persist.NewCommitID(commit.Repo.Name, clock)
-		cursor, err := d.getTerm(commitTable).Get(fullCommitID).Run(d.dbClient)
+		cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
 		if err != nil {
 			return nil, err
 		}
@@ -2013,14 +2029,4 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 		}
 	}
 	return retCommit, nil
-}
-
-func (d *driver) updateCommitWithAmbiguousID(repo string, commitID string, values map[string]interface{}) (err error) {
-	alias, err := parseClock(commitID)
-	if err != nil {
-		_, err = d.getTerm(commitTable).Get(commitID).Update(values).RunWrite(d.dbClient)
-	} else {
-		_, err = d.getTerm(commitTable).GetAllByIndex(CommitClockIndex.Name, commitClockIndexKey(repo, alias.Branch, alias.Clock)).Update(values).RunWrite(d.dbClient)
-	}
-	return err
 }
