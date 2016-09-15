@@ -476,6 +476,8 @@ func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs
 	}
 
 	if err := d.insertMessage(commitTable, commit); err != nil {
+		// TODO: there can be a race if two threads concurrently start commit
+		// using a branch name.  We should automatically detect the race and retry.
 		if gorethink.IsConflictErr(err) {
 			return nil, pfsserver.NewErrCommitExists(commit.Repo, commit.ID)
 		}
