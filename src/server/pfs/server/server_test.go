@@ -314,6 +314,32 @@ func TestDeleteRepo(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
+// Make sure that commits of deleted repos do not resurface
+func TestCreateDeletedRepo(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	require.NoError(t, client.DeleteRepo(repo, false))
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
 func TestDeleteProvenanceRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)

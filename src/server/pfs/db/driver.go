@@ -370,7 +370,26 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
 		}
 	}
+
+	// Deleting in the order of repo -> commits -> diffs seems to make sense,
+	// since if one can't see the repo, one can't see the commits; if they can't
+	// see the commits, they can't see the diffs.  So in a way we are hiding
+	// potential inconsistency here.
 	_, err := d.getTerm(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(commitTable).Filter(map[string]interface{}{
+		"Repo": repo.Name,
+	}).Delete().RunWrite(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(diffTable).Filter(map[string]interface{}{
+		"Repo": repo.Name,
+	}).Delete().RunWrite(d.dbClient)
 	return err
 }
 
