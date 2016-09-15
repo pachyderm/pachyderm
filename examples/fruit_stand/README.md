@@ -179,7 +179,7 @@ name where it stores its output results. In our example, the "filter" transforma
  We can read the output data from the "sum" `repo` in the same fashion that we read the input data:
 
 ```shell
-$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/91a7f4d930884beb90b140c641ddf56c/apple
 ```
 
 ## Processing More Data
@@ -214,11 +214,21 @@ read "sales" from the latest commit to see all the purchases from `set1` and
 $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
 Finishing this commit will also automatically trigger the pipeline to run on
-the new data we've added. We'll see a corresponding commit to the output
+the new data we've added. We can view the new jobs with: 
+
+```shell
+$ pachctl list-job
+ID                                 OUTPUT                                    STARTED             DURATION             STATE
+707c4de848ecbfe9f240a4dd1fd75762   sum/a511f90914cb4ddea4294380f51ca30b      2 seconds ago      Less than a second   success
+8b4af7eb3c6c6d6c918b0996526f4afa   filter/23e069e85f2b47caaae320f976d448c2   2 seconds ago      Less than a second   success
+c1b8a9a4bffd42ce1ac7c8e919fb1438   sum/91a7f4d930884beb90b140c641ddf56c      4 minutes ago      Less than a second   success
+0d0a6ba0b5e888584f30c400a6bc3be9   filter/01161c363ef24ddcbfa3bc62883e2bae   4 minutes ago      Less than a second   success
+```
+We'll see a corresponding commit to the output
 "sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold. 
 
 ```shell
-$ cat ~/pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat ~/pfs/sum/a511f90914cb4ddea4294380f51ca30b/apple
 ```
 One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since `grep` is a command that is completely parallelizable (i.e. it's a `map`), Pachyderm will only `grep` the new data from set2.txt. If you look back at the pipeline, you'll notice that there is a `"reduce": true` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. 
 
