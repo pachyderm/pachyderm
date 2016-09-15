@@ -437,6 +437,10 @@ func isBranchName(id string) bool {
 }
 
 func (d *driver) StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	if parent.Repo.Name == "" || parent.ID == "" {
+		return nil, fmt.Errorf("Invalid parent commit: %s/%s", parent.Repo.Name, parent.ID)
+	}
+
 	fullProvenance, archived, err := d.getFullProvenance(parent.Repo, provenance)
 	if err != nil {
 		return nil, err
