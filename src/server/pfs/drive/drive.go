@@ -30,7 +30,7 @@ type Driver interface {
 	ListCommit(repo []*pfs.Repo, commitType pfs.CommitType, fromCommit []*pfs.Commit,
 		provenance []*pfs.Commit, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
-	ListBranch(repo *pfs.Repo) ([]*pfs.CommitInfo, error)
+	ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit) error
 	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
 	MakeDirectory(file *pfs.File) error

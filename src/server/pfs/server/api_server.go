@@ -123,7 +123,7 @@ func (a *apiServer) Merge(ctx context.Context, request *pfs.MergeRequest) (respo
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	commitInfos, err := a.driver.ListBranch(request.Repo)
+	commitInfos, err := a.driver.ListBranch(request.Repo, request.Status)
 	if err != nil {
 		return nil, err
 	}
