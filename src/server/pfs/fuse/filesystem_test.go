@@ -1,4 +1,4 @@
-package fuse_test
+package fuse
 
 import (
 	"bytes"
@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
@@ -100,12 +99,12 @@ func TestRepoReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commitA, err := c.StartCommit(repoName, "", "")
+		commitA, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repoName, commitA.ID))
 		t.Logf("finished commit %v", commitA.ID)
 
-		commitB, err := c.StartCommit(repoName, "", "")
+		commitB, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
@@ -162,7 +161,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -220,7 +219,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -279,7 +278,7 @@ func TestWriteAndRead(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
@@ -302,7 +301,7 @@ func TestBigWrite(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
@@ -322,7 +321,7 @@ func Test296Appends(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
@@ -330,7 +329,7 @@ func Test296Appends(t *testing.T) {
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID, "")
+		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
@@ -350,7 +349,7 @@ func Test296(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
@@ -358,7 +357,7 @@ func Test296(t *testing.T) {
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID, "")
+		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
@@ -378,7 +377,7 @@ func TestSpacedWrites(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -476,7 +475,7 @@ func TestCreateFileInDir(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit, err := c.StartCommit("repo", "", "")
+		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 
 		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
@@ -491,7 +490,7 @@ func TestCreateDirConflict(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit, err := c.StartCommit("repo", "", "")
+		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 
 		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "file"), []byte("foo"), 0644))
@@ -507,12 +506,12 @@ func TestOverwriteFile(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit1, err := c.StartCommit("repo", "", "")
+		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 		_, err = c.PutFile("repo", commit1.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("repo", commit1.ID))
-		commit2, err := c.StartCommit("repo", commit1.ID, "")
+		commit2, err := c.StartCommit("repo", commit1.ID)
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, "repo", commit2.ID, "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
@@ -530,7 +529,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit1, err := c.StartCommit("repo", "", "")
+		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 		filePath := filepath.Join(mountpoint, "repo", commit1.ID, "foo")
 		f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -560,7 +559,7 @@ func TestDelimitJSON(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "abba"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		var expectedOutput []byte
 		rawMessage := `{
@@ -627,7 +626,7 @@ func TestNoDelimiter(t *testing.T) {
 		repo := "test"
 		name := "foo.bin"
 		require.NoError(t, c.CreateRepo(repo))
-		commit1, err := c.StartCommit(repo, "", "")
+		commit1, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
@@ -692,7 +691,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 		repo := "test"
 		name := "foo"
 		require.NoError(t, c.CreateRepo(repo))
-		commit1, err := c.StartCommit(repo, "", "")
+		commit1, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit1.ID))
 
@@ -712,7 +711,7 @@ func TestWriteManyFiles(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestWriteManyFiles"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		for i := 0; i < 1000; i++ {
@@ -731,7 +730,7 @@ func TestReadCancelledCommit(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestReadCancelledCommit"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
@@ -759,12 +758,12 @@ func TestNoReadCancelledCommit(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestReadCancelledCommit"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.CancelCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, "", "")
+		commit2, err := c.StartCommit(repo, "master")
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		require.NoError(t, c.ArchiveCommit(repo, commit2.ID))
 		// we shouldn't see any directories because the mount doesn't show
@@ -784,13 +783,13 @@ func TestListBranch(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestListBranch"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "master")
+		commit, err := c.StartCommit(repo, "master")
 		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(dirs))
-		require.OneOfEquals(t, commit.ID, []interface{}{dirs[0].Name(), dirs[1].Name()})
+		require.OneOfEquals(t, commitIDToPath(commit.ID), []interface{}{dirs[0].Name(), dirs[1].Name()})
 		require.OneOfEquals(t, "master", []interface{}{dirs[0].Name(), dirs[1].Name()})
 	}, false)
 }
@@ -857,7 +856,7 @@ func testFuse(
 	clientConn, err := grpc.Dial(localAddress, grpc.WithInsecure())
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
-	mounter := fuse.NewMounter(localAddress, apiClient)
+	mounter := NewMounter(localAddress, apiClient)
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
