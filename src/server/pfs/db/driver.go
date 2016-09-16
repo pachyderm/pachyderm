@@ -672,20 +672,24 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 // ArchiveCommits archives the given commits and all commits that have any of the
 // given commits as provenance
 func (d *driver) ArchiveCommits(commits []*pfs.Commit) error {
-	var commitIDs []interface{}
+	var provenanceIDs []interface{}
 	for _, commit := range commits {
-		c, err := d.getRawCommit(commit)
+		provenanceIDs = append(provenanceIDs, commit.ID)
+	}
+
+	var rawIDs []interface{}
+	for _, commit := range commits {
+		rawID, err := getRawCommitID(commit.Repo.Name, commit.ID)
 		if err != nil {
 			return err
 		}
-		commitIDs = append(commitIDs, c.ID)
+		rawIDs = append(rawIDs, rawID)
 	}
 
-	commitIDsTerm := gorethink.Expr(commitIDs)
 	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 		// We want to select all commits that have any of the given commits as
 		// provenance
-		return gorethink.Or(commit.Field("Provenance").Field("ID").SetIntersection(commitIDsTerm).Count().Ne(0), commitIDsTerm.Contains(commit.Field("ID")))
+		return gorethink.Or(commit.Field("Provenance").Field("ID").SetIntersection(gorethink.Expr(provenanceIDs)).Count().Ne(0), gorethink.Expr(rawIDs).Contains(commit.Field("ID")))
 	}).Update(map[string]interface{}{
 		"Archived": true,
 	})
@@ -694,8 +698,6 @@ func (d *driver) ArchiveCommits(commits []*pfs.Commit) error {
 	if err != nil {
 		return err
 	}
-
-	d.getTerm(commitTable).GetAll(commitIDs...)
 
 	return nil
 }
