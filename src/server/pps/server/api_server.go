@@ -251,9 +251,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	for _, input := range request.Inputs {
 		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
 	}
-	startCommitRequest.Repo = outputRepo
+	startCommitRequest.Parent = &pfsclient.Commit{
+		Repo: outputRepo,
+	}
 	if parentJobInfo != nil {
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
 	}
 	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
@@ -631,35 +633,37 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
+	forkReq := &pfsclient.ForkRequest{}
 
 	for _, input := range jobInfo.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+		forkReq.Provenance = append(forkReq.Provenance, input.Commit)
 	}
 
-	startCommitRequest.Repo = jobInfo.OutputCommit.Repo
+	forkReq.Parent = &pfsclient.Commit{
+		Repo: jobInfo.OutputCommit.Repo,
+	}
 
 	if parentJobInfo != nil {
 		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		forkReq.Parent.ID = parentJobInfo.OutputCommit.ID
 	}
 
-	startCommitRequest.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
+	forkReq.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
-	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	commit, err := pfsAPIClient.Fork(ctx, forkReq)
 	if err != nil {
 		return nil, err
 	}
 
 	// We archive the commit before we finish it, to ensure that a pipeline
 	// that is listing finished commits do not end up seeing this commit
-	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
+	_, err = pfsAPIClient.ArchiveCommits(ctx, &pfsclient.ArchiveCommitsRequest{
 		Commits: []*pfsclient.Commit{commit},
 	})
 	if err != nil {
@@ -808,18 +812,14 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
 
-		mergeReq := &pfsclient.MergeRequest{
-			Repo:        jobInfo.OutputCommit.Repo,
+		squashReq := &pfsclient.SquashRequest{
 			FromCommits: commitsToMerge,
-			To:          jobInfo.OutputCommit.ID,
-			Strategy:    pfsclient.MergeStrategy_SQUASH,
-			Cancel:      failed,
+			ToCommit:    jobInfo.OutputCommit,
 		}
-		outputCommits, err := pfsAPIClient.Merge(
+		if _, err := pfsAPIClient.Squash(
 			ctx,
-			mergeReq,
-		)
-		if err != nil {
+			squashReq,
+		); err != nil {
 			return nil, err
 		}
 
@@ -831,15 +831,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 
-		if len(outputCommits.Commit) != 1 {
-			return nil, fmt.Errorf("wrong length for job output commits, expected 1, actual %v", len(outputCommits.Commit))
-		}
-
 		// The reason why we need to inspect the commit is that the commit's
 		// parent might have been cancelled, which would automatically result
 		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-			Commit: outputCommits.Commit[0],
+			Commit: jobInfo.OutputCommit,
 		})
 		if err != nil {
 			return nil, err
@@ -949,7 +945,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			commitInfos, err := pfsAPIClient.ListCommit(
 				ctx,
 				&pfsclient.ListCommitRequest{
-					Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
+					FromCommits: []*pfsclient.Commit{&pfsclient.Commit{
+						Repo: ppsserver.PipelineRepo(request.Pipeline),
+					}},
 				})
 			if err != nil {
 				return nil, err
@@ -958,9 +956,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			for _, commitInfo := range commitInfos.CommitInfo {
 				commits = append(commits, commitInfo.Commit)
 			}
-			_, err = pfsAPIClient.ArchiveCommit(
+			_, err = pfsAPIClient.ArchiveCommits(
 				ctx,
-				&pfsclient.ArchiveCommitRequest{
+				&pfsclient.ArchiveCommitsRequest{
 					Commits: commits,
 				})
 			if err != nil {
@@ -1328,10 +1326,9 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			Repo:       rawInputRepos,
-			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
-			FromCommit: fromCommits,
-			Block:      true,
+			FromCommits: fromCommits,
+			CommitType:  pfsclient.CommitType_COMMIT_TYPE_READ,
+			Block:       true,
 		}
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
