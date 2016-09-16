@@ -2964,6 +2964,8 @@ func TestListCommitOrder(t *testing.T) {
 		var fromCommits []*pfs.Commit
 		if lastCommit != nil {
 			fromCommits = append(fromCommits, pclient.NewCommit(repo, lastCommit.ID))
+		} else {
+			fromCommits = append(fromCommits, pclient.NewCommit(repo, ""))
 		}
 		commitInfos, err := client.ListCommit(fromCommits, nil, pclient.CommitTypeRead, pclient.CommitStatusNormal, true)
 		require.NoError(t, err)
