@@ -404,8 +404,9 @@ func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commi
 		return nil, err
 	}
 
+	clock := persist.NewClock(branch)
 	commit := &persist.Commit{
-		ID:         persist.NewCommitID(parent.Repo.Name, persist.NewClock(branch)),
+		ID:         persist.NewCommitID(parent.Repo.Name, clock),
 		Repo:       parent.Repo.Name,
 		Started:    now(),
 		Provenance: fullProvenance,
@@ -428,7 +429,7 @@ func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commi
 
 	return &pfs.Commit{
 		Repo: parent.Repo,
-		ID:   commit.ID,
+		ID:   clock.ReadableCommitID(),
 	}, nil
 }
 
@@ -713,9 +714,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error) {
 		}
 	}
 
-	// OBSOLETE
-	// TestInspectCommit expects request commit ID to match results commit ID
-	commitInfo.Commit.ID = commit.ID
 	return commitInfo, nil
 }
 
@@ -830,13 +828,9 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	}
 	var provenanceIDs []interface{}
 	for _, commit := range provenance {
-		c, err := d.getRawCommit(commit)
-		if err != nil {
-			return nil, err
-		}
 		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
-			ID:   c.ID,
-			Repo: c.Repo,
+			ID:   commit.ID,
+			Repo: commit.Repo.Name,
 		})
 	}
 	if provenanceIDs != nil {
