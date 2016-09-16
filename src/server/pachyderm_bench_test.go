@@ -35,7 +35,7 @@ func BenchmarkPachyderm(b *testing.B) {
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
-	commit, err := c.StartCommit(repo, "", "master")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(b, err)
 	if !b.Run(fmt.Sprintf("Put%dFiles", nFiles), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {

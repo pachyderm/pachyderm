@@ -25,24 +25,6 @@ func NewCommitID(repo string, clock *Clock) string {
 	return fmt.Sprintf("%s:%s:%d", repo, clock.Branch, clock.Clock)
 }
 
-func GetChildCommitID(parentID string) (string, error) {
-	malformErr := fmt.Errorf("%d is not a valid DB commitID", parentID)
-
-	parts := strings.Split(parentID, ":")
-	if len(parts) != 3 {
-		return "", malformErr
-	}
-
-	clock, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return "", malformErr
-	}
-
-	clock++
-
-	return fmt.Sprintf("%s:%s:%d", parts[0], parts[1], clock), nil
-}
-
 // NewClock returns a new clock for a given branch
 func NewClock(branch string) *Clock {
 	return &Clock{branch, 0}
