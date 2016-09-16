@@ -151,20 +151,15 @@ This layers the data in the commit over the data in the parent.`,
 
 	var parentCommitID string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [branch]",
+		Use:   "start-commit repo-name [parent-commit | branch]",
 		Short: "Start a new commit.",
-		Long:  "Start a new commit with parent-commit-id as the parent.",
-		Run: cmd.RunBoundedArgs(1, 2, func(args []string) error {
+		Long:  "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created",
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			branch := ""
-			if len(args) == 2 {
-				branch = args[1]
-			}
-			commit, err := client.StartCommit(args[0],
-				parentCommitID, branch)
+			commit, err := client.StartCommit(args[0], parentCommitID)
 			if err != nil {
 				return err
 			}
@@ -234,16 +229,9 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			commits, err := cmd.ParseCommits(args)
+			fromCommits, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
-			}
-
-			var repos []string
-			var fromCommits []string
-			for _, commit := range commits {
-				repos = append(repos, commit.Repo.Name)
-				fromCommits = append(fromCommits, commit.ID)
 			}
 
 			c, err := client.NewFromAddress(address)
@@ -259,7 +247,7 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, status, provenance)
+			commitInfos, err := c.ListCommit(fromCommits, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -332,16 +320,13 @@ Examples:
 			if err != nil {
 				return err
 			}
-			commitInfos, err := client.ListBranch(args[0])
+			branches, err := client.ListBranch(args[0])
 			if err != nil {
 				return err
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for _, commitInfo := range commitInfos {
-				pretty.PrintCommitInfo(writer, commitInfo)
+			for _, branch := range branches {
+				fmt.Println(branch)
 			}
-			return writer.Flush()
 		}),
 	}
 
@@ -435,8 +420,7 @@ Files and URLs should be newline delimited.
 				return err
 			}
 			if commitFlag {
-				commit, err := client.StartCommit(args[0],
-					"", args[1])
+				commit, err := client.StartCommit(args[0], args[1])
 				if err != nil {
 					return err
 				}
