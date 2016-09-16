@@ -1134,7 +1134,7 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 
-	if err := d.checkFileType(commit.Repo, commit.ID, file.Path, persist.FileType_DIR); err != nil {
+	if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, file.Path, persist.FileType_DIR); err != nil {
 		return err
 	}
 
@@ -1276,7 +1276,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 		res.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.CommitID(),
+			ID:   diff.Clock.ReadableCommitID(),
 		}
 		res.SizeBytes = diff.Size
 	case persist.FileType_DIR:
@@ -1854,7 +1854,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 		fileInfo.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.CommitID(),
+			ID:   diff.Clock.ReadableCommitID(),
 		}
 		// TODO - This filtering should be done at the DB level
 		if pfsserver.FileInShard(filterShard, fileInfo.File) {
