@@ -37,7 +37,8 @@ func Example_pfs() {
 	// buffer now contains "foo\n"
 
 	// Start another commit with the previous commit as the parent.
-	if commit2, err := c.StartCommit("repo", commit1.ID); err != nil {
+	commit2, err := c.StartCommit("repo", commit1.ID)
+	if err != nil {
 		return //handle error
 	}
 	// Extend "file" in the newly created commit with the content "bar\n".
