@@ -327,6 +327,7 @@ Examples:
 			for _, branch := range branches {
 				fmt.Println(branch)
 			}
+			return nil
 		}),
 	}
 
