@@ -12,7 +12,7 @@ import (
 
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
-	return strings.Contains(err.Error(), "has already been finished")
+	return strings.Contains(err.Error(), "has already finished")
 }
 
 // Driver represents a low-level pfs storage driver.

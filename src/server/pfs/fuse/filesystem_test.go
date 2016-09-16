@@ -145,10 +145,10 @@ func TestRepoReadDir(t *testing.T) {
 		}
 
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID:         checkA,
-			commitAInfo.Branch: checkA,
-			commitB.ID:         checkB,
-			commitBInfo.Branch: checkB,
+			commitIDToPath(commitA.ID): checkA,
+			commitAInfo.Branch:         checkA,
+			commitIDToPath(commitB.ID): checkB,
+			commitBInfo.Branch:         checkB,
 		}))
 	}, false)
 }
@@ -170,15 +170,15 @@ func TestCommitOpenReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), greetingName), []byte(greeting), greetingPerm))
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), scriptName), []byte(script), scriptPerm))
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID)), map[string]fstestutil.FileInfoCheck{
 			greetingName: func(fi os.FileInfo) error {
 				// TODO respect greetingPerm
 				if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -228,16 +228,16 @@ func TestCommitFinishedReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), greetingName), []byte(greeting), greetingPerm))
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), scriptName), []byte(script), scriptPerm))
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID)), map[string]fstestutil.FileInfoCheck{
 			greetingName: func(fi os.FileInfo) error {
 				// TODO respect greetingPerm
 				if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -281,7 +281,7 @@ func TestWriteAndRead(t *testing.T) {
 		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		greeting := "Hello, world\n"
-		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
+		filePath := filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), "greeting")
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
 		readGreeting, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
@@ -303,7 +303,7 @@ func TestBigWrite(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -323,7 +323,7 @@ func Test296Appends(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
@@ -331,7 +331,7 @@ func Test296Appends(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
-		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
@@ -351,7 +351,7 @@ func Test296(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
@@ -359,7 +359,7 @@ func Test296(t *testing.T) {
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
-		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
@@ -379,7 +379,7 @@ func TestSpacedWrites(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		_, err = file.Write([]byte("foo"))
@@ -478,8 +478,8 @@ func TestCreateFileInDir(t *testing.T) {
 		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 
-		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
+		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "dir"), 0700))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "dir", "file"), []byte("foo"), 0644))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
 	}, false)
 }
@@ -493,7 +493,7 @@ func TestCreateDirConflict(t *testing.T) {
 		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "file"), []byte("foo"), 0644))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "file"), []byte("foo"), 0644))
 
 		require.YesError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "file"), 0700))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
@@ -513,7 +513,7 @@ func TestOverwriteFile(t *testing.T) {
 		require.NoError(t, c.FinishCommit("repo", commit1.ID))
 		commit2, err := c.StartCommit("repo", commit1.ID)
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, "repo", commit2.ID, "file")
+		path := filepath.Join(mountpoint, "repo", commitIDToPath(commit2.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit("repo", commit2.ID))
@@ -531,7 +531,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 		require.NoError(t, c.CreateRepo("repo"))
 		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
-		filePath := filepath.Join(mountpoint, "repo", commit1.ID, "foo")
+		filePath := filepath.Join(mountpoint, "repo", commitIDToPath(commit1.ID), "foo")
 		f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		require.NoError(t, err)
 		defer func() {
@@ -573,7 +573,7 @@ func TestDelimitJSON(t *testing.T) {
 		for !(len(expectedOutput) > 9*1024*1024) {
 			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 		}
-		filePath := filepath.Join(mountpoint, repo, commit.ID, "foo.json")
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "foo.json")
 		require.NoError(t, ioutil.WriteFile(filePath, expectedOutput, 0644))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		// Make sure all the content is there
@@ -630,7 +630,7 @@ func TestNoDelimiter(t *testing.T) {
 		require.NoError(t, err)
 
 		rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
-		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit1.ID), name)
 
 		// Write a big blob that would normally not fit in a block
 		var expectedOutputA []byte
@@ -695,7 +695,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit1.ID))
 
-		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit1.ID), name)
 		stdin := strings.NewReader(fmt.Sprintf("echo 'oh hai' > %s", filePath))
 		err = pkgexec.RunStdin(stdin, "sh")
 		require.YesError(t, err)
@@ -716,7 +716,7 @@ func TestWriteManyFiles(t *testing.T) {
 
 		for i := 0; i < 1000; i++ {
 			fileName := fmt.Sprintf("file-%d", i)
-			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
+			filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), fileName)
 			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
 		}
 	}, false)
@@ -742,9 +742,8 @@ func TestReadCancelledCommit(t *testing.T) {
 		for _, dir := range dirs {
 			actualDirs = append(actualDirs, dir.Name())
 		}
-		expected := interface{}(commit.ID)
-		require.OneOfEquals(t, expected, actualDirs)
-		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
+		require.OneOfEquals(t, commitIDToPath(commit.ID), actualDirs)
+		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
 	}, true)
@@ -771,7 +770,7 @@ func TestNoReadCancelledCommit(t *testing.T) {
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
 		// We still see the branches, but not the commits
-		require.Equal(t, 2, len(dirs))
+		require.Equal(t, 1, len(dirs))
 	}, false)
 }
 
