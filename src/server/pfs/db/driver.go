@@ -346,7 +346,26 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 			return fmt.Errorf("cannot delete repo %v; it's the provenance of the following repos: %v", repo.Name, repoNames)
 		}
 	}
+
+	// Deleting in the order of repo -> commits -> diffs seems to make sense,
+	// since if one can't see the repo, one can't see the commits; if they can't
+	// see the commits, they can't see the diffs.  So in a way we are hiding
+	// potential inconsistency here.
 	_, err := d.getTerm(repoTable).Get(repo.Name).Delete().RunWrite(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(commitTable).Filter(map[string]interface{}{
+		"Repo": repo.Name,
+	}).Delete().RunWrite(d.dbClient)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.getTerm(diffTable).Filter(map[string]interface{}{
+		"Repo": repo.Name,
+	}).Delete().RunWrite(d.dbClient)
 	return err
 }
 
@@ -1644,7 +1663,11 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 		// This query gives us the first component after the parent prefix.
 		// For instance, if the path is "/foo/bar/buzz" and parent is "/foo",
 		// this query gives us "bar".
-		return diff.Field("Path").Split(parent, 1).Nth(1).Split("/").Nth(1)
+		return gorethink.Branch(
+			gorethink.Expr(parent).Eq("/"),
+			diff.Field("Path").Split("/").Nth(1),
+			diff.Field("Path").Split(parent, 1).Nth(1).Split("/").Nth(1),
+		)
 	}).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		// Basically, we add up the sizes and discard the diff with the longer
 		// path.  That way, we will be left with the diff with the shortest path,
