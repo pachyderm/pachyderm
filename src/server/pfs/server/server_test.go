@@ -316,6 +316,32 @@ func TestDeleteRepo(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
+// Make sure that commits of deleted repos do not resurface
+func TestCreateDeletedRepo(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	require.NoError(t, client.DeleteRepo(repo, false))
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
 func TestDeleteProvenanceRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -2110,7 +2136,7 @@ func TestListBranchRedundant(t *testing.T) {
 	require.Equal(t, "branchA", branches[0])
 }
 
-func TestNEWAPIStartCommitFromBranch(t *testing.T) {
+func TestStartCommitFromBranch(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -2128,7 +2154,7 @@ func TestNEWAPIStartCommitFromBranch(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, "master/0"))
 }
 
-func TestNEWAPIStartCommitNewBranch(t *testing.T) {
+func TestStartCommitNewBranch(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -2148,7 +2174,7 @@ func TestNEWAPIStartCommitNewBranch(t *testing.T) {
 	require.Equal(t, "test", commitInfo.Commit.Repo.Name)
 }
 
-func TestNEWAPIPutFile(t *testing.T) {
+func TestPutFile2(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2200,7 +2226,7 @@ func TestNEWAPIPutFile(t *testing.T) {
 	require.Equal(t, expected, buffer.String())
 }
 
-func TestNEWAPIDeleteFile(t *testing.T) {
+func TestDeleteFile2(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2241,7 +2267,7 @@ func TestNEWAPIDeleteFile(t *testing.T) {
 	require.Equal(t, expected, buffer.String())
 }
 
-func TestNEWAPIInspectFile(t *testing.T) {
+func TestInspectFile2(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2286,7 +2312,7 @@ func TestNEWAPIInspectFile(t *testing.T) {
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 }
 
-func TestNEWAPIInspectDirectory(t *testing.T) {
+func TestInspectDirectory(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2330,7 +2356,7 @@ func TestNEWAPIInspectDirectory(t *testing.T) {
 	require.Equal(t, 2, len(fileInfo.Children))
 }
 
-func TestNEWAPIListFile(t *testing.T) {
+func TestListFile2(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2371,7 +2397,7 @@ func TestNEWAPIListFile(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos))
 }
 
-func TestNEWAPIListFileRecurse(t *testing.T) {
+func TestListFileRecurse(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2414,9 +2440,19 @@ func TestNEWAPIListFileRecurse(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
+
+	_, err = client.StartCommit(repo, "", "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "/", "", false, nil, true)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
 }
 
-func TestNEWAPIPutFileTypeConflict(t *testing.T) {
+func TestPutFileTypeConflict(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"

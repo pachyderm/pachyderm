@@ -20,8 +20,6 @@ endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 CLUSTER_NAME = pachyderm
-MANIFEST = etc/kube/pachyderm-versioned.json
-DEV_MANIFEST = etc/kube/pachyderm.json
 VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
@@ -70,10 +68,9 @@ point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-job-shim release-manifest release-pachctl doc
-	@git commit -a -m "[Automated] Released $(shell cat VERSION). Updated manifests to release version $(shell cat VERSION)"
+release: release-version release-pachd release-job-shim release-pachctl doc
 	@rm VERSION
-	@echo "Release uploads complete and changes committed. Please push these changes to master to complete the release"
+	@echo "Release completed"
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -86,9 +83,6 @@ release-pachd:
 
 release-job-shim:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
-
-release-manifest:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_manifest
 
 release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
@@ -120,14 +114,6 @@ docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim dock
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
-
-docker-push-job-shim: docker-build-job-shim
-	docker push pachyderm/job-shim
-
-docker-push-pachd: docker-build-pachd
-	docker push pachyderm/pachd
-
-docker-push: docker-push-job-shim docker-push-pachd
 
 check-kubectl:
 	# check that kubectl is installed
@@ -258,9 +244,6 @@ logs: check-kubectl
 kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
-
-dev-manifest: install
-	pachctl deploy -d --dry-run >$(DEV_MANIFEST)
 
 google-cluster-manifest: install
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)

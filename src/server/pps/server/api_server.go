@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -103,6 +104,44 @@ func (inputs JobInputs) Swap(i, j int) {
 	inputs[i], inputs[j] = inputs[j], inputs[i]
 }
 
+// GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
+// the ParallelismSpec 'spec'.
+//
+// This is only exported for testing
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (uint64, error) {
+	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
+	if spec == nil {
+		// Unset ParallelismSpec is handled here. Currently we start one worker per
+		// node
+		coefficient = 1.0
+	} else if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
+		if spec.Constant > 0 {
+			return spec.Constant, nil
+		}
+		// Zero-initialized ParallelismSpec is handled here. Currently we start one
+		// worker per node
+		coefficient = 1
+	} else if spec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
+		coefficient = spec.Coefficient
+	} else {
+		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
+	}
+	if coefficient == 0.0 {
+		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
+	}
+
+	// Start ('coefficient' * 'nodes') workers. Determine number of workers
+	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("Unable to retrieve node list from k8s to determine parallelism")
+	}
+	if len(nodeList.Items) == 0 {
+		return 0, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
+	}
+	result := math.Floor(coefficient * float64(len(nodeList.Items)))
+	return uint64(math.Max(result, 1)), nil
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -134,20 +173,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 		request.Transform = pipelineInfo.Transform
-		request.Parallelism = pipelineInfo.Parallelism
-	}
-
-	if request.Parallelism == 0 {
-		nodeList, err := a.kubeClient.Nodes().List(api.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
-		}
-
-		if len(nodeList.Items) == 0 {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
-		}
-
-		request.Parallelism = uint64(len(nodeList.Items))
+		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -278,9 +304,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
 	if len(request.Inputs) == 0 {
-		persistJobInfo.Parallelism = request.Parallelism
+		persistJobInfo.ParallelismSpec = request.ParallelismSpec
 	} else {
-		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
+		numWorkers, err := GetExpectedNumWorkers(a.kubeClient, request.ParallelismSpec)
+		if err != nil {
+			return nil, err
+		}
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, numWorkers, repoToFromCommit)
 		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
@@ -307,7 +337,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}, nil
 		}
 
-		persistJobInfo.Parallelism = product(shardModuli)
+		persistJobInfo.ParallelismSpec = &ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: product(shardModuli),
+		}
 		persistJobInfo.ShardModuli = shardModuli
 	}
 
@@ -331,7 +364,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo, a.imageTag)); err != nil {
+	job, err := job(a.kubeClient, persistJobInfo, a.imageTag)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
 		return nil, err
 	}
 
@@ -608,8 +645,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	if jobInfo.PodsStarted > jobInfo.Parallelism {
-		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, jobInfo.Parallelism)
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.PodsStarted > numWorkers {
+		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, numWorkers)
 	}
 
 	if jobInfo.Transform == nil {
@@ -798,11 +839,15 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 
 	// All shards completed, job is finished
-	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
-		failed := jobInfo.PodsSucceeded != jobInfo.Parallelism
+		failed := jobInfo.PodsSucceeded != numWorkers
 		pfsAPIClient, err := a.getPfsClient()
 		if err != nil {
 			return nil, err
@@ -922,13 +967,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		}()
 	}
 	persistPipelineInfo := &persist.PipelineInfo{
-		PipelineName: request.Pipeline.Name,
-		Transform:    request.Transform,
-		Parallelism:  request.Parallelism,
-		Inputs:       request.Inputs,
-		OutputRepo:   repo,
-		Shard:        a.hasher.HashPipeline(request.Pipeline),
-		State:        ppsclient.PipelineState_PIPELINE_IDLE,
+		PipelineName:    request.Pipeline.Name,
+		Transform:       request.Transform,
+		ParallelismSpec: request.ParallelismSpec,
+		Inputs:          request.Inputs,
+		OutputRepo:      repo,
+		Shard:           a.hasher.HashPipeline(request.Pipeline),
+		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -1272,14 +1317,14 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform:   persistPipelineInfo.Transform,
-		Parallelism: persistPipelineInfo.Parallelism,
-		Inputs:      persistPipelineInfo.Inputs,
-		OutputRepo:  persistPipelineInfo.OutputRepo,
-		CreatedAt:   persistPipelineInfo.CreatedAt,
-		State:       persistPipelineInfo.State,
-		RecentError: persistPipelineInfo.RecentError,
-		JobCounts:   persistPipelineInfo.JobCounts,
+		Transform:       persistPipelineInfo.Transform,
+		ParallelismSpec: persistPipelineInfo.ParallelismSpec,
+		Inputs:          persistPipelineInfo.Inputs,
+		OutputRepo:      persistPipelineInfo.OutputRepo,
+		CreatedAt:       persistPipelineInfo.CreatedAt,
+		State:           persistPipelineInfo.State,
+		RecentError:     persistPipelineInfo.RecentError,
+		JobCounts:       persistPipelineInfo.JobCounts,
 	}
 }
 
@@ -1375,11 +1420,11 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				_, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
-						Transform:   pipelineInfo.Transform,
-						Pipeline:    pipelineInfo.Pipeline,
-						Parallelism: pipelineInfo.Parallelism,
-						Inputs:      trueInputs,
-						ParentJob:   parentJob,
+						Transform:       pipelineInfo.Transform,
+						Pipeline:        pipelineInfo.Pipeline,
+						ParallelismSpec: pipelineInfo.ParallelismSpec,
+						Inputs:          trueInputs,
+						ParentJob:       parentJob,
 					},
 				)
 				if err != nil {
@@ -1580,16 +1625,16 @@ func (a *apiServer) getPersistClient() (persist.APIClient, error) {
 func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 	job := &ppsclient.Job{ID: persistJobInfo.JobID}
 	return &ppsclient.JobInfo{
-		Job:          job,
-		Transform:    persistJobInfo.Transform,
-		Pipeline:     &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
-		Parallelism:  persistJobInfo.Parallelism,
-		Inputs:       persistJobInfo.Inputs,
-		ParentJob:    persistJobInfo.ParentJob,
-		Started:      persistJobInfo.Started,
-		Finished:     persistJobInfo.Finished,
-		OutputCommit: persistJobInfo.OutputCommit,
-		State:        persistJobInfo.State,
+		Job:             job,
+		Transform:       persistJobInfo.Transform,
+		Pipeline:        &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
+		ParallelismSpec: persistJobInfo.ParallelismSpec,
+		Inputs:          persistJobInfo.Inputs,
+		ParentJob:       persistJobInfo.ParentJob,
+		Started:         persistJobInfo.Started,
+		Finished:        persistJobInfo.Finished,
+		OutputCommit:    persistJobInfo.OutputCommit,
+		State:           persistJobInfo.State,
 	}, nil
 }
 
@@ -1599,9 +1644,14 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
+// Convert a persist.JobInfo into a Kubernetes batch.Job spec
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, imageTag string) (*batch.Job, error) {
 	labels := labels(jobInfo.JobID)
-	parallelism := int32(jobInfo.Parallelism)
+	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	parallelism := int32(parallelism64)
 	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
@@ -1684,7 +1734,7 @@ func job(jobInfo *persist.JobInfo, imageTag string) *batch.Job {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
