@@ -324,20 +324,20 @@ func TestCreateDeletedRepo(t *testing.T) {
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "", "master")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	commitInfos, err := client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	require.NoError(t, client.DeleteRepo(repo, false))
 	require.NoError(t, client.CreateRepo(repo))
 
-	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, false, pclient.CommitStatusNormal, nil)
+	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 }
@@ -2441,7 +2441,7 @@ func TestListFileRecurse(t *testing.T) {
 	require.Equal(t, 3, len(fileInfos))
 	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
 
-	_, err = client.StartCommit(repo, "", "master")
+	_, err = client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent))
 	require.NoError(t, err)
