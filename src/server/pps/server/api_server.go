@@ -1379,12 +1379,20 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	for {
 		var fromCommits []*pfsclient.Commit
 		for repo, leaves := range repoToLeaves {
-			for leaf := range leaves {
+			if len(leaves) > 0 {
+				for leaf := range leaves {
+					fromCommits = append(
+						fromCommits,
+						&pfsclient.Commit{
+							Repo: &pfsclient.Repo{Name: repo},
+							ID:   leaf,
+						})
+				}
+			} else {
 				fromCommits = append(
 					fromCommits,
 					&pfsclient.Commit{
 						Repo: &pfsclient.Repo{Name: repo},
-						ID:   leaf,
 					})
 			}
 		}

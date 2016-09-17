@@ -826,7 +826,16 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 			}))
 		}
 	}
-	query := gorethink.Union(queries...)
+
+	var query gorethink.Term
+	if len(queries) > 0 {
+		query = gorethink.Union(queries...)
+	} else {
+		query = d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+			Index: CommitFullClockIndex.Name,
+		})
+	}
+
 	if status != pfs.CommitStatus_ALL && status != pfs.CommitStatus_CANCELLED {
 		query = query.Filter(map[string]interface{}{
 			"Cancelled": false,

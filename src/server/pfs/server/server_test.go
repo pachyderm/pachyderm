@@ -1994,6 +1994,30 @@ func TestListCommitBasic(t *testing.T) {
 	}
 }
 
+func TestListCommitAll(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	numCommits := 10
+	for i := 0; i < numCommits; i++ {
+		repo := fmt.Sprintf("test%d", i)
+		require.NoError(t, client.CreateRepo(repo))
+		commit, err := client.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+	}
+
+	commitInfos, err := client.ListCommit(
+		nil,
+		nil,
+		pclient.CommitTypeNone,
+		pfs.CommitStatus_NORMAL,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, len(commitInfos), numCommits)
+}
+
 func TestStartAndFinishCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)

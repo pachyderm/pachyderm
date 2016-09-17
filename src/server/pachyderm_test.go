@@ -1811,13 +1811,13 @@ func TestFlushCommit(t *testing.T) {
 		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
 		commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
 		require.NoError(t, err)
-		require.Equal(t, numStages, len(commitInfos))
+		require.Equal(t, numStages+1, len(commitInfos))
 		return commit.ID
 	}
 
 	// Run the test twice, once on a orphan commit and another on
 	// a commit with a parent
-	commit := test("")
+	commit := test(uuid.New())
 	test(commit)
 }
 
