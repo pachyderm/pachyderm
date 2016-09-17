@@ -2946,7 +2946,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, numPipelines, len(commitInfos))
+	require.Equal(t, numPipelines+1, len(commitInfos))
 
 	require.NoError(t, c.ArchiveAll())
 	commitInfos, err = c.ListCommit(
