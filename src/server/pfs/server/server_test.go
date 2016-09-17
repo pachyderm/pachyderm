@@ -1296,13 +1296,13 @@ func TestFlush(t *testing.T) {
 	// Flush ACommit
 	commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 4, len(commitInfos))
 	commitInfos, err = client.FlushCommit(
 		[]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)},
 		[]*pfs.Repo{pclient.NewRepo("C")},
 	)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
 	// Now test what happens if one of the commits gets cancelled
 	ACommit2, err := client.StartCommit("A", "master")
@@ -1328,6 +1328,19 @@ func TestFlush(t *testing.T) {
 		[]*pfs.Repo{pclient.NewRepo("C")},
 	)
 	require.YesError(t, err)
+}
+
+func TestFlushCommitReturnsFromCommit(t *testing.T) {
+	t.Parallel()
+	c := getClient(t)
+	repo := "TestFlushCommitReturnsFromCommit"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfos, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 func TestFlushOpenCommit(t *testing.T) {
@@ -1359,7 +1372,7 @@ func TestFlushOpenCommit(t *testing.T) {
 	// Flush ACommit
 	commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 }
 
 func TestEmptyFlush(t *testing.T) {

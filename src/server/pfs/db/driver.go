@@ -925,9 +925,15 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
+	var result []*pfs.CommitInfo
 	// The commit IDs of the provenance commits
 	var provenanceIDs []interface{}
 	for _, commit := range fromCommits {
+		rawCommit, err := d.getRawCommit(commit)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, d.rawCommitToCommitInfo(rawCommit))
 		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
 			Repo: commit.Repo.Name,
 			ID:   commit.ID,
@@ -955,29 +961,23 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	}
 	defer cursor.Close()
 
-	var commitInfos []*pfs.CommitInfo
 	repoSet := make(map[string]bool)
 	for _, repoName := range repos {
 		repoSet[repoName] = true
 	}
-	for {
+	for len(repoSet) > 0 {
 		commit := &persist.Commit{}
 		cursor.Next(commit)
 		if err := cursor.Err(); err != nil {
 			return nil, err
 		}
 		if commit.Cancelled {
-			return commitInfos, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
+			return nil, fmt.Errorf("commit %s/%s was cancelled", commit.Repo, commit.ID)
 		}
-		commitInfos = append(commitInfos, d.rawCommitToCommitInfo(commit))
+		result = append(result, d.rawCommitToCommitInfo(commit))
 		delete(repoSet, commit.Repo)
-		// Return when we have seen at least one commit from each repo that we
-		// care about.
-		if len(repoSet) == 0 {
-			return commitInfos, nil
-		}
 	}
-	panic("unreachable")
+	return result, nil
 }
 
 func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
