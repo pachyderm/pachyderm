@@ -850,8 +850,8 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		return nil, err
 	}
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-		//		Commit: &pfsclient.Commit{ID: podCommit},
 		Commit: podCommit,
+		Cancel: !request.Success,
 	}); err != nil {
 		return nil, err
 	}
