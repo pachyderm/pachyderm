@@ -282,6 +282,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 	if parentJobInfo != nil {
 		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+	} else {
+		// Without a parent, we start the commit on a random branch
+		startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
 	}
 	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
@@ -674,32 +677,47 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 
-	forkReq := &pfsclient.ForkRequest{}
-
+	var provenance []*pfsclient.Commit
 	for _, input := range jobInfo.Inputs {
-		forkReq.Provenance = append(forkReq.Provenance, input.Commit)
+		provenance = append(provenance, input.Commit)
 	}
-
-	forkReq.Parent = &pfsclient.Commit{
-		Repo: jobInfo.OutputCommit.Repo,
-	}
-
-	if parentJobInfo != nil {
-		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
-			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
-		}
-		forkReq.Parent.ID = parentJobInfo.OutputCommit.ID
-	}
-
-	forkReq.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
-	commit, err := pfsAPIClient.Fork(ctx, forkReq)
-	if err != nil {
-		return nil, err
+
+	var commit *pfsclient.Commit
+	if parentJobInfo != nil {
+		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
+		// If we have a parent, then we fork the parent
+		forkReq := &pfsclient.ForkRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   parentJobInfo.OutputCommit.ID,
+			},
+			Branch: fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+		}
+		commit, err = pfsAPIClient.Fork(ctx, forkReq)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If we don't have a parent, then we simply start a new commit
+		startCommitReq := &pfsclient.StartCommitRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+			},
+		}
+		commit, err = pfsAPIClient.StartCommit(ctx, startCommitReq)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// We archive the commit before we finish it, to ensure that a pipeline
