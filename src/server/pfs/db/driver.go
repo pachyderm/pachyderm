@@ -909,12 +909,8 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	// The commit IDs of the provenance commits
 	var provenanceIDs []interface{}
 	for _, commit := range fromCommits {
-		commit, err := d.getRawCommit(commit)
-		if err != nil {
-			return nil, err
-		}
 		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
-			Repo: commit.Repo,
+			Repo: commit.Repo.Name,
 			ID:   commit.ID,
 		})
 	}
