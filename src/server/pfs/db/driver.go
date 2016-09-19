@@ -1333,7 +1333,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		sizeLeft := r.size
 		// e.g. sometimes a reader is constructed of size 0
 		if r.size > r.sizeRead {
-			//sizeLeft -= r.sizeRead
+			sizeLeft -= r.sizeRead
 		}
 		fmt.Printf("DDD creating block reader of block %v w offset %v and size %v\n", blockRef.Hash, uint64(r.offset), uint64(r.size-r.sizeRead))
 		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
