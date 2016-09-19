@@ -220,12 +220,12 @@ Examples:
 	# return commits in repo "foo" and repo "bar"
 	$ pachctl list-commit foo bar
 
-	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
-	$ pachctl list-commit foo/abc123 bar/def456
+	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
+	$ pachctl list-commit foo/master/2 bar/master/4
 
 	# return commits in repo "foo" that have commits
-	# "bar/abc123" and "baz/def456" as provenance
-	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
+	# "bar/master/3" and "baz/master/5" as provenance
+	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
@@ -273,11 +273,11 @@ Examples:
 
 Examples:
 
-	# return commits caused by foo/abc123 and bar/def456
-	$ pachctl flush-commit foo/abc123 bar/def456
+	# return commits caused by foo/master/1 and bar/master/2
+	$ pachctl flush-commit foo/master/1 bar/master/2
 
-	# return commits caused by foo/abc123 leading to repos bar and baz
-	$ pachctl flush-commit foo/abc123 -r bar -r baz
+	# return commits caused by foo/master/1 leading to repos bar and baz
+	$ pachctl flush-commit foo/master/1 -r bar -r baz
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
