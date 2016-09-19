@@ -1613,7 +1613,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
 	commit2, err := c.StartCommit(aRepo, "master")
 	require.NoError(t, err)
@@ -2591,7 +2591,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 	for _, commitInfo := range commitInfos {
 		var buffer bytes.Buffer
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
@@ -2765,7 +2765,7 @@ func TestStopPipeline(t *testing.T) {
 	require.NoError(t, c.StartPipeline(pipelineName))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -2830,7 +2830,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -2892,7 +2892,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
