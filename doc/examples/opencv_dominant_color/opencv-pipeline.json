@@ -11,7 +11,10 @@
       "./dominant_color -images_file /pfs/images/images -aws_bucket_name [your aws s3 bucket of images] >> /pfs/out/opencv"
     ]
   },
-  "parallelism": "1",
+  "parallelism_spec" {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
   "inputs": [
     {
       "repo": {

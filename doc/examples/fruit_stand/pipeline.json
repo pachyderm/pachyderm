@@ -10,7 +10,10 @@
         "done"
     ]
   },
-  "parallelism": "1",
+  "parallelism_spec" {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
   "inputs": [
     {
       "repo": {
@@ -32,7 +35,10 @@
         "done"
     ]
   },
-  "parallelism": "1",
+  "parallelism_spec" {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
   "inputs": [
     {
       "repo": {
