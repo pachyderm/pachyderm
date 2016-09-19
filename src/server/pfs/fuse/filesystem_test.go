@@ -315,6 +315,10 @@ func TestBigWrite(t *testing.T) {
 }
 
 func TestBigCopy(t *testing.T) {
+	// Bug reported in #833
+	// Fuse buffers reads (e.g. while copying a file out of FUSE) into ~1MB chunks
+	// But at the block boundary, the driver was over-reading by exactly the amount that was left in the previous block
+
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -325,34 +329,28 @@ func TestBigCopy(t *testing.T) {
 		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
-		/*
-			numberOfLines := 300
-			totalSize := 10000000
-			for i := 0; i < numberOfLines; i++ {
-				fmt.Printf("%v: buffer size: %v\n", i, int(totalSize/numberOfLines))
-				stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c %v > %s", int(totalSize/numberOfLines), path))
-				require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
-			}
-		*/
-		tfFile := "/Users/sjezewski/tmp/a.txt"
-		fmt.Printf("Running command (%v)", fmt.Sprintf("cp %v %v", tfFile, path))
-		err = exec.Command("cp", tfFile, path).Run()
+		rawMessage := "Some\ncontent\nblah\nblah\nyup\nnope\nuh-huh.\n"
+		// Write a big blob that would normally not fit in a block
+		var expectedOutput []byte
+		for !(len(expectedOutput) > 9*1024*1024) {
+			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+		}
+		require.NoError(t, ioutil.WriteFile(path, expectedOutput, 0644))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
+
 		tmp, err := ioutil.TempDir("", "pachyderm-test-copy")
-		fmt.Printf("tmp dir: %v\n", tmp)
 		require.NoError(t, err)
 		defer func() {
-			//_ = os.RemoveAll(tmp)
+			_ = os.RemoveAll(tmp)
 		}()
 		err = exec.Command("cp", path, tmp).Run()
+		// Without the fix, this next line errs:
 		require.NoError(t, err)
 		data, err := ioutil.ReadFile(filepath.Join(tmp, "file1"))
 		require.NoError(t, err)
-		expected, err := ioutil.ReadFile(tfFile)
-		require.NoError(t, err)
-		require.Equal(t, len(expected), len(data))
-		require.Equal(t, expected, data)
+		require.Equal(t, len(expectedOutput), len(data))
+		require.Equal(t, expectedOutput, data)
 	}, false)
 }
 
