@@ -53,10 +53,7 @@ func ErrorAndExit(format string, args ...interface{}) {
 func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
-		parts := strings.Split(arg, "/")
-		if len(parts) > 2 {
-			return nil, fmt.Errorf("invalid argument: %s, arguments must be of the form \"repo/commit\"", arg)
-		}
+		parts := strings.SplitN(arg, "/", 2)
 		commit := &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: parts[0],
