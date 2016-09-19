@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0
+
+Features:
+
+- PFS has been rewritten to be more reliable and optimizeable
+- PFS now has a much simpler name scheme for commits (`master/10`)
+- UpdatePipeline, which allows you to modify an existing pipeline
+- Transforms now have an Env section for specifying environment variables
+- ArchiveCommit, which allows you to make commits not visible in ListCommit but still present and readable
+- ArchiveAll, which archives all data
+- PutFile can now take a URL in place of a local file, put multiple files and start/finish its own commits
+- Incremental Pipelines now allow more control over what data is shown
+- `pachctl deploy` is now the recommended way to deploy a cluster
+- `pachctl port-forward` should be a much more reliable way to get your local machine talking to pachd
+- `pachctl mount` will recover if it loses and regains contact with pachd
+- `pachctl unmount` has been added, it can be used to unmount a single mount or all of them with `-a`
+- Benchmarks have been added
+- pprof support has been added to pachd
+
+Content:
+
+- Our developer portal is now available at: http://pachyderm.readthedocs.io/en/latest/
+- We've added a quick way for people to reach us on Slack at: http://slack.pachyderm.io
+- OpenCV example
+
 ## 1.1.0
 
 Features:
