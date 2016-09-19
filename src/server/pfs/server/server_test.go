@@ -1994,6 +1994,69 @@ func TestListCommitBasic(t *testing.T) {
 	}
 }
 
+func TestListCommitFromCommit(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	require.NoError(t, client.CreateRepo("test"))
+	numCommits := 10
+	var commitIDs []string
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit("test", "master")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("test", commit.ID))
+		commitIDs = append(commitIDs, commit.ID)
+	}
+
+	commitInfos, err := client.ListCommit(
+		[]*pfs.Commit{pclient.NewCommit("test", "master/4")},
+		nil,
+		pclient.CommitTypeNone,
+		pfs.CommitStatus_NORMAL,
+		false,
+	)
+	require.NoError(t, err)
+
+	require.Equal(t, len(commitInfos), 5)
+	for i, commitInfo := range commitInfos {
+		require.Equal(t, commitIDs[i+5], commitInfo.Commit.ID)
+	}
+}
+
+func TestListCommitCorrectDescendents(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	require.NoError(t, client.CreateRepo("test"))
+	numCommits := 10
+
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit("test", "a")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("test", commit.ID))
+	}
+
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit("test", "b")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("test", commit.ID))
+	}
+
+	commitInfos, err := client.ListCommit(
+		[]*pfs.Commit{pclient.NewCommit("test", "a/4")},
+		nil,
+		pclient.CommitTypeNone,
+		pfs.CommitStatus_NORMAL,
+		false,
+	)
+	require.NoError(t, err)
+
+	require.Equal(t, len(commitInfos), 5)
+	for _, commitInfo := range commitInfos {
+		require.Equal(t, commitInfo.Branch, "a")
+	}
+}
+
 func TestListCommitAll(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)

@@ -819,9 +819,7 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 			}).Filter(func(r gorethink.Term) gorethink.Term {
 				return gorethink.And(
 					r.Field("Repo").Eq(repo),
-					r.Field("FullClock").Gt(fullClock),
-					// TODO: this is buggy.  "master/0" would be greater than
-					// "foo/1" even though "master/0" is not "foo/1"'s descendent.
+					persist.DBClockDescendent(r.Field("FullClock"), gorethink.Expr(fullClock)),
 				)
 			}))
 		}
