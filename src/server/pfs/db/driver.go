@@ -1306,67 +1306,45 @@ func filterBlockRefs(filterShard *pfs.Shard, file *pfs.File, blockRefs []*persis
 
 func (r *fileReader) Read(data []byte) (int, error) {
 	var err error
-	fmt.Printf("DDD In Read() ... initial r.offset=%v, r.size=%v, r.sizeRead=%v\n", r.offset, r.size, r.sizeRead)
 	if r.reader == nil {
-		fmt.Printf("DDD Initizializing r.reader\n")
-		fmt.Printf("DDD # blockrefs=%v\n", len(r.blockRefs))
 		var blockRef *persist.BlockRef
 		for {
-			fmt.Printf("DDD offset=%v, size=%v\n", r.offset, r.size)
 			if len(r.blockRefs) == 0 {
 				return 0, io.EOF
 			}
 			blockRef = r.blockRefs[0]
-			fmt.Printf("DDD Assigning current blockref to: %v\n", blockRef)
 			r.blockRefs = r.blockRefs[1:]
 			blockSize := int64(blockRef.Size())
-			fmt.Printf("DDD blocksize=%v\n", blockSize)
 			if r.offset >= blockSize {
 				r.offset -= blockSize
 				continue
 			}
-			fmt.Printf("DDD offset exceeded blocksize ... breaking\n")
 			break
 		}
 		client := client.APIClient{BlockAPIClient: r.blockClient}
-		fmt.Printf("DDD size of reader: %v, read so far: %v\n", r.size, r.sizeRead)
 		sizeLeft := r.size
 		// e.g. sometimes a reader is constructed of size 0
 		if r.size > r.sizeRead {
 			sizeLeft -= r.sizeRead
 		}
-		fmt.Printf("DDD creating block reader of block %v w offset %v and size %v\n", blockRef.Hash, uint64(r.offset), uint64(r.size-r.sizeRead))
 		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
-		//r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(r.size))
 		if err != nil {
 			return 0, err
 		}
 		r.offset = 0
 	}
 	size, err := r.reader.Read(data)
-	fmt.Printf("DDD block reader read %v\n", size)
 	if err != nil && err != io.EOF {
 		return size, err
 	}
 	if err == io.EOF {
-		if r.sizeRead+int64(size) < r.size {
-			// We finished reading this block, but not necessarily all blocks
-			// Maybe check if there are remaining blockrefs?
-			/*
-				fmt.Printf("DDD decrementing size %v by the amount that we read out of the last block %v\n", r.size, r.sizeRead)
-				r.size -= r.sizeRead
-				fmt.Printf("DDD decremented size: %v\n", r.size)
-			*/
-		}
 		r.reader = nil
 	}
 	r.sizeRead += int64(size)
-	fmt.Printf("DDD incremented sizeRead by size %v to %v\n", size, r.sizeRead)
 	if r.sizeRead == r.size {
 		return size, io.EOF
 	}
 	if r.size > 0 && r.sizeRead > r.size {
-		fmt.Printf("DDD r.sizeRead=%v, r.size=%v\n", r.sizeRead, r.size)
 		return 0, fmt.Errorf("read more than we need; this is likely a bug")
 	}
 	return size, nil
