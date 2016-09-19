@@ -6,6 +6,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// NewHealthServer returns a new health server
 func NewHealthServer() health.HealthServer {
 	return &healthServer{}
 }
