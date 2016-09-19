@@ -6,7 +6,10 @@
     "cmd": [ "python3", "/edges.py" ],
     "image": "opencv"
   },
-  "parallelism": "1",
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
   "inputs": [
     {
       "repo": {
