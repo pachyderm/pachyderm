@@ -207,7 +207,7 @@ func (l *ClockRangeList) Ranges() []*ClockRange {
 	return l.ranges
 }
 
-// DBClockGt returns whether one FullClock is the descendent of the other,
+// DBClockDescendent returns whether one FullClock is the descendent of the other,
 // assuming both are rethinkdb terms
 func DBClockDescendent(child, parent gorethink.Term) gorethink.Term {
 	return gorethink.Branch(
