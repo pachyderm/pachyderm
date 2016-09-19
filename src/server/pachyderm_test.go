@@ -1271,7 +1271,7 @@ done
 	}
 	require.NoError(t, c.FinishCommit(inputRepo1, commit3.ID))
 
-	listCommitRequest.FromCommits = append(listCommitRequest.FromCommits, outCommits[0].Commit)
+	listCommitRequest.FromCommits[0] = outCommits[0].Commit
 	listCommitResponse, err = c.PfsAPIClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
@@ -1622,7 +1622,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(aRepo, commit2.ID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
 	// There should only be 2 commits on cRepo
 	commitInfos, err = c.ListCommit([]*pfsclient.Commit{{
