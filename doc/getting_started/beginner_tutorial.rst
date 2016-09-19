@@ -11,7 +11,7 @@ and ``awk`` to do our processing. Thanks to Pachyderm's processing system we'll
 be able to run the pipeline in a distributed, streaming fashion. As new data is
 added, the pipeline will automatically process it and materialize the results.
 
-If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on `GitHub <github.com/pachyderm/pachyderm>`_, join our users channel on Slack, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_ and we can help you right away.
+If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, join our `users channel on Slack <http://slack.pachyderm.io>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_ and we can help you right away.
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -214,6 +214,8 @@ other local filesystem such as using ``ls`` or pointing your browser at it.
  $ ls ~/pfs/sum
  63c71410558344f59a7f8af311cad140	4092f4675650476ab0a3fde5b7780316
 
+ Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts. 
+
 Next Steps
 ^^^^^^^^^^
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
@@ -228,4 +230,4 @@ You can also start learning some of the more advanced topics to develop analysis
 - :doc:`../development/inputing_your_data` from other sources
 - :doc:`../development/custom_pipelines` using your own code
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ or email at info@pachyderm.io if you want to show off anything nifty you've created! 
+We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created! 
