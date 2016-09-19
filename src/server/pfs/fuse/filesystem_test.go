@@ -314,6 +314,48 @@ func TestBigWrite(t *testing.T) {
 	}, false)
 }
 
+func TestBigCopy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		/*
+			numberOfLines := 300
+			totalSize := 10000000
+			for i := 0; i < numberOfLines; i++ {
+				fmt.Printf("%v: buffer size: %v\n", i, int(totalSize/numberOfLines))
+				stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c %v > %s", int(totalSize/numberOfLines), path))
+				require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+			}
+		*/
+		tfFile := "/Users/sjezewski/tmp/a.txt"
+		fmt.Printf("Running command (%v)", fmt.Sprintf("cp %v %v", tfFile, path))
+		err = exec.Command("cp", tfFile, path).Run()
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		tmp, err := ioutil.TempDir("", "pachyderm-test-copy")
+		fmt.Printf("tmp dir: %v\n", tmp)
+		require.NoError(t, err)
+		defer func() {
+			//_ = os.RemoveAll(tmp)
+		}()
+		err = exec.Command("cp", path, tmp).Run()
+		require.NoError(t, err)
+		data, err := ioutil.ReadFile(filepath.Join(tmp, "file1"))
+		require.NoError(t, err)
+		expected, err := ioutil.ReadFile(tfFile)
+		require.NoError(t, err)
+		require.Equal(t, len(expected), len(data))
+		require.Equal(t, expected, data)
+	}, false)
+}
+
 func Test296Appends(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
