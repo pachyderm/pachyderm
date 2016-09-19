@@ -13,7 +13,7 @@ If you're brand new to Pachyderm, you should check out our :doc:`../getting_star
 
 :doc:`pipeline_spec`: A complete reference on the advanced features of Pachyderm pipelines.
 
-:doc:`tracking_your_data`: Understand your data lineage using Provenance.
+:doc:`getting_your_results`: Read out results from specific input commits.
 
 :doc:`updating_pipelines`: Interate on pipelines as you learn from your data.
 
