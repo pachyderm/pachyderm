@@ -972,7 +972,6 @@ func TestParellelRemoveAndAppend(t *testing.T) {
 	// This test does not pass on Travis which is why it's skipped right now As
 	// soon as we have a hypothesis for why this fails on travis but not
 	// locally we should un skip this test and try to fix it.
-	t.Skip()
 	testParellelRemoveAndAppend(t, 3)
 }
 
@@ -3014,6 +3013,7 @@ func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c := getPachClient(t)
 	aRepo := uniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
@@ -3064,7 +3064,7 @@ func TestChainedPipelines(t *testing.T) {
 	))
 	results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, dCommit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(results))
+	require.Equal(t, 4, len(results))
 }
 
 func TestParallelismSpec(t *testing.T) {
