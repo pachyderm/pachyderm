@@ -856,6 +856,8 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	}
 	var provenanceIDs []interface{}
 	for _, commit := range provenance {
+		// TODO: we need to validate the provenanceIDs: 1) they must actually
+		// exist, and 2) they can't be just branch names
 		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
 			ID:   commit.ID,
 			Repo: commit.Repo.Name,
@@ -943,7 +945,9 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		result = append(result, d.rawCommitToCommitInfo(rawCommit))
 		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
 			Repo: commit.Repo.Name,
-			ID:   commit.ID,
+			// We can't just use commit.ID directly because it might be a
+			// branch name instead of a commitID
+			ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
 		})
 	}
 
