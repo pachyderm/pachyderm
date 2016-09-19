@@ -24,7 +24,7 @@ func TestSeekRead(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "", "")
@@ -81,7 +81,7 @@ func TestSeekWriteGap(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "", "")
@@ -129,7 +129,7 @@ func TestSeekWriteBackwards(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "", "")
