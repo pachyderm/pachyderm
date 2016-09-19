@@ -1582,6 +1582,7 @@ func (a *apiServer) trueInputs(
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
 				})
+			delete(repoToInput, commit.Repo.Name)
 		}
 	}
 	if len(result) == len(pipelineInfo.Inputs) {
