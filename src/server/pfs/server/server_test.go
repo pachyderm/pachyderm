@@ -172,7 +172,7 @@ func TestBranch(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	branches, err := client.ListBranch(repo)
+	branches, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 	require.Equal(t, commit1, branches[0].Commit)
 	require.Equal(t, "master", branches[0].Branch)
@@ -188,7 +188,7 @@ func TestBranch(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
-	branches, err = client.ListBranch(repo)
+	branches, err = client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 	require.Equal(t, commit2, branches[0].Commit)
 	require.Equal(t, "master", branches[0].Branch)
@@ -1486,7 +1486,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	_, err = client.InspectCommit(repo, "bogus")
 	require.Equal(t, "commit bogus not found in repo test", err.Error())
 
-	_, err = client.ListBranch("blah")
+	_, err = client.ListBranch("blah", pclient.CommitStatusNormal)
 	require.Equal(t, "repo blah not found", err.Error())
 
 	_, err = client.InspectFile(repo, commit1.ID, "file", "", false, nil)
@@ -1911,7 +1911,7 @@ func TestBranchSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
-	heads, err := client.ListBranch(repo)
+	heads, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(heads))
@@ -1942,7 +1942,7 @@ func TestListBranch(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
-	branches, err := client.ListBranch(repo)
+	branches, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, len(branches))
@@ -2044,7 +2044,7 @@ func TestStartCommitFromParentID(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	branches, err := client.ListBranch(repo)
+	branches, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(branches))
@@ -2055,7 +2055,7 @@ func TestStartCommitFromParentID(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	existingBranch := branches[0].Branch
-	branches, err = client.ListBranch(repo)
+	branches, err = client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(branches))
@@ -2064,7 +2064,7 @@ func TestStartCommitFromParentID(t *testing.T) {
 	commit2, err := client.StartCommit(repo, commit.ID, "foo")
 	require.NoError(t, err)
 
-	branches2, err := client.ListBranch(repo)
+	branches2, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	uniqueBranches := make(map[string]bool)
@@ -2115,7 +2115,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	branches, err := client.ListBranch(repo)
+	branches, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, commit3.ID, branches[0].Commit.ID)
 }
@@ -2136,7 +2136,7 @@ func TestListBranchRedundant(t *testing.T) {
 	_, err = client.StartCommit(repo, commit1.ID, "branchA")
 	require.YesError(t, err)
 
-	branches, err := client.ListBranch(repo)
+	branches, err := client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(branches))
