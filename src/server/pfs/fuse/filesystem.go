@@ -645,13 +645,13 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	var commitInfos []*pfsclient.CommitInfo
-	var err error
+	status := pfsclient.CommitStatus_NORMAL
 	if d.fs.allCommits {
-		commitInfos, err = d.fs.apiClient.ListCommit([]*pfsclient.Commit{client.NewCommit(d.File.Commit.Repo.Name, "")}, nil, client.CommitTypeNone, pfsclient.CommitStatus_ALL, false)
-	} else {
-		commitInfos, err = d.fs.apiClient.ListCommit([]*pfsclient.Commit{client.NewCommit(d.File.Commit.Repo.Name, "")}, nil, client.CommitTypeNone, pfsclient.CommitStatus_NORMAL, false)
+		status = pfsclient.CommitStatus_ALL
 	}
+	commitInfos, err := d.fs.apiClient.ListCommit([]*pfsclient.Commit{
+		client.NewCommit(d.File.Commit.Repo.Name, ""),
+	}, nil, client.CommitTypeNone, status, false)
 	if err != nil {
 		return nil, err
 	}
@@ -660,7 +660,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 		commitPath := commitIDToPath(commitInfo.Commit.ID)
 		result = append(result, fuse.Dirent{Name: commitPath, Type: fuse.DT_Dir})
 	}
-	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
+	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name, status)
 	if err != nil {
 		return nil, err
 	}

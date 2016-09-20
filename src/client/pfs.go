@@ -266,11 +266,12 @@ func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commi
 }
 
 // ListBranch lists the active branches on a Repo.
-func (c APIClient) ListBranch(repoName string) ([]string, error) {
+func (c APIClient) ListBranch(repoName string, status pfs.CommitStatus) ([]string, error) {
 	branches, err := c.PfsAPIClient.ListBranch(
 		context.Background(),
 		&pfs.ListBranchRequest{
-			Repo: NewRepo(repoName),
+			Repo:   NewRepo(repoName),
+			Status: status,
 		},
 	)
 	if err != nil {

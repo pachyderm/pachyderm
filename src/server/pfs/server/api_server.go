@@ -142,7 +142,7 @@ func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitR
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	branches, err := a.driver.ListBranch(request.Repo)
+	branches, err := a.driver.ListBranch(request.Repo, request.Status)
 	if err != nil {
 		return nil, err
 	}

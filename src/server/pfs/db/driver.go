@@ -991,7 +991,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	return result, nil
 }
 
-func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
+func (d *driver) ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]string, error) {
 	// Get all branches
 	cursor, err := d.getTerm(commitTable).Distinct(gorethink.DistinctOpts{
 		Index: CommitBranchIndex.Name,
@@ -1005,7 +1005,28 @@ func (d *driver) ListBranch(repo *pfs.Repo) ([]string, error) {
 		return nil, err
 	}
 
-	return branches, nil
+	if status == pfs.CommitStatus_ALL {
+		return branches, nil
+	}
+
+	var res []string
+	for _, branch := range branches {
+		commit := &persist.Commit{}
+		if err := d.getHeadOfBranch(repo.Name, branch, commit); err != nil {
+			return nil, err
+		}
+		// Check if we should skip the commit based on status
+		if status != pfs.CommitStatus_ALL {
+			if commit.Cancelled && status != pfs.CommitStatus_CANCELLED {
+				continue
+			}
+			if commit.Archived && status != pfs.CommitStatus_ARCHIVED {
+				continue
+			}
+		}
+		res = append(res, branch)
+	}
+	return res, nil
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit) error {
