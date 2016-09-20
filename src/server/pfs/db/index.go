@@ -12,7 +12,7 @@ var Indexes = []*index{
 	DiffPrefixIndex,
 	DiffParentIndex,
 	DiffClockIndex,
-	ClockBranchIndex,
+	CommitBranchIndex,
 	CommitClockIndex,
 	CommitFullClockIndex,
 }
@@ -118,16 +118,25 @@ func diffClockIndexKey(repo interface{}, branch interface{}, clock interface{}) 
 	return []interface{}{repo, branch, clock}
 }
 
-// ClockBranchIndex maps a branch to a clock
-var ClockBranchIndex = &index{
-	Name:  "ClockBranchIndex",
-	Table: clockTable,
+// CommitBranchIndex maps clocks to branches
+// Format: repo + branch
+// Example:
+// A commit that has the clock [(master, 2), (foo, 3)] will be indexed to:
+// ["repo", "foo"]
+var CommitBranchIndex = &index{
+	Name:  "CommitBranchIndex",
+	Table: commitTable,
 	CreateFunction: func(row gorethink.Term) interface{} {
+		lastClock := row.Field("FullClock").Nth(-1)
 		return []interface{}{
 			row.Field("Repo"),
-			row.Field("Branch"),
+			lastClock.Field("Branch"),
 		}
 	},
+}
+
+func commitBranchIndexKey(repo interface{}, branch interface{}) interface{} {
+	return []interface{}{repo, branch}
 }
 
 // CommitClockIndex maps clocks to commits
