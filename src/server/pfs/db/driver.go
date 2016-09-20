@@ -1331,7 +1331,12 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			break
 		}
 		client := client.APIClient{BlockAPIClient: r.blockClient}
-		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(r.size))
+		sizeLeft := r.size
+		// e.g. sometimes a reader is constructed of size 0
+		if sizeLeft != 0 {
+			sizeLeft -= r.sizeRead
+		}
+		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
 		if err != nil {
 			return 0, err
 		}
