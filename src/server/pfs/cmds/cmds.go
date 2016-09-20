@@ -272,7 +272,7 @@ Examples:
 			return writer.Flush()
 		}),
 	}
-	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled commits")
+	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
@@ -332,7 +332,11 @@ Examples:
 			if err != nil {
 				return err
 			}
-			commitInfos, err := client.ListBranch(args[0])
+			status := pfsclient.CommitStatus_NORMAL
+			if all {
+				status = pfsclient.CommitStatus_ALL
+			}
+			commitInfos, err := client.ListBranch(args[0], status)
 			if err != nil {
 				return err
 			}
@@ -344,6 +348,7 @@ Examples:
 			return writer.Flush()
 		}),
 	}
+	listBranch.Flags().BoolVarP(&all, "all", "a", false, "list all branches including cancelled and archived ones")
 
 	file := &cobra.Command{
 		Use:   "file",
