@@ -690,7 +690,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 
 // ArchiveCommits archives the given commits and all commits that have any of the
 // given commits as provenance
-func (d *driver) ArchiveCommits(commits []*pfs.Commit) error {
+func (d *driver) ArchiveCommit(commits []*pfs.Commit) error {
 	var provenanceIDs []interface{}
 	for _, commit := range commits {
 		provenanceIDs = append(provenanceIDs, commit.ID)
@@ -1422,7 +1422,7 @@ func (d *driver) getCommitsToMerge(commits []*pfs.Commit, to *pfs.Commit) (nilTe
 	return query, nil
 }
 
-func (d *driver) Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error {
+func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error {
 	if len(fromCommits) == 0 || toCommit == nil {
 		return fmt.Errorf("Invalid arguments: fromCommits: %v; toCommit: %v", fromCommits, toCommit)
 	}
@@ -1511,7 +1511,7 @@ func (d *driver) Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error {
 	return nil
 }
 
-func (d *driver) Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error) {
+func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error) {
 	if len(fromCommits) == 0 || toBranch == "" {
 		return nil, fmt.Errorf("Invalid arguments: fromCommits: %v; toBranch: %v", fromCommits, toBranch)
 	}
