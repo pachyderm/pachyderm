@@ -2,7 +2,6 @@ package fuse
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -370,7 +369,6 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		}
 	}()
 	var buffer bytes.Buffer
-	fmt.Printf("Getting file %v / %v / %v, req.size = %v\n", h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, request.Size)
 	if err := h.f.fs.apiClient.GetFile(
 		h.f.File.Commit.Repo.Name,
 		h.f.File.Commit.ID,
