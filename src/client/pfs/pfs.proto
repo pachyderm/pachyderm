@@ -206,6 +206,7 @@ message ListCommitRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
+  CommitStatus status = 2;
 }
 
 message DeleteCommitRequest {
