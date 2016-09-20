@@ -1,17 +1,14 @@
-## ./pachctl file
+## ./pachctl archive-all
 
-Docs for files.
+Archives all commits in all repos
 
 ### Synopsis
 
 
-Files are the lowest level data object in Pachyderm.
-
-Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.
+Archives all commits in all repos
 
 ```
-./pachctl file
+./pachctl archive-all
 ```
 
 ### Options inherited from parent commands
