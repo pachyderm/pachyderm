@@ -18,6 +18,7 @@ Features:
 - `pachctl unmount` has been added, it can be used to unmount a single mount or all of them with `-a`
 - Benchmarks have been added
 - pprof support has been added to pachd
+- Parallelization can now be set as a factor of cluster size
 
 Content:
 
