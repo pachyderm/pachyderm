@@ -180,11 +180,10 @@ func TestBranch(t *testing.T) {
 
 	_, err = client.StartCommit(repo, "master")
 	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
 	err = client.FinishCommit(repo, "master")
 	require.NoError(t, err)
-	buffer = bytes.Buffer{}
-	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
 	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
@@ -198,7 +197,7 @@ func TestBranch(t *testing.T) {
 	err = client.FinishCommit(repo, "master2")
 	require.NoError(t, err)
 
-	branches, err = client.ListBranch(repo)
+	branches, err = client.ListBranch(repo, pclient.CommitStatusNormal)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(branches))
 	require.Equal(t, "master", branches[0])
