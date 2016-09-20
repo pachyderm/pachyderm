@@ -99,7 +99,7 @@ func (w *worker) work(c *client.APIClient) error {
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := c.Fork(commit.Repo.Name, commit.ID, uuid.NewWithoutDashes())
+			commit, err := c.ForkCommit(commit.Repo.Name, commit.ID, uuid.NewWithoutDashes())
 			if err != nil {
 				return err
 			}
