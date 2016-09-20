@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,22 +24,19 @@ func TestTensorFlow(t *testing.T) {
 	cmd := exec.Command("make", "all")
 	cmd.Dir = exampleDir
 	raw, err := cmd.CombinedOutput()
-	fmt.Printf("make output: %v\n", string(raw))
 	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "list-commit", "GoT_scripts")
 	cmd.Dir = exampleDir
 	raw, err = cmd.CombinedOutput()
-	fmt.Printf("Raw output: %v\n", string(raw))
 	lines := strings.Split(string(raw), "\n")
-	fmt.Printf("Lines: %v\n", lines)
-	require.Equal(t, 2, len(lines))
+	require.Equal(t, 3, len(lines))
 
 	getSecondField := func(line string) string {
 		tokens := strings.Split(line, " ")
 		seenField := 0
 		for _, token := range tokens {
-			if seenField != 0 && token != "" {
+			if token != "" {
 				seenField += 1
 				if seenField == 2 {
 					return token
@@ -59,14 +56,26 @@ func TestTensorFlow(t *testing.T) {
 	inputCommitID := getSecondField(lines[1])
 	require.NotEqual(t, "", inputCommitID)
 
-	// Wait until the GoT/generate job has finished
+	// Wait until the GoT_generate job has finished
 	c := getPachClient(t)
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit("GoT_scripts", inputCommitID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
-	fmt.Printf("Commits flushed: %v\n", commitInfos)
+	repos := []interface{}{"GoT_train", "GoT_generate"}
+	var generateCommitID string
+	for _, commitInfo := range commitInfos {
+		require.EqualOneOf(t, repos, commitInfo.Commit.Repo.Name)
+		if commitInfo.Commit.Repo.Name == "GoT_generate" {
+			generateCommitID = commitInfo.Commit.ID
+		}
+	}
 
 	// Make sure the final output is non zero
-
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile("GoT_generate", generateCommitID, "new_script.txt", 0, 0, "", false, nil, &buffer))
+	if buffer.Len() < 100 {
+		t.Fatalf("Output GoT script is too small (has len=%v)", buffer.Len())
+	}
+	require.NoError(t, c.DeleteAll())
 }
