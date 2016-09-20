@@ -67,10 +67,10 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) Fork(ctx context.Context, request *pfs.ForkRequest) (response *pfs.Commit, retErr error) {
+func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	commit, err := a.driver.Fork(request.Parent, request.Branch, request.Provenance)
+	commit, err := a.driver.ForkCommit(request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +96,10 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) ArchiveCommits(ctx context.Context, request *pfs.ArchiveCommitsRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.ArchiveCommits(request.Commits); err != nil {
+	if err := a.driver.ArchiveCommit(request.Commits); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -123,16 +123,16 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) Squash(ctx context.Context, request *pfs.SquashRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, a.driver.Squash(request.FromCommits, request.ToCommit)
+	return google_protobuf.EmptyInstance, a.driver.SquashCommit(request.FromCommits, request.ToCommit)
 }
 
-func (a *apiServer) Replay(ctx context.Context, request *pfs.ReplayRequest) (response *pfs.Commits, retErr error) {
+func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitRequest) (response *pfs.Commits, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	commits, err := a.driver.Replay(request.FromCommits, request.ToBranch)
+	commits, err := a.driver.ReplayCommit(request.FromCommits, request.ToBranch)
 	if err != nil {
 		return nil, err
 	}

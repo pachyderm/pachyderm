@@ -21,15 +21,21 @@ type Driver interface {
 	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
 	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, force bool) error
-	Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error)
+
 	StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
+	ForkCommit(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(commit *pfs.Commit, cancel bool) error
-	ArchiveCommits(commit []*pfs.Commit) error
+	// Squash merges the content of fromCommits into toCommit, which should be an // open commit.
+	SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error
+	// Replay replays fromCommits onto toBranch
+	ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
+	ArchiveCommit(commit []*pfs.Commit) error
 	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
 	ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
-	ListBranch(repo *pfs.Repo) ([]string, error)
 	DeleteCommit(commit *pfs.Commit) error
+	ListBranch(repo *pfs.Repo) ([]string, error)
+
 	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
 	MakeDirectory(file *pfs.File) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
@@ -37,12 +43,9 @@ type Driver interface {
 	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error)
 	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File) error
+
 	DeleteAll() error
 	ArchiveAll() error
+
 	Dump()
-	// Squash merges the content of fromCommits into toCommit, which should be an
-	// open commit.
-	Squash(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error
-	// Replay replays fromCommits onto toBranch
-	Replay(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
 }

@@ -693,7 +693,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
 		// If we have a parent, then we fork the parent
-		forkReq := &pfsclient.ForkRequest{
+		forkReq := &pfsclient.ForkCommitRequest{
 			Provenance: provenance,
 			Parent: &pfsclient.Commit{
 				Repo: jobInfo.OutputCommit.Repo,
@@ -701,7 +701,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			},
 			Branch: fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
 		}
-		commit, err = pfsAPIClient.Fork(ctx, forkReq)
+		commit, err = pfsAPIClient.ForkCommit(ctx, forkReq)
 		if err != nil {
 			return nil, err
 		}
@@ -722,7 +722,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 
 	// We archive the commit before we finish it, to ensure that a pipeline
 	// that is listing finished commits do not end up seeing this commit
-	_, err = pfsAPIClient.ArchiveCommits(ctx, &pfsclient.ArchiveCommitsRequest{
+	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
 		Commits: []*pfsclient.Commit{commit},
 	})
 	if err != nil {
@@ -875,11 +875,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
 
-		squashReq := &pfsclient.SquashRequest{
+		squashReq := &pfsclient.SquashCommitRequest{
 			FromCommits: commitsToMerge,
 			ToCommit:    jobInfo.OutputCommit,
 		}
-		if _, err := pfsAPIClient.Squash(
+		if _, err := pfsAPIClient.SquashCommit(
 			ctx,
 			squashReq,
 		); err != nil {
@@ -1019,9 +1019,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			for _, commitInfo := range commitInfos.CommitInfo {
 				commits = append(commits, commitInfo.Commit)
 			}
-			_, err = pfsAPIClient.ArchiveCommits(
+			_, err = pfsAPIClient.ArchiveCommit(
 				ctx,
-				&pfsclient.ArchiveCommitsRequest{
+				&pfsclient.ArchiveCommitRequest{
 					Commits: commits,
 				})
 			if err != nil {

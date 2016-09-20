@@ -170,7 +170,7 @@ message StartCommitRequest {
   repeated Commit provenance = 2;
 }
 
-message ForkRequest {
+message ForkCommitRequest {
   Commit parent = 1;
   string branch = 2;
   repeated Commit provenance = 3;
@@ -181,7 +181,7 @@ message FinishCommitRequest {
   bool cancel = 2;
 }
 
-message ArchiveCommitsRequest {
+message ArchiveCommitRequest {
   repeated Commit commits = 1;
 }
 
@@ -267,12 +267,12 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-message SquashRequest {
+message SquashCommitRequest {
   repeated Commit from_commits = 1;
   Commit to_commit = 2;
 }
 
-message ReplayRequest {
+message ReplayCommitRequest {
   repeated Commit from_commits = 1;
   string to_branch = 2;
 }
@@ -293,11 +293,11 @@ service API {
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // Fork creates a commit on a new branch.
-  rpc Fork(ForkRequest) returns (Commit) {}
+  rpc ForkCommit(ForkCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
-  // ArchiveCommits marks a commit as archived, it will be excluded from ListCommit.
-  rpc ArchiveCommits(ArchiveCommitsRequest) returns (google.protobuf.Empty) {}
+  // ArchiveCommit marks commits as archived, it will be excluded from ListCommit.
+  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -309,9 +309,9 @@ service API {
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}
   // Squash returns the head of the commit of the merge
-  rpc Squash(SquashRequest) returns (google.protobuf.Empty) {}
+  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
   // Replay returns the head of the commit of the merge
-  rpc Replay(ReplayRequest) returns (Commits) {}
+  rpc ReplayCommit(ReplayCommitRequest) returns (Commits) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.

@@ -158,12 +158,12 @@ func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commi
 	return commit, nil
 }
 
-// Fork is the same as StartCommit except that the commit is created
+// ForkCommit is the same as StartCommit except that the commit is created
 // on a new branch.
-func (c APIClient) Fork(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
-	commit, err := c.PfsAPIClient.Fork(
+func (c APIClient) ForkCommit(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
+	commit, err := c.PfsAPIClient.ForkCommit(
 		context.Background(),
-		&pfs.ForkRequest{
+		&pfs.ForkCommitRequest{
 			Parent: &pfs.Commit{
 				Repo: &pfs.Repo{
 					Name: repoName,
@@ -196,9 +196,9 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 // ListCommit unless commit status is set to Archived or All. Archived commits
 // are not considered by FlushCommit either.
 func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
-	_, err := c.PfsAPIClient.ArchiveCommits(
+	_, err := c.PfsAPIClient.ArchiveCommit(
 		context.Background(),
-		&pfs.ArchiveCommitsRequest{
+		&pfs.ArchiveCommitRequest{
 			Commits: []*pfs.Commit{NewCommit(repoName, commitID)},
 		},
 	)
@@ -575,19 +575,19 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// Squash creates a single commit that contains all diffs in `fromCommits`
+// SquashCommit creates a single commit that contains all diffs in `fromCommits`
 // * Replay: create a series of commits, each of which corresponds to a single
 // commit in `fromCommits`.
-func (c APIClient) Squash(repo string, fromCommits []string, to string) error {
+func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) error {
 
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
 		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
 	}
 
-	_, err := c.PfsAPIClient.Squash(
+	_, err := c.PfsAPIClient.SquashCommit(
 		context.Background(),
-		&pfs.SquashRequest{
+		&pfs.SquashCommitRequest{
 			FromCommits: realFromCommits,
 			ToCommit:    NewCommit(repo, to),
 		},
@@ -600,15 +600,15 @@ func (c APIClient) Squash(repo string, fromCommits []string, to string) error {
 
 // Replay creates a series of commits, each of which corresponds to a single
 // commit in `fromCommits`.
-func (c APIClient) Replay(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
+func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
 		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
 	}
 
-	commits, err := c.PfsAPIClient.Replay(
+	commits, err := c.PfsAPIClient.ReplayCommit(
 		context.Background(),
-		&pfs.ReplayRequest{
+		&pfs.ReplayCommitRequest{
 			FromCommits: realFromCommits,
 			ToBranch:    to,
 		},

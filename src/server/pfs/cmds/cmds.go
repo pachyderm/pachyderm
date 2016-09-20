@@ -149,17 +149,25 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
-	var parentCommitID string
 	startCommit := &cobra.Command{
 		Use:   "start-commit repo-name [parent-commit | branch]",
 		Short: "Start a new commit.",
-		Long:  "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created",
+		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
+
+Examples:
+
+    # Start a commit in repo "foo" on branch "bar"
+	$ pachctl start-commit foo bar
+
+	# Start a commit with master/3 as the parent in repo foo
+	$ pachctl start-commit foo master/3
+`,
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			commit, err := client.StartCommit(args[0], parentCommitID)
+			commit, err := client.StartCommit(args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -167,7 +175,30 @@ This layers the data in the commit over the data in the parent.`,
 			return nil
 		}),
 	}
-	startCommit.Flags().StringVarP(&parentCommitID, "parent", "p", "", "parent id")
+
+	forkCommit := &cobra.Command{
+		Use:   "fork-commit repo-name parent-commit branch-name",
+		Short: "Start a new commit with a given parent on a new branch",
+		Long: `Start a new commit with parent-commit as the parent, on a new branch with the name branch-name.
+
+Examples:
+
+    # Start a commit in repo "test" on a new branch "bar" with foo/2 as the parent
+	$ pachctl fork-commit test foo/2 bar
+`,
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			commit, err := client.ForkCommit(args[0], args[1], args[2])
+			if err != nil {
+				return err
+			}
+			fmt.Println(commit.ID)
+			return nil
+		}),
+	}
 
 	var cancel bool
 	finishCommit := &cobra.Command{
@@ -609,6 +640,7 @@ Files and URLs should be newline delimited.
 	result = append(result, deleteRepo)
 	result = append(result, commit)
 	result = append(result, startCommit)
+	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
