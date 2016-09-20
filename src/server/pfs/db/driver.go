@@ -417,7 +417,7 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 	return fullProvenance, archived, nil
 }
 
-func (d *driver) Fork(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
+func (d *driver) ForkCommit(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
 	fullProvenance, archived, err := d.getFullProvenance(parent.Repo, provenance)
 	if err != nil {
 		return nil, err
