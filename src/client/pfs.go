@@ -598,7 +598,7 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) er
 	return nil
 }
 
-// Replay creates a series of commits, each of which corresponds to a single
+// ReplayCommit creates a series of commits, each of which corresponds to a single
 // commit in `fromCommits`.
 func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
 	var realFromCommits []*pfs.Commit
