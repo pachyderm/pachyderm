@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path"
