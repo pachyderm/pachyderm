@@ -1,17 +1,20 @@
-## ./pachctl file
+## ./pachctl port-forward
 
-Docs for files.
+Forward a port on the local machine to pachd. This command blocks.
 
 ### Synopsis
 
 
-Files are the lowest level data object in Pachyderm.
-
-Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.
+Forward a port on the local machine to pachd. This command blocks.
 
 ```
-./pachctl file
+./pachctl port-forward
+```
+
+### Options
+
+```
+  -p, --port int   The local port to bind to. (default 30650)
 ```
 
 ### Options inherited from parent commands

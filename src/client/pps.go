@@ -92,7 +92,7 @@ func (c APIClient) CreateJob(
 	image string,
 	cmd []string,
 	stdin []string,
-	parallelism uint64,
+	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
 	parentJobID string,
 ) (*pps.Job, error) {
@@ -108,9 +108,9 @@ func (c APIClient) CreateJob(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Parallelism: parallelism,
-			Inputs:      inputs,
-			ParentJob:   parentJob,
+			ParallelismSpec: parallelismSpec,
+			Inputs:          inputs,
+			ParentJob:       parentJob,
 		},
 	)
 	return job, sanitizeErr(err)
@@ -191,7 +191,7 @@ func (c APIClient) CreatePipeline(
 	image string,
 	cmd []string,
 	stdin []string,
-	parallelism uint64,
+	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
 	update bool,
 ) error {
@@ -204,9 +204,9 @@ func (c APIClient) CreatePipeline(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Parallelism: parallelism,
-			Inputs:      inputs,
-			Update:      update,
+			ParallelismSpec: parallelismSpec,
+			Inputs:          inputs,
+			Update:          update,
 		},
 	)
 	return sanitizeErr(err)
