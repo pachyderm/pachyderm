@@ -21,7 +21,11 @@ This document discusses each of the fields present in a pipeline specification. 
         "mountPath": "/path/in/container"
     } ]
   },
-  "parallelism": int,
+  "parallelism_spec": {
+    "strategy": "CONSTANT"|"COEFFICIENT"
+    "constant": int        // if strategy == CONSTANT
+    "coefficient": double  // if strategy == COEFFICIENT
+  }
   "inputs": [
     {
       "repo": {
@@ -34,7 +38,7 @@ This document discusses each of the fields present in a pipeline specification. 
       // strategies above should suffice.
       "method": {
         "partition": "block"/"file"/"repo",
-        "incremental": bool
+        "incremental": {0,1,2}
       }
     }
   ]
@@ -57,9 +61,15 @@ This document discusses each of the fields present in a pipeline specification. 
 
 `transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
 
-### Parallelism
+### Parallelism Spec
 
-`parallelism` is how many copies of your container (maximum) should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
+`parallelism_spec` describes how Pachyderm should parallelize your pipeline. Currently, Pachyderm has two parallelism strategies: `CONSTANT` and `COEFFICIENT`.
+
+If you use the `CONSTANT` strategy, Pachyderm will start a number of workers that you give it. To use this strategy, set the field `strategy` to `CONSTANT`, and set the field `constant` to an integer value (e.g. `10` to start 10 workers).
+
+If you use the `COEFFICIENT` strategy, Pachyderm will start a number of workers that is a multiple of your Kubernetes cluster's size. To use this strategy, set the field `coefficient` to a double. For example, if your Kubernetes cluster has 10 nodes, and you set `coefficient` to 0.5, Pachyderm will start five workers. If you set it to 2.0, Pachyderm will start 20 workers (two per Kubernetes node).
+
+__Note:__ Pachyderm treats this config as an upper bound. Pachyderm may choose to start fewer workers than specified if the pipeline's input data set is small or otherwise doesn't parallelize well (for example, if you use an input method of file and the input repo only has one file in it).
 
 ### Inputs
 
@@ -82,8 +92,8 @@ A method consists of two properties: partition unit and incrementality.
 #### Partition Unit
 Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-* `block`: different blocks of the same file may be parelleized across containers.
-* `file`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
+1.  `block`: different blocks of the same file may be parelleized across containers.
+2. `file`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
 ```
 /foo 
@@ -93,24 +103,32 @@ Partition unit specifies the granularity at which input data is parallelized acr
    /b
 ```
 then there are only three top-level objects, `/foo`, `/bar`, and `/buzz`, each of which will remain grouped in the same container. 
-* `repo`: the entire repo.  In this case, the input won't be partitioned at all. 
+3. `repo`: the entire repo.  In this case, the input won't be partitioned at all. 
 
 #### Incrementality
 
-Incrementality is a boolean flag that describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process only the new data in that commmit (the diff) or does all of the data need to be reprocessed?
+Incrementality is a numerical flag (0, 1, or 2) that describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process only the new data in that commmit (the diff) or does all of the data need to be reprocessed?
 
 For instance, if you have a repo with the file `/foo` in commit 1 and file `/bar` in commit 2, then:
 
-* If the input is incremental, the first job sees file `/foo` and the second job sees file `/bar`.
-* If the input is nonincremental, the first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
+* If the input is incremental (1), the first job sees file `/foo` and the second job sees file `/bar`.
+* If the input is nonincremental(0), ever job sees all the data. The first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
 
-For convenience, we have defined aliases for the four most commonly used input methods: map, reduce, incremental-reduce, and global.  They are defined below:
+Top-level objects (2) means that if any part in a file (or any file within a directory) changes, then show all the data in that file (directory). For example, you may have a directory called "users" with each user's info as a file. `Incremental: 2` would mean that if any user file changed, your job should see all user files as input.
 
-|                | Block |  Top-level Objects |  Repo  |
-|----------------|-------|--------------------|--------|
-|   Incremental  |  map  |                    |        |
-| Nonincremental |       |       reduce       | global |
+For convenience, we have defined aliases for the three most commonly used input methods: map, reduce, and global.  They are defined below:
 
+```
+  +---------------------+---------+----------------------+--------+
+  |                     | "Block" | "File" (Top-lvl Obj) | "Repo" |
+  +=====================+=========+======================+========+
+  | 0 (non-incremental) |         |        reduce        | global |
+  +---------------------+---------+----------------------+--------+
+  | 1 (diffs)           |   map   |                      |        |
+  +---------------------+---------+----------------------+--------+
+  | 2 (top-lvl object)  |         |                      |        |
+  +---------------------+---------+----------------------+--------+
+```
 #### Defaults
 If no method is specified, the `map` method (Block + Incremental) is used by default.
 
