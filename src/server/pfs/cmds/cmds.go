@@ -149,22 +149,25 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
-	var parentCommitID string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [branch]",
+		Use:   "start-commit repo-name [parent-commit | branch]",
 		Short: "Start a new commit.",
-		Long:  "Start a new commit with parent-commit-id as the parent.",
-		Run: cmd.RunBoundedArgs(1, 2, func(args []string) error {
+		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
+
+Examples:
+
+    # Start a commit in repo "foo" on branch "bar"
+	$ pachctl start-commit foo bar
+
+	# Start a commit with master/3 as the parent in repo foo
+	$ pachctl start-commit foo master/3
+`,
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
 			}
-			branch := ""
-			if len(args) == 2 {
-				branch = args[1]
-			}
-			commit, err := client.StartCommit(args[0],
-				parentCommitID, branch)
+			commit, err := client.StartCommit(args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -172,7 +175,30 @@ This layers the data in the commit over the data in the parent.`,
 			return nil
 		}),
 	}
-	startCommit.Flags().StringVarP(&parentCommitID, "parent", "p", "", "parent id")
+
+	forkCommit := &cobra.Command{
+		Use:   "fork-commit repo-name parent-commit branch-name",
+		Short: "Start a new commit with a given parent on a new branch",
+		Long: `Start a new commit with parent-commit as the parent, on a new branch with the name branch-name.
+
+Examples:
+
+    # Start a commit in repo "test" on a new branch "bar" with foo/2 as the parent
+	$ pachctl fork-commit test foo/2 bar
+`,
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
+			client, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+			commit, err := client.ForkCommit(args[0], args[1], args[2])
+			if err != nil {
+				return err
+			}
+			fmt.Println(commit.ID)
+			return nil
+		}),
+	}
 
 	var cancel bool
 	finishCommit := &cobra.Command{
@@ -225,25 +251,18 @@ Examples:
 	# return commits in repo "foo" and repo "bar"
 	$ pachctl list-commit foo bar
 
-	# return commits in repo "foo" since commit abc123 and those in repo "bar" since commit def456
-	$ pachctl list-commit foo/abc123 bar/def456
+	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
+	$ pachctl list-commit foo/master/2 bar/master/4
 
 	# return commits in repo "foo" that have commits
-	# "bar/abc123" and "baz/def456" as provenance
-	$ pachctl list-commit foo -p bar/abc123 -p baz/def456
+	# "bar/master/3" and "baz/master/5" as provenance
+	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			commits, err := cmd.ParseCommits(args)
+			fromCommits, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
-			}
-
-			var repos []string
-			var fromCommits []string
-			for _, commit := range commits {
-				repos = append(repos, commit.Repo.Name)
-				fromCommits = append(fromCommits, commit.ID)
 			}
 
 			c, err := client.NewFromAddress(address)
@@ -259,7 +278,7 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommit(repos, fromCommits, client.CommitTypeNone, block, status, provenance)
+			commitInfos, err := c.ListCommit(fromCommits, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -272,7 +291,7 @@ Examples:
 			return writer.Flush()
 		}),
 	}
-	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled commits")
+	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
@@ -285,11 +304,11 @@ Examples:
 
 Examples:
 
-	# return commits caused by foo/abc123 and bar/def456
-	$ pachctl flush-commit foo/abc123 bar/def456
+	# return commits caused by foo/master/1 and bar/master/2
+	$ pachctl flush-commit foo/master/1 bar/master/2
 
-	# return commits caused by foo/abc123 leading to repos bar and baz
-	$ pachctl flush-commit foo/abc123 -r bar -r baz
+	# return commits caused by foo/master/1 leading to repos bar and baz
+	$ pachctl flush-commit foo/master/1 -r bar -r baz
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
@@ -332,18 +351,21 @@ Examples:
 			if err != nil {
 				return err
 			}
-			commitInfos, err := client.ListBranch(args[0])
+			status := pfsclient.CommitStatus_NORMAL
+			if all {
+				status = pfsclient.CommitStatus_ALL
+			}
+			branches, err := client.ListBranch(args[0], status)
 			if err != nil {
 				return err
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for _, commitInfo := range commitInfos {
-				pretty.PrintCommitInfo(writer, commitInfo)
+			for _, branch := range branches {
+				fmt.Println(branch)
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
+	listBranch.Flags().BoolVarP(&all, "all", "a", false, "list all branches including cancelled and archived ones")
 
 	file := &cobra.Command{
 		Use:   "file",
@@ -373,7 +395,7 @@ Files can be read from finished commits with get-file.`,
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
 			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], url.Path, url.String())
+				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
 			}
 			return client.PutFileURL(args[0], args[1], args[2], url.String())
 		}
@@ -435,8 +457,7 @@ Files and URLs should be newline delimited.
 				return err
 			}
 			if commitFlag {
-				commit, err := client.StartCommit(args[0],
-					"", args[1])
+				commit, err := client.StartCommit(args[0], args[1])
 				if err != nil {
 					return err
 				}
@@ -463,16 +484,24 @@ Files and URLs should be newline delimited.
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := inputFile.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
 					r = inputFile
 				}
 				// scan line by line
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
-					eg.Go(func() error { return putFilePath(client, args, scanner.Text()) })
+					if filePath := scanner.Text(); filePath != "" {
+						eg.Go(func() error { return putFilePath(client, args, filePath) })
+					}
 				}
-			}
-			for _, filePath := range filePaths {
-				eg.Go(func() error { return putFilePath(client, args, filePath) })
+			} else {
+				for _, filePath := range filePaths {
+					eg.Go(func() error { return putFilePath(client, args, filePath) })
+				}
 			}
 			return eg.Wait()
 		}),
@@ -484,11 +513,9 @@ Files and URLs should be newline delimited.
 
 	var fromCommitID string
 	var fullFile bool
-	var unsafe bool
 	addFileFlags := func(cmd *cobra.Command) {
 		cmd.Flags().StringVarP(&fromCommitID, "from", "f", "", "only consider data written since this commit")
 		cmd.Flags().BoolVar(&fullFile, "full-file", false, "if there has been data since the from commit return the full file")
-		cmd.Flags().BoolVar(&unsafe, "unsafe", false, "use this flag if you need to read data written in the current commit; this operation will race with concurrent writes")
 	}
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
@@ -564,15 +591,16 @@ Files and URLs should be newline delimited.
 			if err != nil {
 				return err
 			}
-			return client.DeleteFile(args[0], args[1], args[2], false, "")
+			return client.DeleteFile(args[0], args[1], args[2])
 		}),
 	}
 
 	var debug bool
+	var allCommits bool
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
-		Short: "Mount pfs locally.",
-		Long:  "Mount pfs locally.",
+		Short: "Mount pfs locally. This command blocks.",
+		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
@@ -580,7 +608,12 @@ Files and URLs should be newline delimited.
 			}
 			mounter := fuse.NewMounter(address, client.PfsAPIClient)
 			mountPoint := args[0]
-			err = mounter.Mount(mountPoint, shard(), nil, nil, debug)
+			ready := make(chan bool)
+			go func() {
+				<-ready
+				fmt.Println("Filesystem mounted, CTRL-C to exit.")
+			}()
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
 			if err != nil {
 				return err
 			}
@@ -588,7 +621,8 @@ Files and URLs should be newline delimited.
 		}),
 	}
 	addShardFlags(mount)
-	mount.Flags().BoolVarP(&debug, "debug", "d", false, "turn on debug messages")
+	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
+	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
 
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",
@@ -611,6 +645,7 @@ Files and URLs should be newline delimited.
 	result = append(result, deleteRepo)
 	result = append(result, commit)
 	result = append(result, startCommit)
+	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)

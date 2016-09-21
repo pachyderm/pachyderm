@@ -124,7 +124,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 			MountPath: "/" + googleSecretName,
 		})
 	}
-	replicas := int32(2)
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -172,6 +172,10 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 									},
 								},
 								{
+									Name:  "IMAGE_TAG",
+									Value: version,
+								},
+								{
 									Name:  "METRICS",
 									Value: metrics,
 								},
@@ -183,7 +187,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 1050,
+									ContainerPort: 651,
 									Name:          "trace-port",
 								},
 							},
@@ -224,6 +228,11 @@ func PachdService() *api.Service {
 					Port:     650,
 					Name:     "api-grpc-port",
 					NodePort: 30650,
+				},
+				{
+					Port:     651,
+					Name:     "trace-port",
+					NodePort: 30651,
 				},
 			},
 		},

@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -23,7 +24,7 @@ func Example_pps() {
 		"pachyderm/test_image", // your docker image
 		[]string{"map"},        // the command run in your docker image
 		nil,                    // no stdin
-		0,                      // let pachyderm decide the parallelism
+		nil,                    // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// map over "repo"
 			client.NewPipelineInput("repo", client.MapMethod),
@@ -32,12 +33,13 @@ func Example_pps() {
 	); err != nil {
 		return // handle error
 	}
+
 	if err := c.CreatePipeline(
 		"reduce",               // the name of the pipeline
 		"pachyderm/test_image", // your docker image
 		[]string{"reduce"},     // the command run in your docker image
 		nil,                    // no stdin
-		0,                      // let pachyderm decide the parallelism
+		nil,                    // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// reduce over "map"
 			client.NewPipelineInput("map", client.ReduceMethod),
@@ -48,12 +50,13 @@ func Example_pps() {
 	}
 
 	commits, err := c.ListCommit( // List commits that are...
-		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
-		nil,                // starting at the beginning of time
-		client.CommitTypeRead, // are readable
-		true, // block until commits are available
+		[]*pfs.Commit{{
+			Repo: client.NewRepo("reduce"),
+		}}, // from the "reduce" repo (which the "reduce" pipeline outputs)
+		nil, // no provenance
+		client.CommitTypeRead,     // are readable
 		client.CommitStatusNormal, // ignore cancelled commits
-		nil, // have no provenance
+		true, // block until commits are available
 	)
 	if err != nil {
 		return // handle error

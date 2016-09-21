@@ -21,8 +21,11 @@ var (
 	}
 	// CreateJobRequest example
 	CreateJobRequest = &ppsclient.CreateJobRequest{
-		Transform:   Transform,
-		Parallelism: 1,
+		Transform: Transform,
+		ParallelismSpec: &ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		Inputs: []*ppsclient.JobInput{
 			{
 				Commit: &pfs.Commit{
@@ -41,8 +44,11 @@ var (
 		Pipeline: &ppsclient.Pipeline{
 			Name: "name",
 		},
-		Transform:   Transform,
-		Parallelism: 1,
+		Transform: Transform,
+		ParallelismSpec: &ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
 		Inputs: []*ppsclient.PipelineInput{
 			{
 				Repo:   &pfs.Repo{Name: "in_repo"},
@@ -61,6 +67,9 @@ var (
 				Method: client.GlobalMethod,
 			},
 		},
-		Parallelism: 3,
+		ParallelismSpec: &ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 3,
+		},
 	}
 )

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -84,6 +85,7 @@ type apiServer struct {
 	// requests using version have returned
 	versionLock sync.RWMutex
 	namespace   string
+	imageTag    string
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -100,6 +102,44 @@ func (inputs JobInputs) Less(i, j int) bool {
 
 func (inputs JobInputs) Swap(i, j int) {
 	inputs[i], inputs[j] = inputs[j], inputs[i]
+}
+
+// GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
+// the ParallelismSpec 'spec'.
+//
+// This is only exported for testing
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (uint64, error) {
+	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
+	if spec == nil {
+		// Unset ParallelismSpec is handled here. Currently we start one worker per
+		// node
+		coefficient = 1.0
+	} else if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
+		if spec.Constant > 0 {
+			return spec.Constant, nil
+		}
+		// Zero-initialized ParallelismSpec is handled here. Currently we start one
+		// worker per node
+		coefficient = 1
+	} else if spec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
+		coefficient = spec.Coefficient
+	} else {
+		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
+	}
+	if coefficient == 0.0 {
+		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
+	}
+
+	// Start ('coefficient' * 'nodes') workers. Determine number of workers
+	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("Unable to retrieve node list from k8s to determine parallelism")
+	}
+	if len(nodeList.Items) == 0 {
+		return 0, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
+	}
+	result := math.Floor(coefficient * float64(len(nodeList.Items)))
+	return uint64(math.Max(result, 1)), nil
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
@@ -133,20 +173,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 		request.Transform = pipelineInfo.Transform
-		request.Parallelism = pipelineInfo.Parallelism
-	}
-
-	if request.Parallelism == 0 {
-		nodeList, err := a.kubeClient.Nodes().List(api.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
-		}
-
-		if len(nodeList.Items) == 0 {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
-		}
-
-		request.Parallelism = uint64(len(nodeList.Items))
+		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -192,34 +219,41 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
-
-	for _, input := range request.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
-	}
-
 	// If JobInfo.Pipeline is set, use the pipeline repo
+	var outputRepo *pfsclient.Repo
 	if request.Pipeline != nil {
-		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
-		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
+		outputRepo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
+		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != outputRepo.Name {
 			return nil, fmt.Errorf("parent job was not part of the same pipeline; this is likely a bug")
 		}
 	} else {
-		// If parent is set, use the parent's repo
 		if parentJobInfo != nil {
-			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
+			outputRepo = parentJobInfo.OutputCommit.Repo
 		} else {
-			// Otherwise, create a repo for this job
-			startCommitRequest.Repo = ppsserver.JobRepo(&ppsclient.Job{
+			// Create a repo for this job
+			outputRepo = ppsserver.JobRepo(&ppsclient.Job{
 				ID: jobID,
 			})
 			var provenance []*pfsclient.Repo
 			for _, input := range request.Inputs {
 				provenance = append(provenance, input.Commit.Repo)
 			}
+			defer func() {
+				if retErr != nil {
+					req := &pfsclient.DeleteRepoRequest{
+						Repo: outputRepo,
+					}
+					_, err := pfsAPIClient.DeleteRepo(ctx, req)
+					if err != nil {
+						protolion.Errorf("could not rollback repo creation %s", err.Error())
+						a.Log(req, nil, err, 0)
+					}
+				}
+			}()
+
 			if _, err := pfsAPIClient.CreateRepo(ctx,
 				&pfsclient.CreateRepoRequest{
-					Repo:       startCommitRequest.Repo,
+					Repo:       outputRepo,
 					Provenance: provenance,
 				}); err != nil {
 				return nil, err
@@ -232,7 +266,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
 			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
 		}
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
@@ -240,7 +273,20 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	startCommitRequest := &pfsclient.StartCommitRequest{}
+	for _, input := range request.Inputs {
+		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+	}
+	startCommitRequest.Parent = &pfsclient.Commit{
+		Repo: outputRepo,
+	}
+	if parentJobInfo != nil {
+		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+	} else {
+		// Without a parent, we start the commit on a random branch
+		startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
+	}
+	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +297,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Transform:    request.Transform,
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
-		OutputCommit: commit,
+		OutputCommit: outputCommit,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -261,9 +307,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
 	if len(request.Inputs) == 0 {
-		persistJobInfo.Parallelism = request.Parallelism
+		persistJobInfo.ParallelismSpec = request.ParallelismSpec
 	} else {
-		shardModuli, err := a.shardModuli(ctx, request.Inputs, request.Parallelism, repoToFromCommit)
+		numWorkers, err := GetExpectedNumWorkers(a.kubeClient, request.ParallelismSpec)
+		if err != nil {
+			return nil, err
+		}
+		shardModuli, err := a.shardModuli(ctx, request.Inputs, numWorkers, repoToFromCommit)
 		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
@@ -279,7 +329,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 
 			_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-				Commit: commit,
+				Commit: outputCommit,
 			})
 			if err != nil {
 				return nil, err
@@ -290,7 +340,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}, nil
 		}
 
-		persistJobInfo.Parallelism = product(shardModuli)
+		persistJobInfo.ParallelismSpec = &ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: product(shardModuli),
+		}
 		persistJobInfo.ShardModuli = shardModuli
 	}
 
@@ -314,7 +367,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job(persistJobInfo)); err != nil {
+	job, err := job(a.kubeClient, persistJobInfo, a.imageTag)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
 		return nil, err
 	}
 
@@ -542,22 +599,16 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	// sort the pods to make sure that the indexes are stable
 	sort.Sort(podSlice(pods))
 	logs := make([][]byte, len(pods))
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for i, pod := range pods {
 		i := i
 		pod := pod
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
 				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
+				return err
 			}
 			var buffer bytes.Buffer
 			scanner := bufio.NewScanner(bytes.NewBuffer(value))
@@ -565,12 +616,10 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
 			}
 			logs[i] = buffer.Bytes()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	select {
-	default:
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 	for _, log := range logs {
@@ -599,8 +648,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	if jobInfo.PodsStarted > jobInfo.Parallelism {
-		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, jobInfo.Parallelism)
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.PodsStarted > numWorkers {
+		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, numWorkers)
 	}
 
 	if jobInfo.Transform == nil {
@@ -624,8 +677,69 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 
-	if jobInfo.OutputCommit == nil {
-		return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
+	var provenance []*pfsclient.Commit
+	for _, input := range jobInfo.Inputs {
+		provenance = append(provenance, input.Commit)
+	}
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var commit *pfsclient.Commit
+	if parentJobInfo != nil {
+		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
+		// If we have a parent, then we fork the parent
+		forkReq := &pfsclient.ForkCommitRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   parentJobInfo.OutputCommit.ID,
+			},
+			Branch: fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+		}
+		commit, err = pfsAPIClient.ForkCommit(ctx, forkReq)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If we don't have a parent, then we simply start a new commit
+		startCommitReq := &pfsclient.StartCommitRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+			},
+		}
+		commit, err = pfsAPIClient.StartCommit(ctx, startCommitReq)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// We archive the commit before we finish it, to ensure that a pipeline
+	// that is listing finished commits do not end up seeing this commit
+	_, err = pfsAPIClient.ArchiveCommit(ctx, &pfsclient.ArchiveCommitRequest{
+		Commits: []*pfsclient.Commit{commit},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	podIndex := jobInfo.PodsStarted
+	_, err = persistClient.AddPodCommit(
+		ctx,
+		&persist.AddPodCommitRequest{
+			JobID:    request.Job.ID,
+			PodIndex: podIndex,
+			Commit:   commit,
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	var commitMounts []*fuse.CommitMount
@@ -668,17 +782,13 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	outputCommitMount := &fuse.CommitMount{
-		Commit: jobInfo.OutputCommit,
+		Commit: commit,
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 
 	// If a job has a parent commit, we expose the parent commit
 	// to the job under /pfs/prev
-	pfsAPIClient, err := a.getPfsClient()
-	if err != nil {
-		return nil, err
-	}
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 		Commit: outputCommitMount.Commit,
 	})
@@ -695,6 +805,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
+		PodIndex:     podIndex,
 	}, nil
 }
 
@@ -716,7 +827,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	if err != nil {
 		return nil, err
 	}
-
 	var jobInfo *persist.JobInfo
 	if request.Success {
 		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)
@@ -729,21 +839,61 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 	}
-	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
+
+	// Finish this shard's commit
+	podCommit, ok := jobInfo.PodCommits[fmt.Sprintf("%d", request.PodIndex)]
+	if !ok {
+		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
+	}
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+		Commit: podCommit,
+		Cancel: !request.Success,
+	}); err != nil {
+		return nil, err
+	}
+
+	// All shards completed, job is finished
+	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
-		failed := jobInfo.PodsSucceeded != jobInfo.Parallelism
+		failed := jobInfo.PodsSucceeded != numWorkers
 		pfsAPIClient, err := a.getPfsClient()
 		if err != nil {
 			return nil, err
 		}
-		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-			Cancel: failed,
-		}); err != nil {
+		var commitsToMerge []*pfsclient.Commit
+		for _, podCommit := range jobInfo.PodCommits {
+			commitsToMerge = append(commitsToMerge, podCommit)
+		}
+
+		squashReq := &pfsclient.SquashCommitRequest{
+			FromCommits: commitsToMerge,
+			ToCommit:    jobInfo.OutputCommit,
+		}
+		if _, err := pfsAPIClient.SquashCommit(
+			ctx,
+			squashReq,
+		); err != nil {
 			return nil, err
 		}
+
+		_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Cancel: failed,
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		// The reason why we need to inspect the commit is that the commit's
 		// parent might have been cancelled, which would automatically result
 		// in this commit being cancelled as well.
@@ -835,13 +985,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		}()
 	}
 	persistPipelineInfo := &persist.PipelineInfo{
-		PipelineName: request.Pipeline.Name,
-		Transform:    request.Transform,
-		Parallelism:  request.Parallelism,
-		Inputs:       request.Inputs,
-		OutputRepo:   repo,
-		Shard:        a.hasher.HashPipeline(request.Pipeline),
-		State:        ppsclient.PipelineState_PIPELINE_IDLE,
+		PipelineName:    request.Pipeline.Name,
+		Transform:       request.Transform,
+		ParallelismSpec: request.ParallelismSpec,
+		Inputs:          request.Inputs,
+		OutputRepo:      repo,
+		Shard:           a.hasher.HashPipeline(request.Pipeline),
+		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 	}
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -858,20 +1008,24 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			commitInfos, err := pfsAPIClient.ListCommit(
 				ctx,
 				&pfsclient.ListCommitRequest{
-					Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
+					FromCommits: []*pfsclient.Commit{&pfsclient.Commit{
+						Repo: ppsserver.PipelineRepo(request.Pipeline),
+					}},
 				})
 			if err != nil {
 				return nil, err
 			}
+			var commits []*pfsclient.Commit
 			for _, commitInfo := range commitInfos.CommitInfo {
-				_, err := pfsAPIClient.ArchiveCommit(
-					ctx,
-					&pfsclient.ArchiveCommitRequest{
-						Commit: commitInfo.Commit,
-					})
-				if err != nil {
-					return nil, err
-				}
+				commits = append(commits, commitInfo.Commit)
+			}
+			_, err = pfsAPIClient.ArchiveCommit(
+				ctx,
+				&pfsclient.ArchiveCommitRequest{
+					Commits: commits,
+				})
+			if err != nil {
+				return nil, err
 			}
 		}
 		if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -1181,14 +1335,14 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform:   persistPipelineInfo.Transform,
-		Parallelism: persistPipelineInfo.Parallelism,
-		Inputs:      persistPipelineInfo.Inputs,
-		OutputRepo:  persistPipelineInfo.OutputRepo,
-		CreatedAt:   persistPipelineInfo.CreatedAt,
-		State:       persistPipelineInfo.State,
-		RecentError: persistPipelineInfo.RecentError,
-		JobCounts:   persistPipelineInfo.JobCounts,
+		Transform:       persistPipelineInfo.Transform,
+		ParallelismSpec: persistPipelineInfo.ParallelismSpec,
+		Inputs:          persistPipelineInfo.Inputs,
+		OutputRepo:      persistPipelineInfo.OutputRepo,
+		CreatedAt:       persistPipelineInfo.CreatedAt,
+		State:           persistPipelineInfo.State,
+		RecentError:     persistPipelineInfo.RecentError,
+		JobCounts:       persistPipelineInfo.JobCounts,
 	}
 }
 
@@ -1225,20 +1379,27 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	for {
 		var fromCommits []*pfsclient.Commit
 		for repo, leaves := range repoToLeaves {
-			for leaf := range leaves {
+			if len(leaves) > 0 {
+				for leaf := range leaves {
+					fromCommits = append(
+						fromCommits,
+						&pfsclient.Commit{
+							Repo: &pfsclient.Repo{Name: repo},
+							ID:   leaf,
+						})
+				}
+			} else {
 				fromCommits = append(
 					fromCommits,
 					&pfsclient.Commit{
 						Repo: &pfsclient.Repo{Name: repo},
-						ID:   leaf,
 					})
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			Repo:       rawInputRepos,
-			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
-			FromCommit: fromCommits,
-			Block:      true,
+			FromCommits: fromCommits,
+			CommitType:  pfsclient.CommitType_COMMIT_TYPE_READ,
+			Block:       true,
 		}
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
@@ -1285,11 +1446,11 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				_, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
-						Transform:   pipelineInfo.Transform,
-						Pipeline:    pipelineInfo.Pipeline,
-						Parallelism: pipelineInfo.Parallelism,
-						Inputs:      trueInputs,
-						ParentJob:   parentJob,
+						Transform:       pipelineInfo.Transform,
+						Pipeline:        pipelineInfo.Pipeline,
+						ParallelismSpec: pipelineInfo.ParallelismSpec,
+						Inputs:          trueInputs,
+						ParentJob:       parentJob,
 					},
 				)
 				if err != nil {
@@ -1421,6 +1582,7 @@ func (a *apiServer) trueInputs(
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
 				})
+			delete(repoToInput, commit.Repo.Name)
 		}
 	}
 	if len(result) == len(pipelineInfo.Inputs) {
@@ -1490,16 +1652,16 @@ func (a *apiServer) getPersistClient() (persist.APIClient, error) {
 func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 	job := &ppsclient.Job{ID: persistJobInfo.JobID}
 	return &ppsclient.JobInfo{
-		Job:          job,
-		Transform:    persistJobInfo.Transform,
-		Pipeline:     &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
-		Parallelism:  persistJobInfo.Parallelism,
-		Inputs:       persistJobInfo.Inputs,
-		ParentJob:    persistJobInfo.ParentJob,
-		Started:      persistJobInfo.Started,
-		Finished:     persistJobInfo.Finished,
-		OutputCommit: persistJobInfo.OutputCommit,
-		State:        persistJobInfo.State,
+		Job:             job,
+		Transform:       persistJobInfo.Transform,
+		Pipeline:        &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
+		ParallelismSpec: persistJobInfo.ParallelismSpec,
+		Inputs:          persistJobInfo.Inputs,
+		ParentJob:       persistJobInfo.ParentJob,
+		Started:         persistJobInfo.Started,
+		Finished:        persistJobInfo.Finished,
+		OutputCommit:    persistJobInfo.OutputCommit,
+		State:           persistJobInfo.State,
 	}, nil
 }
 
@@ -1509,22 +1671,20 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func job(jobInfo *persist.JobInfo) *batch.Job {
+// Convert a persist.JobInfo into a Kubernetes batch.Job spec
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, imageTag string) (*batch.Job, error) {
 	labels := labels(jobInfo.JobID)
-	parallelism := int32(jobInfo.Parallelism)
-	image := "pachyderm/job-shim"
+	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	parallelism := int32(parallelism64)
+	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
 	}
 
 	var jobEnv []api.EnvVar
-	jobEnv = append(
-		jobEnv,
-		api.EnvVar{
-			Name:  "PACH_OUTPUT_COMMIT_ID",
-			Value: jobInfo.OutputCommit.ID,
-		},
-	)
 	for _, input := range jobInfo.Inputs {
 		jobEnv = append(
 			jobEnv,
@@ -1601,7 +1761,7 @@ func job(jobInfo *persist.JobInfo) *batch.Job {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
@@ -1636,26 +1796,17 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
+	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 				// we don't return on failure here because jobs may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
 				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
 			}
-			pods, err := a.jobPods(client.NewJob(jobInfo.JobID))
-			if err != nil {
-				select {
-				case errCh <- err:
-				default:
-				}
-			}
+			pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 			for _, pod := range pods {
 				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
 					// we don't return on failure here because pods may get deleted
@@ -1664,13 +1815,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
 				}
 			}
-		}()
+			return jobPodsErr
+		})
 	}
-	wg.Wait()
-	select {
-	case err := <-errCh:
+	if err := eg.Wait(); err != nil {
 		return err
-	default:
 	}
 
 	// The reason we need to do this, is that if we don't, then if the very same

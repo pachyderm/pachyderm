@@ -21,6 +21,16 @@ type ErrCommitNotFound struct {
 	error
 }
 
+// ErrCommitExists represents an error where the commit already exists.
+type ErrCommitExists struct {
+	error
+}
+
+// ErrCommitFinished represents an error where the commit has been finished.
+type ErrCommitFinished struct {
+	error
+}
+
 // ErrParentCommitNotFound represents a parent-commit-not-found error.
 type ErrParentCommitNotFound struct {
 	error
@@ -44,6 +54,20 @@ func NewErrRepoNotFound(repo string) *ErrRepoNotFound {
 func NewErrCommitNotFound(repo string, commitID string) *ErrCommitNotFound {
 	return &ErrCommitNotFound{
 		error: fmt.Errorf("commit %v not found in repo %v", commitID, repo),
+	}
+}
+
+// NewErrCommitExists creates a new ErrCommitExists.
+func NewErrCommitExists(repo string, commitID string) *ErrCommitExists {
+	return &ErrCommitExists{
+		error: fmt.Errorf("commit %v already exists in repo %v", commitID, repo),
+	}
+}
+
+// NewErrCommitFinished creates a new ErrCommitExists.
+func NewErrCommitFinished(repo string, commitID string) *ErrCommitFinished {
+	return &ErrCommitFinished{
+		error: fmt.Errorf("commit %v in repo %v has already finished", commitID, repo),
 	}
 }
 

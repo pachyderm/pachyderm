@@ -2,8 +2,6 @@ package server
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -18,26 +16,14 @@ const (
 	GoogleBackendEnvVar = "GOOGLE"
 )
 
-// APIServer represents an api server.
+// APIServer represents and api server.
 type APIServer interface {
-	pfsclient.APIServer // SJ: WOW this is bad naming
-	shard.Frontend
-}
-
-// InternalAPIServer represents and internal api server.
-type InternalAPIServer interface {
-	pfsclient.InternalAPIServer // SJ: also bad naming
-	shard.Server
+	pfsclient.APIServer // SJ: also bad naming
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(hasher *pfsserver.Hasher, router shard.Router) APIServer {
-	return newAPIServer(hasher, router)
-}
-
-// NewInternalAPIServer creates an InternalAPIServer.
-func NewInternalAPIServer(hasher *pfsserver.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
-	return newInternalAPIServer(hasher, router, driver)
+func NewAPIServer(driver drive.Driver) APIServer {
+	return newAPIServer(driver)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.
@@ -46,27 +32,27 @@ func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) { // S
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
-	return newObjBlockAPIServer(dir, objClient)
+func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
-func NewBlockAPIServer(dir string, backend string) (pfsclient.BlockAPIServer, error) {
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.BlockAPIServer, error) {
 	switch backend {
 	case AmazonBackendEnvVar:
 		// amazon doesn't like leading slashes
 		if dir[0] == '/' {
 			dir = dir[1:]
 		}
-		blockAPIServer, err := newAmazonBlockAPIServer(dir)
+		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
-		blockAPIServer, err := newGoogleBlockAPIServer(dir)
+		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes)
 		if err != nil {
 			return nil, err
 		}
