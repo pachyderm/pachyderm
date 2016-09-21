@@ -9,4 +9,4 @@ RUN \
     wget && \
   apt-get clean && \
   rm -rf /var/lib/apt
-ADD _tmp/job-shim /
+ADD ./job-shim /
