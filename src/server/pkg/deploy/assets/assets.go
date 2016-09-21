@@ -12,7 +12,6 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	api "k8s.io/kubernetes/pkg/api/v1"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
-	"k8s.io/kubernetes/pkg/util/intstr"
 )
 
 var (
@@ -340,20 +339,6 @@ func EtcdService() *api.Service {
 // RethinkRc returns a rethinkdb replication controller.
 func RethinkRc(backend backend, volume string, hostPath string) *api.ReplicationController {
 	replicas := int32(1)
-	readinessProbe := &api.Probe{
-		Handler: api.Handler{
-			HTTPGet: &api.HTTPGetAction{
-				Path: "/",
-				Port: intstr.FromInt(8080),
-				Host: "localhost",
-			},
-		},
-		InitialDelaySeconds: 15,
-		TimeoutSeconds:      3,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
-		PeriodSeconds:       5,
-	}
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -400,7 +385,6 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 									MountPath: "/var/rethinkdb/",
 								},
 							},
-							ReadinessProbe:  readinessProbe,
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},

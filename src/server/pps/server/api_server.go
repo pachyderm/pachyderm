@@ -277,9 +277,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	for _, input := range request.Inputs {
 		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
 	}
-	startCommitRequest.Repo = outputRepo
+	startCommitRequest.Parent = &pfsclient.Commit{
+		Repo: outputRepo,
+	}
 	if parentJobInfo != nil {
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+	} else {
+		// Without a parent, we start the commit on a random branch
+		startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
 	}
 	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
@@ -672,30 +677,47 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
-
+	var provenance []*pfsclient.Commit
 	for _, input := range jobInfo.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+		provenance = append(provenance, input.Commit)
 	}
-
-	startCommitRequest.Repo = jobInfo.OutputCommit.Repo
-
-	if parentJobInfo != nil {
-		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
-			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
-		}
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-	}
-
-	startCommitRequest.Branch = fmt.Sprintf("pod_%v", uuid.NewWithoutDashes())
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
-	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
-	if err != nil {
-		return nil, err
+
+	var commit *pfsclient.Commit
+	if parentJobInfo != nil {
+		if len(jobInfo.Inputs) != len(parentJobInfo.Inputs) {
+			return nil, fmt.Errorf("parent job does not have the same number of inputs as this job does; this is likely a bug")
+		}
+		// If we have a parent, then we fork the parent
+		forkReq := &pfsclient.ForkCommitRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   parentJobInfo.OutputCommit.ID,
+			},
+			Branch: fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+		}
+		commit, err = pfsAPIClient.ForkCommit(ctx, forkReq)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// If we don't have a parent, then we simply start a new commit
+		startCommitReq := &pfsclient.StartCommitRequest{
+			Provenance: provenance,
+			Parent: &pfsclient.Commit{
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   fmt.Sprintf("pod_%v", uuid.NewWithoutDashes()),
+			},
+		}
+		commit, err = pfsAPIClient.StartCommit(ctx, startCommitReq)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// We archive the commit before we finish it, to ensure that a pipeline
@@ -828,8 +850,8 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		return nil, err
 	}
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-		//		Commit: &pfsclient.Commit{ID: podCommit},
 		Commit: podCommit,
+		Cancel: !request.Success,
 	}); err != nil {
 		return nil, err
 	}
@@ -853,18 +875,14 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
 
-		mergeReq := &pfsclient.MergeRequest{
-			Repo:        jobInfo.OutputCommit.Repo,
+		squashReq := &pfsclient.SquashCommitRequest{
 			FromCommits: commitsToMerge,
-			To:          jobInfo.OutputCommit.ID,
-			Strategy:    pfsclient.MergeStrategy_SQUASH,
-			Cancel:      failed,
+			ToCommit:    jobInfo.OutputCommit,
 		}
-		outputCommits, err := pfsAPIClient.Merge(
+		if _, err := pfsAPIClient.SquashCommit(
 			ctx,
-			mergeReq,
-		)
-		if err != nil {
+			squashReq,
+		); err != nil {
 			return nil, err
 		}
 
@@ -876,15 +894,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 
-		if len(outputCommits.Commit) != 1 {
-			return nil, fmt.Errorf("wrong length for job output commits, expected 1, actual %v", len(outputCommits.Commit))
-		}
-
 		// The reason why we need to inspect the commit is that the commit's
 		// parent might have been cancelled, which would automatically result
 		// in this commit being cancelled as well.
 		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-			Commit: outputCommits.Commit[0],
+			Commit: jobInfo.OutputCommit,
 		})
 		if err != nil {
 			return nil, err
@@ -994,7 +1008,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			commitInfos, err := pfsAPIClient.ListCommit(
 				ctx,
 				&pfsclient.ListCommitRequest{
-					Repo: []*pfsclient.Repo{ppsserver.PipelineRepo(request.Pipeline)},
+					FromCommits: []*pfsclient.Commit{&pfsclient.Commit{
+						Repo: ppsserver.PipelineRepo(request.Pipeline),
+					}},
 				})
 			if err != nil {
 				return nil, err
@@ -1363,20 +1379,27 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	for {
 		var fromCommits []*pfsclient.Commit
 		for repo, leaves := range repoToLeaves {
-			for leaf := range leaves {
+			if len(leaves) > 0 {
+				for leaf := range leaves {
+					fromCommits = append(
+						fromCommits,
+						&pfsclient.Commit{
+							Repo: &pfsclient.Repo{Name: repo},
+							ID:   leaf,
+						})
+				}
+			} else {
 				fromCommits = append(
 					fromCommits,
 					&pfsclient.Commit{
 						Repo: &pfsclient.Repo{Name: repo},
-						ID:   leaf,
 					})
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			Repo:       rawInputRepos,
-			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
-			FromCommit: fromCommits,
-			Block:      true,
+			FromCommits: fromCommits,
+			CommitType:  pfsclient.CommitType_COMMIT_TYPE_READ,
+			Block:       true,
 		}
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
@@ -1559,6 +1582,7 @@ func (a *apiServer) trueInputs(
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
 				})
+			delete(repoToInput, commit.Repo.Name)
 		}
 	}
 	if len(result) == len(pipelineInfo.Inputs) {

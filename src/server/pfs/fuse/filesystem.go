@@ -563,9 +563,10 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
+	commitID := commitPathToID(name)
 	commitInfo, err := d.fs.apiClient.InspectCommit(
 		d.File.Commit.Repo.Name,
-		name,
+		commitID,
 	)
 	if err != nil {
 		return nil, err
@@ -574,7 +575,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 		return nil, fuse.ENOENT
 	}
 	result := d.copy()
-	result.File.Commit.ID = name
+	result.File.Commit.ID = commitID
 	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
 		result.Write = false
 	} else {
@@ -644,28 +645,27 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	var commitInfos []*pfsclient.CommitInfo
-	var err error
+	status := pfsclient.CommitStatus_NORMAL
 	if d.fs.allCommits {
-		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
-	} else {
-		commitInfos, err = d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-			nil, client.CommitTypeNone, false, pfsclient.CommitStatus_NORMAL, nil)
+		status = pfsclient.CommitStatus_ALL
 	}
-	if err != nil {
-		return nil, err
-	}
-	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
+	commitInfos, err := d.fs.apiClient.ListCommit([]*pfsclient.Commit{
+		client.NewCommit(d.File.Commit.Repo.Name, ""),
+	}, nil, client.CommitTypeNone, status, false)
 	if err != nil {
 		return nil, err
 	}
 	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Commit.ID, Type: fuse.DT_Dir})
+		commitPath := commitIDToPath(commitInfo.Commit.ID)
+		result = append(result, fuse.Dirent{Name: commitPath, Type: fuse.DT_Dir})
 	}
-	for _, commitInfo := range branchCommitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Branch, Type: fuse.DT_Dir})
+	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name, status)
+	if err != nil {
+		return nil, err
+	}
+	for _, branch := range branches {
+		result = append(result, fuse.Dirent{Name: branch, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }
@@ -701,6 +701,22 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		}
 	}
 	return result, nil
+}
+
+// Since commit IDs look like "master/2", we can't directly use them as filenames
+// due to the slash.  So we convert them to something like "master-2"
+func commitIDToPath(commitID string) string {
+	return strings.Join(strings.Split(commitID, "/"), "-")
+}
+
+// the opposite of commitIDToPath
+func commitPathToID(path string) string {
+	parts := strings.Split(path, "-")
+	if len(parts) < 2 {
+		// In this case, path is just a branch name
+		return path
+	}
+	return strings.Join(parts[:len(parts)-1], "-") + "/" + parts[len(parts)-1]
 }
 
 // TODO this code is duplicate elsewhere, we should put it somehwere.

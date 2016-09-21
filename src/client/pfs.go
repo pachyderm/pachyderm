@@ -139,13 +139,37 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
+func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.ctx(),
 		&pfs.StartCommitRequest{
-			Repo:     NewRepo(repoName),
-			ParentID: parentCommit,
-			Branch:   branch,
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+				ID: parentCommit,
+			},
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return commit, nil
+}
+
+// ForkCommit is the same as StartCommit except that the commit is created
+// on a new branch.
+func (c APIClient) ForkCommit(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
+	commit, err := c.PfsAPIClient.ForkCommit(
+		c.ctx(),
+		&pfs.ForkCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+				ID: parentCommit,
+			},
+			Branch: branch,
 		},
 	)
 	if err != nil {
@@ -222,27 +246,16 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
-func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
-	commitType pfs.CommitType, block bool, status pfs.CommitStatus, provenance []*pfs.Commit) ([]*pfs.CommitInfo, error) {
-	var repos []*pfs.Repo
-	for _, repoName := range repoNames {
-		repos = append(repos, &pfs.Repo{Name: repoName})
-	}
-	var fromCommits []*pfs.Commit
-	for i, fromCommitID := range fromCommitIDs {
-		fromCommits = append(fromCommits, &pfs.Commit{
-			Repo: repos[i],
-			ID:   fromCommitID,
-		})
-	}
+func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
+	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
 		&pfs.ListCommitRequest{
-			Repo:       repos,
-			FromCommit: fromCommits,
-			Block:      block,
-			Status:     status,
-			Provenance: provenance,
+			FromCommits: fromCommits,
+			Provenance:  provenance,
+			CommitType:  commitType,
+			Status:      status,
+			Block:       block,
 		},
 	)
 	if err != nil {
@@ -252,17 +265,18 @@ func (c APIClient) ListCommit(repoNames []string, fromCommitIDs []string,
 }
 
 // ListBranch lists the active branches on a Repo.
-func (c APIClient) ListBranch(repoName string) ([]*pfs.CommitInfo, error) {
-	commitInfos, err := c.PfsAPIClient.ListBranch(
+func (c APIClient) ListBranch(repoName string, status pfs.CommitStatus) ([]string, error) {
+	branches, err := c.PfsAPIClient.ListBranch(
 		c.ctx(),
 		&pfs.ListBranchRequest{
-			Repo: NewRepo(repoName),
+			Repo:   NewRepo(repoName),
+			Status: status,
 		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return commitInfos.CommitInfo, nil
+	return branches.Branches, nil
 }
 
 // DeleteCommit deletes a commit.
@@ -561,27 +575,41 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// Merge merges commits in `fromCommits` to a branch named `toBranch`.
-// `strategy` dictates the behavior of merge.
-// There are currently two strategies:
-//
-// * Squash: create a single commit that contains all diffs in `fromCommits`
+// SquashCommit creates a single commit that contains all diffs in `fromCommits`
 // * Replay: create a series of commits, each of which corresponds to a single
 // commit in `fromCommits`.
-func (c APIClient) Merge(repo string, fromCommits []string, to string, strategy pfs.MergeStrategy) ([]*pfs.Commit, error) {
+func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) error {
 
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
 		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
 	}
 
-	commits, err := c.PfsAPIClient.Merge(
+	_, err := c.PfsAPIClient.SquashCommit(
 		c.ctx(),
-		&pfs.MergeRequest{
-			Repo:        NewRepo(repo),
+		&pfs.SquashCommitRequest{
 			FromCommits: realFromCommits,
-			To:          to,
-			Strategy:    strategy,
+			ToCommit:    NewCommit(repo, to),
+		},
+	)
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
+// ReplayCommit creates a series of commits, each of which corresponds to a single
+// commit in `fromCommits`.
+func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
+	var realFromCommits []*pfs.Commit
+	for _, commitID := range fromCommits {
+		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
+	}
+	commits, err := c.PfsAPIClient.ReplayCommit(
+		c.ctx(),
+		&pfs.ReplayCommitRequest{
+			FromCommits: realFromCommits,
+			ToBranch:    to,
 		},
 	)
 	if err != nil {
