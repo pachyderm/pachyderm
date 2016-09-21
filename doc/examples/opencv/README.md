@@ -22,41 +22,34 @@ $ pachctl create-repo images
 Now we need to put some images in that repo. You can do this with `put-file`:
 
 ```sh
-$ pachctl put-file images master -c -i examples/opencv/images.txt
+$ pachctl put-file images master -c -i docs/examples/opencv/images.txt
 ```
 
 With this command you're telling Pachyderm that you want to put files in the
 `images` repo on the branch `master`. You're also passing two flags, `-c` and `-i`.`-c` means
 that you want Pachyderm to start and finish the commit for you. If you wanted
 to have multiple `put-files` write to the same commit you'd use `start-commit`
-and `finish-commit`. `-i` lets you specify a line-delimited input file. Each line can be a URL to scrape or a local file to add. In our case, we've got a file `examples/opencv/images.txt`with a few image URLs that we'll add to Pachyderm. 
+and `finish-commit`. `-i` lets you specify a line-delimited input file. Each
+line can be a URL to scrape or a local file to add. In our case, we've got a file
+`docs/examples/opencv/images.txt`with a few image URLs that we'll add to Pachyderm.
 
 ## Build and Distribute the Docker Image
 
-Now that you've got some data in Pachyderm, it's time to process it. First, you 
+Now that you've got some data in Pachyderm, it's time to process it. First, you
 need to create a Docker image describing the environment you want
 your code to run in. For this example the Docker image is defined by
-`examples/opencv/Dockerfile`. You can build it with:
+`docs/examples/opencv/Dockerfile`. You can build it with:
 
 ```sh
-$ docker build -t opencv examples/opencv
+$ docker build -t opencv docs/examples/opencv
 ```
 
 To understand what's going on, take a look at
-[`examples/opencv/Dockerfile`](/examples/opencv/Dockerfile). And
-[`examples/opencv/edges.py`](/examples/opencv/edges.py).
+[`docs/examples/opencv/Dockerfile`](/docs/examples/opencv/Dockerfile). And
+[`docs/examples/opencv/edges.py`](/docs/examples/opencv/edges.py).
 
 ### Distribute the Docker Image
-If you're running a local version of Pachyderm then you can proceed to the next
-step as you image is built locally and accessible. If you're unsure if you're running locally do:
-
-```sh
-$ docker ps | grep pachd
-```
-
-if that command errors it means pachd isn't running on your local docker host
-and won't be able to see that `opencv` image that you just built. To fix this,
-you need to push the image to a registry such as DockerHub. You can do this
+You'll need to push the image to a registry such as DockerHub . You can do this
 with:
 
 ```sh
@@ -67,19 +60,40 @@ $ docker push <your-docker-hub-username>/opencv
 Now the image can be referenced on any Docker host as
 `<your-docker-hub-username>/opencv` and Docker will be able to find it.
 
-## Deploy the Pipeline
-
-Now that you have an image you need to tell Pachyderm how to run it. You do this
-by creating a Pipeline, the pipeline for this example is at
-[`examples/opencv/edges.json`](/examples/opencv/edges.json).  Notice that this
-file references the image you just created in the field `transform.image`. If
-you pushed your image to DockerHub then you should change the value of that
-field to match the name of the image you created.
-
-To create the pipeline you do:
+NOTE (advanced use-case): If you're running Pachyderm locally in Docker, then
+there's no need to push the `opencv` container that you built to DockerHub or
+edit `docs/examples/opencv/edges.json`. Be aware that most users deploying Pachyderm
+locally will be using minikube, which still requires that you push opencv to
+Dockerhub. If you're unsure if you're running locally, do:
 
 ```sh
-$ pachctl create-pipeline -f examples/opencv/edges.json
+$ docker ps | grep pachd
+```
+
+and if that command errors, it means pachd isn't running on your local docker host
+and won't be able to see that `opencv` image that you just built.
+
+## Deploy the Pipeline
+
+Now that you have an image, you need to tell Pachyderm how to run it. To do this,
+you'll need to create a pipeline. The pipeline for this example is at
+[`docs/examples/opencv/edges.json`](/docs/examples/opencv/edges.json).
+
+First, notice that this file references the image you just created in the field
+`transform.image`. Since you just pushed your image to Dockerhub, you'll need to
+tell Pachyderm to go there to find it. Open `docs/examples/opencv/edges.json` in a
+text editor, and change the following line:
+
+```sh
+"image": "opencv"
+## should become ##
+"image": "<your-docker-hub-username>/opencv"
+```
+
+Now that edges.json points to your image, you can create the pipeline with:
+
+```sh
+$ pachctl create-pipeline -f docs/examples/opencv/edges.json
 ```
 
 You can check on the status of the pipeline with:
@@ -88,8 +102,8 @@ You can check on the status of the pipeline with:
 $ pachctl inspect-pipeline edges
 ```
 
-You should see that a single job has been run, it was run on the commit you made
-in the images repo.
+You should see that a single job has been run (it was run on the initial commit
+you made in the images repo).
 
 ## Inspect the Results
 
@@ -107,8 +121,8 @@ You can view this data by mounting it locally:
 
 ```sh
 $ mkdir /tmp/pfs
-$ pachctl mount /tmp/pfs
-# THIS COMMAND SHOULD BLOCK
+$ pachctl mount /tmp/pfs &
+# This command will block (so we run in the background)
 ```
 
 While the mount is up navigate to [`file:///tmp/pfs`](file:///tmp/pfs) in your
