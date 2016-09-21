@@ -3156,7 +3156,7 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	return pfs.NewBlockAPIClient(clientConn)
 }
 
-func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
+func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
 	blockAPIServer pfs.BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
@@ -3174,7 +3174,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	<-ready
 }
 
-func getClient(t *testing.T) pclient.APIClient {
+func getClient(t testing.TB) pclient.APIClient {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 

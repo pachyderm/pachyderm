@@ -3,14 +3,10 @@ package server
 import (
 	"fmt"
 	"math/rand"
-	"path"
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,9 +26,8 @@ func (w *CountWriter) Write(p []byte) (int, error) {
 }
 
 func BenchmarkPachyderm(b *testing.B) {
-	repo := uniqueString("BenchmarkPachyderm")
-	c, err := client.NewInCluster()
-	require.NoError(b, err)
+	c := getClient(b)
+	repo := "BenchmarkPachyderm"
 	require.NoError(b, c.CreateRepo(repo))
 
 	commit, err := c.StartCommit(repo, "master")
@@ -44,7 +39,7 @@ func BenchmarkPachyderm(b *testing.B) {
 				k := k
 				eg.Go(func() error {
 					rand := rand.New(rand.NewSource(int64(time.Now().UnixNano())))
-					_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(rand, MB))
+					_, err := c.PutFile(repo, "master", fmt.Sprintf("/dir1/dir2/file%d", k), workload.NewReader(rand, MB))
 					return err
 				})
 			}
@@ -54,7 +49,7 @@ func BenchmarkPachyderm(b *testing.B) {
 	}) {
 		return
 	}
-	require.NoError(b, c.FinishCommit(repo, commit.ID))
+	require.NoError(b, c.FinishCommit(repo, "master"))
 
 	if !b.Run(fmt.Sprintf("Get%dFiles", nFiles), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -68,34 +63,6 @@ func BenchmarkPachyderm(b *testing.B) {
 				})
 			}
 			require.NoError(b, eg.Wait())
-		}
-	}) {
-		return
-	}
-	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", nFiles), func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			pipeline := uniqueString("BenchmarkPachydermPipeline")
-			require.NoError(b, c.CreatePipeline(
-				pipeline,
-				"",
-				[]string{"cp", "-R", path.Join("/pfs", repo), "/pfs/out/"},
-				nil,
-				&ppsclient.ParallelismSpec{
-					Strategy: ppsclient.ParallelismSpec_CONSTANT,
-					Constant: 1,
-				},
-				[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
-				false,
-			))
-			_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
-			require.NoError(b, err)
-			b.StopTimer()
-			repoInfo, err := c.InspectRepo(repo)
-			require.NoError(b, err)
-			b.SetBytes(int64(repoInfo.SizeBytes))
-			repoInfo, err = c.InspectRepo(pipeline)
-			require.NoError(b, err)
-			b.SetBytes(int64(repoInfo.SizeBytes))
 		}
 	}) {
 		return
