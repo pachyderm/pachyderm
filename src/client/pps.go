@@ -101,7 +101,7 @@ func (c APIClient) CreateJob(
 		parentJob = NewJob(parentJobID)
 	}
 	job, err := c.PpsAPIClient.CreateJob(
-		c.ctx,
+		c.ctx(),
 		&pps.CreateJobRequest{
 			Transform: &pps.Transform{
 				Image: image,
@@ -121,7 +121,7 @@ func (c APIClient) CreateJob(
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(
-		c.ctx,
+		c.ctx(),
 		&pps.InspectJobRequest{
 			Job:        NewJob(jobID),
 			BlockState: blockState,
@@ -139,7 +139,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 		pipeline = NewPipeline(pipelineName)
 	}
 	jobInfos, err := c.PpsAPIClient.ListJob(
-		c.ctx,
+		c.ctx(),
 		&pps.ListJobRequest{
 			Pipeline:    pipeline,
 			InputCommit: inputCommit,
@@ -156,7 +156,7 @@ func (c APIClient) GetLogs(
 	writer io.Writer,
 ) error {
 	getLogsClient, err := c.PpsAPIClient.GetLogs(
-		c.ctx,
+		c.ctx(),
 		&pps.GetLogsRequest{
 			Job: NewJob(jobID),
 		},
@@ -196,7 +196,7 @@ func (c APIClient) CreatePipeline(
 	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
 			Transform: &pps.Transform{
@@ -215,7 +215,7 @@ func (c APIClient) CreatePipeline(
 // InspectPipeline returns info about a specific pipeline.
 func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
 		},
@@ -226,7 +226,7 @@ func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, erro
 // ListPipeline returns info about all pipelines.
 func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
@@ -238,7 +238,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
@@ -249,7 +249,7 @@ func (c APIClient) DeletePipeline(name string) error {
 // StartPipeline restarts a stopped pipeline.
 func (c APIClient) StartPipeline(name string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.StartPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
@@ -261,7 +261,7 @@ func (c APIClient) StartPipeline(name string) error {
 // with StartPipeline.
 func (c APIClient) StopPipeline(name string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
-		c.ctx,
+		c.ctx(),
 		&pps.StopPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
