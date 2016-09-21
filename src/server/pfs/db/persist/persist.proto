@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+message Clock {
+  // a document either has these two fields 
+  string branch = 1;
+  uint64 clock = 2;
+}
+
+message ClockID {
+  string id = 1;  // repo + branch + clock
+  string repo = 2;
+  string branch = 3;
+  uint64 clock = 4;
+}
+
+message Repo {
+  string name = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size = 3;
+  // The immediate provenance of this repo
+  repeated string provenance = 4;
+}
+
+message BlockRef {
+  string hash = 1;
+  uint64 lower = 2;
+  uint64 upper = 3;
+}
+
+enum FileType {
+    NONE = 0;
+    FILE = 1;
+    DIR = 2;
+}
+
+message Diff {
+  string id = 1;  // hash(repo + commit_id + path)
+  string repo = 2;
+  string path = 3;
+  // block_refs and delete cannot both be set
+  repeated BlockRef block_refs = 4;
+  bool delete = 5;
+  uint64 size = 6;
+  Clock clock = 7;
+  FileType file_type = 8;
+  google.protobuf.Timestamp modified = 9;
+}
+
+message Commit {
+  string id = 1;  // commit IDs are of the form: repo:branch:clock
+  string repo = 2;
+  repeated Clock full_clock = 3;
+  google.protobuf.Timestamp started = 4;
+  google.protobuf.Timestamp finished = 5;
+  bool cancelled = 6;
+  bool archived = 7;
+  // The complete set of commits that are the provenance of this commit.
+  // We store the complete set of provenance as opposed to just the immediate
+  // provenance in order to make ListCommit(provenance) fast.
+  repeated ProvenanceCommit provenance = 8;
+  uint64 size = 9;
+}
+
+message ProvenanceCommit {
+  string id = 1;
+  string repo = 2;
+}

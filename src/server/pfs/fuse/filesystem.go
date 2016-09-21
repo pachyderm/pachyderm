@@ -16,7 +16,6 @@ import (
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
@@ -28,15 +27,16 @@ import (
 type filesystem struct {
 	apiClient client.APIClient
 	Filesystem
-	inodes   map[string]uint64
-	lock     sync.RWMutex
-	handleID string
+	inodes     map[string]uint64
+	lock       sync.RWMutex
+	allCommits bool
 }
 
 func newFilesystem(
 	pfsAPIClient pfsclient.APIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
+	allCommits bool,
 ) *filesystem {
 	return &filesystem{
 		apiClient: client.APIClient{PfsAPIClient: pfsAPIClient},
@@ -44,8 +44,8 @@ func newFilesystem(
 			shard,
 			commitMounts,
 		},
-		inodes:   make(map[string]uint64),
-		handleID: uuid.NewWithoutDashes(),
+		inodes:     make(map[string]uint64),
+		allCommits: allCommits,
 	}
 }
 
@@ -195,7 +195,7 @@ func (d *directory) Remove(ctx context.Context, req *fuse.RemoveRequest) (retErr
 		}
 	}()
 	return d.fs.apiClient.DeleteFile(d.Node.File.Commit.Repo.Name,
-		d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name), true, d.fs.handleID)
+		d.Node.File.Commit.ID, filepath.Join(d.Node.File.Path, req.Name))
 }
 
 type file struct {
@@ -213,14 +213,13 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 			protolion.Error(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 		}
 	}()
-	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err := f.fs.apiClient.InspectFile(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
 		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
-		f.fs.handleID,
 	)
 	if err != nil {
 		return err
@@ -244,7 +243,7 @@ func (f *file) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse
 	}()
 	if req.Size == 0 && (req.Valid&fuse.SetattrSize) > 0 {
 		err := f.fs.apiClient.DeleteFile(f.Node.File.Commit.Repo.Name,
-			f.Node.File.Commit.ID, f.Node.File.Path, true, f.fs.handleID)
+			f.Node.File.Commit.ID, f.Node.File.Path)
 		if err != nil {
 			return err
 		}
@@ -269,14 +268,13 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		}
 	}()
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	fileInfo, err := f.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err := f.fs.apiClient.InspectFile(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.getRepoOrAliasName()),
 		f.fs.getFullFile(f.getRepoOrAliasName()),
 		f.Shard,
-		f.fs.handleID,
 	)
 	if err != nil {
 		return nil, err
@@ -315,7 +313,6 @@ func (f *file) touch() error {
 		f.File.Commit.ID,
 		f.File.Path,
 		f.delimiter(),
-		f.fs.handleID,
 	)
 	if err != nil {
 		return err
@@ -373,7 +370,7 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		}
 	}()
 	var buffer bytes.Buffer
-	if err := h.f.fs.apiClient.GetFileUnsafe(
+	if err := h.f.fs.apiClient.GetFile(
 		h.f.File.Commit.Repo.Name,
 		h.f.File.Commit.ID,
 		h.f.File.Path,
@@ -382,7 +379,6 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
 		h.f.fs.getFullFile(h.f.getRepoOrAliasName()),
 		h.f.Shard,
-		h.f.fs.handleID,
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
@@ -408,7 +404,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	defer h.lock.Unlock()
 	if h.w == nil {
 		w, err := h.f.fs.apiClient.PutFileWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), h.f.fs.handleID)
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter())
 		if err != nil {
 			return err
 		}
@@ -543,6 +539,12 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.RepoAlias = commitMount.Alias
 	result.Shard = commitMount.Shard
 
+	if commitMount.Commit.ID == "" {
+		// We don't have a commit mount
+		result.Write = false
+		result.Modified = repoInfo.Created
+		return result, nil
+	}
 	commitInfo, err := d.fs.apiClient.InspectCommit(
 		commitMount.Commit.Repo.Name,
 		commitMount.Commit.ID,
@@ -561,9 +563,10 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
+	commitID := commitPathToID(name)
 	commitInfo, err := d.fs.apiClient.InspectCommit(
 		d.File.Commit.Repo.Name,
-		name,
+		commitID,
 	)
 	if err != nil {
 		return nil, err
@@ -572,7 +575,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 		return nil, fuse.ENOENT
 	}
 	result := d.copy()
-	result.File.Commit.ID = name
+	result.File.Commit.ID = commitID
 	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
 		result.Write = false
 	} else {
@@ -586,14 +589,13 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	var fileInfo *pfsclient.FileInfo
 	var err error
 
-	fileInfo, err = d.fs.apiClient.InspectFileUnsafe(
+	fileInfo, err = d.fs.apiClient.InspectFile(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
 		d.fs.getFromCommitID(d.getRepoOrAliasName()),
 		d.fs.getFullFile(d.getRepoOrAliasName()),
 		d.Shard,
-		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, fuse.ENOENT
@@ -606,6 +608,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	// path currently being looked up
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
+
 	switch fileInfo.FileType {
 	case pfsclient.FileType_FILE_TYPE_REGULAR:
 		return &file{
@@ -642,27 +645,33 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := d.fs.apiClient.ListCommit([]string{d.File.Commit.Repo.Name},
-		nil, client.CommitTypeNone, false, pfsclient.CommitStatus_ALL, nil)
-	if err != nil {
-		return nil, err
+	status := pfsclient.CommitStatus_NORMAL
+	if d.fs.allCommits {
+		status = pfsclient.CommitStatus_ALL
 	}
-	branchCommitInfos, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
+	commitInfos, err := d.fs.apiClient.ListCommit([]*pfsclient.Commit{
+		client.NewCommit(d.File.Commit.Repo.Name, ""),
+	}, nil, client.CommitTypeNone, status, false)
 	if err != nil {
 		return nil, err
 	}
 	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Commit.ID, Type: fuse.DT_Dir})
+		commitPath := commitIDToPath(commitInfo.Commit.ID)
+		result = append(result, fuse.Dirent{Name: commitPath, Type: fuse.DT_Dir})
 	}
-	for _, commitInfo := range branchCommitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Branch, Type: fuse.DT_Dir})
+	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name, status)
+	if err != nil {
+		return nil, err
+	}
+	for _, branch := range branches {
+		result = append(result, fuse.Dirent{Name: branch, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := d.fs.apiClient.ListFileUnsafe(
+	fileInfos, err := d.fs.apiClient.ListFile(
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		d.File.Path,
@@ -672,7 +681,6 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		// setting recurse to false for performance reasons
 		// it does however means that we won't know the correct sizes of directories
 		false,
-		d.fs.handleID,
 	)
 	if err != nil {
 		return nil, err
@@ -693,6 +701,22 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		}
 	}
 	return result, nil
+}
+
+// Since commit IDs look like "master/2", we can't directly use them as filenames
+// due to the slash.  So we convert them to something like "master-2"
+func commitIDToPath(commitID string) string {
+	return strings.Join(strings.Split(commitID, "/"), "-")
+}
+
+// the opposite of commitIDToPath
+func commitPathToID(path string) string {
+	parts := strings.Split(path, "-")
+	if len(parts) < 2 {
+		// In this case, path is just a branch name
+		return path
+	}
+	return strings.Join(parts[:len(parts)-1], "-") + "/" + parts[len(parts)-1]
 }
 
 // TODO this code is duplicate elsewhere, we should put it somehwere.

@@ -60,6 +60,13 @@ var (
 	}
 )
 
+// isDBCreated is used to tell when we are trying to initialize a database,
+// whether we are getting an error because the database has already been
+// initialized.
+func isDBCreated(err error) bool {
+	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
+}
+
 // InitDBs prepares a RethinkDB instance to be used by the rethink server.
 // Rethink servers will error if they are pointed at databases that haven't had InitDBs run on them.
 func InitDBs(address string, databaseName string) error {
@@ -67,7 +74,7 @@ func InitDBs(address string, databaseName string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
+	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil && !isDBCreated(err) {
 		return err
 	}
 	for _, table := range tables {
@@ -363,7 +370,8 @@ func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *pers
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
+	doc := gorethink.Expr(request).Without("CreatedAt")
+	if _, err := a.getTerm(pipelineInfosTable).Insert(doc, gorethink.InsertOpts{Conflict: "update"}).RunWrite(a.session); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -501,8 +509,12 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 	if err != nil {
 		return nil, err
 	}
-
-	var jobInfo persist.JobInfo
+	jobInfo := persist.JobInfo{
+		ParallelismSpec: &ppsclient.ParallelismSpec{
+			Strategy:    ppsclient.ParallelismSpec_COEFFICIENT,
+			Coefficient: 1,
+		},
+	}
 	success := cursor.Next(&jobInfo)
 	if !success {
 		return nil, cursor.Err()
@@ -519,6 +531,16 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 		},
 		map[string]interface{}{},
 	)).RunWrite(a.session)
+	return google_protobuf.EmptyInstance, err
+}
+
+func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
+	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
+		map[string]interface{}{
+			"PodCommits": map[string]*pfs.Commit{fmt.Sprintf("%d", request.PodIndex): request.Commit},
+		},
+	).RunWrite(a.session)
+
 	return google_protobuf.EmptyInstance, err
 }
 
@@ -602,7 +624,7 @@ func genCommitIndex(commits []*pfs.Commit) (string, error) {
 		if len(commit.ID) == 0 {
 			return "", fmt.Errorf("can't generate index for commit \"%s/%s\"", commit.Repo.Name, commit.ID)
 		}
-		commitIDs = append(commitIDs, commit.ID[0:10])
+		commitIDs = append(commitIDs, fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID))
 	}
 	sort.Strings(commitIDs)
 	var result []byte

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -87,24 +89,35 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error connecting to pps: %v", sanitizeErr(err))
+				return err
 			}
 			var buf bytes.Buffer
 			var jobReader io.Reader
 			if jobPath == "-" {
 				jobReader = io.TeeReader(os.Stdin, &buf)
 				fmt.Print("Reading from stdin.\n")
+			} else if url, err := url.Parse(jobPath); err == nil && url.Scheme != "" {
+				resp, err := http.Get(url.String())
+				if err != nil {
+					return sanitizeErr(err)
+				}
+				defer func() {
+					if err := resp.Body.Close(); err != nil && retErr == nil {
+						retErr = sanitizeErr(err)
+					}
+				}()
+				jobReader = resp.Body
 			} else {
 				jobFile, err := os.Open(jobPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("error opening %s: %v", jobPath, err)
+					return sanitizeErr(err)
 				}
 				defer func() {
-					if err := jobFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("error closing%s: %v", jobPath, err)
+					if err := jobFile.Close(); err != nil && retErr == nil {
+						retErr = sanitizeErr(err)
 					}
 				}()
 				jobReader = io.TeeReader(jobFile, &buf)
@@ -113,23 +126,23 @@ The increase the throughput of a job increase the Shard paremeter.
 			decoder := json.NewDecoder(jobReader)
 			s, err := replaceMethodAliases(decoder)
 			if err != nil {
-				err = describeSyntaxError(err, buf)
-				pkgcmd.ErrorAndExit("error parsing job spec: %v", err)
+				return describeSyntaxError(err, buf)
 			}
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
-				pkgcmd.ErrorAndExit("error reading from stdin: %v", err)
+				return sanitizeErr(err)
 			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from CreateJob: %v", sanitizeErr(err))
+				return sanitizeErr(err)
 			}
 			fmt.Println(job.ID)
-		},
+			return nil
+		}),
 	}
-	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, - reads from stdin.")
+	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -167,11 +180,11 @@ Examples:
 	# return all jobs in pipeline foo
 	$ pachctl list-job -p foo
 
-	# return all jobs whose input commits include foo/abc123 and bar/def456
-	$ pachctl list-job foo/abc123 bar/def456
+	# return all jobs whose input commits include foo/master/1 and bar/master/2
+	$ pachctl list-job foo/master/1 bar/master/2
 
-	# return all jobs in pipeline foo and whose input commits include bar/def456
-	$ pachctl list-job -p foo bar/def456
+	# return all jobs in pipeline foo and whose input commits include bar/master/2
+	$ pachctl list-job -p foo bar/master/2
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -244,20 +257,31 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error connecting to pps: %s", err.Error())
+				return sanitizeErr(err)
 			}
 			var buf bytes.Buffer
 			var pipelineReader io.Reader
 			if pipelinePath == "-" {
 				pipelineReader = io.TeeReader(os.Stdin, &buf)
 				fmt.Print("Reading from stdin.\n")
+			} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
+				resp, err := http.Get(url.String())
+				if err != nil {
+					return sanitizeErr(err)
+				}
+				defer func() {
+					if err := resp.Body.Close(); err != nil && retErr == nil {
+						retErr = sanitizeErr(err)
+					}
+				}()
+				pipelineReader = resp.Body
 			} else {
 				rawBytes, err := ioutil.ReadFile(pipelinePath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("error reading file %s", pipelinePath)
+					return err
 				}
 
 				pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &buf)
@@ -270,22 +294,22 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					if err == io.EOF {
 						break
 					}
-					err = describeSyntaxError(err, buf)
-					pkgcmd.ErrorAndExit("error parsing pipeline spec: %v", err)
+					return describeSyntaxError(err, buf)
 				}
 				if err := jsonpb.UnmarshalString(s, &request); err != nil {
-					pkgcmd.ErrorAndExit("error marshalling JSON into protobuf: %v", err)
+					return err
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					&request,
 				); err != nil {
-					pkgcmd.ErrorAndExit("error from CreatePipeline: %v", sanitizeErr(err))
+					return sanitizeErr(err)
 				}
 			}
-		},
+			return nil
+		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
@@ -382,7 +406,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return err
@@ -403,12 +427,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			} else if specPath != "" {
 				specFile, err := os.Open(specPath)
 				if err != nil {
-					pkgcmd.ErrorAndExit("error opening %s: %v", specPath, err)
+					return err
 				}
 
 				defer func() {
-					if err := specFile.Close(); err != nil {
-						pkgcmd.ErrorAndExit("error closing%s: %v", specPath, err)
+					if err := specFile.Close(); err != nil && retErr == nil {
+						retErr = err
 					}
 				}()
 
@@ -416,12 +440,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				decoder := json.NewDecoder(specReader)
 				s, err := replaceMethodAliases(decoder)
 				if err != nil {
-					err = describeSyntaxError(err, buf)
-					pkgcmd.ErrorAndExit("error parsing pipeline spec: %v", err)
+					return describeSyntaxError(err, buf)
 				}
 
 				if err := jsonpb.UnmarshalString(s, request); err != nil {
-					pkgcmd.ErrorAndExit("error reading from stdin: %v", err)
+					return err
 				}
 			}
 
@@ -430,7 +453,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from RunPipeline: %v", err)
+				return sanitizeErr(err)
 			}
 			fmt.Println(job.ID)
 			return nil

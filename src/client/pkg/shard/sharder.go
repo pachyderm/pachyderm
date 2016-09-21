@@ -12,6 +12,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 
+	"golang.org/x/sync/errgroup"
+
 	protolion "go.pedge.io/lion/proto"
 )
 
@@ -859,29 +861,13 @@ func (a *sharder) runFrontends(
 				}
 			}
 			if minVersion > version {
-				var wg sync.WaitGroup
-				errCh := make(chan error, 1)
+				var eg errgroup.Group
 				for _, frontend := range frontends {
 					frontend := frontend
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
-						if err := frontend.Version(minVersion); err != nil {
-							select {
-							case errCh <- err:
-								// error reported
-							default:
-								// not the first error
-							}
-							return
-						}
-					}()
+					eg.Go(func() error { return frontend.Version(minVersion) })
 				}
-				wg.Wait()
-				select {
-				case err := <-errCh:
+				if err := eg.Wait(); err != nil {
 					return err
-				default:
 				}
 				version = minVersion
 				versionChan <- version

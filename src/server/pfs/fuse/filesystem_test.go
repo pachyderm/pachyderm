@@ -1,8 +1,9 @@
-package fuse_test
+package fuse
 
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,17 +18,36 @@ import (
 	"bazil.org/fuse/fs/fstestutil"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"google.golang.org/grpc"
 )
+
+const (
+	RethinkAddress = "localhost:28015"
+)
+
+var (
+	port int32 = 30651
+)
+
+var testDBs []string
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	code := m.Run()
+	if code == 0 {
+		for _, name := range testDBs {
+			if err := persist.RemoveDB(RethinkAddress, name); err != nil {
+				panic(err)
+			}
+		}
+	}
+	os.Exit(code)
+}
 
 func TestRootReadDir(t *testing.T) {
 	if testing.Short() {
@@ -68,7 +88,7 @@ func TestRootReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestRepoReadDir(t *testing.T) {
@@ -79,48 +99,58 @@ func TestRepoReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commitA, err := c.StartCommit(repoName, "", "")
+		commitA, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repoName, commitA.ID))
 		t.Logf("finished commit %v", commitA.ID)
 
-		commitB, err := c.StartCommit(repoName, "", "")
+		commitB, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commitB.ID)
 
+		commitAInfo, err := c.InspectCommit(repoName, commitA.ID)
+		require.NoError(t, err)
+		commitBInfo, err := c.InspectCommit(repoName, commitB.ID)
+		require.NoError(t, err)
+
+		checkA := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0555; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+		checkB := func(fi os.FileInfo) error {
+			if g, e := fi.Mode(), os.ModeDir|0775; g != e {
+				return fmt.Errorf("wrong mode: %v != %v", g, e)
+			}
+			// TODO show commitSize in commit stat?
+			if g, e := fi.Size(), int64(0); g != e {
+				t.Errorf("wrong size: %v != %v", g, e)
+			}
+			// TODO show CommitInfo.StartTime as ctime, ??? as mtime
+			// TODO test ctime via .Sys
+			// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
+			// 	t.Errorf("wrong mtime: %v != %v", g, e)
+			// }
+			return nil
+		}
+
 		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-			commitA.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0555; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, CommitInfo.Finished as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
-			commitB.ID: func(fi os.FileInfo) error {
-				if g, e := fi.Mode(), os.ModeDir|0775; g != e {
-					return fmt.Errorf("wrong mode: %v != %v", g, e)
-				}
-				// TODO show commitSize in commit stat?
-				if g, e := fi.Size(), int64(0); g != e {
-					t.Errorf("wrong size: %v != %v", g, e)
-				}
-				// TODO show CommitInfo.StartTime as ctime, ??? as mtime
-				// TODO test ctime via .Sys
-				// if g, e := fi.ModTime().UTC(), commitFinishTime; g != e {
-				// 	t.Errorf("wrong mtime: %v != %v", g, e)
-				// }
-				return nil
-			},
+			commitIDToPath(commitA.ID): checkA,
+			commitAInfo.Branch:         checkA,
+			commitIDToPath(commitB.ID): checkB,
+			commitBInfo.Branch:         checkB,
 		}))
-	})
+	}, false)
 }
 
 func TestCommitOpenReadDir(t *testing.T) {
@@ -131,7 +161,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -140,15 +170,15 @@ func TestCommitOpenReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), greetingName), []byte(greeting), greetingPerm))
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), scriptName), []byte(script), scriptPerm))
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID)), map[string]fstestutil.FileInfoCheck{
 			greetingName: func(fi os.FileInfo) error {
 				// TODO respect greetingPerm
 				if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -178,7 +208,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestCommitFinishedReadDir(t *testing.T) {
@@ -189,7 +219,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		t.Logf("open commit %v", commit.ID)
 
@@ -198,16 +228,16 @@ func TestCommitFinishedReadDir(t *testing.T) {
 			greeting     = "Hello, world\n"
 			greetingPerm = 0644
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), greetingName), []byte(greeting), greetingPerm))
 		const (
 			scriptName = "script"
 			script     = "#!/bin/sh\necho foo\n"
 			scriptPerm = 0750
 		)
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), scriptName), []byte(script), scriptPerm))
 		require.NoError(t, c.FinishCommit(repoName, commit.ID))
 
-		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
+		require.NoError(t, fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID)), map[string]fstestutil.FileInfoCheck{
 			greetingName: func(fi os.FileInfo) error {
 				// TODO respect greetingPerm
 				if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -237,7 +267,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 				return nil
 			},
 		}))
-	})
+	}, false)
 }
 
 func TestWriteAndRead(t *testing.T) {
@@ -248,10 +278,10 @@ func TestWriteAndRead(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
-		commit, err := c.StartCommit(repoName, "", "")
+		commit, err := c.StartCommit(repoName, "master")
 		require.NoError(t, err)
 		greeting := "Hello, world\n"
-		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
+		filePath := filepath.Join(mountpoint, repoName, commitIDToPath(commit.ID), "greeting")
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
 		readGreeting, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
@@ -260,7 +290,7 @@ func TestWriteAndRead(t *testing.T) {
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(t, []byte(greeting), data)
-	})
+	}, false)
 }
 
 func TestBigWrite(t *testing.T) {
@@ -271,20 +301,23 @@ func TestBigWrite(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
-	})
+	}, false)
 }
 
-func Test296Appends(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
+func TestBigCopy(t *testing.T) {
+	// Bug reported in #833
+	// Fuse buffers reads (e.g. while copying a file out of FUSE) into ~1MB chunks
+	// But at the block boundary, the driver was over-reading by exactly the amount that was left in the previous block
+
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -294,26 +327,61 @@ func Test296Appends(t *testing.T) {
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "", "")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		rawMessage := "Some\ncontent\nblah\nblah\nyup\nnope\nuh-huh.\n"
+		// Write a big blob that would normally not fit in a block
+		var expectedOutput []byte
+		for !(len(expectedOutput) > 9*1024*1024) {
+			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+		}
+		require.NoError(t, ioutil.WriteFile(path, expectedOutput, 0644))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+		tmp, err := ioutil.TempDir("", "pachyderm-test-copy")
+		require.NoError(t, err)
+		defer func() {
+			_ = os.RemoveAll(tmp)
+		}()
+		err = exec.Command("cp", path, tmp).Run()
+		// Without the fix, this next line errs:
+		require.NoError(t, err)
+		data, err := ioutil.ReadFile(filepath.Join(tmp, "file1"))
+		require.NoError(t, err)
+		require.Equal(t, len(expectedOutput), len(data))
+		require.Equal(t, expectedOutput, data)
+	}, false)
+}
+
+func Test296Appends(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID, "")
+		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
-		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "1\n2\n3\n", string(data))
-	})
+	}, false)
 }
 
 func Test296(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -321,24 +389,24 @@ func Test296(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID, "")
+		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
-		path = filepath.Join(mountpoint, repo, commit2.ID, "file")
+		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "3\n", string(data))
-	})
+	}, false)
 }
 
 func TestSpacedWrites(t *testing.T) {
@@ -349,9 +417,9 @@ func TestSpacedWrites(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		_, err = file.Write([]byte("foo"))
@@ -363,7 +431,7 @@ func TestSpacedWrites(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "foofoo", string(data))
-	})
+	}, false)
 }
 
 func TestMountCachingViaWalk(t *testing.T) {
@@ -402,7 +470,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 		require.OneOfEquals(t, "/foo", filesSeen)
 		require.OneOfEquals(t, "/bar", filesSeen)
 
-	})
+	}, false)
 }
 
 func TestMountCachingViaShell(t *testing.T) {
@@ -438,23 +506,38 @@ func TestMountCachingViaShell(t *testing.T) {
 
 		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
 
-	})
+	}, false)
 }
 
 func TestCreateFileInDir(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit, err := c.StartCommit("repo", "", "")
+		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 
-		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "dir"), 0700))
-		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commit.ID, "dir", "file"), []byte("foo"), 0644))
+		require.NoError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "dir"), 0700))
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "dir", "file"), []byte("foo"), 0644))
 		require.NoError(t, c.FinishCommit("repo", commit.ID))
-	})
+	}, false)
+}
+
+func TestCreateDirConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		require.NoError(t, c.CreateRepo("repo"))
+		commit, err := c.StartCommit("repo", "master")
+		require.NoError(t, err)
+
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountpoint, "repo", commitIDToPath(commit.ID), "file"), []byte("foo"), 0644))
+
+		require.YesError(t, os.Mkdir(filepath.Join(mountpoint, "repo", commit.ID, "file"), 0700))
+		require.NoError(t, c.FinishCommit("repo", commit.ID))
+	}, false)
 }
 
 func TestOverwriteFile(t *testing.T) {
@@ -463,21 +546,21 @@ func TestOverwriteFile(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit1, err := c.StartCommit("repo", "", "")
+		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 		_, err = c.PutFile("repo", commit1.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("repo", commit1.ID))
-		commit2, err := c.StartCommit("repo", commit1.ID, "")
+		commit2, err := c.StartCommit("repo", commit1.ID)
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, "repo", commit2.ID, "file")
+		path := filepath.Join(mountpoint, "repo", commitIDToPath(commit2.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
 		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit("repo", commit2.ID))
 		result, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.Equal(t, "bar\n", string(result))
-	})
+	}, false)
 }
 
 func TestOpenAndWriteFile(t *testing.T) {
@@ -486,9 +569,9 @@ func TestOpenAndWriteFile(t *testing.T) {
 	}
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
-		commit1, err := c.StartCommit("repo", "", "")
+		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
-		filePath := filepath.Join(mountpoint, "repo", commit1.ID, "foo")
+		filePath := filepath.Join(mountpoint, "repo", commitIDToPath(commit1.ID), "foo")
 		f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		require.NoError(t, err)
 		defer func() {
@@ -506,7 +589,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 		result, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%v%v", string(data1), string(data2)), string(result))
-	})
+	}, false)
 }
 
 func TestDelimitJSON(t *testing.T) {
@@ -516,7 +599,7 @@ func TestDelimitJSON(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "abba"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		var expectedOutput []byte
 		rawMessage := `{
@@ -530,7 +613,7 @@ func TestDelimitJSON(t *testing.T) {
 		for !(len(expectedOutput) > 9*1024*1024) {
 			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 		}
-		filePath := filepath.Join(mountpoint, repo, commit.ID, "foo.json")
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "foo.json")
 		require.NoError(t, ioutil.WriteFile(filePath, expectedOutput, 0644))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		// Make sure all the content is there
@@ -571,7 +654,7 @@ func TestDelimitJSON(t *testing.T) {
 				require.Equal(t, rawMessage, string(value))
 			}
 		}
-	})
+	}, false)
 }
 
 func TestNoDelimiter(t *testing.T) {
@@ -583,11 +666,11 @@ func TestNoDelimiter(t *testing.T) {
 		repo := "test"
 		name := "foo.bin"
 		require.NoError(t, c.CreateRepo(repo))
-		commit1, err := c.StartCommit(repo, "", "")
+		commit1, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 
 		rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
-		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit1.ID), name)
 
 		// Write a big blob that would normally not fit in a block
 		var expectedOutputA []byte
@@ -636,7 +719,7 @@ func TestNoDelimiter(t *testing.T) {
 			}
 			require.EqualOneOf(t, blockLengths, buffer.Len())
 		}
-	})
+	}, false)
 }
 
 func TestWriteToReadOnlyPath(t *testing.T) {
@@ -648,16 +731,16 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 		repo := "test"
 		name := "foo"
 		require.NoError(t, c.CreateRepo(repo))
-		commit1, err := c.StartCommit(repo, "", "")
+		commit1, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit1.ID))
 
-		filePath := filepath.Join(mountpoint, repo, commit1.ID, name)
+		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit1.ID), name)
 		stdin := strings.NewReader(fmt.Sprintf("echo 'oh hai' > %s", filePath))
 		err = pkgexec.RunStdin(stdin, "sh")
 		require.YesError(t, err)
 		require.Matches(t, "Operation not permitted", err.Error())
-	})
+	}, false)
 }
 
 func TestWriteManyFiles(t *testing.T) {
@@ -668,15 +751,15 @@ func TestWriteManyFiles(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestWriteManyFiles"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			fileName := fmt.Sprintf("file-%d", i)
-			filePath := filepath.Join(mountpoint, repo, commit.ID, fileName)
+			filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), fileName)
 			require.NoError(t, ioutil.WriteFile(filePath, []byte(fileName), 0644))
 		}
-	})
+	}, false)
 }
 
 func TestReadCancelledCommit(t *testing.T) {
@@ -687,19 +770,47 @@ func TestReadCancelledCommit(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestReadCancelledCommit"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.CancelCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(dirs))
-		require.Equal(t, commit.ID, dirs[0].Name())
-		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commit.ID, "file"))
+		require.Equal(t, 2, len(dirs))
+		var actualDirs []interface{}
+		for _, dir := range dirs {
+			actualDirs = append(actualDirs, dir.Name())
+		}
+		require.OneOfEquals(t, commitIDToPath(commit.ID), actualDirs)
+		data, err := ioutil.ReadFile(filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo\n", string(data))
-	})
+	}, true)
+}
+
+func TestNoReadCancelledCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "TestReadCancelledCommit"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.CancelCommit(repo, commit.ID))
+		commit2, err := c.StartCommit(repo, "master")
+		require.NoError(t, c.FinishCommit(repo, commit2.ID))
+		require.NoError(t, c.ArchiveCommit(repo, commit2.ID))
+		// we shouldn't see any directories because the mount doesn't show
+		// archived or cancelled commits
+		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(dirs))
+	}, false)
 }
 
 func TestListBranch(t *testing.T) {
@@ -710,20 +821,21 @@ func TestListBranch(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "TestListBranch"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "master")
+		commit, err := c.StartCommit(repo, "master")
 		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		dirs, err := ioutil.ReadDir(filepath.Join(mountpoint, repo))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(dirs))
-		require.OneOfEquals(t, commit.ID, []interface{}{dirs[0].Name(), dirs[1].Name()})
+		require.OneOfEquals(t, commitIDToPath(commit.ID), []interface{}{dirs[0].Name(), dirs[1].Name()})
 		require.OneOfEquals(t, "master", []interface{}{dirs[0].Name(), dirs[1].Name()})
-	})
+	}, false)
 }
 
 func testFuse(
 	t *testing.T,
 	test func(client client.APIClient, mountpoint string),
+	allCommits bool,
 ) {
 	// don't leave goroutines running
 	var wg sync.WaitGroup
@@ -748,39 +860,22 @@ func testFuse(
 	// functions
 	localAddress := listener.Addr().String()
 	srv := grpc.NewServer()
-	const (
-		numShards = 1
-	)
-	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
-	hasher := pfsserver.NewHasher(numShards, 1)
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		localAddress,
-	)
-
 	blockDir := filepath.Join(tmp, "blocks")
 	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
 	require.NoError(t, err)
 	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
-	driver, err := drive.NewDriver(localAddress)
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	testDBs = append(testDBs, dbName)
+
+	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
+		panic(err)
+	}
+	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(
-		hasher,
-		router,
-	)
+	apiServer := server.NewAPIServer(driver)
 	pfsclient.RegisterAPIServer(srv, apiServer)
-
-	internalAPIServer := server.NewInternalAPIServer(
-		hasher,
-		router,
-		driver,
-	)
-	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -799,14 +894,14 @@ func testFuse(
 	clientConn, err := grpc.Dial(localAddress, grpc.WithInsecure())
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
-	mounter := fuse.NewMounter(localAddress, apiClient)
+	mounter := NewMounter(localAddress, apiClient)
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, true))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits))
 	}()
 
 	<-ready

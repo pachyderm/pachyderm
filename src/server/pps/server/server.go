@@ -24,6 +24,7 @@ func NewAPIServer(
 	address string,
 	kubeClient *kube.Client,
 	namespace string,
+	imageTag string,
 ) APIServer {
 	return &apiServer{
 		Logger:               protorpclog.NewLogger("pachyderm.ppsclient.API"),
@@ -41,5 +42,6 @@ func NewAPIServer(
 		version:              shard.InvalidVersion,
 		versionLock:          sync.RWMutex{},
 		namespace:            namespace,
+		imageTag:             imageTag,
 	}
 }

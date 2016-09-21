@@ -64,17 +64,49 @@ message JobInput {
   bool run_empty = 3;
 }
 
+message ParallelismSpec {
+  // Which Parallelism strategy to use. Depending on the value of
+  // 'strategy', other messages in the spec will or will not be set.
+  enum Strategy {
+    CONSTANT = 0;
+    COEFFICIENT = 1;
+  }
+  Strategy strategy = 1;
+
+  // If 'strategy' is set to CONSTANT, then the field 'constant' is used.
+  //
+  // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
+  // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
+  // then Pachyderm will choose the number of workers that is started,
+  // (currently it chooses the number of workers in the cluster)
+  uint64 constant = 2;
+
+  // If 'strategy' is set to COEFFICIENT, then the field 'coefficient' is used.
+  //
+  // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
+  // where N is the number of nodes in the kubernetes cluster.
+  //
+  // For example, if each Kubernetes node has four CPUs, you might set
+  // 'coefficient' to four, so that there are four Pachyderm workers per
+  // Kubernetes node, and each Pachyderm worker gets one CPU. If you want to
+  // reserve half the nodes in your cluster for other tasks, you might set
+  // 'coefficient' to 0.5.
+  double coefficient = 3;
+}
+
 message JobInfo {
+  reserved 4;
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
-  uint64 parallelism = 4;
+  ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  map<uint64, string> pod_commits = 11;
 }
 
 message JobInfos {
@@ -112,9 +144,10 @@ enum PipelineState {
 }
 
 message PipelineInfo {
+  reserved 3;
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -128,9 +161,10 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
+  reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
   Job parent_job = 5;
   bool force = 6;
@@ -151,9 +185,10 @@ message GetLogsRequest {
 }
 
 message CreatePipelineRequest {
+  reserved 3;
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true

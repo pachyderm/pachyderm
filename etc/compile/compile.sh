@@ -7,6 +7,7 @@ cd "${DIR}"
 
 BINARY="${1}"
 LD_FLAGS="${2}"
+PROFILE="${3}"
 
 mkdir -p _tmp
 go build \
@@ -16,5 +17,18 @@ go build \
   -o _tmp/${BINARY} \
   -ldflags "${LD_FLAGS}" \
   src/server/cmd/${BINARY}/main.go
-docker-compose build ${BINARY}
-docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
+
+echo "LD_FLAGS=$LD_FLAGS"
+
+# When creating profile binaries, we dont want to detach or do docker ops
+if [ -z ${PROFILE} ]
+then
+    docker-compose build ${BINARY}
+    docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
+    docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
+else
+    cd _tmp
+    tar cf - ${BINARY}
+fi
+
+

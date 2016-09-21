@@ -17,8 +17,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/golang/glog"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 )
 

@@ -34,11 +34,12 @@ func (m *mounter) MountAndCreate(
 	commitMounts []*CommitMount,
 	ready chan bool,
 	debug bool,
+	allCommits bool,
 ) error {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	return m.Mount(mountPoint, shard, commitMounts, ready, debug)
+	return m.Mount(mountPoint, shard, commitMounts, ready, debug, allCommits)
 }
 
 func (m *mounter) Mount(
@@ -47,6 +48,7 @@ func (m *mounter) Mount(
 	commitMounts []*CommitMount,
 	ready chan bool,
 	debug bool,
+	allCommits bool,
 ) (retErr error) {
 	var once sync.Once
 	defer once.Do(func() {
@@ -89,7 +91,7 @@ func (m *mounter) Mount(
 	if debug {
 		config.Debug = func(msg interface{}) { lion.Printf("%+v", msg) }
 	}
-	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
+	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts, allCommits)); err != nil {
 		return err
 	}
 	<-conn.Ready

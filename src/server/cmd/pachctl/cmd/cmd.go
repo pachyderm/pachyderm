@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -17,11 +18,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
+	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
 	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/pkg/exec"
 	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
 )
@@ -59,6 +62,7 @@ Envronment variables:
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
+	rootCmd.AddCommand(deploycmds.DeployCmd())
 
 	version := &cobra.Command{
 		Use:   "version",
@@ -108,8 +112,27 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
+	var port int
+	portForward := &cobra.Command{
+		Use:   "port-forward",
+		Short: "Forward a port on the local machine to pachd. This command blocks.",
+		Long:  "Forward a port on the local machine to pachd. This command blocks.",
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl get pod -l app=pachd |  awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl port-forward "$pod" %d:650
+`, port))
+			fmt.Println("Port forwarded, CTRL-C to exit.")
+			return pkgexec.RunIO(pkgexec.IO{
+				Stdin:  stdin,
+				Stderr: os.Stderr,
+			}, "sh")
+		}),
+	}
+	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
+	rootCmd.AddCommand(portForward)
 	return rootCmd, nil
 }
 

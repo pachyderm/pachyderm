@@ -4,7 +4,7 @@ services:
 - docker
 language: go
 go:
-- 1.6
+- 1.7
 branches:
   except:
     - /^v[0-9]/
@@ -16,15 +16,18 @@ before_install:
 - sudo chmod 666 /dev/fuse
 - sudo cp etc/build/fuse.conf /etc/fuse.conf
 - sudo chown root:$USER /etc/fuse.conf
+- sudo mkdir -p /var/lib/kubelet
+- sudo mount -o bind /var/lib/kubelet /var/lib/kubelet
+- sudo mount --make-shared /var/lib/kubelet
 before_script:
-- wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
+- wget https://storage.googleapis.com/kubernetes-release/release/v1.3.5/bin/linux/amd64/kubectl
 - chmod +x kubectl
 - sudo mv kubectl /usr/local/bin/
 - make launch-kube
 - kubectl get all
 - docker version
 script:
-- make test
 - make lint
+- travis_wait 30 make test
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

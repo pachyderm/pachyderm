@@ -1,6 +1,6 @@
 // +build linux
 
-package fuse_test
+package fuse
 
 import (
 	"fmt"
@@ -21,9 +21,9 @@ func TestSeekRead(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		_, err = file.Write([]byte("foobarbaz"))
@@ -65,7 +65,7 @@ func TestSeekRead(t *testing.T) {
 
 		fmt.Printf("==== Read word len %v : %v\n", n2, string(word2)) */
 
-	})
+	}, false)
 }
 
 func TestSeekWriteGap(t *testing.T) {
@@ -76,9 +76,9 @@ func TestSeekWriteGap(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		defer func() {
@@ -108,7 +108,7 @@ func TestSeekWriteGap(t *testing.T) {
 		require.Equal(t, 3, n1)
 
 		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
-	})
+	}, false)
 }
 
 func TestSeekWriteBackwards(t *testing.T) {
@@ -119,9 +119,9 @@ func TestSeekWriteBackwards(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		file, err := os.Create(path)
 		require.NoError(t, err)
 		defer func() {
@@ -153,5 +153,5 @@ func TestSeekWriteBackwards(t *testing.T) {
 		fmt.Printf("==== %v - write word len %v\n", time.Now(), n1)
 
 		require.NoError(t, c.FinishCommit(repo, commit.ID)) */
-	})
+	}, false)
 }

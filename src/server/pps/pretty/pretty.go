@@ -87,7 +87,7 @@ func PrintPipelineInputHeader(w io.Writer) {
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
-	fmt.Fprintf(w, "%t\t\n", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t\n", pipelineInput.Method.Incremental)
 }
 
 // PrintJobCountsHeader prints a job counts header.
@@ -106,7 +106,7 @@ Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
-Parallelism: {{.Parallelism}}
+ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
@@ -127,7 +127,7 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 		`Name: {{.Pipeline.Name}}
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
-Parallelism: {{.Parallelism}}
+ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
