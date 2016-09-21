@@ -1,7 +1,7 @@
 # Local Installation
-This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
+This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux. 
 
-If you hit any errors not covered in this guide submit an issue on [GitHub](github.com/pachyderm/pachyderm) or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.  
+If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.  
 
 ## Prerequisites
 - [Minikube](#minikube) (and VirtualBox)
@@ -24,15 +24,15 @@ $ brew tap pachyderm/tap && brew install pachctl
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl help` to check that this worked correctly, which should return if pachctl is installed correctly.
+To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
 
-### Deploy Pachyderm
+## Deploy Pachyderm
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-kubectl create -f https://pachyderm.io/manifest.json
+pachctl deploy
 ```
-This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
 ```sh
 $ kubectl get all
@@ -47,8 +47,8 @@ pachd           10.0.0.101   <nodes>       650/TCP                        6s
 rethink         10.0.0.182   <nodes>       8080/TCP,28015/TCP,29015/TCP   6s
 NAME            READY        STATUS        RESTARTS                       AGE
 etcd-swoag      1/1          Running       0                              6s
-pachd-7xyse     0/1          Running       0                              6s
-pachd-gfdc6     0/1          Running       0                              6s
+pachd-7xyse     1/1          Running       0                              6s
+pachd-gfdc6     1/1          Running       0                              6s
 rethink-v5rsx   1/1          Running       0                              6s
 ```
 Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
@@ -58,8 +58,7 @@ Note: If you see a few restarts on the pachd nodes, that's ok. That simply means
 The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. We background this process since port forwarding blocks. 
 
 ```shell
-#copy one of the pachd pod names. E.g. "pachd-7xyse" from above
-kubectl port-forward <pachd_pod_name> 30650:650 &
+$ pachctl port-forward &
 ```
 
 Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working. 
@@ -67,8 +66,16 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.1.0
-pachd               1.1.0
+pachctl             1.2.0
+pachd               1.2.0
 ```
 
 We're good to go!
+
+
+## Next Steps
+
+Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building analysis pipelines. 
+
+
+
