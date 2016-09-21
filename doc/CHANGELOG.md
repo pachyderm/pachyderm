@@ -5,7 +5,8 @@
 Features:
 
 - PFS has been rewritten to be more reliable and optimizeable
-- PFS now has a much simpler name scheme for commits (`master/10`)
+- PFS now has a much simpler name scheme for commits (eg `master/10`)
+- Caching has been added to several of the higher cost parts of PFS
 - UpdatePipeline, which allows you to modify an existing pipeline
 - Transforms now have an Env section for specifying environment variables
 - ArchiveCommit, which allows you to make commits not visible in ListCommit but still present and readable
