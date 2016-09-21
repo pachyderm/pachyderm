@@ -1,7 +1,8 @@
-package server
+package examples
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +13,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-func TestTensorFlow(t *testing.T) {
+func getPachClient(t testing.TB) *client.APIClient {
+	client, err := client.NewFromAddress("0.0.0.0:30650")
+	require.NoError(t, err)
+	return client
+}
+
+func TestExampleTensorFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -22,10 +29,11 @@ func TestTensorFlow(t *testing.T) {
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-	exampleDir := filepath.Join(cwd, "../../examples/tensor_flow")
+	exampleDir := filepath.Join(cwd, "../../../examples/tensor_flow")
 	cmd := exec.Command("make", "all")
 	cmd.Dir = exampleDir
-	_, err = cmd.CombinedOutput()
+	raw, err := cmd.CombinedOutput()
+	fmt.Printf("make all output: %v\n", string(raw))
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit([]string{"GoT_scripts"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
