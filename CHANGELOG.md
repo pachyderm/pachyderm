@@ -6,6 +6,7 @@ Features:
 
 - PFS has been rewritten to be more reliable and optimizeable
 - PFS now has a much simpler name scheme for commits (eg `master/10`)
+- PFS now supports merging, there are 2 types of merge. Squash and Replay
 - Caching has been added to several of the higher cost parts of PFS
 - UpdatePipeline, which allows you to modify an existing pipeline
 - Transforms now have an Env section for specifying environment variables
