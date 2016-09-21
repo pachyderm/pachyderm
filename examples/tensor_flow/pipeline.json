@@ -13,7 +13,10 @@
       "cp /data/*.json /pfs/out"
     ]
   },
-  "parallelism": "1",
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  },
   "inputs": [
     {
       "repo": {
@@ -37,7 +40,10 @@
       "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/new_script.txt" 
     ]
   },
-  "parallelism": "1",
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  },
   "inputs": [
     {
       "repo": {
