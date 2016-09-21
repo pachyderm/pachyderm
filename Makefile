@@ -206,7 +206,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests example-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
