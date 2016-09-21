@@ -671,19 +671,19 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 		}
 	}
 
-	// Update the size of the repo.  Note that there is a consistency issue here:
-	// If this transaction succeeds but the next one (updating Commit) fails,
-	// then the repo size will be wrong.  TODO
-	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
-		"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
-	}).RunWrite(d.dbClient)
+	rawCommit.Finished = now()
+	rawCommit.Cancelled = parentCancelled || cancel
+
+	// TODO: the two queries are not atomic
+	_, err = gorethink.Do(
+		d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
+			"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
+		}),
+		d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit),
+	).RunWrite(d.dbClient)
 	if err != nil {
 		return err
 	}
-
-	rawCommit.Finished = now()
-	rawCommit.Cancelled = parentCancelled || cancel
-	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
 
 	return err
 }
@@ -1067,9 +1067,6 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	if err != nil {
 		return err
 	}
-	if commit.Finished != nil {
-		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
-	}
 	_client := client.APIClient{BlockAPIClient: d.blockClient}
 	blockrefs, err := _client.PutBlock(delimiter, reader)
 	if err != nil {
@@ -1122,27 +1119,34 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		}
 	}
 
-	// Actually, we don't know if Rethink actually inserts these documents in
-	// order.  If it doesn't, then we might end up with "/foo/bar" but not
-	// "/foo", which is kinda problematic.
-	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
-		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+	_, err = gorethink.Do(
+		d.getTerm(commitTable).Get(commit.ID).Field("Finished").Eq(nil),
+		func(notFinished gorethink.Term) gorethink.Term {
 			return gorethink.Branch(
-				// We throw an error if the new diff is of a different file type
-				// than the old diff, unless the old diff is NONE
-				oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
-				gorethink.Error(ErrConflictFileTypeMsg),
-				oldDoc.Merge(map[string]interface{}{
-					"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-					"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
-					// Overwrite the file type in case the old file type is NONE
-					"FileType": newDoc.Field("FileType"),
-					// Update modification time
-					"Modified": newDoc.Field("Modified"),
+				notFinished,
+				d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
+					Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+						return gorethink.Branch(
+							// We throw an error if the new diff is of a different file type
+							// than the old diff, unless the old diff is NONE
+							oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
+							gorethink.Error(ErrConflictFileTypeMsg),
+							oldDoc.Merge(map[string]interface{}{
+								"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
+								"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+								// Overwrite the file type in case the old file type is NONE
+								"FileType": newDoc.Field("FileType"),
+								// Update modification time
+								"Modified": newDoc.Field("Modified"),
+							}),
+						)
+					},
 				}),
+				gorethink.Error("commit has been finished"),
 			)
 		},
-	}).RunWrite(d.dbClient)
+	).RunWrite(d.dbClient)
+
 	return err
 }
 
