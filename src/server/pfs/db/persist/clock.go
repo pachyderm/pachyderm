@@ -13,6 +13,18 @@ func (b *BlockRef) Size() uint64 {
 	return b.Upper - b.Lower
 }
 
+// ReadableCommitID returns a human-friendly commit ID for
+// displaying purposes.
+func (c *Clock) ReadableCommitID() string {
+	return fmt.Sprintf("%s/%d", c.Branch, c.Clock)
+}
+
+// NewCommitID generates a commitID to be used in a database
+// from a repo and a clock
+func NewCommitID(repo string, clock *Clock) string {
+	return fmt.Sprintf("%s:%s:%d", repo, clock.Branch, clock.Clock)
+}
+
 // NewClock returns a new clock for a given branch
 func NewClock(branch string) *Clock {
 	return &Clock{branch, 0}
@@ -29,6 +41,15 @@ func CloneClock(c *Clock) *Clock {
 		Branch: c.Branch,
 		Clock:  c.Clock,
 	}
+}
+
+// CloneFullClock clones a FullClock
+func CloneFullClock(fc []*Clock) []*Clock {
+	var res []*Clock
+	for _, c := range fc {
+		res = append(res, CloneClock(c))
+	}
+	return res
 }
 
 // StringToClock converts a string like "master/2" to a clock
@@ -62,13 +83,14 @@ func NewChild(parent FullClock) FullClock {
 // [(master, 2), (foo, 1)] -> [(master, 2), (foo, 0)]
 // [(master, 2), (foo, 0)] -> [(master, 2)]
 func FullClockParent(child FullClock) FullClock {
-	if len(child) > 0 {
-		lastClock := CloneClock(FullClockHead(child))
+	clone := CloneFullClock(child)
+	if len(clone) > 0 {
+		lastClock := FullClockHead(clone)
 		if lastClock.Clock > 0 {
 			lastClock.Clock--
-			return append(child[:len(child)-1], lastClock)
+			return clone
 		} else if len(child) > 1 {
-			return child[:len(child)-1]
+			return clone[:len(clone)-1]
 		}
 	}
 	return nil
@@ -108,14 +130,9 @@ func ClockToArray(clock gorethink.Term) []interface{} {
 	return []interface{}{clock.Field("Branch"), clock.Field("Clock")}
 }
 
-// ToCommitID converts a clock to a string like "master/2"
-func (c *Clock) ToCommitID() string {
-	return fmt.Sprintf("%s/%d", c.Branch, c.Clock)
-}
-
 // CommitID returns the CommitID of the clock associated with the diff
 func (d *Diff) CommitID() string {
-	return d.Clock.ToCommitID()
+	return NewCommitID(d.Repo, d.Clock)
 }
 
 // ClockRangeList is an ordered list of ClockRanges
@@ -188,4 +205,18 @@ func (l *ClockRangeList) SubClock(c *Clock) {
 // Ranges return the clock ranges stored in a ClockRangeList
 func (l *ClockRangeList) Ranges() []*ClockRange {
 	return l.ranges
+}
+
+// DBClockDescendent returns whether one FullClock is the descendent of the other,
+// assuming both are rethinkdb terms
+func DBClockDescendent(child, parent gorethink.Term) gorethink.Term {
+	return gorethink.Branch(
+		gorethink.Or(child.Count().Lt(parent.Count()), parent.Count().Eq(0)),
+		gorethink.Expr(false),
+		gorethink.Branch(
+			child.Count().Eq(parent.Count()),
+			gorethink.And(child.Slice(0, -1).Eq(parent.Slice(0, -1)), gorethink.And(child.Nth(-1).Field("Branch").Eq(parent.Nth(-1).Field("Branch")), child.Nth(-1).Gt(parent.Nth(-1)))),
+			child.Slice(0, parent.Count()).Eq(parent),
+		),
+	)
 }

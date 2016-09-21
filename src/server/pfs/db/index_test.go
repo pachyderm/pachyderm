@@ -95,18 +95,6 @@ func TestDiffClockIndex(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch", 1}), fmt.Sprintf("%v", key))
 }
 
-func TestClockBranchIndex(t *testing.T) {
-	dbClient := getClient(t)
-	cursor, err := gorethink.Expr(ClockBranchIndex.CreateFunction(gorethink.Expr(&persist.ClockID{
-		Repo:   "repo",
-		Branch: "branch",
-	}))).Run(dbClient)
-	require.NoError(t, err)
-	var key []interface{}
-	require.NoError(t, cursor.All(&key))
-	require.Equal(t, fmt.Sprintf("%v", []interface{}{"repo", "branch"}), fmt.Sprintf("%v", key))
-}
-
 func TestCommitClockIndex(t *testing.T) {
 	dbClient := getClient(t)
 	cursor, err := gorethink.Expr(CommitClockIndex.CreateFunction(gorethink.Expr(&persist.Commit{

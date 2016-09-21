@@ -624,7 +624,7 @@ func genCommitIndex(commits []*pfs.Commit) (string, error) {
 		if len(commit.ID) == 0 {
 			return "", fmt.Errorf("can't generate index for commit \"%s/%s\"", commit.Repo.Name, commit.ID)
 		}
-		commitIDs = append(commitIDs, commit.ID[0:10])
+		commitIDs = append(commitIDs, fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID))
 	}
 	sort.Strings(commitIDs)
 	var result []byte
