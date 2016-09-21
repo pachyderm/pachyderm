@@ -41,7 +41,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
-		cache: groupcache.NewGroup("block", 1024*1024*1024*10,
+		cache: groupcache.NewGroup("block", 1024*1024*1024*10, // 10GB
 			groupcache.GetterFunc(func(ctx groupcache.Context, key string, dest groupcache.Sink) (retErr error) {
 				var reader io.ReadCloser
 				var err error

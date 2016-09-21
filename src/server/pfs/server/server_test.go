@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	servers = 2
+	servers = 1
 
 	ALPHABET       = "abcdefghijklmnopqrstuvwxyz"
 	RethinkAddress = "localhost:28015"

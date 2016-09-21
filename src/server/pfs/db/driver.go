@@ -19,6 +19,7 @@ import (
 
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/groupcache"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
@@ -73,7 +74,14 @@ type driver struct {
 	blockClient pfs.BlockAPIClient
 	dbName      string
 	dbClient    *gorethink.Session
+	cache       map[string]*groupcache.Group
 }
+
+const (
+	commitGroup   = "commit"
+	fileTypeGroup = "fileType"
+	repoGroup     = "repo"
+)
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
@@ -87,11 +95,34 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 		return nil, err
 	}
 
-	return &driver{
+	d := &driver{
 		blockClient: pfs.NewBlockAPIClient(clientConn),
 		dbName:      dbName,
 		dbClient:    dbClient,
-	}, nil
+	}
+
+	cache := map[string]*groupcache.Group{
+		commitGroup: groupcache.NewGroup(commitGroup, 256*1024*1024, // 256MB
+			groupcache.GetterFunc(func(ctx groupcache.Context, commitID string, dest groupcache.Sink) error {
+				cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
+				if err != nil {
+					return err
+				}
+
+				commit := &persist.Commit{}
+				if err := cursor.One(commit); err != nil {
+					return err
+				}
+
+				return dest.SetProto(commit)
+			}),
+		),
+		fileTypeGroup: nil,
+		repoGroup:     nil,
+	}
+
+	d.cache = cache
+	return d, nil
 }
 
 // isDBCreated is used to tell when we are trying to initialize a database,
@@ -2072,12 +2103,8 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 			return nil, err
 		}
 	} else {
-		cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := cursor.One(retCommit); err != nil {
+		sink := groupcache.ProtoSink(retCommit)
+		if err := d.cache[commitGroup].Get(nil, commitID, sink); err != nil {
 			return nil, err
 		}
 	}
