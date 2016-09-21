@@ -18,6 +18,7 @@ func TestTensorFlow(t *testing.T) {
 	}
 
 	c := getPachClient(t)
+	t.Parallel()
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -52,5 +53,7 @@ func TestTensorFlow(t *testing.T) {
 	if buffer.Len() < 100 {
 		t.Fatalf("Output GoT script is too small (has len=%v)", buffer.Len())
 	}
-	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteRepo("GoT_generate", false))
+	require.NoError(t, c.DeleteRepo("GoT_train", false))
+	require.NoError(t, c.DeleteRepo("GoT_scripts", false))
 }
