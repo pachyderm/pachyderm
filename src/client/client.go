@@ -34,7 +34,7 @@ type APIClient struct {
 	addr         string
 	clientConn   *grpc.ClientConn
 	healthClient health.HealthClient
-	ctx          context.Context
+	_ctx         context.Context
 	cancel       func()
 }
 
@@ -89,13 +89,13 @@ func (c *APIClient) KeepConnected(cancel chan bool) {
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
 	if _, err := c.PpsAPIClient.DeleteAll(
-		c.ctx,
+		c.ctx(),
 		google_protobuf.EmptyInstance,
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		c.ctx,
+		c.ctx(),
 		google_protobuf.EmptyInstance,
 	); err != nil {
 		return sanitizeErr(err)
@@ -115,9 +115,18 @@ func (c *APIClient) connect() error {
 	c.BlockAPIClient = pfs.NewBlockAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
-	c.ctx = ctx
+	c._ctx = ctx
 	c.cancel = cancel
 	return nil
+}
+
+// TODO this method only exists because we initialize some APIClient in such a
+// way that ctx will be nil
+func (c *APIClient) ctx() context.Context {
+	if c._ctx == nil {
+		return context.Background()
+	}
+	return c._ctx
 }
 
 func sanitizeErr(err error) error {
