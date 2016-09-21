@@ -1,6 +1,6 @@
 Getting your Results
 ====================
-Once you've got a few pipelines built and have data flowing through the system, it becomes incredibly important to track that flow so you can read the correct results.Let's use the :doc:`beginner_tutorial` Fruit Stand as an example. 
+Once you've got a few pipelines built and have data flowing through the system, it becomes incredibly important to track that flow so you can read the correct results.Let's use the :doc:`../getting_started/beginner_tutorial` Fruit Stand as an example. 
 
 Here is our data flow:
 

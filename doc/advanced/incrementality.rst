@@ -39,24 +39,29 @@ then there are only three top-level objects, ``/foo``, ``/bar``, and ``/baz``. `
 Incrementality
 ^^^^^^^^^^^^^^
 
-Incrementality is a boolean flag that describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process only the new data in that commmit (the diff) or does all of the data need to be reprocessed?
 
-For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/bar`` in commit 2, then:
+Incrementality is a numerical flag (0, 1, or 2) that describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process only the new data in that commmit (the diff) or does all of the data need to be reprocessed?
 
-* If the input is incremental, the first job sees file ``/foo`` and the second job sees file ``/bar``.
-* If the input is nonincremental, the first job sees file ``/foo`` and the second job sees file ``/foo`` and file ``/bar``.
+For instance, if you have a repo with the file `/foo` in commit 1 and file `/bar` in commit 2, then:
+
+* If the input is incremental (1), the first job sees file `/foo` and the second job sees file `/bar`.
+* If the input is nonincremental(0), ever job sees all the data. The first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
+
+Top-level objects (2) means that if any part in a file (or any file within a directory) changes, then show all the data in that file (directory). For example, you may have a directory called "users" with each user's info as a file. `Incremental: 2` would mean that if any user file changed, your job should see all user files as input.
 
 For convenience, we have defined aliases for the three most commonly used input methods: map, reduce, and global.  They are defined below:
 
 
++---------------------+----------+-----------------------+----------+
+|                     |  "Block" |  "File" (Top-lvl Obj) |  "Repo"  |
++=====================+==========+=======================+==========+
+| 0 (non-incremental) |          |        reduce         |  global  |
++---------------------+----------+-----------------------+----------+
+| 1 (diffs)           |    map   |                       |          |
++---------------------+----------+-----------------------+----------+
+| 2 (top-lvl object)  |          |                       |          |
++---------------------+----------+-----------------------+----------+
 
-	+----------------+----------+-----------------------+-----------+
-	|                | Block(1) |  Top-level Objects(2) |  Repo(3)  |
-	+================+==========+=======================+===========+
-	|  Incremental   |   map    |                       |           |
-	+----------------+----------+-----------------------+-----------+
-	| Nonincremental |          |        reduce         |   global  |
-	+----------------+----------+-----------------------+-----------+
 
 If no method is specified, the ``map`` method (Block + Incremental) is used by default.
 

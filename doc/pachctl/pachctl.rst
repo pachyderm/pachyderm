@@ -2,7 +2,7 @@ Pachctl Command Line Tool
 =========================
 
 
-Pachctl is the command line interface for Pachyderm. To install, follow the :doc:`getting_started/local_installation` instructions
+Pachctl is the command line interface for Pachyderm. To install, follow the :doc:`../getting_started/local_installation` instructions
 
 .. toctree::
     :maxdepth: 1

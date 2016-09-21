@@ -49,7 +49,6 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     FAQ
     examples/examples
-    troubleshooting
     CHANGELOG  
 
 .. toctree::
