@@ -82,7 +82,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/pipeline_spec.md"))
+	pipelineSpec := string(pachyderm.MustAsset("doc/development/pipeline_spec.md"))
 
 	var jobPath string
 	createJob := &cobra.Command{
