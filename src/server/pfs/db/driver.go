@@ -117,6 +117,7 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 				return dest.SetProto(commit)
 			}),
 		),
+
 		fileTypeGroup: groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
 			groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
 				repo, commit, path := decodeFile(encoded)
@@ -133,17 +134,27 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 					_, ok := err.(*pfsserver.ErrFileNotFound)
 					if ok {
 						// If the file was not found, then there's no type conflict
-						dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
+						return dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
 					}
 					return err
-				} else {
-					dest.SetString(strconv.Itoa(int(diff.FileType)))
 				}
-				return nil
+				return dest.SetString(strconv.Itoa(int(diff.FileType)))
 			}),
 		),
 
-		repoGroup: nil,
+		repoGroup: groupcache.NewGroup(repoGroup, 64*1024*1024, // 64MB
+			groupcache.GetterFunc(func(ctx groupcache.Context, repo string, dest groupcache.Sink) error {
+				cursor, err := d.getTerm(repoTable).Get(repo).Run(d.dbClient)
+				if err != nil {
+					return err
+				}
+				rawRepo := &persist.Repo{}
+				if err := cursor.One(rawRepo); err != nil {
+					return err
+				}
+				return dest.SetProto(rawRepo)
+			}),
+		),
 	}
 
 	d.cache = cache
@@ -278,20 +289,19 @@ func (d *driver) CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error {
 	return err
 }
 
-func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
+func (d *driver) getRawRepo(repo string) (r *persist.Repo, retErr error) {
 	defer func() {
 		if retErr == gorethink.ErrEmptyResult {
-			retErr = pfsserver.NewErrRepoNotFound(repo.Name)
+			retErr = pfsserver.NewErrRepoNotFound(repo)
 		}
 	}()
-	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
-	if err != nil {
-		return nil, err
-	}
+
 	rawRepo := &persist.Repo{}
-	if err := cursor.One(rawRepo); err != nil {
+	sink := groupcache.ProtoSink(rawRepo)
+	if err := d.cache[repoGroup].Get(nil, repo, sink); err != nil {
 		return nil, err
 	}
+
 	return rawRepo, nil
 }
 
@@ -302,9 +312,20 @@ func (n byName) Len() int           { return len(n) }
 func (n byName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 func (n byName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
-func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	rawRepo, err := d.inspectRepo(repo)
+func (d *driver) InspectRepo(repo *pfs.Repo) (repoInfo *pfs.RepoInfo, retErr error) {
+	defer func() {
+		if retErr == gorethink.ErrEmptyResult {
+			retErr = pfsserver.NewErrRepoNotFound(repo.Name)
+		}
+	}()
+	// We want to go directly to the database as opposed to the cache, since
+	// the repo size in the cache may not be accurate
+	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
 	if err != nil {
+		return nil, err
+	}
+	rawRepo := &persist.Repo{}
+	if err := cursor.One(rawRepo); err != nil {
 		return nil, err
 	}
 
@@ -426,7 +447,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 }
 
 func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fullProvenance []*persist.ProvenanceCommit, archived bool, err error) {
-	rawRepo, err := d.inspectRepo(repo)
+	rawRepo, err := d.getRawRepo(repo.Name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -689,7 +710,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
-	_, err := d.inspectRepo(commit.Repo)
+	_, err := d.getRawRepo(commit.Repo.Name)
 	if err != nil {
 		return err
 	}
@@ -848,7 +869,7 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	repoToFromCommit := make(map[string]string)
 	for _, commit := range fromCommits {
 		// make sure that the repos exist
-		_, err := d.inspectRepo(commit.Repo)
+		_, err := d.getRawRepo(commit.Repo.Name)
 		if err != nil {
 			return nil, err
 		}
