@@ -139,7 +139,8 @@ else:
 
 html_theme_options = {
    'collapse_navigation': True,
-   'display_version': False
+   'display_version': False,
+   'navigation_depth': 1,
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
