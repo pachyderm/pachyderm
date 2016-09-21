@@ -117,8 +117,33 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 				return dest.SetProto(commit)
 			}),
 		),
-		fileTypeGroup: nil,
-		repoGroup:     nil,
+		fileTypeGroup: groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
+			groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
+				repo, commit, path := decodeFile(encoded)
+				diff, err := d.inspectFile(&pfs.File{
+					Commit: &pfs.Commit{
+						Repo: &pfs.Repo{
+							Name: repo,
+						},
+						ID: commit,
+					},
+					Path: path,
+				}, nil, nil)
+				if err != nil {
+					_, ok := err.(*pfsserver.ErrFileNotFound)
+					if ok {
+						// If the file was not found, then there's no type conflict
+						dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
+					}
+					return err
+				} else {
+					dest.SetString(strconv.Itoa(int(diff.FileType)))
+				}
+				return nil
+			}),
+		),
+
+		repoGroup: nil,
 	}
 
 	d.cache = cache
@@ -1064,36 +1089,41 @@ func (d *driver) DeleteCommit(commit *pfs.Commit) error {
 	return errors.New("DeleteCommit is not implemented")
 }
 
+func encodeFile(repo string, commit string, path string) string {
+	return fmt.Sprintf("%s||%s||%s", repo, commit, path)
+}
+
+func decodeFile(encoded string) (repo string, commit string, path string) {
+	parts := strings.SplitN(encoded, "||", 3)
+	return parts[0], parts[1], parts[2]
+}
+
 // checkFileType returns an error if the given type conflicts with the preexisting
-// type.  TODO: cache file types
+// type.
 func (d *driver) checkFileType(repo string, commit string, path string, typ persist.FileType) (err error) {
-	diff, err := d.inspectFile(&pfs.File{
-		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: repo,
-			},
-			ID: commit,
-		},
-		Path: path,
-	}, nil, nil)
-	if err != nil {
-		_, ok := err.(*pfsserver.ErrFileNotFound)
-		if ok {
-			// If the file was not found, then there's no type conflict
-			return nil
-		}
+	key := encodeFile(repo, commit, path)
+
+	var fileTypeStr string
+	sink := groupcache.StringSink(&fileTypeStr)
+	if err := d.cache[fileTypeGroup].Get(nil, key, sink); err != nil {
 		return err
 	}
-	if diff.FileType != typ && diff.FileType != persist.FileType_NONE {
+
+	_fileType, err := strconv.Atoi(fileTypeStr)
+	if err != nil {
+		return err
+	}
+	fileType := persist.FileType(_fileType)
+
+	if fileType != typ && fileType != persist.FileType_NONE {
 		return errors.New(ErrConflictFileTypeMsg)
 	}
+
 	return nil
 }
 
 func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
-	// TODO: eventually optimize this with a cache so that we don't have to
-	// go to the database to figure out if the commit exists
 	commit, err := d.getRawCommit(file.Commit)
 	if err != nil {
 		return err
