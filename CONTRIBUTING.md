@@ -2,7 +2,9 @@
 
 ## Filing issues
 
-If you have a question about Pachyderm or have a problem using Pachyderm, before filing an issue, please read the [FAQs](doc/FAQ.md) to see if it's been addressed.
+If you have a question or have a problem using Pachyderm, you can [file and issue](https://github.com/pachyderm/pachyderm/issues), join our [users channel on Slack](http://slack.pachyderm.io), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
+
+General questions can usually be answered on our [Documentation Portal](pachyderm.readthedocs.io) or [FAQ](pachyderm.readthedocs.io/FAQ.html).
 
 ## Submitting patches (pull requests)
 
