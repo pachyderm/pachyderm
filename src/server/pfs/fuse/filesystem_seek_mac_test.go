@@ -1,6 +1,6 @@
 // +build darwin
 
-package fuse_test
+package fuse
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ func TestSeekRead(t *testing.T) {
 	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -84,7 +84,7 @@ func TestSeekWriteGap(t *testing.T) {
 	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)
@@ -132,7 +132,7 @@ func TestSeekWriteBackwards(t *testing.T) {
 	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commit.ID, "file")
 		file, err := os.Create(path)

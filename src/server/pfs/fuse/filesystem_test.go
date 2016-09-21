@@ -325,9 +325,9 @@ func TestBigCopy(t *testing.T) {
 	testFuse(t, func(c client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file1")
 		rawMessage := "Some\ncontent\nblah\nblah\nyup\nnope\nuh-huh.\n"
 		// Write a big blob that would normally not fit in a block
 		var expectedOutput []byte
