@@ -8,6 +8,7 @@
 # Build artifacts
 .goxc.json
 /protofix
+doc/_build
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
@@ -17,6 +18,7 @@
 # Folders
 _obj
 _test
+*.DS_Store
 
 # Architecture specific extensions/prefixes
 *.[568vq]
