@@ -313,6 +313,46 @@ func TestBigWrite(t *testing.T) {
 	}, false)
 }
 
+func TestBigCopy(t *testing.T) {
+	// Bug reported in #833
+	// Fuse buffers reads (e.g. while copying a file out of FUSE) into ~1MB chunks
+	// But at the block boundary, the driver was over-reading by exactly the amount that was left in the previous block
+
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(c client.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		rawMessage := "Some\ncontent\nblah\nblah\nyup\nnope\nuh-huh.\n"
+		// Write a big blob that would normally not fit in a block
+		var expectedOutput []byte
+		for !(len(expectedOutput) > 9*1024*1024) {
+			expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+		}
+		require.NoError(t, ioutil.WriteFile(path, expectedOutput, 0644))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+		tmp, err := ioutil.TempDir("", "pachyderm-test-copy")
+		require.NoError(t, err)
+		defer func() {
+			_ = os.RemoveAll(tmp)
+		}()
+		err = exec.Command("cp", path, tmp).Run()
+		// Without the fix, this next line errs:
+		require.NoError(t, err)
+		data, err := ioutil.ReadFile(filepath.Join(tmp, "file1"))
+		require.NoError(t, err)
+		require.Equal(t, len(expectedOutput), len(data))
+		require.Equal(t, expectedOutput, data)
+	}, false)
+}
+
 func Test296Appends(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
