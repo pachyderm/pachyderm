@@ -293,7 +293,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/
+	go-bindata -o assets.go -pkg pachyderm doc/...
 
 lint:
 	@go get -u github.com/golang/lint/golint
