@@ -137,10 +137,13 @@ func TestFruitStand(t *testing.T) {
 	time.Sleep(5)
 	repoInfos, err = c.ListRepo(nil)
 	require.NoError(t, err)
-	repoNames = []interface{}{"sum", "filter", "data"}
+	repoNames = []interface{}
 	for _, repoInfo := range repoInfos {
-		require.EqualOneOf(t, repoNames, repoInfo.Repo.Name)
+		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
+	require.OneOfEquals(t, "sum", repoNames)
+	require.OneOfEquals(t, "filter", repoNames)
+	require.OneOfEquals(t, "data", repoNames)
 
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit("data", commit.ID)}, nil)
 	require.NoError(t, err)
