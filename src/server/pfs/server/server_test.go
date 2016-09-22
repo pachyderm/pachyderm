@@ -1723,22 +1723,6 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 
 }
 
-func TestPutFileNullCharacter(t *testing.T) {
-	t.Parallel()
-	client := getClient(t)
-
-	repo := "test"
-	require.NoError(t, client.CreateRepo(repo))
-
-	commit, err := client.StartCommit(repo, "master")
-	require.NoError(t, err)
-
-	_, err = client.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n"))
-	// null characters error because when you `ls` files with null characters
-	// they truncate things after the null character leading to strange results
-	require.YesError(t, err)
-}
-
 func TestArchiveCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
