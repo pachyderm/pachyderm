@@ -49,7 +49,7 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 .. code-block:: shell
 
-	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/fruit_stand/set1.txt
+	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/doc/examples/fruit_stand/set1.txt
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner. 
 
@@ -116,19 +116,19 @@ You can view the job with:
 .. code-block:: shell
 
  $ pachctl list-job
- ID                                 OUTPUT                                      STATE
- 09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9/0   JOB_STATE_SUCCESS
+	ID                                 OUTPUT                                       STARTED             DURATION             STATE
+	90c74896fd227f319c3c19459aa7a22b   sum/e4060e15948c4b7b89947a02eace5dca/0       2 minutes ago       Less than a second   success
+	67c30d70ba9d2179aa133255f5dc81db   filter/d737e9b7cfae40d4aa8a8871cdb9f783/0    3 minutes ago       2 seconds            success
 
-Every pipeline creates a corresponding repo with the same
-name where it stores its output results. In our example, the "filter" transformation created a repo called "filter" which was the input to the "sum" transformation. The "sum" repo contains the final output files.
+Every pipeline creates a corresponding repo with the same name where it stores its output results. In our example, the "filter" transformation created a repo called "filter" which was the input to the "sum" transformation. The "sum" repo contains the final output files.
 
 .. code-block:: shell
 
  $ pachctl list-repo
  NAME                CREATED             SIZE
- sum                 9 minutes ago       12 B
- filter              9 minutes ago       200 B
- data                15 minutes ago      874 B
+ sum                 2 minutes ago       12 B
+ filter              2 minutes ago       200 B
+ data                19 minutes ago      874 B
 
 
 Reading the Output
@@ -138,7 +138,7 @@ Reading the Output
 
 .. code-block:: shell
 
- $ pachctl get-file sum 63c71410558344f59a7f8af311cad140 apple
+ $ pachctl get-file sum e4060e15948c4b7b89947a02eace5dca/0 apple
  133
 
 
@@ -156,7 +156,7 @@ Let's create a new commit with our previous commit as the parent and add more sa
 
 .. code-block:: shell
 
-  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/fruit_stand/set2.txt
+  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/examples/fruit_stand/set2.txt
 
 Adding a new commit of data will automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
@@ -164,19 +164,19 @@ the new data we've added. We'll see a corresponding commit to the output
 
 .. code-block:: shell
 
- $ pachctl get-file sum 4092f4675650476ab0a3fde5b7780316 apple
+ $ pachctl get-file sum 4092f4675650476ab0a3fde5b7780316/0 apple
  324
 
-One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the pipeline, you'll notice that there is a ``"reduce": true`` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. You can learn about :doc:`../advanced/advanced` such as incremental reductions later.
+One thing that's interesting to note is that our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the "sum" pipeline, you'll notice the ``method`` and that our code uses ``/prev`` to compute the sum incrementally based upon our previous commit. You can learn more about incrementally in our advanced :doc:`../advanced/incrementality` docs.
 
-We can also view the parental structure of the commits we just created.
+We can view the parental structure of the commits we just created.
 
 .. code-block:: shell
 
  $ pachctl list-commit data
- BRANCH              ID                                 PARENT                             STARTED              FINISHED            SIZE
- master              4092f4675650476ab0a3fde5b7780316   63c71410558344f59a7f8af311cad140   2 minutes ago        2 minutes ago       863 B
- master              63c71410558344f59a7f8af311cad140   <none>                             19 minutes ago       19 minutes ago      874 B
+ BRANCH              REPO/ID             PARENT              STARTED             FINISHED            SIZE
+ master              data/master/0       <none>              19 minutes ago      19 minutes ago      874 B
+ master              data/master/1       master/0            2 minutes ago       2 minutes ago       874 B
 
 
 Exploring the File System
@@ -212,7 +212,9 @@ other local filesystem such as using ``ls`` or pointing your browser at it.
 
  # And commits
  $ ls ~/pfs/sum
- 63c71410558344f59a7f8af311cad140	4092f4675650476ab0a3fde5b7780316
+ 4092f4675650476ab0a3fde5b7780316/1	4092f4675650476ab0a3fde5b7780316/0
+
+.. note::
 
  Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts. 
 
@@ -220,7 +222,7 @@ Next Steps
 ^^^^^^^^^^
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-- Write a script to stream more data into Pachyderm. We already have one in `Go for you on GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.0/examples/fruit_stand/generate>`_ if you want to use it. 
+- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.0/doc/examples/fruit_stand/generate>`_ if you want to use it. 
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
 - Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count. 
 
@@ -230,4 +232,4 @@ You can also start learning some of the more advanced topics to develop analysis
 - :doc:`../development/inputing_your_data` from other sources
 - :doc:`../development/custom_pipelines` using your own code
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created! 
+We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created! 
