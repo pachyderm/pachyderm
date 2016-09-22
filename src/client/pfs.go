@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"golang.org/x/net/context"
 
 	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 	protostream "go.pedge.io/proto/stream"
@@ -67,7 +66,7 @@ const (
 // project you might have seperate Repos for logs, metrics, database dumps etc.
 func (c APIClient) CreateRepo(repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
-		context.Background(),
+		c.ctx(),
 		&pfs.CreateRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -78,7 +77,7 @@ func (c APIClient) CreateRepo(repoName string) error {
 // InspectRepo returns info about a specific Repo.
 func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	repoInfo, err := c.PfsAPIClient.InspectRepo(
-		context.Background(),
+		c.ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -99,7 +98,7 @@ func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 		request.Provenance = append(request.Provenance, NewRepo(repoName))
 	}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
-		context.Background(),
+		c.ctx(),
 		request,
 	)
 	if err != nil {
@@ -117,7 +116,7 @@ func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 // This argument should be used with care.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteRepo(
-		context.Background(),
+		c.ctx(),
 		&pfs.DeleteRepoRequest{
 			Repo:  NewRepo(repoName),
 			Force: force,
@@ -142,7 +141,7 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // used as the parent of the commit.
 func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
 				Repo: &pfs.Repo{
@@ -162,7 +161,7 @@ func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commi
 // on a new branch.
 func (c APIClient) ForkCommit(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.ForkCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.ForkCommitRequest{
 			Parent: &pfs.Commit{
 				Repo: &pfs.Repo{
@@ -184,7 +183,7 @@ func (c APIClient) ForkCommit(repoName string, parentCommit string, branch strin
 // attempts to write to it with PutFile will error.
 func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.FinishCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -197,7 +196,7 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 // are not considered by FlushCommit either.
 func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.ArchiveCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.ArchiveCommitRequest{
 			Commits: []*pfs.Commit{NewCommit(repoName, commitID)},
 		},
@@ -211,7 +210,7 @@ func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
 // errant jobs.
 func (c APIClient) CancelCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.FinishCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 			Cancel: true,
@@ -223,7 +222,7 @@ func (c APIClient) CancelCommit(repoName string, commitID string) error {
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -250,7 +249,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.ListCommitRequest{
 			FromCommits: fromCommits,
 			Provenance:  provenance,
@@ -268,7 +267,7 @@ func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commi
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string, status pfs.CommitStatus) ([]string, error) {
 	branches, err := c.PfsAPIClient.ListBranch(
-		context.Background(),
+		c.ctx(),
 		&pfs.ListBranchRequest{
 			Repo:   NewRepo(repoName),
 			Status: status,
@@ -284,7 +283,7 @@ func (c APIClient) ListBranch(repoName string, status pfs.CommitStatus) ([]strin
 // Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.DeleteCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -305,7 +304,7 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 // see their output once they do.
 func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.FlushCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.FlushCommitRequest{
 			Commit: commits,
 			ToRepo: toRepos,
@@ -349,7 +348,7 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 // useful to users.
 func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader, error) {
 	apiGetBlockClient, err := c.BlockAPIClient.GetBlock(
-		context.Background(),
+		c.ctx(),
 		&pfs.GetBlockRequest{
 			Block:       NewBlock(hash),
 			OffsetBytes: offset,
@@ -367,7 +366,7 @@ func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader,
 // useful to users.
 func (c APIClient) DeleteBlock(block *pfs.Block) error {
 	_, err := c.BlockAPIClient.DeleteBlock(
-		context.Background(),
+		c.ctx(),
 		&pfs.DeleteBlockRequest{
 			Block: block,
 		},
@@ -378,7 +377,7 @@ func (c APIClient) DeleteBlock(block *pfs.Block) error {
 // InspectBlock returns info about a specific Block.
 func (c APIClient) InspectBlock(hash string) (*pfs.BlockInfo, error) {
 	blockInfo, err := c.BlockAPIClient.InspectBlock(
-		context.Background(),
+		c.ctx(),
 		&pfs.InspectBlockRequest{
 			Block: NewBlock(hash),
 		},
@@ -392,7 +391,7 @@ func (c APIClient) InspectBlock(hash string) (*pfs.BlockInfo, error) {
 // ListBlock returns info about all Blocks.
 func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 	blockInfos, err := c.BlockAPIClient.ListBlock(
-		context.Background(),
+		c.ctx(),
 		&pfs.ListBlockRequest{},
 	)
 	if err != nil {
@@ -432,7 +431,7 @@ func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path s
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string) (retErr error) {
-	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
+	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return sanitizeErr(err)
 	}
@@ -467,7 +466,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
 	apiGetFileClient, err := c.PfsAPIClient.GetFile(
-		context.Background(),
+		c.ctx(),
 		&pfs.GetFileRequest{
 			File:        NewFile(repoName, commitID, path),
 			Shard:       shard,
@@ -498,7 +497,7 @@ func (c APIClient) InspectFile(repoName string, commitID string, path string,
 func (c APIClient) inspectFile(repoName string, commitID string, path string,
 	fromCommitID string, fullFile bool, shard *pfs.Shard) (*pfs.FileInfo, error) {
 	fileInfo, err := c.PfsAPIClient.InspectFile(
-		context.Background(),
+		c.ctx(),
 		&pfs.InspectFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -526,7 +525,7 @@ func (c APIClient) ListFile(repoName string, commitID string, path string, fromC
 func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
 	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
 	fileInfos, err := c.PfsAPIClient.ListFile(
-		context.Background(),
+		c.ctx(),
 		&pfs.ListFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -547,7 +546,7 @@ func (c APIClient) listFile(repoName string, commitID string, path string, fromC
 // The file will of course remain intact in the Commit's parent.
 func (c APIClient) DeleteFile(repoName string, commitID string, path string) error {
 	_, err := c.PfsAPIClient.DeleteFile(
-		context.Background(),
+		c.ctx(),
 		&pfs.DeleteFileRequest{
 			File: NewFile(repoName, commitID, path),
 		},
@@ -559,7 +558,7 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 // Note directories are created implicitly by PutFile, so you technically never
 // need this function unless you want to create an empty directory.
 func (c APIClient) MakeDirectory(repoName string, commitID string, path string) (retErr error) {
-	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
+	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return sanitizeErr(err)
 	}
@@ -587,7 +586,7 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) er
 	}
 
 	_, err := c.PfsAPIClient.SquashCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.SquashCommitRequest{
 			FromCommits: realFromCommits,
 			ToCommit:    NewCommit(repo, to),
@@ -606,9 +605,8 @@ func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([
 	for _, commitID := range fromCommits {
 		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
 	}
-
 	commits, err := c.PfsAPIClient.ReplayCommit(
-		context.Background(),
+		c.ctx(),
 		&pfs.ReplayCommitRequest{
 			FromCommits: realFromCommits,
 			ToBranch:    to,
@@ -623,7 +621,7 @@ func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([
 // ArchiveAll archives all commits in all repos.
 func (c APIClient) ArchiveAll() error {
 	_, err := c.PfsAPIClient.ArchiveAll(
-		context.Background(),
+		c.ctx(),
 		google_protobuf.EmptyInstance,
 	)
 	return sanitizeErr(err)
@@ -636,7 +634,7 @@ type putFileWriteCloser struct {
 }
 
 func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter) (*putFileWriteCloser, error) {
-	putFileClient, err := c.PfsAPIClient.PutFile(context.Background())
+	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +679,7 @@ type putBlockWriteCloser struct {
 }
 
 func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWriteCloser, error) {
-	putBlockClient, err := c.BlockAPIClient.PutBlock(context.Background())
+	putBlockClient, err := c.BlockAPIClient.PutBlock(c.ctx())
 	if err != nil {
 		return nil, err
 	}
