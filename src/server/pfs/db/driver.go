@@ -1,6 +1,8 @@
 package persist
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -1165,12 +1167,9 @@ func getPrefixes(path string) []string {
 }
 
 func getDiffID(commitID string, path string) string {
-	return fmt.Sprintf("%s:%s", commitID, path)
-}
-
-// the equivalent of above except that commitID is a rethink term
-func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
-	return commitID.Add(":" + path)
+	s := fmt.Sprintf("%s:%s", commitID, path)
+	hash := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hash[:])
 }
 
 func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
