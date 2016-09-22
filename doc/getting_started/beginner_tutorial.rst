@@ -49,7 +49,7 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 .. code-block:: shell
 
-	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/fruit_stand/set1.txt
+	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/fruit_stand/set1.txt
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner. 
 
@@ -64,8 +64,8 @@ Finally, we can see the data we just added to Pachyderm.
 
  # We can view the commit we just created
  pachctl list-commit data
- BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE
- master              63c71410558344f59a7f8af311cad140   <none>              6 minutes ago       6 minutes ago       874 B
+ BRANCH              REPO/ID         PARENT              STARTED             FINISHED            SIZE
+ master              data/master/0   <none>              6 minutes ago       6 minutes ago       874 B
 
  # We can also view the contents of the file that we just added
  $ pachctl get-file data master sales
@@ -80,7 +80,7 @@ Create a Pipeline
 
 Now that we've got some data in our repo, it's time to do something with it.
 ``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and
-they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at `examples/fruit_stand/pipeline.json on Github <https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/pipeline.json>`_. Please open a new tab to view the pipeline while we talk through it.
+they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at `examples/fruit_stand/pipeline.json on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/fruit_stand/pipeline.json>`_. Please open a new tab to view the pipeline while we talk through it.
 
 When you want to create your own pipelines later, you can refer to the full :doc:`../development/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here. 
 
@@ -101,7 +101,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
- $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/examples/fruit_stand/pipeline.json
+ $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/doc/examples/fruit_stand/pipeline.json
 
 
 What Happens When You Create a Pipeline
@@ -116,8 +116,8 @@ You can view the job with:
 .. code-block:: shell
 
  $ pachctl list-job
- ID                                 OUTPUT                                    STATE
- 09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_SUCCESS
+ ID                                 OUTPUT                                      STATE
+ 09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9/0   JOB_STATE_SUCCESS
 
 Every pipeline creates a corresponding repo with the same
 name where it stores its output results. In our example, the "filter" transformation created a repo called "filter" which was the input to the "sum" transformation. The "sum" repo contains the final output files.
