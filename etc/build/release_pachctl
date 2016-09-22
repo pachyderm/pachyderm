@@ -15,7 +15,7 @@ which goxc
 
 if [ $? -ne 0 ]
 then
-    echo "You need to install goxc. Do so by running: `go get github.com/laher/goxc`" 
+    echo "You need to install goxc. Do so by running: 'go get github.com/laher/goxc'" 
 	exit 1
 fi
 
