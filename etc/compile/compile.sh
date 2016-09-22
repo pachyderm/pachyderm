@@ -23,7 +23,8 @@ echo "LD_FLAGS=$LD_FLAGS"
 # When creating profile binaries, we dont want to detach or do docker ops
 if [ -z ${PROFILE} ]
 then
-    docker-compose build ${BINARY}
+    cp Dockerfile.${BINARY} _tmp/Dockerfile
+    docker build -t pachyderm_${BINARY} _tmp
     docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
     docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
 else
