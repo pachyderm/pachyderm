@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -72,4 +73,138 @@ func TestExampleTensorFlow(t *testing.T) {
 	require.NoError(t, c.DeleteRepo("GoT_generate", false))
 	require.NoError(t, c.DeleteRepo("GoT_train", false))
 	require.NoError(t, c.DeleteRepo("GoT_scripts", false))
+}
+
+func TestWordCount(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+
+	// Should stay in sync with examples/word_count/README.md
+	inputPipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_input"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim:latest",
+    "cmd": [ "wget",
+        "-e", "robots=off",
+        "--recursive",
+        "--level", "1",
+        "--adjust-extension",
+        "--no-check-certificate",
+        "--no-directories",
+        "--directory-prefix",
+        "/pfs/out",
+        "https://en.wikipedia.org/wiki/Main_Page"
+    ],
+    "acceptReturnCode": [4,5,6,7,8]
+  },
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  }
+}
+`
+	exampleDir := "../../examples/word_count"
+	cmd := exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(inputPipelineManifest)
+	cmd.Dir = exampleDir
+	raw, err := cmd.CombinedOutput()
+	fmt.Printf("create pipeline output: %v\n", string(raw))
+	require.NoError(t, err)
+
+	cmd = exec.Command("pachctl", "run-pipeline", "wordcount_input")
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	cmd = exec.Command("docker", "build", "-t", "wordcount-map", ".")
+	cmd.Dir = exampleDir
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+
+	// Should stay in sync with examples/word_count/README.md
+	wordcountMapPipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_map"
+  },
+  "transform": {
+    "image": "wordcount-map:latest",
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_input"
+      }
+    }
+  ]
+}
+`
+	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	commitInfos, err := c.ListCommit([]string{"wordcount_map"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
+	lines := strings.Split(buffer.String(), "\n")
+	// Should see # lines output == # pods running job ... not sure what this is on CI?
+	require.Equal(t, 3, len(lines))
+
+	// Should stay in sync with examples/word_count/README.md
+	wordcountReducePipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_reduce"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim:latest",
+    "cmd": ["sh"],
+    "stdin": [
+        "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/` + "`basename $count`" + `; done"
+    ]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_map"
+      },
+	  "method": "reduce"
+    }
+  ]
+}
+`
+
+	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(wordcountReducePipelineManifest)
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	commitInfos, err = c.ListCommit([]string{"wordcount_reduce"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	buffer.Reset()
+	require.NoError(t, c.GetFile("wordcount_reduce", commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
+	lines = strings.Split(buffer.String(), "\n")
+	require.Equal(t, 1, len(lines))
+
+	fileInfos, err := c.ListFile("wordcount_reduce", commitInfos[0].Commit.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+
+	if len(fileInfos) < 100 {
+		t.Fatalf("Word count result is too small. Should have counted a bunch of words. Only counted %v:\n%v\n", len(fileInfos), fileInfos)
+	}
 }
