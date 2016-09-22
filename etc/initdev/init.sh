@@ -28,14 +28,6 @@ setup_apt()
 	echo "deb https://apt.dockerproject.org/repo ubuntu-${DISTRIB_CODENAME} main" > /etc/apt/sources.list.d/docker.list
 }
 
-install_docker_compose()
-{
-	local URL="https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)"
-
-	curl -sSL "${URL}" > /usr/local/bin/docker-compose
-	chmod +x /usr/local/bin/docker-compose
-}
-
 install_go()
 {
 	curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
@@ -94,7 +86,6 @@ main()
 
 	run install_apt
 	run install_go
-	run install_docker_compose
 
 	run cleanup_apt
 
