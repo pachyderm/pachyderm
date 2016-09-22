@@ -30,7 +30,7 @@ func TestExampleTensorFlow(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 	exampleDir := filepath.Join(cwd, "../../../examples/tensor_flow")
-	cmd := exec.Command("make", "all")
+	cmd := exec.Command("make", "test")
 	cmd.Dir = exampleDir
 	raw, err := cmd.CombinedOutput()
 	fmt.Printf("make all output: %v\n", string(raw))
