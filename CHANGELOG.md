@@ -21,6 +21,8 @@ Features:
 - Benchmarks have been added
 - pprof support has been added to pachd
 - Parallelization can now be set as a factor of cluster size
+- `pachctl put-file` has 2 new flags `-c` and `-i` that make it more usable
+- Minikube is now the recommended way to deploy locally
 
 Content:
 
