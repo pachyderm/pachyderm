@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -83,7 +84,7 @@ func TestWordCount(t *testing.T) {
 
 	c := getPachClient(t)
 
-	// Should stay in sync with examples/word_count/README.md
+	// Should stay in sync with doc/examples/word_count/README.md
 	inputPipelineManifest := `
 {
   "pipeline": {
@@ -110,7 +111,7 @@ func TestWordCount(t *testing.T) {
   }
 }
 `
-	exampleDir := "../../examples/word_count"
+	exampleDir := "../../../doc/examples/word_count"
 	cmd := exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
@@ -128,7 +129,7 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	// Should stay in sync with examples/word_count/README.md
+	// Should stay in sync with doc/examples/word_count/README.md
 	wordcountMapPipelineManifest := `
 {
   "pipeline": {
@@ -153,7 +154,43 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.Output()
 	require.NoError(t, err)
 
-	commitInfos, err := c.ListCommit([]string{"wordcount_map"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	// Flush Commit can't help us here since there are no inputs
+	// So we poll wordcount_input until it has a commit
+	tries := 10
+	sleepAmount := 10
+
+	var commitInfos []*pfsclient.CommitInfo
+	for tries != 0 {
+		commitInfos, err = c.ListCommit(
+			[]*pfsclient.Commit{{
+				Repo: &pfsclient.Repo{"wordcount_input"},
+			}},
+			nil,
+			client.CommitTypeRead,
+			client.CommitStatusAll,
+			false,
+		)
+		require.NoError(t, err)
+		if len(commitInfos) == 1 {
+			break
+		}
+		time.Sleep(sleepAmount)
+		tries--
+	}
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commitInfos[0].Commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_map"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
@@ -163,7 +200,7 @@ func TestWordCount(t *testing.T) {
 	// Should see # lines output == # pods running job ... not sure what this is on CI?
 	require.Equal(t, 3, len(lines))
 
-	// Should stay in sync with examples/word_count/README.md
+	// Should stay in sync with doc/examples/word_count/README.md
 	wordcountReducePipelineManifest := `
 {
   "pipeline": {
@@ -193,7 +230,15 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.Output()
 	require.NoError(t, err)
 
-	commitInfos, err = c.ListCommit([]string{"wordcount_reduce"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	commitInfos, err = c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_reduce"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	buffer.Reset()
