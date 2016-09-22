@@ -37,7 +37,7 @@ enum FileType {
 }
 
 message Diff {
-  string id = 1;  // commit_id + path
+  string id = 1;  // hash(repo + commit_id + path)
   string repo = 2;
   string path = 3;
   // block_refs and delete cannot both be set
@@ -50,7 +50,7 @@ message Diff {
 }
 
 message Commit {
-  string id = 1;
+  string id = 1;  // commit IDs are of the form: repo:branch:clock
   string repo = 2;
   repeated Clock full_clock = 3;
   google.protobuf.Timestamp started = 4;

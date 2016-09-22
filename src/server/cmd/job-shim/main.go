@@ -80,7 +80,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, c.PfsAPIClient)
+			mounter := fuse.NewMounter(appEnv.PachydermAddress, c)
 			ready := make(chan bool)
 			errCh := make(chan error)
 			go func() {

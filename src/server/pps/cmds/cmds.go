@@ -82,7 +82,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/pipeline_spec.md"))
+	pipelineSpec := string(pachyderm.MustAsset("doc/development/pipeline_spec.md"))
 
 	var jobPath string
 	createJob := &cobra.Command{
@@ -180,11 +180,11 @@ Examples:
 	# return all jobs in pipeline foo
 	$ pachctl list-job -p foo
 
-	# return all jobs whose input commits include foo/abc123 and bar/def456
-	$ pachctl list-job foo/abc123 bar/def456
+	# return all jobs whose input commits include foo/master/1 and bar/master/2
+	$ pachctl list-job foo/master/1 bar/master/2
 
-	# return all jobs in pipeline foo and whose input commits include bar/def456
-	$ pachctl list-job -p foo bar/def456
+	# return all jobs in pipeline foo and whose input commits include bar/master/2
+	$ pachctl list-job -p foo bar/master/2
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {

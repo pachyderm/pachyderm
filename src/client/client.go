@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
@@ -29,58 +31,102 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	BlockAPIClient
-	gRPCConn *grpc.ClientConn
+	addr         string
+	clientConn   *grpc.ClientConn
+	healthClient health.HealthClient
+	_ctx         context.Context
+	cancel       func()
 }
 
-// NewFromAddress constructs a new APIClient for the server at pachAddr.
-func NewFromAddress(pachAddr string) (*APIClient, error) {
-	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
-	if err != nil {
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string) (*APIClient, error) {
+	c := &APIClient{
+		addr: addr,
+	}
+	if err := c.connect(); err != nil {
 		return nil, err
 	}
-
-	return &APIClient{
-		pfs.NewAPIClient(clientConn),
-		pps.NewAPIClient(clientConn),
-		pfs.NewBlockAPIClient(clientConn),
-		clientConn,
-	}, nil
+	return c, nil
 }
 
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster() (*APIClient, error) {
-	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
 
-	if pachAddr == "" {
+	if addr == "" {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
 
-	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
+	return NewFromAddress(fmt.Sprintf("%v:650", addr))
 }
 
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
-	return c.gRPCConn.Close()
+	return c.clientConn.Close()
+}
+
+// KeepConnected periodically health checks the connection and attempts to
+// reconnect if it becomes unhealthy.
+func (c *APIClient) KeepConnected(cancel chan bool) {
+	for {
+		select {
+		case <-cancel:
+			return
+		default:
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+			if _, err := c.healthClient.Health(ctx, google_protobuf.EmptyInstance); err != nil {
+				c.cancel()
+				c.connect()
+			}
+		}
+	}
 }
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
 	if _, err := c.PpsAPIClient.DeleteAll(
-		context.Background(),
+		c.ctx(),
 		google_protobuf.EmptyInstance,
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		context.Background(),
+		c.ctx(),
 		google_protobuf.EmptyInstance,
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	return nil
+}
+
+func (c *APIClient) connect() error {
+	clientConn, err := grpc.Dial(c.addr, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
+	c.PpsAPIClient = pps.NewAPIClient(clientConn)
+	c.BlockAPIClient = pfs.NewBlockAPIClient(clientConn)
+	c.clientConn = clientConn
+	c.healthClient = health.NewHealthClient(clientConn)
+	c._ctx = ctx
+	c.cancel = cancel
+	return nil
+}
+
+// TODO this method only exists because we initialize some APIClient in such a
+// way that ctx will be nil
+func (c *APIClient) ctx() context.Context {
+	if c._ctx == nil {
+		return context.Background()
+	}
+	return c._ctx
 }
 
 func sanitizeErr(err error) error {
