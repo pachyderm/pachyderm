@@ -63,3 +63,25 @@ func TestExampleTensorFlow(t *testing.T) {
 	require.NoError(t, c.DeleteRepo("GoT_train", false))
 	require.NoError(t, c.DeleteRepo("GoT_scripts", false))
 }
+
+func TestFruitStand(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	t.Parallel()
+
+	require.NoError(t, c.CreateRepo("data"))
+	repoInfos, err := c.ListRepo()
+	require.NoError(t, err)
+	var repoNames []interface{}
+	for _, repoInfo := range repoInfos {
+		repoNames = append(repoNames, repoInfo.Repo.Name)
+	}
+	require.OneOfEquals(t, "data", repoNames)
+
+	require.NoError(t, c.DeleteRepo("data"))
+
+}
