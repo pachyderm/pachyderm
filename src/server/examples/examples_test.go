@@ -2,6 +2,7 @@ package examples
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,23 +29,32 @@ func TestExampleTensorFlow(t *testing.T) {
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-	exampleDir := filepath.Join(cwd, "../../../examples/tensor_flow")
+	exampleDir := filepath.Join(cwd, "../../../doc/examples/tensor_flow")
 	cmd := exec.Command("make", "test")
 	cmd.Dir = exampleDir
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	commitInfos, err := c.ListCommit([]string{"GoT_scripts"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
+	commitInfos, err := c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"GoT_scripts"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusAll,
+		false,
+	)
 	require.NoError(t, err)
+	fmt.Printf("commits: %v\n", commitInfos)
 	require.Equal(t, 1, len(commitInfos))
 	inputCommitID := commitInfos[0].Commit.ID
 
 	// Wait until the GoT_generate job has finished
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit("GoT_scripts", inputCommitID)}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	repos := []interface{}{"GoT_train", "GoT_generate"}
+	repos := []interface{}{"GoT_train", "GoT_generate", "GoT_scripts"}
 	var generateCommitID string
 	for _, commitInfo := range commitInfos {
 		require.EqualOneOf(t, repos, commitInfo.Commit.Repo.Name)
