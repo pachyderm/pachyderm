@@ -181,7 +181,7 @@ Examples:
 
 	forkCommit := &cobra.Command{
 		Use:   "fork-commit repo-name parent-commit branch-name",
-		Short: "Start a new commit with a given parent on a new branch",
+		Short: "Start a new commit with a given parent on a new branch.",
 		Long: `Start a new commit with parent-commit as the parent, on a new branch with the name branch-name.
 
 Examples:
@@ -246,7 +246,7 @@ Examples:
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
-		Short: "Return all commits on a set of repos",
+		Short: "Return all commits on a set of repos.",
 		Long: `Return all commits on a set of repos.
 
 Examples:
@@ -298,6 +298,65 @@ Examples:
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
+
+	squashCommit := &cobra.Command{
+		Use:   "squash-commit repo-name commits to-commit",
+		Short: "Squash a number of commits into a single commit.",
+		Long: `Squash a number of commits into a single commit.
+
+Examples:
+
+	# squash commits foo/2 and foo/3 into bar/1 in repo "test"
+	# note that bar/1 needs to be an open commit
+	$ pachctl squash-commit test foo/2 foo/3 bar/1
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			if len(args) < 3 {
+				fmt.Println("invalid arguments")
+				return nil
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			return c.SquashCommit(args[0], args[1:len(args)-1], args[len(args)-1])
+		}),
+	}
+
+	replayCommit := &cobra.Command{
+		Use:   "replay-commit repo-name commits branch",
+		Short: "Replay a number of commits onto a branch.",
+		Long: `Replay a number of commits onto a branch
+
+Examples:
+
+	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
+	$ pachctl replay-commit test foo/2 foo/3 bar
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			if len(args) < 3 {
+				fmt.Println("invalid arguments")
+				return nil
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			commits, err := c.ReplayCommit(args[0], args[1:len(args)-1], args[len(args)-1])
+			if err != nil {
+				return err
+			}
+
+			for _, commit := range commits {
+				fmt.Println(commit.ID)
+			}
+			return nil
+		}),
+	}
 
 	var repos cmd.RepeatedStringArg
 	flushCommit := &cobra.Command{
@@ -682,8 +741,8 @@ mount | grep pfs:// | cut -f 3 -d " "
 
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",
-		Short: "Archives all commits in all repos",
-		Long:  "Archives all commits in all repos",
+		Short: "Archives all commits in all repos.",
+		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
@@ -705,6 +764,8 @@ mount | grep pfs:// | cut -f 3 -d " "
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, squashCommit)
+	result = append(result, replayCommit)
 	result = append(result, flushCommit)
 	result = append(result, listBranch)
 	result = append(result, file)
