@@ -1,5 +1,21 @@
 all: setup run
 
+# Used by Pachyderm CI
+# Easiest way to make the test model run shorter is to truncate the input size
+test: verify-pachctl gather-input-data
+	cat data/ptb.test.txt | head -n 100 > data/ptb.test.txt.short
+	mv data/ptb.test.txt.short data/ptb.test.txt
+	cat data/ptb.train.txt | head -n 100 > data/ptb.train.txt.short
+	mv data/ptb.train.txt.short data/ptb.train.txt
+	cat data/ptb.valid.txt | head -n 100 > data/ptb.valid.txt.short
+	mv data/ptb.valid.txt.short data/ptb.valid.txt
+	rm data/all.txt
+	cat data/ptb.test.txt > data/all.txt
+	cat data/ptb.train.txt >> data/all.txt
+	cat data/ptb.valid.txt >> data/all.txt
+	make load-input-data
+	make run
+
 get-input-data:
 	curl -o dataset.tar.gz https://pachyderm.io/data/GoT-scripts.tar.gz
 
@@ -15,7 +31,7 @@ clean-input-data:
 
 load-input-data:
 	pachctl create-repo GoT_scripts
-	pachctl start-commit GoT_scripts > commitID
+	pachctl start-commit GoT_scripts master > commitID
 	# For now, use the CLI to input the data because of OS X Fuse bug (https://github.com/pachyderm/pachyderm/issues/629)
 	# this is a heavy handed way to do a copy:
 	ls -1 data/* | while read -r file; do cat $$file | pachctl put-file GoT_scripts `cat commitID` `basename $$file`; done

@@ -6,12 +6,19 @@
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 # Pachyderm: A Containerized Data Lake
-Pachyderm is [Git for Data Science](pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](pachyderm.readthedocs.io/advanced/provenance.html)). 
+Pachyderm is [Git for Data Science](http://pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](http://pachyderm.readthedocs.io/advanced/provenance.html)). 
 
 Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/getting_started/installation.html) or [deploy Pachyderm on AWS/GCE] (http://pachyderm.readthedocs.io/development/deploying_on_the_cloud.html) in about 5 minutes. You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/getting_started/installation.html) or [deploy on AWS/GCE] (http://pachyderm.readthedocs.io/development/deploying_on_the_cloud.html) in about 5 minutes. 
+
+You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
+
+If you'd like to see some examples and learn about core use cases for Pachyderm:
+- [Examples](http://pachyderm.readthedocs.io/examples/examples.html)
+- [Use Cases](http://www.pachyderm.io/use_cases.html)
+- [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
 ## What is Pachyderm?
 
@@ -47,9 +54,8 @@ a streaming job, the same code will work for both!
 
 ## Community
 Keep up to date and get Pachyderm support via:
-- [Twitter](twitter.com/pachydermio)
-- [Join our mailing list]
-- Join our community [Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users
+- [Twitter](http://twitter.com/pachydermio)
+- [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io)  to get help from the Pachyderm team and other users.
 
 ### Contributing
 
