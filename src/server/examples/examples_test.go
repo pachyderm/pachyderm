@@ -2,7 +2,6 @@ package examples
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,8 +31,7 @@ func TestExampleTensorFlow(t *testing.T) {
 	exampleDir := filepath.Join(cwd, "../../../examples/tensor_flow")
 	cmd := exec.Command("make", "test")
 	cmd.Dir = exampleDir
-	raw, err := cmd.CombinedOutput()
-	fmt.Printf("make all output: %v\n", string(raw))
+	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit([]string{"GoT_scripts"}, nil, client.CommitTypeRead, false, client.CommitStatusAll, nil)
