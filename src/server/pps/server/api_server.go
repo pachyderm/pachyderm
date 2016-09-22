@@ -855,12 +855,15 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}); err != nil {
 		return nil, err
 	}
+	fmt.Printf("SSS Finished pod commit: %v\n", podCommit)
 
 	// All shards completed, job is finished
 	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	fmt.Printf("SSS num worker:s %v\n", numWorkers)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("SSS # suc %v # fail %v\n", jobInfo.PodsSucceeded, jobInfo.PodsFailed)
 	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
@@ -874,7 +877,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		for _, podCommit := range jobInfo.PodCommits {
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
-
+		fmt.Printf("SSS going to squash merge commits [%v]\n", commitsToMerge)
 		squashReq := &pfsclient.SquashCommitRequest{
 			FromCommits: commitsToMerge,
 			ToCommit:    jobInfo.OutputCommit,
