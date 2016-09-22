@@ -120,7 +120,7 @@ check-kubectl:
 	which kubectl
 
 check-kubectl-connection:
-	kubectl get all > /dev/null
+	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
