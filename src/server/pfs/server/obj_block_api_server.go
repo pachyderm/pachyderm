@@ -9,18 +9,18 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+
+	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/groupcache"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/cenkalti/backoff"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/groupcache"
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 type objBlockAPIServer struct {
