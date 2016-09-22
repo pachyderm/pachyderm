@@ -57,8 +57,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Pachyderm'
-copyright = '2016, Joe Doliner'
-author = 'Joe Doliner'
+copyright = '2016, Pachyderm Inc.'
+author = 'Pachyderm'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -139,7 +139,8 @@ else:
 
 html_theme_options = {
    'collapse_navigation': True,
-   'display_version': False
+   'display_version': False,
+   'navigation_depth': 1,
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
