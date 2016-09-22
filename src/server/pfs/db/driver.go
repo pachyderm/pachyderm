@@ -1,6 +1,8 @@
 package persist
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -1059,8 +1061,20 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 	return nil
 }
 
+// checkPath checks if a file path is legal
+func checkPath(path string) error {
+	if strings.Contains(path, "\x00") {
+		return fmt.Errorf("filename cannot contain null character: %s", path)
+	}
+	return nil
+}
+
 func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
+	if err := checkPath(file.Path); err != nil {
+		return err
+	}
+
 	// TODO: eventually optimize this with a cache so that we don't have to
 	// go to the database to figure out if the commit exists
 	commit, err := d.getRawCommit(file.Commit)
@@ -1165,12 +1179,9 @@ func getPrefixes(path string) []string {
 }
 
 func getDiffID(commitID string, path string) string {
-	return fmt.Sprintf("%s:%s", commitID, path)
-}
-
-// the equivalent of above except that commitID is a rethink term
-func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
-	return commitID.Add(":" + path)
+	s := fmt.Sprintf("%s:%s", commitID, path)
+	hash := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hash[:])
 }
 
 func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
