@@ -257,8 +257,8 @@ class TestConfig(object):
   max_max_epoch = 1
   keep_prob = 1.0
   lr_decay = 0.5
-  batch_size = 20
-  vocab_size = 10000
+  batch_size = 10
+  vocab_size = 100
 
 
 def run_epoch(session, m, data, eval_op, verbose=False):
@@ -322,7 +322,7 @@ def train():
 
   raw_data = reader.ptb_raw_data(FLAGS.data_path)
   train_data, valid_data, test_data, vocab, word_to_id, id_to_word = raw_data
-  
+
   config.vocab_size = vocab
   eval_config.vocab_size = vocab
 
@@ -359,11 +359,11 @@ def train():
 
 def generate(word_to_id, id_to_word):
 
-  vocab = len(word_to_id)
   config = get_config()
   config.num_steps = 1
   config.batch_size = 1
-  config.vocab_size = vocab
+  config.vocab_size = len(word_to_id)
+
   with tf.Graph().as_default(), tf.Session() as session:
 
       with tf.variable_scope("model"):
