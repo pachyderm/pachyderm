@@ -157,7 +157,6 @@ func TestWordCount(t *testing.T) {
 	// Flush Commit can't help us here since there are no inputs
 	// So we poll wordcount_input until it has a commit
 	tries := 10
-	sleepAmount := 10
 
 	var commitInfos []*pfsclient.CommitInfo
 	for tries != 0 {
@@ -174,10 +173,10 @@ func TestWordCount(t *testing.T) {
 		if len(commitInfos) == 1 {
 			break
 		}
-		time.Sleep(sleepAmount)
+		time.Sleep(10)
 		tries--
 	}
-
+	require.Equal(t, 1, len(commitInfos))
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commitInfos[0].Commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
