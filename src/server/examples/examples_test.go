@@ -137,7 +137,7 @@ func TestFruitStand(t *testing.T) {
 	time.Sleep(5)
 	repoInfos, err = c.ListRepo(nil)
 	require.NoError(t, err)
-	repoNames = []interface{}
+	repoNames = []interface{}{}
 	for _, repoInfo := range repoInfos {
 		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
