@@ -7,5 +7,5 @@ RUN \
     ca-certificates && \
   apt-get clean && \
   rm -rf /var/lib/apt
-ADD _tmp/pachd /pachd
+ADD ./pachd /
 ENTRYPOINT ["/pachd"]
