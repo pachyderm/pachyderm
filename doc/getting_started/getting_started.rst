@@ -10,6 +10,14 @@ Welcome to the documentation portal for first time Pachyderm users! We've organi
 :doc:`troubleshooting`: Common getting started issues and how to fix them.
 
 
+If you'd like to read about the technical concepts in Pachyderm before actually running it, check out our reference docs:
+
+* :doc:`../pachyderm_file_system`
+* :doc:`../pachyderm_pipeline_system`
+* :doc:`../pachctl/pachctl`
+* :doc:`../FAQ`
+* `Use Cases <http://pachyderm.io/use_cases.html>`_
+
 ---
 
 

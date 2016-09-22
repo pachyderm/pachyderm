@@ -8,7 +8,7 @@
 Pachyderm Developer Documentation
 =================================
 
-Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experiences Pachyderm users. You'll also find API references docs and an FAQ. 
+Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs and an FAQ. 
 
 If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on `GitHub <https://github.com/pachyderm/pachyderm>`_, our `Users Slack channel <http://slack.pachyderm.io>`_, or email us at support@pachyderm.io. 
 
@@ -57,6 +57,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     pachyderm_file_system
     pachyderm_pipeline_system
+    golang_client/golang_client
     pachctl/pachctl
     
 
