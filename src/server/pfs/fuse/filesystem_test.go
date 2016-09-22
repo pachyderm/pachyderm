@@ -54,7 +54,7 @@ func TestRootReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("one"))
 		require.NoError(t, c.CreateRepo("two"))
 
@@ -96,7 +96,7 @@ func TestRepoReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
 		commitA, err := c.StartCommit(repoName, "master")
@@ -158,7 +158,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
 		commit, err := c.StartCommit(repoName, "master")
@@ -216,7 +216,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
 		commit, err := c.StartCommit(repoName, "master")
@@ -275,7 +275,7 @@ func TestWriteAndRead(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, c.CreateRepo(repoName))
 		commit, err := c.StartCommit(repoName, "master")
@@ -298,7 +298,7 @@ func TestBigWrite(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -322,12 +322,12 @@ func TestBigCopy(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "", "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file1")
 		rawMessage := "Some\ncontent\nblah\nblah\nyup\nnope\nuh-huh.\n"
 		// Write a big blob that would normally not fit in a block
 		var expectedOutput []byte
@@ -358,7 +358,7 @@ func Test296Appends(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -386,7 +386,7 @@ func Test296(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -414,7 +414,7 @@ func TestSpacedWrites(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -439,7 +439,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo1 := "foo"
 		require.NoError(t, c.CreateRepo(repo1))
 
@@ -478,7 +478,7 @@ func TestMountCachingViaShell(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo1 := "foo"
 		require.NoError(t, c.CreateRepo(repo1))
 
@@ -513,7 +513,7 @@ func TestCreateFileInDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
 		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
@@ -528,7 +528,7 @@ func TestCreateDirConflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
 		commit, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
@@ -544,7 +544,7 @@ func TestOverwriteFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
 		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
@@ -567,7 +567,7 @@ func TestOpenAndWriteFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		require.NoError(t, c.CreateRepo("repo"))
 		commit1, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
@@ -596,7 +596,7 @@ func TestDelimitJSON(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "abba"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -662,7 +662,7 @@ func TestNoDelimiter(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		name := "foo.bin"
 		require.NoError(t, c.CreateRepo(repo))
@@ -727,7 +727,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "test"
 		name := "foo"
 		require.NoError(t, c.CreateRepo(repo))
@@ -748,7 +748,7 @@ func TestWriteManyFiles(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "TestWriteManyFiles"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -767,7 +767,7 @@ func TestReadCancelledCommit(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "TestReadCancelledCommit"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -794,7 +794,7 @@ func TestNoReadCancelledCommit(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "TestReadCancelledCommit"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -818,7 +818,7 @@ func TestListBranch(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	testFuse(t, func(c client.APIClient, mountpoint string) {
+	testFuse(t, func(c *client.APIClient, mountpoint string) {
 		repo := "TestListBranch"
 		require.NoError(t, c.CreateRepo(repo))
 		commit, err := c.StartCommit(repo, "master")
@@ -834,7 +834,7 @@ func TestListBranch(t *testing.T) {
 
 func testFuse(
 	t *testing.T,
-	test func(client client.APIClient, mountpoint string),
+	test func(client *client.APIClient, mountpoint string),
 	allCommits bool,
 ) {
 	// don't leave goroutines running
@@ -891,9 +891,8 @@ func testFuse(
 		}
 	}()
 
-	clientConn, err := grpc.Dial(localAddress, grpc.WithInsecure())
+	apiClient, err := client.NewFromAddress(localAddress)
 	require.NoError(t, err)
-	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := NewMounter(localAddress, apiClient)
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
@@ -909,5 +908,5 @@ func testFuse(
 	defer func() {
 		_ = mounter.Unmount(mountpoint)
 	}()
-	test(client.APIClient{PfsAPIClient: apiClient}, mountpoint)
+	test(apiClient, mountpoint)
 }
