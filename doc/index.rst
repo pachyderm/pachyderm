@@ -48,7 +48,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     :caption: Misc
 
     FAQ
-    examples/examples
+    examples/readme
     CHANGELOG  
 
 .. toctree::
