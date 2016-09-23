@@ -10,7 +10,7 @@
         "done"
     ]
   },
-  "parallelism_spec" {
+  "parallelism_spec": {
     "strategy": "CONSTANT",
     "constant": 1
   },
@@ -35,7 +35,7 @@
         "done"
     ]
   },
-  "parallelism_spec" {
+  "parallelism_spec": {
     "strategy": "CONSTANT",
     "constant": 1
   },
@@ -45,7 +45,7 @@
         "name": "filter"
       },
       "method": {
-        "partition": "file",
+        "partition": "FILE",
         "incremental": "DIFF"
       }
     }
