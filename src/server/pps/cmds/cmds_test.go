@@ -171,3 +171,14 @@ Envronment variables:
 	t.Fatalf("process ran with err %v, want exit status 1", err)
 
 }
+
+func TestJSONSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
+	descriptiveOutput := `Syntax Error on line 5:
+
+    "c": {a
+          ^
+invalid character 'a' looking for beginning of object key string
+`
+	cmd := []string{"pachctl", "update-pipeline", "-f", "bad2.json"}
+	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreatePipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
+}

@@ -1,6 +1,8 @@
 package persist
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -1059,8 +1061,20 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 	return nil
 }
 
+// checkPath checks if a file path is legal
+func checkPath(path string) error {
+	if strings.Contains(path, "\x00") {
+		return fmt.Errorf("filename cannot contain null character: %s", path)
+	}
+	return nil
+}
+
 func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
+	if err := checkPath(file.Path); err != nil {
+		return err
+	}
+
 	// TODO: eventually optimize this with a cache so that we don't have to
 	// go to the database to figure out if the commit exists
 	commit, err := d.getRawCommit(file.Commit)
@@ -1092,7 +1106,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	// the ancestor directories
 	for _, prefix := range getPrefixes(file.Path) {
 		diffs = append(diffs, &persist.Diff{
-			ID:       getDiffID(commit.ID, prefix),
+			ID:       getDiffID(commit.Repo, commit.ID, prefix),
 			Repo:     commit.Repo,
 			Delete:   false,
 			Path:     prefix,
@@ -1104,7 +1118,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 
 	// the file itself
 	diffs = append(diffs, &persist.Diff{
-		ID:        getDiffID(commit.ID, file.Path),
+		ID:        getDiffID(commit.Repo, commit.ID, file.Path),
 		Repo:      commit.Repo,
 		Delete:    false,
 		Path:      file.Path,
@@ -1164,13 +1178,10 @@ func getPrefixes(path string) []string {
 	return res
 }
 
-func getDiffID(commitID string, path string) string {
-	return fmt.Sprintf("%s:%s", commitID, path)
-}
-
-// the equivalent of above except that commitID is a rethink term
-func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
-	return commitID.Add(":" + path)
+func getDiffID(repo string, commitID string, path string) string {
+	s := fmt.Sprintf("%s:%s:%s", commitID, path)
+	hash := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hash[:])
 }
 
 func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
@@ -1188,7 +1199,7 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 	}
 
 	diff := &persist.Diff{
-		ID:       getDiffID(commit.ID, file.Path),
+		ID:       getDiffID(commit.Repo, commit.ID, file.Path),
 		Repo:     commit.Repo,
 		Delete:   false,
 		Path:     file.Path,
@@ -1524,9 +1535,12 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 
 	_, err = d.getTerm(diffTable).Insert(diffs.Merge(func(diff gorethink.Term) map[string]interface{} {
 		return map[string]interface{}{
-			// diff IDs are of the form:
-			// commitID:path
-			"ID":    gorethink.Expr(toCommit.ID).Add(":", diff.Field("Path")),
+			// the ID doesn't matter anymore, because the only reason why it had
+			// to be a hash of (repo+commit+path) in PutFile is that we want
+			// multiple clients writting the same file to be modifying the same
+			// Diff.  But in Squash and Replay, the Diffs are not supposed to
+			// be mutated anymore.
+			"ID":    gorethink.UUID(),
 			"Clock": newClock,
 		}
 	})).RunWrite(d.dbClient)
@@ -1597,7 +1611,7 @@ func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pf
 		// TODO: conflict detection
 		_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 			return map[string]interface{}{
-				"ID":    gorethink.Expr(newCommit.ID).Add(":", diff.Field("Path")),
+				"ID":    gorethink.UUID(),
 				"Clock": newClock,
 			}
 		})).RunWrite(d.dbClient)
@@ -1959,7 +1973,7 @@ func (d *driver) DeleteFile(file *pfs.File) error {
 	var diffs []*persist.Diff
 	for _, path := range paths {
 		diffs = append(diffs, &persist.Diff{
-			ID:        getDiffID(commitID, path),
+			ID:        getDiffID(repo, commitID, path),
 			Repo:      repo,
 			Path:      path,
 			BlockRefs: nil,
