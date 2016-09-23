@@ -140,7 +140,7 @@ func TestFruitStand(t *testing.T) {
 		"-f",
 		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/pipeline.json", currentCodeCommitID),
 	)
-	raw, err := cmd.CombinedOutput()
+	raw, err = cmd.CombinedOutput()
 	fmt.Printf("raw output: %v\n", string(raw))
 	require.NoError(t, err)
 
