@@ -246,7 +246,7 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	buffer.Reset()
 	require.NoError(t, c.GetFile("wordcount_reduce", commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
-	lines = strings.Split(buffer.String(), "\n")
+	lines = strings.Split(strings.TrimRight(buffer.String(), "\n"), "\n")
 	require.Equal(t, 1, len(lines))
 
 	fileInfos, err := c.ListFile("wordcount_reduce", commitInfos[0].Commit.ID, "", "", false, nil, false)
