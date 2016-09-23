@@ -47,7 +47,11 @@ func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
 		// this lets us default to no filtering
 		return true
 	}
-	parts := strings.Split(path.Clean(file.Path), "/")
+	path := path.Clean(file.Path)
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+	parts := strings.Split(path, "/")
 	var topLevelPath string
 	if len(parts) > 0 {
 		topLevelPath = parts[0]
