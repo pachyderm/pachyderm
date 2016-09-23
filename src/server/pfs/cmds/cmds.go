@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -504,14 +505,19 @@ Put the contents of a directory as repo/commit/dir/file:
 	pachctl put-file -r repo commit -f dir
 
 Put the data from a URL as repo/commit/path:
-	pachctl put-file repo commit path -f http://host/url_path
+	pachctl put-file repo commit path -f http://host/path
 
-Put the data from a URL as repo/commit/url_path:
-	pachctl put-file repo commit -f http://host/url_path
+Put the data from a URL as repo/commit/path:
+	pachctl put-file repo commit -f http://host/path
 
 Put several files or URLs that are listed in file.
 Files and URLs should be newline delimited.
 	pachctl put-file repo commit -i file
+
+Put several files or URLs that are listed at URL.
+NOTE this URL can reference local files, so it could cause you to put sensitive
+files into your Pachyderm cluster.
+	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewFromAddress(address)
@@ -541,6 +547,17 @@ Files and URLs should be newline delimited.
 				var r io.Reader
 				if inputFile == "-" {
 					r = os.Stdin
+				} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
+					resp, err := http.Get(url.String())
+					if err != nil {
+						return err
+					}
+					defer func() {
+						if err := resp.Body.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+					r = resp.Body
 				} else {
 					inputFile, err := os.Open(inputFile)
 					if err != nil {
