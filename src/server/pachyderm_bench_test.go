@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	nFiles = 100
+	nFiles = 2000
 	MB     = 1024 * 1024
 )
 

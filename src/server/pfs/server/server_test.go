@@ -3212,7 +3212,7 @@ func getClient(t testing.TB) pclient.APIClient {
 	}
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := persist.NewDriver(address, RethinkAddress, dbName)
+		driver, err := persist.NewDriver(address, RethinkAddress, dbName, true)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)

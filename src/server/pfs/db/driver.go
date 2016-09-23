@@ -15,6 +15,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -76,17 +77,14 @@ type driver struct {
 	blockClient pfs.BlockAPIClient
 	dbName      string
 	dbClient    *gorethink.Session
-	cache       map[string]*groupcache.Group
+	// cache
+	commitCache   *groupcache.Group
+	fileTypeCache *groupcache.Group
+	repoCache     *groupcache.Group
 }
 
-const (
-	commitGroup   = "commit"
-	fileTypeGroup = "fileType"
-	repoGroup     = "repo"
-)
-
 // NewDriver is used to create a new Driver instance
-func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
+func NewDriver(blockAddress string, dbAddress string, dbName string, test bool) (drive.Driver, error) {
 	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -103,63 +101,74 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 		dbClient:    dbClient,
 	}
 
-	cache := map[string]*groupcache.Group{
-		commitGroup: groupcache.NewGroup(commitGroup, 256*1024*1024, // 256MB
-			groupcache.GetterFunc(func(ctx groupcache.Context, commitID string, dest groupcache.Sink) error {
-				cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
-				if err != nil {
-					return err
-				}
+	commitGroup := "pfs_commit"
+	fileTypeGroup := "pfs_filetype"
+	repoGroup := "pfs_repo"
 
-				commit := &persist.Commit{}
-				if err := cursor.One(commit); err != nil {
-					return err
-				}
-
-				return dest.SetProto(commit)
-			}),
-		),
-
-		fileTypeGroup: groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
-			groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
-				repo, commit, path := decodeFile(encoded)
-				diff, err := d.inspectFile(&pfs.File{
-					Commit: &pfs.Commit{
-						Repo: &pfs.Repo{
-							Name: repo,
-						},
-						ID: commit,
-					},
-					Path: path,
-				}, nil, nil)
-				if err != nil {
-					_, ok := err.(*pfsserver.ErrFileNotFound)
-					if ok {
-						// If the file was not found, then there's no type conflict
-						return dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
-					}
-					return err
-				}
-				return dest.SetString(strconv.Itoa(int(diff.FileType)))
-			}),
-		),
-
-		repoGroup: groupcache.NewGroup(repoGroup, 64*1024*1024, // 64MB
-			groupcache.GetterFunc(func(ctx groupcache.Context, repo string, dest groupcache.Sink) error {
-				cursor, err := d.getTerm(repoTable).Get(repo).Run(d.dbClient)
-				if err != nil {
-					return err
-				}
-				rawRepo := &persist.Repo{}
-				if err := cursor.One(rawRepo); err != nil {
-					return err
-				}
-				return dest.SetProto(rawRepo)
-			}),
-		),
+	// In tests, we might run multiple instances of this driver locally,
+	// and they will share the same groupcache instance, which won't allow
+	// the same group to be created more than once.  So we name each group
+	// differently.
+	if test {
+		commitGroup = commitGroup + uuid.NewWithoutDashes()
+		fileTypeGroup = fileTypeGroup + uuid.NewWithoutDashes()
+		repoGroup = repoGroup + uuid.NewWithoutDashes()
 	}
 
-	d.cache = cache
+	d.commitCache = groupcache.NewGroup(commitGroup, 256*1024*1024, // 256MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, commitID string, dest groupcache.Sink) error {
+			cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
+			if err != nil {
+				return err
+			}
+
+			commit := &persist.Commit{}
+			if err := cursor.One(commit); err != nil {
+				return err
+			}
+
+			return dest.SetProto(commit)
+		}),
+	)
+	d.fileTypeCache = groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
+			repo, commit, path := decodeFile(encoded)
+			fmt.Printf("getting: %v %v %v\n", repo, commit, path)
+			diff, err := d.inspectFile(&pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repo,
+					},
+					ID: commit,
+				},
+				Path: path,
+			}, nil, nil)
+			fmt.Printf("diff: %v\n", diff)
+			fmt.Printf("err: %v\n", err)
+			if err != nil {
+				_, ok := err.(*pfsserver.ErrFileNotFound)
+				if ok {
+					// If the file was not found, then there's no type conflict
+					return dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
+				}
+				return err
+			}
+			return dest.SetString(strconv.Itoa(int(diff.FileType)))
+		}),
+	)
+	d.repoCache = groupcache.NewGroup(repoGroup, 64*1024*1024, // 64MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, repo string, dest groupcache.Sink) error {
+			cursor, err := d.getTerm(repoTable).Get(repo).Run(d.dbClient)
+			if err != nil {
+				return err
+			}
+			rawRepo := &persist.Repo{}
+			if err := cursor.One(rawRepo); err != nil {
+				return err
+			}
+			return dest.SetProto(rawRepo)
+		}),
+	)
 	return d, nil
 }
 
@@ -300,7 +309,7 @@ func (d *driver) getRawRepo(repo string) (r *persist.Repo, retErr error) {
 
 	rawRepo := &persist.Repo{}
 	sink := groupcache.ProtoSink(rawRepo)
-	if err := d.cache[repoGroup].Get(nil, repo, sink); err != nil {
+	if err := d.repoCache.Get(nil, repo, sink); err != nil {
 		return nil, err
 	}
 
@@ -1128,7 +1137,7 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 
 	var fileTypeStr string
 	sink := groupcache.StringSink(&fileTypeStr)
-	if err := d.cache[fileTypeGroup].Get(nil, key, sink); err != nil {
+	if err := d.fileTypeCache.Get(nil, key, sink); err != nil {
 		return err
 	}
 
@@ -1180,6 +1189,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		size += ref.Size()
 	}
 
+	clock := persist.FullClockHead(commit.FullClock)
 	var diffs []*persist.Diff
 	// the ancestor directories
 	for _, prefix := range getPrefixes(file.Path) {
@@ -1188,7 +1198,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 			Repo:     commit.Repo,
 			Delete:   false,
 			Path:     prefix,
-			Clock:    persist.FullClockHead(commit.FullClock),
+			Clock:    clock,
 			FileType: persist.FileType_DIR,
 			Modified: now(),
 		})
@@ -1202,14 +1212,14 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		Path:      file.Path,
 		BlockRefs: refs,
 		Size:      size,
-		Clock:     persist.FullClockHead(commit.FullClock),
+		Clock:     clock,
 		FileType:  persist.FileType_FILE,
 		Modified:  now(),
 	})
 
 	// Make sure that there's no type conflict
 	for _, diff := range diffs {
-		if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, diff.Path, diff.FileType); err != nil {
+		if err := d.checkFileType(file.Commit.Repo.Name, clock.ReadableCommitID(), diff.Path, diff.FileType); err != nil {
 			return err
 		}
 	}
@@ -1279,7 +1289,8 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 
-	if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, file.Path, persist.FileType_DIR); err != nil {
+	clock := persist.FullClockHead(commit.FullClock)
+	if err := d.checkFileType(file.Commit.Repo.Name, clock.ReadableCommitID(), file.Path, persist.FileType_DIR); err != nil {
 		return err
 	}
 
@@ -2173,7 +2184,7 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 		}
 	} else {
 		sink := groupcache.ProtoSink(retCommit)
-		if err := d.cache[commitGroup].Get(nil, commitID, sink); err != nil {
+		if err := d.commitCache.Get(nil, commitID, sink); err != nil {
 			return nil, err
 		}
 	}
