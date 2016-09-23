@@ -2,6 +2,7 @@ package examples
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,7 +82,10 @@ func TestWordCount(t *testing.T) {
 
 	c := getPachClient(t)
 
-	// Should stay in sync with doc/examples/word_count/README.md
+	readme, err := ioutil.ReadFile("../../../doc/examples/word_count/README.md")
+	require.NoError(t, err)
+	newURL := "https://news.ycombinator.com/newsfaq.html"
+	oldURL := "https://en.wikipedia.org/wiki/Main_Page"
 	inputPipelineManifest := `
 {
   "pipeline": {
@@ -98,7 +102,7 @@ func TestWordCount(t *testing.T) {
         "--no-directories",
         "--directory-prefix",
         "/pfs/out",
-        "https://news.ycombinator.com/newsfaq.html"
+        "https://en.wikipedia.org/wiki/Main_Page"
     ],
     "acceptReturnCode": [4,5,6,7,8]
   },
@@ -108,11 +112,15 @@ func TestWordCount(t *testing.T) {
   }
 }
 `
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), inputPipelineManifest))
+	inputPipelineManifest = strings.Replace(inputPipelineManifest, oldURL, newURL, 1)
+
 	exampleDir := "../../../doc/examples/word_count"
 	cmd := exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
-	_, err := cmd.CombinedOutput()
+	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "run-pipeline", "wordcount_input")
@@ -125,7 +133,6 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	// Should stay in sync with doc/examples/word_count/README.md
 	wordcountMapPipelineManifest := `
 {
   "pipeline": {
@@ -144,6 +151,9 @@ func TestWordCount(t *testing.T) {
   ]
 }
 `
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), wordcountMapPipelineManifest))
+
 	cmd = exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
 	cmd.Dir = exampleDir
@@ -187,7 +197,6 @@ func TestWordCount(t *testing.T) {
 	// This should be just one with default deployment
 	require.Equal(t, 1, len(lines))
 
-	// Should stay in sync with doc/examples/word_count/README.md
 	wordcountReducePipelineManifest := `
 {
   "pipeline": {
@@ -210,6 +219,8 @@ func TestWordCount(t *testing.T) {
   ]
 }
 `
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), wordcountReducePipelineManifest))
 
 	cmd = exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(wordcountReducePipelineManifest)
