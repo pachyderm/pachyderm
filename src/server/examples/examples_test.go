@@ -154,7 +154,6 @@ func TestWordCount(t *testing.T) {
 	// Flush Commit can't help us here since there are no inputs
 	// So we poll wordcount_input until it has a commit
 	tries := 10
-
 	var commitInfos []*pfsclient.CommitInfo
 	for tries != 0 {
 		commitInfos, err = c.ListCommit(
