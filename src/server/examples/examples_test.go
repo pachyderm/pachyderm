@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -114,8 +113,7 @@ func TestFruitStand(t *testing.T) {
 		"-f",
 		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/set1.txt", currentCodeCommitID),
 	)
-	raw, err = cmd.CombinedOutput()
-	fmt.Printf("raw: %v\n", string(raw))
+	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit(
@@ -138,18 +136,15 @@ func TestFruitStand(t *testing.T) {
 	}
 
 	pipelineURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/pipeline.json", currentCodeCommitID)
-	fmt.Printf("using pipeline: [%v]\n", pipelineURL)
 	cmd = exec.Command(
 		"pachctl",
 		"create-pipeline",
 		"-f",
 		pipelineURL,
 	)
-	raw, err = cmd.CombinedOutput()
-	fmt.Printf("raw output: %v\n", string(raw))
+	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	time.Sleep(5)
 	repoInfos, err = c.ListRepo(nil)
 	require.NoError(t, err)
 	repoNames = []interface{}{}
