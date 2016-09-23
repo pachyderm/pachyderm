@@ -8,8 +8,7 @@ Pachyderm pipeline which means it will be both streaming and distributed.
 
 This tutorial assumes that you've already got a Pachyderm cluster up and
 running and that you can talk to it with pachctl. You'll know it's working if
-`pachctl version` returns without any errors. If not head on over to the [setup
-guide](/doc/deploying_setup.md) to get a cluster up and running.
+`pachctl version` returns without any errors. If not head on over to the [local installation](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [cloud deployment](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) to get a cluster up and running.
 
 ## Load Images Into Pachyderm
 The first thing we'll need to do is create a repo to store our images in, we'll
@@ -44,9 +43,8 @@ your code to run in. For this example the Docker image is defined by
 $ docker build -t opencv docs/examples/opencv
 ```
 
-To understand what's going on, take a look at
-[`docs/examples/opencv/Dockerfile`](/docs/examples/opencv/Dockerfile). And
-[`docs/examples/opencv/edges.py`](/docs/examples/opencv/edges.py).
+To understand what's going on, take a look at the [Dockerfile](./Dockerfile) and
+[edges.py](./edges.py).
 
 ### Distribute the Docker Image
 You'll need to push the image to a registry such as DockerHub . You can do this
@@ -76,12 +74,11 @@ and won't be able to see that `opencv` image that you just built.
 ## Deploy the Pipeline
 
 Now that you have an image, you need to tell Pachyderm how to run it. To do this,
-you'll need to create a pipeline. The pipeline for this example is at
-[`docs/examples/opencv/edges.json`](/docs/examples/opencv/edges.json).
+you'll need to create a pipeline. The pipeline for this example is [edges.json](./edges.json).
 
 First, notice that this file references the image you just created in the field
 `transform.image`. Since you just pushed your image to Dockerhub, you'll need to
-tell Pachyderm to go there to find it. Open `docs/examples/opencv/edges.json` in a
+tell Pachyderm to go there to find it. Open `edges.json` in a
 text editor, and change the following line:
 
 ```sh
@@ -90,9 +87,10 @@ text editor, and change the following line:
 "image": "<your-docker-hub-username>/opencv"
 ```
 
-Now that edges.json points to your image, you can create the pipeline with:
+Now that `edges.json` points to your image, you can create the pipeline with:
 
 ```sh
+# this cmd assumes you've cloned our repo. If not, use the GitHub raw file URL since `-f` can take a URL as well.
 $ pachctl create-pipeline -f docs/examples/opencv/edges.json
 ```
 
