@@ -180,7 +180,7 @@ func TestFruitStand(t *testing.T) {
 		"sales",
 		"-c",
 		"-f",
-		"https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/fruit_stand/set2.txt",
+		"../../../doc/examples/fruit_stand/set2.txt",
 	)
 	_, err = cmd.Output()
 	require.NoError(t, err)
