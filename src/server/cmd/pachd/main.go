@@ -230,7 +230,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 
 func getPFSDriver(address string, env *appEnv) (drive.Driver, error) {
 	rethinkAddress := fmt.Sprintf("%s:28015", env.DatabaseAddress)
-	return pfs_persist.NewDriver(address, rethinkAddress, env.PFSDatabaseName)
+	return pfs_persist.NewDriver(address, rethinkAddress, env.PFSDatabaseName, false)
 }
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
