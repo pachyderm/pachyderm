@@ -1,10 +1,10 @@
 # Quick Start Guide: Word Count
 
-In this guide, we will write a classic [word count](https://portal.futuresystems.org/manual/hadoop-wordcount) application on Pachyderm.  This is a somewhat advanced guide; to learn the basic usage of Pachyderm, start with [fruit_stand](../fruit_stand) or [scraper](../scraper).
+In this guide, we will write a classic [word count](https://portal.futuresystems.org/manual/hadoop-wordcount) application on Pachyderm.  This is a somewhat advanced guide; to learn the basic usage of Pachyderm, start with the [beginner tutorial](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html).
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../SETUP.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html).
 
 ## Pipelines
 

@@ -19,9 +19,9 @@ Partition Unit
 
 Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-1. ``block``: different blocks of the same file may be parelleized across containers.
+1. ``BLOCK``: different blocks of the same file may be parelleized across containers.
 
-2. ``Top-level Objects``: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
+2. ``FILE`` (Top-level Objects): the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
 .. code-block:: shell
 
@@ -33,7 +33,7 @@ Partition unit specifies the granularity at which input data is parallelized acr
 
 then there are only three top-level objects, ``/foo``, ``/bar``, and ``/baz``. ``/baz/a`` and ``/baz/b`` will always be seen by the same container but there are no guarantees about where ``foo`` or ``bar`` are processed relative to ``baz``. 
 
-3. ``repo``: the entire repo.  In this case, the input won't be partitioned at all and all data in the repo will be available. 
+3. ``REPO``: the entire repo.  In this case, the input won't be partitioned at all and all data in the repo will be available. 
 
 
 Incrementality
@@ -41,25 +41,25 @@ Incrementality
 
 #### Incrementality
 
-Incrementality ("none", "diff" or "file") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commmit (the "diff"), only files with any new data ("file"), or does all of the data need to be reprocessed ("none")?
+Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commmit (the "diff"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
 
 For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/bar`` in commit 2, then:
 
-* If the input incrementality is "diff", the first job sees file ``/foo`` and the second job sees file ``/bar``.
+* If the input incrementality is "DIFF", the first job sees file ``/foo`` and the second job sees file ``/bar``.
 
-* If the input is non-incremental("none"), every job sees all the data. The first job sees file ``/foo`` and the second job sees file ``/foo`` *and* file ``/bar``.
+* If the input is non-incremental("NONE"), every job sees all the data. The first job sees file ``/foo`` and the second job sees file ``/foo`` *and* file ``/bar``.
 
-* "File" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  ``Incremental: "file"`` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it. 
+* "FILE" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  ``Incremental: "FILE"`` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it. 
 
 #### Combining Partition unit and Incrementality
 
 For convenience, we have defined aliases for the three most commonly used (and most familiar) input methods: "map", "reduce", and "global". 
 
-* A "map" (Block + Diff), for example, can partition files at the block level and jobs only need to see the new data. 
+* A "map" (BLOCK + DIFF), for example, can partition files at the block level and jobs only need to see the new data. 
 
-* "Reduce" (File + None) as it's typically seen in Hadoop, requires all parts of a file to be seen by the same container ("file") and your job needs to reprocess *all* the data in the whole repo ("none"). 
+* "Reduce" (FILE + NONE) as it's typically seen in Hadoop, requires all parts of a file to be seen by the same container ("FILE") and your job needs to reprocess *all* the data in the whole repo ("NONE"). 
 
-* "Global" (Repo + None), means that the entire repo needs to be seen by *every* container. This is commonly used if you had a repo with just parameters, and every container needed to see all the parameter data and pull out the ones that are relevant to it. 
+* "Global" (REPO + NONE), means that the entire repo needs to be seen by *every* container. This is commonly used if you had a repo with just parameters, and every container needed to see all the parameter data and pull out the ones that are relevant to it. 
 
 They are defined below:
 
@@ -68,13 +68,13 @@ They are defined below:
                              +-----------------------------------------+
                              |             Partition Unit              |
   +--------------------------+---------+----------------------+--------+
-  |     Incrementality       | "Block" | "File" (Top-lvl Obj) | "Repo" |
+  |     Incrementality       | "BLOCK" | "FILE" (Top-lvl Obj) | "REPO" |
   +==========================+=========+======================+========+
-  | "None" (non-incremental) |         |       "reduce"       |"global"|
+  | "NONE" (non-incremental) |         |       "reduce"       |"global"|
   +--------------------------+---------+----------------------+--------+
-  | "Diff" (incremental)     |  "map"  |                      |        |
+  | "DIFF" (incremental)     |  "map"  |                      |        |
   +--------------------------+---------+----------------------+--------+
-  | "File" (top-lvl object)  |         |                      |        |
+  | "FILE" (top-lvl object)  |         |                      |        |
   +--------------------------+---------+----------------------+--------+
 
 Writing Incremental Code
@@ -100,10 +100,7 @@ Example (Sum)
 
 Sum is a great starting example for how to do processing incrementally. If your input is a list of values that is constantly having new lines appended and your output is the sum, using the previous run's results is a lot more efficient than recomputing every value every time.
 
-First, we should set ``partition: 2`` ("file") and ``Incremental: true``. Setting partition in this way ensures that all the values are seen by one container. If we had this set to ``map`` instead, we may get some input values spread across containers and we wouldn't get an accurate total. Incremental ansures that only the new values are shown.
+First, we should set ``partition: "FILE" and ``Incremental: "DIFF"``. Setting partition in this way ensures that all the values are seen by one container. If we had this set to ``map`` instead, we may get some input values spread across containers and we wouldn't get an accurate total. Incremental ansures that only the new values are shown.
 
 For each run of the pipeline, ``/pfs/<input_data>`` will be a file with all the new values that have been added in the most recent commit. Our pipeline should simply sum up those new values and add them to the previous total in ``/pfs/prev`` and write that new total to ``/pfs/out``. 
-
-
-
 

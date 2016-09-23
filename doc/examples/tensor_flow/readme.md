@@ -8,7 +8,7 @@ In this example, you'll generate a new Game of Thrones script based on a bunch o
 
 To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensor Flow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
 
-This guide assumes you already have a [working pachyderm cluster](../../SETUP.md), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](../fruit-stand/README.md) example.
+This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html).
 
 ## How
 
@@ -46,9 +46,10 @@ The result is a new repo with all the data we need stored inside. To confirm the
 $ pachctl list-repo
 NAME                CREATED             SIZE
 GoT_scripts         15 seconds ago      2.625 MiB
+4
 $ pachctl list-commit GoT_scripts
-BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE
-                    45dbfd84085e4e8d9586c7c88cffad53   <none>              24 seconds ago      24 seconds ago      2.625 MiB
+BRANCH        REPO/ID       PARENT              STARTED             FINISHED            SIZE
+              master/0      <none>              24 seconds ago      24 seconds ago      2.625 MiB
 ```
 
 
@@ -180,7 +181,8 @@ and once the jobs have completed you'll see the output commit on the `GoT_genera
 $ pachctl list-job
 ID                                 OUTPUT                                          STARTED             DURATION            STATE               
 8f137e20299c85d1f0326be6e8c1bca6   GoT_generate/dcc8ba9984d442ababc75ddff42a055b   4 minutes ago       16 seconds          success    
-8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359      6 minutes ago       2 minutes           success    
+8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359      6 minutes ago       2 minutes           success
+    
 $ pachctl list-commit GoT_generate
 BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE                
                     dcc8ba9984d442ababc75ddff42a055b   <none>              5 minutes ago       5 minutes ago       4.354 KiB 
