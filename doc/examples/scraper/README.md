@@ -4,7 +4,7 @@ We'll use a standard unix tool, `wget`, to do our scraping.
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster.  [Detailed setup instructions can be found here](../../SETUP.md).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html).
 
 ## Create a Repo
 
@@ -35,14 +35,14 @@ started and finished.
 Let's start a new commit in the “urls” repo:
 ```shell
 $ pachctl start-commit urls
-6a7ddaf3704b4cb6ae4ec73522efe05f
+master/0
 ```
 
 This returns a brand new commit id. Yours should be different from mine.
 Now if we take a look inside our repo, we’ve created a directory for the new commit:
 ```shell
 $ pachctl list-commit urls
-6a7ddaf3704b4cb6ae4ec73522efe05f
+master/0
 ```
 
 A new directory has been created for our commit and now we can start adding
@@ -51,14 +51,7 @@ We're going to write that data as a file called “urls” in pfs.
 
 ```shell
 # Write sample data into pfs
-$ cat examples/scraper/urls | pachctl put-file urls 6a7ddaf3704b4cb6ae4ec73522efe05f urls
-```
-However, you'll notice that we can't read the file “urls” yet. This is because the commit hasn’t been completed yet 
-and in a distributed environment could contain some dirty state.
-
-```shell
-$ pachctl get-file urls 6a7ddaf3704b4cb6ae4ec73522efe05f urls
-File not found
+$ cat examples/scraper/urls | pachctl put-file urls master/0 urls
 ```
 
 ## Finish a Commit
@@ -68,13 +61,13 @@ This prevents reads from racing with writes. Furthermore, every write
 to pfs is atomic. Now let's finish the commit:
 
 ```shell
-$ pachctl finish-commit urls 6a7ddaf3704b4cb6ae4ec73522efe05f
+$ pachctl finish-commit urls master/0
 ```
 
 Now we can view the file:
 
 ```shell
-$ pachctl get-file urls 6a7ddaf3704b4cb6ae4ec73522efe05f urls
+$ pachctl get-file urls master/0 urls
 www.google.com
 www.reddit.com
 www.imgur.com
@@ -96,7 +89,7 @@ they're specified with a JSON encoding. We're going to create a pipeline that si
 +----------+     +---------------+     
 ```
 
-The `pipeline` we're creating can be found at [examples/scraper/scraper.json](scraper.json).  The full content is also below.
+The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The full content is also below.
 ```
 {
   "pipeline": {
@@ -150,12 +143,12 @@ You can view the job with:
 
 ```shell
 $ pachctl list-job
-ID                                 OUTPUT                                  STATE
+ID                                 OUTPUT                                     STATE
 09a7eb68995c43979cba2b0d29432073   scraper/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
 
-Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
-`JOB_STATE_SUCCESS`.
+Depending on how quickly you do the above, you may see `running` or
+`success`.
 
 Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your job with:
 
@@ -173,11 +166,12 @@ name where it stores its output results. In our example, the pipeline was named 
 There are a couple of different ways to retrieve the output. We can read a single output file from the “scraper” `repo` in the same fashion that we read the input data:
 
 ```shell
-$ pachctl list-file scraper 09a7eb68995c43979cba2b0d29432073 urls
-$ pachctl get-file scraper 09a7eb68995c43979cba2b0d29432073 urls/www.imgur.com/index.html
+$ pachctl list-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls
+$ pachctl get-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls/www.imgur.com/index.html
 ```
 
 Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around. 
+
 ## Mount the Filesystem
 First create the mount point:
 
@@ -230,26 +224,26 @@ more data to the same file “urls.”
 Let's create a new commit with our previous commit as the parent:
 
 ```shell
-$ pachctl start-commit urls -p 6a7ddaf3704b4cb6ae4ec73522efe05f
-e2b8c59c786842ccaf20589e15606604
+$ pachctl start-commit urls master
+master/1
 ```
 
 Append more data to our urls file in the new commit:
 ```shell
-$ cat examples/scraper/urls2 | pachctl put-file urls e2b8c59c786842ccaf20589e15606604 urls
+$ cat examples/scraper/urls2 | pachctl put-file urls master/1 urls
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
 read “scraper” from the latest commit to see all the scrapes.
 
 ```shell
-$ pachctl finish-commit urls e2b8c59c786842ccaf20589e15606604
+$ pachctl finish-commit urls master1
 ```
 Finishing this commit will also automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
 “scraper” repo with data from our newly added sites.
 
 ```shell
-$ pachctl list-file urls d161c59c786842ccaf20589e1525ecd5 urls
+$ pachctl list-commit scraper
 ```
 ## Next Steps
 You've now got a working Pachyderm cluster with data and a pipelines! Here are a few ideas for next steps that you can expand on your working setup. 

@@ -57,8 +57,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Pachyderm'
-copyright = '2016, Joe Doliner'
-author = 'Joe Doliner'
+copyright = '2016, Pachyderm Inc.'
+author = 'Pachyderm'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
