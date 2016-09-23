@@ -2964,28 +2964,60 @@ func TestListFileWithFiltering(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	contentA1 := "foo1\n"
-	contentA2 := "foo2\n"
-	commit1, err := client.StartCommit(repo, "A")
+	content := "foo\n"
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, "A", "file1", strings.NewReader(contentA1))
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, "A", "file2", strings.NewReader(contentA2))
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, "A"))
+	numFiles := 100
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	shard1 := &pfs.Shard{
+	fileShard1 := &pfs.Shard{
 		FileNumber:  0,
 		FileModulus: 2,
 	}
-	fileInfos1, err := client.ListFile(repo, commit1.ID, "", "", false, shard1, false)
+	fileInfos1, err := client.ListFile(repo, commit.ID, "", "", false, fileShard1, false)
 	require.NoError(t, err)
-	shard2 := &pfs.Shard{
+	fileShard2 := &pfs.Shard{
 		FileNumber:  1,
 		FileModulus: 2,
 	}
-	fileInfos2, err := client.ListFile(repo, commit1.ID, "", "", false, shard2, false)
-	require.Equal(t, 2, len(fileInfos1)+len(fileInfos2))
+	fileInfos2, err := client.ListFile(repo, commit.ID, "", "", false, fileShard2, false)
+	require.NoError(t, err)
+	getTotalSize := func(fileInfos []*pfs.FileInfo) int {
+		var totalSize int
+		for _, fileInfo := range fileInfos {
+			totalSize += int(fileInfo.SizeBytes)
+		}
+		return totalSize
+	}
+	require.True(t, getTotalSize(fileInfos1) > 0)
+	require.True(t, getTotalSize(fileInfos2) > 0)
+	require.Equal(t, numFiles*len(content), getTotalSize(fileInfos1)+getTotalSize(fileInfos2))
+	require.True(t, len(fileInfos1) > 0)
+	require.True(t, len(fileInfos2) > 0)
+	require.Equal(t, numFiles, len(fileInfos1)+len(fileInfos2))
+
+	blockShard1 := &pfs.Shard{
+		BlockNumber:  0,
+		BlockModulus: 2,
+	}
+	fileInfos1, err = client.ListFile(repo, commit.ID, "", "", false, blockShard1, false)
+	require.NoError(t, err)
+	blockShard2 := &pfs.Shard{
+		BlockNumber:  1,
+		BlockModulus: 2,
+	}
+	fileInfos2, err = client.ListFile(repo, commit.ID, "", "", false, blockShard2, false)
+	require.NoError(t, err)
+	require.True(t, getTotalSize(fileInfos1) > 0)
+	require.True(t, getTotalSize(fileInfos2) > 0)
+	require.Equal(t, numFiles*len(content), getTotalSize(fileInfos1)+getTotalSize(fileInfos2))
+	require.True(t, len(fileInfos1) > 0)
+	require.True(t, len(fileInfos2) > 0)
+	require.Equal(t, numFiles, len(fileInfos1)+len(fileInfos2))
 }
 
 func TestMergeProvenance(t *testing.T) {
