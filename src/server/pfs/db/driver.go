@@ -1179,7 +1179,7 @@ func getPrefixes(path string) []string {
 }
 
 func getDiffID(repo string, commitID string, path string) string {
-	s := fmt.Sprintf("%s:%s:%s", commitID, path)
+	s := fmt.Sprintf("%s:%s:%s", repo, commitID, path)
 	hash := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(hash[:])
 }
