@@ -874,7 +874,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		for _, podCommit := range jobInfo.PodCommits {
 			commitsToMerge = append(commitsToMerge, podCommit)
 		}
-
 		squashReq := &pfsclient.SquashCommitRequest{
 			FromCommits: commitsToMerge,
 			ToCommit:    jobInfo.OutputCommit,

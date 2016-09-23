@@ -2,12 +2,13 @@ Pachctl Command Line Tool
 =========================
 
 
-Pachctl is the command line interface for Pachyderm. To install, follow the :doc:`../getting_started/local_installation` instructions
+Pachctl is the command line interface for Pachyderm. To install Pachctl, follow the :doc:`../getting_started/local_installation` instructions
 
 .. toctree::
     :maxdepth: 1
     :caption: pachctl CLI
 
+    pachctl_archive-all
     pachctl_commit
     pachctl_create-job
     pachctl_create-pipeline
@@ -16,6 +17,7 @@ Pachctl is the command line interface for Pachyderm. To install, follow the :doc
     pachctl_delete-file
     pachctl_delete-pipeline
     pachctl_delete-repo
+    pachctl_deploy
     pachctl_file
     pachctl_finish-commit
     pachctl_flush-commit
@@ -35,9 +37,15 @@ Pachctl is the command line interface for Pachyderm. To install, follow the :doc
     pachctl_list-repo
     pachctl_mount
     pachctl_pipeline
+    pachctl_port-forward
     pachctl_put-file
+    pachctl_replay-commit
     pachctl_repo
     pachctl_run-pipeline
+    pachctl_squash-commit
     pachctl_start-commit
+    pachctl_start-pipeline
+    pachctl_stop-pipeline
+    pachctl_unmount
+    pachctl_update-pipeline
     pachctl_version
-
