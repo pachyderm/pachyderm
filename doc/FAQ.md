@@ -42,7 +42,7 @@
 ##### How is data storage handled in Pachyderm?
 Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc).
 You can link your object storage backend to Pachyderm by following our
-[deployment guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#production-clusters)
+[cloud deployment guide](development/deploying_on_the_cloud.html)
 and passing your credentials as a Kubernetes secret.
 
 ##### What object storage backends are supported?
@@ -85,10 +85,10 @@ GCS), so it has all the safety guarantees of those underlying systems.
 Pachyderm has three main methods for getting data into the system.
 
 1. A [protobufs API](https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto)  that you can access through the Golang SDK. Other languages will be supported soon!
-2. The [pachctl CLI](https://github.com/pachyderm/pachyderm/tree/master/doc/pachctl), which
+2. The [pachctl CLI](pachctl/pachctl.html), which
 allows you to put files into Pachyderm.
 3. You can mount Pachyderm locally and add files directly to the filesystem
-   through the [FUSE interface](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand#mount-the-filesystem).
+   through the [FUSE interface](getting_started/beginner_tutorial.html#exploring-the-file-system).
 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also
@@ -108,9 +108,8 @@ performance in modern data centers.
 ## Deployment:
 ##### Where/how can I deploy Pachyderm?
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since
-Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud,
-or on premise. Check out our [setup guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md)
-to get it running for yourself.
+Pachyderm’s only dependency is Kubernetes, it can be run locally, AWS, Google Cloud,
+or on-prem. Check out our [local installation](getting_started/local_installation.html) and [cloud deployment](development/deploying_on_the_cloud.html) guides.
 
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
 Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be
@@ -118,8 +117,7 @@ modular and work with the other schedulers as well. Swarm and Mesos support
 will be added in the future!
 
 ##### Can I run Pachyderm locally?
-Yup! Pachyderm can be run locally directly in Docker. Check out our [QuickStart
-guide](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand)
+Yup! Pachyderm can be run locally using Minikube (recommended) or directly in Docker. Check out our [local installation guide](getting_started/local_installation.html)
 to get started.
 
 ## Computation
@@ -135,21 +133,19 @@ To process data, you simply create a containerized program which reads and
 writes to the local filesystem at `/pfs/...`. Pachyderm will take your
 container and inject data into it by way of a FUSE volume. We'll then
 automatically replicate your container, showing each copy a different chunk of
-data and processing it all in parallel.
+data and processing it all in parallel. 
+
+Check out our [beginner tutorial](getting_started/beginner_tutorial.html) or [OpenCV demo](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/opencv) to see how this works in action!
 
 ##### What are jobs and how do they work?
 A job in Pachyderm is a one-off transformation or processing of data. To run a
 job use the `create-job` command. In Pachyderm, jobs are meant for
-experimentation or exploring your data so they can’t benefit from
-incrementality. Once you have a job that's working well and producing useful
-results, you can “productionize” it by turning it into a `pipeline`.
+experimentation or exploring your data. Once you have a job that's working well and producing useful results, you can “productionize” it by turning it into a `pipeline`.
 
 ##### What are pipelines and how do they work?
 Pipelines are data transformations that are “subscribed” to data changes on
-their input repo and create jobs to process the new data as it comes in. A
-pipeline is defined by a JSON spec that describes one or more transformations
-to execute when new input data is committed. All the details of a [pipeline spec](https://github.com/pachyderm/pachyderm/blob/master/doc/pipeline_spec.md)
-are outlined in our documentation.
+their input repos and automatically create jobs to process the new data as it comes in. A pipeline is defined by a JSON spec that describes one or more transformations
+to execute when new input data is committed. All the details of a [pipeline spec](development/pipeline_spec.html) are outlined in our documentation and demonstrated in our [examples](examples/examples.html).
 
 ##### How does Pachyderm manage pipeline dependencies?
 Dependencies for pipelines are handled explicitly in the pipeline spec.
@@ -163,8 +159,7 @@ input. By this method Pachyderm, actually creates a
 The full picture would look like this: raw data enters Pachyderm which triggers
 the “filter" pipeline. The “filter" pipeline outputs its results in a commit to
 the “filter" repo which triggers the “sum" pipeline. The final results would be
-available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/tree/master/examples/fruit_stand#create-a-pipeline)
-to see exactly this example.
+available in the "sum" repo. Check out our [Fruit Stand demo](getting_started/beginner_tutorial.html) to see exactly this example.
 
 ##### How do I perform batched analytics in Pachyderm?
 Batched analytics are the bread and butter of Pachyderm. Often times the first
@@ -181,11 +176,11 @@ seamlessly transition from a large nightly batch job down to a streaming
 operation processing tiny micro-batches of data.
 
 ##### How is my computation parallelized?
-Both jobs and pipelines have a “shard” parameter. This parameter dictates how
+Both jobs and pipelines have a “paralellism” parameter as outlined in the [pipeline spec](development/pipeline_spec.html). This parameter dictates how
 many containers Pachyderm spins up to process your data in parallel. For
-example, `“shards”: 10` would create 10 containers that each process 1/10 of
+example, `“paralellism”: 10` would create up to 10 containers that each process 1/10 of
 the data. Each pipeline can have a different parallelization factor, giving you
-fine-grain control over the utilization of your cluster. `shards` can be set to
+fine-grain control over the utilization of your cluster. `paralellism` can be set to
 `0` in which case Pachyderm will set it automatically based on the size of the
 cluster.
 
@@ -193,13 +188,12 @@ cluster.
 Pachyderm exposes all your data in diffs, meaning we show you the new data that
 has been added since the last time a pipeline was run. Pachyderm will smartly
 only process the new data and append those results to the output from the
-previous run. This currently only works for `map`-style jobs — reduce jobs
-needs to process all the data each time.
+previous run. We have extensive [documentation on incrementality](advanced/incrementality.html) that'll show you the fine-grain control you can have to optimizing computation.
 
 ##### Is there a SQL interface for Pachyderm?
 Not yet, but it’s coming soon! If you want to query your data using SQL, you
 can easily create a pipeline that pushes data from Pachyderm into your favorite
-SQL tool.
+SQL tool such as PostGres.
 
 ### Product/Misc
 ##### How does Pachyderm compare to Hadoop?
@@ -214,9 +208,7 @@ That said, there are two bold new ideas in Pachyderm:
 
 ##### How does Pachyderm compare to Spark?
 The only strong similarity between Pachyderm and Spark is that our versioning
-of data is somewhat similar to how Spark uses RDD’s to speed up computation.
-Spark is a fantastic interface for exploring your data or running queries. In
-our opinion, Spark is one of the best parts of the Hadoop ecosystem and in the
+of data is somewhat similar to how Spark uses RDD’s and data frames to speed up computation. Spark is a fantastic interface for exploring your data or running queries. In our opinion, Spark is one of the best parts of the Hadoop ecosystem and in the
 near future, we’ll be offering a connector that lets you use the Spark
 interface on top of Pachyderm.
 
@@ -261,9 +253,9 @@ new data comes into the system, letting you seamlessly transition from
 experimentation to a productionized deployment of your new model.
 
 ##### Is Pachyderm enterprise production ready?
-Yes! Pachyderm just hit v1.0 and is ready for production use! If you need help
+Yes! Pachyderm hit v1.2 and is ready for production use! If you need help
 with your deployment or just want to talk to us about the details, we’d love to
-hear from you! info@pachyderm.io
+hear from you on [Slack](http://slack.pachyderm.io) or email us at [support@pachyderm.io](mailto:support@pachyderm.io).
 
 ##### How does Pachyderm handle logging?
 Kubernetes actually handles all the logging for us. You can use `pachctl
@@ -282,14 +274,12 @@ solution, we’d love to chat with you! support@pachyderm.io
 
 ##### What if I find bugs or have questions about using Pachyderm?
 You can submit bug reports, questions, or PR’s on
-[Github](https://github.com/pachyderm/pachyderm/issues) and we’ll respond right
-away. If you have questions that are specific to your use case that you don’t
-want shared publicly, you can email us at support@pachyderm.io
+[Github](https://github.com/pachyderm/pachyderm/issues), join our [users channel on Slack](http://slack.pachyderm.io), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ##### How do I start contributing to Pachyderm?
 We're thrilled to have you contribute to Pachyderm! Check out our
-[contributor guide](https://github.com/pachyderm/pachyderm/blob/master/contributing/setup.md)
-to see all the details. If you're not sure where to start, issues on
-[Github](https://github.com/pachyderm/pachyderm/issues) that are labeled as
+[contributor guide](https://github.com/pachyderm/pachyderm/blob/master/CONTRIBUTING.md)
+to see all the details. If you're not sure where to start, recent issues on
+[Github](https://github.com/pachyderm/pachyderm/issues) or ones that are labeled as
 “noob-friendly” are good places to begin.
 
