@@ -142,7 +142,8 @@ func TestFruitStand(t *testing.T) {
 		"-f",
 		pipelineURL,
 	)
-	_, err = cmd.CombinedOutput()
+	raw, err = cmd.CombinedOutput()
+	fmt.Printf("pipeline URL (%v), raw: %v\n", pipelineURL, string(raw))
 	require.NoError(t, err)
 
 	repoInfos, err = c.ListRepo(nil)
