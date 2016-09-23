@@ -45,7 +45,7 @@
         "name": "filter"
       },
       "method": {
-        "partition": "FILE",
+        "partition": "file",
         "incremental": "DIFF"
       }
     }
