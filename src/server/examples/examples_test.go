@@ -2,6 +2,7 @@ package examples
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -93,6 +94,14 @@ func TestFruitStand(t *testing.T) {
 	}
 	require.OneOfEquals(t, "data", repoNames)
 
+	raw, err := exec.Command(
+		"git",
+		"log",
+		"--format=\"%H\"",
+	).CombinedOutput()
+	require.NoError(t, err)
+	currentCodeCommitID := string(raw)
+
 	cmd := exec.Command(
 		"pachctl",
 		"put-file",
@@ -101,7 +110,7 @@ func TestFruitStand(t *testing.T) {
 		"sales",
 		"-c",
 		"-f",
-		"https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/fruit_stand/set1.txt",
+		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/set1.txt", currentCodeCommitID),
 	)
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
@@ -129,9 +138,10 @@ func TestFruitStand(t *testing.T) {
 		"pachctl",
 		"create-pipeline",
 		"-f",
-		"https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/fruit_stand/pipeline.json",
+		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/pipeline.json", currentCodeCommitID),
 	)
-	_, err = cmd.CombinedOutput()
+	raw, err := cmd.CombinedOutput()
+	fmt.Printf("raw output: %v\n", string(raw))
 	require.NoError(t, err)
 
 	time.Sleep(5)
