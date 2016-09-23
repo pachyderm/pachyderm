@@ -133,7 +133,6 @@ func NewDriver(blockAddress string, dbAddress string, dbName string, test bool) 
 	d.fileTypeCache = groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
 		groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
 			repo, commit, path := decodeFile(encoded)
-			fmt.Printf("getting: %v %v %v\n", repo, commit, path)
 			diff, err := d.inspectFile(&pfs.File{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{
@@ -143,8 +142,6 @@ func NewDriver(blockAddress string, dbAddress string, dbName string, test bool) 
 				},
 				Path: path,
 			}, nil, nil)
-			fmt.Printf("diff: %v\n", diff)
-			fmt.Printf("err: %v\n", err)
 			if err != nil {
 				_, ok := err.(*pfsserver.ErrFileNotFound)
 				if ok {
