@@ -169,10 +169,6 @@ type Bucket struct {
 	// when no ACL is provided.
 	DefaultObjectAcl []*ObjectAccessControl `json:"defaultObjectAcl,omitempty"`
 
-	// Encryption: Encryption configuration used by default for newly
-	// inserted objects, when no encryption config is specified.
-	Encryption *BucketEncryption `json:"encryption,omitempty"`
-
 	// Etag: HTTP 1.1 Entity tag for the bucket.
 	Etag string `json:"etag,omitempty"`
 
@@ -229,9 +225,7 @@ type Bucket struct {
 	// Versioning: The bucket's versioning configuration.
 	Versioning *BucketVersioning `json:"versioning,omitempty"`
 
-	// Website: The bucket's website configuration, controlling how the
-	// service behaves when accessing bucket contents as a web site. See the
-	// Static Website Examples for more information.
+	// Website: The bucket's website configuration.
 	Website *BucketWebsite `json:"website,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the
@@ -284,26 +278,6 @@ type BucketCors struct {
 
 func (s *BucketCors) MarshalJSON() ([]byte, error) {
 	type noMethod BucketCors
-	raw := noMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields)
-}
-
-// BucketEncryption: Encryption configuration used by default for newly
-// inserted objects, when no encryption config is specified.
-type BucketEncryption struct {
-	DefaultKmsKeyName string `json:"default_kms_key_name,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "DefaultKmsKeyName")
-	// to unconditionally include in API requests. By default, fields with
-	// empty values are omitted from API requests. However, any non-pointer,
-	// non-interface field appearing in ForceSendFields will be sent to the
-	// server regardless of whether the field is empty or not. This may be
-	// used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-}
-
-func (s *BucketEncryption) MarshalJSON() ([]byte, error) {
-	type noMethod BucketEncryption
 	raw := noMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
@@ -480,20 +454,14 @@ func (s *BucketVersioning) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
-// BucketWebsite: The bucket's website configuration, controlling how
-// the service behaves when accessing bucket contents as a web site. See
-// the Static Website Examples for more information.
+// BucketWebsite: The bucket's website configuration.
 type BucketWebsite struct {
-	// MainPageSuffix: If the requested object path is missing, the service
-	// will ensure the path has a trailing '/', append this suffix, and
-	// attempt to retrieve the resulting object. This allows the creation of
-	// index.html objects to represent directory pages.
+	// MainPageSuffix: Behaves as the bucket's directory index where missing
+	// objects are treated as potential directories.
 	MainPageSuffix string `json:"mainPageSuffix,omitempty"`
 
-	// NotFoundPage: If the requested object path is missing, and any
-	// mainPageSuffix object is missing, if applicable, the service will
-	// return the named object from this bucket as the content for a 404 Not
-	// Found result.
+	// NotFoundPage: The custom object to return when a requested resource
+	// is not found.
 	NotFoundPage string `json:"notFoundPage,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "MainPageSuffix") to
@@ -555,7 +523,8 @@ type BucketAccessControl struct {
 	// ProjectTeam: The project team associated with the entity, if any.
 	ProjectTeam *BucketAccessControlProjectTeam `json:"projectTeam,omitempty"`
 
-	// Role: The access permission for the entity.
+	// Role: The access permission for the entity. Can be READER, WRITER, or
+	// OWNER.
 	Role string `json:"role,omitempty"`
 
 	// SelfLink: The link to this access-control entry.
@@ -586,7 +555,7 @@ type BucketAccessControlProjectTeam struct {
 	// ProjectNumber: The project number.
 	ProjectNumber string `json:"projectNumber,omitempty"`
 
-	// Team: The team.
+	// Team: The team. Can be owners, editors, or viewers.
 	Team string `json:"team,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ProjectNumber") to
@@ -809,9 +778,7 @@ type Object struct {
 	// Bucket: The name of the bucket containing this object.
 	Bucket string `json:"bucket,omitempty"`
 
-	// CacheControl: Cache-Control directive for the object data. If
-	// omitted, and the object is accessible to all anonymous users, the
-	// default will be public, max-age=3600.
+	// CacheControl: Cache-Control directive for the object data.
 	CacheControl string `json:"cacheControl,omitempty"`
 
 	// ComponentCount: Number of underlying components that make up this
@@ -855,10 +822,6 @@ type Object struct {
 	// Kind: The kind of item this is. For objects, this is always
 	// storage#object.
 	Kind string `json:"kind,omitempty"`
-
-	// KmsKeyName: Cloud KMS Key used to encrypt this object, if the object
-	// is encrypted by such a key.
-	KmsKeyName string `json:"kmsKeyName,omitempty"`
 
 	// Md5Hash: MD5 hash of the data; encoded using base64. For more
 	// information about using the MD5 hash, see Hashes and ETags: Best
@@ -1023,7 +986,7 @@ type ObjectAccessControl struct {
 	// ProjectTeam: The project team associated with the entity, if any.
 	ProjectTeam *ObjectAccessControlProjectTeam `json:"projectTeam,omitempty"`
 
-	// Role: The access permission for the entity.
+	// Role: The access permission for the entity. Can be READER or OWNER.
 	Role string `json:"role,omitempty"`
 
 	// SelfLink: The link to this access-control entry.
@@ -1054,7 +1017,7 @@ type ObjectAccessControlProjectTeam struct {
 	// ProjectNumber: The project number.
 	ProjectNumber string `json:"projectNumber,omitempty"`
 
-	// Team: The team.
+	// Team: The team. Can be owners, editors, or viewers.
 	Team string `json:"team,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "ProjectNumber") to
@@ -1232,7 +1195,10 @@ func (c *BucketAccessControlsDeleteCall) doRequest(alt string) (*http.Response, 
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.delete" call.
@@ -1340,7 +1306,10 @@ func (c *BucketAccessControlsGetCall) doRequest(alt string) (*http.Response, err
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.get" call.
@@ -1465,7 +1434,10 @@ func (c *BucketAccessControlsInsertCall) doRequest(alt string) (*http.Response, 
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.insert" call.
@@ -1593,7 +1565,10 @@ func (c *BucketAccessControlsListCall) doRequest(alt string) (*http.Response, er
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.list" call.
@@ -1715,7 +1690,10 @@ func (c *BucketAccessControlsPatchCall) doRequest(alt string) (*http.Response, e
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.patch" call.
@@ -1846,7 +1824,10 @@ func (c *BucketAccessControlsUpdateCall) doRequest(alt string) (*http.Response, 
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.bucketAccessControls.update" call.
@@ -1983,7 +1964,10 @@ func (c *BucketsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.delete" call.
@@ -2122,7 +2106,10 @@ func (c *BucketsGetCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.get" call.
@@ -2316,7 +2303,11 @@ func (c *BucketsInsertCall) doRequest(alt string) (*http.Response, error) {
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
 	req.Header = reqHeaders
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	googleapi.SetOpaque(req.URL)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.insert" call.
@@ -2527,7 +2518,11 @@ func (c *BucketsListCall) doRequest(alt string) (*http.Response, error) {
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("GET", urls, body)
 	req.Header = reqHeaders
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	googleapi.SetOpaque(req.URL)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.list" call.
@@ -2767,7 +2762,10 @@ func (c *BucketsPatchCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.patch" call.
@@ -3021,7 +3019,10 @@ func (c *BucketsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.buckets.update" call.
@@ -3202,7 +3203,11 @@ func (c *ChannelsStopCall) doRequest(alt string) (*http.Response, error) {
 	urls += "?" + c.urlParams_.Encode()
 	req, _ := http.NewRequest("POST", urls, body)
 	req.Header = reqHeaders
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	googleapi.SetOpaque(req.URL)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.channels.stop" call.
@@ -3285,7 +3290,10 @@ func (c *DefaultObjectAccessControlsDeleteCall) doRequest(alt string) (*http.Res
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.delete" call.
@@ -3393,7 +3401,10 @@ func (c *DefaultObjectAccessControlsGetCall) doRequest(alt string) (*http.Respon
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.get" call.
@@ -3519,7 +3530,10 @@ func (c *DefaultObjectAccessControlsInsertCall) doRequest(alt string) (*http.Res
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.insert" call.
@@ -3664,7 +3678,10 @@ func (c *DefaultObjectAccessControlsListCall) doRequest(alt string) (*http.Respo
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.list" call.
@@ -3798,7 +3815,10 @@ func (c *DefaultObjectAccessControlsPatchCall) doRequest(alt string) (*http.Resp
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.patch" call.
@@ -3929,7 +3949,10 @@ func (c *DefaultObjectAccessControlsUpdateCall) doRequest(alt string) (*http.Res
 		"bucket": c.bucket,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.defaultObjectAccessControls.update" call.
@@ -4065,7 +4088,10 @@ func (c *ObjectAccessControlsDeleteCall) doRequest(alt string) (*http.Response, 
 		"object": c.object,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.delete" call.
@@ -4197,7 +4223,10 @@ func (c *ObjectAccessControlsGetCall) doRequest(alt string) (*http.Response, err
 		"object": c.object,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.get" call.
@@ -4346,7 +4375,10 @@ func (c *ObjectAccessControlsInsertCall) doRequest(alt string) (*http.Response, 
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.insert" call.
@@ -4498,7 +4530,10 @@ func (c *ObjectAccessControlsListCall) doRequest(alt string) (*http.Response, er
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.list" call.
@@ -4644,7 +4679,10 @@ func (c *ObjectAccessControlsPatchCall) doRequest(alt string) (*http.Response, e
 		"object": c.object,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.patch" call.
@@ -4799,7 +4837,10 @@ func (c *ObjectAccessControlsUpdateCall) doRequest(alt string) (*http.Response, 
 		"object": c.object,
 		"entity": c.entity,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objectAccessControls.update" call.
@@ -4947,16 +4988,6 @@ func (c *ObjectsComposeCall) IfMetagenerationMatch(ifMetagenerationMatch int64) 
 	return c
 }
 
-// KmsKeyName sets the optional parameter "kmsKeyName": Resource name of
-// the Cloud KMS key, of the form
-// projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key,
-//  that will be used to encrypt the object. Overrides the object
-// metadata's kms_key_name value, if any.
-func (c *ObjectsComposeCall) KmsKeyName(kmsKeyName string) *ObjectsComposeCall {
-	c.urlParams_.Set("kmsKeyName", kmsKeyName)
-	return c
-}
-
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -4991,7 +5022,10 @@ func (c *ObjectsComposeCall) doRequest(alt string) (*http.Response, error) {
 		"destinationBucket": c.destinationBucket,
 		"destinationObject": c.destinationObject,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Download fetches the API endpoint's "media" value, instead of the normal
@@ -5098,11 +5132,6 @@ func (c *ObjectsComposeCall) Do(opts ...googleapi.CallOption) (*Object, error) {
 	//     "ifMetagenerationMatch": {
 	//       "description": "Makes the operation conditional on whether the object's current metageneration matches the given value.",
 	//       "format": "int64",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "kmsKeyName": {
-	//       "description": "Resource name of the Cloud KMS key, of the form projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key, that will be used to encrypt the object. Overrides the object metadata's kms_key_name value, if any.",
 	//       "location": "query",
 	//       "type": "string"
 	//     }
@@ -5297,7 +5326,10 @@ func (c *ObjectsCopyCall) doRequest(alt string) (*http.Response, error) {
 		"destinationBucket": c.destinationBucket,
 		"destinationObject": c.destinationObject,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Download fetches the API endpoint's "media" value, instead of the normal
@@ -5585,7 +5617,10 @@ func (c *ObjectsDeleteCall) doRequest(alt string) (*http.Response, error) {
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.delete" call.
@@ -5775,7 +5810,10 @@ func (c *ObjectsGetCall) doRequest(alt string) (*http.Response, error) {
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Download fetches the API endpoint's "media" value, instead of the normal
@@ -5980,16 +6018,6 @@ func (c *ObjectsInsertCall) IfMetagenerationNotMatch(ifMetagenerationNotMatch in
 	return c
 }
 
-// KmsKeyName sets the optional parameter "kmsKeyName": Resource name of
-// the Cloud KMS key, of the form
-// projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key,
-//  that will be used to encrypt the object. Overrides the object
-// metadata's kms_key_name value, if any.
-func (c *ObjectsInsertCall) KmsKeyName(kmsKeyName string) *ObjectsInsertCall {
-	c.urlParams_.Set("kmsKeyName", kmsKeyName)
-	return c
-}
-
 // Name sets the optional parameter "name": Name of the object. Required
 // when the object metadata is not otherwise provided. Overrides the
 // object metadata's name value, if any. For information about how to
@@ -6040,9 +6068,6 @@ func (c *ObjectsInsertCall) Projection(projection string) *ObjectsInsertCall {
 // supplied.
 // At most one of Media and ResumableMedia may be set.
 func (c *ObjectsInsertCall) Media(r io.Reader, options ...googleapi.MediaOption) *ObjectsInsertCall {
-	if ct := c.object.ContentType; ct != "" {
-		options = append([]googleapi.MediaOption{googleapi.ContentType(ct)}, options...)
-	}
 	opts := googleapi.ProcessMediaOptions(options)
 	chunkSize := opts.ChunkSize
 	if !opts.ForceEmptyContentType {
@@ -6136,7 +6161,10 @@ func (c *ObjectsInsertCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.insert" call.
@@ -6258,11 +6286,6 @@ func (c *ObjectsInsertCall) Do(opts ...googleapi.CallOption) (*Object, error) {
 	//     "ifMetagenerationNotMatch": {
 	//       "description": "Makes the operation conditional on whether the object's current metageneration does not match the given value.",
 	//       "format": "int64",
-	//       "location": "query",
-	//       "type": "string"
-	//     },
-	//     "kmsKeyName": {
-	//       "description": "Resource name of the Cloud KMS key, of the form projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key, that will be used to encrypt the object. Overrides the object metadata's kms_key_name value, if any.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -6437,7 +6460,10 @@ func (c *ObjectsListCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.list" call.
@@ -6696,7 +6722,10 @@ func (c *ObjectsPatchCall) doRequest(alt string) (*http.Response, error) {
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.patch" call.
@@ -6859,17 +6888,6 @@ func (r *ObjectsService) Rewrite(sourceBucket string, sourceObject string, desti
 	c.destinationBucket = destinationBucket
 	c.destinationObject = destinationObject
 	c.object = object
-	return c
-}
-
-// DestinationKmsKeyName sets the optional parameter
-// "destinationKmsKeyName": Resource name of the Cloud KMS key, of the
-// form
-// projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key,
-//  that will be used to encrypt the object. Overrides the object
-// metadata's kms_key_name value, if any.
-func (c *ObjectsRewriteCall) DestinationKmsKeyName(destinationKmsKeyName string) *ObjectsRewriteCall {
-	c.urlParams_.Set("destinationKmsKeyName", destinationKmsKeyName)
 	return c
 }
 
@@ -7045,7 +7063,10 @@ func (c *ObjectsRewriteCall) doRequest(alt string) (*http.Response, error) {
 		"destinationBucket": c.destinationBucket,
 		"destinationObject": c.destinationObject,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.rewrite" call.
@@ -7100,11 +7121,6 @@ func (c *ObjectsRewriteCall) Do(opts ...googleapi.CallOption) (*RewriteResponse,
 	//       "description": "Name of the bucket in which to store the new object. Overrides the provided object metadata's bucket value, if any.",
 	//       "location": "path",
 	//       "required": true,
-	//       "type": "string"
-	//     },
-	//     "destinationKmsKeyName": {
-	//       "description": "Resource name of the Cloud KMS key, of the form projects/my-project/locations/global/keyRings/my-kr/cryptoKeys/my-key, that will be used to encrypt the object. Overrides the object metadata's kms_key_name value, if any.",
-	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "destinationObject": {
@@ -7367,7 +7383,10 @@ func (c *ObjectsUpdateCall) doRequest(alt string) (*http.Response, error) {
 		"bucket": c.bucket,
 		"object": c.object,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Download fetches the API endpoint's "media" value, instead of the normal
@@ -7631,7 +7650,10 @@ func (c *ObjectsWatchAllCall) doRequest(alt string) (*http.Response, error) {
 	googleapi.Expand(req.URL, map[string]string{
 		"bucket": c.bucket,
 	})
-	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+	if c.ctx_ != nil {
+		return ctxhttp.Do(c.ctx_, c.s.client, req)
+	}
+	return c.s.client.Do(req)
 }
 
 // Do executes the "storage.objects.watchAll" call.

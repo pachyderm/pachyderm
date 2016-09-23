@@ -6,11 +6,11 @@ import (
 
 	"go.pedge.io/lion/proto"
 
-	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/api/option"
+	"google.golang.org/cloud"
+	"google.golang.org/cloud/storage"
 )
 
 type googleClient struct {
@@ -21,8 +21,8 @@ type googleClient struct {
 func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) {
 	client, err := storage.NewClient(
 		ctx,
-		option.WithTokenSource(google.ComputeTokenSource("")),
-		option.WithScopes(storage.ScopeFullControl),
+		cloud.WithTokenSource(google.ComputeTokenSource("")),
+		cloud.WithScopes(storage.ScopeFullControl),
 	)
 	if err != nil {
 		return nil, err

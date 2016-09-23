@@ -36,7 +36,6 @@ func JWTAccessTokenSourceFromJSON(jsonKey []byte, audience string) (oauth2.Token
 		email:    cfg.Email,
 		audience: audience,
 		pk:       pk,
-		pkID:     cfg.PrivateKeyID,
 	}
 	tok, err := ts.Token()
 	if err != nil {
@@ -48,7 +47,6 @@ func JWTAccessTokenSourceFromJSON(jsonKey []byte, audience string) (oauth2.Token
 type jwtAccessTokenSource struct {
 	email, audience string
 	pk              *rsa.PrivateKey
-	pkID            string
 }
 
 func (ts *jwtAccessTokenSource) Token() (*oauth2.Token, error) {
@@ -64,7 +62,6 @@ func (ts *jwtAccessTokenSource) Token() (*oauth2.Token, error) {
 	hdr := &jws.Header{
 		Algorithm: "RS256",
 		Typ:       "JWT",
-		KeyID:     string(ts.pkID),
 	}
 	msg, err := jws.Encode(hdr, cs, ts.pk)
 	if err != nil {

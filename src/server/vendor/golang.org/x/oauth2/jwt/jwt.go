@@ -46,10 +46,6 @@ type Config struct {
 	//
 	PrivateKey []byte
 
-	// PrivateKeyID contains an optional hint indicating which key is being
-	// used.
-	PrivateKeyID string
-
 	// Subject is the optional user to impersonate.
 	Subject string
 
