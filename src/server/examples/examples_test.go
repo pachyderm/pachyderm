@@ -2,7 +2,7 @@ package examples
 
 import (
 	"bytes"
-	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -75,6 +75,188 @@ func TestExampleTensorFlow(t *testing.T) {
 	require.NoError(t, c.DeleteRepo("GoT_scripts", false))
 }
 
+func TestWordCount(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+
+	readme, err := ioutil.ReadFile("../../../doc/examples/word_count/README.md")
+	require.NoError(t, err)
+	newURL := "https://news.ycombinator.com/newsfaq.html"
+	oldURL := "https://en.wikipedia.org/wiki/Main_Page"
+	inputPipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_input"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim:latest",
+    "cmd": [ "wget",
+        "-e", "robots=off",
+        "--recursive",
+        "--level", "1",
+        "--adjust-extension",
+        "--no-check-certificate",
+        "--no-directories",
+        "--directory-prefix",
+        "/pfs/out",
+        "https://en.wikipedia.org/wiki/Main_Page"
+    ],
+    "acceptReturnCode": [4,5,6,7,8]
+  },
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  }
+}
+`
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), inputPipelineManifest))
+	inputPipelineManifest = strings.Replace(inputPipelineManifest, oldURL, newURL, 1)
+
+	exampleDir := "../../../doc/examples/word_count"
+	cmd := exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(inputPipelineManifest)
+	cmd.Dir = exampleDir
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+
+	cmd = exec.Command("pachctl", "run-pipeline", "wordcount_input")
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	cmd = exec.Command("docker", "build", "-t", "wordcount-map", ".")
+	cmd.Dir = exampleDir
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+
+	wordcountMapPipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_map"
+  },
+  "transform": {
+    "image": "wordcount-map:latest",
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_input"
+      }
+    }
+  ]
+}
+`
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), wordcountMapPipelineManifest))
+
+	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	// Flush Commit can't help us here since there are no inputs
+	// So we block on ListCommit
+	commitInfos, err := c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_input"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		true,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	inputCommit := commitInfos[0].Commit
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_map"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "are", 0, 0, "", false, nil, &buffer))
+	lines := strings.Split(strings.TrimRight(buffer.String(), "\n"), "\n")
+	// Should see # lines output == # pods running job
+	// This should be just one with default deployment
+	require.Equal(t, 1, len(lines))
+
+	wordcountReducePipelineManifest := `
+{
+  "pipeline": {
+    "name": "wordcount_reduce"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim:latest",
+    "cmd": ["sh"],
+    "stdin": [
+        "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/` + "`basename $count`" + `; done"
+    ]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_map"
+      },
+	  "method": "reduce"
+    }
+  ]
+}
+`
+	// Should stay in sync with doc/examples/word_count/README.md
+	require.Equal(t, true, strings.Contains(string(readme), wordcountReducePipelineManifest))
+
+	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd.Stdin = strings.NewReader(wordcountReducePipelineManifest)
+	cmd.Dir = exampleDir
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_reduce"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	buffer.Reset()
+	require.NoError(t, c.GetFile("wordcount_reduce", commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
+	lines = strings.Split(buffer.String(), "\n")
+	require.Equal(t, 1, len(lines))
+
+	fileInfos, err := c.ListFile("wordcount_reduce", commitInfos[0].Commit.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+
+	if len(fileInfos) < 100 {
+		t.Fatalf("Word count result is too small. Should have counted a bunch of words. Only counted %v:\n%v\n", len(fileInfos), fileInfos)
+	}
+}
+
 func TestFruitStand(t *testing.T) {
 
 	if testing.Short() {
@@ -131,8 +313,7 @@ func TestFruitStand(t *testing.T) {
 		"-f",
 		"../../../doc/examples/fruit_stand/pipeline.json",
 	)
-	raw, err := cmd.CombinedOutput()
-	fmt.Printf("raw: %v\n", string(raw))
+	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	repoInfos, err = c.ListRepo(nil)
