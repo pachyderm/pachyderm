@@ -113,7 +113,7 @@ func TestWordCount(t *testing.T) {
 	cmd := exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
-	raw, err := cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "run-pipeline", "wordcount_input")
