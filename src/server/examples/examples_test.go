@@ -2,7 +2,6 @@ package examples
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +46,6 @@ func TestExampleTensorFlow(t *testing.T) {
 		false,
 	)
 	require.NoError(t, err)
-	fmt.Printf("commits: %v\n", commitInfos)
 	require.Equal(t, 1, len(commitInfos))
 	inputCommitID := commitInfos[0].Commit.ID
 
@@ -101,7 +99,7 @@ func TestWordCount(t *testing.T) {
         "--no-directories",
         "--directory-prefix",
         "/pfs/out",
-        "https://en.wikipedia.org/wiki/Main_Page"
+        "https://news.ycombinator.com/newsfaq.html"
     ],
     "acceptReturnCode": [4,5,6,7,8]
   },
@@ -116,7 +114,6 @@ func TestWordCount(t *testing.T) {
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
 	raw, err := cmd.CombinedOutput()
-	fmt.Printf("create pipeline output: %v\n", string(raw))
 	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "run-pipeline", "wordcount_input")
@@ -152,7 +149,6 @@ func TestWordCount(t *testing.T) {
 	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
 	cmd.Dir = exampleDir
 	raw, err = cmd.Output()
-	fmt.Printf("create map pipeline err: %v\n", string(raw))
 	require.NoError(t, err)
 
 	// Flush Commit can't help us here since there are no inputs
@@ -167,20 +163,21 @@ func TestWordCount(t *testing.T) {
 			}},
 			nil,
 			client.CommitTypeRead,
-			client.CommitStatusAll,
+			client.CommitStatusNormal,
 			false,
 		)
 		require.NoError(t, err)
 		if len(commitInfos) == 1 {
 			break
 		}
-		time.Sleep(10)
+		time.Sleep(10 * time.Second)
 		tries--
 	}
 	require.Equal(t, 1, len(commitInfos))
-	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commitInfos[0].Commit}, nil)
+	inputCommit := commitInfos[0].Commit
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
@@ -195,10 +192,11 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
-	lines := strings.Split(buffer.String(), "\n")
-	// Should see # lines output == # pods running job ... not sure what this is on CI?
-	require.Equal(t, 3, len(lines))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "are", 0, 0, "", false, nil, &buffer))
+	lines := strings.Split(strings.TrimRight(buffer.String(), "\n"), "\n")
+	// Should see # lines output == # pods running job
+	// This should be just one with default deployment
+	require.Equal(t, 1, len(lines))
 
 	// Should stay in sync with doc/examples/word_count/README.md
 	wordcountReducePipelineManifest := `
@@ -229,6 +227,10 @@ func TestWordCount(t *testing.T) {
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()
 	require.NoError(t, err)
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
