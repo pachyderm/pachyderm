@@ -49,6 +49,57 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	return false
 }
 
+// pipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
+// create-pipeline and update-pipeline
+type pipelineManifestReader struct {
+	buf     bytes.Buffer
+	decoder *json.Decoder
+}
+
+func newPipelineManifestReader(path string) (result *pipelineManifestReader, retErr error) {
+	result = new(pipelineManifestReader)
+	var pipelineReader io.Reader
+	if path == "-" {
+		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
+		fmt.Print("Reading from stdin.\n")
+	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, sanitizeErr(err)
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = sanitizeErr(err)
+			}
+		}()
+		pipelineReader = resp.Body
+	} else {
+		rawBytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	}
+	result.decoder = json.NewDecoder(pipelineReader)
+	return result, nil
+}
+
+func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
+	var result ppsclient.CreatePipelineRequest
+	s, err := replaceMethodAliases(r.decoder)
+	if err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		return nil, describeSyntaxError(err, r.buf)
+	}
+	if err := jsonpb.UnmarshalString(s, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // Cmds returns a slice containing pps commands.
 func Cmds(address string) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
@@ -82,7 +133,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/pipeline_spec.md"))
+	pipelineSpec := string(pachyderm.MustAsset("doc/development/pipeline_spec.md"))
 
 	var jobPath string
 	createJob := &cobra.Command{
@@ -258,50 +309,24 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
+			cfgReader, err := newPipelineManifestReader(pipelinePath)
+			if err != nil {
+				return err
+			}
 			client, err := pach.NewFromAddress(address)
 			if err != nil {
 				return sanitizeErr(err)
 			}
-			var buf bytes.Buffer
-			var pipelineReader io.Reader
-			if pipelinePath == "-" {
-				pipelineReader = io.TeeReader(os.Stdin, &buf)
-				fmt.Print("Reading from stdin.\n")
-			} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
-				resp, err := http.Get(url.String())
-				if err != nil {
-					return sanitizeErr(err)
-				}
-				defer func() {
-					if err := resp.Body.Close(); err != nil && retErr == nil {
-						retErr = sanitizeErr(err)
-					}
-				}()
-				pipelineReader = resp.Body
-			} else {
-				rawBytes, err := ioutil.ReadFile(pipelinePath)
-				if err != nil {
-					return err
-				}
-
-				pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &buf)
-			}
-			var request ppsclient.CreatePipelineRequest
-			decoder := json.NewDecoder(pipelineReader)
 			for {
-				s, err := replaceMethodAliases(decoder)
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-					return describeSyntaxError(err, buf)
-				}
-				if err := jsonpb.UnmarshalString(s, &request); err != nil {
+				request, err := cfgReader.nextCreatePipelineRequest()
+				if err == io.EOF {
+					break
+				} else if err != nil {
 					return err
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
-					&request,
+					request,
 				); err != nil {
 					return sanitizeErr(err)
 				}
@@ -310,6 +335,42 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+
+	var archive bool
+	updatePipeline := &cobra.Command{
+		Use:   "update-pipeline -f pipeline.json",
+		Short: "Update an existing Pachyderm pipeline.",
+		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new spec\n\n%s", pipelineSpec),
+		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
+			cfgReader, err := newPipelineManifestReader(pipelinePath)
+			if err != nil {
+				return err
+			}
+			client, err := pach.NewFromAddress(address)
+			if err != nil {
+				return sanitizeErr(err)
+			}
+			for {
+				request, err := cfgReader.nextCreatePipelineRequest()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					return err
+				}
+				request.Update = true
+				request.NoArchive = !archive
+				if _, err := client.PpsAPIClient.CreatePipeline(
+					context.Background(),
+					request,
+				); err != nil {
+					return sanitizeErr(err)
+				}
+			}
+			return nil
+		}),
+	}
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
@@ -469,6 +530,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, listJob)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
+	result = append(result, updatePipeline)
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)
 	result = append(result, deletePipeline)

@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"golang.org/x/sync/errgroup"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/pkg/exec"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -178,7 +181,7 @@ Examples:
 
 	forkCommit := &cobra.Command{
 		Use:   "fork-commit repo-name parent-commit branch-name",
-		Short: "Start a new commit with a given parent on a new branch",
+		Short: "Start a new commit with a given parent on a new branch.",
 		Long: `Start a new commit with parent-commit as the parent, on a new branch with the name branch-name.
 
 Examples:
@@ -243,7 +246,7 @@ Examples:
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
-		Short: "Return all commits on a set of repos",
+		Short: "Return all commits on a set of repos.",
 		Long: `Return all commits on a set of repos.
 
 Examples:
@@ -295,6 +298,65 @@ Examples:
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
+
+	squashCommit := &cobra.Command{
+		Use:   "squash-commit repo-name commits to-commit",
+		Short: "Squash a number of commits into a single commit.",
+		Long: `Squash a number of commits into a single commit.
+
+Examples:
+
+	# squash commits foo/2 and foo/3 into bar/1 in repo "test"
+	# note that bar/1 needs to be an open commit
+	$ pachctl squash-commit test foo/2 foo/3 bar/1
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			if len(args) < 3 {
+				fmt.Println("invalid arguments")
+				return nil
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			return c.SquashCommit(args[0], args[1:len(args)-1], args[len(args)-1])
+		}),
+	}
+
+	replayCommit := &cobra.Command{
+		Use:   "replay-commit repo-name commits branch",
+		Short: "Replay a number of commits onto a branch.",
+		Long: `Replay a number of commits onto a branch
+
+Examples:
+
+	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
+	$ pachctl replay-commit test foo/2 foo/3 bar
+`,
+		Run: pkgcobra.Run(func(args []string) error {
+			if len(args) < 3 {
+				fmt.Println("invalid arguments")
+				return nil
+			}
+
+			c, err := client.NewFromAddress(address)
+			if err != nil {
+				return err
+			}
+
+			commits, err := c.ReplayCommit(args[0], args[1:len(args)-1], args[len(args)-1])
+			if err != nil {
+				return err
+			}
+
+			for _, commit := range commits {
+				fmt.Println(commit.ID)
+			}
+			return nil
+		}),
+	}
 
 	var repos cmd.RepeatedStringArg
 	flushCommit := &cobra.Command{
@@ -606,7 +668,8 @@ Files and URLs should be newline delimited.
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(address, client.PfsAPIClient)
+			go func() { client.KeepConnected(nil) }()
+			mounter := fuse.NewMounter(address, client)
 			mountPoint := args[0]
 			ready := make(chan bool)
 			go func() {
@@ -624,10 +687,62 @@ Files and URLs should be newline delimited.
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
 
+	unmount := &cobra.Command{
+		Use:   "unmount path/to/mount/point",
+		Short: "Unmount pfs.",
+		Long:  "Unmount pfs.",
+		Run: cmd.RunBoundedArgs(0, 1, func(args []string) error {
+			if len(args) == 1 {
+				return syscall.Unmount(args[0], 0)
+			}
+
+			if all {
+				stdin := strings.NewReader(`
+mount | grep pfs:// | cut -f 3 -d " "
+`)
+				var stdout bytes.Buffer
+				if err := pkgexec.RunIO(pkgexec.IO{
+					Stdin:  stdin,
+					Stdout: &stdout,
+					Stderr: os.Stderr,
+				}, "sh"); err != nil {
+					return err
+				}
+				scanner := bufio.NewScanner(&stdout)
+				var mounts []string
+				for scanner.Scan() {
+					mounts = append(mounts, scanner.Text())
+				}
+				if len(mounts) == 0 {
+					fmt.Println("No mounts found.")
+					return nil
+				}
+				fmt.Printf("Unmount the following filesystems? yN\n")
+				for _, mount := range mounts {
+					fmt.Printf("%s\n", mount)
+				}
+				r := bufio.NewReader(os.Stdin)
+				bytes, err := r.ReadBytes('\n')
+				if err != nil {
+					return err
+				}
+				if bytes[0] == 'y' || bytes[0] == 'Y' {
+					for _, mount := range mounts {
+						if err := syscall.Unmount(mount, 0); err != nil {
+							return err
+						}
+					}
+				}
+			}
+			return nil
+		}),
+	}
+	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
+
 	archiveAll := &cobra.Command{
 		Use:   "archive-all",
-		Short: "Archives all commits in all repos",
-		Long:  "Archives all commits in all repos",
+		Short: "Archives all commits in all repos.",
+		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
@@ -649,6 +764,8 @@ Files and URLs should be newline delimited.
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, squashCommit)
+	result = append(result, replayCommit)
 	result = append(result, flushCommit)
 	result = append(result, listBranch)
 	result = append(result, file)
@@ -658,6 +775,7 @@ Files and URLs should be newline delimited.
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
+	result = append(result, unmount)
 	result = append(result, archiveAll)
 	return result
 }

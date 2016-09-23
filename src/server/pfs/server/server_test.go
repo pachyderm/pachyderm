@@ -534,6 +534,25 @@ func TestPutFile(t *testing.T) {
 	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, "", false, nil, &buffer))
 }
 
+func TestPutFileLongName(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileName := `oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)`
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, fileName, strings.NewReader("foo\n"))
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit.ID, fileName, 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
+
 func TestListFileTwoCommits(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -1701,7 +1720,6 @@ func TestPutFileWithNoDelimiter(t *testing.T) {
 		}
 		require.EqualOneOf(t, blockLengths, buffer.Len())
 	}
-
 }
 
 func TestPutFileNullCharacter(t *testing.T) {

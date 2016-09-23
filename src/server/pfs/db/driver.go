@@ -1,6 +1,8 @@
 package persist
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -1143,8 +1145,19 @@ func (d *driver) checkFileType(repo string, commit string, path string, typ pers
 	return nil
 }
 
+// checkPath checks if a file path is legal
+func checkPath(path string) error {
+	if strings.Contains(path, "\x00") {
+		return fmt.Errorf("filename cannot contain null character: %s", path)
+	}
+	return nil
+}
+
 func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) (retErr error) {
 	fixPath(file)
+	if err := checkPath(file.Path); err != nil {
+		return err
+	}
 	commit, err := d.getRawCommit(file.Commit)
 	if err != nil {
 		return err
@@ -1251,12 +1264,9 @@ func getPrefixes(path string) []string {
 }
 
 func getDiffID(commitID string, path string) string {
-	return fmt.Sprintf("%s:%s", commitID, path)
-}
-
-// the equivalent of above except that commitID is a rethink term
-func getDiffIDFromTerm(commitID gorethink.Term, path string) gorethink.Term {
-	return commitID.Add(":" + path)
+	s := fmt.Sprintf("%s:%s", commitID, path)
+	hash := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hash[:])
 }
 
 func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
@@ -1366,7 +1376,12 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			break
 		}
 		client := client.APIClient{BlockAPIClient: r.blockClient}
-		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(r.size))
+		sizeLeft := r.size
+		// e.g. sometimes a reader is constructed of size 0
+		if sizeLeft != 0 {
+			sizeLeft -= r.sizeRead
+		}
+		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
 		if err != nil {
 			return 0, err
 		}

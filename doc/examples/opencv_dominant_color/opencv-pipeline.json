@@ -1,0 +1,26 @@
+{
+  "pipeline": {
+    "name": "opencv"
+  },
+  "transform": {
+    "image": "soheilsalehian/opencv_example:20170722-00",
+    "cmd": ["sh"],
+    "stdin": [
+      "export AWS_ACCESS_KEY_ID=[your aws access key id]",
+      "export AWS_SECRET_ACCESS_KEY=[your aws secret access key]",
+      "./dominant_color -images_file /pfs/images/images -aws_bucket_name [your aws s3 bucket of images] >> /pfs/out/opencv"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "images"
+      },
+      "method": "map"
+    }
+  ]
+}

@@ -120,7 +120,7 @@ check-kubectl:
 	which kubectl
 
 check-kubectl-connection:
-	kubectl get all > /dev/null
+	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
@@ -171,6 +171,9 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
+example-tests:
+	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
+
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
@@ -203,7 +206,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests example-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
@@ -293,7 +296,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 assets: install-go-bindata
-	go-bindata -o assets.go -pkg pachyderm doc/
+	go-bindata -o assets.go -pkg pachyderm doc/...
 
 lint:
 	@go get -u github.com/golang/lint/golint
