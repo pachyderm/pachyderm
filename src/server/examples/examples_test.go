@@ -80,7 +80,7 @@ func TestWordCount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
+	t.Parallel()
 	c := getPachClient(t)
 
 	readme, err := ioutil.ReadFile("../../../doc/examples/word_count/README.md")
