@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -152,26 +151,17 @@ func TestWordCount(t *testing.T) {
 	require.NoError(t, err)
 
 	// Flush Commit can't help us here since there are no inputs
-	// So we poll wordcount_input until it has a commit
-	tries := 10
-	var commitInfos []*pfsclient.CommitInfo
-	for tries != 0 {
-		commitInfos, err = c.ListCommit(
-			[]*pfsclient.Commit{{
-				Repo: &pfsclient.Repo{"wordcount_input"},
-			}},
-			nil,
-			client.CommitTypeRead,
-			client.CommitStatusNormal,
-			false,
-		)
-		require.NoError(t, err)
-		if len(commitInfos) == 1 {
-			break
-		}
-		time.Sleep(10 * time.Second)
-		tries--
-	}
+	// So we block on ListCommit
+	commitInfos, err := c.ListCommit(
+		[]*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{"wordcount_input"},
+		}},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		true,
+	)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	inputCommit := commitInfos[0].Commit
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
