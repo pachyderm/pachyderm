@@ -151,7 +151,8 @@ func TestWordCount(t *testing.T) {
 	cmd = exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
 	cmd.Dir = exampleDir
-	_, err = cmd.Output()
+	raw, err = cmd.Output()
+	fmt.Printf("create map pipeline err: %v\n", string(raw))
 	require.NoError(t, err)
 
 	// Flush Commit can't help us here since there are no inputs
