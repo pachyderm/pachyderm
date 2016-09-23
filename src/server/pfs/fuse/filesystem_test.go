@@ -871,7 +871,7 @@ func testFuse(
 	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
 		panic(err)
 	}
-	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
+	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName, true)
 	require.NoError(t, err)
 
 	apiServer := server.NewAPIServer(driver)
