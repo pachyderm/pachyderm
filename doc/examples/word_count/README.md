@@ -35,7 +35,10 @@ $ pachctl create-pipeline << EOF
     ],
     "acceptReturnCode": [4,5,6,7,8]
   },
-  "parallelism": 1
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  }
 }
 EOF
 ```
