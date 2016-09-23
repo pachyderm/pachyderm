@@ -6,17 +6,17 @@
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
 # Pachyderm: A Containerized Data Lake
-Pachyderm is [Git for Data Science](http://pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](http://pachyderm.readthedocs.io/advanced/provenance.html)). 
+Pachyderm is [Git for Data Science](http://pachyderm.io/pfs.html). We offer complete version control for data and give data scientists the same first-class development tools as software developers. Pachyderm is ideal for building machine learning pipelines and ETL workflows because we version and track track every model/output directly to the raw input datasets that created it (aka: [Provenance](http://pachyderm.readthedocs.io/en/latest/advanced/provenance.html)). 
 
 Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/getting_started/installation.html) or [deploy on AWS/GCE](http://pachyderm.readthedocs.io/development/deploying_on_the_cloud.html) in about 5 minutes. 
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/installation.html) or [deploy on AWS/GCE](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) in about 5 minutes. 
 
-You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
+You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:
-- [Examples](http://pachyderm.readthedocs.io/examples/examples.html)
+- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/examples.html)
 - [Use Cases](http://www.pachyderm.io/use_cases.html)
 - [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
@@ -38,7 +38,7 @@ There are two bold new ideas in Pachyderm:
 
 These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](http://pachyderm.readthedocs.io/getting_started/beginner_tutorial.html)).
+To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html)).
 
 Pachyderm also version controls all data using a commit-based distributed
 filesystem (PFS), similar to what git does with code. Version control for data
