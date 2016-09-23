@@ -1261,16 +1261,37 @@ func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, of
 	}
 }
 
-func filterBlockRefs(filterShard *pfs.Shard, file *pfs.File, blockRefs []*persist.BlockRef) []*persist.BlockRef {
-	var result []*persist.BlockRef
-	for _, blockRef := range blockRefs {
-		if pfsserver.BlockInShard(filterShard, file, &pfs.Block{
-			Hash: blockRef.Hash,
-		}) {
-			result = append(result, blockRef)
+// filterBlocks filters out blockrefs for a given diff, or return a FileNotFound
+// error if all of the blockrefs have been figured out, except that we want to
+// make sure that there's at least one shard that matches a given empty diff
+func filterBlocks(diff *persist.Diff, filterShard *pfs.Shard, file *pfs.File) (*persist.Diff, error) {
+	if len(diff.BlockRefs) == 0 {
+		// If the file is empty, we want to make sure that it's seen by one shard.
+		if !pfsserver.BlockInShard(filterShard, file, nil) {
+			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 		}
+	} else {
+		// If the file is not empty, we want to make sure to return NotFound if
+		// all blocks have been filtered out.
+		var result []*persist.BlockRef
+		for _, blockRef := range diff.BlockRefs {
+			if pfsserver.BlockInShard(filterShard, file, &pfs.Block{
+				Hash: blockRef.Hash,
+			}) {
+				result = append(result, blockRef)
+			}
+		}
+		diff.BlockRefs = result
+		if len(diff.BlockRefs) == 0 {
+			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
+		}
+		var size uint64
+		for _, blockref := range diff.BlockRefs {
+			size += blockref.Size()
+		}
+		diff.Size = size
 	}
-	return result
+	return diff, nil
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
@@ -1861,21 +1882,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 		return nil, err
 	}
 
-	if len(diff.BlockRefs) == 0 {
-		// If the file is empty, we want to make sure that it's seen by one shard.
-		if !pfsserver.BlockInShard(filterShard, file, nil) {
-			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
-		}
-	} else {
-		// If the file is not empty, we want to make sure to return NotFound if
-		// all blocks have been filtered out.
-		diff.BlockRefs = filterBlockRefs(filterShard, file, diff.BlockRefs)
-		if len(diff.BlockRefs) == 0 {
-			return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
-		}
-	}
-
-	return diff, nil
+	return filterBlocks(diff, filterShard, file)
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error) {
@@ -1914,6 +1921,16 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 			Commit: file.Commit,
 			Path:   diff.Path,
 		}
+		if !pfsserver.FileInShard(filterShard, fileInfo.File) {
+			continue
+		}
+		diff, err := filterBlocks(diff, filterShard, fileInfo.File)
+		if err != nil {
+			if _, ok := err.(*pfsserver.ErrFileNotFound); ok {
+				continue
+			}
+			return nil, err
+		}
 		fileInfo.SizeBytes = diff.Size
 		fileInfo.Modified = diff.Modified
 		switch diff.FileType {
@@ -1928,10 +1945,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 			Repo: file.Commit.Repo,
 			ID:   diff.Clock.ReadableCommitID(),
 		}
-		// TODO - This filtering should be done at the DB level
-		if pfsserver.FileInShard(filterShard, fileInfo.File) {
-			fileInfos = append(fileInfos, fileInfo)
-		}
+		fileInfos = append(fileInfos, fileInfo)
 	}
 
 	return fileInfos, nil
