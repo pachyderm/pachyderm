@@ -97,10 +97,12 @@ func TestFruitStand(t *testing.T) {
 	raw, err := exec.Command(
 		"git",
 		"log",
-		"--format=\"%H\"",
+		"--format=%H",
 	).CombinedOutput()
 	require.NoError(t, err)
-	currentCodeCommitID := string(raw)
+	lines := strings.Split(string(raw), "\n")
+	require.NotEqual(t, 0, len(lines))
+	currentCodeCommitID := lines[0]
 
 	cmd := exec.Command(
 		"pachctl",
@@ -112,7 +114,8 @@ func TestFruitStand(t *testing.T) {
 		"-f",
 		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/set1.txt", currentCodeCommitID),
 	)
-	_, err = cmd.CombinedOutput()
+	raw, err = cmd.CombinedOutput()
+	fmt.Printf("raw: %v\n", string(raw))
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit(
@@ -129,16 +132,18 @@ func TestFruitStand(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile("data", commit.ID, "sales", 0, 0, "", false, nil, &buffer))
-	lines := strings.Split(buffer.String(), "\n")
+	lines = strings.Split(buffer.String(), "\n")
 	if len(lines) < 100 {
 		t.Fatalf("Sales file has too few lines (%v)\n", len(lines))
 	}
 
+	pipelineURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/pipeline.json", currentCodeCommitID)
+	fmt.Printf("using pipeline: [%v]\n", pipelineURL)
 	cmd = exec.Command(
 		"pachctl",
 		"create-pipeline",
 		"-f",
-		fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/%v/doc/examples/fruit_stand/pipeline.json", currentCodeCommitID),
+		pipelineURL,
 	)
 	raw, err = cmd.CombinedOutput()
 	fmt.Printf("raw output: %v\n", string(raw))
