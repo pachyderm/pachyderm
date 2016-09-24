@@ -21,7 +21,7 @@ $ pachctl create-repo images
 Now we need to put some images in that repo. You can do this with `put-file`:
 
 ```sh
-$ pachctl put-file images master -c -i docs/examples/opencv/images.txt
+$ pachctl put-file images master -c -i doc/examples/opencv/images.txt
 ```
 
 With this command you're telling Pachyderm that you want to put files in the
@@ -30,17 +30,17 @@ that you want Pachyderm to start and finish the commit for you. If you wanted
 to have multiple `put-files` write to the same commit you'd use `start-commit`
 and `finish-commit`. `-i` lets you specify a line-delimited input file. Each
 line can be a URL to scrape or a local file to add. In our case, we've got a file
-`docs/examples/opencv/images.txt`with a few image URLs that we'll add to Pachyderm.
+`doc/examples/opencv/images.txt`with a few image URLs that we'll add to Pachyderm.
 
 ## Build and Distribute the Docker Image
 
 Now that you've got some data in Pachyderm, it's time to process it. First, you
 need to create a Docker image describing the environment you want
 your code to run in. For this example the Docker image is defined by
-`docs/examples/opencv/Dockerfile`. You can build it with:
+`doc/examples/opencv/Dockerfile`. You can build it with:
 
 ```sh
-$ docker build -t opencv docs/examples/opencv
+$ docker build -t opencv doc/examples/opencv
 ```
 
 To understand what's going on, take a look at the [Dockerfile](./Dockerfile) and
@@ -60,7 +60,7 @@ Now the image can be referenced on any Docker host as
 
 NOTE (advanced use-case): If you're running Pachyderm locally in Docker, then
 there's no need to push the `opencv` container that you built to DockerHub or
-edit `docs/examples/opencv/edges.json`. Be aware that most users deploying Pachyderm
+edit `doc/examples/opencv/edges.json`. Be aware that most users deploying Pachyderm
 locally will be using minikube, which still requires that you push opencv to
 Dockerhub. If you're unsure if you're running locally, do:
 
