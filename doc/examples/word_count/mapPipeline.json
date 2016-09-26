@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "wordcount_map"
+  },
+  "transform": {
+    "image": "wordcount-map",
+    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_input"
+      }
+    }
+  ]
+}

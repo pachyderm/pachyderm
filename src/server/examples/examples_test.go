@@ -83,41 +83,14 @@ func TestWordCount(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	readme, err := ioutil.ReadFile("../../../doc/examples/word_count/README.md")
-	require.NoError(t, err)
+	exampleDir := "../../../doc/examples/word_count"
 	newURL := "https://news.ycombinator.com/newsfaq.html"
 	oldURL := "https://en.wikipedia.org/wiki/Main_Page"
-	inputPipelineManifest := `
-{
-  "pipeline": {
-    "name": "wordcount_input"
-  },
-  "transform": {
-    "image": "pachyderm/job-shim",
-    "cmd": [ "wget",
-        "-e", "robots=off",
-        "--recursive",
-        "--level", "1",
-        "--adjust-extension",
-        "--no-check-certificate",
-        "--no-directories",
-        "--directory-prefix",
-        "/pfs/out",
-        "https://en.wikipedia.org/wiki/Main_Page"
-    ],
-    "acceptReturnCode": [4,5,6,7,8]
-  },
-  "parallelism_spec": {
-       "strategy" : "CONSTANT",
-       "constant" : 1
-  }
-}
-`
-	// Should stay in sync with doc/examples/word_count/README.md
-	require.Equal(t, true, strings.Contains(string(readme), inputPipelineManifest))
-	inputPipelineManifest = strings.Replace(inputPipelineManifest, oldURL, newURL, 1)
+	rawInputPipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "inputPipeline.json"))
+	require.NoError(t, err)
+	// Need to choose a page w much fewer links to make this pass on CI
+	inputPipelineManifest := strings.Replace(string(rawInputPipelineManifest), oldURL, newURL, 1)
 
-	exampleDir := "../../../doc/examples/word_count"
 	cmd := exec.Command("pachctl", "create-pipeline")
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
@@ -134,29 +107,11 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	wordcountMapPipelineManifest := `
-{
-  "pipeline": {
-    "name": "wordcount_map"
-  },
-  "transform": {
-    "image": "wordcount-map",
-    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
-  },
-  "inputs": [
-    {
-      "repo": {
-        "name": "wordcount_input"
-      }
-    }
-  ]
-}
-`
-	// Should stay in sync with doc/examples/word_count/README.md
-	require.Equal(t, true, strings.Contains(string(readme), wordcountMapPipelineManifest))
+	wordcountMapPipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "mapPipeline.json"))
+	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "create-pipeline")
-	cmd.Stdin = strings.NewReader(wordcountMapPipelineManifest)
+	cmd.Stdin = strings.NewReader(string(wordcountMapPipelineManifest))
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()
 	require.NoError(t, err)
@@ -198,33 +153,11 @@ func TestWordCount(t *testing.T) {
 	// This should be just one with default deployment
 	require.Equal(t, 1, len(lines))
 
-	wordcountReducePipelineManifest := `
-{
-  "pipeline": {
-    "name": "wordcount_reduce"
-  },
-  "transform": {
-    "image": "pachyderm/job-shim",
-    "cmd": ["sh"],
-    "stdin": [
-        "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/` + "`basename $count`" + `; done"
-    ]
-  },
-  "inputs": [
-    {
-      "repo": {
-        "name": "wordcount_map"
-      },
-	  "method": "reduce"
-    }
-  ]
-}
-`
-	// Should stay in sync with doc/examples/word_count/README.md
-	require.Equal(t, true, strings.Contains(string(readme), wordcountReducePipelineManifest))
+	wordcountReducePipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "reducePipeline.json"))
+	require.NoError(t, err)
 
 	cmd = exec.Command("pachctl", "create-pipeline")
-	cmd.Stdin = strings.NewReader(wordcountReducePipelineManifest)
+	cmd.Stdin = strings.NewReader(string(wordcountReducePipelineManifest))
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()
 	require.NoError(t, err)
