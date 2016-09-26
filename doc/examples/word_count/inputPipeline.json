@@ -1,0 +1,25 @@
+{
+  "pipeline": {
+    "name": "wordcount_input"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim",
+    "cmd": [ "wget",
+        "-e", "robots=off",
+        "--recursive",
+        "--level", "1",
+        "--adjust-extension",
+        "--no-check-certificate",
+        "--no-directories",
+        "--directory-prefix",
+        "/pfs/out",
+        "https://en.wikipedia.org/wiki/Main_Page"
+    ],
+    "acceptReturnCode": [4,5,6,7,8]
+  },
+  "parallelism_spec": {
+       "strategy" : "CONSTANT",
+       "constant" : 1
+  }
+}
+
