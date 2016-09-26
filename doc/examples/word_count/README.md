@@ -21,7 +21,7 @@ $ pachctl create-pipeline << EOF
     "name": "wordcount_input"
   },
   "transform": {
-    "image": "pachyderm/job-shim:latest",
+    "image": "pachyderm/job-shim",
     "cmd": [ "wget",
         "-e", "robots=off",
         "--recursive",
@@ -76,7 +76,7 @@ $ pachctl create-pipeline << EOF
     "name": "wordcount_map"
   },
   "transform": {
-    "image": "wordcount-map:latest",
+    "image": "wordcount-map",
     "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
   },
   "inputs": [
@@ -116,7 +116,7 @@ The final pipeline goes through every file and adds up the numbers in each file.
     "name": "wordcount_reduce"
   },
   "transform": {
-    "image": "pachyderm/job-shim:latest",
+    "image": "pachyderm/job-shim",
     "cmd": ["sh"],
     "stdin": [
         "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
