@@ -5,17 +5,9 @@ import "google/protobuf/timestamp.proto";
 
 package fuse;
 
-message CommitMount {
-    pfs.Commit commit = 1;
-    pfs.DiffMethod diff_method = 2;
-    bool full_file = 3;
-    string alias = 4;
-    pfs.Shard shard = 5;
-}
-
 message Filesystem {
   pfs.Shard shard = 1;
-  repeated CommitMount commit_mounts = 2;
+  pfs.View view = 2;
 }
 
 message Node {

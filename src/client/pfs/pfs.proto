@@ -147,6 +147,18 @@ message Shard {
   uint64 block_modulus = 4;
 }
 
+message CommitView {
+    pfs.Commit commit = 1;
+    pfs.DiffMethod diff_method = 2;
+    bool full_file = 3;
+    string alias = 4;
+    pfs.Shard shard = 5;
+}
+
+message View {
+    repeated CommitView commit_views = 1;
+}
+
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
