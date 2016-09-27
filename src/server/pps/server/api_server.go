@@ -15,7 +15,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
@@ -742,10 +741,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	var commitMounts []*fuse.CommitMount
+	view := &pfsclient.View{}
 	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
 	for i, jobInput := range jobInfo.Inputs {
-		commitMount := &fuse.CommitMount{
+		commitView := &pfsclient.CommitView{
 			Commit: jobInput.Commit,
 		}
 		parentJobCommit := repoToParentJobCommit[jobInput.Commit.Repo.Name]
@@ -754,7 +753,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			// repo than our parent.
 			// This means that only the commit that triggered this pipeline will be
 			// done incrementally, the other repos will be shown in full
-			commitMount.DiffMethod = &pfsclient.DiffMethod{
+			commitView.DiffMethod = &pfsclient.DiffMethod{
 				FromCommit: parentJobCommit,
 				FullFile:   jobInput.Method != nil && jobInput.Method.Incremental == ppsclient.Incremental_FULL,
 			}
@@ -762,50 +761,50 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 
 		switch jobInput.Method.Partition {
 		case ppsclient.Partition_BLOCK:
-			commitMount.Shard = &pfsclient.Shard{
+			commitView.Shard = &pfsclient.Shard{
 				BlockNumber:  filterNumbers[i],
 				BlockModulus: jobInfo.ShardModuli[i],
 			}
 		case ppsclient.Partition_FILE:
-			commitMount.Shard = &pfsclient.Shard{
+			commitView.Shard = &pfsclient.Shard{
 				FileNumber:  filterNumbers[i],
 				FileModulus: jobInfo.ShardModuli[i],
 			}
 		case ppsclient.Partition_REPO:
 			// empty shard matches everything
-			commitMount.Shard = &pfsclient.Shard{}
+			commitView.Shard = &pfsclient.Shard{}
 		default:
 			return nil, fmt.Errorf("unrecognized partition method: %v; this is likely a bug", jobInput.Method.Partition)
 		}
 
-		commitMounts = append(commitMounts, commitMount)
+		view.CommitViews = append(view.CommitViews, commitView)
 	}
 
-	outputCommitMount := &fuse.CommitMount{
+	outputCommitView := &pfsclient.CommitView{
 		Commit: commit,
 		Alias:  "out",
 	}
-	commitMounts = append(commitMounts, outputCommitMount)
+	view.CommitViews = append(view.CommitViews, outputCommitView)
 
 	// If a job has a parent commit, we expose the parent commit
 	// to the job under /pfs/prev
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-		Commit: outputCommitMount.Commit,
+		Commit: outputCommitView.Commit,
 	})
 	if err != nil {
 		return nil, err
 	}
 	if commitInfo.ParentCommit != nil {
-		commitMounts = append(commitMounts, &fuse.CommitMount{
+		view.CommitViews = append(view.CommitViews, &pfsclient.CommitView{
 			Commit: commitInfo.ParentCommit,
 			Alias:  "prev",
 		})
 	}
 
 	return &ppsserver.StartJobResponse{
-		Transform:    jobInfo.Transform,
-		CommitMounts: commitMounts,
-		PodIndex:     podIndex,
+		Transform: jobInfo.Transform,
+		View:      view,
+		PodIndex:  podIndex,
 	}, nil
 }
 

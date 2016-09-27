@@ -87,7 +87,7 @@ func do(appEnvObj interface{}) error {
 				if err := mounter.MountAndCreate(
 					"/pfs",
 					nil,
-					response.CommitMounts,
+					response.View,
 					ready,
 					response.Transform.Debug,
 					false,

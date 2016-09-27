@@ -32,7 +32,7 @@ func newMounter(address string, apiClient *client.APIClient) Mounter {
 func (m *mounter) MountAndCreate(
 	mountPoint string,
 	shard *pfsclient.Shard,
-	commitMounts []*CommitMount,
+	view *pfsclient.View,
 	ready chan bool,
 	debug bool,
 	allCommits bool,
@@ -40,13 +40,13 @@ func (m *mounter) MountAndCreate(
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	return m.Mount(mountPoint, shard, commitMounts, ready, debug, allCommits)
+	return m.Mount(mountPoint, shard, view, ready, debug, allCommits)
 }
 
 func (m *mounter) Mount(
 	mountPoint string,
 	shard *pfsclient.Shard,
-	commitMounts []*CommitMount,
+	view *pfsclient.View,
 	ready chan bool,
 	debug bool,
 	allCommits bool,
@@ -92,7 +92,7 @@ func (m *mounter) Mount(
 	if debug {
 		config.Debug = func(msg interface{}) { lion.Printf("%+v", msg) }
 	}
-	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts, allCommits)); err != nil {
+	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, view, allCommits)); err != nil {
 		return err
 	}
 	<-conn.Ready

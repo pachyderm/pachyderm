@@ -797,20 +797,20 @@ mount | grep pfs:// | cut -f 3 -d " "
 	return result
 }
 
-func parseCommitMounts(args []string) []*fuse.CommitMount {
-	var result []*fuse.CommitMount
+func parseCommitViews(args []string) []*pfsclient.CommitView {
+	var result []*pfsclient.CommitView
 	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
+		commitView := &pfsclient.CommitView{Commit: client.NewCommit("", "")}
 		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = path.Clean(repo)
+		commitView.Commit.Repo.Name = path.Clean(repo)
 		split := strings.Split(commitAlias, ":")
 		if len(split) > 0 {
-			commitMount.Commit.ID = split[0]
+			commitView.Commit.ID = split[0]
 		}
 		if len(split) > 1 {
-			commitMount.Alias = split[1]
+			commitView.Alias = split[1]
 		}
-		result = append(result, commitMount)
+		result = append(result, commitView)
 	}
 	return result
 }

@@ -12,7 +12,7 @@ type Mounter interface {
 	MountAndCreate(
 		mountPoint string,
 		shard *pfsclient.Shard,
-		commitMounts []*CommitMount, // nil means mount all commits
+		view *pfsclient.View, // nil means mount all commits
 		ready chan bool,
 		debug bool,
 		allCommits bool,
@@ -21,7 +21,7 @@ type Mounter interface {
 	Mount(
 		mountPoint string,
 		shard *pfsclient.Shard,
-		commitMounts []*CommitMount, // nil means mount all commits
+		view *pfsclient.View, // nil means mount all commits
 		ready chan bool,
 		debug bool,
 		allCommits bool,

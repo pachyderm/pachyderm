@@ -35,14 +35,14 @@ type filesystem struct {
 func newFilesystem(
 	apiClient *client.APIClient,
 	shard *pfsclient.Shard,
-	commitMounts []*CommitMount,
+	view *pfsclient.View,
 	allCommits bool,
 ) *filesystem {
 	return &filesystem{
 		apiClient: apiClient,
 		Filesystem: Filesystem{
 			shard,
-			commitMounts,
+			view,
 		},
 		inodes:     make(map[string]uint64),
 		allCommits: allCommits,
@@ -127,10 +127,10 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		return d.readRepos(ctx)
 	}
 	if d.File.Commit.ID == "" {
-		commitMount := d.fs.getCommitMount(d.getRepoOrAliasName())
-		if commitMount != nil && commitMount.Commit.ID != "" {
-			d.File.Commit.ID = commitMount.Commit.ID
-			d.Shard = commitMount.Shard
+		commitView := d.fs.getCommitView(d.getRepoOrAliasName())
+		if commitView != nil && commitView.Commit.ID != "" {
+			d.File.Commit.ID = commitView.Commit.ID
+			d.Shard = commitView.Shard
 			return d.readFiles(ctx)
 		}
 		return d.readCommits(ctx)
@@ -480,9 +480,9 @@ func (d *directory) getRepoOrAliasName() string {
 	return d.File.Commit.Repo.Name
 }
 
-func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
-	if len(f.CommitMounts) == 0 {
-		return &CommitMount{
+func (f *filesystem) getCommitView(nameOrAlias string) *pfsclient.CommitView {
+	if f.View == nil {
+		return &pfsclient.CommitView{
 			Commit: client.NewCommit(nameOrAlias, ""),
 			Shard:  f.Shard,
 		}
@@ -491,14 +491,14 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	// We prefer alias matching over repo name matching, since there can be
 	// two commit mounts with the same repo but different aliases, such as
 	// "out" and "prev"
-	for _, commitMount := range f.CommitMounts {
-		if commitMount.Alias == nameOrAlias {
-			return commitMount
+	for _, commitView := range f.View.CommitViews {
+		if commitView.Alias == nameOrAlias {
+			return commitView
 		}
 	}
-	for _, commitMount := range f.CommitMounts {
-		if commitMount.Commit.Repo.Name == nameOrAlias {
-			return commitMount
+	for _, commitView := range f.View.CommitViews {
+		if commitView.Commit.Repo.Name == nameOrAlias {
+			return commitView
 		}
 	}
 
@@ -506,27 +506,27 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 }
 
 func (f *filesystem) getFromCommitID(nameOrAlias string) string {
-	commitMount := f.getCommitMount(nameOrAlias)
-	if commitMount == nil || commitMount.DiffMethod == nil || commitMount.DiffMethod.FromCommit == nil {
+	commitView := f.getCommitView(nameOrAlias)
+	if commitView == nil || commitView.DiffMethod == nil || commitView.DiffMethod.FromCommit == nil {
 		return ""
 	}
-	return commitMount.DiffMethod.FromCommit.ID
+	return commitView.DiffMethod.FromCommit.ID
 }
 
 func (f *filesystem) getFullFile(nameOrAlias string) bool {
-	commitMount := f.getCommitMount(nameOrAlias)
-	if commitMount == nil || commitMount.DiffMethod == nil {
+	commitView := f.getCommitView(nameOrAlias)
+	if commitView == nil || commitView.DiffMethod == nil {
 		return false
 	}
-	return commitMount.DiffMethod.FullFile
+	return commitView.DiffMethod.FullFile
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
-	commitMount := d.fs.getCommitMount(name)
-	if commitMount == nil {
+	commitView := d.fs.getCommitView(name)
+	if commitView == nil {
 		return nil, fuse.EPERM
 	}
-	repoInfo, err := d.fs.apiClient.InspectRepo(commitMount.Commit.Repo.Name)
+	repoInfo, err := d.fs.apiClient.InspectRepo(commitView.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -534,20 +534,20 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	result := d.copy()
-	result.File.Commit.Repo.Name = commitMount.Commit.Repo.Name
-	result.File.Commit.ID = commitMount.Commit.ID
-	result.RepoAlias = commitMount.Alias
-	result.Shard = commitMount.Shard
+	result.File.Commit.Repo.Name = commitView.Commit.Repo.Name
+	result.File.Commit.ID = commitView.Commit.ID
+	result.RepoAlias = commitView.Alias
+	result.Shard = commitView.Shard
 
-	if commitMount.Commit.ID == "" {
+	if commitView.Commit.ID == "" {
 		// We don't have a commit mount
 		result.Write = false
 		result.Modified = repoInfo.Created
 		return result, nil
 	}
 	commitInfo, err := d.fs.apiClient.InspectCommit(
-		commitMount.Commit.Repo.Name,
-		commitMount.Commit.ID,
+		commitView.Commit.Repo.Name,
+		commitView.Commit.ID,
 	)
 	if err != nil {
 		return nil, err
@@ -624,7 +624,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 
 func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	var result []fuse.Dirent
-	if len(d.fs.CommitMounts) == 0 {
+	if d.fs.View == nil {
 		repoInfos, err := d.fs.apiClient.ListRepo(nil)
 		if err != nil {
 			return nil, err
@@ -633,7 +633,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
 		}
 	} else {
-		for _, mount := range d.fs.CommitMounts {
+		for _, mount := range d.fs.View.CommitViews {
 			name := mount.Commit.Repo.Name
 			if mount.Alias != "" {
 				name = mount.Alias
