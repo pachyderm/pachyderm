@@ -91,7 +91,7 @@ Now that `edges.json` points to your image, you can create the pipeline with:
 
 ```sh
 # this cmd assumes you've cloned our repo. If not, use the GitHub raw file URL since `-f` can take a URL as well.
-$ pachctl create-pipeline -f docs/examples/opencv/edges.json
+$ pachctl create-pipeline -f doc/examples/opencv/edges.json
 ```
 
 You can check on the status of the pipeline with:
