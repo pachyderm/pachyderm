@@ -28,7 +28,7 @@ def launch_pachyderm(args, env):
         raise Failed()
 
     # scale pachd
-    if subprocess.call('kubectl scale rc pachd --replicas={}'.format(args.cluster_size)) != 0:
+    if subprocess.call('kubectl scale rc pachd --replicas={}'.format(args.cluster_size), shell=True) != 0:
         raise Failed()
 
     # wait for all pachd nodes to be ready
@@ -44,7 +44,7 @@ def clean_cluster(env):
         raise Failed()
 
 def run_benchmark(env):
-    if subprocess.call('kubectl run bench --image="{}" --restart=Never -- make bench'.format(args.pachyderm_compile_image), shell=True) != 0:
+    if subprocess.call('kubectl run -t -i bench --image="{}" --restart=Never -- go test ./src/server -run=XXX -bench={}'.format(args.pachyderm_compile_image, args.benchmark), shell=True) != 0:
         raise Failed()
 
 def gce(args):
@@ -70,16 +70,16 @@ def aws(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run a Pachyderm benchmark on a cloud provider.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--provider', default='GCE', choices=['GCE', 'AWS'], help='the cloud provider to run the benchmark on')
-    parser.add_argument('--cluster-name', default='pachyderm-benchmark')
-    parser.add_argument('--cluster-size', default=4, type=int, help='the number of nodes to run the benchmark on')
-    parser.add_argument('--bucket-name', default='pachyderm-benchmark-bucket-{}'.format(uuid.uuid4()), help='the GCS/S3 bucket to use with the benchmark; will be created if not exist')
-    parser.add_argument('--volume-name', default='pachyderm-benchmark-volume-{}'.format(uuid.uuid4()), help='the persistent volume to use with the benchmark; will be created if not exist')
-    parser.add_argument('--benchmark', default='*', help='a regex expression that specifies the benchmark to run')
-    parser.add_argument('--runs', default=1, type=int, help='how many times the benchmark runs')
-    parser.add_argument('--pachd-image', default="pachyderm/pachd:latest", help='the pachd image to use')
-    parser.add_argument('--job-shim-image', default="pachyderm/job-shim:latest", help='the job-shim image to use')
-    parser.add_argument('--pachyderm-compile-image', default="pachyderm/pachyderm-compile:latest", help='the pachyderm-compile image to use')
+    parser.add_argument('--provider', default='GCE', choices=['GCE', 'AWS'], help='the cloud provider to run the benchmark on.')
+    parser.add_argument('--cluster-name', default='pachyderm-benchmark-{}'.format(str(uuid.uuid4())[:8]), help="the name of the cluster to run the benchmark on; one will be created.")
+    parser.add_argument('--cluster-size', default=4, type=int, help='the number of nodes to run the benchmark on.')
+    parser.add_argument('--bucket-name', default='pachyderm-benchmark-bucket-{}'.format(uuid.uuid4()), help='the GCS/S3 bucket to use with the benchmark; one will be created.')
+    parser.add_argument('--volume-name', default='pachyderm-benchmark-volume-{}'.format(uuid.uuid4()), help='the persistent volume to use with the benchmark; one will be created.')
+    parser.add_argument('--benchmark', default='.', help='a regex expression that specifies the benchmark to run; runs all benchmarks by default.')
+    parser.add_argument('--runs', default=1, type=int, help='how many times the benchmark runs.')
+    parser.add_argument('--pachd-image', default="pachyderm/pachd:latest", help='the pachd image to use.')
+    parser.add_argument('--job-shim-image', default="pachyderm/job-shim:latest", help='the job-shim image to use.')
+    parser.add_argument('--pachyderm-compile-image', default="pachyderm/pachyderm-compile:latest", help='the pachyderm-compile image to use.')
 
     args = parser.parse_args()
 
