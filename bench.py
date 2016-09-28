@@ -83,6 +83,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print("running the benchmark with the following arguments:")
+    print(args)
+
     if args.provider == 'GCE':
         gce(args)
     elif args.provider == 'AWS':
