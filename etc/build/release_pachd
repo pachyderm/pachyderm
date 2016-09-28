@@ -12,5 +12,6 @@ make docker-build-pachd
 make docker-wait-pachd
 docker tag pachyderm/pachd:latest pachyderm/pachd:$VERSION
 docker push pachyderm/pachd:$VERSION
+docker push pachyderm/pachd:latest
 
 echo "--- Successfully released pachd"
