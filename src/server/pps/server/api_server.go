@@ -83,9 +83,10 @@ type apiServer struct {
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
-	versionLock sync.RWMutex
-	namespace   string
-	imageTag    string
+	versionLock        sync.RWMutex
+	namespace          string
+	jobShimImage       string
+	jobImagePullPolicy string
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -367,7 +368,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	job, err := job(a.kubeClient, persistJobInfo, a.imageTag)
+	job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -1671,16 +1672,19 @@ func RepoNameToEnvString(repoName string) string {
 }
 
 // Convert a persist.JobInfo into a Kubernetes batch.Job spec
-func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, imageTag string) (*batch.Job, error) {
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
 	labels := labels(jobInfo.JobID)
 	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
 	}
 	parallelism := int32(parallelism64)
-	image := fmt.Sprintf("pachyderm/job-shim:%s", imageTag)
+	image := jobShimImage
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
+	}
+	if jobImagePullPolicy == "" {
+		jobImagePullPolicy = "IfNotPresent"
 	}
 
 	var jobEnv []api.EnvVar
@@ -1750,7 +1754,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, imageTag string) (*b
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
-							ImagePullPolicy: "IfNotPresent",
+							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
 							Env:             jobEnv,
 							VolumeMounts:    volumeMounts,
 						},
