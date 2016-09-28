@@ -19,7 +19,7 @@ def launch_pachyderm(args, env):
     # Use the user-specified images
     manifest = re.sub('"pachyderm/pachd:.+"', '"{}"'.format(args.pachd_image), manifest)
     manifest = re.sub('"pachyderm/job-shim:.+"', '"{}"'.format(args.job_shim_image), manifest)
-    manifest = manifest.replace('"imagePullPolicy": "IfNotPresent"', '"imagePullPolicy": "Always"')
+    manifest = manifest.replace('IfNotPresent', 'Always')
     tmp_manifest = '/tmp/pachyderm_benchmark_manifest'
     with open(tmp_manifest, 'w') as f:
         f.write(manifest)

@@ -48,20 +48,21 @@ func init() {
 }
 
 type appEnv struct {
-	Port            uint16 `env:"PORT,default=650"`
-	NumShards       uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot     string `env:"PACH_ROOT,required"`
-	StorageBackend  string `env:"STORAGE_BACKEND,default="`
-	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
-	PPSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pps"`
-	PFSDatabaseName string `env:"DATABASE_NAME,default=pachyderm_pfs"`
-	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-	Namespace       string `env:"NAMESPACE,default=default"`
-	Metrics         bool   `env:"METRICS,default=true"`
-	Init            bool   `env:"INIT,default=false"`
-	BlockCacheBytes int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
-	ImageTag        string `env:"IMAGE_TAG,default="`
+	Port               uint16 `env:"PORT,default=650"`
+	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
+	StorageRoot        string `env:"PACH_ROOT,required"`
+	StorageBackend     string `env:"STORAGE_BACKEND,default="`
+	DatabaseAddress    string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
+	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
+	PFSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pfs"`
+	KubeAddress        string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
+	EtcdAddress        string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+	Namespace          string `env:"NAMESPACE,default=default"`
+	Metrics            bool   `env:"METRICS,default=true"`
+	Init               bool   `env:"INIT,default=false"`
+	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
+	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
+	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
 }
 
 func main() {
@@ -162,7 +163,8 @@ func do(appEnvObj interface{}) error {
 		address,
 		kubeClient,
 		getNamespace(),
-		appEnv.ImageTag,
+		appEnv.JobShimImage,
+		appEnv.JobImagePullPolicy,
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
