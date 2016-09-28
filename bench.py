@@ -77,7 +77,9 @@ The typical workflow looks like this:
 2. You `make docker-build` to build the pachd and job-shim images.
 3. You `docker tag` the images with your own namespace.  For instance, I'd tag "pachyderm/pachd:latest" with "derekchiang/pachd:latest".
 4. You push the tagged images to your own namespace.
-5. You run this script with --pachd-image, --job-shim-image, and --pachyderm-compile-image flags pointing to your own images.
+5. You run this script with --pachd-image, --job-shim-image, and --pachyderm-compile-image flags pointing to your own images.  For instance:
+
+    ./bench.py --pachd-image derekchiang/pachd:latest --job-shim-image derekchiang/job-shim:latest --pachyderm-compile-image derekchiang/pachyderm_compile:latest
 '''
 
 if __name__ == '__main__':
