@@ -19,6 +19,7 @@ def launch_pachyderm(args, env):
     # Use the user-specified images
     manifest = re.sub('"pachyderm/pachd:.+"', '"{}"'.format(args.pachd_image), manifest)
     manifest = re.sub('"pachyderm/job-shim:.+"', '"{}"'.format(args.job_shim_image), manifest)
+    manifest = manifest.replace('"imagePullPolicy": "IfNotPresent"', '"imagePullPolicy": "Always"')
     tmp_manifest = '/tmp/pachyderm_benchmark_manifest'
     with open(tmp_manifest, 'w') as f:
         f.write(manifest)
@@ -67,6 +68,17 @@ def gce(args):
 
 def aws(args):
     print('AWS benchmark is not currently supported')
+
+description = '''Run a Pachyderm benchmark on a cloud provider.
+
+The typical workflow looks like this:
+
+1. You write some code.  Maybe even add some new benchmarks.
+2. You `make docker-build` to build the pachd and job-shim images.
+3. You `docker tag` the images with your own namespace.  For instance, I'd tag "pachyderm/pachd:latest" with "derekchiang/pachd:latest".
+4. You push the tagged images to your own namespace.
+5. You run this script with --pachd-image, --job-shim-image, and --pachyderm-compile-image flags pointing to your own images.
+'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run a Pachyderm benchmark on a cloud provider.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
