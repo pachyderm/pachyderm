@@ -56,15 +56,15 @@ def gce(args):
     env['STORAGE_NAME'] = args.volume_name
     env['STORAGE_SIZE'] = '10'  # defaults to 10GB
 
-    try:
-        create_cluster(env)
-        launch_pachyderm(args, env)
-        run_benchmark(env)
-        clean_cluster(env)
-    except Failed:
-        print("something went wrong... removing the cluster...")
-        clean_cluster(env)
-
+    for i in range(args.runs):
+        try:
+            create_cluster(env)
+            launch_pachyderm(args, env)
+            run_benchmark(env)
+            clean_cluster(env)
+        except Failed:
+            print("something went wrong... removing the cluster...")
+            clean_cluster(env)
 
 def aws(args):
     print('AWS benchmark is not currently supported')
