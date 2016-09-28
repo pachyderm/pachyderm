@@ -172,7 +172,15 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 									},
 								},
 								{
-									Name:  "IMAGE_TAG",
+									Name:  "JOB_SHIM_IMAGE",
+									Value: fmt.Sprintf("pachyderm/job-shim:%s", version),
+								},
+								{
+									Name:  "JOB_IMAGE_PULL_POLICY",
+									Value: "IfNotPresent",
+								},
+								{
+									Name:  "PACHD_VERSION",
 									Value: version,
 								},
 								{
