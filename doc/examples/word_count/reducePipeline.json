@@ -1,0 +1,21 @@
+{
+  "pipeline": {
+    "name": "wordcount_reduce"
+  },
+  "transform": {
+    "image": "pachyderm/job-shim",
+    "cmd": ["sh"],
+    "stdin": [
+        "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
+    ]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "wordcount_map"
+      },
+	  "method": "reduce"
+    }
+  ]
+}
+

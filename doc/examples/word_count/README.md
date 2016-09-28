@@ -15,32 +15,8 @@ In this example, we will have three connected pipelines.  We say that two pipeli
 Let's create the first pipeline:
 
 ```
-$ pachctl create-pipeline << EOF
-{
-  "pipeline": {
-    "name": "wordcount_input"
-  },
-  "transform": {
-    "image": "pachyderm/job-shim:latest",
-    "cmd": [ "wget",
-        "-e", "robots=off",
-        "--recursive",
-        "--level", "1",
-        "--adjust-extension",
-        "--no-check-certificate",
-        "--no-directories",
-        "--directory-prefix",
-        "/pfs/out",
-        "https://en.wikipedia.org/wiki/Main_Page"
-    ],
-    "acceptReturnCode": [4,5,6,7,8]
-  },
-  "parallelism_spec": {
-       "strategy" : "CONSTANT",
-       "constant" : 1
-  }
-}
-EOF
+# We assume you're running this from the root of this repo:
+$ pachctl create-pipeline -f doc/examples/word_count/input_pipeline.json
 ```
 
 This first pipeline, `wordcount_input`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline.  We set `parallelism` to 1 because `wget` can't be parallelized.
@@ -70,24 +46,8 @@ $ docker build -t wordcount-map .
 Then, we simply refer to the image in our pipeline:
 
 ```
-$ pachctl create-pipeline << EOF
-{
-  "pipeline": {
-    "name": "wordcount_map"
-  },
-  "transform": {
-    "image": "wordcount-map:latest",
-    "cmd": ["/map", "/pfs/wordcount_input", "/pfs/out"]
-  },
-  "inputs": [
-    {
-      "repo": {
-        "name": "wordcount_input"
-      }
-    }
-  ]
-}
-EOF
+# We assume you're running this from the root of this repo:
+$ pachctl create-pipeline -f doc/examples/word_count/mapPipeline.json
 ```
 
 As soon as you create this pipeline, it will start processing data from `wordcount_input`.  Note that we did not specify a `parallelism` for this pipeline.  In this case, Pachyderm will automatically scale your pipeline based on the number of nodes in the cluster.  
@@ -111,26 +71,14 @@ This shows that there were three containers that wrote to the file `morning`.
 The final pipeline goes through every file and adds up the numbers in each file.  For this pipeline we can use a simple bash script:
 
 ```
-{
-  "pipeline": {
-    "name": "wordcount_reduce"
-  },
-  "transform": {
-    "image": "pachyderm/job-shim:latest",
-    "cmd": ["sh"],
-    "stdin": [
-        "find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done"
-    ]
-  },
-  "inputs": [
-    {
-      "repo": {
-        "name": "wordcount_map"
-      },
-	  "method": "reduce"
-    }
-  ]
-}
+find /pfs/wordcount_map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done
+```
+
+Which we bake into [reducePipeline.json](./reducePipeline.json)
+
+```
+# We assume you're running this from the root of this repo:
+$ pachctl create-pipeline -f doc/examples/word_count/reducePipeline.json
 ```
 
 The final output might look like this:
