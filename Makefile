@@ -19,9 +19,12 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
-CLUSTER_NAME = pachyderm
 VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+
+CLUSTER_NAME?=pachyderm
+CLUSTER_MACHINE_TYPE?=n1-standard-4
+CLUSTER_SIZE?=4
 
 ifndef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
@@ -248,15 +251,15 @@ kubectl:
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
-google-cluster-manifest: install
+google-cluster-manifest:
 	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
-	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
+	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
-	gcloud components update kubectl
-	gcloud compute firewall-rules create pachd --allow=tcp:30650
+	gcloud components install kubectl
+	-gcloud compute firewall-rules create pachd --allow=tcp:30650
 	gsutil mb gs://$(BUCKET_NAME) # for PFS
 	gcloud compute disks create --size=$(STORAGE_SIZE)GB $(STORAGE_NAME) # for PPS
 
