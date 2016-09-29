@@ -18,7 +18,7 @@ const (
 
 // APIServer represents and api server.
 type APIServer interface {
-	pfsclient.APIServer // SJ: also bad naming
+	pfsclient.APIServer
 }
 
 // NewAPIServer creates an APIServer.
@@ -27,12 +27,12 @@ func NewAPIServer(driver drive.Driver) APIServer {
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.
-func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) { // SJ: also bad naming
+func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) {
 	return newLocalBlockAPIServer(dir)
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
+func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (pfsclient.BlockAPIServer, error) {
 	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
