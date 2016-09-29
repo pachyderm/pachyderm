@@ -31,7 +31,7 @@ func (w *CountWriter) Write(p []byte) (int, error) {
 
 func BenchmarkPachyderm(b *testing.B) {
 	repo := uniqueString("BenchmarkPachyderm")
-	c, err := client.NewFromAddress("0.0.0.0:30650")
+	c, err := client.NewInCluster()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
