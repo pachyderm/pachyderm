@@ -38,9 +38,9 @@ import (
 	"sync"
 
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/naming"
-	"google.golang.org/grpc/transport"
 )
 
 // Address represents a server the client connects to.
@@ -51,6 +51,14 @@ type Address struct {
 	// Metadata is the information associated with Addr, which may be used
 	// to make load balancing decision.
 	Metadata interface{}
+}
+
+// BalancerConfig specifies the configurations for Balancer.
+type BalancerConfig struct {
+	// DialCreds is the transport credential the Balancer implementation can
+	// use to dial to a remote load balancer server. The Balancer implementations
+	// can ignore this if it does not need to talk to another party securely.
+	DialCreds credentials.TransportCredentials
 }
 
 // BalancerGetOptions configures a Get call.
@@ -67,11 +75,11 @@ type Balancer interface {
 	// Start does the initialization work to bootstrap a Balancer. For example,
 	// this function may start the name resolution and watch the updates. It will
 	// be called when dialing.
-	Start(target string) error
+	Start(target string, config BalancerConfig) error
 	// Up informs the Balancer that gRPC has a connection to the server at
 	// addr. It returns down which is called once the connection to addr gets
 	// lost or closed.
-	// TODO: It is not clear how to construct and take advantage the meaningful error
+	// TODO: It is not clear how to construct and take advantage of the meaningful error
 	// parameter for down. Need realistic demands to guide.
 	Up(addr Address) (down func(error))
 	// Get gets the address of a server for the RPC corresponding to ctx.
@@ -94,10 +102,10 @@ type Balancer interface {
 	// instead of blocking.
 	//
 	// The function returns put which is called once the rpc has completed or failed.
-	// put can collect and report RPC stats to a remote load balancer. gRPC internals
-	// will try to call this again if err is non-nil (unless err is ErrClientConnClosing).
+	// put can collect and report RPC stats to a remote load balancer.
 	//
-	// TODO: Add other non-recoverable errors?
+	// This function should only return the errors Balancer cannot recover by itself.
+	// gRPC internals will fail the RPC if an error is returned.
 	Get(ctx context.Context, opts BalancerGetOptions) (addr Address, put func(), err error)
 	// Notify returns a channel that is used by gRPC internals to watch the addresses
 	// gRPC needs to connect. The addresses might be from a name resolver or remote
@@ -158,14 +166,15 @@ type roundRobin struct {
 func (rr *roundRobin) watchAddrUpdates() error {
 	updates, err := rr.w.Next()
 	if err != nil {
-		grpclog.Println("grpc: the naming watcher stops working due to %v.", err)
+		grpclog.Printf("grpc: the naming watcher stops working due to %v.\n", err)
 		return err
 	}
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	for _, update := range updates {
 		addr := Address{
-			Addr: update.Addr,
+			Addr:     update.Addr,
+			Metadata: update.Metadata,
 		}
 		switch update.Op {
 		case naming.Add:
@@ -205,7 +214,12 @@ func (rr *roundRobin) watchAddrUpdates() error {
 	return nil
 }
 
-func (rr *roundRobin) Start(target string) error {
+func (rr *roundRobin) Start(target string, config BalancerConfig) error {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	if rr.done {
+		return ErrClientConnClosing
+	}
 	if rr.r == nil {
 		// If there is no name resolver installed, it is not needed to
 		// do name resolution. In this case, target is added into rr.addrs
@@ -298,8 +312,19 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 			}
 		}
 	}
-	// There is no address available. Wait on rr.waitCh.
-	// TODO(zhaoq): Handle the case when opts.BlockingWait is false.
+	if !opts.BlockingWait {
+		if len(rr.addrs) == 0 {
+			rr.mu.Unlock()
+			err = fmt.Errorf("there is no address available")
+			return
+		}
+		// Returns the next addr on rr.addrs for failfast RPCs.
+		addr = rr.addrs[rr.next].addr
+		rr.next++
+		rr.mu.Unlock()
+		return
+	}
+	// Wait on rr.waitCh for non-failfast RPCs.
 	if rr.waitCh == nil {
 		ch = make(chan struct{})
 		rr.waitCh = ch
@@ -310,7 +335,7 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 	for {
 		select {
 		case <-ctx.Done():
-			err = transport.ContextErr(ctx.Err())
+			err = ctx.Err()
 			return
 		case <-ch:
 			rr.mu.Lock()
