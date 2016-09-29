@@ -34,7 +34,7 @@ started and finished.
 
 Let's start a new commit in the “urls” repo:
 ```shell
-$ pachctl start-commit urls
+$ pachctl start-commit urls master
 master/0
 ```
 
@@ -130,7 +130,7 @@ from `/pfs/urls/urls` (/pfs/[input_repo_name]) and write data to `/pfs/out/`.  W
 Now let's create the pipeline in Pachyderm:
 
 ```shell
-$ pachctl create-pipeline -f examples/scraper/scraper.json
+$ pachctl create-pipeline -f doc/examples/scraper/scraper.json
 ```
 
 ## What Happens When You Create a Pipeline
