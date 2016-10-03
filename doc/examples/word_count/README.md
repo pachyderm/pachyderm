@@ -8,7 +8,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 ## Pipelines
 
-In this example, we will have three connected pipelines.  We say that two pipelines are "connected" if one pipeline's output is the input of the other. 
+In this example, we will have three connected pipelines.  We say that two pipelines are "connected" if one pipeline's output is the input of the other.
 
 ## wordcount_input
 
@@ -50,13 +50,13 @@ Then, we simply refer to the image in our pipeline:
 $ pachctl create-pipeline -f doc/examples/word_count/mapPipeline.json
 ```
 
-As soon as you create this pipeline, it will start processing data from `wordcount_input`.  Note that we did not specify a `parallelism` for this pipeline.  In this case, Pachyderm will automatically scale your pipeline based on the number of nodes in the cluster.  
+As soon as you create this pipeline, it will start processing data from `wordcount_input`.  Note that we did not specify a `parallelism` for this pipeline.  In this case, Pachyderm will automatically scale your pipeline based on the number of nodes in the cluster.
 
 To parallelize the pipeline, Pachyderm spins up N concurrently running containers where each container gets `1/N` of the data.  For each word a container encounters, it writes a file whose filename is the word, and whose content is the number of occurrences.  If multiple containers write the same file, the content is merged.  As an example, the file `morning` might look like this:
 
 ```
 $ pachctl list-job -p wordcount_map  # use this command to find out the output commit ID
-ID                                 OUTPUT                                           STARTED             DURATION            STATE               
+ID                                 OUTPUT                                           STARTED             DURATION            STATE
 6600c71be4e8604f716ce1965895dc27   wordcount_map/5b0e5c8f345b4f8c9690c77333564687   46 hours ago        -                   success
 $ pachctl get-file wordcount_map 5b0e5c8f345b4f8c9690c77333564687 morning  # your commit ID will be different
 217
