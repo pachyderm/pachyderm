@@ -45,7 +45,7 @@ def clean_cluster(env):
         raise Failed()
 
 def run_benchmark(env):
-    if subprocess.call('kubectl run -t -i bench --image="{}" --restart=Never -- go test ./src/server -run=XXX -bench={}'.format(args.pachyderm_compile_image, args.benchmark), shell=True) != 0:
+    if subprocess.call('kubectl run -t -i bench-{} --image="{}" --restart=Never -- go test ./src/server -run=XXX -bench={}'.format(uuid.uuid4(), args.pachyderm_compile_image, args.benchmark), shell=True) != 0:
         raise Failed()
 
 def gce(args):
