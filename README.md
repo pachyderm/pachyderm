@@ -11,12 +11,12 @@ Pachyderm is [Git for Data Science](http://pachyderm.io/pfs.html). We offer comp
 Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc) without any additional infrastructure overhead. 
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/installation.html) or [deploy on AWS/GCE](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) in about 5 minutes. 
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) in about 5 minutes. 
 
 You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:
-- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/examples.html)
+- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/readme.html)
 - [Use Cases](http://www.pachyderm.io/use_cases.html)
 - [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
