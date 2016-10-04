@@ -2,9 +2,7 @@ package obj
 
 import (
 	"io"
-	"reflect"
-
-	"go.pedge.io/lion/proto"
+	"strings"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
@@ -76,14 +74,12 @@ func (c *googleClient) Delete(name string) error {
 }
 
 func (c *googleClient) IsRetryable(err error) (ret bool) {
-	defer func() {
-		protolion.Infof("retryable: %v; type of err: %s; err: %v", ret, reflect.TypeOf(err).String(), err)
-	}()
 	googleErr, ok := err.(*googleapi.Error)
 	if !ok {
 		return false
 	}
-	return googleErr.Code >= 500
+	// https://github.com/pachyderm/pachyderm/issues/912
+	return googleErr.Code >= 500 || strings.Contains(err.Error(), "Parse Error")
 }
 
 func (c *googleClient) IsNotExist(err error) bool {
