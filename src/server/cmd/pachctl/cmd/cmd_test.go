@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	api "k8s.io/kubernetes/pkg/api/v1"
 )
 
 func TestMetrics(t *testing.T) {
@@ -37,44 +37,80 @@ func TestMetrics(t *testing.T) {
 	out := <-outC
 
 	decoder := json.NewDecoder(strings.NewReader(out))
+	foundPachdManifest := false
 	for {
-		var jsonObj json.RawMessage
-		err = decoder.Decode(&jsonObj)
+		var manifest *api.ReplicationController
+		err = decoder.Decode(&manifest)
 		if err == io.EOF {
 			break
 		}
+		if err != nil {
+			continue
+		}
 		require.NoError(t, err)
-		var manifests []interface{}
-		for _, obj := range manifests {
-			manifest, ok := obj.(map[string]interface{})
-			require.Equal(t, true, ok)
-			metadata, ok := manifest["metadata"].(map[string]interface{})
-			require.Equal(t, true, ok)
-			name, ok := metadata["name"].(string)
-			require.Equal(t, true, ok)
 
-			if name == "pachd" {
-				spec, ok := manifest["spec"].(map[string]interface{})
-				require.Equal(t, true, ok)
-				template, ok := spec["template"].(map[string]interface{})
-				require.Equal(t, true, ok)
-				innerSpec, ok := template["spec"].(map[string]interface{})
-				require.Equal(t, true, ok)
-				containers, ok := innerSpec["containers"].([]interface{})
-				require.Equal(t, true, ok)
-				container, ok := containers[0].(map[string]interface{})
-				require.Equal(t, true, ok)
-				env, ok := container["env"].([]interface{})
-				require.Equal(t, true, ok)
-				metricsSetToTrue := map[string]string{
-					"name":  "METRICS",
-					"value": "true",
-				}
-				fmt.Printf("env: %v\n", env)
-				require.OneOfEquals(t, metricsSetToTrue, env)
+		if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "ReplicationController" {
+			foundPachdManifest = true
+			falseMetricEnvVar := api.EnvVar{
+				Name:  "METRICS",
+				Value: "true",
 			}
+			var env []interface{}
+			require.Equal(t, 1, len(manifest.Spec.Template.Spec.Containers))
+			for _, value := range manifest.Spec.Template.Spec.Containers[0].Env {
+				env = append(env, value)
+			}
+			require.OneOfEquals(t, interface{}(falseMetricEnvVar), env)
 		}
 	}
+	require.Equal(t, true, foundPachdManifest)
 
 	// Run deploy w dev flag, should see METRICS=false
+	r, w, _ = os.Pipe()
+	os.Stdout = w
+
+	os.Args = []string{"deploy", "-d", "--dry-run"}
+	err = deploycmds.DeployCmd().Execute()
+	require.NoError(t, err)
+	outC = make(chan string)
+	// copy the output in a separate goroutine so printing can't block indefinitely
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- buf.String()
+	}()
+
+	// restore stdout
+	w.Close()
+	os.Stdout = old
+	out = <-outC
+
+	decoder = json.NewDecoder(strings.NewReader(out))
+	foundPachdManifest = false
+	for {
+		var manifest *api.ReplicationController
+		err = decoder.Decode(&manifest)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+		require.NoError(t, err)
+
+		if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "ReplicationController" {
+			foundPachdManifest = true
+			falseMetricEnvVar := api.EnvVar{
+				Name:  "METRICS",
+				Value: "false",
+			}
+			var env []interface{}
+			require.Equal(t, 1, len(manifest.Spec.Template.Spec.Containers))
+			for _, value := range manifest.Spec.Template.Spec.Containers[0].Env {
+				env = append(env, value)
+			}
+			require.OneOfEquals(t, interface{}(falseMetricEnvVar), env)
+		}
+	}
+	require.Equal(t, true, foundPachdManifest)
 }
