@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
 	"go.pedge.io/lion"
@@ -38,8 +39,14 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 	for _, commitMount := range commitMounts {
 		repo := commitMount.Commit.Repo.Name
 		commitID := commitMount.Commit.ID
-		fromCommitID := commitMount.DiffMethod.FromCommit.ID
-		fullFile := commitMount.DiffMethod.FullFile
+		var fromCommitID string
+		if commitMount.DiffMethod != nil && commitMount.DiffMethod.FromCommit != nil {
+			fromCommitID = commitMount.DiffMethod.FromCommit.ID
+		}
+		var fullFile bool
+		if commitMount.DiffMethod != nil {
+			fullFile = commitMount.DiffMethod.FullFile
+		}
 		shard := commitMount.Shard
 		if commitMount.Alias == "prev" || commitMount.Alias == "out" {
 			continue
@@ -62,7 +69,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			if err := c.GetFile(repo, commitID, path, 0, 0, fromCommitID, fullFile, shard, w); err != nil {
 				return err
 			}
-			if err := w.Flush(); w != nil {
+			if err := w.Flush(); err != nil {
 				return err
 			}
 		}
@@ -74,6 +81,9 @@ func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
 	repo := out.Commit.Repo.Name
 	commit := out.Commit.ID
 	return filepath.Walk(PFSOutputPrefix, func(path string, info os.FileInfo, err error) error {
+		if path == PFSOutputPrefix {
+			return nil
+		}
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -119,7 +129,8 @@ func do(appEnvObj interface{}) error {
 			// Make sure that we call FinishJob even if something caused a panic
 			defer func() {
 				if r := recover(); r != nil && !finished {
-					fmt.Println("job shim crashed; this is like a bug in pachyderm")
+					fmt.Println("job shim crashed; this is likely a bug in pachyderm")
+					fmt.Printf("%s\n", r)
 					if _, err := ppsClient.FinishJob(
 						context.Background(),
 						&ppsserver.FinishJobRequest{
