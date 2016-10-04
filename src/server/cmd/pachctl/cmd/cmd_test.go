@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -23,20 +21,11 @@ func TestMetrics(t *testing.T) {
 	os.Args = []string{"deploy", "--dry-run"}
 	err := deploycmds.DeployCmd().Execute()
 	require.NoError(t, err)
-	outC := make(chan string)
-	// copy the output in a separate goroutine so printing can't block indefinitely
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outC <- buf.String()
-	}()
-
+	require.NoError(t, w.Close())
 	// restore stdout
-	w.Close()
 	os.Stdout = old
-	out := <-outC
 
-	decoder := json.NewDecoder(strings.NewReader(out))
+	decoder := json.NewDecoder(r)
 	foundPachdManifest := false
 	for {
 		var manifest *api.ReplicationController
@@ -72,20 +61,11 @@ func TestMetrics(t *testing.T) {
 	os.Args = []string{"deploy", "-d", "--dry-run"}
 	err = deploycmds.DeployCmd().Execute()
 	require.NoError(t, err)
-	outC = make(chan string)
-	// copy the output in a separate goroutine so printing can't block indefinitely
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outC <- buf.String()
-	}()
-
+	require.NoError(t, w.Close())
 	// restore stdout
-	w.Close()
 	os.Stdout = old
-	out = <-outC
 
-	decoder = json.NewDecoder(strings.NewReader(out))
+	decoder = json.NewDecoder(r)
 	foundPachdManifest = false
 	for {
 		var manifest *api.ReplicationController
@@ -96,7 +76,6 @@ func TestMetrics(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		require.NoError(t, err)
 
 		if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "ReplicationController" {
 			foundPachdManifest = true
