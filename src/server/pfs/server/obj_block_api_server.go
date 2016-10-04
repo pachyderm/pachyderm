@@ -139,26 +139,38 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
 		eg.Go(func() (retErr error) {
-			path := s.localServer.blockPath(blockRef.Block)
-			// We don't want to overwrite blocks that already exist, since:
-			// 1) blocks are content-addressable, so it will be the same block
-			// 2) we risk exceeding the object store's rate limit
-			if s.objClient.Exists(path) {
-				return nil
-			}
-			writer, err := s.objClient.Writer(path)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := writer.Close(); err != nil && retErr == nil {
-					retErr = err
+			backoff.RetryNotify(func() error {
+				path := s.localServer.blockPath(blockRef.Block)
+				// We don't want to overwrite blocks that already exist, since:
+				// 1) blocks are content-addressable, so it will be the same block
+				// 2) we risk exceeding the object store's rate limit
+				if s.objClient.Exists(path) {
+					return nil
 				}
-			}()
-			if _, err := writer.Write(data); err != nil {
-				return err
-			}
-			return nil
+				writer, err := s.objClient.Writer(path)
+				if err != nil {
+					retErr = err
+					return nil
+				}
+				if _, err := writer.Write(data); err != nil {
+					retErr = err
+					return nil
+				}
+				if err := writer.Close(); err != nil {
+					if s.objClient.IsRetryable(err) {
+						return err
+					}
+					retErr = err
+					return nil
+				}
+				return nil
+			}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+				protolion.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
+					Err:               err.Error(),
+					TimeTillNextRetry: d.String(),
+				})
+			})
+			return
 		})
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
