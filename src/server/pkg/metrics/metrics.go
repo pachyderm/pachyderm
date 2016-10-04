@@ -1,19 +1,21 @@
 package metrics
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 
+	"github.com/dancannon/gorethink"
 	"go.pedge.io/lion/proto"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 var metrics = &Metrics{}
 
-func latestMetricsFromDB(dbClient *gorethink.Session, metric *Metric) {
+func latestMetricsFromDB(dbClient *gorethink.Session, metrics *Metrics) {
 	term := gorethink.DB(dbClient.Database())
 	cursor, err := term.Object(
 		"Repos",
@@ -25,7 +27,7 @@ func latestMetricsFromDB(dbClient *gorethink.Session, metric *Metric) {
 		"Pipelines",
 		term.Table("Pipelines").GetAll().Count(),
 	).Run(dbClient)
-	cursor.One(&metric)
+	cursor.One(&metrics)
 }
 
 // ReportMetrics blocks and reports metrics, if modified, to the
@@ -35,13 +37,11 @@ func ReportMetrics(clusterID string, kubeClient *kube.Client, dbClient *gorethin
 	metrics.PodID = uuid.NewWithoutDashes()
 	metrics.Version = version.PrettyPrintVersion(version.Version)
 	for {
-		write := atomic.SwapInt64(&modified, 0)
-		if write == 1 {
-			externalMetrics(kubeClient, metrics)
-			latestMetricsFromDB(dbClient, metrics)
-			protolion.Info(metrics)
-			reportSegment(metrics)
-		}
+		externalMetrics(kubeClient, metrics)
+		latestMetricsFromDB(dbClient, metrics)
+		protolion.Info(metrics)
+		fmt.Printf("Writing metrics: %v\n", metrics)
+		reportSegment(metrics)
 		<-time.After(15 * time.Second)
 	}
 }
