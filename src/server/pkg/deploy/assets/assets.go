@@ -63,7 +63,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 	// we turn metrics on only if we have a static version this prevents dev
 	// clusters from reporting metrics
 	metrics := "true"
-	if version == "" {
+	if version == "local" {
 		metrics = "false"
 	}
 	volumes := []api.Volume{
