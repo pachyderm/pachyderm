@@ -125,7 +125,7 @@ func do(appEnvObj interface{}) error {
 		if err != nil {
 			return err
 		}
-		go metrics.ReportMetrics(clusterID, kubeClient, dbClient)
+		go metrics.ReportMetrics(clusterID, kubeClient, dbClient, appEnv.PFSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
