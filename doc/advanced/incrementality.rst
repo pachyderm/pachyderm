@@ -3,7 +3,7 @@ Incrementality
 
 Incrementality is an advanced feature of Pachdyerm that let's you only process the "diff" of data for each run of a pipeline. Since Pachyderm's underlying storage is version controlled and diff-aware, your processing code can take advantage of that to maximize efficiency. 
 
-Due to Math, incrementality only works one some types of computation.
+Due to Math, incrementality only works on some types of computation.
 
 Method
 ------
