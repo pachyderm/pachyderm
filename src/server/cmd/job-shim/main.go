@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -19,12 +21,70 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	PFSInputPrefix  = "/pfs"
+	PFSOutputPrefix = "/pfs/out"
+)
+
 type appEnv struct {
 	PachydermAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 }
 
 func main() {
 	env.Main(do, &appEnv{})
+}
+
+func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
+	for _, commitMount := range commitMounts {
+		repo := commitMount.Commit.Repo.Name
+		commitID := commitMount.Commit.ID
+		fromCommitID := commitMount.DiffMethod.FromCommit.ID
+		fullFile := commitMount.DiffMethod.FullFile
+		shard := commitMount.Shard
+		if commitMount.Alias == "prev" || commitMount.Alias == "out" {
+			continue
+		}
+		fileInfos, err := c.ListFile(repo, commitID, "/", fromCommitID, fullFile, shard, false)
+		if err != nil {
+			return err
+		}
+		for _, fileInfo := range fileInfos {
+			if err := os.MkdirAll(filepath.Join(PFSInputPrefix, repo), 0777); err != nil {
+				return err
+			}
+			path := filepath.Join(PFSInputPrefix, repo, fileInfo.File.Path)
+			f, err := os.Create(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			w := bufio.NewWriter(f)
+			if err := c.GetFile(repo, commitID, path, 0, 0, fromCommitID, fullFile, shard, w); err != nil {
+				return err
+			}
+			if err := w.Flush(); w != nil {
+				return err
+			}
+		}
+	}
+	return os.MkdirAll(PFSOutputPrefix, 0777)
+}
+
+func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
+	repo := out.Commit.Repo.Name
+	commit := out.Commit.ID
+	return filepath.Walk(PFSOutputPrefix, func(path string, info os.FileInfo, err error) error {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		relPath, err := filepath.Rel(PFSOutputPrefix, path)
+		if err != nil {
+			return err
+		}
+		_, err = c.PutFile(repo, commit, relPath, f)
+		return err
+	})
 }
 
 func do(appEnvObj interface{}) error {
@@ -80,31 +140,10 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, c)
-			ready := make(chan bool)
-			errCh := make(chan error)
-			go func() {
-				if err := mounter.MountAndCreate(
-					"/pfs",
-					nil,
-					response.CommitMounts,
-					ready,
-					response.Transform.Debug,
-					false,
-				); err != nil {
-					errCh <- err
-				}
-			}()
-			select {
-			case <-ready:
-			case err := <-errCh:
+			if err := downloadInput(c, response.CommitMounts); err != nil {
 				return err
 			}
-			defer func() {
-				if err := mounter.Unmount("/pfs"); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
+
 			var readers []io.Reader
 			for _, line := range response.Transform.Stdin {
 				readers = append(readers, strings.NewReader(line+"\n"))
@@ -155,7 +194,15 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			finished = true
-			return nil
+
+			var outputMount *fuse.CommitMount
+			for _, c := range response.CommitMounts {
+				if c.Alias == "out" {
+					outputMount = c
+					break
+				}
+			}
+			return uploadOutput(c, outputMount)
 		}),
 	}
 
