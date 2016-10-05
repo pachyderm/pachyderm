@@ -5,7 +5,7 @@ Local Installation
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/engine/installation) >= 1.10
-- [Kubectl (Kubernetes CLI)](#kubectl) >= 1.3.5
+- [Kubectl (Kubernetes CLI)](#kubectl) >= 1.4.0
 - [Pachyderm Command Line Interface](#pachctl)
 - [FUSE (optional)](#fuse-optional) >= 2.8.2
 
@@ -15,11 +15,11 @@ TODO Last stable release
 ### Kubectl
 
 
-Make sure you have version 1.3.5 or higher.
+Make sure you have version 1.4.0 or higher.
 
 ```shell
 # Darwin (OS X)
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.3.5/bin/darwin/amd64/kubectl
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/darwin/amd64/kubectl
 ```
 Note: If you don't have wget, just copy the link into your browser.
 
@@ -57,7 +57,7 @@ $ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
 
 ```sh
 # Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.3.5/bin/linux/amd64/kubectl
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linux/amd64/kubectl
 ```
 
 ```sh
