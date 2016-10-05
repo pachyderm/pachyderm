@@ -1169,25 +1169,28 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func TestPipelineWithDifferentInputMethods1(t *testing.T) {
+func TestPipelineInputReduceReduce(t *testing.T) {
 	testPipelineWithTwoIncrementalInputs(t, client.IncrementalReduceMethod, client.IncrementalReduceMethod)
 }
 
-func TestPipelineWithDifferentInputMethods2(t *testing.T) {
+func TestPipelineInputReduceIncrementalGlobal(t *testing.T) {
 	testPipelineWithTwoIncrementalInputs(t, client.IncrementalReduceMethod, &ppsclient.Method{
 		Partition:   ppsclient.Partition_REPO,
 		Incremental: ppsclient.Incremental_DIFF,
 	})
 }
 
-func TestPipelineWithDifferentInputMethods3(t *testing.T) {
+func TestPipelineInputReduceMap(t *testing.T) {
 	testPipelineWithTwoIncrementalInputs(t, client.IncrementalReduceMethod, client.MapMethod)
 }
 
-func TestPipelineWithDifferentInputMethods4(t *testing.T) {
+func TestPipelineInputMapMap(t *testing.T) {
 	testPipelineWithTwoIncrementalInputs(t, client.MapMethod, client.MapMethod)
 }
 
+// testPipelineWithTwoIncrementalInputs runs a pipeline with two incremental
+// inputs.  It commits data into each input and checks that the output is what
+// you'd expect.
 func testPipelineWithTwoIncrementalInputs(t *testing.T, method1 *ppsclient.Method, method2 *ppsclient.Method) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
