@@ -1335,6 +1335,12 @@ done
 	}
 }
 
+// TestPipelineWithNonIncrementalInputs runs a pipeline with an incremental
+// input and a non-incremental one.  The only difference between this test and
+// testPipelineWithTwoIncrementalInputs is that it doesn't require the
+// third job (the one that's triggered by the second commit in the second repo)
+// to be the child of the second job (the one triggered by the second commit in
+// the first repo), since the second repo is non-incremental.
 func TestPipelineWithNonIncrementalInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
