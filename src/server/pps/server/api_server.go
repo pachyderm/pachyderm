@@ -401,6 +401,11 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 	var inputSizes []uint64
 	limitHit := make(map[int]bool)
 	for i, input := range inputs {
+		if input.Method.Partition == ppsclient.Partition_REPO {
+			// A global input shouldn't be partitioned
+			limitHit[i] = true
+		}
+
 		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: input.Commit,
 		})
@@ -410,7 +415,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 
 		if commitInfo.SizeBytes == 0 {
 			if input.RunEmpty {
-				// An empty input will always have a modulus of 1
+				// An empty input shouldn't be partitioned
 				limitHit[i] = true
 			} else {
 				return nil, newErrEmptyInput(input.Commit.ID)
