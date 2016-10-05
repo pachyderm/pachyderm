@@ -16,13 +16,13 @@ If you hit any errors not covered in this guide, check our :doc:`troubleshooting
 Prerequisites
 ^^^^^^^^^^^^^
 
-This guide assumes that you already have Pachyderm running locally. Check out our :doc:`local_installation` instructions if haven't done that yet and then come back here to continue. 
+This guide assumes that you already have Pachyderm running locally. Check out our :doc:`local_installation` instructions if haven't done that yet and then come back here to continue.
 
 
 Create a Repo
 ^^^^^^^^^^^^^
 
-A ``repo`` is the highest level primitive in the Pachyderm file system (pfs). Like all primitives in pfs, it shares it's name with a primitive in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them. 
+A ``repo`` is the highest level primitive in the Pachyderm file system (pfs). Like all primitives in pfs, it shares it's name with a primitive in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
 
 For this demo, we'll simply create a repo called
 "data" to hold the data we want to process:
@@ -39,9 +39,9 @@ For this demo, we'll simply create a repo called
 Adding Data to Pachyderm
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now that we've created a repo it's time to add some data. In Pachyderm, you write data to an explicit ``commit`` (again, similar to Git). Commits are immutable snapshots of your data which give Pachyderm its version control properties. ``Files`` can be added, removed, or updated in a given commit and then you can view a diff of those changes compared to a previous commit. 
+Now that we've created a repo it's time to add some data. In Pachyderm, you write data to an explicit ``commit`` (again, similar to Git). Commits are immutable snapshots of your data which give Pachyderm its version control properties. ``Files`` can be added, removed, or updated in a given commit and then you can view a diff of those changes compared to a previous commit.
 
-Let's start by just adding a file to a new commit. We've provided a sample data file for you to use in our GitHub repo -- it's a list of purchases from a fruit stand. 
+Let's start by just adding a file to a new commit. We've provided a sample data file for you to use in our GitHub repo -- it's a list of purchases from a fruit stand.
 
 We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f`` can take either a local file or a URL, in our case, the sample data on GitHub.
 
@@ -49,9 +49,9 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 .. code-block:: shell
 
-	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/doc/examples/fruit_stand/set1.txt
+	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set1.txt
 
-Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner. 
+Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner.
 
 Finally, we can see the data we just added to Pachyderm.
 
@@ -82,7 +82,7 @@ Now that we've got some data in our repo, it's time to do something with it.
 ``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at `examples/fruit_stand/pipeline.json on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/fruit_stand/pipeline.json>`_. Please open a new tab to view the pipeline while we talk through it.
 
-When you want to create your own pipelines later, you can refer to the full :doc:`../development/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here. 
+When you want to create your own pipelines later, you can refer to the full :doc:`../development/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
 
 For now, we're going to create a pipeline with 2 transformations in it. The first transformation filters the sales logs into separate records for apples,
 oranges and bananas. The second step sums these sales numbers into a final sales count.
@@ -93,15 +93,15 @@ oranges and bananas. The second step sums these sales numbers into a final sales
  |input data| --> |filter pipline| --> |sum pipeline|
  +----------+     +--------------+     +------------+
 
-In the first step of this pipeline, we are grepping for the terms "apple", "orange", and "banana" and writing that line to the corresponding file. Notice we read data from ``/pfs/data`` (``/pfs/[input_repo_name]``) and write data to ``/pfs/out/``. These are special local directories that Pachyderm creates within the container for you. All the input data will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``. 
+In the first step of this pipeline, we are grepping for the terms "apple", "orange", and "banana" and writing that line to the corresponding file. Notice we read data from ``/pfs/data`` (``/pfs/[input_repo_name]``) and write data to ``/pfs/out/``. These are special local directories that Pachyderm creates within the container for you. All the input data will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``.
 
-The second step of this pipeline takes each file, removes the fruit name, and sums up the purchases. The output of our complete pipeline is three files, one for each type of fruit with a single number showing the total quantity sold. 
+The second step of this pipeline takes each file, removes the fruit name, and sums up the purchases. The output of our complete pipeline is three files, one for each type of fruit with a single number showing the total quantity sold.
 
 Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
- $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/doc/examples/fruit_stand/pipeline.json
+ $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/pipeline.json
 
 
 What Happens When You Create a Pipeline
@@ -150,17 +150,17 @@ created. Think of pipelines as being subscribed to any new commits that are
 finished on their input repo(s). Also similar to Git, commits have a parental
 structure that track how files change over time. In this case we're going to be adding more data to the same file "sales."
 
-In our fruit stand example, this could be making a commit every hour with all the new purchases that happened in that timeframe. 
+In our fruit stand example, this could be making a commit every hour with all the new purchases that happened in that timeframe.
 
 Let's create a new commit with our previous commit as the parent and add more sample data (set2.txt) to "sales":
 
 .. code-block:: shell
 
-  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.0/examples/fruit_stand/set2.txt
+  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set2.txt
 
 Adding a new commit of data will automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
-"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold. 
+"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold.
 
 .. code-block:: shell
 
@@ -216,15 +216,15 @@ other local filesystem such as using ``ls`` or pointing your browser at it.
 
 .. note::
 
- Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts. 
+ Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts.
 
 Next Steps
 ^^^^^^^^^^
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.0/doc/examples/fruit_stand/generate>`_ if you want to use it. 
+- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.1/doc/examples/fruit_stand/generate>`_ if you want to use it.
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
-- Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count. 
+- Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count.
 
 You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
@@ -232,4 +232,4 @@ You can also start learning some of the more advanced topics to develop analysis
 - :doc:`../development/inputing_your_data` from other sources
 - :doc:`../development/custom_pipelines` using your own code
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created! 
+We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
