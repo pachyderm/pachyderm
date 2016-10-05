@@ -26,7 +26,7 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-ifndef TRAVIS_BUILD_NUMBER
+ifdef TRAVIS_BUILD_NUMBER
 	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
 	TIMEOUT = 100s
 else
