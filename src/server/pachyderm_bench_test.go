@@ -78,8 +78,8 @@ func BenchmarkPachyderm(b *testing.B) {
 			require.NoError(b, c.CreatePipeline(
 				pipeline,
 				"",
-				[]string{"cp", "-R", path.Join("/pfs", repo), "/pfs/out/"},
-				nil,
+				[]string{"bash"},
+				[]string{fmt.Sprintf("cp %s /pfs/out/", path.Join("/pfs", repo, "/*"))},
 				&ppsclient.ParallelismSpec{
 					Strategy: ppsclient.ParallelismSpec_CONSTANT,
 					Constant: 1,

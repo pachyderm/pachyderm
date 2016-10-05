@@ -37,6 +37,9 @@ func main() {
 
 func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
 	for _, commitMount := range commitMounts {
+		if commitMount.Alias == "prev" || commitMount.Alias == "out" {
+			continue
+		}
 		repo := commitMount.Commit.Repo.Name
 		commitID := commitMount.Commit.ID
 		var fromCommitID string
@@ -48,9 +51,6 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			fullFile = commitMount.DiffMethod.FullFile
 		}
 		shard := commitMount.Shard
-		if commitMount.Alias == "prev" || commitMount.Alias == "out" {
-			continue
-		}
 		fileInfos, err := c.ListFile(repo, commitID, "/", fromCommitID, fullFile, shard, false)
 		if err != nil {
 			return err
@@ -66,7 +66,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			}
 			defer f.Close()
 			w := bufio.NewWriter(f)
-			if err := c.GetFile(repo, commitID, path, 0, 0, fromCommitID, fullFile, shard, w); err != nil {
+			if err := c.GetFile(repo, commitID, fileInfo.File.Path, 0, 0, fromCommitID, fullFile, shard, w); err != nil {
 				return err
 			}
 			if err := w.Flush(); err != nil {
@@ -85,6 +85,11 @@ func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
 			return nil
 		}
 		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		fileInfo, err := f.Stat()
 		if err != nil {
 			return err
 		}
@@ -194,6 +199,19 @@ func do(appEnvObj interface{}) error {
 					fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
 				}
 			}
+
+			var outputMount *fuse.CommitMount
+			for _, c := range response.CommitMounts {
+				if c.Alias == "out" {
+					outputMount = c
+					break
+				}
+			}
+			if err := uploadOutput(c, outputMount); err != nil {
+				fmt.Printf("err from uploading output: %s\n", err)
+				success = false
+			}
+
 			if _, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
@@ -205,15 +223,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			finished = true
-
-			var outputMount *fuse.CommitMount
-			for _, c := range response.CommitMounts {
-				if c.Alias == "out" {
-					outputMount = c
-					break
-				}
-			}
-			return uploadOutput(c, outputMount)
+			return nil
 		}),
 	}
 
