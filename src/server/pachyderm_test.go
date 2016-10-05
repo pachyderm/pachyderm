@@ -1520,7 +1520,10 @@ echo $numfiles > /pfs/out/file
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
-	require.Equal(t, parallelism, len(lines)) // each job outputs one line
+
+	// there should've only been 1 pod (even though parallelism was specified to
+	// be 2), since global inputs are not supposed to be partitioned
+	require.Equal(t, 1, len(lines))
 	for _, line := range lines {
 		require.Equal(t, fmt.Sprintf("%d", numfiles), line)
 	}
