@@ -3077,7 +3077,7 @@ func TestChainedPipelines(t *testing.T) {
 
 // TestChainedPipelinesNoDelay tracks https://github.com/pachyderm/pachyderm/issues/842
 func TestChainedPipelinesNoDelay(t *testing.T) {
-	t.skip("This test fails")
+	t.Skip("This test fails")
         if testing.Short() {
                 t.Skip("Skipping integration tests in short mode")
         }
