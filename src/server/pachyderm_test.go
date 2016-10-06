@@ -3226,6 +3226,112 @@ func TestChainedPipelines(t *testing.T) {
 	require.Equal(t, 4, len(results))
 }
 
+// TestChainedPipelinesNoDelay tracks https://github.com/pachyderm/pachyderm/issues/842
+func TestChainedPipelinesNoDelay(t *testing.T) {
+	t.Skip("This test fails")
+        if testing.Short() {
+                t.Skip("Skipping integration tests in short mode")
+        }
+        t.Parallel()
+        c := getPachClient(t)
+        aRepo := uniqueString("A")
+        require.NoError(t, c.CreateRepo(aRepo))
+
+        eRepo := uniqueString("E")
+        require.NoError(t, c.CreateRepo(eRepo))
+
+        aCommit, err := c.StartCommit(aRepo, "master")
+        require.NoError(t, err)
+        _, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
+        require.NoError(t, err)
+        require.NoError(t, c.FinishCommit(aRepo, "master"))
+
+        eCommit, err := c.StartCommit(eRepo, "master")
+        require.NoError(t, err)
+        _, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
+        require.NoError(t, err)
+        require.NoError(t, c.FinishCommit(eRepo, "master"))
+
+        bPipeline := uniqueString("B")
+        require.NoError(t, c.CreatePipeline(
+                bPipeline,
+                "",
+                []string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+                nil,
+                &ppsclient.ParallelismSpec{
+                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
+                        Constant: 1,
+                },
+                []*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo),
+                                            Method: &ppsclient.Method{
+                                              Partition:   ppsclient.Partition_BLOCK,
+                                              Incremental: ppsclient.Incremental_DIFF}}},
+                false,
+        ))
+
+        cPipeline := uniqueString("C")
+        require.NoError(t, c.CreatePipeline(
+                cPipeline,
+                "",
+                []string{"sh"},
+                []string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
+                        fmt.Sprintf("cp /pfs/%s/file /pfs/out/eFile", eRepo)},
+                &ppsclient.ParallelismSpec{
+                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
+                        Constant: 1,
+                },
+                []*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline),
+                                            Method: &ppsclient.Method{
+                                              Partition: ppsclient.Partition_BLOCK,
+                                              Incremental: ppsclient.Incremental_DIFF}},
+                        {Repo: client.NewRepo(eRepo),
+                         Method: &ppsclient.Method{
+                           Partition: ppsclient.Partition_BLOCK,
+                           Incremental: ppsclient.Incremental_DIFF}}},
+                false,
+        ))
+
+        dPipeline := uniqueString("D")
+        require.NoError(t, c.CreatePipeline(
+                dPipeline,
+                "",
+                []string{"sh"},
+                []string{fmt.Sprintf("cp /pfs/%s/bFile /pfs/out/bFile", cPipeline),
+                         fmt.Sprintf("cp /pfs/%s/eFile /pfs/out/eFile", cPipeline)},
+                &ppsclient.ParallelismSpec{
+                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
+                        Constant: 1,
+                },
+                []*ppsclient.PipelineInput{{Repo: client.NewRepo(cPipeline),
+                                            Method: &ppsclient.Method{
+                                              Partition: ppsclient.Partition_REPO,
+                                              Incremental: ppsclient.Incremental_FULL}}},
+                false,
+        ))
+
+        results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, eCommit}, nil)
+        require.NoError(t, err)
+        require.Equal(t, 5, len(results))
+
+        _, err = c.StartCommit(eRepo, "master") // eCommit2, err = c.StartCommit(eRepo, "master")
+        require.NoError(t, err)
+        _, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
+        require.NoError(t, err)
+        require.NoError(t, c.FinishCommit(eRepo, "master"))
+
+	// This test should pass, but just blocks at FlushCommit, commented out for now
+        //results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
+        //require.NoError(t, err)
+        //require.Equal(t, 3, len(results))
+
+        // Get number of jobs triggered in pipeline D
+        jobInfos, err := c.ListJob(dPipeline, nil)
+        require.NoError(t, err)
+        require.Equal(t, 2, len(jobInfos))
+
+}
+
+
 func TestParallelismSpec(t *testing.T) {
 	// Test Constant strategy
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &ppsclient.ParallelismSpec{
