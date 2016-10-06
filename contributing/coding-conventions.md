@@ -42,12 +42,19 @@ following Go conventions - `stateLock`, `mapLock` etc.
 ### Testing Conventions
 
 - All new packages and most new significant functionality must come with test coverage
-- Avoid waiting for a short amount of time (or without waiting) and expect an
-asynchronous thing to happen (e.g. wait for 1 seconds and expect a Pod to be
-running). Wait and retry instead.
+- Avoid waiting for asynchronous things to happen (e.g. waiting 10 seconds and
+assuming that a service will be afterward). Instead you try, wait, retry, etc.
+with a limited number of tries. If possible use a method of waiting directly
+(e.g. flush-commit is much better than repeatedly trying to read from a
+commit).
 
 ### Third-party Code
 
 - Go dependencies are managed with govendor. See
 [src/server/readme.md](https://github.com/pachyderm/pachyderm/blob/master/src/server/readme.md)
 for more info.
+
+### Docs
+
+- PRs should update docs to make them reflect the code that's being merged in
+rather than be done in separate PRs.
