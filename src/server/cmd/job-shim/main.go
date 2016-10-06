@@ -89,10 +89,6 @@ func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
 			return err
 		}
 		defer f.Close()
-		fileInfo, err := f.Stat()
-		if err != nil {
-			return err
-		}
 		relPath, err := filepath.Rel(PFSOutputPrefix, path)
 		if err != nil {
 			return err
@@ -179,7 +175,15 @@ func do(appEnvObj interface{}) error {
 				finished = true
 				return
 			}
-			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
+
+			image := "ubuntu:14.04"
+			if response.Transform.Image != "" {
+				image = response.Transform.Image
+			}
+
+			dockerArgs := []string{"run", "-v", "/tmp/pfs:/pfs", image}
+			dockerArgs = append(dockerArgs, response.Transform.Cmd...)
+			cmd := exec.Command("docker", dockerArgs...)
 			cmd.Stdin = io.MultiReader(readers...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

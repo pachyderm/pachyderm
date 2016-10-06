@@ -1,12 +1,4 @@
-FROM ubuntu:14.04
+FROM docker:1.11
 MAINTAINER jdoliner@pachyderm.io
 
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    ca-certificates \
-    fuse \
-    wget && \
-  apt-get clean && \
-  rm -rf /var/lib/apt
 ADD ./job-shim /

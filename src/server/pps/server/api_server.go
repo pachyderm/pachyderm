@@ -1679,10 +1679,6 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		return nil, err
 	}
 	parallelism := int32(parallelism64)
-	image := jobShimImage
-	if jobInfo.Transform.Image != "" {
-		image = jobInfo.Transform.Image
-	}
 	if jobImagePullPolicy == "" {
 		jobImagePullPolicy = "IfNotPresent"
 	}
@@ -1724,6 +1720,36 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		})
 	}
 
+	// Add a volume for /pfs
+	volumes = append(volumes, api.Volume{
+		Name: "pfs",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/tmp/pfs",
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pfs",
+		MountPath: "/pfs",
+	})
+
+	// Mount the host's docker socket so we can launch containers inside
+	// the job-shim
+	volumes = append(volumes, api.Volume{
+		Name: "docker-socket",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/var/run/docker.sock",
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "docker-socket",
+		MountPath: "/var/run/docker.sock",
+		ReadOnly:  false,
+	})
+
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -1749,7 +1775,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Containers: []api.Container{
 						{
 							Name:    "user",
-							Image:   image,
+							Image:   jobShimImage,
 							Command: []string{"/job-shim", jobInfo.JobID},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
