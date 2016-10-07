@@ -17,7 +17,7 @@ If you're contributing to pachyderm, you may need the following additional setup
 
 ## General Requirements
 
-Follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/SETUP) to install:
+Install:
 
 - golang 1.6 (we need 1.6 for vendoring support)
 - docker
@@ -29,7 +29,7 @@ To stay up to date, we recommend doing the following.
 
 First clone the code:
 
-    cd $GOPATCH/src
+    cd $GOPATH/src
     mkdir -p github.com/pachyderm
     cd github.com/pachyderm
     git clone git@github.com:pachyderm/pachyderm
@@ -42,12 +42,6 @@ And you'll stay up to date!
 
 
 ## Protoc
-
-TODO!
-
-- We want to consolidate all proto compilation into a Docker image
-- Which makes it easier to control the compilation config
-- If you're reading this and you're inclined to help us [we're tracking this here](https://github.com/pachyderm/pachyderm/issues/302)
 
 [Download Page](https://github.com/google/protobuf/releases)
 
