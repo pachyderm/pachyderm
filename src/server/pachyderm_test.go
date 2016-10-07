@@ -1148,7 +1148,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit1.ID))
 	commitInfos, err := c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{repo},
+		Repo: &pfsclient.Repo{Name: repo},
 	}}, nil, client.CommitTypeNone, pfsclient.CommitStatus_NORMAL, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
@@ -1261,7 +1261,7 @@ done
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		FromCommits: []*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{pipelineName},
+			Repo: &pfsclient.Repo{Name: pipelineName},
 		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
@@ -1411,7 +1411,7 @@ done
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		FromCommits: []*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{pipelineName},
+			Repo: &pfsclient.Repo{Name: pipelineName},
 		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
@@ -1509,7 +1509,7 @@ echo $numfiles > /pfs/out/file
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		FromCommits: []*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{pipelineName},
+			Repo: &pfsclient.Repo{Name: pipelineName},
 		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
@@ -1579,7 +1579,7 @@ fi
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		FromCommits: []*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{pipelineName},
+			Repo: &pfsclient.Repo{Name: pipelineName},
 		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
@@ -1777,7 +1777,7 @@ func TestProvenance(t *testing.T) {
 
 	// There should only be 2 commits on cRepo
 	commitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{cPipeline},
+		Repo: &pfsclient.Repo{Name: cPipeline},
 	}}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, pfsclient.CommitStatus_NORMAL, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
@@ -2085,7 +2085,7 @@ func TestRecreatePipeline(t *testing.T) {
 		))
 		listCommitRequest := &pfsclient.ListCommitRequest{
 			FromCommits: []*pfsclient.Commit{{
-				Repo: &pfsclient.Repo{pipeline},
+				Repo: &pfsclient.Repo{Name: pipeline},
 			}},
 			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 			Block:      true,
@@ -2754,13 +2754,13 @@ func TestUpdatePipeline(t *testing.T) {
 	// We archive the temporary commits created per job/pod
 	// So the total we see here is 2, but 'real' commits is just 1
 	outputRepoCommitInfos, err := c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(outputRepoCommitInfos))
 
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputRepoCommitInfos))
@@ -2792,13 +2792,13 @@ func TestUpdatePipeline(t *testing.T) {
 		require.Equal(t, "file2\n", buffer.String())
 	}
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(outputRepoCommitInfos))
 	// Expect real commits to still be 1
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputRepoCommitInfos))
@@ -2827,19 +2827,19 @@ func TestUpdatePipeline(t *testing.T) {
 		require.Equal(t, "file3\n", buffer.String())
 	}
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(outputRepoCommitInfos))
 	// Expect real commits to still be 1
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputRepoCommitInfos))
 
 	commitInfos, _ = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	// Do an update that shouldn't cause archiving
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -2869,13 +2869,13 @@ func TestUpdatePipeline(t *testing.T) {
 		require.Equal(t, "file3\n", buffer.String())
 	}
 	commitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(commitInfos))
 	// Expect real commits to still be 1
 	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{pipelineName},
+		Repo: &pfsclient.Repo{Name: pipelineName},
 	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputRepoCommitInfos))
@@ -3109,7 +3109,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 	require.NoError(t, c.ArchiveAll())
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{dataRepo},
+			Repo: &pfsclient.Repo{Name: dataRepo},
 		}},
 		nil,
 		client.CommitTypeNone,
@@ -3142,7 +3142,7 @@ func TestListCommitReturnsBlankCommit(t *testing.T) {
 
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		FromCommits: []*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{dataRepo},
+			Repo: &pfsclient.Repo{Name: dataRepo},
 		}},
 		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
@@ -3229,108 +3229,107 @@ func TestChainedPipelines(t *testing.T) {
 // TestChainedPipelinesNoDelay tracks https://github.com/pachyderm/pachyderm/issues/842
 func TestChainedPipelinesNoDelay(t *testing.T) {
 	t.Skip("This test fails")
-        if testing.Short() {
-                t.Skip("Skipping integration tests in short mode")
-        }
-        t.Parallel()
-        c := getPachClient(t)
-        aRepo := uniqueString("A")
-        require.NoError(t, c.CreateRepo(aRepo))
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
 
-        eRepo := uniqueString("E")
-        require.NoError(t, c.CreateRepo(eRepo))
+	eRepo := uniqueString("E")
+	require.NoError(t, c.CreateRepo(eRepo))
 
-        aCommit, err := c.StartCommit(aRepo, "master")
-        require.NoError(t, err)
-        _, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
-        require.NoError(t, err)
-        require.NoError(t, c.FinishCommit(aRepo, "master"))
+	aCommit, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, "master"))
 
-        eCommit, err := c.StartCommit(eRepo, "master")
-        require.NoError(t, err)
-        _, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
-        require.NoError(t, err)
-        require.NoError(t, c.FinishCommit(eRepo, "master"))
+	eCommit, err := c.StartCommit(eRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(eRepo, "master"))
 
-        bPipeline := uniqueString("B")
-        require.NoError(t, c.CreatePipeline(
-                bPipeline,
-                "",
-                []string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
-                nil,
-                &ppsclient.ParallelismSpec{
-                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
-                        Constant: 1,
-                },
-                []*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo),
-                                            Method: &ppsclient.Method{
-                                              Partition:   ppsclient.Partition_BLOCK,
-                                              Incremental: ppsclient.Incremental_DIFF}}},
-                false,
-        ))
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo),
+			Method: &ppsclient.Method{
+				Partition:   ppsclient.Partition_BLOCK,
+				Incremental: ppsclient.Incremental_DIFF}}},
+		false,
+	))
 
-        cPipeline := uniqueString("C")
-        require.NoError(t, c.CreatePipeline(
-                cPipeline,
-                "",
-                []string{"sh"},
-                []string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
-                        fmt.Sprintf("cp /pfs/%s/file /pfs/out/eFile", eRepo)},
-                &ppsclient.ParallelismSpec{
-                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
-                        Constant: 1,
-                },
-                []*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline),
-                                            Method: &ppsclient.Method{
-                                              Partition: ppsclient.Partition_BLOCK,
-                                              Incremental: ppsclient.Incremental_DIFF}},
-                        {Repo: client.NewRepo(eRepo),
-                         Method: &ppsclient.Method{
-                           Partition: ppsclient.Partition_BLOCK,
-                           Incremental: ppsclient.Incremental_DIFF}}},
-                false,
-        ))
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/eFile", eRepo)},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline),
+			Method: &ppsclient.Method{
+				Partition:   ppsclient.Partition_BLOCK,
+				Incremental: ppsclient.Incremental_DIFF}},
+			{Repo: client.NewRepo(eRepo),
+				Method: &ppsclient.Method{
+					Partition:   ppsclient.Partition_BLOCK,
+					Incremental: ppsclient.Incremental_DIFF}}},
+		false,
+	))
 
-        dPipeline := uniqueString("D")
-        require.NoError(t, c.CreatePipeline(
-                dPipeline,
-                "",
-                []string{"sh"},
-                []string{fmt.Sprintf("cp /pfs/%s/bFile /pfs/out/bFile", cPipeline),
-                         fmt.Sprintf("cp /pfs/%s/eFile /pfs/out/eFile", cPipeline)},
-                &ppsclient.ParallelismSpec{
-                        Strategy: ppsclient.ParallelismSpec_CONSTANT,
-                        Constant: 1,
-                },
-                []*ppsclient.PipelineInput{{Repo: client.NewRepo(cPipeline),
-                                            Method: &ppsclient.Method{
-                                              Partition: ppsclient.Partition_REPO,
-                                              Incremental: ppsclient.Incremental_FULL}}},
-                false,
-        ))
+	dPipeline := uniqueString("D")
+	require.NoError(t, c.CreatePipeline(
+		dPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/bFile /pfs/out/bFile", cPipeline),
+			fmt.Sprintf("cp /pfs/%s/eFile /pfs/out/eFile", cPipeline)},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{Repo: client.NewRepo(cPipeline),
+			Method: &ppsclient.Method{
+				Partition:   ppsclient.Partition_REPO,
+				Incremental: ppsclient.Incremental_FULL}}},
+		false,
+	))
 
-        results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, eCommit}, nil)
-        require.NoError(t, err)
-        require.Equal(t, 5, len(results))
+	results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, eCommit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(results))
 
-        _, err = c.StartCommit(eRepo, "master") // eCommit2, err = c.StartCommit(eRepo, "master")
-        require.NoError(t, err)
-        _, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
-        require.NoError(t, err)
-        require.NoError(t, c.FinishCommit(eRepo, "master"))
+	_, err = c.StartCommit(eRepo, "master") // eCommit2, err = c.StartCommit(eRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(eRepo, "master"))
 
 	// This test should pass, but just blocks at FlushCommit, commented out for now
-        //results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
-        //require.NoError(t, err)
-        //require.Equal(t, 3, len(results))
+	//results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
+	//require.NoError(t, err)
+	//require.Equal(t, 3, len(results))
 
-        // Get number of jobs triggered in pipeline D
-        jobInfos, err := c.ListJob(dPipeline, nil)
-        require.NoError(t, err)
-        require.Equal(t, 2, len(jobInfos))
+	// Get number of jobs triggered in pipeline D
+	jobInfos, err := c.ListJob(dPipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
 
 }
-
 
 func TestParallelismSpec(t *testing.T) {
 	// Test Constant strategy
