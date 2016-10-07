@@ -75,7 +75,7 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
 	fmt.Fprintf(w, "%s\t", jobInput.Method.Partition)
-	fmt.Fprintf(w, "%t\t\n", jobInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t\n", jobInput.Method.Incremental)
 }
 
 // PrintPipelineInputHeader prints a pipeline input header.
