@@ -216,7 +216,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		})
 		if err == nil {
 			// the job already exists. we simply return
-			return &ppsclient.Job{jobID}, nil
+			return &ppsclient.Job{ID: jobID}, nil
 		}
 	}
 
