@@ -136,7 +136,7 @@ func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitR
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Commits{commits}, nil
+	return &pfs.Commits{Commit: commits}, nil
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
@@ -146,7 +146,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Branches{branches}, nil
+	return &pfs.Branches{Branches: branches}, nil
 }
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
