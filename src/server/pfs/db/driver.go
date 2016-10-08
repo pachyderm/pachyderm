@@ -15,12 +15,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/groupcache"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
@@ -75,10 +77,14 @@ type driver struct {
 	blockClient pfs.BlockAPIClient
 	dbName      string
 	dbClient    *gorethink.Session
+	// cache
+	commitCache   *groupcache.Group
+	fileTypeCache *groupcache.Group
+	repoCache     *groupcache.Group
 }
 
 // NewDriver is used to create a new Driver instance
-func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
+func NewDriver(blockAddress string, dbAddress string, dbName string, test bool) (drive.Driver, error) {
 	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -89,11 +95,78 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 		return nil, err
 	}
 
-	return &driver{
+	d := &driver{
 		blockClient: pfs.NewBlockAPIClient(clientConn),
 		dbName:      dbName,
 		dbClient:    dbClient,
-	}, nil
+	}
+
+	commitGroup := "pfs_commit"
+	fileTypeGroup := "pfs_filetype"
+	repoGroup := "pfs_repo"
+
+	// In tests, we might run multiple instances of this driver locally,
+	// and they will share the same groupcache instance, which won't allow
+	// the same group to be created more than once.  So we name each group
+	// differently.
+	if test {
+		commitGroup = commitGroup + uuid.NewWithoutDashes()
+		fileTypeGroup = fileTypeGroup + uuid.NewWithoutDashes()
+		repoGroup = repoGroup + uuid.NewWithoutDashes()
+	}
+
+	d.commitCache = groupcache.NewGroup(commitGroup, 256*1024*1024, // 256MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, commitID string, dest groupcache.Sink) error {
+			cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
+			if err != nil {
+				return err
+			}
+
+			commit := &persist.Commit{}
+			if err := cursor.One(commit); err != nil {
+				return err
+			}
+
+			return dest.SetProto(commit)
+		}),
+	)
+	d.fileTypeCache = groupcache.NewGroup(fileTypeGroup, 256*1024*1024, // 256MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, encoded string, dest groupcache.Sink) error {
+			repo, commit, path := decodeFile(encoded)
+			diff, err := d.inspectFile(&pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repo,
+					},
+					ID: commit,
+				},
+				Path: path,
+			}, nil, nil)
+			if err != nil {
+				_, ok := err.(*pfsserver.ErrFileNotFound)
+				if ok {
+					// If the file was not found, then there's no type conflict
+					return dest.SetString(strconv.Itoa(int(persist.FileType_NONE)))
+				}
+				return err
+			}
+			return dest.SetString(strconv.Itoa(int(diff.FileType)))
+		}),
+	)
+	d.repoCache = groupcache.NewGroup(repoGroup, 64*1024*1024, // 64MB
+		groupcache.GetterFunc(func(ctx groupcache.Context, repo string, dest groupcache.Sink) error {
+			cursor, err := d.getTerm(repoTable).Get(repo).Run(d.dbClient)
+			if err != nil {
+				return err
+			}
+			rawRepo := &persist.Repo{}
+			if err := cursor.One(rawRepo); err != nil {
+				return err
+			}
+			return dest.SetProto(rawRepo)
+		}),
+	)
+	return d, nil
 }
 
 // isDBCreated is used to tell when we are trying to initialize a database,
@@ -224,20 +297,19 @@ func (d *driver) CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error {
 	return err
 }
 
-func (d *driver) inspectRepo(repo *pfs.Repo) (r *persist.Repo, retErr error) {
+func (d *driver) getRawRepo(repo string) (r *persist.Repo, retErr error) {
 	defer func() {
 		if retErr == gorethink.ErrEmptyResult {
-			retErr = pfsserver.NewErrRepoNotFound(repo.Name)
+			retErr = pfsserver.NewErrRepoNotFound(repo)
 		}
 	}()
-	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
-	if err != nil {
-		return nil, err
-	}
+
 	rawRepo := &persist.Repo{}
-	if err := cursor.One(rawRepo); err != nil {
+	sink := groupcache.ProtoSink(rawRepo)
+	if err := d.repoCache.Get(nil, repo, sink); err != nil {
 		return nil, err
 	}
+
 	return rawRepo, nil
 }
 
@@ -248,9 +320,20 @@ func (n byName) Len() int           { return len(n) }
 func (n byName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 func (n byName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
-func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	rawRepo, err := d.inspectRepo(repo)
+func (d *driver) InspectRepo(repo *pfs.Repo) (repoInfo *pfs.RepoInfo, retErr error) {
+	defer func() {
+		if retErr == gorethink.ErrEmptyResult {
+			retErr = pfsserver.NewErrRepoNotFound(repo.Name)
+		}
+	}()
+	// We want to go directly to the database as opposed to the cache, since
+	// the repo size in the cache may not be accurate
+	cursor, err := d.getTerm(repoTable).Get(repo.Name).Run(d.dbClient)
 	if err != nil {
+		return nil, err
+	}
+	rawRepo := &persist.Repo{}
+	if err := cursor.One(rawRepo); err != nil {
 		return nil, err
 	}
 
@@ -372,7 +455,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, force bool) error {
 }
 
 func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fullProvenance []*persist.ProvenanceCommit, archived bool, err error) {
-	rawRepo, err := d.inspectRepo(repo)
+	rawRepo, err := d.getRawRepo(repo.Name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -635,7 +718,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 // FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 	// TODO: may want to optimize this. Not ideal to jump to DB to validate repo exists. This is required by error strings test in server_test.go
-	_, err := d.inspectRepo(commit.Repo)
+	_, err := d.getRawRepo(commit.Repo.Name)
 	if err != nil {
 		return err
 	}
@@ -673,19 +756,19 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 		}
 	}
 
-	// Update the size of the repo.  Note that there is a consistency issue here:
-	// If this transaction succeeds but the next one (updating Commit) fails,
-	// then the repo size will be wrong.  TODO
-	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
-		"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
-	}).RunWrite(d.dbClient)
+	rawCommit.Finished = now()
+	rawCommit.Cancelled = parentCancelled || cancel
+
+	// TODO: the two queries are not atomic
+	_, err = gorethink.Do(
+		d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
+			"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
+		}),
+		d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit),
+	).RunWrite(d.dbClient)
 	if err != nil {
 		return err
 	}
-
-	rawCommit.Finished = now()
-	rawCommit.Cancelled = parentCancelled || cancel
-	_, err = d.getTerm(commitTable).Get(rawCommit.ID).Update(rawCommit).RunWrite(d.dbClient)
 
 	return err
 }
@@ -794,7 +877,7 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	repoToFromCommit := make(map[string]string)
 	for _, commit := range fromCommits {
 		// make sure that the repos exist
-		_, err := d.inspectRepo(commit.Repo)
+		_, err := d.getRawRepo(commit.Repo.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -1035,29 +1118,36 @@ func (d *driver) DeleteCommit(commit *pfs.Commit) error {
 	return errors.New("DeleteCommit is not implemented")
 }
 
+func encodeFile(repo string, commit string, path string) string {
+	return fmt.Sprintf("%s||%s||%s", repo, commit, path)
+}
+
+func decodeFile(encoded string) (repo string, commit string, path string) {
+	parts := strings.SplitN(encoded, "||", 3)
+	return parts[0], parts[1], parts[2]
+}
+
 // checkFileType returns an error if the given type conflicts with the preexisting
-// type.  TODO: cache file types
+// type.
 func (d *driver) checkFileType(repo string, commit string, path string, typ persist.FileType) (err error) {
-	diff, err := d.inspectFile(&pfs.File{
-		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: repo,
-			},
-			ID: commit,
-		},
-		Path: path,
-	}, nil, nil)
-	if err != nil {
-		_, ok := err.(*pfsserver.ErrFileNotFound)
-		if ok {
-			// If the file was not found, then there's no type conflict
-			return nil
-		}
+	key := encodeFile(repo, commit, path)
+
+	var fileTypeStr string
+	sink := groupcache.StringSink(&fileTypeStr)
+	if err := d.fileTypeCache.Get(nil, key, sink); err != nil {
 		return err
 	}
-	if diff.FileType != typ && diff.FileType != persist.FileType_NONE {
+
+	_fileType, err := strconv.Atoi(fileTypeStr)
+	if err != nil {
+		return err
+	}
+	fileType := persist.FileType(_fileType)
+
+	if fileType != typ && fileType != persist.FileType_NONE {
 		return errors.New(ErrConflictFileTypeMsg)
 	}
+
 	return nil
 }
 
@@ -1074,15 +1164,9 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
-
-	// TODO: eventually optimize this with a cache so that we don't have to
-	// go to the database to figure out if the commit exists
 	commit, err := d.getRawCommit(file.Commit)
 	if err != nil {
 		return err
-	}
-	if commit.Finished != nil {
-		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 	_client := client.APIClient{BlockAPIClient: d.blockClient}
 	blockrefs, err := _client.PutBlock(delimiter, reader)
@@ -1102,6 +1186,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		size += ref.Size()
 	}
 
+	clock := persist.FullClockHead(commit.FullClock)
 	var diffs []*persist.Diff
 	// the ancestor directories
 	for _, prefix := range getPrefixes(file.Path) {
@@ -1110,7 +1195,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 			Repo:     commit.Repo,
 			Delete:   false,
 			Path:     prefix,
-			Clock:    persist.FullClockHead(commit.FullClock),
+			Clock:    clock,
 			FileType: persist.FileType_DIR,
 			Modified: now(),
 		})
@@ -1124,39 +1209,46 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		Path:      file.Path,
 		BlockRefs: refs,
 		Size:      size,
-		Clock:     persist.FullClockHead(commit.FullClock),
+		Clock:     clock,
 		FileType:  persist.FileType_FILE,
 		Modified:  now(),
 	})
 
 	// Make sure that there's no type conflict
 	for _, diff := range diffs {
-		if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, diff.Path, diff.FileType); err != nil {
+		if err := d.checkFileType(file.Commit.Repo.Name, clock.ReadableCommitID(), diff.Path, diff.FileType); err != nil {
 			return err
 		}
 	}
 
-	// Actually, we don't know if Rethink actually inserts these documents in
-	// order.  If it doesn't, then we might end up with "/foo/bar" but not
-	// "/foo", which is kinda problematic.
-	_, err = d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
-		Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+	_, err = gorethink.Do(
+		d.getTerm(commitTable).Get(commit.ID).Field("Finished").Eq(nil),
+		func(notFinished gorethink.Term) gorethink.Term {
 			return gorethink.Branch(
-				// We throw an error if the new diff is of a different file type
-				// than the old diff, unless the old diff is NONE
-				oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
-				gorethink.Error(ErrConflictFileTypeMsg),
-				oldDoc.Merge(map[string]interface{}{
-					"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-					"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
-					// Overwrite the file type in case the old file type is NONE
-					"FileType": newDoc.Field("FileType"),
-					// Update modification time
-					"Modified": newDoc.Field("Modified"),
+				notFinished,
+				d.getTerm(diffTable).Insert(diffs, gorethink.InsertOpts{
+					Conflict: func(id gorethink.Term, oldDoc gorethink.Term, newDoc gorethink.Term) gorethink.Term {
+						return gorethink.Branch(
+							// We throw an error if the new diff is of a different file type
+							// than the old diff, unless the old diff is NONE
+							oldDoc.Field("FileType").Ne(persist.FileType_NONE).And(oldDoc.Field("FileType").Ne(newDoc.Field("FileType"))),
+							gorethink.Error(ErrConflictFileTypeMsg),
+							oldDoc.Merge(map[string]interface{}{
+								"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
+								"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+								// Overwrite the file type in case the old file type is NONE
+								"FileType": newDoc.Field("FileType"),
+								// Update modification time
+								"Modified": newDoc.Field("Modified"),
+							}),
+						)
+					},
 				}),
+				gorethink.Error("commit has been finished"),
 			)
 		},
-	}).RunWrite(d.dbClient)
+	).RunWrite(d.dbClient)
+
 	return err
 }
 
@@ -1194,7 +1286,8 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
 
-	if err := d.checkFileType(file.Commit.Repo.Name, file.Commit.ID, file.Path, persist.FileType_DIR); err != nil {
+	clock := persist.FullClockHead(commit.FullClock)
+	if err := d.checkFileType(file.Commit.Repo.Name, clock.ReadableCommitID(), file.Path, persist.FileType_DIR); err != nil {
 		return err
 	}
 
@@ -2101,12 +2194,8 @@ func (d *driver) getRawCommit(commit *pfs.Commit) (retCommit *persist.Commit, re
 			return nil, err
 		}
 	} else {
-		cursor, err := d.getTerm(commitTable).Get(commitID).Run(d.dbClient)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := cursor.One(retCommit); err != nil {
+		sink := groupcache.ProtoSink(retCommit)
+		if err := d.commitCache.Get(nil, commitID, sink); err != nil {
 			return nil, err
 		}
 	}
