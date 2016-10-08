@@ -58,7 +58,7 @@ Then installed protoc-gen-go by doing:
 
     go get -u -v github.com/golang/protobuf/proto
     go get -u -v github.com/golang/protobuf/protoc-gen-go
-    go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
+    go get -u -v github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
 
 ## gcloud CLI
 
