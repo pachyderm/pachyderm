@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -146,11 +145,6 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	defer func() {
-		if retErr == nil {
-			metrics.AddJobs(1)
-		}
-	}()
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -920,11 +914,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	defer func() {
-		if retErr == nil {
-			metrics.AddPipelines(1)
-		}
-	}()
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err

@@ -118,14 +118,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	if appEnv.Metrics {
-		dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
-			Address: rethinkAddress,
-			Timeout: 5 * time.Second,
-		})
-		if err != nil {
-			return err
-		}
-		go metrics.ReportMetrics(clusterID, kubeClient, dbClient, appEnv.PFSDatabaseName)
+		go metrics.ReportMetrics(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
