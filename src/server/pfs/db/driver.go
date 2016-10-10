@@ -84,7 +84,7 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 		return nil, err
 	}
 
-	dbClient, err := dbConnect(dbAddress)
+	dbClient, err := DbConnect(dbAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func isDBCreated(err error) bool {
 
 //InitDB is used to setup the database with the tables and indices that PFS requires
 func InitDB(address string, dbName string) error {
-	session, err := dbConnect(address)
+	session, err := DbConnect(address)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 // It keeps the database around tho, as it might contain other tables that
 // others created (e.g. PPS).
 func RemoveDB(address string, dbName string) error {
-	session, err := dbConnect(address)
+	session, err := DbConnect(address)
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,8 @@ func removeDB(session *gorethink.Session, dbName string) error {
 	return nil
 }
 
-func dbConnect(address string) (*gorethink.Session, error) {
+// DbConnect returns a rethink DB session connected to the provided address
+func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
