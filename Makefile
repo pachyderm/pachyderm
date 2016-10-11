@@ -151,6 +151,14 @@ clean-launch: check-kubectl
 clean-launch-dev: check-kubectl
 	pachctl deploy -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
 
+launch-registry: check-kubectl
+	kubectl $(KUBECTLFLAGS) create -f etc/kube/registry-rc.yaml
+	kubectl $(KUBECTLFLAGS) create -f etc/kube/registry-svc.yaml
+
+clean-launch-registry: check-kubectl
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/registry-rc.yaml
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/registry-svc.yaml
+
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
