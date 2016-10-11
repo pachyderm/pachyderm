@@ -43,6 +43,12 @@
 			"revision": ""
 		},
 		{
+			"checksumSHA1": "T1DpzOaZGsKlUq16elkdwF6ddsU=",
+			"path": "github.com/Azure/azure-sdk-for-go/storage",
+			"revision": "91f3d4a4d024e3c0d4d9412916d05cf84504a616",
+			"revisionTime": "2016-10-05T01:22:46Z"
+		},
+		{
 			"checksumSHA1": "9mLNJYo5jgm1gAFYqCqsGkaVPqQ=",
 			"path": "github.com/Jeffail/gabs",
 			"revision": "c28ac41b517d24bf381d39d5a294fac6536d81fa",

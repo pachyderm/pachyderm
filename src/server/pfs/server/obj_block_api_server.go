@@ -114,6 +114,26 @@ func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, 
 	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
+func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+	container, err := ioutil.ReadFile("/microsoft-secret/container")
+	if err != nil {
+		return nil, err
+	}
+	id, err := ioutil.ReadFile("/microsoft-secret/id")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
+	if err != nil {
+		return nil, err
+	}
+	objClient, err := obj.NewMicrosoftClient(string(container), string(id), string(secret))
+	if err != nil {
+		return nil, err
+	}
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+}
+
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
 	func() { s.Log(nil, nil, nil, 0) }()
