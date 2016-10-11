@@ -8,7 +8,9 @@ metadata:
 spec:
   selector:
     k8s-app: kube-registry
+  type: NodePort
   ports:
   - name: registry
     port: 5000
     protocol: TCP
+    nodePort: 30500
