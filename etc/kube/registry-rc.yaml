@@ -41,5 +41,5 @@ spec:
           protocol: TCP
       volumes:
       - name: image-store
-        persistentVolumeClaim:
-          claimName: kube-registry-pvc
+      #persistentVolumeClaim:
+      #claimName: kube-registry-pvc
