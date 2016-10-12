@@ -323,7 +323,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				cmd := exec.Command("sh")
 				cmd.Stdin = strings.NewReader(`
 pod=$(kubectl get pod -l k8s-app=kube-registry | awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl port-forward "$pod" 30500:650
+kubectl port-forward "$pod" 30500:30500
 `)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
@@ -644,6 +644,10 @@ func sanitizeErr(err error) error {
 	return errors.New(grpc.ErrorDesc(err))
 }
 
+const (
+	registry string = "localhost:30500"
+)
+
 func pushImage(image string) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
@@ -656,9 +660,8 @@ func pushImage(image string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pushRepo := fmt.Sprintf("localhost:30500/%s/%s", user.Username, name)
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, user.Username, name)
 	pushTag := uuid.NewWithoutDashes()
-	fmt.Println("tagging")
 	if err := client.TagImage(image, docker.TagImageOptions{
 		Repo:    pushRepo,
 		Tag:     pushTag,
@@ -666,17 +669,14 @@ func pushImage(image string) (string, error) {
 	}); err != nil {
 		return "", err
 	}
-	fmt.Println("pushing")
+	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
 	if err := client.PushImage(
 		docker.PushImageOptions{
-			Name:          pushRepo,
-			Tag:           pushTag,
-			Registry:      "localhost:30500",
-			OutputStream:  os.Stdout,
-			RawJSONStream: true,
+			Name: pushRepo,
+			Tag:  pushTag,
 		},
 		docker.AuthConfiguration{
-			ServerAddress: "localhost:30500",
+			ServerAddress: registry,
 		},
 	); err != nil {
 		return "", err
