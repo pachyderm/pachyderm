@@ -1685,7 +1685,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 	}
 	parallelism := int32(parallelism64)
 	image := jobShimImage
-	if jobInfo.Transform.Image != "" {
+	// If the job image refers to pachyderm/job-shim explicitly, we want to use the version of
+	// job-shim that pachd gets from the JOB_SHIM_IMAGE environment variable
+	if jobInfo.Transform.Image != "" && jobInfo.Transform.Image != "pachyderm/job-shim" {
 		image = jobInfo.Transform.Image
 	}
 	if jobImagePullPolicy == "" {
