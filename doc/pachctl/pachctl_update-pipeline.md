@@ -1,11 +1,11 @@
-## ./pachctl create-pipeline
+## ./pachctl update-pipeline
 
-Create a new pipeline.
+Update an existing Pachyderm pipeline.
 
 ### Synopsis
 
 
-Create a new pipeline from a spec
+Update a Pachyderm pipeline with a new spec
 
 # Pipeline Specification
 
@@ -220,12 +220,13 @@ For instance, imagine that you have a dataset that contains `file_A`, `file_B`, 
 
 
 ```
-./pachctl create-pipeline -f pipeline.json
+./pachctl update-pipeline -f pipeline.json
 ```
 
 ### Options
 
 ```
+      --archive       Whether or not to archive existing commits in this pipeline's output repo. (default true)
   -f, --file string   The file containing the pipeline, it can be a url or local file. - reads from stdin. (default "-")
 ```
 
