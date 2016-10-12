@@ -10,14 +10,18 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+	"os/user"
 	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/Jeffail/gabs"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
@@ -301,9 +305,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 
 	var pipelinePath string
-	if err != nil {
-		return nil, err
-	}
+	var pushImages bool
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
@@ -317,12 +319,38 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return sanitizeErr(err)
 			}
+			if pushImages {
+				cmd := exec.Command("sh")
+				cmd.Stdin = strings.NewReader(`
+pod=$(kubectl get pod -l k8s-app=kube-registry | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl port-forward "$pod" 30500:650
+`)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				go func() {
+					if err := cmd.Run(); err != nil {
+						fmt.Errorf("failed to port forward to registry container with error: %s", err.Error())
+					}
+				}()
+				defer func() {
+					if err := cmd.Process.Kill(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+			}
 			for {
 				request, err := cfgReader.nextCreatePipelineRequest()
 				if err == io.EOF {
 					break
 				} else if err != nil {
 					return err
+				}
+				if pushImages {
+					pushedImage, err := pushImage(request.Transform.Image)
+					if err != nil {
+						return err
+					}
+					request.Transform.Image = pushedImage
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
@@ -335,6 +363,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 
 	var archive bool
 	updatePipeline := &cobra.Command{
@@ -613,4 +642,44 @@ func sanitizeErr(err error) error {
 	}
 
 	return errors.New(grpc.ErrorDesc(err))
+}
+
+func pushImage(image string) (string, error) {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return "", err
+	}
+	repo, _ := docker.ParseRepositoryTag(image)
+	components := strings.Split(repo, "/")
+	name := components[len(components)-1]
+	user, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	pushRepo := fmt.Sprintf("localhost:30500/%s/%s", user.Username, name)
+	pushTag := uuid.NewWithoutDashes()
+	fmt.Println("tagging")
+	if err := client.TagImage(image, docker.TagImageOptions{
+		Repo:    pushRepo,
+		Tag:     pushTag,
+		Context: context.Background(),
+	}); err != nil {
+		return "", err
+	}
+	fmt.Println("pushing")
+	if err := client.PushImage(
+		docker.PushImageOptions{
+			Name:          pushRepo,
+			Tag:           pushTag,
+			Registry:      "localhost:30500",
+			OutputStream:  os.Stdout,
+			RawJSONStream: true,
+		},
+		docker.AuthConfiguration{
+			ServerAddress: "localhost:30500",
+		},
+	); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
 }
