@@ -29,6 +29,7 @@ var (
 	rethinkVolumeClaimName = "rethink-volume-claim"
 	amazonSecretName       = "amazon-secret"
 	googleSecretName       = "google-secret"
+	microsoftSecretName    = "microsoft-secret"
 	initName               = "pachd-init"
 	trueVal                = true
 )
@@ -39,6 +40,7 @@ const (
 	localBackend backend = iota
 	amazonBackend
 	googleBackend
+	microsoftBackend
 )
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -123,6 +125,20 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 		volumeMounts = append(volumeMounts, api.VolumeMount{
 			Name:      googleSecretName,
 			MountPath: "/" + googleSecretName,
+		})
+	case microsoftBackend:
+		backendEnvVar = server.MicrosoftBackendEnvVar
+		volumes = append(volumes, api.Volume{
+			Name: microsoftSecretName,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: microsoftSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      microsoftSecretName,
+			MountPath: "/" + microsoftSecretName,
 		})
 	}
 	replicas := int32(1)
@@ -411,7 +427,8 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
 			ClaimName: rethinkVolumeClaimName,
 		}
-	} else if backend == localBackend {
+	} else if backend == localBackend || backend == microsoftBackend {
+		// ToDo: workaround until https://github.com/pachyderm/pachyderm/issues/960
 		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "rethink"),
 		}
@@ -549,6 +566,28 @@ func GoogleSecret(bucket string) *api.Secret {
 	}
 }
 
+// MicrosoftSecret creates a microsoft secret with following parameters:
+//   container - Azure blob container
+//   id    	   - Azure storage account name
+//   secret    - Azure storage account key
+func MicrosoftSecret(container string, id string, secret string) *api.Secret {
+	return &api.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   microsoftSecretName,
+			Labels: labels(microsoftSecretName),
+		},
+		Data: map[string][]byte{
+			"container": []byte(container),
+			"id":        []byte(id),
+			"secret":    []byte(secret),
+		},
+	}
+}
+
 // RethinkVolume creates a persistent volume with a backend
 // (local, amazon, google), a name, and a size in gigabytes.
 func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume {
@@ -668,6 +707,15 @@ func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
+// WriteMicrosoftAssets writes assets to a microsoft backend
+func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
+	volumeURI string, volumeSize int, version string) {
+	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", version)
+	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
