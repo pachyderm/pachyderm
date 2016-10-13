@@ -25,8 +25,8 @@ if [ -z ${PROFILE} ]
 then
     cp Dockerfile.${BINARY} _tmp/Dockerfile
     docker build -t pachyderm_${BINARY} _tmp
-    docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
-    docker tag -f pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
+    docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
+    docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
 else
     cd _tmp
     tar cf - ${BINARY}

@@ -16,7 +16,13 @@ If the problem is with deployment of Pachyderm, Kubernetes has their own logs to
 
 	$ kubectl get all
 	$ kubectl logs pod_name 
+	
+Profiling
+---------
+Sometimes if your pachyderm cluster is misbehaving profiling it can give more information about what's going on. Pachyderm exposes the standard go profiling tool pprof over http. You can access it at ``http://host:30651`` host should be the same host you point ``pachctl`` at. To learn more about using pprof, check `here<https://golang.org/pkg/net/http/pprof/>`_
 
+Common Errors
+-------------
 
 **Error**: error messages with "cannot unmarshal"
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

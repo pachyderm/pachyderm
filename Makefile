@@ -26,13 +26,18 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-ifndef TRAVIS_BUILD_NUMBER
-	# Travis succeeds/fails much faster. If it is a timeout error, no use waiting a long time on travis
-	TIMEOUT = 100s
+ifdef TRAVIS_BUILD_NUMBER
+	# Upper bound for travis test timeout
+	TIMEOUT = 1000s
 else
-	# Locally ... it can take almost this much time to complete
-	TIMEOUT = 500s
+ifndef TIMEOUT
+	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
+	TIMEOUT = 1000s
 endif
+endif
+
+echo-timeout:
+	echo $(TIMEOUT)
 
 all: build
 

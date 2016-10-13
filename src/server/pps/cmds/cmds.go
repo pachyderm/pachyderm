@@ -72,7 +72,11 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 				retErr = sanitizeErr(err)
 			}
 		}()
-		pipelineReader = resp.Body
+		rawBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
 	} else {
 		rawBytes, err := ioutil.ReadFile(path)
 		if err != nil {

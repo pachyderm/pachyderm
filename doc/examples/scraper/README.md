@@ -1,6 +1,6 @@
 # Quick Start Guide: Web Scraper
 In this guide you're going to create a Pachyderm pipeline to scrape web pages. 
-We'll use a standard unix tool, `wget`, to do our scraping. 
+We'll use a standard unix tool, `wget`, to do our scraping.
 
 ## Setup
 
@@ -12,7 +12,7 @@ A `Repo` is the highest level primitive in `pfs`. Like all primitives in pfs, th
 their name with a primitive in Git and are designed to behave analogously.
 Generally, a `repo` should be dedicated to a single source of data such as log
 messages from a particular service. Repos are dirt cheap so don't be shy about
-making them very specific. 
+making them very specific.
 
 For this demo we'll simply create a `repo` called
 “urls” to hold a list of urls that we want to scrape.
@@ -34,7 +34,7 @@ started and finished.
 
 Let's start a new commit in the “urls” repo:
 ```shell
-$ pachctl start-commit urls
+$ pachctl start-commit urls master
 master/0
 ```
 
@@ -46,7 +46,7 @@ master/0
 ```
 
 A new directory has been created for our commit and now we can start adding
-data. Data for this example is just a single file with a list of urls. We've provided a sample file for you with just 3 urls, Google, Reddit, and Imgur. 
+data. Data for this example is just a single file with a list of urls. We've provided a sample file for you with just 3 urls, Google, Reddit, and Imgur.
 We're going to write that data as a file called “urls” in pfs.
 
 ```shell
@@ -84,9 +84,9 @@ Pipelines are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. We're going to create a pipeline that simply scrapes each of the web pages in “urls.”
 
 ```
-+----------+     +---------------+     
-|input data| --> |scrape pipeline| 
-+----------+     +---------------+     
++----------+     +---------------+
+|input data| --> |scrape pipeline|
++----------+     +---------------+
 ```
 
 The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The full content is also below.
@@ -122,15 +122,15 @@ The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The
 }
 ```
 
-In this pipeline, we’re just using `wget` to scrape the content of our input web pages. “level” indicates how many recursive links `wget` will retrieve. We currently have it set to 1, which will only scrape the home page, but you can crank it up later if you want. 
+In this pipeline, we’re just using `wget` to scrape the content of our input web pages. “level” indicates how many recursive links `wget` will retrieve. We currently have it set to 1, which will only scrape the home page, but you can crank it up later if you want.
 
 Another important section to notice is that we read data
-from `/pfs/urls/urls` (/pfs/[input_repo_name]) and write data to `/pfs/out/`.  We create a directory for each url in “urls” with all of the relevant scrapes as files. 
+from `/pfs/urls/urls` (/pfs/[input_repo_name]) and write data to `/pfs/out/`.  We create a directory for each url in “urls” with all of the relevant scrapes as files.
 
 Now let's create the pipeline in Pachyderm:
 
 ```shell
-$ pachctl create-pipeline -f examples/scraper/scraper.json
+$ pachctl create-pipeline -f doc/examples/scraper/scraper.json
 ```
 
 ## What Happens When You Create a Pipeline
@@ -170,7 +170,7 @@ $ pachctl list-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls
 $ pachctl get-file scraper 2b43def9b52b4fdfadd95a70215e90c9 urls/www.imgur.com/index.html
 ```
 
-Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around. 
+Using `get-file` is good if you know exactly what file you’re looking for, but for this example we want to just see all the scraped pages. One great way to do this is to mount the distributed file system locally and then just poke around.
 
 ## Mount the Filesystem
 First create the mount point:
@@ -194,7 +194,7 @@ $ ls ~/pfs
 urls
 scraper
 ```
-You should see the urls repo that we created. 
+You should see the urls repo that we created.
 
 Now you can simply `ls` and `cd` around the file system. Try pointing your browser at the scraped output files!
 
@@ -203,7 +203,7 @@ Now you can simply `ls` and `cd` around the file system. Try pointing your brows
 
 Pipelines can be triggered manually, but also will automatically process the data from new commits as they are
 created. Think of pipelines as being subscribed to any new commits that are
-finished on their input repo(s). 
+finished on their input repo(s).
 
 If we want to re-scrape some of our urls to see if the sites of have changed, we can use the `run-pipeline` command:
 
@@ -246,8 +246,8 @@ the new data we've added. We'll see a corresponding commit to the output
 $ pachctl list-commit scraper
 ```
 ## Next Steps
-You've now got a working Pachyderm cluster with data and a pipelines! Here are a few ideas for next steps that you can expand on your working setup. 
-- Add a bunch more urls and crank up the “level” in the pipeline. You’ll have to delete the old pipeline and re-create or give your pipeline and new name. 
-- Add a new pipeline than does something interesting with the scraper output. Image or text processing could be fun. Just create a pipeline with the scraper repo as an input. 
+You've now got a working Pachyderm cluster with data and a pipelines! Here are a few ideas for next steps that you can expand on your working setup.
+- Add a bunch more urls and crank up the “level” in the pipeline. You’ll have to delete the old pipeline and re-create or give your pipeline and new name.
+- Add a new pipeline than does something interesting with the scraper output. Image or text processing could be fun. Just create a pipeline with the scraper repo as an input.
 
-We'd love to help and see what you come up with so submit any issues/questions you come across or email at info@pachyderm.io if you want to show off anything nifty you've created! 
+We'd love to help and see what you come up with so submit any issues/questions you come across or email at info@pachyderm.io if you want to show off anything nifty you've created!
