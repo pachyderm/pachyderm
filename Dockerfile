@@ -16,7 +16,7 @@ RUN \
   apt-get clean && \
   rm -rf /var/lib/apt
 RUN \
-  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.8.3 > /bin/docker && \
+  curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz | tar -C /bin -xz docker/docker --strip-components=1 && \
   chmod +x /bin/docker
 RUN \
   curl -sSL https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz | tar -C /usr/local -xz && \

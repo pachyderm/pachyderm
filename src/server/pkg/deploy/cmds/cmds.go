@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
@@ -27,7 +28,7 @@ func DeployCmd() *cobra.Command {
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
-				version = "local"
+				version = deploy.DevVersionTag
 			}
 			var out io.Writer
 			var manifest bytes.Buffer

@@ -210,7 +210,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		})
 		if err == nil {
 			// the job already exists. we simply return
-			return &ppsclient.Job{jobID}, nil
+			return &ppsclient.Job{ID: jobID}, nil
 		}
 	}
 
@@ -395,6 +395,11 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 	var inputSizes []uint64
 	limitHit := make(map[int]bool)
 	for i, input := range inputs {
+		if input.Method.Partition == ppsclient.Partition_REPO {
+			// A global input shouldn't be partitioned
+			limitHit[i] = true
+		}
+
 		commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 			Commit: input.Commit,
 		})
@@ -404,7 +409,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 
 		if commitInfo.SizeBytes == 0 {
 			if input.RunEmpty {
-				// An empty input will always have a modulus of 1
+				// An empty input shouldn't be partitioned
 				limitHit[i] = true
 			} else {
 				return nil, newErrEmptyInput(input.Commit.ID)
@@ -1669,7 +1674,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 	}
 	parallelism := int32(parallelism64)
 	image := jobShimImage
-	if jobInfo.Transform.Image != "" {
+	// If the job image refers to pachyderm/job-shim explicitly, we want to use the version of
+	// job-shim that pachd gets from the JOB_SHIM_IMAGE environment variable
+	if jobInfo.Transform.Image != "" && jobInfo.Transform.Image != "pachyderm/job-shim" {
 		image = jobInfo.Transform.Image
 	}
 	if jobImagePullPolicy == "" {
