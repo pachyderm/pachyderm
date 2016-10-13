@@ -3,7 +3,6 @@
     "name": "wordcount_input"
   },
   "transform": {
-    "image": "pachyderm/job-shim",
     "cmd": [ "wget",
         "-e", "robots=off",
         "--recursive",
