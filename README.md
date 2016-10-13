@@ -20,6 +20,10 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 - [Use Cases](http://www.pachyderm.io/use_cases.html)
 - [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
+## Documentation
+
+[Official Documentation](http://pachyderm.readthedocs.io/en/latest/)
+
 ## What is Pachyderm?
 
 Pachyderm is a software platform that supports the storage and processing of large data sets.
