@@ -13,14 +13,24 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-var metrics = &Metrics{}
-
-func latestMetricsFromDB(dbClient *gorethink.Session, pfsDbName string, ppsDbName string, metrics *Metrics) {
+func dbMetrics(dbClient *gorethink.Session, pfsDbName string, ppsDbName string, metrics *Metrics) {
 	cursor, err := gorethink.Object(
 		"Repos",
 		gorethink.DB(pfsDbName).Table("Repos").Count(),
 		"Commits",
-		gorethink.DB(pfsDbName).Table("Commits").Count(), // TODO: want archived commits as well
+		gorethink.DB(pfsDbName).Table("Commits").Count(),
+		"ArchivedCommits",
+		gorethink.DB(pfsDbName).Table("Commits").Filter(
+			map[string]interface{}{
+				"Archived": true,
+			},
+		).Count(),
+		"CancelledCommits",
+		gorethink.DB(pfsDbName).Table("Commits").Filter(
+			map[string]interface{}{
+				"Cancelled": true,
+			},
+		).Count(),
 		"Files",
 		gorethink.DB(pfsDbName).Table("Diffs").Group("Path").Ungroup().Count(),
 		"Jobs",
@@ -42,14 +52,13 @@ func ReportMetrics(clusterID string, kubeClient *kube.Client, address string, pf
 		protolion.Errorf("Error connected to DB when reporting metrics: %v\n", err)
 		return
 	}
-	metrics.ID = clusterID
-	metrics.PodID = uuid.NewWithoutDashes()
-	metrics.Version = version.PrettyPrintVersion(version.Version)
 	for {
+		metrics := &Metrics{}
+		dbMetrics(dbClient, pfsDbName, ppsDbName, metrics)
 		externalMetrics(kubeClient, metrics)
-		latestMetricsFromDB(dbClient, pfsDbName, ppsDbName, metrics)
-		protolion.Info(metrics)
-		fmt.Printf("!!! Writing metrics: %v\n", metrics)
+		metrics.ID = clusterID
+		metrics.PodID = uuid.NewWithoutDashes()
+		metrics.Version = version.PrettyPrintVersion(version.Version)
 		reportSegment(metrics)
 		<-time.After(15 * time.Second)
 	}

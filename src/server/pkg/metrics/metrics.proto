@@ -11,4 +11,6 @@ message Metrics {
     int64 bytes = 8;
     int64 jobs = 9;
     int64 pipelines = 10;
+    int64 archived_commits = 11;
+    int64 cancelled_commits = 12;
 }
