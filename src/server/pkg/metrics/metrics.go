@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
