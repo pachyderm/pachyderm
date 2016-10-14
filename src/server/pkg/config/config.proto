@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 message Config {
-    string user_id = 1;
+    bool tracking = 1;
+    string user_id = 2;
 }
 
