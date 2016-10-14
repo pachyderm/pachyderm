@@ -41,6 +41,14 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
 }
 
+// NewMicrosoftClient creates a microsoft client:
+//	container   - Azure Blob Container name
+//	accountName - Azure Storage Account name
+// 	accountKey  - Azure Storage Account key
+func NewMicrosoftClient(container string, accountName string, accountKey string) (Client, error) {
+	return newMicrosoftClient(container, accountName, accountKey)
+}
+
 // NewAmazonClient creates an amazon client with the following credentials:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
