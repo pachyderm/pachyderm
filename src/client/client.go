@@ -39,22 +39,10 @@ type APIClient struct {
 	cancel       func()
 }
 
-type trackingContext struct {
-	ctx    context.Context
-	UserID string
-}
-
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string) (*APIClient, error) {
-	userConfig, err := config.Read()
-	if err != nil {
-		return nil, err
-	}
 	c := &APIClient{
 		addr: addr,
-		_ctx: &trackingContext{
-			UserID: userConfig.UserID,
-		},
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -123,6 +111,13 @@ func (c *APIClient) connect() error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	userConfig, err := config.Read()
+	if err != nil {
+		return err
+	}
+	ctx = context.WithValue(ctx, "UserID", userConfig.UserID)
+
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.BlockAPIClient = pfs.NewBlockAPIClient(clientConn)
