@@ -44,20 +44,16 @@ type trackingContext struct {
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, enableTracking bool) (*APIClient, error) {
-	ctx = context.Context
-	if enableTracking {
-		userConfig, err := config.Read()
-		if err != nil {
-			return nil, err
-		}
-		ctx = &trackingContext{
-			UserID: userConfig.UserID,
-		}
+func NewFromAddress(addr string) (*APIClient, error) {
+	userConfig, err := config.Read()
+	if err != nil {
+		return nil, err
 	}
 	c := &APIClient{
 		addr: addr,
-		_ctx: ctx,
+		_ctx: &trackingContext{
+			UserID: userConfig.UserID,
+		},
 	}
 	if err := c.connect(); err != nil {
 		return nil, err

@@ -36,7 +36,3 @@ func createDefaults() (*Config, error) {
 	}
 	return c, nil
 }
-
-func FirstRun() {
-
-}
