@@ -337,6 +337,12 @@
 			"revisionTime": "2016-06-02T18:22:55Z"
 		},
 		{
+			"checksumSHA1": "rr85dgAi6P2X5AlID3La84ek83U=",
+			"path": "github.com/docker/docker/api/types/swarm",
+			"revision": "9bd8c1d3321d1b264e84ff5fba4dc04730c264f3",
+			"revisionTime": "2016-10-11T22:47:47Z"
+		},
+		{
 			"checksumSHA1": "Vn60086xCfe2Q4+mbWh/UbKBwUc=",
 			"path": "github.com/docker/docker/opts",
 			"revision": "f6ff9acc63a0e8203a36e2e357059089923c2a49",
