@@ -12,6 +12,24 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+// Segment API allows for map[string]interface{} for a single user's traits
+// But we only care about things that are countable for the moment
+// map userID -> action name -> count
+type countableUserActions map[string]map[string]uint64
+
+var userActions = make(countableUserActions)
+var modified int64
+
+//IncrementUserAction updates a counter per user per action for an API method by name
+func IncrementUserAction(userID string, action string) {
+	if userActions[userID] == nil {
+		identifyNewUser(userID)
+		userActions[userID] = make(map[string]uint64)
+	}
+	atomic.AddUInt64(&userActions[userID][action], 1)
+	atomic.SwapInt64(&modified, 1)
+}
+
 func dbMetrics(dbClient *gorethink.Session, pfsDbName string, ppsDbName string, metrics *Metrics) {
 	cursor, err := gorethink.Object(
 		"Repos",
@@ -58,7 +76,11 @@ func ReportMetrics(clusterID string, kubeClient *kube.Client, address string, pf
 		metrics.ID = clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
-		reportSegment(metrics)
+		newUserMetrics := atomic.SwapInt64(&modified, 0)
+		if newUserMetrics {
+			reportUserMetricsToSegment(userActions)
+		}
+		reportClusterMetricsToSegment(metrics)
 		<-time.After(15 * time.Second)
 	}
 }
