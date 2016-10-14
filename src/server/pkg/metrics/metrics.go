@@ -1,68 +1,64 @@
 package metrics
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	db "github.com/pachyderm/pachyderm/src/server/pfs/db"
 
+	"github.com/dancannon/gorethink"
 	"go.pedge.io/lion/proto"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-var metrics = &Metrics{}
-var modified int64
-
-// AddRepos atomically adds a number of repos to metrics.
-func AddRepos(num int64) {
-	atomic.AddInt64(&metrics.Repos, num)
-	atomic.SwapInt64(&modified, 1)
-}
-
-// AddCommits atomically adds a number of commits to metrics.
-func AddCommits(num int64) {
-	atomic.AddInt64(&metrics.Commits, num)
-	atomic.SwapInt64(&modified, 1)
-}
-
-// AddFiles atomically adds a number of files to metrics.
-func AddFiles(num int64) {
-	atomic.AddInt64(&metrics.Files, num)
-	atomic.SwapInt64(&modified, 1)
-}
-
-// AddBytes atomically adds a number of bytes to metrics.
-func AddBytes(num int64) {
-	atomic.AddInt64(&metrics.Bytes, num)
-	atomic.SwapInt64(&modified, 1)
-}
-
-// AddJobs atomically adds a number of jobs to metrics.
-func AddJobs(num int64) {
-	atomic.AddInt64(&metrics.Jobs, num)
-	atomic.SwapInt64(&modified, 1)
-}
-
-// AddPipelines atomically adds a number of pipelines to metrics.
-func AddPipelines(num int64) {
-	atomic.AddInt64(&metrics.Pipelines, num)
-	atomic.SwapInt64(&modified, 1)
+func dbMetrics(dbClient *gorethink.Session, pfsDbName string, ppsDbName string, metrics *Metrics) {
+	cursor, err := gorethink.Object(
+		"Repos",
+		gorethink.DB(pfsDbName).Table("Repos").Count(),
+		"Commits",
+		gorethink.DB(pfsDbName).Table("Commits").Count(),
+		"ArchivedCommits",
+		gorethink.DB(pfsDbName).Table("Commits").Filter(
+			map[string]interface{}{
+				"Archived": true,
+			},
+		).Count(),
+		"CancelledCommits",
+		gorethink.DB(pfsDbName).Table("Commits").Filter(
+			map[string]interface{}{
+				"Cancelled": true,
+			},
+		).Count(),
+		"Files",
+		gorethink.DB(pfsDbName).Table("Diffs").Group("Path").Ungroup().Count(),
+		"Jobs",
+		gorethink.DB(ppsDbName).Table("JobInfos").Count(),
+		"Pipelines",
+		gorethink.DB(ppsDbName).Table("PipelineInfos").Count(),
+	).Run(dbClient)
+	if err != nil {
+		protolion.Errorf("Error Fetching Metrics:%+v", err)
+	}
+	cursor.One(&metrics)
 }
 
 // ReportMetrics blocks and reports metrics, if modified, to the
 // given kubernetes client every 15 seconds.
-func ReportMetrics(clusterID string, kubeClient *kube.Client) {
-	metrics.ID = clusterID
-	metrics.PodID = uuid.NewWithoutDashes()
-	metrics.Version = version.PrettyPrintVersion(version.Version)
+func ReportMetrics(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) {
+	dbClient, err := db.DbConnect(address)
+	if err != nil {
+		protolion.Errorf("Error connected to DB when reporting metrics: %v\n", err)
+		return
+	}
 	for {
-		write := atomic.SwapInt64(&modified, 0)
-		if write == 1 {
-			externalMetrics(kubeClient, metrics)
-			protolion.Info(metrics)
-			reportSegment(metrics)
-		}
+		metrics := &Metrics{}
+		dbMetrics(dbClient, pfsDbName, ppsDbName, metrics)
+		externalMetrics(kubeClient, metrics)
+		metrics.ID = clusterID
+		metrics.PodID = uuid.NewWithoutDashes()
+		metrics.Version = version.PrettyPrintVersion(version.Version)
+		reportSegment(metrics)
 		<-time.After(15 * time.Second)
 	}
 }
