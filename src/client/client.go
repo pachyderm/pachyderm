@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	google_protobuf "go.pedge.io/pb/go/google/protobuf"
