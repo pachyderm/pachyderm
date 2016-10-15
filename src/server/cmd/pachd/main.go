@@ -118,7 +118,11 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	if appEnv.Metrics {
-		go metrics.ReportMetrics(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
+		reporter, err := metrics.NewReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
+		if err != nil {
+			return err
+		}
+		go reporter.ReportMetrics()
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {

@@ -37,8 +37,8 @@ func identifyNewUser(userID string) {
 	}
 }
 
-func reportUserMetricsToSegment(userActions *UserActions) {
-	for userID, actions := range userActions {
+func reportUserMetricsToSegment(allUsersActions countableUserActions) {
+	for userID, actions := range allUsersActions {
 		err := client.Track(&analytics.Track{
 			Event:      "Usage",
 			UserId:     userID,
