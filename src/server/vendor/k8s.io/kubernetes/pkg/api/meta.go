@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,18 +17,25 @@ limitations under the License.
 package api
 
 import (
+	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/meta/metatypes"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/types"
-	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/kubernetes/pkg/util/uuid"
 )
 
 // FillObjectMetaSystemFields populates fields that are managed by the system on ObjectMeta.
 func FillObjectMetaSystemFields(ctx Context, meta *ObjectMeta) {
 	meta.CreationTimestamp = unversioned.Now()
-	meta.UID = util.NewUUID()
+	// allows admission controllers to assign a UID earlier in the request processing
+	// to support tracking resources pending creation.
+	uid, found := UIDFrom(ctx)
+	if !found {
+		uid = uuid.NewUUID()
+	}
+	meta.UID = uid
 	meta.SelfLink = ""
 }
 
@@ -63,6 +70,8 @@ func ListMetaFor(obj runtime.Object) (*unversioned.ListMeta, error) {
 	err = runtime.FieldPtr(v, "ListMeta", &meta)
 	return meta, err
 }
+
+func (obj *ObjectMeta) GetObjectMeta() meta.Object { return obj }
 
 // Namespace implements meta.Object for any object with an ObjectMeta typed field. Allows
 // fast, direct access to metadata fields for API objects.
@@ -121,4 +130,11 @@ func (meta *ObjectMeta) SetOwnerReferences(references []metatypes.OwnerReference
 		}
 	}
 	meta.OwnerReferences = newReferences
+}
+
+func (meta *ObjectMeta) GetClusterName() string {
+	return meta.ClusterName
+}
+func (meta *ObjectMeta) SetClusterName(clusterName string) {
+	meta.ClusterName = clusterName
 }
