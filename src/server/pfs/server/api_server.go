@@ -39,10 +39,10 @@ func newAPIServer(driver drive.Driver) *apiServer {
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metrics.IncrementUserAction(ctx.UserID, "CreateRepoStarted")
+	metrics.IncrementUserAction(ctx.Value("UserID").(string), "CreateRepoStarted")
 	defer func() {
 		if retErr == nil {
-			metrics.IncrementUserAction(ctx.UserID, "CreateRepoFinished")
+			metrics.IncrementUserAction(ctx.Value("UserID").(string), "CreateRepoFinished")
 		}
 	}()
 	if err := a.driver.CreateRepo(request.Repo, request.Provenance); err != nil {
