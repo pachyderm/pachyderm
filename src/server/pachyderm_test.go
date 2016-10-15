@@ -3208,9 +3208,15 @@ func waitForReadiness(t *testing.T) {
 	k := getKubeClient(t)
 	rc := pachdRc(t)
 	for {
-		has, err := kube.ControllerHasDesiredReplicas(k, rc)()
+		// This code is taken from
+		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
+		// It used to call that fun ction but an update to the k8s library
+		// broke it due to a type error.  We should see if we can go back to
+		// using that code but I(jdoliner) couldn't figure out how to fanagle
+		// the types into compiling.
+		newRc, err := k.ReplicationControllers(api.NamespaceDefault).Get(rc.Name)
 		require.NoError(t, err)
-		if has {
+		if newRc.Status.ObservedGeneration >= rc.Generation && newRc.Status.Replicas == newRc.Spec.Replicas {
 			break
 		}
 		time.Sleep(time.Second * 5)
