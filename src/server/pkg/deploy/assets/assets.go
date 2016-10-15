@@ -21,12 +21,14 @@ var (
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage           = "rethinkdb:2.3.3"
+	registryImage          = "registry:2"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
 	pachdName              = "pachd"
 	rethinkName            = "rethink"
 	rethinkVolumeName      = "rethink-volume"
 	rethinkVolumeClaimName = "rethink-volume-claim"
+	registryName           = "registry"
 	amazonSecretName       = "amazon-secret"
 	googleSecretName       = "google-secret"
 	initName               = "pachd-init"
@@ -500,6 +502,78 @@ func InitJob(version string) *extensions.Job {
 						},
 					},
 					RestartPolicy: "OnFailure",
+				},
+			},
+		},
+	}
+}
+
+func RegistryRc() *api.ReplicationController {
+	replicas := int32(1)
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   registryName,
+			Labels: labels(registryName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: &replicas,
+			Selector: map[string]string{
+				"app": registryName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   registryName,
+					Labels: labels(registryName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  registryName,
+							Image: registryImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "REGISTRY_HTTP_ADDR",
+									Value: ":5000",
+								},
+								{
+									Name:  "REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY",
+									Value: "/var/lib/registry",
+								},
+							},
+							Resources: api.ResourceRequirements{
+								Limits: map[api.ResourceName]resource.Quantity{
+									"cpu":    resource.MustParse("100m"),
+									"memory": resource.MustParse("100Mi"),
+								},
+								Requests: map[api.ResourceName]resource.Quantity{
+									"cpu":    resource.MustParse("100m"),
+									"memory": resource.MustParse("100Mi"),
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 5000,
+									Name:          "Registry",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "image-storage",
+									MountPath: "/var/lib/registry",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "image-storage",
+						},
+					},
 				},
 			},
 		},
