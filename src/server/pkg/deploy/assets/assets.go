@@ -580,6 +580,33 @@ func RegistryRc() *api.ReplicationController {
 	}
 }
 
+// RegistryService returns a registry service.
+func RegistryService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   registryName,
+			Labels: labels(registryName),
+		},
+		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app": registryName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port:     5000,
+					Name:     "registry",
+					NodePort: 32500,
+				},
+			},
+		},
+	}
+}
+
 // AmazonSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
