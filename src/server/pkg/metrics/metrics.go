@@ -41,20 +41,13 @@ func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsD
 type countableActions map[string]interface{}
 type countableUserActions map[string]countableActions
 
-var userActions = make(countableUserActions)
-
 type incrementUserAction struct {
 	action string
 	user   string
 }
 
+var userActions = make(countableUserActions)
 var incrementActionChannel = make(chan *incrementUserAction, 0)
-
-type readBatchOfActions struct {
-	channel chan countableUserActions
-}
-
-var readBatchOfActionsChannel = make(chan *readBatchOfActions, 0)
 
 //IncrementUserAction updates a counter per user per action for an API method by name
 func IncrementUserAction(userID string, action string) {
@@ -111,24 +104,21 @@ func (r *Reporter) ReportMetrics() {
 				userActions[incrementAction.user][incrementAction.action] = uint64(0)
 			}
 			break
-		case batchOfActions := <-readBatchOfActionsChannel:
-			batchOfActions.channel <- userActions
-			userActions = make(countableUserActions)
 		case <-reportingTicker.C:
-			r.reportClusterMetrics()
-			r.reportUserMetrics()
+			r.reportToSegment()
 		}
 	}
 }
 
+func (r *Reporter) reportToSegment() {
+	r.reportClusterMetrics()
+	r.reportUserMetrics()
+}
+
 func (r *Reporter) reportUserMetrics() {
-	read := &readBatchOfActions{
-		channel: make(chan countableUserActions, 0),
-	}
-	readBatchOfActionsChannel <- read
-	batchOfUserActions := <-read.channel
-	if len(batchOfUserActions) > 0 {
-		reportUserMetricsToSegment(batchOfUserActions)
+	if len(userActions) > 0 {
+		reportUserMetricsToSegment(userActions)
+		userActions = make(countableUserActions)
 	}
 }
 
