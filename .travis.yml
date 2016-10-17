@@ -20,7 +20,7 @@ before_install:
 - sudo mount -o bind /var/lib/kubelet /var/lib/kubelet
 - sudo mount --make-shared /var/lib/kubelet
 before_script:
-- wget https://storage.googleapis.com/kubernetes-release/release/v1.3.5/bin/linux/amd64/kubectl
+- wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linux/amd64/kubectl
 - chmod +x kubectl
 - sudo mv kubectl /usr/local/bin/
 - make launch-kube
