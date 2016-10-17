@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -213,6 +213,8 @@ type Meta struct {
 	// KeyNameMapping is an optional function which may map the listed key (field name)
 	// into a source and destination value.
 	KeyNameMapping FieldMappingFunc
+	// Context is an optional field that callers may use to pass info to conversion functions.
+	Context interface{}
 }
 
 // scope contains information about an ongoing conversion.
