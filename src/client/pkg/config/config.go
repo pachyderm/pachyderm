@@ -9,7 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 )
 
-var configPath = filepath.Join(os.Getenv("HOME"), ".pachyderm/config.json")
+var configDirPath = filepath.Join(os.Getenv("HOME"), ".pachyderm")
+var configPath = filepath.Join(configDirPath, "config.json")
 
 func Read() (*Config, error) {
 	raw, err := ioutil.ReadFile(configPath)
@@ -27,6 +28,10 @@ func createDefaults() (*Config, error) {
 		UserID: uuid.NewWithoutDashes(),
 	}
 	rawConfig, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	err = os.MkdirAll(configDirPath, 0644)
 	if err != nil {
 		return nil, err
 	}
