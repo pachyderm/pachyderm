@@ -139,6 +139,9 @@ The increase the throughput of a job increase the Shard paremeter.
 	pipelineSpec := string(pachyderm.MustAsset("doc/development/pipeline_spec.md"))
 
 	var jobPath string
+	var pushImages bool
+	var registry string
+	var username string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -185,6 +188,13 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
 				return sanitizeErr(err)
 			}
+			if pushImages {
+				pushedImage, err := pushImage(registry, username, request.Transform.Image)
+				if err != nil {
+					return err
+				}
+				request.Transform.Image = pushedImage
+			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
@@ -197,6 +207,9 @@ The increase the throughput of a job increase the Shard paremeter.
 		}),
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
+	createJob.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -304,9 +317,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 
 	var pipelinePath string
-	var pushImages bool
-	var registry string
-	var username string
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
