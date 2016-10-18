@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -427,8 +428,7 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
 			ClaimName: rethinkVolumeClaimName,
 		}
-	} else if backend == localBackend || backend == microsoftBackend {
-		// ToDo: workaround until https://github.com/pachyderm/pachyderm/issues/960
+	} else if backend == localBackend {
 		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "rethink"),
 		}
@@ -622,6 +622,17 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 			GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
 				FSType: "ext4",
 				PDName: name,
+			},
+		}
+	case microsoftBackend:
+		dataDiskURI := name
+		split := strings.Split(name, "/")
+		diskName := split[len(split)-1]
+
+		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+			AzureDisk: &api.AzureDiskVolumeSource{
+				DiskName:    diskName,
+				DataDiskURI: dataDiskURI,
 			},
 		}
 	default:
