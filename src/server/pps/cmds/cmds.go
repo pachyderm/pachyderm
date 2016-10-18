@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/user"
 	"sort"
 	"strings"
@@ -306,6 +305,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 
 	var pipelinePath string
 	var pushImages bool
+	var registry string
+	var username string
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
@@ -319,25 +320,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return sanitizeErr(err)
 			}
-			if pushImages {
-				cmd := exec.Command("sh")
-				cmd.Stdin = strings.NewReader(`
-pod=$(kubectl get pod -l k8s-app=kube-registry | awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl port-forward "$pod" 30500:30500
-`)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				go func() {
-					if err := cmd.Run(); err != nil {
-						fmt.Errorf("failed to port forward to registry container with error: %s", err.Error())
-					}
-				}()
-				defer func() {
-					if err := cmd.Process.Kill(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-			}
 			for {
 				request, err := cfgReader.nextCreatePipelineRequest()
 				if err == io.EOF {
@@ -346,7 +328,7 @@ kubectl port-forward "$pod" 30500:30500
 					return err
 				}
 				if pushImages {
-					pushedImage, err := pushImage(request.Transform.Image)
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
 					if err != nil {
 						return err
 					}
@@ -364,6 +346,8 @@ kubectl port-forward "$pod" 30500:30500
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	var archive bool
 	updatePipeline := &cobra.Command{
@@ -388,6 +372,13 @@ kubectl port-forward "$pod" 30500:30500
 				}
 				request.Update = true
 				request.NoArchive = !archive
+				if pushImages {
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
+					if err != nil {
+						return err
+					}
+					request.Transform.Image = pushedImage
+				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					request,
@@ -400,6 +391,9 @@ kubectl port-forward "$pod" 30500:30500
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
+	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
@@ -645,10 +639,12 @@ func sanitizeErr(err error) error {
 }
 
 const (
-	registry string = "localhost:30500"
+	defaultRegistry string = "localhost:30500"
 )
 
-func pushImage(image string) (string, error) {
+// pushImage pushes an image as registry/user/image. Registry and user can be
+// left empty.
+func pushImage(registry string, username string, image string) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return "", err
@@ -656,11 +652,17 @@ func pushImage(image string) (string, error) {
 	repo, _ := docker.ParseRepositoryTag(image)
 	components := strings.Split(repo, "/")
 	name := components[len(components)-1]
-	user, err := user.Current()
-	if err != nil {
-		return "", err
+	if registry == "" {
+		registry = defaultRegistry
 	}
-	pushRepo := fmt.Sprintf("%s/%s/%s", registry, user.Username, name)
+	if username == "" {
+		user, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		username = user.Username
+	}
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
 	pushTag := uuid.NewWithoutDashes()
 	if err := client.TagImage(image, docker.TagImageOptions{
 		Repo:    pushRepo,
