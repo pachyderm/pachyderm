@@ -111,14 +111,27 @@ func (r *Reporter) ReportMetrics() {
 }
 
 func (r *Reporter) reportToSegment() {
-	r.reportClusterMetrics()
-	r.reportUserMetrics()
+	fmt.Printf("!!! Reporting to segment, user actions: [%v]\n", userActions)
+	if len(userActions) > 0 {
+		batchOfUserActions := make(countableUserActions)
+		// copy the existing stats into a new object so we can make the segment
+		// request asynchronously
+		for user, actions := range userActions {
+			singleUserActions := make(countableActions)
+			for name, count := range actions {
+				singleUserActions[name] = count
+			}
+			batchOfUserActions[user] = singleUserActions
+		}
+		go r.reportUserMetrics(batchOfUserActions)
+		userActions = make(countableUserActions)
+	}
+	go r.reportClusterMetrics()
 }
 
-func (r *Reporter) reportUserMetrics() {
-	if len(userActions) > 0 {
-		reportUserMetricsToSegment(userActions)
-		userActions = make(countableUserActions)
+func (r *Reporter) reportUserMetrics(batchOfUserActions countableUserActions) {
+	if len(batchOfUserActions) > 0 {
+		reportUserMetricsToSegment(batchOfUserActions)
 	}
 }
 

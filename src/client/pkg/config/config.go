@@ -31,7 +31,7 @@ func createDefaults() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = os.MkdirAll(configDirPath, 0644)
+	err = os.MkdirAll(configDirPath, 0755)
 	if err != nil {
 		return nil, err
 	}

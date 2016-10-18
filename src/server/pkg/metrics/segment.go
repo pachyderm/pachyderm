@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/segmentio/analytics-go"
 	"go.pedge.io/lion"
 )
@@ -28,7 +30,11 @@ func reportClusterMetricsToSegment(metrics *Metrics) {
 	}
 }
 
-func identifyNewUser(userID string) {
+/*
+Segment needs us to identify a user before we report any events for that user.
+There seems to be no penalty to re-identifying a user, so we call this aggressively
+*/
+func identifyUser(userID string) {
 	err := client.Identify(&analytics.Identify{
 		UserId: userID,
 	})
@@ -39,6 +45,9 @@ func identifyNewUser(userID string) {
 
 func reportUserMetricsToSegment(allUsersActions countableUserActions) {
 	for userID, actions := range allUsersActions {
+		fmt.Printf("!!! identifying user: %v\n", userID)
+		identifyUser(userID)
+		fmt.Printf("!!! tracking user metrics: %v\n", actions)
 		err := client.Track(&analytics.Track{
 			Event:      "Usage",
 			UserId:     userID,
