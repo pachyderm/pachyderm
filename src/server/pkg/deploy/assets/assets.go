@@ -600,7 +600,7 @@ func RegistryService() *api.Service {
 				{
 					Port:     5000,
 					Name:     "registry",
-					NodePort: 32500,
+					NodePort: 30500,
 				},
 			},
 		},
