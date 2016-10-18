@@ -9,7 +9,7 @@ import (
 )
 
 type appEnv struct {
-	Address string `env:"ADDRESS,default=0.0.0.0:30650"`
+	Address string `env:"ADDRESS"`
 }
 
 func main() {

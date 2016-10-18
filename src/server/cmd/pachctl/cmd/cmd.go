@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -29,6 +29,16 @@ import (
 	"golang.org/x/net/context"
 )
 
+func kubectlGetAddress() (string, error) {
+	stdout := bytes.NewBuffer(nil)
+	err := pkgexec.RunIO(pkgexec.IO{Stdout: stdout, Stderr: os.Stderr},
+		"kubectl", "get", "nodes", "-o=jsonpath={$.items[0].status.addresses[?(@.type==\"LegacyHostIP\")].address}")
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Could not get IP of kubernetes node from kubectl: %s", err))
+	}
+	return fmt.Sprintf("%s:30650", stdout.String()), nil
+}
+
 // PachctlCmd takes a pachd host-address and creates a cobra.Command
 // which may interact with the host.
 func PachctlCmd(address string) (*cobra.Command, error) {
@@ -38,7 +48,7 @@ func PachctlCmd(address string) (*cobra.Command, error) {
 		Long: `Access the Pachyderm API.
 
 Environment variables (and defaults):
-  ADDRESS=0.0.0.0:30650, the server to connect to.
+	ADDRESS=<host>:<port>, the server to connect to (by default, <host> is node 0 in 'kubectl get nodes', and <port> is 30650)
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
@@ -50,6 +60,14 @@ Environment variables (and defaults):
 		},
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+
+	if address == "" {
+		var err error
+		address, err = kubectlGetAddress()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	pfsCmds := pfscmds.Cmds(address)
 	for _, cmd := range pfsCmds {
@@ -112,27 +130,8 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
-	var port int
-	portForward := &cobra.Command{
-		Use:   "port-forward",
-		Short: "Forward a port on the local machine to pachd. This command blocks.",
-		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl get pod -l app=pachd |  awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl port-forward "$pod" %d:650
-`, port))
-			fmt.Println("Port forwarded, CTRL-C to exit.")
-			return pkgexec.RunIO(pkgexec.IO{
-				Stdin:  stdin,
-				Stderr: os.Stderr,
-			}, "sh")
-		}),
-	}
-	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
-	rootCmd.AddCommand(portForward)
 	return rootCmd, nil
 }
 
