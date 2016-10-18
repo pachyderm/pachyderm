@@ -557,7 +557,7 @@ func RegistryRc() *api.ReplicationController {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 5000,
-									Name:          "Registry",
+									Name:          "registry",
 								},
 							},
 							VolumeMounts: []api.VolumeMount{
@@ -715,9 +715,9 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	}
 }
 
-// WriteAssets creates the assets in a dir. It expects dir to already exist.
+// WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, shards uint64, backend backend,
-	volumeName string, volumeSize int, hostPath string, version string) {
+	volumeName string, volumeSize int, hostPath string, registry bool, version string) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -747,17 +747,24 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+
+	if registry {
+		RegistryRc().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		RegistryService().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version string) {
-	WriteAssets(w, shards, localBackend, "", 0, hostPath, version)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, version string) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, version)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
-	region string, volumeName string, volumeSize int, version string) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
+	region string, volumeName string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -765,8 +772,8 @@ func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, sec
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
-	volumeName string, volumeSize int, version string) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
+	volumeName string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

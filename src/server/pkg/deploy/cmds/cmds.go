@@ -21,6 +21,7 @@ func DeployCmd() *cobra.Command {
 	var hostPath string
 	var dev bool
 	var dryRun bool
+	var registry bool
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
@@ -37,7 +38,7 @@ func DeployCmd() *cobra.Command {
 				out = os.Stdout
 			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, version)
+				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, version)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -50,7 +51,7 @@ func DeployCmd() *cobra.Command {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
 					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, version)
+						args[5], volumeName, volumeSize, registry, version)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -60,7 +61,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, version)
+					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, version)
 				}
 			}
 			if !dryRun {
@@ -78,5 +79,6 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
 	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	return cmd
 }
