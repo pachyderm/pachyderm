@@ -28,6 +28,9 @@ const (
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
 
+	chunkTable Table = "Chunks"
+	jobIndex   Index = "JobID"
+
 	connectTimeoutSeconds = 5
 )
 
@@ -44,6 +47,7 @@ var (
 	tables = []Table{
 		jobInfosTable,
 		pipelineInfosTable,
+		chunkTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
@@ -111,6 +115,9 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(chunkTable).IndexCreate(jobIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -488,31 +495,56 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 	return cursor.Err()
 }
 
-func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, field string) (response *persist.JobInfo, retErr error) {
-	cursor, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
-		field: gorethink.Row.Field(field).Add(1).Default(0),
-	}, gorethink.UpdateOpts{
-		ReturnChanges: true,
-	}).Field("changes").Field("new_val").Run(a.session)
+// ClaimChunk atomically switches the state of a chunk from UNASSIGNED to ASSIGNED
+func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.ClaimChunkRequest) (response *persist.Chunk, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
+		"JobID": request.JobID,
+		"State": persist.ChunkState_UNASSIGNED,
+	}).Changes(gorethink.ChangesOpts{
+		IncludeInitial: true,
+	}).Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	jobInfo := persist.JobInfo{
-		ParallelismSpec: &ppsclient.ParallelismSpec{
-			Strategy:    ppsclient.ParallelismSpec_COEFFICIENT,
-			Coefficient: 1,
-		},
+	defer cursor.Close()
+	chunk := &persist.Chunk{}
+	for cursor.Next(chunk) {
+		changes, err := a.getTerm(chunkTable).Get(chunk.ID).Update(func(chunk gorethink.Term) gorethink.Term {
+			return gorethink.Branch(
+				// The state of the chunk might have changed between when we query
+				// it and when we try to update it.
+				chunk.Field("State").Eq(persist.ChunkState_UNASSIGNED),
+				map[string]interface{}{
+					"Owner":       request.Name,
+					"State":       persist.ChunkState_ASSIGNED,
+					"TimeTouched": time.Now().Unix(),
+				},
+				nil,
+			)
+		}, gorethink.UpdateOpts{
+			ReturnChanges: true,
+		}).Field("changes").Field("new_val").Run(a.session)
+		if err != nil {
+			return nil, err
+		}
+		var changedChunks []*persist.Chunk
+		if err := changes.All(&changedChunks); err != nil {
+			// If len(changedChunks) == 1, that means we successfully updated
+			// the chunk.  Update can fail when there's another process trying
+			// to claim the same chunk.
+			if len(changedChunks) == 1 {
+				chunk = changedChunks[0]
+				break
+			}
+		}
 	}
-	success := cursor.Next(&jobInfo)
-	if !success {
-		return nil, cursor.Err()
-	}
-
-	return &jobInfo, nil
+	return chunk, nil
 }
 
 func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {
-	cursor, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
+	defer func(start time.Time) { a.Log(nil, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
 		gorethink.Row.Field("State").Eq(ppsclient.JobState_JOB_PULLING),
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_RUNNING,
@@ -530,16 +562,6 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	}
 
 	return &jobInfo, nil
-}
-
-func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(request.JobID).Update(
-		map[string]interface{}{
-			"PodCommits": map[string]*pfs.Commit{fmt.Sprintf("%d", request.PodIndex): request.Commit},
-		},
-	).RunWrite(a.session)
-
-	return google_protobuf.EmptyInstance, err
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {

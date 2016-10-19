@@ -28,15 +28,15 @@ message JobInfo {
 
 enum PodState {
   // We've told Kubernetes to launch the pod, but we haven't heard from the pod itself yet
-  POD_STARTING = 0;
+  STARTING = 0;
   // We've heard from the pod saying that it's going to run the user container
-  POD_RUNNING = 1;
+  RUNNING = 1;
   // We've heard from the pod saying that it failed (for any reason)
-  POD_FAILED = 2;
+  FAILED = 2;
   // We lost contact with the pod
-  POD_CRASHED = 3;
+  CRASHED = 3;
   // The pod succeeded
-  POD_SUCCESS = 4;
+  SUCCESS = 4;
 }
 
 message PodInfo {
@@ -45,34 +45,35 @@ message PodInfo {
   pfs.Commit output_commit = 3;
 }
 
-enum ShardState {
-  // the shard is available for a pod to work on
-  SHARD_UNASSIGNED = 0;
-  // the shard has been assigned to a pod
-  SHARD_ASSIGNED = 1;
-  // the shard has been processed successfully
-  SHARD_FINISHED = 2;
+enum ChunkState {
+  // the chunk is available for a pod to work on
+  UNASSIGNED = 0;
+  // the chunk has been assigned to a pod
+  ASSIGNED = 1;
+  // the chunk has been processed successfully
+  FINISHED = 2;
 }
 
-// A pps.Shard is a unit of work that can be assigned to a pod.  This is not to be
-// confused with pfs.Shard which is a slice of data.
-message Shard {
-  string job_id = 1;
+// Chunk is a unit of work that can be assigned to a pod
+message Chunk {
+  string id = 1;
+  // the ID of the job that the Chunk belongs to
+  string job_id = 2;
   // moduli and index together specify the portion of inputs that the shard represents
   // For instance, if moduli is (2, 3, 4) and index is 15, then we have:
   // 15 = 1 * (3 * 4) + 0 * 4 + 3 * 1
   // So the shard represents the second half of input 1, the first third of input 2,
   // and the fourth quarter of input 3.
-  repeated uint64 moduli = 2;
-  uint64 index = 3;
+  repeated uint64 moduli = 3;
+  uint64 index = 4;
   // the pod that currently owns this shard
-  string owner = 4;
+  string owner = 5;
   // A series of pods, in chronological order, that have processed this shard
-  repeated PodInfo pod_infos = 5;
-  ShardState state = 6;
+  repeated PodInfo pod_infos = 6;
+  ChunkState state = 7;
   // a unix timestamp representing the last time we received a heartbeat saying
   // that a pod is working on this shard
-  uint64 time_touched = 7;
+  uint64 time_touched = 8;
 }
 
 message JobInfos {
@@ -128,11 +129,15 @@ message PipelineInfos {
 
 message SubscribePipelineInfosRequest {
   bool include_initial = 1;
-  uint64 shard = 2;
+  Shard shard = 2;
 }
 
 message ListPipelineInfosRequest {
-  uint64 shard = 1;
+  Shard shard = 1;
+}
+
+message Shard {
+  uint64 number = 1;
 }
 
 message UpdatePipelineStateRequest {
@@ -149,6 +154,11 @@ message UpdatePipelineStoppedRequest {
 message BlockPipelineStateRequest {
   string pipeline_name = 1;
   pps.PipelineState state = 2;
+}
+
+message ClaimChunkRequest {
+  string job_id = 1;
+  string name = 2;
 }
 
 service API {
@@ -187,4 +197,7 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+  // Chunk rpcs
+  rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
 }
