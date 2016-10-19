@@ -9,7 +9,6 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, Pachyderm c
 * [Microsoft Azure](#microsoft-azure)
 * [OpenShift](#openshift)
 
-
 ## Google Cloud Platform
 
 
@@ -345,7 +344,7 @@ The easiest way to deploy a Kubernetes cluster is to use the [official Kubernete
 
 ### Deploy Pachyderm
 
-#### Set up the storage infrastructure
+#### Set up the Storage Infrastructure
 
 Pachyderm requires an object store ([Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)) and a [data disk](https://azure.microsoft.com/documentation/articles/virtual-machines-windows-about-disks-vhds/#data-disk) to function correctly.
 
