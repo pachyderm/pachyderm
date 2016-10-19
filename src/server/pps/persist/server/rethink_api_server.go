@@ -511,15 +511,25 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 	return &jobInfo, nil
 }
 
-func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
-	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
+func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {
+	cursor, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
 		gorethink.Row.Field("State").Eq(ppsclient.JobState_JOB_PULLING),
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_RUNNING,
 		},
 		map[string]interface{}{},
-	)).RunWrite(a.session)
-	return google_protobuf.EmptyInstance, err
+	), gorethink.UpdateOpts{
+		ReturnChanges: true,
+	}).Field("changes").Field("new_val").Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	jobInfo := persist.JobInfo{}
+	if err := cursor.One(&jobInfo); err != nil {
+		return nil, err
+	}
+
+	return &jobInfo, nil
 }
 
 func (a *rethinkAPIServer) AddPodCommit(ctx context.Context, request *persist.AddPodCommitRequest) (response *google_protobuf.Empty, err error) {

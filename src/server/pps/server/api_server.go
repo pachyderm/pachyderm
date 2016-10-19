@@ -638,12 +638,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	_, err = persistClient.StartJob(ctx, request.Job)
-	if err != nil {
-		return nil, err
-	}
-
-	jobInfo, err := persistClient.StartPod(ctx, request.Job)
+	jobInfo, err = persistClient.StartJob(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -651,9 +646,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
-	}
-	if jobInfo.PodsStarted > numWorkers {
-		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, numWorkers)
 	}
 
 	if jobInfo.Transform == nil {
