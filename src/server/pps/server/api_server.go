@@ -301,6 +301,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// If the job has no input, we respect the specified degree of parallelism
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
+	var shardModuli []uint64
 	if len(request.Inputs) == 0 {
 		persistJobInfo.ParallelismSpec = request.ParallelismSpec
 	} else {
@@ -308,7 +309,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if err != nil {
 			return nil, err
 		}
-		shardModuli, err := a.shardModuli(ctx, request.Inputs, numWorkers, repoToFromCommit)
+		shardModuli, err = a.shardModuli(ctx, request.Inputs, numWorkers, repoToFromCommit)
 		_, ok := err.(*errEmptyInput)
 		if err != nil && !ok {
 			return nil, err
@@ -361,6 +362,30 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 		}
 	}()
+
+	// Create chunks for this job
+	numChunks := 1
+	for _, i := range shardModuli {
+		numChunks *= int(i)
+	}
+	var chunks []*persist.Chunk
+	for i := 0; i < numChunks; i++ {
+		chunk := &persist.Chunk{
+			JobID:  jobID,
+			Moduli: shardModuli,
+			Index:  uint64(i),
+			State:  persist.ChunkState_UNASSIGNED,
+		}
+		chunks = append(chunks, chunk)
+	}
+	// TODO: if there are a huge number of chunks, could it be a problem that
+	// we are sending all of them in one request?
+	_, err = persistClient.AddChunk(ctx, &persist.AddChunkRequest{
+		Chunks: chunks,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
 	if err != nil {
@@ -721,13 +746,20 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	shard, err := persistClient.ClaimChunk(ctx, &persist.ClaimChunkRequest{
+	chunk, err := persistClient.ClaimChunk(ctx, &persist.ClaimChunkRequest{
 		Name:  request.Name,
 		JobID: request.Job.ID,
+		PodInfo: &persist.PodInfo{
+			Name:         request.Name,
+			State:        persist.PodState_RUNNING,
+			OutputCommit: commit,
+		},
 	})
 
+	_, err := persistClient
+
 	var commitMounts []*fuse.CommitMount
-	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
+	filterNumbers := filterNumber(chunk.Index, chunk.Moduli)
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
@@ -748,12 +780,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		case ppsclient.Partition_BLOCK:
 			commitMount.Shard = &pfsclient.Shard{
 				BlockNumber:  filterNumbers[i],
-				BlockModulus: jobInfo.ShardModuli[i],
+				BlockModulus: chunk.Moduli[i],
 			}
 		case ppsclient.Partition_FILE:
 			commitMount.Shard = &pfsclient.Shard{
 				FileNumber:  filterNumbers[i],
-				FileModulus: jobInfo.ShardModuli[i],
+				FileModulus: chunk.Moduli[i],
 			}
 		case ppsclient.Partition_REPO:
 			// empty shard matches everything
@@ -789,7 +821,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		PodIndex:     podIndex,
 	}, nil
 }
 

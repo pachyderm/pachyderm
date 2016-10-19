@@ -27,16 +27,14 @@ message JobInfo {
 }
 
 enum PodState {
-  // We've told Kubernetes to launch the pod, but we haven't heard from the pod itself yet
-  STARTING = 0;
   // We've heard from the pod saying that it's going to run the user container
-  RUNNING = 1;
+  RUNNING = 0;
   // We've heard from the pod saying that it failed (for any reason)
-  FAILED = 2;
+  FAILED = 1;
   // We lost contact with the pod
-  CRASHED = 3;
+  CRASHED = 2;
   // The pod succeeded
-  SUCCESS = 4;
+  SUCCESS = 3;
 }
 
 message PodInfo {
@@ -156,9 +154,14 @@ message BlockPipelineStateRequest {
   pps.PipelineState state = 2;
 }
 
+message AddChunkRequest {
+  repeated Chunk chunks = 1;
+}
+
 message ClaimChunkRequest {
   string job_id = 1;
   string name = 2;
+  PodInfo pod_info = 3;
 }
 
 service API {
@@ -199,5 +202,6 @@ service API {
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
   // Chunk rpcs
+  rpc AddChunk(AddChunkRequest) returns (google.protobuf.Empty) {}
   rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
 }
