@@ -339,7 +339,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: product(shardModuli),
 		}
-		persistJobInfo.ShardModuli = shardModuli
+		persistJobInfo.DefaultShardModuli = shardModuli
 	}
 
 	if a.kubeClient == nil {
@@ -638,7 +638,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	jobInfo, err = persistClient.StartJob(ctx, request.Job)
+	jobInfo, err := persistClient.StartJob(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -721,18 +721,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	podIndex := jobInfo.PodsStarted
-	_, err = persistClient.AddPodCommit(
-		ctx,
-		&persist.AddPodCommitRequest{
-			JobID:    request.Job.ID,
-			PodIndex: podIndex,
-			Commit:   commit,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
+	shard, err := persistClient.ClaimChunk(ctx, &persist.ClaimChunkRequest{
+		Name:  request.Name,
+		JobID: request.Job.ID,
+	})
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(jobInfo.PodsStarted-1, jobInfo.ShardModuli)
