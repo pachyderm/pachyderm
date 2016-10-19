@@ -10,7 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	//	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -37,14 +37,15 @@ func newAPIServer(driver drive.Driver) *apiServer {
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
+	fmt.Printf("!!! In CreateRepo w context: %v\n", ctx)
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metrics.IncrementUserAction(ctx.Value("UserID").(string), "CreateRepoStarted")
+	/*metrics.IncrementUserAction(ctx, "CreateRepoStarted")
 	defer func() {
 		if retErr == nil {
-			metrics.IncrementUserAction(ctx.Value("UserID").(string), "CreateRepoFinished")
+			metrics.IncrementUserAction(ctx, "CreateRepoFinished")
 		}
-	}()
+	}() */
 	if err := a.driver.CreateRepo(request.Repo, request.Provenance); err != nil {
 		return nil, err
 	}

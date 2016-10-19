@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -36,13 +37,19 @@ type APIClient struct {
 	clientConn   *grpc.ClientConn
 	healthClient health.HealthClient
 	_ctx         context.Context
+	config       *config.Config
 	cancel       func()
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string) (*APIClient, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, err
+	}
 	c := &APIClient{
-		addr: addr,
+		addr:   addr,
+		config: cfg,
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -111,12 +118,7 @@ func (c *APIClient) connect() error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	userConfig, err := config.Read()
-	if err != nil {
-		return err
-	}
-	ctx = context.WithValue(ctx, "UserID", userConfig.UserID)
+	ctx = c.addMetadata(ctx)
 
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
@@ -128,11 +130,16 @@ func (c *APIClient) connect() error {
 	return nil
 }
 
-// TODO this method only exists because we initialize some APIClient in such a
-// way that ctx will be nil
+func (c *APIClient) addMetadata(ctx context.Context) context.Context {
+	return metadata.NewContext(
+		ctx,
+		metadata.Pairs("UserID", c.config.UserID),
+	)
+}
+
 func (c *APIClient) ctx() context.Context {
 	if c._ctx == nil {
-		return context.Background()
+		return c.addMetadata(context.Background())
 	}
 	return c._ctx
 }

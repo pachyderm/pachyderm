@@ -10,6 +10,8 @@ import (
 
 	"github.com/dancannon/gorethink"
 	"go.pedge.io/lion/proto"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -50,10 +52,17 @@ var userActions = make(countableUserActions)
 var incrementActionChannel = make(chan *incrementUserAction, 0)
 
 //IncrementUserAction updates a counter per user per action for an API method by name
-func IncrementUserAction(userID string, action string) {
-	incrementActionChannel <- &incrementUserAction{
-		action: action,
-		user:   userID,
+func IncrementUserAction(ctx context.Context, action string) {
+	fmt.Printf("!!! trying to increment user actionw ctx: [%v]\n", ctx)
+	md, ok := metadata.FromContext(ctx)
+
+	if ok && md["userid"] != nil && len(md["UserID"]) > 0 {
+		userID := md["userid"][0]
+		fmt.Printf("!!! incrementing user action: %v, %v\n", userID, action)
+		incrementActionChannel <- &incrementUserAction{
+			action: action,
+			user:   userID,
+		}
 	}
 }
 
