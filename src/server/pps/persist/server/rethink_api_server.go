@@ -488,21 +488,6 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 	return cursor.Err()
 }
 
-func (a *rethinkAPIServer) StartPod(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.shardOp(ctx, request, "PodsStarted")
-}
-
-func (a *rethinkAPIServer) SucceedPod(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.shardOp(ctx, request, "PodsSucceeded")
-}
-
-func (a *rethinkAPIServer) FailPod(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.shardOp(ctx, request, "PodsFailed")
-}
-
 func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, field string) (response *persist.JobInfo, retErr error) {
 	cursor, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
 		field: gorethink.Row.Field(field).Add(1).Default(0),
