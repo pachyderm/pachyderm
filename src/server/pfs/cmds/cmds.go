@@ -67,6 +67,7 @@ Repos are created with create-repo.`,
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
+			fmt.Printf("!!! going to call create repo w context: %v\n", client)
 			if err != nil {
 				return err
 			}
@@ -104,6 +105,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
+			fmt.Printf("!!! listing repos w context: %v\n", c)
 			repoInfos, err := c.ListRepo(listRepoProvenance)
 			if err != nil {
 				return err
