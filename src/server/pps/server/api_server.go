@@ -1702,6 +1702,18 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 			},
 		)
 	}
+	// We use Kubernetes' "Downward API" so the pod is aware of its name.
+	// This is so that the pod can include its name in future requests
+	// to PPS.
+	// http://kubernetes.io/docs/user-guide/downward-api/
+	jobEnv = append(jobEnv, api.EnvVar{
+		Name: client.PPS_POD_NAME_ENV,
+		ValueFrom: &api.EnvVarSource{
+			FieldRef: &api.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		},
+	})
 
 	var volumes []api.Volume
 	var volumeMounts []api.VolumeMount

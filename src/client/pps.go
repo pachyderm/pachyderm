@@ -14,6 +14,10 @@ func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
 
+const (
+	PPS_POD_NAME_ENV = "PPS_POD_NAME"
+)
+
 var (
 	// MapMethod defines a pps.Method for mapper pipelines.
 	MapMethod = &pps.Method{
