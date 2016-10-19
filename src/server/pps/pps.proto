@@ -11,12 +11,12 @@ option go_package = "pps";
 
 message StartJobRequest {
   Job job = 1;
+  string name = 2;
 }
 
 message StartJobResponse {
     Transform transform = 1;
     repeated fuse.CommitMount commit_mounts = 2;
-    uint64 pod_index = 3;
 }
 
 message FinishJobRequest {
