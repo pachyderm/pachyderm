@@ -495,6 +495,13 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 	return cursor.Err()
 }
 
+// AddChunk inserts an array of chunks into the database
+func (a *rethinkAPIServer) AddChunk(ctx context.Context, request *persist.AddChunkRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	_, err = a.getTerm(chunkTable).Insert(request.Chunks).RunWrite(a.session)
+	return google_protobuf.EmptyInstance, err
+}
+
 // ClaimChunk atomically switches the state of a chunk from UNASSIGNED to ASSIGNED
 func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.ClaimChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
@@ -519,6 +526,7 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 					"Owner":       request.Name,
 					"State":       persist.ChunkState_ASSIGNED,
 					"TimeTouched": time.Now().Unix(),
+					"PodInfos":    chunk.Field("PodInfos").Append(request.PodInfo),
 				},
 				nil,
 			)
