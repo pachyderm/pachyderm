@@ -26,15 +26,6 @@ message JobInfo {
   repeated uint64 default_shard_moduli = 15;
 }
 
-enum ShardState {
-  // the shard is available for a pod to work on
-  SHARD_UNASSIGNED = 0;
-  // the shard has been assigned to a pod
-  SHARD_ASSIGNED = 1;
-  // the shard has been processed successfully
-  SHARD_FINISHED = 2;
-}
-
 enum PodState {
   // We've told Kubernetes to launch the pod, but we haven't heard from the pod itself yet
   POD_STARTING = 0;
@@ -52,6 +43,15 @@ message PodInfo {
   string name = 1;
   PodState state = 2;
   pfs.Commit output_commit = 3;
+}
+
+enum ShardState {
+  // the shard is available for a pod to work on
+  SHARD_UNASSIGNED = 0;
+  // the shard has been assigned to a pod
+  SHARD_ASSIGNED = 1;
+  // the shard has been processed successfully
+  SHARD_FINISHED = 2;
 }
 
 // A pps.Shard is a unit of work that can be assigned to a pod.  This is not to be
@@ -88,12 +88,6 @@ message JobState {
   string job_id = 1;
   pps.JobState state = 2;
   google.protobuf.Timestamp finished = 3; // set when state == FINISHED
-}
-
-message AddPodCommitRequest {
-  string job_id = 1;
-  uint64 pod_index = 2;
-  pfs.Commit commit = 3;
 }
 
 message AddOutputCommitRequest {
@@ -177,10 +171,7 @@ service API {
   // StartJob sets the state of the job to "running" if the state
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
-  rpc StartJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
-
-  // Job commit rpcs
-  rpc AddPodCommit(AddPodCommitRequest) returns (google.protobuf.Empty) {}
+  rpc StartJob(pachyderm.pps.Job) returns (JobInfo) {} 
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
