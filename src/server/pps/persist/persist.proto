@@ -10,7 +10,7 @@ package pachyderm.pps.persist;
 option go_package = "persist";
 
 message JobInfo {
-  reserved 4;
+  reserved 4, 12, 13, 14, 16;
   string job_id = 1;
   pps.Transform transform = 2;
   string pipeline_name = 3;
@@ -23,11 +23,47 @@ message JobInfo {
   string branch = 17;
   pps.JobState state = 10;
   string commit_index = 11;
-  uint64 pods_started = 12;
-  uint64 pods_succeeded = 13;
-  uint64 pods_failed = 14;
   repeated uint64 shard_moduli = 15;
-  map<string, pfs.Commit> pod_commits = 16;
+  repeated ShardInfo shard_infos = 19;
+}
+
+enum ShardState {
+  // the shard is available for a pod to work on
+  SHARD_UNASSIGNED = 0;
+  // the shard has been assigned to a pod
+  SHARD_ASSIGNED = 1;
+  // the shard has been processed successfully
+  SHARD_FINISHED = 2;
+}
+
+message ShardInfo {
+  // the pod that currently owns this shard
+  string owner = 1;
+  // A series of pods, in chronological order, that have processed this shard
+  repeated PodInfo pod_infos = 2;
+  ShardState state = 3;
+  // a unix timestamp representing the last time we received a heartbeat saying
+  // that a pod is working on this shard
+  uint64 time_touched = 4;
+}
+
+enum PodState {
+  // We've told Kubernetes to launch the pod, but we haven't heard from the pod itself yet
+  POD_STARTING = 0;
+  // We've heard from the pod saying that it's going to run the user container
+  POD_RUNNING = 1;
+  // We've heard from the pod saying that it failed (for any reason)
+  POD_FAILED = 2;
+  // We lost contact with the pod
+  POD_CRASHED = 3;
+  // The pod succeeded
+  POD_SUCCESS = 4;
+}
+
+message PodInfo {
+  string name = 1;
+  PodState state = 2;
+  pfs.Commit output_commit = 3;
 }
 
 message JobInfos {
