@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/pkg/exec"
+	"google.golang.org/grpc/metadata"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -67,7 +68,9 @@ Repos are created with create-repo.`,
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewFromAddress(address)
-			fmt.Printf("!!! going to call create repo w context: %v\n", client)
+			fmt.Printf("!!! going to call create repo w context: %v\n", client.Ctx())
+			md, ok := metadata.FromContext(client.Ctx())
+			fmt.Printf("!!! current metadata: %v, %v\n", md, ok)
 			if err != nil {
 				return err
 			}

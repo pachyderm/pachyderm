@@ -55,14 +55,15 @@ var incrementActionChannel = make(chan *incrementUserAction, 0)
 func IncrementUserAction(ctx context.Context, action string) {
 	fmt.Printf("!!! trying to increment user actionw ctx: [%v]\n", ctx)
 	md, ok := metadata.FromContext(ctx)
-
-	if ok && md["userid"] != nil && len(md["UserID"]) > 0 {
+	fmt.Printf("!!! metadata: %v\n", md)
+	if ok && md["userid"] != nil && len(md["userid"]) > 0 {
 		userID := md["userid"][0]
 		fmt.Printf("!!! incrementing user action: %v, %v\n", userID, action)
 		incrementActionChannel <- &incrementUserAction{
 			action: action,
 			user:   userID,
 		}
+		fmt.Printf("!!! incremented user action!\n")
 	}
 }
 
@@ -103,6 +104,7 @@ func (r *Reporter) ReportMetrics() {
 	for {
 		select {
 		case incrementAction := <-incrementActionChannel:
+			fmt.Printf("incrementing action in map!\n")
 			if userActions[incrementAction.user] == nil {
 				userActions[incrementAction.user] = make(countableActions)
 			}
@@ -114,7 +116,9 @@ func (r *Reporter) ReportMetrics() {
 			}
 			break
 		case <-reportingTicker.C:
+			fmt.Printf("!!! TICK - reporting to segment\n")
 			r.reportToSegment()
+			fmt.Printf("!!! kicked off segment reporting\n")
 		}
 	}
 }
