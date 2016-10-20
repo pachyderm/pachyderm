@@ -842,30 +842,25 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	if err != nil {
 		return nil, err
 	}
-	var jobInfo *persist.JobInfo
+	var chunk *persist.Chunk
 	if request.Success {
-		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)
+		chunk, err = persistClient.FinishChunk(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		jobInfo, err = persistClient.FailPod(ctx, request.Job)
+		chunk, err = persistClient.FailChunk(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Finish this shard's commit
-	podCommit, ok := jobInfo.PodCommits[fmt.Sprintf("%d", request.PodIndex)]
-	if !ok {
-		return nil, fmt.Errorf("jobInfo.PodCommits[%v] not found (this is likely a bug)", request.PodIndex)
-	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-		Commit: podCommit,
+		Commit: chunk.PodInfos[len(chunk.PodInfos)-1].OutputCommit,
 		Cancel: !request.Success,
 	}); err != nil {
 		return nil, err

@@ -550,6 +550,36 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 	return chunk, nil
 }
 
+// FinishChunk atomically switches the state of a chunk from ASSIGNED to FINISHED
+func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.FinishChunkRequest) (response *persist.Chunk, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
+		"JobID": request.JobID,
+		"Owner": request.Name,
+		"State": persist.ChunkState_CHUNK_ASSIGNED,
+	}).Update(func(chunk gorethink.Term) gorethink.Term {
+		podInfos := chunk.Field("PodInfos")
+		return map[string]interface{}{
+			"State": persist.ChunkState_CHUNK_FINISHED,
+			"PodInfos": podsInfos.DeleteAt(-1).Append(podInfos.Nth(-1).Merge(map[string]interface{}{
+				"State": persist.PodState_SUCCESS,
+			})),
+		}
+	}, gorethink.UpdateOpts{
+		ReturnChanges: true,
+	}).Field("new_val").RunWrite(a.session)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	chunk := &persist.Chunk{}
+	for cursor.Next(chunk) {
+		return chunk, nil
+	}
+	// If no chunk matches, return nil
+	return nil, nil
+}
+
 func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(nil, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
