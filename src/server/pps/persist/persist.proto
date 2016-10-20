@@ -45,11 +45,13 @@ message PodInfo {
 
 enum ChunkState {
   // the chunk is available for a pod to work on
-  UNASSIGNED = 0;
+  CHUNK_UNASSIGNED = 0;
   // the chunk has been assigned to a pod
-  ASSIGNED = 1;
+  CHUNK_ASSIGNED = 1;
   // the chunk has been processed successfully
-  FINISHED = 2;
+  CHUNK_SUCCESS = 2;
+  // the chunk could not be processed
+  CHUNK_FAILED = 3;
 }
 
 // Chunk is a unit of work that can be assigned to a pod
@@ -164,6 +166,11 @@ message ClaimChunkRequest {
   PodInfo pod_info = 3;
 }
 
+message FinishChunkRequest {
+  string job_id = 1;
+  string name = 2;
+}
+
 service API {
   // Job rpcs
   // job_id cannot be set
@@ -204,4 +211,5 @@ service API {
   // Chunk rpcs
   rpc AddChunk(AddChunkRequest) returns (google.protobuf.Empty) {}
   rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
+  rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
 }
