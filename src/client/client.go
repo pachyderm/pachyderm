@@ -137,6 +137,11 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 	)
 }
 
+// just for debugging
+func (c *APIClient) Ctx() context.Context {
+	return c.ctx()
+}
+
 func (c *APIClient) ctx() context.Context {
 	if c._ctx == nil {
 		return c.addMetadata(context.Background())
