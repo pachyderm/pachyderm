@@ -76,6 +76,9 @@ func InitDBs(address string, databaseName string) error {
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil && !isDBCreated(err) {
 		return err
+	} else if err != nil && isDBCreated(err) {
+		// This function has already run so we abort.
+		return nil
 	}
 	for _, table := range tables {
 		tableCreateOpts, ok := tableToTableCreateOpts[table]
