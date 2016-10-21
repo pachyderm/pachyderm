@@ -523,10 +523,10 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 				// it and when we try to update it.
 				chunk.Field("State").Eq(persist.ChunkState_UNASSIGNED),
 				map[string]interface{}{
-					"Owner":       request.Name,
+					"Owner":       request.Pod.Name,
 					"State":       persist.ChunkState_ASSIGNED,
 					"TimeTouched": time.Now().Unix(),
-					"PodInfos":    chunk.Field("PodInfos").Append(request.PodInfo),
+					"Pods":        chunk.Field("Pods").Append(request.Pod),
 				},
 				nil,
 			)
@@ -550,24 +550,48 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 	return chunk, nil
 }
 
-// FinishChunk atomically switches the state of a chunk from ASSIGNED to FINISHED
+// FinishChunk atomically switches the state of a chunk from ASSIGNED to SUCCESS
 func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.FinishChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
 		"JobID": request.JobID,
-		"Owner": request.Name,
-		"State": persist.ChunkState_CHUNK_ASSIGNED,
-	}).Update(func(chunk gorethink.Term) gorethink.Term {
-		podInfos := chunk.Field("PodInfos")
-		return map[string]interface{}{
-			"State": persist.ChunkState_CHUNK_FINISHED,
-			"PodInfos": podsInfos.DeleteAt(-1).Append(podInfos.Nth(-1).Merge(map[string]interface{}{
-				"State": persist.PodState_SUCCESS,
-			})),
-		}
+		"Owner": request.PodName,
+		"State": persist.ChunkState_ASSIGNED,
+	}).Update(map[string]interface{}{
+		"State": persist.ChunkState_SUCCESS,
 	}, gorethink.UpdateOpts{
 		ReturnChanges: true,
-	}).Field("new_val").RunWrite(a.session)
+	}).Field("new_val").Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close()
+	chunk := &persist.Chunk{}
+	for cursor.Next(chunk) {
+		return chunk, nil
+	}
+	// If no chunk matches, return nil
+	return nil, nil
+}
+
+// RevokeChunk atomically switches the state of a chunk from ASSIGNED to either
+// FAILED or UNASSIGNED, depending on whether the number of pods in this chunk
+// exceeds a given number.
+func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.RevokeChunkRequest) (response *persist.Chunk, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
+		"JobID": request.JobID,
+		"Owner": request.PodName,
+		"State": persist.ChunkState_ASSIGNED,
+	}).Update(map[string]interface{}{
+		"State": gorethink.Branch(
+			gorethink.Row.Field("Pods").Count().Ge(request.MaxPods),
+			persist.ChunkState_FAILED,
+			persist.ChunkState_UNASSIGNED,
+		),
+	}, gorethink.UpdateOpts{
+		ReturnChanges: true,
+	}).Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}

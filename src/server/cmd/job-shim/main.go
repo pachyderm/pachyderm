@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -66,8 +67,7 @@ func do(appEnvObj interface{}) error {
 							Job: &ppsclient.Job{
 								ID: args[0],
 							},
-							Success:  false,
-							PodIndex: response.PodIndex,
+							Success: false,
 						},
 					); err != nil && retErr == nil {
 						retErr = err
@@ -144,17 +144,20 @@ func do(appEnvObj interface{}) error {
 					fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
 				}
 			}
-			if _, err := ppsClient.FinishJob(
+			response, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
-					Job:      client.NewJob(args[0]),
-					Success:  success,
-					PodIndex: response.PodIndex,
+					Job:     client.NewJob(args[0]),
+					Success: success,
 				},
-			); err != nil {
+			)
+			if err != nil {
 				return err
 			}
 			finished = true
+			if response.Fail {
+				return errors.New("restarting...")
+			}
 			return nil
 		}),
 	}

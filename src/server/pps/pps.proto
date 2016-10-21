@@ -11,22 +11,28 @@ option go_package = "pps";
 
 message StartJobRequest {
   Job job = 1;
-  string name = 2;
+  string pod_name = 2;
 }
 
 message StartJobResponse {
-    Transform transform = 1;
-    repeated fuse.CommitMount commit_mounts = 2;
+  Transform transform = 1;
+  repeated fuse.CommitMount commit_mounts = 2;
 }
 
 message FinishJobRequest {
-    Job job = 1;
-    bool success = 2;
-    uint64 pod_index = 3;
+  Job job = 1;
+  string pod_name = 2;
+  bool success = 3;
+}
+
+message FinishJobResponse {
+  // If fail is set to true, the pod is expected to exit with a non-zero code
+  // so that k8s knows to reschedule the pod.
+  bool fail = 1;
 }
 
 service InternalJobAPI {
     rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+    rpc FinishJob(FinishJobRequest) returns (FinishJobResponse) {}
 }
 
