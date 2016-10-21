@@ -47,7 +47,7 @@ func TestExampleTensorFlow(t *testing.T) {
 
 	commitInfos, err := c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"GoT_scripts"},
+			Repo: &pfsclient.Repo{Name: "GoT_scripts"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -128,7 +128,7 @@ func TestWordCount(t *testing.T) {
 	// So we block on ListCommit
 	commitInfos, err := c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"wordcount_input"},
+			Repo: &pfsclient.Repo{Name: "wordcount_input"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -144,7 +144,7 @@ func TestWordCount(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"wordcount_map"},
+			Repo: &pfsclient.Repo{Name: "wordcount_map"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -176,7 +176,7 @@ func TestWordCount(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"wordcount_reduce"},
+			Repo: &pfsclient.Repo{Name: "wordcount_reduce"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -227,7 +227,7 @@ func TestFruitStand(t *testing.T) {
 
 	commitInfos, err := c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"data"},
+			Repo: &pfsclient.Repo{Name: "data"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -266,7 +266,7 @@ func TestFruitStand(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"sum"},
+			Repo: &pfsclient.Repo{Name: "sum"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -282,7 +282,7 @@ func TestFruitStand(t *testing.T) {
 	firstCount, err := strconv.ParseInt(strings.TrimRight(buffer.String(), "\n"), 10, 0)
 	require.NoError(t, err)
 	if firstCount < 100 {
-		t.Fatalf("Wrong sum for apple (%i) ... too low\n", firstCount)
+		t.Fatalf("Wrong sum for apple (%d) ... too low\n", firstCount)
 	}
 
 	// Add more data to input
@@ -303,7 +303,7 @@ func TestFruitStand(t *testing.T) {
 	// Flush commit!
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"data"},
+			Repo: &pfsclient.Repo{Name: "data"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -319,7 +319,7 @@ func TestFruitStand(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"sum"},
+			Repo: &pfsclient.Repo{Name: "sum"},
 		}},
 		nil,
 		client.CommitTypeRead,
@@ -366,7 +366,7 @@ func TestScraper(t *testing.T) {
 	commitInfos, err = c.ListCommit(
 		// fromCommits (only use commits to the 'urls' repo)
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"urls"},
+			Repo: &pfsclient.Repo{Name: "urls"},
 		}},
 		nil, // provenance (any provenance)
 		client.CommitTypeWrite, // Commit hasn't finished, so we want "write"
@@ -399,7 +399,7 @@ func TestScraper(t *testing.T) {
 	commitInfos, err = c.ListCommit(
 		// fromCommits (use only commits to the 'scraper' repo)
 		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{"scraper"},
+			Repo: &pfsclient.Repo{Name: "scraper"},
 		}},
 		nil,
 		client.CommitTypeRead,
