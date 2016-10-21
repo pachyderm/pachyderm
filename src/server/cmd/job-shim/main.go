@@ -22,6 +22,7 @@ import (
 
 type appEnv struct {
 	PachydermAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
+	PodName          string `env:"PPS_POD_NAME,required"`
 }
 
 func main() {
@@ -44,7 +45,9 @@ func do(appEnvObj interface{}) error {
 				&ppsserver.StartJobRequest{
 					Job: &ppsclient.Job{
 						ID: args[0],
-					}})
+					},
+					PodName: appEnv.PodName,
+				})
 			if err != nil {
 				lion.Errorf("error from StartJob: %s", err.Error())
 				return err
@@ -64,9 +67,8 @@ func do(appEnvObj interface{}) error {
 					if _, err := ppsClient.FinishJob(
 						context.Background(),
 						&ppsserver.FinishJobRequest{
-							Job: &ppsclient.Job{
-								ID: args[0],
-							},
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
 							Success: false,
 						},
 					); err != nil && retErr == nil {
@@ -114,9 +116,9 @@ func do(appEnvObj interface{}) error {
 				if _, err := ppsClient.FinishJob(
 					context.Background(),
 					&ppsserver.FinishJobRequest{
-						Job:      client.NewJob(args[0]),
-						Success:  false,
-						PodIndex: response.PodIndex,
+						ChunkID: response.ChunkID,
+						PodName: appEnv.PodName,
+						Success: false,
 					},
 				); err != nil {
 					return err
@@ -144,10 +146,11 @@ func do(appEnvObj interface{}) error {
 					fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
 				}
 			}
-			response, err := ppsClient.FinishJob(
+			res, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
-					Job:     client.NewJob(args[0]),
+					ChunkID: response.ChunkID,
+					PodName: appEnv.PodName,
 					Success: success,
 				},
 			)
@@ -155,7 +158,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			finished = true
-			if response.Fail {
+			if res.Fail {
 				return errors.New("restarting...")
 			}
 			return nil

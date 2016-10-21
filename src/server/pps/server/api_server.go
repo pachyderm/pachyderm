@@ -377,6 +377,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	var chunks []*persist.Chunk
 	for i := 0; i < numChunks; i++ {
 		chunk := &persist.Chunk{
+			ID:     uuid.New(),
 			JobID:  jobID,
 			Moduli: shardModuli,
 			Index:  uint64(i),
@@ -816,6 +817,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	return &ppsserver.StartJobResponse{
+		ChunkID:      chunk.ID,
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
 	}, nil
@@ -842,7 +844,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	var chunk *persist.Chunk
 	if request.Success {
 		chunk, err = persistClient.FinishChunk(ctx, &persist.FinishChunkRequest{
-			JobID:   request.Job.ID,
+			ChunkID: request.ChunkID,
 			PodName: request.PodName,
 		})
 		if err != nil {
@@ -850,7 +852,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		}
 	} else {
 		chunk, err = persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
-			JobID:   request.Job.ID,
+			ChunkID: request.ChunkID,
 			PodName: request.PodName,
 			MaxPods: MAX_PODS_PER_CHUNK,
 		})

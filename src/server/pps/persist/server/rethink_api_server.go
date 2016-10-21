@@ -61,6 +61,11 @@ var (
 				PrimaryKey: "PipelineName",
 			},
 		},
+		chunkTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: "ID",
+			},
+		},
 	}
 )
 
@@ -538,13 +543,14 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 		}
 		var changedChunks []*persist.Chunk
 		if err := changes.All(&changedChunks); err != nil {
-			// If len(changedChunks) == 1, that means we successfully updated
-			// the chunk.  Update can fail when there's another process trying
-			// to claim the same chunk.
-			if len(changedChunks) == 1 {
-				chunk = changedChunks[0]
-				break
-			}
+			return nil, err
+		}
+		// If len(changedChunks) == 1, that means we successfully updated
+		// the chunk.  Update can fail when there's another process trying
+		// to claim the same chunk.
+		if len(changedChunks) == 1 {
+			chunk = changedChunks[0]
+			break
 		}
 	}
 	return chunk, nil
@@ -553,15 +559,18 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 // FinishChunk atomically switches the state of a chunk from ASSIGNED to SUCCESS
 func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.FinishChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
-		"JobID": request.JobID,
-		"Owner": request.PodName,
-		"State": persist.ChunkState_ASSIGNED,
-	}).Update(map[string]interface{}{
-		"State": persist.ChunkState_SUCCESS,
-	}, gorethink.UpdateOpts{
+	cursor, err := a.getTerm(chunkTable).Get(request.ChunkID).Update(gorethink.Branch(
+		gorethink.And(
+			gorethink.Row.Field("Owner").Eq(request.PodName),
+			gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED),
+		),
+		map[string]interface{}{
+			"State": persist.ChunkState_SUCCESS,
+		},
+		nil,
+	), gorethink.UpdateOpts{
 		ReturnChanges: true,
-	}).Field("new_val").Run(a.session)
+	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
@@ -579,19 +588,22 @@ func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.Fin
 // exceeds a given number.
 func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.RevokeChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
-		"JobID": request.JobID,
-		"Owner": request.PodName,
-		"State": persist.ChunkState_ASSIGNED,
-	}).Update(map[string]interface{}{
-		"State": gorethink.Branch(
-			gorethink.Row.Field("Pods").Count().Ge(request.MaxPods),
-			persist.ChunkState_FAILED,
-			persist.ChunkState_UNASSIGNED,
+	cursor, err := a.getTerm(chunkTable).Get(request.ChunkID).Update(gorethink.Branch(
+		gorethink.And(
+			gorethink.Row.Field("Owner").Eq(request.PodName),
+			gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED),
 		),
-	}, gorethink.UpdateOpts{
+		map[string]interface{}{
+			"State": gorethink.Branch(
+				gorethink.Row.Field("Pods").Count().Ge(request.MaxPods),
+				persist.ChunkState_FAILED,
+				persist.ChunkState_UNASSIGNED,
+			),
+		},
+		nil,
+	), gorethink.UpdateOpts{
 		ReturnChanges: true,
-	}).Field("new_val").Run(a.session)
+	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
