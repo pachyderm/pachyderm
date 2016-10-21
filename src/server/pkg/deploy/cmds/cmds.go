@@ -71,7 +71,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[3])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], "", 0, version)
+					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], "", 0, registry, version)
 				}
 			}
 			if !dryRun {
