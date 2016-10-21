@@ -37,6 +37,9 @@ func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsD
 	}, nil
 }
 
+// If we're not reporting metrics, incrementing should do nothing
+var metricsEnabled = false
+
 // Segment API allows for map[string]interface{} for a single user's traits
 // But we only care about things that are countable for the moment
 // map userID -> action name -> count
@@ -53,6 +56,9 @@ var incrementActionChannel = make(chan *incrementUserAction, 0)
 
 //IncrementUserAction updates a counter per user per action for an API method by name
 func IncrementUserAction(ctx context.Context, action string) {
+	if !metricsEnabled {
+		return
+	}
 	fmt.Printf("!!! trying to increment user actionw ctx: [%v]\n", ctx)
 	md, ok := metadata.FromContext(ctx)
 	fmt.Printf("!!! metadata: %v\n", md)
@@ -100,6 +106,7 @@ func (r *Reporter) dbMetrics(metrics *Metrics) {
 
 // ReportMetrics blocks and reports metrics every 15 seconds
 func (r *Reporter) ReportMetrics() {
+	metricsEnabled = true
 	reportingTicker := time.NewTicker(time.Second * 15)
 	for {
 		select {
@@ -135,6 +142,7 @@ func (r *Reporter) reportToSegment() {
 				singleUserActions[name] = count
 			}
 			batchOfUserActions[user] = singleUserActions
+			go identifyUser(user)
 		}
 		go r.reportUserMetrics(batchOfUserActions)
 		userActions = make(countableUserActions)
