@@ -820,8 +820,8 @@ func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
-	volumeURI string, volumeSize int, version string) {
-	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", version)
+	volumeURI string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, version)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
