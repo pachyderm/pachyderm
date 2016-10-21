@@ -12,8 +12,9 @@ var (
 
 // Valid backends
 const (
-	AmazonBackendEnvVar = "AMAZON"
-	GoogleBackendEnvVar = "GOOGLE"
+	AmazonBackendEnvVar    = "AMAZON"
+	GoogleBackendEnvVar    = "GOOGLE"
+	MicrosoftBackendEnvVar = "MICROSOFT"
 )
 
 // APIServer represents and api server.
@@ -53,6 +54,12 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
 		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes)
+		if err != nil {
+			return nil, err
+		}
+		return blockAPIServer, nil
+	case MicrosoftBackendEnvVar:
+		blockAPIServer, err := newMicrosoftBlockAPIServer(dir, cacheBytes)
 		if err != nil {
 			return nil, err
 		}

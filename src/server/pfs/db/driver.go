@@ -84,7 +84,7 @@ func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driv
 		return nil, err
 	}
 
-	dbClient, err := dbConnect(dbAddress)
+	dbClient, err := DbConnect(dbAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func isDBCreated(err error) bool {
 
 //InitDB is used to setup the database with the tables and indices that PFS requires
 func InitDB(address string, dbName string) error {
-	session, err := dbConnect(address)
+	session, err := DbConnect(address)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 // It keeps the database around tho, as it might contain other tables that
 // others created (e.g. PPS).
 func RemoveDB(address string, dbName string) error {
-	session, err := dbConnect(address)
+	session, err := DbConnect(address)
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,8 @@ func removeDB(session *gorethink.Session, dbName string) error {
 	return nil
 }
 
-func dbConnect(address string) (*gorethink.Session, error) {
+// DbConnect returns a rethink DB session connected to the provided address
+func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
@@ -262,7 +263,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	}
 
 	for _, repoName := range rawRepo.Provenance {
-		repoInfo, err := d.InspectRepo(&pfs.Repo{repoName})
+		repoInfo, err := d.InspectRepo(&pfs.Repo{Name: repoName})
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +305,7 @@ nextRepo:
 	for _, repo := range repos {
 		if len(provenance) != 0 {
 			// Filter out the repos that don't have the given provenance
-			repoInfo, err := d.InspectRepo(&pfs.Repo{repo.Name})
+			repoInfo, err := d.InspectRepo(&pfs.Repo{Name: repo.Name})
 			if err != nil {
 				return nil, err
 			}
@@ -810,7 +811,7 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 			}))
 		} else {
 			fullClock, err := d.getFullClock(&pfs.Commit{
-				Repo: &pfs.Repo{repo},
+				Repo: &pfs.Repo{Name: repo},
 				ID:   commit,
 			})
 			if err != nil {
@@ -1591,7 +1592,7 @@ func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pf
 	}
 
 	commits, err := d.getCommitsToMerge(fromCommits, &pfs.Commit{
-		Repo: &pfs.Repo{repo},
+		Repo: &pfs.Repo{Name: repo},
 		ID:   toBranch,
 	})
 	if err != nil {
@@ -1609,7 +1610,7 @@ func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pf
 		// TODO: what if someone else is creating commits on the `to` branch while we
 		// are replaying?
 		newCommit, err := d.StartCommit(&pfs.Commit{
-			Repo: &pfs.Repo{repo},
+			Repo: &pfs.Repo{Name: repo},
 			ID:   toBranch,
 		}, nil)
 		if err != nil {

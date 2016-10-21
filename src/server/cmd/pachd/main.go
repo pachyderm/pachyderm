@@ -75,11 +75,11 @@ func do(appEnvObj interface{}) error {
 	}()
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
+	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 	if appEnv.Init {
 		if err := setClusterID(etcdClient); err != nil {
 			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
 		}
-		rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	if appEnv.Metrics {
-		go metrics.ReportMetrics(clusterID, kubeClient)
+		go metrics.ReportMetrics(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
