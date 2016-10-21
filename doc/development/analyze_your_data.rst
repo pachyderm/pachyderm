@@ -5,7 +5,7 @@ This section of documentation covers everything you'll need to know to deploy a 
 
 If you're brand new to Pachyderm, you should check out our :doc:`../getting_started/getting_started` documentation to install Pachyderm locally and learn the basic concepts. 
 
-:doc:`deploying_on_the_cloud`: Get Pachyderm deployed on AWS, GCE, or OpenShift.
+:doc:`deploying_on_the_cloud`: Get Pachyderm deployed on AWS, GCE, Azure, or OpenShift.
 
 :doc:`inputing_your_data`: Get your own data into Pachyderm.
 
