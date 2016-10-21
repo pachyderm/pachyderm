@@ -26,32 +26,20 @@ message JobInfo {
   repeated uint64 default_shard_moduli = 15;
 }
 
-enum PodState {
-  // We've heard from the pod saying that it's going to run the user container
-  RUNNING = 0;
-  // We've heard from the pod saying that it failed (for any reason)
-  FAILED = 1;
-  // We lost contact with the pod
-  CRASHED = 2;
-  // The pod succeeded
-  SUCCESS = 3;
-}
-
-message PodInfo {
+message Pod {
   string name = 1;
-  PodState state = 2;
-  pfs.Commit output_commit = 3;
+  pfs.Commit output_commit = 2;
 }
 
 enum ChunkState {
   // the chunk is available for a pod to work on
-  CHUNK_UNASSIGNED = 0;
+  UNASSIGNED = 0;
   // the chunk has been assigned to a pod
-  CHUNK_ASSIGNED = 1;
+  ASSIGNED = 1;
   // the chunk has been processed successfully
-  CHUNK_SUCCESS = 2;
+  SUCCESS = 2;
   // the chunk could not be processed
-  CHUNK_FAILED = 3;
+  FAILED = 3;
 }
 
 // Chunk is a unit of work that can be assigned to a pod
@@ -69,7 +57,7 @@ message Chunk {
   // the pod that currently owns this shard
   string owner = 5;
   // A series of pods, in chronological order, that have processed this shard
-  repeated PodInfo pod_infos = 6;
+  repeated Pod pods = 6;
   ChunkState state = 7;
   // a unix timestamp representing the last time we received a heartbeat saying
   // that a pod is working on this shard
@@ -162,13 +150,20 @@ message AddChunkRequest {
 
 message ClaimChunkRequest {
   string job_id = 1;
-  string name = 2;
-  PodInfo pod_info = 3;
+  Pod pod = 2;
 }
 
 message FinishChunkRequest {
   string job_id = 1;
-  string name = 2;
+  string pod_name = 2;
+}
+
+message RevokeChunkRequest {
+  string job_id = 1;
+  string pod_name = 2;
+  // if the number of pods that have processed this chunk exceeds maxPods,
+  // then we switch the state of the chunk to FAILED instead of UNASSIGNED
+  uint64 maxPods = 3;
 }
 
 service API {
@@ -212,4 +207,5 @@ service API {
   rpc AddChunk(AddChunkRequest) returns (google.protobuf.Empty) {}
   rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
   rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
+  rpc RevokeChunk(RevokeChunkRequest) returns (Chunk) {}
 }

@@ -34,6 +34,12 @@ import (
 	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
 
+const (
+	// For any given chunk, we schdule at most this number of pods to process
+	// it in case of failure.
+	MAX_PODS_PER_CHUNK = 3
+)
+
 var (
 	trueVal = true
 	suite   = "pachyderm"
@@ -668,11 +674,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
-	if err != nil {
-		return nil, err
-	}
-
 	if jobInfo.Transform == nil {
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
@@ -747,16 +748,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	}
 
 	chunk, err := persistClient.ClaimChunk(ctx, &persist.ClaimChunkRequest{
-		Name:  request.Name,
 		JobID: request.Job.ID,
-		PodInfo: &persist.PodInfo{
-			Name:         request.Name,
-			State:        persist.PodState_RUNNING,
+		Pod: &persist.Pod{
+			Name:         request.PodName,
 			OutputCommit: commit,
 		},
 	})
-
-	_, err := persistClient
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(chunk.Index, chunk.Moduli)
@@ -835,7 +832,7 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 	return res
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *ppsserver.FinishJobResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
@@ -844,12 +841,19 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	}
 	var chunk *persist.Chunk
 	if request.Success {
-		chunk, err = persistClient.FinishChunk(ctx, request.Job)
+		chunk, err = persistClient.FinishChunk(ctx, &persist.FinishChunkRequest{
+			JobID:   request.Job.ID,
+			PodName: request.PodName,
+		})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		chunk, err = persistClient.FailChunk(ctx, request.Job)
+		chunk, err = persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
+			JobID:   request.Job.ID,
+			PodName: request.PodName,
+			MaxPods: MAX_PODS_PER_CHUNK,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -860,70 +864,17 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		return nil, err
 	}
 	if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-		Commit: chunk.PodInfos[len(chunk.PodInfos)-1].OutputCommit,
+		Commit: chunk.Pods[len(chunk.Pods)-1].OutputCommit,
 		Cancel: !request.Success,
 	}); err != nil {
 		return nil, err
 	}
 
-	// All shards completed, job is finished
-	numWorkers, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
-	if err != nil {
-		return nil, err
+	response = &ppsserver.FinishJobResponse{
+		Fail: !request.Success && chunk.State != persist.ChunkState_FAILED,
 	}
-	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == numWorkers {
-		if jobInfo.OutputCommit == nil {
-			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
-		}
-		failed := jobInfo.PodsSucceeded != numWorkers
-		pfsAPIClient, err := a.getPfsClient()
-		if err != nil {
-			return nil, err
-		}
-		var commitsToMerge []*pfsclient.Commit
-		for _, podCommit := range jobInfo.PodCommits {
-			commitsToMerge = append(commitsToMerge, podCommit)
-		}
-		squashReq := &pfsclient.SquashCommitRequest{
-			FromCommits: commitsToMerge,
-			ToCommit:    jobInfo.OutputCommit,
-		}
-		if _, err := pfsAPIClient.SquashCommit(
-			ctx,
-			squashReq,
-		); err != nil {
-			return nil, err
-		}
 
-		_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-			Cancel: failed,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// The reason why we need to inspect the commit is that the commit's
-		// parent might have been cancelled, which would automatically result
-		// in this commit being cancelled as well.
-		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-			Commit: jobInfo.OutputCommit,
-		})
-		if err != nil {
-			return nil, err
-		}
-		jobState := ppsclient.JobState_JOB_SUCCESS
-		if failed || commitInfo.Cancelled {
-			jobState = ppsclient.JobState_JOB_FAILURE
-		}
-		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
-			JobID: request.Job.ID,
-			State: jobState,
-		}); err != nil {
-			return nil, err
-		}
-	}
-	return google_protobuf.EmptyInstance, nil
+	return response, nil
 }
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
