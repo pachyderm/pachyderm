@@ -1,4 +1,4 @@
-# Deploying On the Cloud
+# Deploying on the Cloud
 
 ## Intro
 
@@ -6,6 +6,7 @@ Pachyderm is built on [Kubernetes](http://kubernetes.io/).  As such, Pachyderm c
 
 * [Google Cloud Platform](#google-cloud-platform)
 * [AWS](#amazon-web-services-aws)
+* [Microsoft Azure](#microsoft-azure)
 * [OpenShift](#openshift)
 
 
@@ -18,9 +19,9 @@ Google Cloud Platform has excellent support for Kubernetes through [Google Conta
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 
-If this is the first time you use the SDK, make sure to follow through the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts). This may update your `~/.bash_profile` and point your `$PATH` at the location where you extracted `google-cloud-sdk`. We recommend extracting this to `~/bin`.
+If this is the first time you use the SDK, make sure to follow the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts). This may update your `~/.bash_profile` and point your `$PATH` at the location where you extracted `google-cloud-sdk`. We recommend extracting this to `~/bin`.
 
-If you do not already have `kubectl` installed: after the SDK is installed, run:
+If you do not already have `kubectl` installed, after the SDK is installed, run:
 
 ```shell
 $ gcloud components install kubectl
@@ -32,7 +33,7 @@ This will download the `kubectl` binary to `google-cloud-sdk/bin`
 
 To create a new Kubernetes cluster in GKE, just run:
 
-```
+```sh
 $ CLUSTER_NAME=[any unique name, e.g. pach-cluster]
 
 $ GCP_ZONE=[a GCP availability zone. e.g. us-west1-a]
@@ -46,13 +47,13 @@ $ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw
 ```
 This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances). 
 
-```
+```sh
 # Update your kubeconfig to point at your newly created cluster
 $ gcloud container clusters get-credentials ${CLUSTER_NAME}
 ```
 
 Check to see that your cluster is up and running:
-```
+```sh
 $ kubectl get all
 NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 kubernetes   10.3.240.1   <none>        443/TCP   10m
@@ -60,7 +61,7 @@ kubernetes   10.3.240.1   <none>        443/TCP   10m
 
 ### Deploy Pachyderm
 
-#### Set up the storage infrastructure
+#### Set up the Storage Infrastructure
 
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
 
@@ -209,9 +210,9 @@ function build-kube-env {
 
 Before we deploy Pachyderm, we need to add some storage resources to our cluster so that Pachyderm has a place to put data. 
 
-#### Set up the storage infrastructure
+#### Set up the Storage Infrastructure
 
-Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html)(EBS) to function correctly.  
+Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html) (EBS) to function correctly.  
 
 Here are the parameters to set up these resources:
 
@@ -331,11 +332,144 @@ pachctl             1.2.0
 pachd               1.2.0
 ```
 
+## Azure
+
+### Prerequisites
+
+* Install [Azure CLI](https://azure.microsoft.com/documentation/articles/xplat-cli-install/) >= 0.10.6
+* Install [jq](https://stedolan.github.io/jq/download/)
+
+### Deploy Kubernetes
+
+The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/azure/).
+
+### Deploy Pachyderm
+
+#### Set up the storage infrastructure
+
+Pachyderm requires an object store ([Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)) and a [data disk](https://azure.microsoft.com/documentation/articles/virtual-machines-windows-about-disks-vhds/#data-disk) to function correctly.
+
+Here are the parameters required to create these resources:
+
+```sh
+# Needs to be globally unique across the entire Azure location
+$ AZURE_RESOURCE_GROUP=[The name of the resource group will all the Azure resources will be stored]
+
+$ AZURE_LOCATION=[The Azure region of your Kubernetes cluster. e.g. "West US2"]
+
+# Needs to be globally unique across the entire Azure location
+$ AZURE_STORAGE_NAME=[The name of the storage account where your data will be stored]
+
+$ CONTAINER_NAME=[The name of the Azure blob container where your data will be stored]
+
+# Needs to end in a ".vhd" extension
+$ STORAGE_NAME=pach-disk.vhd
+```
+ 
+And then run:
+
+```sh
+$ azure group create --name ${AZURE_RESOURCE_GROUP} --location ${AZURE_LOCATION
+$ azure storage account create ${AZURE_STORAGE_NAME} --location ${AZURE_LOCATION} --resource-group ${AZURE_RESOURCE_GROUP} --sku-name LRS --kind Storage
+
+# Retrieve the Azure Storage Account Key
+$ AZURE_STORAGE_KEY=`azure storage account keys list ${AZURE_STORAGE_NAME} --resource-group ${AZURE_RESOURCE_GROUP} --json | jq .[0].value`
+
+# Create an empty data disk in the "disks" container
+$ docker run -it jpoon/azure-create-vhd ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} "disks" ${STORAGE_NAME}
+```
+
+Record the *volume-uri* that is printed and export it as:
+
+```sh
+$ STORAGE_VOLUME_URI=[volume uri / output of docker run command]
+```
+
+To check that everything has been setup correctly, try:
+
+```sh
+$ azure storage account list 
+# should see a number of storage accounts, including the one specified with ${AZURE_STORAGE_NAME}
+
+$ azure storage blob list --account-name ${AZURE_STORAGE_NAME} --account-key ${_AZURE_STORAGE_KEY}
+# should see a disk with the name ${STORAGE_NAME}
+```
+
+#### Install Pachctl 
+
+`pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
+
+```sh
+# For OSX:
+$ brew tap pachyderm/tap && brew install pachctl
+
+# For Linux (64 bit):
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+```
+
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.2.2
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+```
+
+#### Start Pachyderm
+
+Now we're ready to boot up Pachyderm:
+
+```sh
+$ pachctl deploy microsoft ${CONTAINER_NAME} ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} ${STORAGE_VOLUME_UR} ${STORAGE_SIZE}
+```
+
+It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+
+```sh
+$ kubectl get all
+NAME                   DESIRED        CURRENT          AGE
+etcd                   1              1                1m
+pachd                  2              2                1m
+rethink                1              1                1m
+NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
+etcd                   10.3.253.161   <none>           2379/TCP,2380/TCP              1m
+kubernetes             10.3.240.1     <none>           443/TCP                        47m
+pachd                  10.3.254.31    <nodes>          650/TCP,651/TCP                1m
+rethink                10.3.241.56    <nodes>          8080/TCP,28015/TCP,29015/TCP   1m
+NAME                   READY          STATUS           RESTARTS                       AGE
+etcd-1mv3v             1/1            Running          0                              1m
+pachd-6vjpc            1/1            Running          3                              1m
+pachd-nxj54            1/1            Running          3                              1m
+rethink-e4v60          1/1            Running          0                              1m
+NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
+rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
+```
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+
+Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+
+```sh
+# Forward the ports. We background this process because it blocks. 
+$ pachctl portforward &
+```
+
+And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
+
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.2.0
+pachd               1.2.0
+```
+
+
+
 ## OpenShift
 
 [OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
 
-1. Make sure that priviledge containers are allowed (they are not allowed by default):  `oc edit scc` and set `allowPrivilegedContainer: true` everywhere.
+1. Make sure that privilege containers are allowed (they are not allowed by default):  `oc edit scc` and set `allowPrivilegedContainer: true` everywhere.
 2. Remove `hostPath` everywhere from your cluster manifest (e.g. `etc/kube/pachyderm-versioned.json` if you are deploying locally).
 
 Problems related to OpenShift deployment are tracked in this issue: https://github.com/pachyderm/pachyderm/issues/336
