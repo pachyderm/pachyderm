@@ -154,12 +154,12 @@ message ClaimChunkRequest {
 }
 
 message FinishChunkRequest {
-  string job_id = 1;
+  string chunk_id = 1;
   string pod_name = 2;
 }
 
 message RevokeChunkRequest {
-  string job_id = 1;
+  string chunk_id = 1;
   string pod_name = 2;
   // if the number of pods that have processed this chunk exceeds maxPods,
   // then we switch the state of the chunk to FAILED instead of UNASSIGNED

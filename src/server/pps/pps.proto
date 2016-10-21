@@ -15,12 +15,13 @@ message StartJobRequest {
 }
 
 message StartJobResponse {
-  Transform transform = 1;
-  repeated fuse.CommitMount commit_mounts = 2;
+  string chunk_id = 1;
+  Transform transform = 2;
+  repeated fuse.CommitMount commit_mounts = 3;
 }
 
 message FinishJobRequest {
-  Job job = 1;
+  string chunk_id = 1;
   string pod_name = 2;
   bool success = 3;
 }
