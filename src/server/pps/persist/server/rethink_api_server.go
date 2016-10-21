@@ -625,7 +625,7 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 		},
 		map[string]interface{}{},
 	), gorethink.UpdateOpts{
-		ReturnChanges: true,
+		ReturnChanges: "always",
 	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
