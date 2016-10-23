@@ -106,7 +106,7 @@ $ gcloud compute disks list
 $ brew tap pachyderm/tap && brew install pachctl
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -261,7 +261,7 @@ aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 $ brew tap pachyderm/tap && brew install pachctl
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
