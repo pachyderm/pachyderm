@@ -29,7 +29,7 @@ Note: If you don't have wget, just copy the link into your browser.
 chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
-You can try running `kubectl version` to check that this worked correctly. 
+You can try running `kubectl version` to check that this worked correctly.
 
 
 ### Pachctl
@@ -40,7 +40,7 @@ You can try running `kubectl version` to check that this worked correctly.
 ```shell
 $ brew tap pachyderm/tap && brew install pachctl
 ```
-You can try running `pachctl version` to check that this worked correctly. 
+You can try running `pachctl version` to check that this worked correctly.
 
 ### Port Forwarding
 
@@ -65,7 +65,7 @@ $ wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linu
 chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
-You can try running `kubectl version` to check that this worked correctly. 
+You can try running `kubectl version` to check that this worked correctly.
 
 ---
 
