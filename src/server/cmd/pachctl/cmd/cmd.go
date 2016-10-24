@@ -37,8 +37,8 @@ func PachctlCmd(address string) (*cobra.Command, error) {
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
 
-Environment variables (and defaults):
-  ADDRESS=0.0.0.0:30650, the server to connect to.
+Environment variables:
+  ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
