@@ -1194,7 +1194,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 	}
 	a.shardCancelFuncs[shard] = cancel
 
-	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
+	pipelineClient, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
 		IncludeInitial: true,
 		Shard:          &persist.Shard{Number: shard},
 	})
@@ -1204,7 +1204,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	go func() {
 		for {
-			pipelineChange, err := client.Recv()
+			pipelineChange, err := pipelineClient.Recv()
 			if err != nil {
 				protolion.Errorf("error from receive: %s", err.Error())
 				return
@@ -1271,17 +1271,17 @@ func (a *apiServer) AddShard(shard uint64) error {
 		}
 	}()
 
-	client, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
+	jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
 		IncludeInitial: true,
 		Shard:          &persist.Shard{Number: shard},
-		State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
+		State:          []ppsclient.JobState{ppsclient.JobState_JOB_CREATING, ppsclient.JobState_JOB_RUNNING},
 	})
 	if err != nil {
 		return err
 	}
 	go func() {
 		for {
-			jobChange, err := client.Recv()
+			jobChange, err := jobInfoClient.Recv()
 			if err != nil {
 				protolion.Errorf("error from receive: %s", err.Error())
 				return
@@ -1290,6 +1290,12 @@ func (a *apiServer) AddShard(shard uint64) error {
 			switch jobChange.Type {
 			case persist.ChangeType_DELETE:
 			case persist.ChangeType_CREATE:
+				go func() {
+					if err := a.jobManager(ctx, &ppsclient.Job{jobChange.JobInfo.JobID}); err != nil {
+						protolion.Errorf("error from jobManager: %s", err.Error())
+						return
+					}
+				}()
 			}
 		}
 	}()
@@ -1455,6 +1461,8 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
 
 func (a *apiServer) parentJob(

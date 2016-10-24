@@ -30,12 +30,13 @@ message Job {
 }
 
 enum JobState {
-    JOB_RUNNING = 0;
-    JOB_FAILURE = 1;
-    JOB_SUCCESS = 2;
+    JOB_CREATING = 0;
+    JOB_RUNNING = 1;
+    JOB_FAILURE = 2;
+    JOB_SUCCESS = 3;
     // An empty job is a job that hasn't actually been run.
     // It's a result of empty input commits.
-    JOB_EMPTY = 3;
+    JOB_EMPTY = 4;
 }
 
 enum Partition {
