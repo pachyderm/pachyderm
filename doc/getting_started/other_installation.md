@@ -77,7 +77,7 @@ You can try running `kubectl version` to check that this worked correctly.
 If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
 ```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 ### From Source
@@ -153,7 +153,7 @@ $ brew tap pachyderm/tap && brew install pachctl
 If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
 ```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 
