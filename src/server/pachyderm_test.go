@@ -2251,7 +2251,7 @@ func TestJobState(t *testing.T) {
 	c := getPachClient(t)
 
 	// This job uses a nonexistent image; it's supposed to stay in the
-	// "pulling" state
+	// "creating" state
 	job, err := c.CreateJob(
 		"nonexistent",
 		[]string{"bash"},
@@ -2264,7 +2264,7 @@ func TestJobState(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	jobInfo, err := c.InspectJob(job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, ppsclient.JobState_JOB_PULLING, jobInfo.State)
+	require.Equal(t, ppsclient.JobState_JOB_CREATING, jobInfo.State)
 
 	// This job sleeps for 20 secs
 	job, err = c.CreateJob(

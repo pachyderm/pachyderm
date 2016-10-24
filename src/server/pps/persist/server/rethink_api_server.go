@@ -518,16 +518,24 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 	}
 
 	if len(request.State) > 0 {
-		var stateEqs []gorethink.Term
+		var stateEqs []interface{}
 		for _, state := range request.State {
 			stateEqs = append(stateEqs, gorethink.Eq(state))
 		}
 		query = query.Filter(gorethink.Or(stateEqs...))
 	}
 
-	cursor, err := query.Without("State").Changes(gorethink.ChangesOpts{
-		IncludeInitial: request.IncludeInitial,
-	}).Run(a.session)
+	var changeOpts gorethink.ChangesOpts
+	changeOpts.IncludeInitial = request.IncludeInitial
+
+	if !request.IncludeChanges {
+		changeOpts.IncludeTypes = true
+		query = query.Changes(changeOpts).Filter(gorethink.Row.Field("type").Ne("change"))
+	} else {
+		query = query.Changes(changeOpts)
+	}
+
+	cursor, err := query.Run(a.session)
 	if err != nil {
 		return err
 	}
@@ -536,18 +544,18 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 	for cursor.Next(&change) {
 		if change.NewVal != nil && change.OldVal != nil {
 			server.Send(&persist.JobInfoChange{
-				Pipeline: change.NewVal,
-				Type:     persist.ChangeType_UPDATE,
+				JobInfo: change.NewVal,
+				Type:    persist.ChangeType_UPDATE,
 			})
 		} else if change.NewVal != nil {
 			server.Send(&persist.JobInfoChange{
-				Pipeline: change.NewVal,
-				Type:     persist.ChangeType_CREATE,
+				JobInfo: change.NewVal,
+				Type:    persist.ChangeType_CREATE,
 			})
 		} else if change.OldVal != nil {
 			server.Send(&persist.JobInfoChange{
-				Pipeline: change.OldVal,
-				Type:     persist.ChangeType_DELETE,
+				JobInfo: change.OldVal,
+				Type:    persist.ChangeType_DELETE,
 			})
 		} else {
 			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
@@ -675,7 +683,7 @@ func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.Rev
 func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(nil, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(
-		gorethink.Row.Field("State").Eq(ppsclient.JobState_JOB_PULLING),
+		gorethink.Row.Field("State").Eq(ppsclient.JobState_JOB_CREATING),
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_RUNNING,
 		},
