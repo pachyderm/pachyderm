@@ -24,12 +24,13 @@ const (
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
+	jobInfoShardIndex          Index = "Shard"
 
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
 
-	chunkTable Table = "Chunks"
-	jobIndex   Index = "JobID"
+	chunksTable Table = "Chunks"
+	jobIndex    Index = "JobID"
 
 	connectTimeoutSeconds = 5
 )
@@ -47,7 +48,7 @@ var (
 	tables = []Table{
 		jobInfosTable,
 		pipelineInfosTable,
-		chunkTable,
+		chunksTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
@@ -61,7 +62,7 @@ var (
 				PrimaryKey: "PipelineName",
 			},
 		},
-		chunkTable: []gorethink.TableCreateOpts{
+		chunksTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: "ID",
 			},
@@ -119,10 +120,13 @@ func InitDBs(address string, databaseName string) error {
 		}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(jobInfoShardIndex).RunWrite(session); err != nil {
+		return err
+	}
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).Table(chunkTable).IndexCreate(jobIndex).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(chunksTable).IndexCreate(jobIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -500,17 +504,69 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 	return cursor.Err()
 }
 
+// JobInfoChangeFeed is used to subscribe to rethinkdb's changefeed
+type JobInfoChangeFeed struct {
+	OldVal *persist.JobInfo `gorethink:"old_val,omitempty"`
+	NewVal *persist.JobInfo `gorethink:"new_val,omitempty"`
+}
+
+func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosRequest, server persist.API_SubscribeJobInfosServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	query := a.getTerm(jobInfosTable)
+	if request.Shard != nil {
+		query = query.GetAllByIndex(jobInfoShardIndex, request.Shard.Number)
+	}
+
+	if len(request.State) > 0 {
+		var stateEqs []gorethink.Term
+		for _, state := range request.State {
+			stateEqs = append(stateEqs, gorethink.Eq(state))
+		}
+		query = query.Filter(gorethink.Or(stateEqs...))
+	}
+
+	cursor, err := query.Without("State").Changes(gorethink.ChangesOpts{
+		IncludeInitial: request.IncludeInitial,
+	}).Run(a.session)
+	if err != nil {
+		return err
+	}
+
+	var change JobInfoChangeFeed
+	for cursor.Next(&change) {
+		if change.NewVal != nil && change.OldVal != nil {
+			server.Send(&persist.JobInfoChange{
+				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_UPDATE,
+			})
+		} else if change.NewVal != nil {
+			server.Send(&persist.JobInfoChange{
+				Pipeline: change.NewVal,
+				Type:     persist.ChangeType_CREATE,
+			})
+		} else if change.OldVal != nil {
+			server.Send(&persist.JobInfoChange{
+				Pipeline: change.OldVal,
+				Type:     persist.ChangeType_DELETE,
+			})
+		} else {
+			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
+		}
+	}
+	return cursor.Err()
+}
+
 // AddChunk inserts an array of chunks into the database
 func (a *rethinkAPIServer) AddChunk(ctx context.Context, request *persist.AddChunkRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	_, err = a.getTerm(chunkTable).Insert(request.Chunks).RunWrite(a.session)
+	_, err = a.getTerm(chunksTable).Insert(request.Chunks).RunWrite(a.session)
 	return google_protobuf.EmptyInstance, err
 }
 
 // ClaimChunk atomically switches the state of a chunk from UNASSIGNED to ASSIGNED
 func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.ClaimChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunkTable).Filter(map[string]interface{}{
+	cursor, err := a.getTerm(chunksTable).Filter(map[string]interface{}{
 		"JobID": request.JobID,
 		"State": persist.ChunkState_UNASSIGNED,
 	}).Changes(gorethink.ChangesOpts{
@@ -522,7 +578,7 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 	defer cursor.Close()
 	chunk := &persist.Chunk{}
 	for cursor.Next(chunk) {
-		changes, err := a.getTerm(chunkTable).Get(chunk.ID).Update(func(chunk gorethink.Term) gorethink.Term {
+		changes, err := a.getTerm(chunksTable).Get(chunk.ID).Update(func(chunk gorethink.Term) gorethink.Term {
 			return gorethink.Branch(
 				// The state of the chunk might have changed between when we query
 				// it and when we try to update it.
@@ -559,7 +615,7 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 // FinishChunk atomically switches the state of a chunk from ASSIGNED to SUCCESS
 func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.FinishChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunkTable).Get(request.ChunkID).Update(gorethink.Branch(
+	cursor, err := a.getTerm(chunksTable).Get(request.ChunkID).Update(gorethink.Branch(
 		gorethink.And(
 			gorethink.Row.Field("Owner").Eq(request.PodName),
 			gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED),
@@ -588,7 +644,7 @@ func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.Fin
 // exceeds a given number.
 func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.RevokeChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunkTable).Get(request.ChunkID).Update(gorethink.Branch(
+	cursor, err := a.getTerm(chunksTable).Get(request.ChunkID).Update(gorethink.Branch(
 		gorethink.And(
 			gorethink.Row.Field("Owner").Eq(request.PodName),
 			gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED),
@@ -636,6 +692,48 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	}
 
 	return &jobInfo, nil
+}
+
+// WaitJob waits for a job to complete and sets its status
+func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
+	// When there are no more ASSIGNED or UNASSIGNED chunks, all chunks are either
+	// SUCCESS, FAILED, or SPLITTED, meaning that the job has finished
+	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Filter(gorethink.Or(gorethink.Row.Field("State").Eq(persist.ChunkState_UNASSIGNED), gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED))).Count().Changes().Filter(gorethink.Row.Eq(0)).Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	var _i int
+	if err := cursor.One(&_i); err != nil {
+		return nil, err
+	}
+
+	// If any chunk failed, we set the job to FAILURE, or SUCCESS otherwise
+	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Filter(gorethink.Row.Field("State").Eq(persist.ChunkState_FAILED)).Count().Eq(0),
+		map[string]interface{}{
+			"State": ppsclient.JobState_JOB_SUCCESS,
+		},
+		map[string]interface{}{
+			"State": ppsclient.JobState_JOB_FAILURE,
+		})).RunWrite(a.session)
+	if err != nil {
+		return nil, err
+	}
+
+	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunksTable).Filter(gorethink.Or(gorethink.Row.Field("State").Eq(persist.ChunkState_UNASSIGNED), gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED))).Count().Changes().Filter(gorethink.Row.Eq(0)).Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	var _i int
+	if err := cursor.One(&_i); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
