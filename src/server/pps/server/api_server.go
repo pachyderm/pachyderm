@@ -73,18 +73,20 @@ func newErrParentInputsMismatch(parent string) error {
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher               *ppsserver.Hasher
-	address              string
-	pfsAPIClient         pfsclient.APIClient
-	pfsClientOnce        sync.Once
-	persistAPIClient     persist.APIClient
-	persistClientOnce    sync.Once
-	kubeClient           *kube.Client
-	cancelFuncs          map[string]func()
-	cancelFuncsLock      sync.Mutex
-	shardCancelFuncs     map[uint64]func()
-	shardCancelFuncsLock sync.Mutex
-	version              int64
+	hasher                  *ppsserver.Hasher
+	address                 string
+	pfsAPIClient            pfsclient.APIClient
+	pfsClientOnce           sync.Once
+	persistAPIClient        persist.APIClient
+	persistClientOnce       sync.Once
+	kubeClient              *kube.Client
+	shardCancelFuncs        map[uint64]func()
+	shardCancelFuncsLock    sync.Mutex
+	pipelineCancelFuncs     map[string]func()
+	pipelineCancelFuncsLock sync.Mutex
+	jobCancelFuncs          map[string]func()
+	jobCancelFuncsLock      sync.Mutex
+	version                 int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -1162,23 +1164,45 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	a.cancelFuncs[pipelineName] = cancel
+	ctx, cancel := context.WithCancel(ctx)
+	a.pipelineCancelFuncsLock.Lock()
+	defer a.pipelineCancelFuncsLock.Unlock()
+	a.pipelineCancelFuncs[pipelineName] = cancel
 	return ctx
 }
 
-func (a *apiServer) cancelPipeline(pipelineName string) {
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	cancel, ok := a.cancelFuncs[pipelineName]
+func (a *apiServer) cancelPipeline(pipelineName string) error {
+	a.pipelineCancelFuncsLock.Lock()
+	defer a.pipelineCancelFuncsLock.Unlock()
+	cancel, ok := a.pipelineCancelFuncs[pipelineName]
 	if ok {
 		cancel()
-		delete(a.cancelFuncs, pipelineName)
+		delete(a.pipelineCancelFuncs, pipelineName)
 	} else {
-		protolion.Errorf("trying to cancel a pipeline %s which has not been started; this is likely a bug", pipelineName)
+		return fmt.Errorf("trying to cancel a pipeline %s which has not been started; this is likely a bug", pipelineName)
 	}
+	return nil
+}
+
+func (a *apiServer) newJobCtx(ctx context.Context, jobID string) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
+	a.jobCancelFuncsLock.Lock()
+	defer a.jobCancelFuncsLock.Unlock()
+	a.jobCancelFuncs[jobID] = cancel
+	return ctx
+}
+
+func (a *apiServer) cancelJob(jobID string) error {
+	a.jobCancelFuncsLock.Lock()
+	defer a.jobCancelFuncsLock.Unlock()
+	cancel, ok := a.jobCancelFuncs[jobID]
+	if ok {
+		cancel()
+		delete(a.jobCancelFuncs, jobID)
+	} else {
+		return fmt.Errorf("trying to cancel a job %s which has not been started; this is likely a bug", jobID)
+	}
+	return nil
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
@@ -1213,9 +1237,13 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 			switch pipelineChange.Type {
 			case persist.ChangeType_DELETE:
-				a.cancelPipeline(pipelineName)
+				if err := a.cancelPipeline(pipelineName); err != nil {
+					protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
+				}
 			case persist.ChangeType_UPDATE:
-				a.cancelPipeline(pipelineName)
+				if err := a.cancelPipeline(pipelineName); err != nil {
+					protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
+				}
 				fallthrough
 			case persist.ChangeType_CREATE:
 				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
@@ -1246,7 +1274,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 						}
 						return nil
 					}, b, func(err error, d time.Duration) {
-						protolion.Errorf("error running pipeline: %v; retrying in %s", err, d)
+						protolion.Errorf("error running pipeline %v: %v; retrying in %s", pipelineName, err, d)
 						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
 							PipelineName: pipelineName,
 							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
@@ -1286,15 +1314,26 @@ func (a *apiServer) AddShard(shard uint64) error {
 				protolion.Errorf("error from receive: %s", err.Error())
 				return
 			}
+			jobID := jobChange.JobInfo.JobID
 
 			switch jobChange.Type {
 			case persist.ChangeType_DELETE:
+				if err := a.cancelJob(jobID); err != nil {
+					protolion.Errorf("error cancelling job %v: %s", jobID, err.Error())
+				}
 			case persist.ChangeType_CREATE:
+				jobCtx := a.newJobCtx(ctx, jobID)
 				go func() {
-					if err := a.jobManager(ctx, &ppsclient.Job{jobChange.JobInfo.JobID}); err != nil {
-						protolion.Errorf("error from jobManager: %s", err.Error())
-						return
-					}
+					b := backoff.NewExponentialBackOff()
+					b.MaxElapsedTime = 0
+					backoff.RetryNotify(func() error {
+						if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
+							return err
+						}
+						return nil
+					}, b, func(err error, d time.Duration) {
+						protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
+					})
 				}()
 			}
 		}
