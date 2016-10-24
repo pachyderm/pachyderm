@@ -59,17 +59,13 @@ func IncrementUserAction(ctx context.Context, action string) {
 	if !metricsEnabled {
 		return
 	}
-	fmt.Printf("!!! trying to increment user actionw ctx: [%v]\n", ctx)
 	md, ok := metadata.FromContext(ctx)
-	fmt.Printf("!!! metadata: %v\n", md)
 	if ok && md["userid"] != nil && len(md["userid"]) > 0 {
 		userID := md["userid"][0]
-		fmt.Printf("!!! incrementing user action: %v, %v\n", userID, action)
 		incrementActionChannel <- &incrementUserAction{
 			action: action,
 			user:   userID,
 		}
-		fmt.Printf("!!! incremented user action!\n")
 	}
 }
 
@@ -111,7 +107,6 @@ func (r *Reporter) ReportMetrics() {
 	for {
 		select {
 		case incrementAction := <-incrementActionChannel:
-			fmt.Printf("incrementing action in map!\n")
 			if userActions[incrementAction.user] == nil {
 				userActions[incrementAction.user] = make(countableActions)
 			}
@@ -122,15 +117,12 @@ func (r *Reporter) ReportMetrics() {
 			userActions[incrementAction.user][incrementAction.action] = val.(uint64) + uint64(1)
 			break
 		case <-reportingTicker.C:
-			fmt.Printf("!!! TICK - reporting to segment\n")
 			r.reportToSegment()
-			fmt.Printf("!!! kicked off segment reporting\n")
 		}
 	}
 }
 
 func (r *Reporter) reportToSegment() {
-	fmt.Printf("!!! Reporting to segment, user actions: [%v]\n", userActions)
 	if len(userActions) > 0 {
 		batchOfUserActions := make(countableUserActions)
 		// copy the existing stats into a new object so we can make the segment
@@ -159,7 +151,7 @@ func (r *Reporter) reportClusterMetrics() {
 	metrics := &Metrics{}
 	r.dbMetrics(metrics)
 	externalMetrics(r.kubeClient, metrics)
-	metrics.ID = r.clusterID
+	metrics.ClusterID = r.clusterID
 	metrics.PodID = uuid.NewWithoutDashes()
 	metrics.Version = version.PrettyPrintVersion(version.Version)
 	reportClusterMetricsToSegment(metrics)

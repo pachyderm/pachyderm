@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"fmt"
-
 	"github.com/segmentio/analytics-go"
 	"go.pedge.io/lion"
 )
@@ -12,7 +10,7 @@ var client = analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
 func reportClusterMetricsToSegment(metrics *Metrics) {
 	err := client.Track(&analytics.Track{
 		Event:       "metrics",
-		AnonymousId: metrics.ID,
+		AnonymousId: metrics.ClusterID,
 		Properties: map[string]interface{}{
 			"PodID":     metrics.PodID,
 			"nodes":     metrics.Nodes,
@@ -45,9 +43,7 @@ func identifyUser(userID string) {
 
 func reportUserMetricsToSegment(allUsersActions countableUserActions) {
 	for userID, actions := range allUsersActions {
-		fmt.Printf("!!! identifying user: %v\n", userID)
 		identifyUser(userID)
-		fmt.Printf("!!! tracking user metrics: %v\n", actions)
 		err := client.Track(&analytics.Track{
 			Event:      "Usage",
 			UserId:     userID,

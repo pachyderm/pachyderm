@@ -37,7 +37,6 @@ func newAPIServer(driver drive.Driver) *apiServer {
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
-	fmt.Printf("!!! In CreateRepo w context: %v\n", ctx)
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "CreateRepoStarted")
@@ -277,12 +276,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			retErr = err
 		}
 	}()
-	metrics.IncrementUserAction(ctx, "PutFileStarted")
-	defer func() {
-		if retErr == nil {
-			metrics.IncrementUserAction(ctx, "PutFileFinished")
-		}
-	}()
 	request, err := putFileServer.Recv()
 	if err != nil && err != io.EOF {
 		return err
@@ -348,12 +341,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	defer func() {
 		if err := file.Close(); err != nil && retErr == nil {
 			retErr = err
-		}
-	}()
-	metrics.IncrementUserAction(ctx, "GetFileStarted")
-	defer func() {
-		if retErr == nil {
-			metrics.IncrementUserAction(ctx, "GetFileFinished")
 		}
 	}()
 	return protostream.WriteToStreamingBytesServer(file, apiGetFileServer)

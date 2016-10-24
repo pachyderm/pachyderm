@@ -131,15 +131,16 @@ func (c *APIClient) connect() error {
 }
 
 func (c *APIClient) addMetadata(ctx context.Context) context.Context {
+	if c.config == nil {
+		// Don't report error if config fails to read. This is only needed for metrics
+		// We don't want to err if metrics reporting is the only thing that breaks
+		cfg, _ := config.Read()
+		c.config = cfg
+	}
 	return metadata.NewContext(
 		ctx,
 		metadata.Pairs("UserID", c.config.UserID),
 	)
-}
-
-// just for debugging
-func (c *APIClient) Ctx() context.Context {
-	return c.ctx()
 }
 
 func (c *APIClient) ctx() context.Context {
