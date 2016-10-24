@@ -76,11 +76,11 @@ func (c *APIClient) KeepConnected(cancel chan bool) {
 			return
 		default:
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancel()
 			if _, err := c.healthClient.Health(ctx, google_protobuf.EmptyInstance); err != nil {
 				c.cancel()
 				c.connect()
 			}
+			cancel()
 		}
 	}
 }
