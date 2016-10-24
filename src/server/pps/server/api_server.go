@@ -299,6 +299,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
 		OutputCommit: outputCommit,
+		Shard: a.hasher.HashJob(&ppsclient.Job{
+			ID: jobID,
+		}),
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -1267,6 +1270,30 @@ func (a *apiServer) AddShard(shard uint64) error {
 			}
 		}
 	}()
+
+	client, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
+		IncludeInitial: true,
+		Shard:          &persist.Shard{Number: shard},
+		State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
+	})
+	if err != nil {
+		return err
+	}
+	go func() {
+		for {
+			jobChange, err := client.Recv()
+			if err != nil {
+				protolion.Errorf("error from receive: %s", err.Error())
+				return
+			}
+
+			switch jobChange.Type {
+			case persist.ChangeType_DELETE:
+			case persist.ChangeType_CREATE:
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -1415,6 +1442,18 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				}
 			}
 		}
+	}
+}
+
+func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+
+	_, err = persistClient.WaitJob(ctx, job)
+	if err != nil {
+		return err
 	}
 }
 

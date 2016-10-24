@@ -24,6 +24,7 @@ message JobInfo {
   pps.JobState state = 10;
   string commit_index = 11;
   repeated uint64 default_shard_moduli = 15;
+  uint64 shard = 19;
 }
 
 message Pod {
@@ -40,6 +41,9 @@ enum ChunkState {
   SUCCESS = 2;
   // the chunk could not be processed
   FAILED = 3;
+  // the chunk has been splitted into smaller chunks, so this chunk no longer
+  // needs to be processed.
+  SPLITTED = 4;
 }
 
 // Chunk is a unit of work that can be assigned to a pod
@@ -120,6 +124,17 @@ message SubscribePipelineInfosRequest {
   Shard shard = 2;
 }
 
+message SubscribeJobInfosRequest {
+  bool include_initial = 1;
+  Shard shard = 2;
+  repeated pps.JobState state = 3;
+}
+
+message JobInfoChange {
+  PipelineInfo jobInfo = 1;
+  ChangeType type = 2;
+}
+
 message ListPipelineInfosRequest {
   Shard shard = 1;
 }
@@ -177,6 +192,7 @@ service API {
   // should only be called when rolling back if a Job does not start!
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
