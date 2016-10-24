@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -607,12 +608,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	metrics.IncrementUserAction(ctx, "GetLogsStarted")
-	defer func() {
-		if retErr == nil {
-			metrics.IncrementUserAction(ctx, "GetLogsFinished")
-		}
-	}()
 	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
@@ -1128,7 +1123,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "InspectPipelineStarted")
 	defer func() {
-		if retErr == nil {
+		if err == nil {
 			metrics.IncrementUserAction(ctx, "InspectPipelineFinished")
 		}
 	}()
@@ -1149,7 +1144,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "ListPipelineStarted")
 	defer func() {
-		if retErr == nil {
+		if err == nil {
 			metrics.IncrementUserAction(ctx, "ListPipelineFinished")
 		}
 	}()
@@ -1176,7 +1171,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "DeletePipelineStarted")
 	defer func() {
-		if retErr == nil {
+		if err == nil {
 			metrics.IncrementUserAction(ctx, "DeletePipelineFinished")
 		}
 	}()
@@ -1191,7 +1186,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "StartPipelineStarted")
 	defer func() {
-		if retErr == nil {
+		if err == nil {
 			metrics.IncrementUserAction(ctx, "StartPipelineFinished")
 		}
 	}()
@@ -1217,7 +1212,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
 	metrics.IncrementUserAction(ctx, "StopPipelineStarted")
 	defer func() {
-		if retErr == nil {
+		if err == nil {
 			metrics.IncrementUserAction(ctx, "StopPipelineFinished")
 		}
 	}()
@@ -1269,12 +1264,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 func (a *apiServer) Version(version int64) error {
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()
-	metrics.IncrementUserAction(ctx, "VersionStarted")
-	defer func() {
-		if retErr == nil {
-			metrics.IncrementUserAction(ctx, "VersionFinished")
-		}
-	}()
 	a.version = version
 	return nil
 }
