@@ -145,6 +145,12 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "CreateJobStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "CreateJobFinished")
+		}
+	}()
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -549,6 +555,12 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "InspectJobStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "InspectJobFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -564,6 +576,12 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListJobStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListJobFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -589,6 +607,12 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "GetLogsStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "GetLogsFinished")
+		}
+	}()
 	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
@@ -633,6 +657,12 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "StartJobStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "StartJobFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -823,6 +853,12 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "FinishJobStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "FinishJobFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -919,6 +955,12 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "CreatePipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "CreatePipelineFinished")
+		}
+	}()
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
@@ -1084,6 +1126,12 @@ func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "InspectPipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "InspectPipelineFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1099,6 +1147,12 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListPipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListPipelineFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1120,6 +1174,12 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "DeletePipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "DeletePipelineFinished")
+		}
+	}()
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
@@ -1129,6 +1189,12 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "StartPipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "StartPipelineFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1149,6 +1215,12 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "StopPipelineStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "StopPipelineFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1169,6 +1241,12 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "PPSDeleteAllStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "PPSDeleteAllFinished")
+		}
+	}()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1191,6 +1269,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 func (a *apiServer) Version(version int64) error {
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()
+	metrics.IncrementUserAction(ctx, "VersionStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "VersionFinished")
+		}
+	}()
 	a.version = version
 	return nil
 }

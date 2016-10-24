@@ -55,12 +55,24 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "InspectRepoStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "InspectRepoFinished")
+		}
+	}()
 	return a.driver.InspectRepo(request.Repo)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListRepoStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListRepoFinished")
+		}
+	}()
 	repoInfos, err := a.driver.ListRepo(request.Provenance)
 	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 }
@@ -68,6 +80,12 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "DeleteRepoStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "DeleteRepoFinished")
+		}
+	}()
 	err := a.driver.DeleteRepo(request.Repo, request.Force)
 	if err != nil {
 		return nil, err
@@ -78,6 +96,12 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ForkCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ForkCommitFinished")
+		}
+	}()
 	commit, err := a.driver.ForkCommit(request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
@@ -88,6 +112,12 @@ func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitReque
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "StartCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "StartCommitFinished")
+		}
+	}()
 	commit, err := a.driver.StartCommit(request.Parent, request.Provenance)
 	if err != nil {
 		return nil, err
@@ -98,6 +128,12 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "FinishCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "FinishCommitFinished")
+		}
+	}()
 	if err := a.driver.FinishCommit(request.Commit, request.Cancel); err != nil {
 		return nil, err
 	}
@@ -107,6 +143,12 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ArchiveCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ArchiveCommitFinished")
+		}
+	}()
 	if err := a.driver.ArchiveCommit(request.Commits); err != nil {
 		return nil, err
 	}
@@ -116,12 +158,24 @@ func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommi
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "InspectCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "InspectCommitFinished")
+		}
+	}()
 	return a.driver.InspectCommit(request.Commit)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListCommitFinished")
+		}
+	}()
 	commitInfos, err := a.driver.ListCommit(request.FromCommits, request.Provenance, request.CommitType, request.Status, request.Block)
 	if err != nil {
 		return nil, err
@@ -134,12 +188,24 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "SquashCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "SquashCommitFinished")
+		}
+	}()
 	return google_protobuf.EmptyInstance, a.driver.SquashCommit(request.FromCommits, request.ToCommit)
 }
 
 func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitRequest) (response *pfs.Commits, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ReplayCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ReplayCommitFinished")
+		}
+	}()
 	commits, err := a.driver.ReplayCommit(request.FromCommits, request.ToBranch)
 	if err != nil {
 		return nil, err
@@ -150,6 +216,12 @@ func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitR
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListBranchStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListBranchFinished")
+		}
+	}()
 	branches, err := a.driver.ListBranch(request.Repo, request.Status)
 	if err != nil {
 		return nil, err
@@ -160,6 +232,12 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "DeleteCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "DeleteCommitFinished")
+		}
+	}()
 	if err := a.driver.DeleteCommit(request.Commit); err != nil {
 		return nil, err
 	}
@@ -169,6 +247,12 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "FlushCommitStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "FlushCommitFinished")
+		}
+	}()
 	commitInfos, err := a.driver.FlushCommit(request.Commit, request.ToRepo)
 	if err != nil {
 		return nil, err
@@ -191,6 +275,12 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
+		}
+	}()
+	metrics.IncrementUserAction(ctx, "PutFileStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "PutFileFinished")
 		}
 	}()
 	request, err := putFileServer.Recv()
@@ -260,18 +350,36 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 			retErr = err
 		}
 	}()
+	metrics.IncrementUserAction(ctx, "GetFileStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "GetFileFinished")
+		}
+	}()
 	return protostream.WriteToStreamingBytesServer(file, apiGetFileServer)
 }
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "InspectFileStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "InspectFileFinished")
+		}
+	}()
 	return a.driver.InspectFile(request.File, request.Shard, request.DiffMethod)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ListFileStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ListFileFinished")
+		}
+	}()
 	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
 		request.DiffMethod, request.Recurse)
 	if err != nil {
@@ -285,6 +393,12 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "DeleteFileStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "DeleteFileFinished")
+		}
+	}()
 	err := a.driver.DeleteFile(request.File)
 	if err != nil {
 		return nil, err
@@ -295,6 +409,12 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "PFSDeleteAllStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "PFSDeleteAllFinished")
+		}
+	}()
 	if err := a.driver.DeleteAll(); err != nil {
 		return nil, err
 	}
@@ -304,6 +424,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 func (a *apiServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	a.Log(request, nil, nil, 0)
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metrics.IncrementUserAction(ctx, "ArchiveAllStarted")
+	defer func() {
+		if retErr == nil {
+			metrics.IncrementUserAction(ctx, "ArchiveAllFinished")
+		}
+	}()
 	if err := a.driver.ArchiveAll(); err != nil {
 		return nil, err
 	}
