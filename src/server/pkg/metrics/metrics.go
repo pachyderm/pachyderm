@@ -115,7 +115,10 @@ func (r *Reporter) ReportMetrics() {
 			if userActions[incrementAction.user] == nil {
 				userActions[incrementAction.user] = make(countableActions)
 			}
-			val, _ := userActions[incrementAction.user][incrementAction.action]
+			val, ok := userActions[incrementAction.user][incrementAction.action]
+			if !ok {
+				val = uint64(0)
+			}
 			userActions[incrementAction.user][incrementAction.action] = val.(uint64) + uint64(1)
 			break
 		case <-reportingTicker.C:
