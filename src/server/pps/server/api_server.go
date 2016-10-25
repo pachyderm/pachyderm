@@ -1309,7 +1309,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 		IncludeInitial: true,
 		IncludeChanges: false,
 		Shard:          &persist.Shard{Number: shard},
-		State:          []ppsclient.JobState{ppsclient.JobState_JOB_CREATING, ppsclient.JobState_JOB_RUNNING},
 	})
 	if err != nil {
 		return err
@@ -1329,19 +1328,23 @@ func (a *apiServer) AddShard(shard uint64) error {
 					protolion.Errorf("error cancelling job %v: %s", jobID, err.Error())
 				}
 			case persist.ChangeType_CREATE:
-				jobCtx := a.newJobCtx(ctx, jobID)
-				go func() {
-					b := backoff.NewExponentialBackOff()
-					b.MaxElapsedTime = 0
-					backoff.RetryNotify(func() error {
-						if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
-							return err
-						}
-						return nil
-					}, b, func(err error, d time.Duration) {
-						protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
-					})
-				}()
+				// If we see a job that's running or creating, we start a job
+				// manager for it.
+				if jobChange.JobInfo.State == ppsclient.JobState_JOB_RUNNING || jobChange.JobInfo.State == ppsclient.JobState_JOB_CREATING {
+					jobCtx := a.newJobCtx(ctx, jobID)
+					go func() {
+						b := backoff.NewExponentialBackOff()
+						b.MaxElapsedTime = 0
+						backoff.RetryNotify(func() error {
+							if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
+								return err
+							}
+							return nil
+						}, b, func(err error, d time.Duration) {
+							protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
+						})
+					}()
+				}
 			}
 		}
 	}()
@@ -1504,6 +1507,43 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	}
 
 	jobInfo, err := persistClient.WaitJob(ctx, job)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return err
+	}
+
+	chunks, err := persistClient.GetChunksForJob(ctx, job)
+	if err != nil {
+		return err
+	}
+
+	var podCommits []*pfsclient.Commit
+	for _, chunk := range chunks.Chunks {
+		if chunk.State == persist.ChunkState_SUCCESS || chunk.State == persist.ChunkState_FAILED {
+			podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
+		}
+	}
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return err
+	}
+
+	squashReq := &pfsclient.SquashCommitRequest{
+		FromCommits: podCommits,
+		ToCommit:    jobInfo.OutputCommit,
+	}
+	if _, err := pfsAPIClient.SquashCommit(
+		ctx,
+		squashReq,
+	); err != nil {
+		return err
+	}
+
+	_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+		Commit: jobInfo.OutputCommit,
+		Cancel: jobInfo.State == ppsclient.JobState_JOB_FAILURE,
+	})
 	if err != nil {
 		return err
 	}

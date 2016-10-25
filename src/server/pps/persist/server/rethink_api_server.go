@@ -776,17 +776,17 @@ func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (res
 	return jobInfo, nil
 }
 
-func (a *rethinkAPIServer) GetChunksForJob(job *ppsclient.Job, server persist.API_GetChunksForJobServer) (retErr error) {
+func (a *rethinkAPIServer) GetChunksForJob(ctx context.Context, job *ppsclient.Job) (response *persist.Chunks, retErr error) {
 	defer func(start time.Time) { a.Log(job, nil, retErr, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Run(a.session)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	chunk := &persist.Chunk{}
-	for cursor.Next(chunk) {
-		server.Send(chunk)
+	chunks := &persist.Chunks{}
+	if err := cursor.All(&chunks.Chunks); err != nil {
+		return nil, err
 	}
-	return cursor.Err()
+	return chunks, nil
 }
 
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
