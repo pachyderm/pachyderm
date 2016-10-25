@@ -21,7 +21,7 @@ If you'd like to read about the technical concepts in Pachyderm before actually 
 ---
 
 
-If you've already got a Kubernetes cluster running or would rather use AWS or GCE, check out our :doc:`../development/deploying_on_the_cloud` documentation.
+If you've already got a Kubernetes cluster running or would rather use AWS, GCE or Azure, check out our :doc:`../development/deploying_on_the_cloud` documentation.
 
 
 ---
