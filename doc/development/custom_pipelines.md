@@ -71,6 +71,15 @@ RUN go get github.com/pachyderm/pachyderm && \
     cp $GOPATH/bin/job-shim /job-shim
 ```
 
+### Distributing your Image
+Unless Pachyderm is running on the same Docker host that you used to build your
+image you'll need to use a registry to get your image into the cluster.
+`pachctl` can help you with this by way of the `--push-images` flag which is
+accepted by `create-pipeline` and `update-pipeline`. By default the flag will
+attempt to push the image to a registry that's started inside of the Kubernetes
+cluster when you launch Pachyderm. You can use it with other registries such as
+DockerHub and Google Container Registry. Learn more about `--push-images` from
+the `create-pipeline` [docs](./pachctl/pachctl_create-pipeline.html).
 
 ## Creating a Pipeline
 
