@@ -68,6 +68,10 @@ message Chunk {
   uint64 time_touched = 8;
 }
 
+message Chunks {
+  repeated Chunk chunks = 1;
+}
+
 message JobInfos {
   repeated JobInfo job_info = 1;
 }
@@ -195,7 +199,7 @@ service API {
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
   rpc WaitJob(pachyderm.pps.Job) returns (JobInfo) {}
-  rpc GetChunksForJob(pachyderm.pps.Job) returns (stream Chunk) {}
+  rpc GetChunksForJob(pachyderm.pps.Job) returns (Chunks) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
