@@ -143,7 +143,7 @@ func (r *Reporter) reportToSegment() {
 
 func (r *Reporter) reportUserMetrics(batchOfUserActions countableUserActions) {
 	if len(batchOfUserActions) > 0 {
-		reportUserMetricsToSegment(batchOfUserActions)
+		reportUserMetricsToSegment(batchOfUserActions, r.clusterID)
 	}
 }
 

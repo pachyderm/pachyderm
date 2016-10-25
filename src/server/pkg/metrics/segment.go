@@ -9,7 +9,7 @@ var client = analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
 
 func reportClusterMetricsToSegment(metrics *Metrics) {
 	err := client.Track(&analytics.Track{
-		Event:       "metrics",
+		Event:       "cluster.metrics",
 		AnonymousId: metrics.ClusterID,
 		Properties: map[string]interface{}{
 			"PodID":     metrics.PodID,
@@ -41,11 +41,12 @@ func identifyUser(userID string) {
 	}
 }
 
-func reportUserMetricsToSegment(allUsersActions countableUserActions) {
+func reportUserMetricsToSegment(allUsersActions countableUserActions, clusterID string) {
 	for userID, actions := range allUsersActions {
 		identifyUser(userID)
+		actions["ClusterID"] = clusterID
 		err := client.Track(&analytics.Track{
-			Event:      "Usage",
+			Event:      "user.usage",
 			UserId:     userID,
 			Properties: actions,
 		})
