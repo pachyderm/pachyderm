@@ -194,7 +194,8 @@ service API {
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
-  rpc WaitJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+  rpc WaitJob(pachyderm.pps.Job) returns (JobInfo) {}
+  rpc GetChunksForJob(pachyderm.pps.Job) returns (stream Chunk) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
