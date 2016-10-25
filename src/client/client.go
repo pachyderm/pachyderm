@@ -33,12 +33,22 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	BlockAPIClient
-	addr         string
-	clientConn   *grpc.ClientConn
-	healthClient health.HealthClient
-	_ctx         context.Context
-	config       *config.Config
-	cancel       func()
+	addr              string
+	clientConn        *grpc.ClientConn
+	healthClient      health.HealthClient
+	_ctx              context.Context
+	config            *config.Config
+	cancel            func()
+	reportUserMetrics bool
+}
+
+// Creates a client that will report User Metrics
+func NewUserClientFromAddress(addr string) (*APIClient, error) {
+	c, err := NewFromAddress(addr)
+	if c != nil {
+		c.reportUserMetrics = true
+	}
+	return c, err
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
@@ -118,7 +128,6 @@ func (c *APIClient) connect() error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = c.addMetadata(ctx)
 
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
@@ -131,6 +140,9 @@ func (c *APIClient) connect() error {
 }
 
 func (c *APIClient) addMetadata(ctx context.Context) context.Context {
+	if !c.reportUserMetrics {
+		return ctx
+	}
 	if c.config == nil {
 		// Don't report error if config fails to read. This is only needed for metrics
 		// We don't want to err if metrics reporting is the only thing that breaks
@@ -147,7 +159,7 @@ func (c *APIClient) ctx() context.Context {
 	if c._ctx == nil {
 		return c.addMetadata(context.Background())
 	}
-	return c._ctx
+	return c.addMetadata(c._ctx)
 }
 
 func sanitizeErr(err error) error {

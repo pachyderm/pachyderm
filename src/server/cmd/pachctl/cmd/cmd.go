@@ -96,7 +96,7 @@ Environment variables (and defaults):
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return sanitizeErr(err)
 			}
