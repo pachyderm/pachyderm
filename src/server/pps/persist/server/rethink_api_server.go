@@ -712,7 +712,7 @@ func isTerminalChunkState(state persist.ChunkState) bool {
 }
 
 // WaitJob waits for a job to complete and sets its status
-func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Count().Run(a.session)
 	if err != nil {
@@ -755,18 +755,38 @@ func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (res
 	}
 
 	// If any chunk failed, we set the job to FAILURE, or SUCCESS otherwise
-	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(failed,
+	cursor, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(failed,
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_FAILURE,
 		},
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_SUCCESS,
-		})).RunWrite(a.session)
+		}), gorethink.UpdateOpts{
+		ReturnChanges: "always",
+	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
 
-	return google_protobuf.EmptyInstance, cursor.Close()
+	jobInfo := &persist.JobInfo{}
+	if err := cursor.One(jobInfo); err != nil {
+		return nil, err
+	}
+
+	return jobInfo, nil
+}
+
+func (a *rethinkAPIServer) GetChunksForJob(job *ppsclient.Job, server persist.API_GetChunksForJobServer) (retErr error) {
+	defer func(start time.Time) { a.Log(job, nil, retErr, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Run(a.session)
+	if err != nil {
+		return nil
+	}
+	chunk := &persist.Chunk{}
+	for cursor.Next(chunk) {
+		server.Send(chunk)
+	}
+	return cursor.Err()
 }
 
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {

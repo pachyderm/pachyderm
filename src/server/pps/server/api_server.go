@@ -1503,7 +1503,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	_, err = persistClient.WaitJob(ctx, job)
+	jobInfo, err := persistClient.WaitJob(ctx, job)
 	if err != nil {
 		return err
 	}
