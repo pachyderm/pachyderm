@@ -358,23 +358,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
 
-	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if retErr != nil {
-			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
-				JobID: persistJobInfo.JobID,
-				State: ppsclient.JobState_JOB_FAILURE,
-			}); err != nil {
-				protolion.Errorf("error from CreateJobState %s", err.Error())
-			}
-		}
-	}()
-
 	// Create chunks for this job
+	// We need to create chunks before we create the JobInfo object itself,
+	// because once a JobInfo object has been created, a jobManager routine
+	// will be kicked off, and it will check to see if all chunks have been
+	// finished.  If there are no chunks, then the jobManager will think
+	// that the job has been finished, when in reality the chunks haven't
+	// even been created.
 	numChunks := 1
 	for _, i := range shardModuli {
 		numChunks *= int(i)
@@ -398,6 +388,22 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if err != nil {
 		return nil, err
 	}
+
+	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if retErr != nil {
+			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
+				JobID: persistJobInfo.JobID,
+				State: ppsclient.JobState_JOB_FAILURE,
+			}); err != nil {
+				protolion.Errorf("error from CreateJobState %s", err.Error())
+			}
+		}
+	}()
 
 	job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
 	if err != nil {
@@ -1301,6 +1307,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
 		IncludeInitial: true,
+		IncludeChanges: false,
 		Shard:          &persist.Shard{Number: shard},
 		State:          []ppsclient.JobState{ppsclient.JobState_JOB_CREATING, ppsclient.JobState_JOB_RUNNING},
 	})
