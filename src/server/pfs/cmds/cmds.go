@@ -66,7 +66,7 @@ Repos are created with create-repo.`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -79,7 +79,7 @@ Repos are created with create-repo.`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ Repos are created with create-repo.`,
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ Repos are created with create-repo.`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -167,7 +167,7 @@ Examples:
 	$ pachctl start-commit foo master/3
 `,
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ Examples:
 	$ pachctl fork-commit test foo/2 bar
 `,
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -210,7 +210,7 @@ Examples:
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -227,7 +227,7 @@ Examples:
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -269,7 +269,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -317,7 +317,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -342,7 +342,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -380,7 +380,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -410,7 +410,7 @@ Examples:
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -520,7 +520,7 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -601,7 +601,7 @@ files into your Pachyderm cluster.
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -616,7 +616,7 @@ files into your Pachyderm cluster.
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -638,7 +638,7 @@ files into your Pachyderm cluster.
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -666,7 +666,7 @@ files into your Pachyderm cluster.
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -681,7 +681,7 @@ files into your Pachyderm cluster.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
@@ -761,7 +761,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewUserClientFromAddress(address)
 			if err != nil {
 				return err
 			}
