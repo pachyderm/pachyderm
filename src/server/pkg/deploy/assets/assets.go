@@ -33,6 +33,12 @@ var (
 	microsoftSecretName    = "microsoft-secret"
 	initName               = "pachd-init"
 	trueVal                = true
+	jsonEncoderHandle      = &codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			EncodeOptions: codec.EncodeOptions{Canonical: true},
+		},
+		Indent: 2,
+	}
 )
 
 type backend int
@@ -667,7 +673,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
 func WriteAssets(w io.Writer, shards uint64, backend backend,
 	volumeName string, volumeSize int, hostPath string, version string) {
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -707,7 +713,7 @@ func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version strin
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
 	region string, volumeName string, volumeSize int, version string) {
 	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
@@ -716,7 +722,7 @@ func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, sec
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 	volumeName string, volumeSize int, version string) {
 	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
@@ -725,7 +731,7 @@ func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
 	volumeURI string, volumeSize int, version string) {
 	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }

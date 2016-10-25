@@ -1,14 +1,20 @@
-## ./pachctl create-repo
+## ./pachctl unmount
 
-Create a new repo.
+Unmount pfs.
 
 ### Synopsis
 
 
-Create a new repo.
+Unmount pfs.
 
 ```
-./pachctl create-repo repo-name
+./pachctl unmount path/to/mount/point
+```
+
+### Options
+
+```
+  -a, --all   unmount all pfs mounts
 ```
 
 ### Options inherited from parent commands
