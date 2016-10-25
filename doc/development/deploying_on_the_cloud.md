@@ -374,8 +374,11 @@ $ azure storage account create ${AZURE_STORAGE_NAME} --location ${AZURE_LOCATION
 # Retrieve the Azure Storage Account Key
 $ AZURE_STORAGE_KEY=`azure storage account keys list ${AZURE_STORAGE_NAME} --resource-group ${AZURE_RESOURCE_GROUP} --json | jq .[0].value`
 
+# Build the microsoft_vhd container.
+$ make docker-build-microsoft-vhd:
+
 # Create an empty data disk in the "disks" container
-$ docker run -it jpoon/azure-create-vhd ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} "disks" ${STORAGE_NAME}
+$ docker run -it microsoft_vhd ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} "disks" ${STORAGE_NAME}
 ```
 
 Record the *volume-uri* that is printed and export it as:
