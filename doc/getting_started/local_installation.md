@@ -1,7 +1,7 @@
 # Local Installation
-This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux. 
+This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
 
-If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.  
+If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ## Prerequisites
 - [Minikube](#minikube) (and VirtualBox)
@@ -9,7 +9,7 @@ If you hit any errors not covered in this guide, check our :doc:`troubleshooting
 
 ### Minikube
 
-Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikibe, and Kubectl. Then come back here to install Pachyderm. 
+Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikibe, and Kubectl. Then come back here to install Pachyderm.
 
 ### Pachctl
 
@@ -21,7 +21,7 @@ Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/d
 $ brew tap pachyderm/tap && brew install pachctl
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
@@ -51,17 +51,17 @@ pachd-7xyse     1/1          Running       0                              6s
 pachd-gfdc6     1/1          Running       0                              6s
 rethink-v5rsx   1/1          Running       0                              6s
 ```
-Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them. 
+Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
 ### Port Forwarding
 
-The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. We background this process since port forwarding blocks. 
+The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. We background this process since port forwarding blocks.
 
 ```shell
 $ pachctl port-forward &
 ```
 
-Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working. 
+Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working.
 
 ```shell
 $ pachctl version
@@ -75,7 +75,7 @@ We're good to go!
 
 ## Next Steps
 
-Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building analysis pipelines. 
+Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building analysis pipelines.
 
 
 

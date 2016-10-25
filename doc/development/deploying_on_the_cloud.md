@@ -44,7 +44,7 @@ $ gcloud config set container/cluster ${CLUSTER_NAME}
 # By default this spins up a 3-node cluster. You can change the default with `--num-nodes VAL`
 $ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw
 ```
-This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances). 
+This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances).
 
 ```sh
 # Update your kubeconfig to point at your newly created cluster
@@ -68,13 +68,13 @@ Here are the parameters to create these resources:
 
 ```shell
 # BUCKET_NAME needs to be globally unique across the entire GCP region
-$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored] 
+$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored]
 
 # Name this whatever you want, we chose pach-disk as a default
-$ STORAGE_NAME=pach-disk 
+$ STORAGE_NAME=pach-disk
 
 # For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
-# should work for 1000 commits on 1000 files. 
+# should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
 ```
 
@@ -96,7 +96,7 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-#### Install Pachctl 
+#### Install Pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -106,10 +106,10 @@ $ gcloud compute disks list
 $ brew tap pachyderm/tap && brew install pachctl
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
 
 ```sh
 $ pachctl version
@@ -146,12 +146,12 @@ rethink-e4v60          1/1            Running          0                        
 NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
 rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
 ```
-Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
 Finally, we need to set up forward a port so that pachctl can talk to the cluster.
 
 ```sh
-# Forward the ports. We background this process because it blocks. 
+# Forward the ports. We background this process because it blocks.
 $ pachctl portforward &
 ```
 
@@ -175,7 +175,7 @@ pachd               1.2.0
 
 The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/).
 
-WARNING: As of 9/1/16, the guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524. 
+WARNING: As of 9/1/16, the guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524.
 
 ```
 function build-kube-env {
@@ -201,13 +201,13 @@ function build-kube-env {
  NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:
  ```
  kubectl config use-context minikube
- ``` 
+ ```
 
  Now we've got Kubernetes up and running, it's time to deploy Pachyderm!
 
 ### Deploy Pachyderm
 
-Before we deploy Pachyderm, we need to add some storage resources to our cluster so that Pachyderm has a place to put data. 
+Before we deploy Pachyderm, we need to add some storage resources to our cluster so that Pachyderm has a place to put data.
 
 #### Set up the Storage Infrastructure
 
@@ -219,10 +219,10 @@ Here are the parameters to set up these resources:
 $ KUBECTLFLAGS="-s [The public IP of the Kubernetes master:`kubectl cluster-info`]"
 
 # BUCKET_NAME needs to be globally unique across the entire AWS region
-$ BUCKET_NAME=[The name of the S3 bucket where your data will be stored] 
+$ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
 
 # We recommend between 1 and 10 GB. This stores PFS metadata. For reference 1GB
-# should work for 1000 commits on 1000 files. 
+# should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
 
 $ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2"]
@@ -251,7 +251,7 @@ aws s3api list-buckets --query 'Buckets[].Name'
 aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 ```
 
-#### Install Pachctl 
+#### Install Pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -261,10 +261,10 @@ aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 $ brew tap pachyderm/tap && brew install pachctl
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
 
 ```sh
 $ pachctl version
@@ -281,11 +281,11 @@ $ aws sts get-session-token
 ```
 Then set these variables:
 ```sh
-$ AWS_ID=[access key ID] 
+$ AWS_ID=[access key ID]
 
 $ AWS_KEY=[secret access key]
 
-$ AWS_TOKEN=[session token] 
+$ AWS_TOKEN=[session token]
 ```
 Run the following command to deploy your Pachyderm cluster:
 
@@ -314,12 +314,12 @@ rethink-xd7sc          1/1            Running          0                        
 NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
 rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           17m
 ```
-Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
 Finally, we need to set up forward a port so that pachctl can talk to the cluster.
 
 ```sh
-# Forward the ports. We background this process because it blocks. 
+# Forward the ports. We background this process because it blocks.
 $ pachctl portforward &
 ```
 

@@ -118,6 +118,9 @@ func initDB(session *gorethink.Session, dbName string) error {
 	_, err := gorethink.DBCreate(dbName).RunWrite(session)
 	if err != nil && !isDBCreated(err) {
 		return err
+	} else if err != nil && isDBCreated(err) {
+		// This function has already run so we abort.
+		return nil
 	}
 
 	// Create tables
