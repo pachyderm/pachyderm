@@ -1,0 +1,2 @@
+azure-storage==0.33.0
+docopt==0.6.2
