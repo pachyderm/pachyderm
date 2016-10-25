@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 
@@ -24,7 +25,7 @@ func DeployCmd() *cobra.Command {
 	var dryRun bool
 	var registry bool
 	cmd := &cobra.Command{
-		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key]",
+		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
@@ -64,14 +65,24 @@ func DeployCmd() *cobra.Command {
 					}
 					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, version)
 				case "microsoft":
-					if len(args) != 4 {
-						return fmt.Errorf("expected 4 args, got %d", len(args))
+					if len(args) != 6 {
+						return fmt.Errorf("expected 6 args, got %d", len(args))
 					}
 					_, err := base64.StdEncoding.DecodeString(args[3])
 					if err != nil {
 						return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[3])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], "", 0, registry, version)
+					volumeURI, err := url.ParseRequestURI(args[4])
+					if err != nil {
+						return fmt.Errorf("volume-uri needs to be a well-formed URI; instead got '%v'", args[4])
+					}
+					volumeSize, err := strconv.Atoi(args[5])
+					if err != nil {
+						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
+					}
+					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, version)
+				default:
+					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
 			}
 			if !dryRun {
