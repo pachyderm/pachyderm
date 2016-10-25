@@ -165,6 +165,9 @@ invalid character 'a' looking for beginning of object key string
 }
 
 func TestPushImages(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	client, err := docker.NewClientFromEnv()
 	require.NoError(t, err)
 	require.NoError(t, client.TagImage("pachyderm/job-shim", docker.TagImageOptions{

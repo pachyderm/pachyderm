@@ -531,6 +531,7 @@ func InitJob(version string) *extensions.Job {
 	}
 }
 
+// RegistryRc returns a registry Replication Controller.
 func RegistryRc() *api.ReplicationController {
 	replicas := int32(1)
 	return &api.ReplicationController{
