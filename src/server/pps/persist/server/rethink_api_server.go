@@ -520,7 +520,7 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 	if len(request.State) > 0 {
 		var stateEqs []interface{}
 		for _, state := range request.State {
-			stateEqs = append(stateEqs, gorethink.Eq(state))
+			stateEqs = append(stateEqs, gorethink.Row.Field("State").Eq(state))
 		}
 		query = query.Filter(gorethink.Or(stateEqs...))
 	}
@@ -702,33 +702,71 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	return &jobInfo, nil
 }
 
+type ChunkChangeFeed struct {
+	OldVal *persist.Chunk `gorethink:"old_val,omitempty"`
+	NewVal *persist.Chunk `gorethink:"new_val,omitempty"`
+}
+
+func isTerminalChunkState(state persist.ChunkState) bool {
+	return state == persist.ChunkState_SUCCESS || state == persist.ChunkState_FAILED
+}
+
 // WaitJob waits for a job to complete and sets its status
 func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
-	// When there are no more ASSIGNED or UNASSIGNED chunks, all chunks are either
-	// SUCCESS, FAILED, or SPLITTED, meaning that the job has finished
-	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Filter(gorethink.Or(gorethink.Row.Field("State").Eq(persist.ChunkState_UNASSIGNED), gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED))).Count().Changes().Filter(gorethink.Row.Eq(0)).Run(a.session)
+	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Count().Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	var _i int
-	if err := cursor.One(&_i); err != nil {
+
+	var totalChunks int
+	if err := cursor.One(&totalChunks); err != nil {
 		return nil, err
 	}
 
+	// The idea is that we wait until the number of completed chunks equates
+	// the total number of chunks.
+	//
+	// We are making the following assumptions:
+	// 1. A chunk never transitions from a terminal state to a non-terminal state
+	// 2. Chunks do not get removed.
+	// 3. The total number of chunks doesn't change.  TODO: this assumption will
+	// likely to be violated once we introduce straggler mitigation, which will
+	// likely be done by splitting up chunks (and therefore increasing the number
+	// of chunks).
+	cursor, err = a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Pluck("ID", "State").Changes().Filter(gorethink.Row.Field("new_val").Ne(nil)).Field("new_val").Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+
+	chunk := &persist.Chunk{}
+	var completedChunks int
+	var failed bool
+	for cursor.Next(&chunk) {
+		if chunk.State == persist.ChunkState_SUCCESS {
+			completedChunks++
+		} else if chunk.State == persist.ChunkState_FAILED {
+			completedChunks++
+			failed = true
+		}
+		if completedChunks == totalChunks {
+			break
+		}
+	}
+
 	// If any chunk failed, we set the job to FAILURE, or SUCCESS otherwise
-	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Filter(gorethink.Row.Field("State").Eq(persist.ChunkState_FAILED)).Count().Eq(0),
-		map[string]interface{}{
-			"State": ppsclient.JobState_JOB_SUCCESS,
-		},
+	_, err = a.getTerm(jobInfosTable).Get(job.ID).Update(gorethink.Branch(failed,
 		map[string]interface{}{
 			"State": ppsclient.JobState_JOB_FAILURE,
+		},
+		map[string]interface{}{
+			"State": ppsclient.JobState_JOB_SUCCESS,
 		})).RunWrite(a.session)
 	if err != nil {
 		return nil, err
 	}
 
-	return google_protobuf.EmptyInstance, nil
+	return google_protobuf.EmptyInstance, cursor.Close()
 }
 
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
