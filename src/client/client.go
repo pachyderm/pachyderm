@@ -45,21 +45,22 @@ type APIClient struct {
 // Creates a client that will report User Metrics
 func NewUserClientFromAddress(addr string) (*APIClient, error) {
 	c, err := NewFromAddress(addr)
-	if c != nil {
-		c.reportUserMetrics = true
+	if err != nil {
+		return nil, err
 	}
+	c.reportUserMetrics = true
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, err
+	}
+	c.config = cfg
 	return c, err
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string) (*APIClient, error) {
-	cfg, err := config.Read()
-	if err != nil {
-		return nil, err
-	}
 	c := &APIClient{
-		addr:   addr,
-		config: cfg,
+		addr: addr,
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
