@@ -24,19 +24,22 @@ func DeployCmd() *cobra.Command {
 	var hostPath string
 	var dev bool
 	var dryRun bool
+	var noMetrics bool
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
-			metrics.ReportAndFlushUserAction("DeployStarted", nil)
-			defer func(start time.Time) {
-				if retErr != nil {
-					metrics.ReportAndFlushUserAction("DeployErrored", retErr.Error())
-				} else {
-					metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start))
-				}
-			}(time.Now())
+			if !noMetrics {
+				metrics.ReportAndFlushUserAction("DeployStarted", nil)
+				defer func(start time.Time) {
+					if retErr != nil {
+						metrics.ReportAndFlushUserAction("DeployErrored", retErr.Error())
+					} else {
+						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start))
+					}
+				}(time.Now())
+			}
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
 				version = deploy.DevVersionTag
@@ -98,5 +101,6 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
 	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	cmd.Flags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 	return cmd
 }
