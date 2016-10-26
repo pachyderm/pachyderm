@@ -27,13 +27,26 @@ message FinishJobRequest {
 }
 
 message FinishJobResponse {
-  // If fail is set to true, the pod is expected to exit with a non-zero code
+  // If fail is true, the pod is expected to exit with a non-zero code
   // so that k8s knows to reschedule the pod.
   bool fail = 1;
 }
 
+message ContinueJobRequest {
+  string chunk_id = 1;
+  string pod_name = 2;
+}
+
+message ContinueJobResponse {
+  // if exit is true, the pod is expected to abandon its work and exit.
+  // this happens if the chunk that the pod is working on has been assigned
+  // to another pod.
+  bool exit = 1;
+}
+
 service InternalJobAPI {
     rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
+    rpc ContinueJob(ContinueJobRequest) returns (ContinueJobResponse) {}
     rpc FinishJob(FinishJobRequest) returns (FinishJobResponse) {}
 }
 
