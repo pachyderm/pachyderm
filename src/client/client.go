@@ -155,6 +155,8 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 	)
 }
 
+// TODO this method only exists because we initialize some APIClient in such a
+// way that ctx will be nil
 func (c *APIClient) ctx() context.Context {
 	if c._ctx == nil {
 		return c.addMetadata(context.Background())
