@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -21,17 +22,25 @@ var (
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage           = "rethinkdb:2.3.3"
+	registryImage          = "registry:2"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
 	pachdName              = "pachd"
 	rethinkName            = "rethink"
 	rethinkVolumeName      = "rethink-volume"
 	rethinkVolumeClaimName = "rethink-volume-claim"
+	registryName           = "registry"
 	amazonSecretName       = "amazon-secret"
 	googleSecretName       = "google-secret"
 	microsoftSecretName    = "microsoft-secret"
 	initName               = "pachd-init"
 	trueVal                = true
+	jsonEncoderHandle      = &codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			EncodeOptions: codec.EncodeOptions{Canonical: true},
+		},
+		Indent: 2,
+	}
 )
 
 type backend int
@@ -427,8 +436,7 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
 			ClaimName: rethinkVolumeClaimName,
 		}
-	} else if backend == localBackend || backend == microsoftBackend {
-		// ToDo: workaround until https://github.com/pachyderm/pachyderm/issues/960
+	} else if backend == localBackend {
 		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "rethink"),
 		}
@@ -517,6 +525,106 @@ func InitJob(version string) *extensions.Job {
 						},
 					},
 					RestartPolicy: "OnFailure",
+				},
+			},
+		},
+	}
+}
+
+// RegistryRc returns a registry Replication Controller.
+func RegistryRc() *api.ReplicationController {
+	replicas := int32(1)
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   registryName,
+			Labels: labels(registryName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: &replicas,
+			Selector: map[string]string{
+				"app": registryName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   registryName,
+					Labels: labels(registryName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  registryName,
+							Image: registryImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "REGISTRY_HTTP_ADDR",
+									Value: ":5000",
+								},
+								{
+									Name:  "REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY",
+									Value: "/var/lib/registry",
+								},
+							},
+							Resources: api.ResourceRequirements{
+								Limits: map[api.ResourceName]resource.Quantity{
+									"cpu":    resource.MustParse("100m"),
+									"memory": resource.MustParse("100Mi"),
+								},
+								Requests: map[api.ResourceName]resource.Quantity{
+									"cpu":    resource.MustParse("100m"),
+									"memory": resource.MustParse("100Mi"),
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 5000,
+									Name:          "registry",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "image-storage",
+									MountPath: "/var/lib/registry",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "image-storage",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// RegistryService returns a registry service.
+func RegistryService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   registryName,
+			Labels: labels(registryName),
+		},
+		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app": registryName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port:     5000,
+					Name:     "registry",
+					NodePort: 30500,
 				},
 			},
 		},
@@ -624,6 +732,17 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 				PDName: name,
 			},
 		}
+	case microsoftBackend:
+		dataDiskURI := name
+		split := strings.Split(name, "/")
+		diskName := split[len(split)-1]
+
+		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+			AzureDisk: &api.AzureDiskVolumeSource{
+				DiskName:    diskName,
+				DataDiskURI: dataDiskURI,
+			},
+		}
 	default:
 		panic("cannot generate volume spec for unknown backend")
 	}
@@ -653,10 +772,10 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	}
 }
 
-// WriteAssets creates the assets in a dir. It expects dir to already exist.
+// WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, shards uint64, backend backend,
-	volumeName string, volumeSize int, hostPath string, version string) {
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	volumeName string, volumeSize int, hostPath string, registry bool, version string) {
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -685,36 +804,43 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+
+	if registry {
+		RegistryRc().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		RegistryService().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, version string) {
-	WriteAssets(w, shards, localBackend, "", 0, hostPath, version)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, version string) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, version)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
-	region string, volumeName string, volumeSize int, version string) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	region string, volumeName string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, version)
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
-	volumeName string, volumeSize int, version string) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	volumeName string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, version)
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
-	volumeURI string, volumeSize int, version string) {
-	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", version)
-	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	volumeURI string, volumeSize int, registry bool, version string) {
+	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, version)
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }

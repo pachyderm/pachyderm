@@ -9,7 +9,7 @@ Create a new pipeline from a spec
 
 # Pipeline Specification
 
-This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](./pachctl/pachctl_create-pipeline.html) doc.
+This document discusses each of the fields present in a pipeline specification. To see how to use a pipeline spec, refer to the [pachctl create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 
 ## JSON Manifest Format
 
@@ -30,7 +30,11 @@ This document discusses each of the fields present in a pipeline specification. 
         "mountPath": "/path/in/container"
     } ]
   },
-  "parallelism": int,
+  "parallelism_spec": {
+    "strategy": "CONSTANT"|"COEFFICIENT"
+    "constant": int        // if strategy == CONSTANT
+    "coefficient": double  // if strategy == COEFFICIENT
+  }
   "inputs": [
     {
       "repo": {
@@ -42,8 +46,8 @@ This document discusses each of the fields present in a pipeline specification. 
       // this is only for advanced use cases; most of the time, one of the three
       // strategies above should suffice.
       "method": {
-        "partition": "block"/"file"/"repo",
-        "incremental": bool
+        "partition": "BLOCK"/"FILE"/"REPO",
+        "incremental": "NONE"/"DIFF"/"FILE",
       }
     }
   ]
@@ -66,15 +70,21 @@ This document discusses each of the fields present in a pipeline specification. 
 
 `transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
 
-### Parallelism
+### Parallelism Spec
 
-`parallelism` is how many copies of your container should run in parallel.  If you'd like Pachyderm to automatically scale the parallelism based on available cluster resources, you can set this to 0.
+`parallelism_spec` describes how Pachyderm should parallelize your pipeline. Currently, Pachyderm has two parallelism strategies: `CONSTANT` and `COEFFICIENT`.
+
+If you use the `CONSTANT` strategy, Pachyderm will start a number of workers that you give it. To use this strategy, set the field `strategy` to `CONSTANT`, and set the field `constant` to an integer value (e.g. `10` to start 10 workers).
+
+If you use the `COEFFICIENT` strategy, Pachyderm will start a number of workers that is a multiple of your Kubernetes cluster's size. To use this strategy, set the field `coefficient` to a double. For example, if your Kubernetes cluster has 10 nodes, and you set `coefficient` to 0.5, Pachyderm will start five workers. If you set it to 2.0, Pachyderm will start 20 workers (two per Kubernetes node).
+
+__Note:__ Pachyderm treats this config as an upper bound. Pachyderm may choose to start fewer workers than specified if the pipeline's input data set is small or otherwise doesn't parallelize well (for example, if you use an input method of file and the input repo only has one file in it).
 
 ### Inputs
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
-`inputs.runEmpty` specifies what happens when an empty commit comes into the input repo.  If this flag is set to false (the default), then the empty commit won't trigger a job.  If set to true, the empty commit will trigger a job. 
+`inputs.runEmpty` specifies what happens when an empty commit (i.e. No data) comes into the input repo of this pipeline. This can easily happen if a previous pipeline produces no data. This flag specifies if it makes sense for your pipeline to still run if it has no new data to process. If this flag is set to false (the default), then an empty commit won't trigger a job.  If set to true, an empty commit will trigger a job. 
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
@@ -89,10 +99,10 @@ For each pipeline input, you may specify a "method".  A method dictates exactly 
 A method consists of two properties: partition unit and incrementality.
 
 #### Partition Unit
-Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
+Partition unit ("BLOCK", "FILE", or "REPO") specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-* `block`: different blocks of the same file may be parelleized across containers.
-* `file`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
+1.  `BLOCK`: different blocks of the same file may be parelleized across containers.
+2. `FILE`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
 ```
 /foo 
@@ -102,66 +112,47 @@ Partition unit specifies the granularity at which input data is parallelized acr
    /b
 ```
 then there are only three top-level objects, `/foo`, `/bar`, and `/buzz`, each of which will remain grouped in the same container. 
-* `repo`: the entire repo.  In this case, the input won't be partitioned at all. 
+3. `REPO`: the entire repo.  In this case, the input won't be partitioned at all. 
 
 #### Incrementality
 
-Incrementality is a boolean flag that describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process only the new data in that commmit (the diff) or does all of the data need to be reprocessed?
+Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process _only the new data_ in that commmit (the "DIFF"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
 
 For instance, if you have a repo with the file `/foo` in commit 1 and file `/bar` in commit 2, then:
 
-* If the input is incremental, the first job sees file `/foo` and the second job sees file `/bar`.
-* If the input is nonincremental, the first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
+* If the input incrementality is "DIFF", the first job sees file `/foo` and the second job sees file `/bar`.
 
-For convenience, we have defined aliases for the four most commonly used input methods: map, reduce, incremental-reduce, and global.  They are defined below:
+* If the input is non-incremental("NONE"), every job sees all the data. The first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
 
-|                | Block |  Top-level Objects |  Repo  |
-|----------------|-------|--------------------|--------|
-|   Incremental  |  map  |                    |        |
-| Nonincremental |       |       reduce       | global |
+* "File" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  `Incremental: "file"` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it. 
 
+#### Combining Partition unit and Incrementality
+
+For convenience, we have defined aliases for the three most commonly used (and most familiar) input methods: "map", "reduce", and "global". 
+
+* A "map" (BLOCK + DIFF), for example, can partition files at the block level and jobs only need to see the new data. 
+
+* "Reduce" (FILE + NONE) as it's typically seen in Hadoop, requires all parts of a file to be seen by the same container ("FILE") and your job needs to reprocess _all_ the data in the whole repo ("NONE"). 
+
+* "Global" (REPO + NONE), means that the entire repo needs to be seen by _every_ container. This is commonly used if you had a repo with just parameters, and every container needed to see all the parameter data and pull out the ones that are relevant to it. 
+
+They are defined below:
+
+```
+                             +-----------------------------------------+
+                             |             Partition Unit              |
+  +--------------------------+---------+----------------------+--------+
+  |     Incrementality       | "Block" | "FILE" (Top-lvl Obj) | "REPO" |
+  +==========================+=========+======================+========+
+  | "NONE" (non-incremental) |         |       "reduce"       |"global"|
+  +--------------------------+---------+----------------------+--------+
+  | "DIFF" (incremental)     |  "map"  |                      |        |
+  +--------------------------+---------+----------------------+--------+
+  | "FILE" (top-lvl object)  |         |                      |        |
+  +--------------------------+---------+----------------------+--------+
+```
 #### Defaults
-If no method is specified, the `map` method (Block + Incremental) is used by default.
-
-
-### Multiple Inputs
-
-A pipeline is allowed to have multiple inputs.  The important thing to understand is what happens when a new commit comes into one of the input repos.  In short, a pipeline processes the **cross product** of its inputs.  We will use an example to illustrate.
-
-Consider a pipeline that has two input repos: `foo` and `bar`.  `foo` uses the `file/incremental` method and `bar` uses the `reduce` method.  Now let's say that the following events occur:
-
-```
-1. PUT /file-1 in commit1 in foo -- no jobs triggered
-2. PUT /file-a in commit1 in bar -- triggers job1
-3. PUT /file-2 in commit2 in foo -- triggers job2
-4. PUT /file-b in commit2 in bar -- triggers job3
-```
-
-The first time the pipeline is triggered will be when the second event completes.  This is because we need data in both repos before we can run the pipeline.
-
-Here is a breakdown of the files that each job sees:
-
-```
-job1:
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-job2:
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-
-job3:
-    /pfs/foo/file-1
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-    /pfs/bar/file-b
-```
-
-`job1` sees `/pfs/foo/file-1` and `/pfs/bar/file-a` because those are the only files available.
-
-`job2` sees `/pfs/foo/file-2` and `/pfs/bar/file-a` because it's triggered by commit2 in `foo`, and `foo` uses an incremental input method (`file/incremental`).
-
-`job3` sees all the files because it's triggered by commit2 in `bar`, and `bar` uses a non-incremental input method (`reduce`).
+If no method is specified, the `map` method (BLOCK + DIFF) is used by default.
 
 ## Examples
 
@@ -197,15 +188,15 @@ This pipeline runs when the repo `my-input` gets a new commit.  The pipeline wil
 
 The root mount point is at `/pfs`, which contains:
 
-- `/pfs/input_repo_a` which is where you would find the latest commit from the `input_repo_a` input `Repo` you specified.
+- `/pfs/input_repo` which is where you would find the latest commit from each input repo you specified.
   - Each input repo will be found here by name
   - Note: Unlike when mounting locally for debugging, there is no `Commit` ID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the `incrementality` flag above
 - `/pfs/out` which is where you write any output
-- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent). 
+- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent).
 
 ### Output Formats
 
-PFS supports considers data to be delimited by line, JSON, or binary blobs. [Refer here for more information on delimiters](./pachyderm_file_system.html#block-delimiters)
+PFS supports data to be delimited by line, JSON, or binary blobs. [Refer here for more information on delimiters](../pachyderm_file_system.html#block-delimiters)
 
 ## Environment Variables
 
@@ -241,11 +232,10 @@ For instance, imagine that you have a dataset that contains `file_A`, `file_B`, 
 ### Options inherited from parent commands
 
 ```
-      --log-flush-frequency duration   Maximum number of seconds between log flushes (default 5s)
-  -v, --verbose                        Output verbose logs
+  -v, --verbose   Output verbose logs
 ```
 
 ### SEE ALSO
 * [./pachctl](./pachctl.md)	 - 
 
-###### Auto generated by spf13/cobra on 12-Sep-2016
+###### Auto generated by spf13/cobra on 21-Oct-2016

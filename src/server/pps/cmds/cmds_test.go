@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"golang.org/x/net/context"
+
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/spf13/cobra"
 )
@@ -28,26 +31,19 @@ const badJSON2 = `
 }
 `
 
-func testJSONSyntaxErrorsReported(inputFile string, inputFileValue string, inputCommand []string) {
-	address := "0.0.0.0:30650"
-
-	rootCmd := &cobra.Command{
-		Use: os.Args[0],
-		Long: `Access the Pachyderm API.
-
-Envronment variables:
-  ADDRESS=0.0.0.0:30650, the server to connect to.
-`,
-	}
-
-	cmds, _ := Cmds(address)
+func rootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{}
+	cmds, _ := Cmds("0.0.0.0:30650")
 	for _, cmd := range cmds {
 		rootCmd.AddCommand(cmd)
 	}
+	return rootCmd
+}
 
+func testJSONSyntaxErrorsReported(inputFile string, inputFileValue string, inputCommand []string) {
 	ioutil.WriteFile(inputFile, []byte(inputFileValue), 0644)
 	os.Args = inputCommand
-	rootCmd.Execute()
+	rootCmd().Execute()
 }
 
 func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue string, inputCommand []string, expectedOutput string) {
@@ -132,25 +128,10 @@ invalid character 'a' looking for beginning of object key string
 	testName := "TestJSONSyntaxErrorsReportedCreatePipelineFromStdin"
 
 	if os.Getenv("BE_CRASHER") == "1" {
-		address := "0.0.0.0:30650"
-		rootCmd := &cobra.Command{
-			Use: os.Args[0],
-			Long: `Access the Pachyderm API.
-
-Envronment variables:
-  ADDRESS=0.0.0.0:30650, the server to connect to.
-`,
-		}
-
-		cmds, _ := Cmds(address)
-		for _, cmd := range cmds {
-			rootCmd.AddCommand(cmd)
-		}
-
 		os.Args = rawCmd
 		ioutil.WriteFile("bad2.json", []byte(badJSON2), 0644)
 		os.Stdin, _ = os.Open("bad2.json")
-		rootCmd.Execute()
+		rootCmd().Execute()
 		return
 	}
 
@@ -181,4 +162,27 @@ invalid character 'a' looking for beginning of object key string
 `
 	cmd := []string{"pachctl", "update-pipeline", "-f", "bad2.json"}
 	testBadJSON(t, "TestJSONSyntaxErrorsReportedCreatePipeline", "bad2.json", badJSON2, cmd, descriptiveOutput)
+}
+
+func TestPushImages(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	client, err := docker.NewClientFromEnv()
+	require.NoError(t, err)
+	require.NoError(t, client.TagImage("pachyderm/job-shim", docker.TagImageOptions{
+		Repo:    "test-job-shim",
+		Context: context.Background(),
+	}))
+	ioutil.WriteFile("test-push-images.json", []byte(`{
+  "pipeline": {
+    "name": "test_push_images"
+  },
+  "transform": {
+    "cmd": [ "true" ],
+	"image": "test-job-shim"
+  }
+}`), 0644)
+	os.Args = []string{"pachctl", "create-pipeline", "--push-images", "-f", "test-push-images.json"}
+	require.NoError(t, rootCmd().Execute())
 }

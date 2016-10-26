@@ -109,7 +109,8 @@ performance in modern data centers.
 ##### Where/how can I deploy Pachyderm?
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since
 Pachyderm’s only dependency is Kubernetes, it can be run locally, AWS, Google Cloud,
-or on-prem. Check out our [local installation](getting_started/local_installation.html) and [cloud deployment](development/deploying_on_the_cloud.html) guides.
+Azure, or on-prem. Check out our [local installation](getting_started/local_installation.html) 
+and [cloud deployment](development/deploying_on_the_cloud.html) guides.
 
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
 Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be
