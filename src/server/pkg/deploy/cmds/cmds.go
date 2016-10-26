@@ -36,7 +36,7 @@ func DeployCmd() *cobra.Command {
 					if retErr != nil {
 						metrics.ReportAndFlushUserAction("DeployErrored", retErr.Error())
 					} else {
-						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start))
+						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start).Seconds())
 					}
 				}(time.Now())
 			}
