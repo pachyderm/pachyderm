@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -37,6 +38,7 @@ func createDefaults() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("No config detected.\nDefault config created at %v\n", configPath)
 	err = ioutil.WriteFile(configPath, rawConfig, 0644)
 	if err != nil {
 		return nil, err
