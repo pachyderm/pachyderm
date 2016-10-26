@@ -43,7 +43,8 @@ func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 
 /*
 Segment needs us to identify a user before we report any events for that user.
-There seems to be no penalty to re-identifying a user, so we call this aggressively
+We have no way of knowing if a user has previously been identified, so we call this
+before every `Track()` call containing user data.
 */
 func identifyUser(client *analytics.Client, userID string) {
 	err := client.Identify(&analytics.Identify{

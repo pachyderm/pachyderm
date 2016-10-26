@@ -28,6 +28,7 @@ type Reporter struct {
 	ppsDbName     string
 }
 
+// InitializeReporter is used to setup metrics to be reported to segment
 func InitializeReporter(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) error {
 
 	dbClient, err := db.DbConnect(address)
@@ -66,9 +67,9 @@ func ReportUserAction(ctx context.Context, action string, value interface{}) {
 	}
 }
 
-//ReportAndFlushUserAction is used in the few places we need to report metrics from the client
+//ReportAndFlushUserAction immediately reports the metric
+//It is used in the few places we need to report metrics from the client
 func ReportAndFlushUserAction(action string, value interface{}) {
-	// Need a new one each time, since we need to flush it
 	client := newSegmentClient()
 	defer client.Close()
 	cfg, err := config.Read()
