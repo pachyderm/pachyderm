@@ -12,6 +12,8 @@ import (
 var configDirPath = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var configPath = filepath.Join(configDirPath, "config.json")
 
+//Read loads pachyderm user config
+//If an existing configuration cannot be found, it sets up the defaults
 func Read() (*Config, error) {
 	raw, err := ioutil.ReadFile(configPath)
 	if err != nil {
