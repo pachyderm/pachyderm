@@ -152,9 +152,10 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		}
 		c.config = cfg
 	}
+	// metadata downcases keys, so we input a downcased key so that the read code is more consistent
 	return metadata.NewContext(
 		ctx,
-		metadata.Pairs("UserID", c.config.UserID),
+		metadata.Pairs("userid", c.config.UserID),
 	)
 }
 
