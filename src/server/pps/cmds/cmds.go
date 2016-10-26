@@ -10,14 +10,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/Jeffail/gabs"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
@@ -140,6 +143,9 @@ The increase the throughput of a job increase the Shard paremeter.
 	pipelineSpec := string(pachyderm.MustAsset("doc/development/pipeline_spec.md"))
 
 	var jobPath string
+	var pushImages bool
+	var registry string
+	var username string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -186,6 +192,13 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err := jsonpb.UnmarshalString(s, &request); err != nil {
 				return sanitizeErr(err)
 			}
+			if pushImages {
+				pushedImage, err := pushImage(registry, username, request.Transform.Image)
+				if err != nil {
+					return err
+				}
+				request.Transform.Image = pushedImage
+			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
@@ -198,6 +211,9 @@ The increase the throughput of a job increase the Shard paremeter.
 		}),
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
+	createJob.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -305,9 +321,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 
 	var pipelinePath string
-	if err != nil {
-		return nil, err
-	}
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
@@ -328,6 +341,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				} else if err != nil {
 					return err
 				}
+				if pushImages {
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
+					if err != nil {
+						return err
+					}
+					request.Transform.Image = pushedImage
+				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					request,
@@ -339,6 +359,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	var archive bool
 	updatePipeline := &cobra.Command{
@@ -363,6 +386,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 				request.Update = true
 				request.NoArchive = !archive
+				if pushImages {
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
+					if err != nil {
+						return err
+					}
+					request.Transform.Image = pushedImage
+				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
 					context.Background(),
 					request,
@@ -375,6 +405,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
+	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
@@ -617,4 +650,52 @@ func sanitizeErr(err error) error {
 	}
 
 	return errors.New(grpc.ErrorDesc(err))
+}
+
+const (
+	defaultRegistry string = "localhost:30500"
+)
+
+// pushImage pushes an image as registry/user/image. Registry and user can be
+// left empty.
+func pushImage(registry string, username string, image string) (string, error) {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return "", err
+	}
+	repo, _ := docker.ParseRepositoryTag(image)
+	components := strings.Split(repo, "/")
+	name := components[len(components)-1]
+	if registry == "" {
+		registry = defaultRegistry
+	}
+	if username == "" {
+		user, err := user.Current()
+		if err != nil {
+			return "", err
+		}
+		username = user.Username
+	}
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
+	pushTag := uuid.NewWithoutDashes()
+	if err := client.TagImage(image, docker.TagImageOptions{
+		Repo:    pushRepo,
+		Tag:     pushTag,
+		Context: context.Background(),
+	}); err != nil {
+		return "", err
+	}
+	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
+	if err := client.PushImage(
+		docker.PushImageOptions{
+			Name: pushRepo,
+			Tag:  pushTag,
+		},
+		docker.AuthConfiguration{
+			ServerAddress: registry,
+		},
+	); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
 }

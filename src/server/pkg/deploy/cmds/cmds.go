@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -25,8 +26,9 @@ func DeployCmd() *cobra.Command {
 	var dev bool
 	var dryRun bool
 	var noMetrics bool
+	var registry bool
 	cmd := &cobra.Command{
-		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key]",
+		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
@@ -51,7 +53,7 @@ func DeployCmd() *cobra.Command {
 				out = os.Stdout
 			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, version)
+				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, version)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -64,7 +66,7 @@ func DeployCmd() *cobra.Command {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
 					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, version)
+						args[5], volumeName, volumeSize, registry, version)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -74,16 +76,26 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, version)
+					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, version)
 				case "microsoft":
-					if len(args) != 4 {
-						return fmt.Errorf("expected 4 args, got %d", len(args))
+					if len(args) != 6 {
+						return fmt.Errorf("expected 6 args, got %d", len(args))
 					}
 					_, err := base64.StdEncoding.DecodeString(args[3])
 					if err != nil {
 						return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[3])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], "", 0, version)
+					volumeURI, err := url.ParseRequestURI(args[4])
+					if err != nil {
+						return fmt.Errorf("volume-uri needs to be a well-formed URI; instead got '%v'", args[4])
+					}
+					volumeSize, err := strconv.Atoi(args[5])
+					if err != nil {
+						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
+					}
+					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, version)
+				default:
+					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
 			}
 			if !dryRun {
@@ -102,5 +114,6 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	cmd.Flags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
+	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	return cmd
 }

@@ -29,7 +29,7 @@ Note: If you don't have wget, just copy the link into your browser.
 chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
-You can try running `kubectl version` to check that this worked correctly. 
+You can try running `kubectl version` to check that this worked correctly.
 
 
 ### Pachctl
@@ -40,7 +40,7 @@ You can try running `kubectl version` to check that this worked correctly.
 ```shell
 $ brew tap pachyderm/tap && brew install pachctl
 ```
-You can try running `pachctl version` to check that this worked correctly. 
+You can try running `pachctl version` to check that this worked correctly.
 
 ### Port Forwarding
 
@@ -65,7 +65,7 @@ $ wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linu
 chmod +x kubectl
 mv kubectl /usr/local/bin/
 ```
-You can try running `kubectl version` to check that this worked correctly. 
+You can try running `kubectl version` to check that this worked correctly.
 
 ---
 
@@ -77,7 +77,7 @@ You can try running `kubectl version` to check that this worked correctly.
 If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
 ```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 ### From Source
@@ -153,7 +153,7 @@ $ brew tap pachyderm/tap && brew install pachctl
 If you're on linux 64 bit amd, you can use our pre-built deb package like so:
 
 ```shell
-$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 
