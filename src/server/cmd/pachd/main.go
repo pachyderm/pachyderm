@@ -102,6 +102,7 @@ func do(appEnvObj interface{}) error {
 		if err != nil {
 			return err
 		}
+
 		os.Exit(0)
 
 		return nil
@@ -117,9 +118,7 @@ func do(appEnvObj interface{}) error {
 	}
 	if appEnv.Metrics {
 		err := metrics.InitializeReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
-		if err != nil {
-			return err
-		}
+		protolion.Printf("error initializing metrics reporting: %s", err)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
