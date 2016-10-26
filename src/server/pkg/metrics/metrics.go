@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	db "github.com/pachyderm/pachyderm/src/server/pfs/db"
 
 	"github.com/dancannon/gorethink"
+	"github.com/segmentio/analytics-go"
 	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -67,6 +69,20 @@ func IncrementUserAction(ctx context.Context, action string) {
 			user:   userID,
 		}
 	}
+}
+
+//ReportSingleAction is used in the few places we need to report metrics from the client
+func ReportSingleAction(action string) {
+	oneShotClient := analytics.New(segmentAPIKey)
+	cfg, err := config.Read()
+	if err != nil {
+		// Errors are non fatal when reporting metrics
+		return
+	}
+	actions := make(countableActions)
+	actions[action] = uint64(1)
+	reportUserMetricsToSegment(oneShotClient, cfg.UserID, actions, "")
+	oneShotClient.Close()
 }
 
 func (r *Reporter) dbMetrics(metrics *Metrics) {
@@ -133,7 +149,6 @@ func (r *Reporter) reportToSegment() {
 				singleUserActions[name] = count
 			}
 			batchOfUserActions[user] = singleUserActions
-			go identifyUser(user)
 		}
 		go r.reportUserMetrics(batchOfUserActions)
 		userActions = make(countableUserActions)
@@ -143,7 +158,9 @@ func (r *Reporter) reportToSegment() {
 
 func (r *Reporter) reportUserMetrics(batchOfUserActions countableUserActions) {
 	if len(batchOfUserActions) > 0 {
-		reportUserMetricsToSegment(batchOfUserActions, r.clusterID)
+		for userID, actions := range batchOfUserActions {
+			reportUserMetricsToSegment(persistentClient, userID, actions, r.clusterID)
+		}
 	}
 }
 
@@ -154,5 +171,5 @@ func (r *Reporter) reportClusterMetrics() {
 	metrics.ClusterID = r.clusterID
 	metrics.PodID = uuid.NewWithoutDashes()
 	metrics.Version = version.PrettyPrintVersion(version.Version)
-	reportClusterMetricsToSegment(metrics)
+	reportClusterMetricsToSegment(persistentClient, metrics)
 }

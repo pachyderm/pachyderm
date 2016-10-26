@@ -5,9 +5,10 @@ import (
 	"go.pedge.io/lion"
 )
 
-var client = analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
+var segmentAPIKey = "hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD"
+var persistentClient = analytics.New(segmentAPIKey)
 
-func reportClusterMetricsToSegment(metrics *Metrics) {
+func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 	err := client.Track(&analytics.Track{
 		Event:       "cluster.metrics",
 		AnonymousId: metrics.ClusterID,
@@ -32,7 +33,7 @@ func reportClusterMetricsToSegment(metrics *Metrics) {
 Segment needs us to identify a user before we report any events for that user.
 There seems to be no penalty to re-identifying a user, so we call this aggressively
 */
-func identifyUser(userID string) {
+func identifyUser(client *analytics.Client, userID string) {
 	err := client.Identify(&analytics.Identify{
 		UserId: userID,
 	})
@@ -41,17 +42,15 @@ func identifyUser(userID string) {
 	}
 }
 
-func reportUserMetricsToSegment(allUsersActions countableUserActions, clusterID string) {
-	for userID, actions := range allUsersActions {
-		identifyUser(userID)
-		actions["ClusterID"] = clusterID
-		err := client.Track(&analytics.Track{
-			Event:      "user.usage",
-			UserId:     userID,
-			Properties: actions,
-		})
-		if err != nil {
-			lion.Errorf("error reporting user action to Segment: %s", err.Error())
-		}
+func reportUserMetricsToSegment(client *analytics.Client, userID string, actions map[string]interface{}, clusterID string) {
+	identifyUser(client, userID)
+	actions["ClusterID"] = clusterID
+	err := client.Track(&analytics.Track{
+		Event:      "user.usage",
+		UserId:     userID,
+		Properties: actions,
+	})
+	if err != nil {
+		lion.Errorf("error reporting user action to Segment: %s", err.Error())
 	}
 }
