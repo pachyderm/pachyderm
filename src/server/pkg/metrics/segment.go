@@ -1,12 +1,24 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/segmentio/analytics-go"
 	"go.pedge.io/lion"
 )
 
-var segmentAPIKey = "hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD"
-var persistentClient = analytics.New(segmentAPIKey)
+const reportingIntervalSeconds time.Duration = 15
+
+func newPersistentClient() *analytics.Client {
+	c := newSegmentClient()
+	c.Interval = reportingIntervalSeconds * time.Second
+	c.Size = 100
+	return c
+}
+
+func newSegmentClient() *analytics.Client {
+	return analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
+}
 
 func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 	err := client.Track(&analytics.Track{
@@ -42,13 +54,16 @@ func identifyUser(client *analytics.Client, userID string) {
 	}
 }
 
-func reportUserMetricsToSegment(client *analytics.Client, userID string, actions map[string]interface{}, clusterID string) {
+func reportUserMetricsToSegment(client *analytics.Client, userID string, action string, value interface{}, clusterID string) {
 	identifyUser(client, userID)
-	actions["ClusterID"] = clusterID
+	properties := map[string]interface{}{
+		"ClusterID": clusterID,
+	}
+	properties[action] = value
 	err := client.Track(&analytics.Track{
 		Event:      "user.usage",
 		UserId:     userID,
-		Properties: actions,
+		Properties: properties,
 	})
 	if err != nil {
 		lion.Errorf("error reporting user action to Segment: %s", err.Error())

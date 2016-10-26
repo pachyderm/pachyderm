@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -28,14 +29,14 @@ func DeployCmd() *cobra.Command {
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
-			metrics.ReportSingleAction("DeployStarted")
-			defer func() {
+			metrics.ReportAndFlushUserAction("DeployStarted", nil)
+			defer func(start time.Time) {
 				if retErr != nil {
-					metrics.ReportSingleAction("DeployErrored")
+					metrics.ReportAndFlushUserAction("DeployErrored", retErr.Error())
 				} else {
-					metrics.ReportSingleAction("DeployFinished")
+					metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start))
 				}
-			}()
+			}(time.Now())
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
 				version = deploy.DevVersionTag

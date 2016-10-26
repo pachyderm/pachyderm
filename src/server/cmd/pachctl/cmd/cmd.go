@@ -71,14 +71,14 @@ Environment variables (and defaults):
 		Short: "Return version information.",
 		Long:  "Return version information.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) (retErr error) {
-			metrics.ReportSingleAction("VersionStarted")
-			defer func() {
+			metrics.ReportAndFlushUserAction("VersionStarted", nil)
+			defer func(start time.Time) {
 				if retErr != nil {
-					metrics.ReportSingleAction("VersionErrored")
+					metrics.ReportAndFlushUserAction("VersionErrored", retErr.Error())
 				} else {
-					metrics.ReportSingleAction("VersionFinished")
+					metrics.ReportAndFlushUserAction("VersionFinished", time.Since(start))
 				}
-			}()
+			}(time.Now())
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVersionHeader(writer)
 			printVersion(writer, "pachctl", version.Version)
