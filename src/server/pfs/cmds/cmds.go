@@ -633,6 +633,7 @@ files into your Pachyderm cluster.
 	addShardFlags(inspectFile)
 	addFileFlags(inspectFile)
 
+	recurse := false
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
@@ -646,18 +647,19 @@ files into your Pachyderm cluster.
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), true)
+			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), recurse)
 			if err != nil {
 				return err
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
+				pretty.PrintFileInfo(writer, fileInfo, recurse)
 			}
 			return writer.Flush()
 		}),
 	}
+	listFile.Flags().BoolVar(&recurse, "recurse", false, "if recurse is true, compute and display the sizes of directories")
 	addShardFlags(listFile)
 	addFileFlags(listFile)
 
