@@ -129,7 +129,6 @@ func (c *APIClient) connect() error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.BlockAPIClient = pfs.NewBlockAPIClient(clientConn)
