@@ -149,7 +149,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	metrics.ReportUserAction(ctx, "CreateJobStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "CreateJobFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "CreateJobFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "CreateJobErrored", retErr.Error())
 		}
@@ -561,7 +561,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	metrics.ReportUserAction(ctx, "InspectJobStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "InspectJobFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "InspectJobFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "InspectJobErrored", retErr.Error())
 		}
@@ -584,7 +584,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	metrics.ReportUserAction(ctx, "ListJobStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ListJobFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListJobFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListJobErrored", retErr.Error())
 		}
@@ -661,7 +661,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	metrics.ReportUserAction(ctx, "StartJobStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "StartJobFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "StartJobFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "StartJobErrored", retErr.Error())
 		}
@@ -859,7 +859,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	metrics.ReportUserAction(ctx, "FinishJobStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "FinishJobFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "FinishJobFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "FinishJobErrored", retErr.Error())
 		}
@@ -963,7 +963,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	metrics.ReportUserAction(ctx, "CreatePipelineStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "CreatePipelineFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "CreatePipelineFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "CreatePipelineErrored", retErr.Error())
 		}
@@ -1136,7 +1136,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	metrics.ReportUserAction(ctx, "InspectPipelineStarted", nil)
 	defer func(start time.Time) {
 		if err == nil {
-			metrics.ReportUserAction(ctx, "InspectPipelineFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "InspectPipelineFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "InspectPipelineErrored", err.Error())
 		}
@@ -1159,7 +1159,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	metrics.ReportUserAction(ctx, "ListPipelineStarted", nil)
 	defer func(start time.Time) {
 		if err == nil {
-			metrics.ReportUserAction(ctx, "ListPipelineFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListPipelineFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListPipelineErrored", err.Error())
 		}
@@ -1188,7 +1188,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	metrics.ReportUserAction(ctx, "DeletePipelineStarted", nil)
 	defer func(start time.Time) {
 		if err == nil {
-			metrics.ReportUserAction(ctx, "DeletePipelineFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "DeletePipelineFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "DeletePipelineErrored", err.Error())
 		}
@@ -1205,7 +1205,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	metrics.ReportUserAction(ctx, "StartPipelineStarted", nil)
 	defer func(start time.Time) {
 		if err == nil {
-			metrics.ReportUserAction(ctx, "StartPipelineFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "StartPipelineFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "StartPipelineErrored", err.Error())
 		}
@@ -1233,7 +1233,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	metrics.ReportUserAction(ctx, "StopPipelineStarted", nil)
 	defer func(start time.Time) {
 		if err == nil {
-			metrics.ReportUserAction(ctx, "StopPipelineAllFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "StopPipelineAllFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "StopPipelineAllErrored", err.Error())
 		}
@@ -1261,7 +1261,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	metrics.ReportUserAction(ctx, "PPSDeleteAllStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "PPSDeleteAllFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "PPSDeleteAllFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "PPSDeleteAllErrored", retErr.Error())
 		}

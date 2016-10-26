@@ -78,7 +78,7 @@ Environment variables (and defaults):
 					if retErr != nil {
 						metrics.ReportAndFlushUserAction("VersionErrored", retErr.Error())
 					} else {
-						metrics.ReportAndFlushUserAction("VersionFinished", time.Since(start))
+						metrics.ReportAndFlushUserAction("VersionFinished", time.Since(start).Seconds())
 					}
 				}(time.Now())
 			}

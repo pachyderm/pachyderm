@@ -42,7 +42,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	metrics.ReportUserAction(ctx, "CreateRepoStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "CreateRepoFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "CreateRepoFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "CreateRepoErrored", retErr.Error())
 		}
@@ -59,7 +59,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	metrics.ReportUserAction(ctx, "InspectRepoStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "InspectRepoFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "InspectRepoFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "InspectRepoErrored", retErr.Error())
 		}
@@ -73,7 +73,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	metrics.ReportUserAction(ctx, "ListRepoStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ListRepoFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListRepoFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListRepoErrored", retErr.Error())
 		}
@@ -88,7 +88,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	metrics.ReportUserAction(ctx, "DeleteRepoStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "DeleteRepoFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "DeleteRepoFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "DeleteRepoErrored", retErr.Error())
 		}
@@ -106,7 +106,7 @@ func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitReque
 	metrics.ReportUserAction(ctx, "ForkCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ForkCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ForkCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ForkCommitErrored", retErr.Error())
 		}
@@ -124,7 +124,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	metrics.ReportUserAction(ctx, "StartCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "StartCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "StartCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "StartCommitErrored", retErr.Error())
 		}
@@ -142,7 +142,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	metrics.ReportUserAction(ctx, "FinishCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "FinishCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "FinishCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "FinishCommitErrored", retErr.Error())
 		}
@@ -159,7 +159,7 @@ func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommi
 	metrics.ReportUserAction(ctx, "ArchiveCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ArchiveCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ArchiveCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ArchiveCommitErrored", retErr.Error())
 		}
@@ -176,7 +176,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	metrics.ReportUserAction(ctx, "InspectCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "InspectCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "InspectCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "InspectCommitErrored", retErr.Error())
 		}
@@ -190,7 +190,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	metrics.ReportUserAction(ctx, "ListCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ListCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListCommitErrored", retErr.Error())
 		}
@@ -210,7 +210,7 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 	metrics.ReportUserAction(ctx, "SquashCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "SquashCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "SquashCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "SquashCommitErrored", retErr.Error())
 		}
@@ -224,7 +224,7 @@ func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitR
 	metrics.ReportUserAction(ctx, "ReplayCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ReplayCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ReplayCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ReplayCommitErrored", retErr.Error())
 		}
@@ -242,7 +242,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	metrics.ReportUserAction(ctx, "ListBranchStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ListBranchFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListBranchFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListBranchErrored", retErr.Error())
 		}
@@ -260,7 +260,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	metrics.ReportUserAction(ctx, "DeleteCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "DeleteCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "DeleteCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "DeleteCommitErrored", retErr.Error())
 		}
@@ -277,7 +277,7 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	metrics.ReportUserAction(ctx, "FlushCommitStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "FlushCommitFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "FlushCommitFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "FlushCommitErrored", retErr.Error())
 		}
@@ -382,7 +382,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	metrics.ReportUserAction(ctx, "InspectFileStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "InspectFileFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "InspectFileFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "InspectFileErrored", retErr.Error())
 		}
@@ -396,7 +396,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	metrics.ReportUserAction(ctx, "ListFileStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ListFileFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ListFileFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ListFileErrored", retErr.Error())
 		}
@@ -417,7 +417,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	metrics.ReportUserAction(ctx, "DeleteFileStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "DeleteFileFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "DeleteFileFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "DeleteFileErrored", retErr.Error())
 		}
@@ -435,7 +435,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	metrics.ReportUserAction(ctx, "PFSDeleteAllStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "PFSDeleteAllFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "PFSDeleteAllFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "PFSDeleteAllErrored", retErr.Error())
 		}
@@ -452,7 +452,7 @@ func (a *apiServer) ArchiveAll(ctx context.Context, request *google_protobuf.Emp
 	metrics.ReportUserAction(ctx, "ArchiveAllStarted", nil)
 	defer func(start time.Time) {
 		if retErr == nil {
-			metrics.ReportUserAction(ctx, "ArchiveAllFinished", time.Since(start))
+			metrics.ReportUserAction(ctx, "ArchiveAllFinished", time.Since(start).Seconds())
 		} else {
 			metrics.ReportUserAction(ctx, "ArchiveAllErrored", retErr.Error())
 		}
