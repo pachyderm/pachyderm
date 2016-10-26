@@ -85,12 +85,8 @@ func do(appEnvObj interface{}) error {
 		}
 		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
-	fmt.Printf("!!! should I do a readiness check? %v\n", readinessCheck)
 	if readinessCheck {
-		fmt.Printf("!!! doing a readiness check\n")
-		//c, err := client.NewInCluster()
 		c, err := client.NewFromAddress("127.0.0.1:650")
-		fmt.Printf("!!! got a new client, err: %v\n", err)
 		if err != nil {
 			return err
 		}
@@ -102,21 +98,16 @@ func do(appEnvObj interface{}) error {
 		// API such as ListRepo for readiness probe, then the failure of any
 		// node will result in the failures of all readiness probes, causing
 		// all nodes to be removed from the pachd service.
-		fmt.Printf("!!! listing pipeline\n")
 		_, err = c.ListPipeline()
-		fmt.Printf("err? [%v]\n", err)
-		//		fmt.Printf("is nil? %v, len? %v\n", (err == nil), len(err.Error()))
 		if err != nil {
 			return err
 		}
-		fmt.Printf("!!! exiting normally\n")
 		os.Exit(0)
 
 		return nil
 	}
 
 	clusterID, err := getClusterID(etcdClient)
-	fmt.Printf("!!! clusterID: %v\n", clusterID)
 	if err != nil {
 		return err
 	}
