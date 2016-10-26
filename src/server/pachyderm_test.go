@@ -485,24 +485,27 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
-func TestPipelineFailed(t *testing.T) {
+func TestPipelineTransientFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
 
 	c := getPachClient(t)
+
 	// create repos
 	dataRepo := uniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	// This pipeline should fail because it tries to copy a nonexistent file
+	// this pipeline fails at random
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "nonexistent"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{
+			"if (( RANDOM % 2 )); then exit 0; else exit 1; fi",
+		},
 		&ppsclient.ParallelismSpec{
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 1,
@@ -513,11 +516,39 @@ func TestPipelineFailed(t *testing.T) {
 		}},
 		false,
 	))
-	commit1, err := c.StartCommit(dataRepo, "master")
+
+	numJobs := 50
+	var commit *pfsclient.Commit
+	var err error
+	for i := 0; i < numJobs; i++ {
+		commit, err = c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	}
+
+	// Wait for the last job to complete
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	require.Equal(t, numJobs, len(jobInfos))
+
+	var jobStates []interface{}
+	for _, jobInfo := range jobInfos {
+		jobStates = append(jobStates, jobInfo.State)
+	}
+
+	// the jobs should've either succeeded or failed
+	for _, jobState := range jobStates {
+		require.EqualOneOf(t, []interface{}{ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE}, jobState)
+	}
+	// unless we are super unlucky (1 in 2^(RETRY_LIMIT*numJobs)), at least one job should've succeeded.
+	require.EqualOneOf(t, jobStates, ppsclient.JobState_JOB_SUCCESS)
+	// unless we are super unlucky (1-((1/2)^RETRY_LIMIT))^numJobs, at least one job should've failed.
+	// with RETRY_LIMIT=3 and numJobs=50, this comes down to 0.001
+	require.EqualOneOf(t, jobStates, ppsclient.JobState_JOB_FAILURE)
 }
 
 func TestPipelineWithEmptyInputs(t *testing.T) {
