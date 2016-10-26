@@ -144,9 +144,12 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		return ctx
 	}
 	if c.config == nil {
-		// Don't report error if config fails to read. This is only needed for metrics
-		// We don't want to err if metrics reporting is the only thing that breaks
-		cfg, _ := config.Read()
+		cfg, err := config.Read()
+		if err != nil {
+			// Don't report error if config fails to read. This is only needed for metrics
+			// We don't want to err if metrics reporting is the only thing that breaks
+			return ctx
+		}
 		c.config = cfg
 	}
 	return metadata.NewContext(
