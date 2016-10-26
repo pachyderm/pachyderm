@@ -845,6 +845,10 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 	return res
 }
 
+func (a *apiServer) ContinueJob(ctx context.Context, request *ppsserver.ContinueJobRequest) (response *ppsserver.ContinueJobResponse, retErr error) {
+	return nil, nil
+}
+
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *ppsserver.FinishJobResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1309,6 +1313,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 		IncludeInitial: true,
 		IncludeChanges: false,
 		Shard:          &persist.Shard{Number: shard},
+		State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
 	})
 	if err != nil {
 		return err
@@ -1506,9 +1511,15 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	jobInfo, err := persistClient.WaitJob(ctx, job)
+	waitJobResponse, err := persistClient.WaitJob(ctx, job)
 	if err != nil {
-		fmt.Printf("error: %v\n", err)
+		return err
+	}
+
+	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: job,
+	})
+	if err != nil {
 		return err
 	}
 
@@ -1529,6 +1540,11 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
+	// Note that there's a failure mode that's not accounted for: if this process
+	// fails after SquashCommit completes, but before UpdateJobState completes,
+	// then another process will attempt to run this jobManager again, causing
+	// the pod commits to be squashed into the output commit again, meaning that
+	// we might get duplicated data in the output commit.
 	squashReq := &pfsclient.SquashCommitRequest{
 		FromCommits: podCommits,
 		ToCommit:    jobInfo.OutputCommit,
@@ -1540,11 +1556,19 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	_, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
+	if _, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
 		Commit: jobInfo.OutputCommit,
-		Cancel: jobInfo.State == ppsclient.JobState_JOB_FAILURE,
-	})
-	if err != nil {
+		Cancel: waitJobResponse.State == ppsclient.JobState_JOB_FAILURE,
+	}); err != nil {
+		return err
+	}
+
+	// We use a new context here because as soon as we update the job state,
+	// the original context will be cancelled.
+	if _, err := persistClient.UpdateJobState(context.Background(), &persist.UpdateJobStateRequest{
+		Job:   job,
+		State: waitJobResponse.State,
+	}); err != nil {
 		return err
 	}
 

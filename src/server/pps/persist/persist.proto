@@ -186,6 +186,15 @@ message RevokeChunkRequest {
   uint64 maxPods = 3;
 }
 
+message WaitJobResponse {
+  pps.JobState state = 1;
+}
+
+message UpdateJobStateRequest {
+  pps.Job job = 1;
+  pps.JobState state = 2;
+}
+
 service API {
   // Job rpcs
   // job_id cannot be set
@@ -198,7 +207,8 @@ service API {
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
-  rpc WaitJob(pachyderm.pps.Job) returns (JobInfo) {}
+  rpc WaitJob(pachyderm.pps.Job) returns (WaitJobResponse) {}
+  rpc UpdateJobState(UpdateJobStateRequest) returns (google.protobuf.Empty) {}
   rpc GetChunksForJob(pachyderm.pps.Job) returns (Chunks) {}
 
   // JobOutput rpcs
