@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/pkg/exec"
@@ -26,7 +27,15 @@ func DeployCmd() *cobra.Command {
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
+			metrics.ReportSingleAction("DeployStarted")
+			defer func() {
+				if retErr != nil {
+					metrics.ReportSingleAction("DeployErrored")
+				} else {
+					metrics.ReportSingleAction("DeployFinished")
+				}
+			}()
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
 				version = deploy.DevVersionTag

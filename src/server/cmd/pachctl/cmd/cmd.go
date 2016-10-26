@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
 	"go.pedge.io/lion"
@@ -68,7 +70,15 @@ Environment variables (and defaults):
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) (retErr error) {
+			metrics.ReportSingleAction("VersionStarted")
+			defer func() {
+				if retErr != nil {
+					metrics.ReportSingleAction("VersionErrored")
+				} else {
+					metrics.ReportSingleAction("VersionFinished")
+				}
+			}()
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVersionHeader(writer)
 			printVersion(writer, "pachctl", version.Version)
@@ -82,8 +92,11 @@ Environment variables (and defaults):
 			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
 
 			if err != nil {
-				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
-				return writer.Flush()
+				buf := bytes.NewBufferString("")
+				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
+				errWriter.Flush()
+				return errors.New(buf.String())
 			}
 
 			printVersion(writer, "pachd", version)
