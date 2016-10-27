@@ -633,12 +633,17 @@ files into your Pachyderm cluster.
 	addShardFlags(inspectFile)
 	addFileFlags(inspectFile)
 
-	recurse := false
+	var recurse bool
+	var fast bool
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
+			if fast && recurse {
+				return fmt.Errorf("You may only provide either --fast or --recurse, but not both.")
+			}
+
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
@@ -647,19 +652,25 @@ files into your Pachyderm cluster.
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), recurse)
+			var fileInfos []*pfsclient.FileInfo
+			if fast {
+				fileInfos, err = client.ListFileFast(args[0], args[1], path, fromCommitID, fullFile, shard())
+			} else {
+				fileInfos, err = client.ListFile(args[0], args[1], path, fromCommitID, fullFile, shard(), recurse)
+			}
 			if err != nil {
 				return err
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, recurse)
+				pretty.PrintFileInfo(writer, fileInfo, recurse, fast)
 			}
 			return writer.Flush()
 		}),
 	}
 	listFile.Flags().BoolVar(&recurse, "recurse", false, "if recurse is true, compute and display the sizes of directories")
+	listFile.Flags().BoolVar(&fast, "fast", false, "if fast is true, don't compute the sizes of files; this makes list-file faster")
 	addShardFlags(listFile)
 	addFileFlags(listFile)
 
