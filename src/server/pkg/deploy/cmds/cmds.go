@@ -32,7 +32,7 @@ func DeployCmd() *cobra.Command {
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
-			if !noMetrics {
+			if !noMetrics && !dev {
 				finalMetrics := metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
 			}
@@ -47,7 +47,7 @@ func DeployCmd() *cobra.Command {
 				out = os.Stdout
 			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, version)
+				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, version, !noMetrics)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -60,7 +60,7 @@ func DeployCmd() *cobra.Command {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
 					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, registry, version)
+						args[5], volumeName, volumeSize, registry, version, !noMetrics)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -70,7 +70,8 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, version)
+					assets.WriteGoogleAssets(out, uint64(shards), args[1],
+						volumeName, volumeSize, registry, version, !noMetrics)
 				case "microsoft":
 					if len(args) != 6 {
 						return fmt.Errorf("expected 6 args, got %d", len(args))
@@ -87,7 +88,9 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, version)
+					assets.WriteMicrosoftAssets(out, uint64(shards), args[1],
+						args[2], args[3], volumeURI.String(), volumeSize, registry,
+						version, !noMetrics)
 				default:
 					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
