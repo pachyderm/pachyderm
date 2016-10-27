@@ -116,8 +116,9 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		metrics.InitializeReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
+		reporter = metrics.NewReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
@@ -156,7 +157,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
-	apiServer := pfs_server.NewAPIServer(driver)
+	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -164,6 +165,7 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 		appEnv.JobShimImage,
 		appEnv.JobImagePullPolicy,
+		reporter
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
