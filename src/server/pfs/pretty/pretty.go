@@ -117,19 +117,15 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool, fast bool)
 	fmt.Fprintf(w, "%s\t", fileInfo.CommitModified.ID)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if !recurse && int(fileInfo.SizeBytes) == 0 {
-			fmt.Println("BP1")
 			fmt.Fprintf(w, "-\t\n")
 		} else {
-			fmt.Println("BP2")
 			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 		}
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		if fast && fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && int(fileInfo.SizeBytes) == 0 {
-			fmt.Println("BP3")
 			fmt.Fprintf(w, "-\t\n")
 		} else {
-			fmt.Println("BP4")
 			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 		}
 	}
