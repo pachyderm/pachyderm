@@ -230,8 +230,16 @@ func BenchmarkListFile(b *testing.B) {
 		require.NoError(b, eg.Wait())
 		require.NoError(b, c.FinishCommit(repo, "master"))
 	}
-	// We reset the timer so this benchmark measures only ListFile performance.
-	b.ResetTimer()
+
+	for i, commit := range commits {
+		b.Run(fmt.Sprintf("ListFileFast%d", i), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
+				_, err := c.ListFileFast(commit.Repo.Name, commit.ID, "", "", false, nil)
+				require.NoError(b, err)
+			}
+		})
+	}
+
 	for i, commit := range commits {
 		b.Run(fmt.Sprintf("ListFile%d", i), func(b *testing.B) {
 			for j := 0; j < b.N; j++ {

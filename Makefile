@@ -260,7 +260,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
-	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --rethinkdb-cache-size=5G --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
