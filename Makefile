@@ -115,6 +115,9 @@ docker-clean-pachd:
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
+docker-build-microsoft-vhd:
+	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
+
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
@@ -307,7 +310,7 @@ microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
 	azure storage account create $(AZURE_STORAGE_NAME) --location $(AZURE_LOCATION) --resource-group $(AZURE_RESOURCE_GROUP) --sku-name LRS --kind Storage
 	$(eval _AZURE_STORAGE_KEY :="`azure storage account keys list $(AZURE_STORAGE_NAME) --resource-group $(AZURE_RESOURCE_GROUP) --json | jq .[0].value`")
-	docker run -it jpoon/azure-create-vhd $(AZURE_STORAGE_NAME) $(_AZURE_STORAGE_KEY) vhds $(DISK_NAME)
+	docker run -it microsoft_vhd $(AZURE_STORAGE_NAME) $(_AZURE_STORAGE_KEY) vhds $(DISK_NAME)
 
 clean-microsoft-cluster:
 	azure group delete $(AZURE_RESOURCE_GROUP) -q
@@ -364,10 +367,11 @@ goxc-build:
 	release-manifest \
 	release-pachd \
 	release-version \
+	docker-build \
 	docker-build-compile \
 	docker-build-job-shim \
+	docker-build-microsoft-vhd \
 	docker-build-pachd \
-	docker-build \
 	docker-build-proto \
 	docker-push-job-shim \
 	docker-push-pachd \

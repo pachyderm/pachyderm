@@ -24,6 +24,7 @@ func DeployCmd() *cobra.Command {
 	var dev bool
 	var dryRun bool
 	var registry bool
+	var rethinkdbCacheSize string
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
@@ -40,7 +41,7 @@ func DeployCmd() *cobra.Command {
 				out = os.Stdout
 			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, version)
+				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -53,7 +54,7 @@ func DeployCmd() *cobra.Command {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
 					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, registry, version)
+						args[5], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -63,7 +64,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, version)
+					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
 				case "microsoft":
 					if len(args) != 6 {
 						return fmt.Errorf("expected 6 args, got %d", len(args))
@@ -80,7 +81,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, version)
+					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, rethinkdbCacheSize, version)
 				default:
 					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
@@ -101,5 +102,7 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
+	cmd.Flags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
+		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
 	return cmd
 }
