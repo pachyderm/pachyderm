@@ -2,16 +2,12 @@ package lease
 
 import "time"
 
-type Resource interface {
-	ID() string
-}
-
 type LeaseManager interface {
 	// lease the resource r for duration d.  When the lease expires, invoke `revoke`
 	// a lease can be refreshed by calling Lease() again on the same resource
-	Lease(r Resource, d time.Duration, revoke func())
+	Lease(r string, d time.Duration, revoke func())
 	// return the resource r.
-	Return(r Resource)
+	Return(r string)
 }
 
 type leaseManager struct {
@@ -24,17 +20,17 @@ func NewLeaseManager() LeaseManager {
 	}
 }
 
-func (l *leaseManager) Lease(r Resource, d time.Duration, revoke func()) {
+func (l *leaseManager) Lease(r string, d time.Duration, revoke func()) {
 	timer := time.AfterFunc(d, revoke)
 	// cancel the old timer and add the new one
-	if t, ok := c.timers[r.ID()]; ok {
+	if t, ok := l.timers[r]; ok {
 		t.Stop()
 	}
-	c.timers[r.ID()] = timer
+	l.timers[r] = timer
 }
 
-func (l *leaseManager) Return(r Resource) {
-	if t, ok := c.timers[r.ID()]; ok {
+func (l *leaseManager) Return(r string) {
+	if t, ok := l.timers[r]; ok {
 		t.Stop()
 	}
 }

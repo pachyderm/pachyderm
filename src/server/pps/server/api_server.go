@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pkg/lease"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -1505,46 +1506,6 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	}
 }
 
-// chunkManager revokes the lease on a chunk if it hasn't been renewed in a while
-type chunkManager struct {
-	chunkToTimer  map[string]*time.Timer
-	persistClient persist.APIClient
-}
-
-func NewChunkManager(persistClient persist.APIClient) *chunkManager {
-	return &chunkManager{
-		chunkToTimer:  make(map[string]*time.Timer),
-		persistClient: persistClient,
-	}
-}
-
-// Lease refreshes the lease on the given chunk
-func (c *chunkManager) Lease(ctx context.Context, chunk *persist.Chunk) {
-	revoke := func() {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 0
-		backoff.Retry(func() error {
-			if _, err := c.persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
-				ChunkID: chunk.ID,
-				PodName: chunk.Owner,
-				MaxPods: MAX_PODS_PER_CHUNK,
-			}); err != nil && !isContextCancelled(err) {
-				return err
-			}
-			return nil
-		}, b)
-	}
-	if time.Since(time.Unix(int64(chunk.LeaseTime), 0)) > client.PPS_LEASE_PERIOD {
-		go revoke()
-	}
-	timer := time.AfterFunc(client.PPS_LEASE_PERIOD, revoke)
-	// cancel the old timer and add the new one
-	if t, ok := c.chunkToTimer[chunk.ID]; ok {
-		t.Stop()
-	}
-	c.chunkToTimer[chunk.ID] = timer
-}
-
 func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1569,7 +1530,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	// there are more chunks to come, some of which might have not been
 	// finished.
 	var ready bool
-	cm := NewChunkManager(persistClient)
+	lm := lease.NewLeaseManager()
 	for {
 		chunkChange, err := chunkClient.Recv()
 		if err != nil {
@@ -1589,12 +1550,27 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			}
 			switch chunk.State {
 			case persist.ChunkState_SUCCESS:
+				lm.Return(chunk.ID)
 				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
 			case persist.ChunkState_FAILED:
+				lm.Return(chunk.ID)
 				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
 				failed = true
 			case persist.ChunkState_ASSIGNED:
-				cm.Lease(ctx, chunk)
+				lm.Lease(chunk.ID, client.PPS_LEASE_PERIOD, func() {
+					b := backoff.NewExponentialBackOff()
+					b.MaxElapsedTime = 0
+					backoff.Retry(func() error {
+						if _, err := persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
+							ChunkID: chunk.ID,
+							PodName: chunk.Owner,
+							MaxPods: MAX_PODS_PER_CHUNK,
+						}); err != nil && !isContextCancelled(err) {
+							return err
+						}
+						return nil
+					}, b)
+				})
 			}
 		}
 
