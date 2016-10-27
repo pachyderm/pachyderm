@@ -110,7 +110,7 @@ var DiffClockIndex = &index{
 	Table: diffTable,
 	CreateFunction: func(row gorethink.Term) interface{} {
 		clock := row.Field("Clock")
-		return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock")}
+		return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock").Nth(-1)}
 	},
 }
 
