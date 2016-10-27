@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
+	"go.pedge.io/lion"
 	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
@@ -48,12 +49,14 @@ func NewMetricsClientFromAddress(addr string, metrics bool) (*APIClient, error) 
 	if err != nil {
 		return nil, err
 	}
-	c.reportUserMetrics = metrics
 	cfg, err := config.Read()
 	if err != nil {
-		return nil, err
+		// metrics errors are non fatal
+		lion.Errorf("error loading user config from ~/.pachderm/config: %v\n", err)
+	} else {
+		c.config = cfg
 	}
-	c.config = cfg
+	c.reportUserMetrics = metrics
 	return c, err
 }
 
@@ -146,13 +149,14 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 	if c.config == nil {
 		cfg, err := config.Read()
 		if err != nil {
-			// Don't report error if config fails to read. This is only needed for metrics
-			// We don't want to err if metrics reporting is the only thing that breaks
+			// Don't report error if config fails to read
+			// metrics errors are non fatal
+			lion.Errorf("Error loading config: %v\n", err)
 			return ctx
 		}
 		c.config = cfg
 	}
-	// metadata downcases keys, so we input a downcased key so that the read code is more consistent
+	// metadata API downcases all the key names
 	return metadata.NewContext(
 		ctx,
 		metadata.Pairs("userid", c.config.UserID),

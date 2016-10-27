@@ -11,7 +11,7 @@ import (
 
 	"github.com/dancannon/gorethink"
 	"github.com/segmentio/analytics-go"
-	"go.pedge.io/lion/proto"
+	"go.pedge.io/lion"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -30,11 +30,12 @@ type Reporter struct {
 }
 
 // InitializeReporter is used to setup metrics to be reported to segment
-func InitializeReporter(thisClusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) error {
+func InitializeReporter(thisClusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) {
 
 	dbClient, err := db.DbConnect(address)
 	if err != nil {
-		return fmt.Errorf("Error connected to DB when reporting metrics: %v\n", err)
+		lion.Errorf("error connected to DB when reporting metrics: %v\n", err)
+		return
 	}
 	metricsEnabled = true
 	batchedSegmentClient = newPersistentClient()
@@ -46,7 +47,6 @@ func InitializeReporter(thisClusterID string, kubeClient *kube.Client, address s
 		ppsDbName:  ppsDbName,
 	}
 	go reporter.reportClusterMetrics()
-	return nil
 }
 
 //ReportUserAction pushes the action into a queue for reporting,
@@ -68,15 +68,21 @@ func reportUserAction(ctx context.Context, action string, value interface{}) {
 	}
 	md, ok := metadata.FromContext(ctx)
 	// metadata API downcases all the key names
-	if ok && md["userid"] != nil && len(md["userid"]) > 0 {
-		userID := md["userid"][0]
-		reportUserMetricsToSegment(
-			batchedSegmentClient,
-			userID,
-			action,
-			value,
-			clusterID,
-		)
+	if ok {
+		if md["userid"] != nil && len(md["userid"]) > 0 {
+			userID := md["userid"][0]
+			reportUserMetricsToSegment(
+				batchedSegmentClient,
+				userID,
+				action,
+				value,
+				clusterID,
+			)
+		} else {
+			lion.Errorln("error extracting userid from metadata. userid is empty\n")
+		}
+	} else {
+		lion.Errorf("Error extracting userid metadata from context: %v\n", ctx)
 	}
 }
 
@@ -99,6 +105,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	defer client.Close()
 	cfg, err := config.Read()
 	if err != nil {
+		lion.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
 		// Errors are non fatal when reporting metrics
 		return
 	}
@@ -131,14 +138,14 @@ func (r *Reporter) dbMetrics(metrics *Metrics) {
 		gorethink.DB(r.ppsDbName).Table("PipelineInfos").Count(),
 	).Run(r.dbClient)
 	if err != nil {
-		protolion.Errorf("Error Fetching Metrics:%+v", err)
+		lion.Errorf("Error Fetching Metrics:%+v", err)
 	}
 	cursor.One(&metrics)
 }
 
 func (r *Reporter) reportClusterMetrics() {
 	for {
-		time.Sleep(reportingInterval * time.Second)
+		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
 		r.dbMetrics(metrics)
 		externalMetrics(r.kubeClient, metrics)
