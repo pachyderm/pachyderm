@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"go.pedge.io/proto/rpclog"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -26,6 +27,7 @@ func NewAPIServer(
 	namespace string,
 	jobShimImage string,
 	jobImagePullPolicy string,
+	reporter *metrics.Reporter,
 ) APIServer {
 	return &apiServer{
 		Logger:               protorpclog.NewLogger("pachyderm.ppsclient.API"),
@@ -45,5 +47,6 @@ func NewAPIServer(
 		namespace:            namespace,
 		jobShimImage:         jobShimImage,
 		jobImagePullPolicy:   jobImagePullPolicy,
+		reporter:             reporter,
 	}
 }

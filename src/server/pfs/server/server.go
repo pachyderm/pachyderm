@@ -3,6 +3,7 @@ package server
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -23,8 +24,8 @@ type APIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(driver drive.Driver) APIServer {
-	return newAPIServer(driver)
+func NewAPIServer(driver drive.Driver, reporter *metrics.Reporter) APIServer {
+	return newAPIServer(driver, reporter)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.

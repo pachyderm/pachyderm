@@ -17,66 +17,65 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-var batchedSegmentClient *analytics.Client
-var metricsEnabled = false
-var clusterID string
-
 //Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
-	kubeClient *kube.Client
-	dbClient   *gorethink.Session
-	pfsDbName  string
-	ppsDbName  string
+	segmentClient *analytics.Client
+	clusterID     string
+	kubeClient    *kube.Client
+	dbClient      *gorethink.Session
+	pfsDbName     string
+	ppsDbName     string
 }
 
-// InitializeReporter is used to setup metrics to be reported to segment
-func InitializeReporter(thisClusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) {
+// NewReporter creates a new reporter and kicks off the loop to report cluster
+// metrics
+func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) *Reporter {
 
 	dbClient, err := db.DbConnect(address)
 	if err != nil {
 		lion.Errorf("error connected to DB when reporting metrics: %v\n", err)
-		return
+		return nil
 	}
-	metricsEnabled = true
-	batchedSegmentClient = newPersistentClient()
-	clusterID = thisClusterID
 	reporter := &Reporter{
-		kubeClient: kubeClient,
-		dbClient:   dbClient,
-		pfsDbName:  pfsDbName,
-		ppsDbName:  ppsDbName,
+		segmentClient: newPersistentClient(),
+		clusterID:     clusterID,
+		kubeClient:    kubeClient,
+		dbClient:      dbClient,
+		pfsDbName:     pfsDbName,
+		ppsDbName:     ppsDbName,
 	}
 	go reporter.reportClusterMetrics()
+	return reporter
 }
 
 //ReportUserAction pushes the action into a queue for reporting,
 // and reports the start, finish, and error conditions
-func ReportUserAction(ctx context.Context, action string) func(time.Time, error) {
-	reportUserAction(ctx, fmt.Sprintf("%vStarted", action), nil)
+func ReportUserAction(ctx context.Context, r *Reporter, action string) func(time.Time, error) {
+	if r == nil {
+		return func(time.Time, error) {}
+	}
+	r.reportUserAction(ctx, fmt.Sprintf("%vStarted", action), nil)
 	return func(start time.Time, err error) {
 		if err == nil {
-			reportUserAction(ctx, fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
+			r.reportUserAction(ctx, fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
 		} else {
-			reportUserAction(ctx, fmt.Sprintf("%vErrored", action), err.Error())
+			r.reportUserAction(ctx, fmt.Sprintf("%vErrored", action), err.Error())
 		}
 	}
 }
 
-func reportUserAction(ctx context.Context, action string, value interface{}) {
-	if !metricsEnabled {
-		return
-	}
+func (r *Reporter) reportUserAction(ctx context.Context, action string, value interface{}) {
 	md, ok := metadata.FromContext(ctx)
 	// metadata API downcases all the key names
 	if ok {
 		if md["userid"] != nil && len(md["userid"]) > 0 {
 			userID := md["userid"][0]
 			reportUserMetricsToSegment(
-				batchedSegmentClient,
+				r.segmentClient,
 				userID,
 				action,
 				value,
-				clusterID,
+				r.clusterID,
 			)
 		} else {
 			lion.Errorln("error extracting userid from metadata. userid is empty\n")
@@ -86,7 +85,7 @@ func reportUserAction(ctx context.Context, action string, value interface{}) {
 	}
 }
 
-//ReportAndFlushUserAction immediately reports the metric
+// ReportAndFlushUserAction immediately reports the metric
 // It is used in the few places we need to report metrics from the client.
 // It handles reporting the start, finish, and error conditions of the action
 func ReportAndFlushUserAction(action string) func(time.Time, error) {
@@ -106,7 +105,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	cfg, err := config.Read()
 	if err != nil {
 		lion.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
-		// Errors are non fatal when reporting metrics
+		// metrics errors are non fatal
 		return
 	}
 	reportUserMetricsToSegment(client, cfg.UserID, action, value, "")
@@ -149,9 +148,9 @@ func (r *Reporter) reportClusterMetrics() {
 		metrics := &Metrics{}
 		r.dbMetrics(metrics)
 		externalMetrics(r.kubeClient, metrics)
-		metrics.ClusterID = clusterID
+		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
-		reportClusterMetricsToSegment(batchedSegmentClient, metrics)
+		reportClusterMetricsToSegment(r.segmentClient, metrics)
 	}
 }
