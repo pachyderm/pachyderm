@@ -42,7 +42,7 @@ type APIClient struct {
 	reportUserMetrics bool
 }
 
-// Creates a client that will report a user's Metrics
+// NewMetricsClientFromAddress Creates a client that will report a user's Metrics
 func NewMetricsClientFromAddress(addr string) (*APIClient, error) {
 	c, err := NewFromAddress(addr)
 	if err != nil {
