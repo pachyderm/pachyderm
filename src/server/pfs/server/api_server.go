@@ -264,8 +264,17 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	var mode drive.ListFileMode
+	switch request.Mode {
+	case pfs.ListFileMode_ListFile_NORMAL:
+		mode = drive.ListFile_NORMAL
+	case pfs.ListFileMode_ListFile_FAST:
+		mode = drive.ListFile_FAST
+	case pfs.ListFileMode_ListFile_RECURSE:
+		mode = drive.ListFile_RECURSE
+	}
 	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
-		request.DiffMethod, request.Recurse)
+		request.DiffMethod, mode)
 	if err != nil {
 		return nil, err
 	}

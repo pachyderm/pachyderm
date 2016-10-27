@@ -257,11 +257,17 @@ message InspectFileRequest {
   DiffMethod diff_method = 3;
 }
 
+enum ListFileMode {
+  ListFile_NORMAL = 0;
+  ListFile_FAST = 1;
+  ListFile_RECURSE = 2;
+}
+
 message ListFileRequest {
   File file = 1;
   Shard shard = 2;
   DiffMethod diff_method = 3;
-  bool recurse = 4;
+  ListFileMode mode = 4;
 }
 
 message DeleteFileRequest {
