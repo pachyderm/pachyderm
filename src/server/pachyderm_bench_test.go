@@ -223,7 +223,7 @@ func BenchmarkListFile(b *testing.B) {
 			j := j
 			eg.Go(func() error {
 				rand := rand.New(rand.NewSource(int64(time.Now().UnixNano())))
-				_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d", j), workload.NewReader(rand, 1))
+				_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d-%d", i, j), workload.NewReader(rand, 1))
 				return err
 			})
 		}
