@@ -1715,7 +1715,7 @@ func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.Dif
 		return gorethink.Branch(persist.DBClockDescendent(left.Field("clock"), right.Field("clock")),
 			right,
 			left)
-	}).Filter(func(diff gorethink.Term) gorethink.Term {
+	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Without("BlockRefs", "Size").OrderBy("Path").Run(d.dbClient)
 	if err != nil {
@@ -1917,7 +1917,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode drive.ListFileMode) ([]*pfs.FileInfo, error) {
 	fixPath(file)
-	fmt.Println("waaaaat")
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod)
@@ -1936,16 +1935,12 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 
 	var diffs []*persist.Diff
 	var err error
-	fmt.Println("pouttttt")
 	switch mode {
 	case drive.ListFile_NORMAL:
-		fmt.Println("nuuuuuu")
 		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
 	case drive.ListFile_FAST:
-		fmt.Println("yayyyyyyyyyyyyyyyyyyyyy")
 		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
 	case drive.ListFile_RECURSE:
-		fmt.Println("wheeeeeee")
 		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
 	}
 	if err != nil {

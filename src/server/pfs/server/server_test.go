@@ -2578,6 +2578,43 @@ func TestListFileRecurse(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos))
 }
 
+func TestListFileFast(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	fileInfos, err := client.ListFileFast(repo, "master/0", "dir", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "bar", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err = client.ListFileFast(repo, "master/1", "", "", false, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	// in fast mode, everything has a size of zero
+	for _, fileInfo := range fileInfos {
+		require.Equal(t, 0, int(fileInfo.SizeBytes))
+	}
+}
+
 func TestPutFileTypeConflict(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
