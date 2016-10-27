@@ -38,8 +38,6 @@ const (
 	commitTable Table = "Commits"
 
 	connectTimeoutSeconds = 5
-	maxIdle               = 5
-	maxOpen               = 50
 )
 
 const (
@@ -173,8 +171,6 @@ func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
-		MaxIdle: maxIdle,
-		MaxOpen: maxOpen,
 	})
 }
 
@@ -1940,11 +1936,11 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 	var diffs []*persist.Diff
 	var err error
 	switch mode {
-	case drive.ListFile_NORMAL:
+	case drive.ListFileNORMAL:
 		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
-	case drive.ListFile_FAST:
+	case drive.ListFileFAST:
 		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
-	case drive.ListFile_RECURSE:
+	case drive.ListFileRECURSE:
 		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
 	}
 	if err != nil {
