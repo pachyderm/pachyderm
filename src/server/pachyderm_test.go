@@ -531,6 +531,10 @@ func TestPipelineTransientFailure(t *testing.T) {
 	// Wait for the last job to complete
 	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 
+	// this is dumb, but there's a period of time between when the output commit is
+	// finished, and when the job's state is updated.
+	time.Sleep(5 * time.Second)
+
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, numJobs, len(jobInfos))
