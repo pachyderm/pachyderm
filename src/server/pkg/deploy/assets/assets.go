@@ -371,8 +371,11 @@ func EtcdService() *api.Service {
 }
 
 // RethinkRc returns a rethinkdb replication controller.
-func RethinkRc(backend backend, volume string, hostPath string) *api.ReplicationController {
+func RethinkRc(backend backend, volume string, hostPath string, rethinkdbCacheSize string) *api.ReplicationController {
 	replicas := int32(1)
+	rethinkCacheQuantity := resource.MustParse(rethinkdbCacheSize)
+	containerFootprint := rethinkCacheQuantity.Copy()
+	containerFootprint.Add(resource.MustParse("256M"))
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -398,7 +401,12 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 							Name:  rethinkName,
 							Image: rethinkImage,
 							//TODO figure out how to get a cluster of these to talk to each other
-							Command: []string{"rethinkdb", "-d", "/var/rethinkdb/data", "--bind", "all"},
+							Command: []string{"rethinkdb"},
+							Args: []string{
+								"-d", "/var/rethinkdb/data",
+								"--bind", "all",
+								"--cache-size", strconv.FormatInt(rethinkCacheQuantity.ScaledValue(resource.Mega), 10),
+							},
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8080,
@@ -420,6 +428,11 @@ func RethinkRc(backend backend, volume string, hostPath string) *api.Replication
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceMemory: *containerFootprint,
+								},
+							},
 						},
 					},
 					Volumes: []api.Volume{
@@ -774,7 +787,8 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, shards uint64, backend backend,
-	volumeName string, volumeSize int, hostPath string, registry bool, version string) {
+	volumeName string, volumeSize int, hostPath string, registry bool,
+	rethinkdbCacheSize string, version string) {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -794,7 +808,7 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	RethinkRc(backend, volumeName, hostPath).CodecEncodeSelf(encoder)
+	RethinkRc(backend, volumeName, hostPath, rethinkdbCacheSize).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	InitJob(version).CodecEncodeSelf(encoder)
@@ -814,14 +828,14 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, version string) {
-	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, version)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, rethinkdbCacheSize string, version string) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, rethinkdbCacheSize, version)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
-	region string, volumeName string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, version)
+	region string, volumeName string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, rethinkdbCacheSize, version)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -829,8 +843,8 @@ func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, sec
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
-	volumeName string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, version)
+	volumeName string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, rethinkdbCacheSize, version)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -838,8 +852,8 @@ func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
-	volumeURI string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, version)
+	volumeURI string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
+	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, rethinkdbCacheSize, version)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

@@ -100,7 +100,8 @@ func PrintFileInfoHeader(w io.Writer) {
 }
 
 // PrintFileInfo pretty-prints file info.
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
+// If recurse is false and directory size is 0, display "-" instead
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		fmt.Fprint(w, "file\t")
@@ -113,7 +114,11 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 		pretty.Ago(fileInfo.Modified),
 	)
 	fmt.Fprint(w, "-\t")
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	if !recurse && fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR && fileInfo.SizeBytes == 0 {
+		fmt.Fprintf(w, "-\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	} else {
+		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	}
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.

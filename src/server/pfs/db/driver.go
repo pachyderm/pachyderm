@@ -1739,7 +1739,7 @@ func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMet
 
 	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
-	}).OrderBy("Path").Run(d.dbClient)
+	}).OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
 	if err != nil {
 		return nil, err
 	}
@@ -1783,7 +1783,7 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 				"Size": left.Field("Size").Add(right.Field("Size")),
 			}),
 		)
-	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient)
+	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
 	if err != nil {
 		return nil, err
 	}
