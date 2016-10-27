@@ -10,15 +10,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-// ListFileMode specifies how ListFile executes.  It can be:
-// * ListFileNORMAL: compute sizes for files but not for directories
-// * ListFileFAST: do not compute sizes for files or directories
-// * ListFileRECURSE: compute sizes for files and directories
+// ListFileMode specifies how ListFile executes.
 type ListFileMode int
 
 const (
+	// ListFileNORMAL: compute sizes for files but not for directories
 	ListFileNORMAL ListFileMode = iota
+	// ListFileFAST: do not compute sizes for files or directories
 	ListFileFAST
+	// ListFileRECURSE: compute sizes for files and directories
 	ListFileRECURSE
 )
 
