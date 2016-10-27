@@ -739,10 +739,12 @@ func (a *rethinkAPIServer) SubscribeChunks(request *persist.SubscribeChunksReque
 
 	var change ChunkChangeFeed
 	for cursor.Next(&change) {
-		if change.State == "ready" {
-			server.Send(&persist.ChunkChange{
-				Ready: true,
-			})
+		if change.State != "" {
+			if change.State == "ready" {
+				server.Send(&persist.ChunkChange{
+					Ready: true,
+				})
+			}
 		} else if change.NewVal != nil && change.OldVal != nil {
 			server.Send(&persist.ChunkChange{
 				Chunk: change.NewVal,
