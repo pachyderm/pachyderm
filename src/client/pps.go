@@ -2,6 +2,7 @@ package client
 
 import (
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -15,7 +16,14 @@ func NewJob(jobID string) *pps.Job {
 }
 
 const (
+	// The environment variable that a pod can use to see its own name.
+	// The pod name is made available through the Kubernetes downward API.
 	PPS_POD_NAME_ENV = "PPS_POD_NAME"
+	// The amount of time for a lease on a chunk to expire.  That is, a pod
+	// needs to send ContinueJob to PPS at lease once every this amount of
+	// time in order to keep owning a chunk.  In reality, pods send ContinueJob
+	// more often than that because they need to account for network latency.
+	PPS_LEASE_PERIOD = 20 * time.Second
 )
 
 var (

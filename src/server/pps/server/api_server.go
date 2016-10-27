@@ -1511,9 +1511,57 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	waitJobResponse, err := persistClient.WaitJob(ctx, job)
+	chunkClient, err := persistClient.SubscribeChunks(ctx, &persist.SubscribeChunksRequest{
+		Job:            job,
+		IncludeInitial: true,
+	})
 	if err != nil {
 		return err
+	}
+
+	// a set that stores the chunk IDs that we've seen
+	var chunkSet map[string]bool
+	var podCommits []*pfsclient.Commit
+	var failed bool
+	var totalChunks int
+	// ready is used to indicate if we've already received all chunks.
+	// This is to prevent a scenario where we receive 1 chunk, see that
+	// it's a SUCCESS, and be like, oh we are done!, without knowing that
+	// there are more chunks to come, some of which might have not been
+	// finished.
+	var ready bool
+	var cm chunkManager
+	for {
+		chunkChange, err := chunkClient.Recv()
+		if err != nil {
+			return err
+		}
+
+		chunk := chunkChange.Chunk
+
+		ready |= chunkChange.Ready
+
+		switch chunkChange.Type {
+		case persist.ChangeType_DELETE:
+			totalChunks -= 1
+		case persist.ChangeType_CREATE, persist.ChangeType_UPDATE:
+			if chunkChange.Type == persist.ChangeType_CREATE {
+				totalChunks += 1
+			}
+			switch chunk.State {
+			case persist.ChunkState_SUCCESS:
+				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
+			case persist.ChunkState_FAILED:
+				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
+				failed = true
+			case persist.ChunkState_ASSIGNED:
+				cm.Lease(chunk)
+			}
+		}
+
+		if ready && totalChunks == len(podCommits) {
+			break
+		}
 	}
 
 	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
@@ -1521,18 +1569,6 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	})
 	if err != nil {
 		return err
-	}
-
-	chunks, err := persistClient.GetChunksForJob(ctx, job)
-	if err != nil {
-		return err
-	}
-
-	var podCommits []*pfsclient.Commit
-	for _, chunk := range chunks.Chunks {
-		if chunk.State == persist.ChunkState_SUCCESS || chunk.State == persist.ChunkState_FAILED {
-			podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
-		}
 	}
 
 	pfsAPIClient, err := a.getPfsClient()
@@ -1558,16 +1594,22 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 
 	if _, err = pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
 		Commit: jobInfo.OutputCommit,
-		Cancel: waitJobResponse.State == ppsclient.JobState_JOB_FAILURE,
+		Cancel: failed,
 	}); err != nil {
 		return err
 	}
 
 	// We use a new context here because as soon as we update the job state,
 	// the original context will be cancelled.
+	var state ppsclient.JobState
+	if failed {
+		state = ppsclient.JobState_JOB_FAILURE
+	} else {
+		state = ppsclient.JobState_JOB_SUCCESS
+	}
 	if _, err := persistClient.UpdateJobState(context.Background(), &persist.UpdateJobStateRequest{
 		Job:   job,
-		State: waitJobResponse.State,
+		State: state,
 	}); err != nil {
 		return err
 	}

@@ -702,67 +702,8 @@ func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (re
 	return &jobInfo, nil
 }
 
-type ChunkChangeFeed struct {
-	OldVal *persist.Chunk `gorethink:"old_val,omitempty"`
-	NewVal *persist.Chunk `gorethink:"new_val,omitempty"`
-}
-
 func isTerminalChunkState(state persist.ChunkState) bool {
 	return state == persist.ChunkState_SUCCESS || state == persist.ChunkState_FAILED
-}
-
-// WaitJob waits for a job to complete and sets its status
-func (a *rethinkAPIServer) WaitJob(ctx context.Context, job *ppsclient.Job) (response *persist.WaitJobResponse, err error) {
-	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Count().Run(a.session)
-	if err != nil {
-		return nil, err
-	}
-
-	var totalChunks int
-	if err := cursor.One(&totalChunks); err != nil {
-		return nil, err
-	}
-
-	// The idea is that we wait until the number of completed chunks equates
-	// the total number of chunks.
-	//
-	// We are making the following assumptions:
-	// 1. A chunk never transitions from a terminal state to a non-terminal state
-	// 2. Chunks do not get removed.
-	// 3. The total number of chunks doesn't change.  TODO: this assumption will
-	// likely to be violated once we introduce straggler mitigation, which will
-	// likely be done by splitting up chunks (and therefore increasing the number
-	// of chunks).
-	cursor, err = a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Pluck("ID", "State").Changes().Filter(gorethink.Row.Field("new_val").Ne(nil)).Field("new_val").Run(a.session)
-	if err != nil {
-		return nil, err
-	}
-
-	chunk := &persist.Chunk{}
-	var completedChunks int
-	var failed bool
-	for cursor.Next(&chunk) {
-		if chunk.State == persist.ChunkState_SUCCESS {
-			completedChunks++
-		} else if chunk.State == persist.ChunkState_FAILED {
-			completedChunks++
-			failed = true
-		}
-		if completedChunks == totalChunks {
-			break
-		}
-	}
-
-	if failed {
-		return &persist.WaitJobResponse{
-			State: ppsclient.JobState_JOB_FAILURE,
-		}, nil
-	} else {
-		return &persist.WaitJobResponse{
-			State: ppsclient.JobState_JOB_SUCCESS,
-		}, nil
-	}
 }
 
 func (a *rethinkAPIServer) UpdateJobState(ctx context.Context, request *persist.UpdateJobStateRequest) (response *google_protobuf.Empty, retErr error) {
@@ -777,17 +718,51 @@ func (a *rethinkAPIServer) UpdateJobState(ctx context.Context, request *persist.
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) GetChunksForJob(ctx context.Context, job *ppsclient.Job) (response *persist.Chunks, retErr error) {
-	defer func(start time.Time) { a.Log(job, nil, retErr, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Run(a.session)
+type ChunkChangeFeed struct {
+	OldVal *persist.Chunk `gorethink:"old_val,omitempty"`
+	NewVal *persist.Chunk `gorethink:"new_val,omitempty"`
+	State  string         `gorethink:"state,omitempty"`
+}
+
+func (a *rethinkAPIServer) SubscribeChunks(request *persist.SubscribeChunksRequest, server persist.API_SubscribeChunksServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	query := a.getTerm(chunksTable).GetAllByIndex(jobIndex, request.Job.ID)
+
+	var changeOpts gorethink.ChangesOpts
+	changeOpts.IncludeStates = true
+	changeOpts.IncludeInitial = request.IncludeInitial
+
+	cursor, err := query.Changes(changeOpts).Run(a.session)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	chunks := &persist.Chunks{}
-	if err := cursor.All(&chunks.Chunks); err != nil {
-		return nil, err
+
+	var change ChunkChangeFeed
+	for cursor.Next(&change) {
+		if change.State == "ready" {
+			server.Send(&persist.ChunkChange{
+				Ready: true,
+			})
+		} else if change.NewVal != nil && change.OldVal != nil {
+			server.Send(&persist.ChunkChange{
+				Chunk: change.NewVal,
+				Type:  persist.ChangeType_UPDATE,
+			})
+		} else if change.NewVal != nil {
+			server.Send(&persist.ChunkChange{
+				Chunk: change.NewVal,
+				Type:  persist.ChangeType_CREATE,
+			})
+		} else if change.OldVal != nil {
+			server.Send(&persist.ChunkChange{
+				Chunk: change.OldVal,
+				Type:  persist.ChangeType_DELETE,
+			})
+		} else {
+			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
+		}
 	}
-	return chunks, nil
+	return cursor.Err()
 }
 
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
