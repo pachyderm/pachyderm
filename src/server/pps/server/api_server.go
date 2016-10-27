@@ -485,7 +485,7 @@ func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput
 				FileModulus:  1,
 				BlockModulus: 1,
 			},
-			Recurse: true,
+			Mode: pfsclient.ListFileMode_ListFile_RECURSE,
 		}
 		parentInputCommit := repoToFromCommit[input.Commit.Repo.Name]
 		if parentInputCommit != nil && input.Commit.ID != parentInputCommit.ID {
