@@ -19,7 +19,7 @@ func TestMetrics(t *testing.T) {
 	os.Stdout = w
 
 	os.Args = []string{"deploy", "--dry-run"}
-	err := deploycmds.DeployCmd().Execute()
+	err := deploycmds.DeployCmd(false).Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	// restore stdout
@@ -59,7 +59,7 @@ func TestMetrics(t *testing.T) {
 	os.Stdout = w
 
 	os.Args = []string{"deploy", "-d", "--dry-run"}
-	err = deploycmds.DeployCmd().Execute()
+	err = deploycmds.DeployCmd(false).Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	// restore stdout
