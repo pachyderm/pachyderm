@@ -63,9 +63,9 @@ message Chunk {
   // A series of pods, in chronological order, that have processed this shard
   repeated Pod pods = 6;
   ChunkState state = 7;
-  // a unix timestamp representing the last time we received a heartbeat saying
-  // that a pod is working on this shard
-  uint64 time_touched = 8;
+  // a unix timestamp representing the last time we received a ContinueJob 
+  // for this chunk
+  uint64 lease_time = 8;
 }
 
 message Chunks {

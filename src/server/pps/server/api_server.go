@@ -1505,6 +1505,46 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	}
 }
 
+// chunkManager revokes the lease on a chunk if it hasn't been renewed in a while
+type chunkManager struct {
+	chunkToTimer  map[string]*time.Timer
+	persistClient persist.APIClient
+}
+
+func NewChunkManager(persistClient persist.APIClient) *chunkManager {
+	return &chunkManager{
+		chunkToTimer:  make(map[string]*time.Timer),
+		persistClient: persistClient,
+	}
+}
+
+// Lease refreshes the lease on the given chunk
+func (c *chunkManager) Lease(ctx context.Context, chunk *persist.Chunk) {
+	revoke := func() {
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 0
+		backoff.Retry(func() error {
+			if _, err := c.persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
+				ChunkID: chunk.ID,
+				PodName: chunk.Owner,
+				MaxPods: MAX_PODS_PER_CHUNK,
+			}); err != nil && !isContextCancelled(err) {
+				return err
+			}
+			return nil
+		}, b)
+	}
+	if time.Since(time.Unix(int64(chunk.LeaseTime), 0)) > client.PPS_LEASE_PERIOD {
+		go revoke()
+	}
+	timer := time.AfterFunc(client.PPS_LEASE_PERIOD, revoke)
+	// cancel the old timer and add the new one
+	if t, ok := c.chunkToTimer[chunk.ID]; ok {
+		t.Stop()
+	}
+	c.chunkToTimer[chunk.ID] = timer
+}
+
 func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1520,7 +1560,6 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	}
 
 	// a set that stores the chunk IDs that we've seen
-	var chunkSet map[string]bool
 	var podCommits []*pfsclient.Commit
 	var failed bool
 	var totalChunks int
@@ -1530,7 +1569,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	// there are more chunks to come, some of which might have not been
 	// finished.
 	var ready bool
-	var cm chunkManager
+	cm := NewChunkManager(persistClient)
 	for {
 		chunkChange, err := chunkClient.Recv()
 		if err != nil {
@@ -1539,7 +1578,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 
 		chunk := chunkChange.Chunk
 
-		ready |= chunkChange.Ready
+		ready = ready || chunkChange.Ready
 
 		switch chunkChange.Type {
 		case persist.ChangeType_DELETE:
@@ -1555,7 +1594,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
 				failed = true
 			case persist.ChunkState_ASSIGNED:
-				cm.Lease(chunk)
+				cm.Lease(ctx, chunk)
 			}
 		}
 
