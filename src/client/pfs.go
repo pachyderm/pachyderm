@@ -525,6 +525,8 @@ func (c APIClient) ListFile(repoName string, commitID string, path string, fromC
 	}
 	if recurse {
 		req.Mode = pfs.ListFileMode_ListFile_RECURSE
+	} else {
+		req.Mode = pfs.ListFileMode_ListFile_NORMAL
 	}
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		c.ctx(),
