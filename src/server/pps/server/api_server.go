@@ -87,6 +87,7 @@ type apiServer struct {
 	namespace          string
 	jobShimImage       string
 	jobImagePullPolicy string
+	reporter           *metrics.Reporter
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted

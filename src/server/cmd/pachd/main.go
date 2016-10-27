@@ -165,7 +165,7 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 		appEnv.JobShimImage,
 		appEnv.JobImagePullPolicy,
-		reporter
+		reporter,
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
