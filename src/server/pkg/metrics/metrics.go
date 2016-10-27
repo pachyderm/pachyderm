@@ -17,34 +17,35 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-var globalReporter *Reporter
+var batchedSegmentClient *analytics.Client
+var metricsEnabled = false
+var clusterID string
 
 //Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
-	segmentClient *analytics.Client
-	clusterID     string
-	kubeClient    *kube.Client
-	dbClient      *gorethink.Session
-	pfsDbName     string
-	ppsDbName     string
+	kubeClient *kube.Client
+	dbClient   *gorethink.Session
+	pfsDbName  string
+	ppsDbName  string
 }
 
 // InitializeReporter is used to setup metrics to be reported to segment
-func InitializeReporter(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) error {
+func InitializeReporter(thisClusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) error {
 
 	dbClient, err := db.DbConnect(address)
 	if err != nil {
 		return fmt.Errorf("Error connected to DB when reporting metrics: %v\n", err)
 	}
-	globalReporter = &Reporter{
-		segmentClient: newPersistentClient(),
-		clusterID:     clusterID,
-		kubeClient:    kubeClient,
-		dbClient:      dbClient,
-		pfsDbName:     pfsDbName,
-		ppsDbName:     ppsDbName,
+	metricsEnabled = true
+	batchedSegmentClient = newPersistentClient()
+	clusterID = thisClusterID
+	reporter := &Reporter{
+		kubeClient: kubeClient,
+		dbClient:   dbClient,
+		pfsDbName:  pfsDbName,
+		ppsDbName:  ppsDbName,
 	}
-	go globalReporter.reportClusterMetrics()
+	go reporter.reportClusterMetrics()
 	return nil
 }
 
@@ -62,8 +63,7 @@ func ReportUserAction(ctx context.Context, action string) func(time.Time, error)
 }
 
 func reportUserAction(ctx context.Context, action string, value interface{}) {
-	if globalReporter == nil {
-		// Metrics are disabled
+	if !metricsEnabled {
 		return
 	}
 	md, ok := metadata.FromContext(ctx)
@@ -71,11 +71,11 @@ func reportUserAction(ctx context.Context, action string, value interface{}) {
 	if ok && md["userid"] != nil && len(md["userid"]) > 0 {
 		userID := md["userid"][0]
 		reportUserMetricsToSegment(
-			globalReporter.segmentClient,
+			batchedSegmentClient,
 			userID,
 			action,
 			value,
-			globalReporter.clusterID,
+			clusterID,
 		)
 	}
 }
@@ -142,9 +142,9 @@ func (r *Reporter) reportClusterMetrics() {
 		metrics := &Metrics{}
 		r.dbMetrics(metrics)
 		externalMetrics(r.kubeClient, metrics)
-		metrics.ClusterID = r.clusterID
+		metrics.ClusterID = clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
-		reportClusterMetricsToSegment(r.segmentClient, metrics)
+		reportClusterMetricsToSegment(batchedSegmentClient, metrics)
 	}
 }
