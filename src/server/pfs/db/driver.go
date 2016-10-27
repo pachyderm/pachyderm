@@ -38,6 +38,8 @@ const (
 	commitTable Table = "Commits"
 
 	connectTimeoutSeconds = 5
+	maxIdle               = 5
+	maxOpen               = 50
 )
 
 const (
@@ -171,6 +173,8 @@ func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
+		MaxIdle: maxIdle,
+		MaxOpen: maxOpen,
 	})
 }
 
