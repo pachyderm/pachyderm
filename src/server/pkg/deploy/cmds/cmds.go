@@ -33,14 +33,8 @@ func DeployCmd() *cobra.Command {
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) (retErr error) {
 			if !noMetrics {
-				metrics.ReportAndFlushUserAction("DeployStarted", nil)
-				defer func(start time.Time) {
-					if retErr != nil {
-						metrics.ReportAndFlushUserAction("DeployErrored", retErr.Error())
-					} else {
-						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start).Seconds())
-					}
-				}(time.Now())
+				finalMetrics := metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
 			}
 			version := version.PrettyPrintVersion(version.Version)
 			if dev {
