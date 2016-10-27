@@ -19,6 +19,7 @@ import (
 
 var globalReporter *Reporter
 
+//Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
 	segmentClient *analytics.Client
 	clusterID     string
@@ -137,7 +138,7 @@ func (r *Reporter) dbMetrics(metrics *Metrics) {
 
 func (r *Reporter) reportClusterMetrics() {
 	for {
-		time.Sleep(reportingIntervalSeconds * time.Second)
+		time.Sleep(reportingInterval * time.Second)
 		metrics := &Metrics{}
 		r.dbMetrics(metrics)
 		externalMetrics(r.kubeClient, metrics)

@@ -7,11 +7,11 @@ import (
 	"go.pedge.io/lion"
 )
 
-const reportingIntervalSeconds time.Duration = 15
+const reportingInterval time.Duration = 15
 
 func newPersistentClient() *analytics.Client {
 	c := newSegmentClient()
-	c.Interval = reportingIntervalSeconds * time.Second
+	c.Interval = reportingInterval * time.Second
 	c.Size = 100
 	return c
 }
