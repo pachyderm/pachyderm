@@ -47,8 +47,20 @@ func InitializeReporter(clusterID string, kubeClient *kube.Client, address strin
 	return nil
 }
 
-//ReportUserAction pushes the action into a queue for reporting
-func ReportUserAction(ctx context.Context, action string, value interface{}) {
+//ReportUserAction pushes the action into a queue for reporting,
+// and reports the start, finish, and error conditions
+func ReportUserAction(ctx context.Context, action string) func(time.Time, error) {
+	reportUserAction(ctx, fmt.Sprintf("%Started", action), nil)
+	return func(start time.Time, err error) {
+		if err == nil {
+			reportUserAction(ctx, fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
+		} else {
+			reportUserAction(ctx, fmt.Sprintf("%vErrored", action), err.Error())
+		}
+	}
+}
+
+func reportUserAction(ctx context.Context, action string, value interface{}) {
 	if globalReporter == nil {
 		// Metrics are disabled
 		return
@@ -68,8 +80,20 @@ func ReportUserAction(ctx context.Context, action string, value interface{}) {
 }
 
 //ReportAndFlushUserAction immediately reports the metric
-//It is used in the few places we need to report metrics from the client
-func ReportAndFlushUserAction(action string, value interface{}) {
+// It is used in the few places we need to report metrics from the client.
+// It handles reporting the start, finish, and error conditions of the action
+func ReportAndFlushUserAction(action string) func(time.Time, error) {
+	reportAndFlushUserAction(fmt.Sprintf("%Started", action), nil)
+	return func(start time.Time, err error) {
+		if err == nil {
+			reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
+		} else {
+			reportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err.Error())
+		}
+	}
+}
+
+func reportAndFlushUserAction(action string, value interface{}) {
 	client := newSegmentClient()
 	defer client.Close()
 	cfg, err := config.Read()
