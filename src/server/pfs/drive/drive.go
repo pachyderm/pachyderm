@@ -10,12 +10,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+// ListFileMode specifies how ListFile executes.  It can be:
+// * ListFileNORMAL: compute sizes for files but not for directories
+// * ListFileFAST: do not compute sizes for files or directories
+// * ListFileRECURSE: compute sizes for files and directories
 type ListFileMode int
 
 const (
-	ListFile_NORMAL ListFileMode = iota
-	ListFile_FAST
-	ListFile_RECURSE
+	ListFileNORMAL ListFileMode = iota
+	ListFileFAST
+	ListFileRECURSE
 )
 
 // IsPermissionError returns true if a given error is a permission error.

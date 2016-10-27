@@ -267,11 +267,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	var mode drive.ListFileMode
 	switch request.Mode {
 	case pfs.ListFileMode_ListFile_NORMAL:
-		mode = drive.ListFile_NORMAL
+		mode = drive.ListFileNORMAL
 	case pfs.ListFileMode_ListFile_FAST:
-		mode = drive.ListFile_FAST
+		mode = drive.ListFileFAST
 	case pfs.ListFileMode_ListFile_RECURSE:
-		mode = drive.ListFile_RECURSE
+		mode = drive.ListFileRECURSE
 	}
 	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
 		request.DiffMethod, mode)
