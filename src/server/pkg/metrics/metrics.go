@@ -51,7 +51,7 @@ func InitializeReporter(clusterID string, kubeClient *kube.Client, address strin
 //ReportUserAction pushes the action into a queue for reporting,
 // and reports the start, finish, and error conditions
 func ReportUserAction(ctx context.Context, action string) func(time.Time, error) {
-	reportUserAction(ctx, fmt.Sprintf("%Started", action), nil)
+	reportUserAction(ctx, fmt.Sprintf("%vStarted", action), nil)
 	return func(start time.Time, err error) {
 		if err == nil {
 			reportUserAction(ctx, fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())

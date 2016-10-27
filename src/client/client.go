@@ -43,12 +43,12 @@ type APIClient struct {
 }
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string) (*APIClient, error) {
+func NewMetricsClientFromAddress(addr string, metrics bool) (*APIClient, error) {
 	c, err := NewFromAddress(addr)
 	if err != nil {
 		return nil, err
 	}
-	c.reportUserMetrics = true
+	c.reportUserMetrics = metrics
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, err

@@ -35,6 +35,7 @@ import (
 // which may interact with the host.
 func PachctlCmd(address string) (*cobra.Command, error) {
 	var verbose bool
+	var noMetrics bool
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -52,21 +53,21 @@ Environment variables:
 		},
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address)
+	pfsCmds := pfscmds.Cmds(address, !noMetrics)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(address)
+	ppsCmds, err := ppscmds.Cmds(address, !noMetrics)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	rootCmd.AddCommand(deploycmds.DeployCmd())
+	rootCmd.AddCommand(deploycmds.DeployCmd(!noMetrics))
 
-	var noMetrics bool
 	version := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
@@ -107,7 +108,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, !noMetrics)
 			if err != nil {
 				return sanitizeErr(err)
 			}
