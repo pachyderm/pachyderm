@@ -84,7 +84,7 @@ func reportUserAction(ctx context.Context, action string, value interface{}) {
 // It is used in the few places we need to report metrics from the client.
 // It handles reporting the start, finish, and error conditions of the action
 func ReportAndFlushUserAction(action string) func(time.Time, error) {
-	reportAndFlushUserAction(fmt.Sprintf("%Started", action), nil)
+	reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), nil)
 	return func(start time.Time, err error) {
 		if err == nil {
 			reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())

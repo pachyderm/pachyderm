@@ -67,16 +67,15 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(shards uint64, backend backend, hostPath string, version string) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string, version string, metrics bool) *api.ReplicationController {
 	image := pachdImage
 	if version != "" {
 		image += ":" + version
 	}
-	// we turn metrics on only if we have a static version this prevents dev
-	// clusters from reporting metrics
-	metrics := "true"
+	// we turn metrics off if we dont have a static version
+	// this prevents dev clusters from reporting metrics
 	if version == deploy.DevVersionTag {
-		metrics = "false"
+		metrics = false
 	}
 	volumes := []api.Volume{
 		{
@@ -211,7 +210,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 								},
 								{
 									Name:  "METRICS",
-									Value: metrics,
+									Value: strconv.FormatBool(metrics),
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -774,7 +773,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, shards uint64, backend backend,
-	volumeName string, volumeSize int, hostPath string, registry bool, version string) {
+	volumeName string, volumeSize int, hostPath string, registry bool, version string, metrics bool) {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -802,7 +801,7 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend, hostPath, version, metrics).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	if registry {
@@ -814,14 +813,14 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, version string) {
-	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, version)
+func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, version string, metrics bool) {
+	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, version, metrics)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
-	region string, volumeName string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, version)
+	region string, volumeName string, volumeSize int, registry bool, version string, metrics bool) {
+	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, version, metrics)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -829,8 +828,8 @@ func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, sec
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
-	volumeName string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, version)
+	volumeName string, volumeSize int, registry bool, version string, metrics bool) {
+	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, version, metrics)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -838,8 +837,8 @@ func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
-	volumeURI string, volumeSize int, registry bool, version string) {
-	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, version)
+	volumeURI string, volumeSize int, registry bool, version string, metrics bool) {
+	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, version, metrics)
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

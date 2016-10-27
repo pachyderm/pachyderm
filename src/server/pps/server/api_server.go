@@ -1102,7 +1102,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	finalMetrics := metrics.ReportUserAction(ctx, "InspectPipeline")
-	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+	defer func(start time.Time) { finalMetrics(start, err) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1120,7 +1120,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	finalMetrics := metrics.ReportUserAction(ctx, "ListPipeline")
-	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+	defer func(start time.Time) { finalMetrics(start, err) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1144,7 +1144,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	finalMetrics := metrics.ReportUserAction(ctx, "DeletePipeline")
-	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+	defer func(start time.Time) { finalMetrics(start, err) }(time.Now())
 
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
@@ -1156,7 +1156,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	finalMetrics := metrics.ReportUserAction(ctx, "StartPipeline")
-	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+	defer func(start time.Time) { finalMetrics(start, err) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1179,7 +1179,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
 	finalMetrics := metrics.ReportUserAction(ctx, "StopPipeline")
-	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+	defer func(start time.Time) { finalMetrics(start, err) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
