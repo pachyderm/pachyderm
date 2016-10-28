@@ -41,10 +41,11 @@ type APIClient struct {
 	config            *config.Config
 	cancel            func()
 	reportUserMetrics bool
+	metricsPrefix     string
 }
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string, metrics bool) (*APIClient, error) {
+func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
 	c, err := NewFromAddress(addr)
 	if err != nil {
 		return nil, err
@@ -57,6 +58,7 @@ func NewMetricsClientFromAddress(addr string, metrics bool) (*APIClient, error) 
 		c.config = cfg
 	}
 	c.reportUserMetrics = metrics
+	c.metricsPrefix = prefix
 	return c, err
 }
 
@@ -159,7 +161,10 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 	// metadata API downcases all the key names
 	return metadata.NewContext(
 		ctx,
-		metadata.Pairs("userid", c.config.UserID),
+		metadata.Pairs(
+			"userid", c.config.UserID,
+			"prefix", c.metricsPrefix,
+		),
 	)
 }
 

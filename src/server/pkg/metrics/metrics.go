@@ -64,22 +64,35 @@ func ReportUserAction(ctx context.Context, r *Reporter, action string) func(time
 	}
 }
 
+func getKeyFromMD(md metadata.MD, key string) (string, error) {
+	if md[key] != nil && len(md[key]) > 0 {
+		return md[key][0], nil
+	}
+	return "", fmt.Errorf("error extracting userid from metadata. userid is empty\n")
+}
+
 func (r *Reporter) reportUserAction(ctx context.Context, action string, value interface{}) {
 	md, ok := metadata.FromContext(ctx)
-	// metadata API downcases all the key names
 	if ok {
-		if md["userid"] != nil && len(md["userid"]) > 0 {
-			userID := md["userid"][0]
-			reportUserMetricsToSegment(
-				r.segmentClient,
-				userID,
-				action,
-				value,
-				r.clusterID,
-			)
-		} else {
-			lion.Errorln("error extracting userid from metadata. userid is empty\n")
+		// metadata API downcases all the key names
+		userID, err := getKeyFromMD(md, "userid")
+		if err != nil {
+			lion.Errorln(err)
+			return
 		}
+		prefix, err := getKeyFromMD(md, "prefix")
+		if err != nil {
+			lion.Errorln(err)
+			return
+		}
+		reportUserMetricsToSegment(
+			r.segmentClient,
+			userID,
+			prefix,
+			action,
+			value,
+			r.clusterID,
+		)
 	} else {
 		lion.Errorf("Error extracting userid metadata from context: %v\n", ctx)
 	}
@@ -108,7 +121,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 		// metrics errors are non fatal
 		return
 	}
-	reportUserMetricsToSegment(client, cfg.UserID, action, value, "")
+	reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
 }
 
 func (r *Reporter) dbMetrics(metrics *Metrics) {
