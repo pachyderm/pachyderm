@@ -40,8 +40,14 @@ func DeployCmd() *cobra.Command {
 			if dryRun {
 				out = os.Stdout
 			}
+			opts := &assets.AssetOpts{
+				Shards:             uint64(shards),
+				Registry:           registry,
+				RethinkdbCacheSize: rethinkdbCacheSize,
+				Version:            version,
+			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
+				assets.WriteLocalAssets(out, opts, hostPath)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -53,8 +59,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
-					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteAmazonAssets(out, opts, args[1], args[2], args[3], args[4], args[5], volumeName, volumeSize)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -64,7 +69,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteGoogleAssets(out, opts, args[1], volumeName, volumeSize)
 				case "microsoft":
 					if len(args) != 6 {
 						return fmt.Errorf("expected 6 args, got %d", len(args))
@@ -81,7 +86,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteMicrosoftAssets(out, opts, args[1], args[2], args[3], volumeURI.String(), volumeSize)
 				default:
 					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
