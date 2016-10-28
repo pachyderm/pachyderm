@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/segmentio/analytics-go"
@@ -55,14 +56,14 @@ func identifyUser(client *analytics.Client, userID string) {
 	}
 }
 
-func reportUserMetricsToSegment(client *analytics.Client, userID string, action string, value interface{}, clusterID string) {
+func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix string, action string, value interface{}, clusterID string) {
 	identifyUser(client, userID)
 	properties := map[string]interface{}{
 		"ClusterID": clusterID,
 	}
 	properties[action] = value
 	err := client.Track(&analytics.Track{
-		Event:      "user.usage",
+		Event:      fmt.Sprintf("%v.usage", prefix),
 		UserId:     userID,
 		Properties: properties,
 	})
