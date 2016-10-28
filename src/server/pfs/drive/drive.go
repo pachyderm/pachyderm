@@ -14,11 +14,11 @@ import (
 type ListFileMode int
 
 const (
-	// ListFileNORMAL: compute sizes for files but not for directories
+	// ListFileNORMAL computes sizes for files but not for directories
 	ListFileNORMAL ListFileMode = iota
-	// ListFileFAST: do not compute sizes for files or directories
+	// ListFileFAST does not compute sizes for files or directories
 	ListFileFAST
-	// ListFileRECURSE: compute sizes for files and directories
+	// ListFileRECURSE computes sizes for files and directories
 	ListFileRECURSE
 )
 
