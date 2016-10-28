@@ -173,6 +173,11 @@ message ClaimChunkRequest {
   Pod pod = 2;
 }
 
+message RenewChunkRequest {
+  string chunk_id = 1;
+  string pod_name = 2;
+}
+
 message FinishChunkRequest {
   string chunk_id = 1;
   string pod_name = 2;
@@ -252,6 +257,7 @@ service API {
   // Chunk rpcs
   rpc AddChunk(AddChunkRequest) returns (google.protobuf.Empty) {}
   rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
+  rpc RenewChunk(RenewChunkRequest) returns (Chunk) {}
   rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
   rpc RevokeChunk(RevokeChunkRequest) returns (Chunk) {}
 }
