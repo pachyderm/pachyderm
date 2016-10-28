@@ -210,8 +210,8 @@ func BenchmarkListFile(b *testing.B) {
 	c, err := client.NewInCluster()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
-	nCommits := 200
-	nFilesPerCommit := 50
+	nCommits := 250
+	nFilesPerCommit := 500
 	var commits []*pfsclient.Commit
 
 	for i := 0; i < nCommits; i++ {
@@ -223,24 +223,29 @@ func BenchmarkListFile(b *testing.B) {
 			j := j
 			eg.Go(func() error {
 				rand := rand.New(rand.NewSource(int64(time.Now().UnixNano())))
-				_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d", j), workload.NewReader(rand, MB))
+				_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d-%d", i, j), workload.NewReader(rand, 1))
 				return err
 			})
 		}
 		require.NoError(b, eg.Wait())
 		require.NoError(b, c.FinishCommit(repo, "master"))
 	}
-	// We reset the timer so this benchmark measures only ListFile performance.
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var eg errgroup.Group
-		for _, commit := range commits {
-			commit := commit
-			eg.Go(func() error {
+
+	for i, commit := range commits {
+		b.Run(fmt.Sprintf("ListFileFast%d", i), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
+				_, err := c.ListFileFast(commit.Repo.Name, commit.ID, "", "", false, nil)
+				require.NoError(b, err)
+			}
+		})
+	}
+
+	for i, commit := range commits {
+		b.Run(fmt.Sprintf("ListFile%d", i), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
 				_, err := c.ListFile(commit.Repo.Name, commit.ID, "", "", false, nil, false)
-				return err
-			})
-		}
-		require.NoError(b, eg.Wait())
+				require.NoError(b, err)
+			}
+		})
 	}
 }
