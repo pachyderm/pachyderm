@@ -1,3 +1,7 @@
+## Backup
+
+Please backup your metadata storage system before running this script.  See the [migration README](../README.md) for details.
+
 ## How to run this script
 
 Make sure that your `kubectl` has been configured correctly to talk to the Kubernetes cluster where your Pachyderm runs.  Then simply:
