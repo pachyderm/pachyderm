@@ -19,7 +19,7 @@ import (
 var (
 	suite                  = "pachyderm"
 	volumeSuite            = "pachyderm-pps-storage"
-	pachdImage             = "sjezewski/pachd"
+	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage           = "rethinkdb:2.3.3"
 	registryImage          = "registry:2"
