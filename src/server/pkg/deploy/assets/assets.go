@@ -67,7 +67,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(shards uint64, backend backend, hostPath string, version string) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, version string) *api.ReplicationController {
 	image := pachdImage
 	if version != "" {
 		image += ":" + version
@@ -212,6 +212,10 @@ func PachdRc(shards uint64, backend backend, hostPath string, version string) *a
 								{
 									Name:  "METRICS",
 									Value: metrics,
+								},
+								{
+									Name:  "LOG_LEVEL",
+									Value: logLevel,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -791,6 +795,7 @@ type AssetOpts struct {
 	Registry           bool
 	RethinkdbCacheSize string
 	Version            string
+	LogLevel           string
 }
 
 // WriteAssets writes the assets to w.
@@ -821,7 +826,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.Shards, backend, hostPath, opts.Version).CodecEncodeSelf(encoder)
+	PachdRc(opts.Shards, backend, hostPath, opts.LogLevel, opts.Version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	if opts.Registry {
