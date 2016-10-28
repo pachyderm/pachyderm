@@ -438,23 +438,17 @@ func RethinkRc(backend backend, volume string, hostPath string, rethinkdbCacheSi
 					Volumes: []api.Volume{
 						{
 							Name: "rethink-storage",
+							VolumeSource: api.VolumeSource{
+								PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
+									ClaimName: rethinkVolumeClaimName,
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 	}
-
-	if backend != localBackend && volume != "" {
-		spec.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim = &api.PersistentVolumeClaimVolumeSource{
-			ClaimName: rethinkVolumeClaimName,
-		}
-	} else if backend == localBackend {
-		spec.Spec.Template.Spec.Volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: filepath.Join(hostPath, "rethink"),
-		}
-	}
-
 	return spec
 }
 
@@ -711,7 +705,7 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 
 // RethinkVolume creates a persistent volume with a backend
 // (local, amazon, google), a name, and a size in gigabytes.
-func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume {
+func RethinkVolume(backend backend, hostPath string, name string, size int) *api.PersistentVolume {
 	spec := &api.PersistentVolume{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "PersistentVolume",
@@ -756,6 +750,12 @@ func RethinkVolume(backend backend, name string, size int) *api.PersistentVolume
 				DataDiskURI: dataDiskURI,
 			},
 		}
+	case localBackend:
+		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: filepath.Join(hostPath, "rethink"),
+			},
+		}
 	default:
 		panic("cannot generate volume spec for unknown backend")
 	}
@@ -794,12 +794,10 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	if backend != localBackend && volumeName != "" {
-		RethinkVolume(backend, volumeName, volumeSize).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-	}
+	RethinkVolume(backend, hostPath, volumeName, volumeSize).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
 
 	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
