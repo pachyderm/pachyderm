@@ -847,11 +847,30 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 }
 
 func (a *apiServer) ContinueJob(ctx context.Context, request *ppsserver.ContinueJobRequest) (response *ppsserver.ContinueJobResponse, retErr error) {
-	return nil, nil
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	fmt.Println("BP1")
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("BP2")
+	chunk, err := persistClient.RenewChunk(ctx, &persist.RenewChunkRequest{
+		ChunkID: request.ChunkID,
+		PodName: request.PodName,
+	})
+	fmt.Printf("chunk: %v\n", chunk)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("BP3")
+	response = &ppsserver.ContinueJobResponse{}
+	if chunk.Owner != request.PodName {
+		response.Exit = true
+	}
+	return response, nil
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *ppsserver.FinishJobResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {

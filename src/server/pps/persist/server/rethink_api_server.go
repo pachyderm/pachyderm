@@ -620,6 +620,31 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 	return chunk, nil
 }
 
+// RenewChunk updates the LeaseTime of a chunk to the current time
+func (a *rethinkAPIServer) RenewChunk(ctx context.Context, request *persist.RenewChunkRequest) (response *persist.Chunk, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunksTable).Get(request.ChunkID).Update(gorethink.Branch(
+		gorethink.And(
+			gorethink.Row.Field("Owner").Eq(request.PodName),
+			gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED),
+		),
+		map[string]interface{}{
+			"LeaseTime": time.Now().Unix(),
+		},
+		nil,
+	), gorethink.UpdateOpts{
+		ReturnChanges: "always",
+	}).Field("changes").Field("new_val").Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	chunk := &persist.Chunk{}
+	if err := cursor.One(chunk); err != nil {
+		return nil, err
+	}
+	return chunk, nil
+}
+
 // FinishChunk atomically switches the state of a chunk from ASSIGNED to SUCCESS
 func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.FinishChunkRequest) (response *persist.Chunk, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
@@ -633,18 +658,16 @@ func (a *rethinkAPIServer) FinishChunk(ctx context.Context, request *persist.Fin
 		},
 		nil,
 	), gorethink.UpdateOpts{
-		ReturnChanges: true,
+		ReturnChanges: "always",
 	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close()
 	chunk := &persist.Chunk{}
-	for cursor.Next(chunk) {
-		return chunk, nil
+	if err := cursor.One(chunk); err != nil {
+		return nil, err
 	}
-	// If no chunk matches, return nil
-	return nil, nil
+	return chunk, nil
 }
 
 // RevokeChunk atomically switches the state of a chunk from ASSIGNED to either
@@ -666,18 +689,16 @@ func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.Rev
 		},
 		nil,
 	), gorethink.UpdateOpts{
-		ReturnChanges: true,
+		ReturnChanges: "always",
 	}).Field("changes").Field("new_val").Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close()
 	chunk := &persist.Chunk{}
-	for cursor.Next(chunk) {
-		return chunk, nil
+	if err := cursor.One(chunk); err != nil {
+		return nil, err
 	}
-	// If no chunk matches, return nil
-	return nil, nil
+	return chunk, nil
 }
 
 func (a *rethinkAPIServer) StartJob(ctx context.Context, job *ppsclient.Job) (response *persist.JobInfo, err error) {

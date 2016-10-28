@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -152,13 +153,27 @@ func do(appEnvObj interface{}) error {
 				cmdCh <- success
 			}()
 
-			// success indicates if the user command succeeded
-			var success bool
+			tick := time.Tick(10 * time.Second)
 			for {
 				select {
-				case success = <-cmdCh:
-					break
-				default:
+				case success := <-cmdCh:
+					res, err := ppsClient.FinishJob(
+						context.Background(),
+						&ppsserver.FinishJobRequest{
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+							Success: success,
+						},
+					)
+					if err != nil {
+						return err
+					}
+					finished = true
+					if res.Fail {
+						return errors.New("restarting...")
+					}
+					return nil
+				case <-tick:
 					res, err := ppsClient.ContinueJob(
 						context.Background(),
 						&ppsserver.ContinueJobRequest{
@@ -173,22 +188,6 @@ func do(appEnvObj interface{}) error {
 						return nil
 					}
 				}
-			}
-
-			res, err := ppsClient.FinishJob(
-				context.Background(),
-				&ppsserver.FinishJobRequest{
-					ChunkID: response.ChunkID,
-					PodName: appEnv.PodName,
-					Success: success,
-				},
-			)
-			if err != nil {
-				return err
-			}
-			finished = true
-			if res.Fail {
-				return errors.New("restarting...")
 			}
 			return nil
 		}),
