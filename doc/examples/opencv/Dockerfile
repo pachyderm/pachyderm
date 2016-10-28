@@ -21,7 +21,8 @@ RUN cd \
 	&& make -j \
 	&& make install \
 	&& cd \
-	&& rm 3.1.0.zip
+	&& rm 3.1.0.zip \
+    && rm -rf opencv-3.1.0
 RUN sudo pip3 install matplotlib
 
 # Add our own code.
