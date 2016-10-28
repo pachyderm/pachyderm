@@ -48,4 +48,6 @@ func main() {
 	}).RunWrite(session); err != nil {
 		panic(err)
 	}
+
+	fmt.Println("The migration has completed successfully.")
 }
