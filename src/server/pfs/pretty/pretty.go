@@ -101,7 +101,8 @@ func PrintFileInfoHeader(w io.Writer) {
 
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool) {
+// If fast is true and file size is 0, display "-" instead
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool, fast bool) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		fmt.Fprint(w, "file\t")
@@ -113,11 +114,20 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool) {
 		"%s\t",
 		pretty.Ago(fileInfo.Modified),
 	)
-	fmt.Fprint(w, "-\t")
-	if !recurse && fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR && fileInfo.SizeBytes == 0 {
-		fmt.Fprintf(w, "-\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
-	} else {
-		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", fileInfo.CommitModified.ID)
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		if !recurse && int(fileInfo.SizeBytes) == 0 {
+			fmt.Fprintf(w, "-\t\n")
+		} else {
+			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+		}
+	}
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+		if fast && fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && int(fileInfo.SizeBytes) == 0 {
+			fmt.Fprintf(w, "-\t\n")
+		} else {
+			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+		}
 	}
 }
 

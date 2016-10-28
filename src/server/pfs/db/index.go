@@ -35,7 +35,7 @@ var DiffPathIndex = &index{
 	Name:  "diffPathIndex",
 	Table: diffTable,
 	CreateFunction: func(row gorethink.Term) interface{} {
-		return []interface{}{row.Field("Repo"), row.Field("Path"), persist.ClockToArray(row.Field("Clock"))}
+		return []interface{}{row.Field("Repo"), row.Field("Path"), persist.ClockToArray(row.Field("Clock").Nth(-1))}
 	},
 }
 
@@ -65,7 +65,7 @@ var DiffPrefixIndex = &index{
 				return []interface{}{newAcc}
 			},
 		}).Map(func(path gorethink.Term) interface{} {
-			return []interface{}{row.Field("Repo"), path, persist.ClockToArray(row.Field("Clock"))}
+			return []interface{}{row.Field("Repo"), path, persist.ClockToArray(row.Field("Clock").Nth(-1))}
 		})
 	},
 	CreateOptions: gorethink.IndexCreateOpts{
@@ -94,7 +94,7 @@ var DiffParentIndex = &index{
 				acc.Add("/").Add(part),
 			)
 		})
-		return []interface{}{row.Field("Repo"), parent, persist.ClockToArray(row.Field("Clock"))}
+		return []interface{}{row.Field("Repo"), parent, persist.ClockToArray(row.Field("Clock").Nth(-1))}
 	},
 }
 
@@ -109,7 +109,7 @@ var DiffClockIndex = &index{
 	Name:  "DiffClockIndex",
 	Table: diffTable,
 	CreateFunction: func(row gorethink.Term) interface{} {
-		clock := row.Field("Clock")
+		clock := row.Field("Clock").Nth(-1)
 		return []interface{}{row.Field("Repo"), clock.Field("Branch"), clock.Field("Clock")}
 	},
 }
