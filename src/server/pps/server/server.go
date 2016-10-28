@@ -28,7 +28,7 @@ func NewAPIServer(
 	jobImagePullPolicy string,
 ) APIServer {
 	return &apiServer{
-		Logger:               protorpclog.NewLogger("pachyderm.ppsclient.API"),
+		Logger:               protorpclog.NewLogger("pps.API"),
 		hasher:               hasher,
 		address:              address,
 		pfsAPIClient:         nil,
