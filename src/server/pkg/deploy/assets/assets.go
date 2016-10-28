@@ -785,10 +785,17 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	}
 }
 
+// AssetOpts are options that are applicable to all the asset types.
+type AssetOpts struct {
+	Shards             uint64
+	Registry           bool
+	RethinkdbCacheSize string
+	Version            string
+}
+
 // WriteAssets writes the assets to w.
-func WriteAssets(w io.Writer, shards uint64, backend backend,
-	volumeName string, volumeSize int, hostPath string, registry bool,
-	rethinkdbCacheSize string, version string) {
+func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
+	volumeName string, volumeSize int, hostPath string) {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -806,18 +813,18 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	RethinkRc(backend, volumeName, hostPath, rethinkdbCacheSize).CodecEncodeSelf(encoder)
+	RethinkRc(backend, volumeName, hostPath, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	InitJob(version).CodecEncodeSelf(encoder)
+	InitJob(opts.Version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, backend, hostPath, version).CodecEncodeSelf(encoder)
+	PachdRc(opts.Shards, backend, hostPath, opts.Version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	if registry {
+	if opts.Registry {
 		RegistryRc().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 		RegistryService().CodecEncodeSelf(encoder)
@@ -826,32 +833,30 @@ func WriteAssets(w io.Writer, shards uint64, backend backend,
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, shards uint64, hostPath string, registry bool, rethinkdbCacheSize string, version string) {
-	WriteAssets(w, shards, localBackend, "", 0, hostPath, registry, rethinkdbCacheSize, version)
+func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) {
+	WriteAssets(w, opts, localBackend, "", 0, hostPath)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string,
-	region string, volumeName string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
-	WriteAssets(w, shards, amazonBackend, volumeName, volumeSize, "", registry, rethinkdbCacheSize, version)
+func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
+	token string, region string, volumeName string, volumeSize int) {
+	WriteAssets(w, opts, amazonBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, shards uint64, bucket string,
-	volumeName string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
-	WriteAssets(w, shards, googleBackend, volumeName, volumeSize, "", registry, rethinkdbCacheSize, version)
+func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeName string, volumeSize int) {
+	WriteAssets(w, opts, googleBackend, volumeName, volumeSize, "")
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(w io.Writer, shards uint64, container string, id string, secret string,
-	volumeURI string, volumeSize int, registry bool, rethinkdbCacheSize string, version string) {
-	WriteAssets(w, shards, microsoftBackend, volumeURI, volumeSize, "", registry, rethinkdbCacheSize, version)
+func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURI string, volumeSize int) {
+	WriteAssets(w, opts, microsoftBackend, volumeURI, volumeSize, "")
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
