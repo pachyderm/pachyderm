@@ -126,26 +126,55 @@ func do(appEnvObj interface{}) error {
 				finished = true
 				return
 			}
-			cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
-			cmd.Stdin = io.MultiReader(readers...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			success := true
-			if err := cmd.Run(); err != nil {
-				success = false
-				if exiterr, ok := err.(*exec.ExitError); ok {
-					if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-						for _, returnCode := range response.Transform.AcceptReturnCode {
-							if int(returnCode) == status.ExitStatus() {
-								success = true
+
+			cmdCh := make(chan bool)
+			go func() {
+				cmd := exec.Command(response.Transform.Cmd[0], response.Transform.Cmd[1:]...)
+				cmd.Stdin = io.MultiReader(readers...)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				success := true
+				if err := cmd.Run(); err != nil {
+					success = false
+					if exiterr, ok := err.(*exec.ExitError); ok {
+						if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+							for _, returnCode := range response.Transform.AcceptReturnCode {
+								if int(returnCode) == status.ExitStatus() {
+									success = true
+								}
 							}
 						}
 					}
+					if !success {
+						fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
+					}
 				}
-				if !success {
-					fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
+				cmdCh <- success
+			}()
+
+			// success indicates if the user command succeeded
+			var success bool
+			for {
+				select {
+				case success = <-cmdCh:
+					break
+				default:
+					res, err := ppsClient.ContinueJob(
+						context.Background(),
+						&ppsserver.ContinueJobRequest{
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+						},
+					)
+					if err != nil {
+						return err
+					}
+					if res.Exit {
+						return nil
+					}
 				}
 			}
+
 			res, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
