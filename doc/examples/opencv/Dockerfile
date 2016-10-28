@@ -10,7 +10,9 @@ RUN apt-get update \
 		python3-dev python3-numpy python3-tk \
 		libtbb2 libtbb-dev libjpeg-dev \
 		libpng-dev libtiff-dev libjasper-dev \
-		bpython python3-pip libfreetype6-dev
+		bpython python3-pip libfreetype6-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt
 RUN cd \
 	&& wget https://github.com/Itseez/opencv/archive/3.1.0.zip \
 	&& unzip 3.1.0.zip \
