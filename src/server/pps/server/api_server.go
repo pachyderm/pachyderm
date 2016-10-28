@@ -1537,40 +1537,41 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			return err
 		}
 
-		chunk := chunkChange.Chunk
-
 		ready = ready || chunkChange.Ready
 
-		switch chunkChange.Type {
-		case persist.ChangeType_DELETE:
-			totalChunks -= 1
-		case persist.ChangeType_CREATE, persist.ChangeType_UPDATE:
-			if chunkChange.Type == persist.ChangeType_CREATE {
-				totalChunks += 1
-			}
-			switch chunk.State {
-			case persist.ChunkState_SUCCESS:
-				lm.Return(chunk.ID)
-				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
-			case persist.ChunkState_FAILED:
-				lm.Return(chunk.ID)
-				podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
-				failed = true
-			case persist.ChunkState_ASSIGNED:
-				lm.Lease(chunk.ID, client.PPS_LEASE_PERIOD, func() {
-					b := backoff.NewExponentialBackOff()
-					b.MaxElapsedTime = 0
-					backoff.Retry(func() error {
-						if _, err := persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
-							ChunkID: chunk.ID,
-							PodName: chunk.Owner,
-							MaxPods: MAX_PODS_PER_CHUNK,
-						}); err != nil && !isContextCancelled(err) {
-							return err
-						}
-						return nil
-					}, b)
-				})
+		chunk := chunkChange.Chunk
+		if chunk != nil {
+			switch chunkChange.Type {
+			case persist.ChangeType_DELETE:
+				totalChunks -= 1
+			case persist.ChangeType_CREATE, persist.ChangeType_UPDATE:
+				if chunkChange.Type == persist.ChangeType_CREATE {
+					totalChunks += 1
+				}
+				switch chunk.State {
+				case persist.ChunkState_SUCCESS:
+					lm.Return(chunk.ID)
+					podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
+				case persist.ChunkState_FAILED:
+					lm.Return(chunk.ID)
+					podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
+					failed = true
+				case persist.ChunkState_ASSIGNED:
+					lm.Lease(chunk.ID, client.PPS_LEASE_PERIOD, func() {
+						b := backoff.NewExponentialBackOff()
+						b.MaxElapsedTime = 0
+						backoff.Retry(func() error {
+							if _, err := persistClient.RevokeChunk(ctx, &persist.RevokeChunkRequest{
+								ChunkID: chunk.ID,
+								PodName: chunk.Owner,
+								MaxPods: MAX_PODS_PER_CHUNK,
+							}); err != nil && !isContextCancelled(err) {
+								return err
+							}
+							return nil
+						}, b)
+					})
+				}
 			}
 		}
 
