@@ -25,6 +25,7 @@ func DeployCmd() *cobra.Command {
 	var dryRun bool
 	var registry bool
 	var rethinkdbCacheSize string
+	var logLevel string
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
@@ -45,6 +46,7 @@ func DeployCmd() *cobra.Command {
 				Registry:           registry,
 				RethinkdbCacheSize: rethinkdbCacheSize,
 				Version:            version,
+				LogLevel:           logLevel,
 			}
 			if len(args) == 0 {
 				assets.WriteLocalAssets(out, opts, hostPath)
@@ -109,5 +111,6 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	cmd.Flags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	return cmd
 }
