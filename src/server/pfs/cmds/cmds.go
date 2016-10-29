@@ -473,10 +473,11 @@ Files can be read from finished commits with get-file.`,
 			if info.IsDir() {
 				return nil
 			}
-			if len(args) == 3 {
+			if len(args) < 3 {
+				eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+			} else {
 				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
 			}
-			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
 			return nil
 		})
 		return eg.Wait()
