@@ -561,6 +561,8 @@ func TestPipelineThatCrashes(t *testing.T) {
 	}
 	t.Parallel()
 
+	c := getPachClient(t)
+
 	// create repos
 	dataRepo := uniqueString("TestPipelineThatCrashes_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -586,7 +588,7 @@ func TestPipelineThatCrashes(t *testing.T) {
 		false,
 	))
 
-	commit, err = c.StartCommit(dataRepo, "master")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
