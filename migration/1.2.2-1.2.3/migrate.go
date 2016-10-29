@@ -35,16 +35,19 @@ func main() {
 
 	if _, err = getTerm(diffTable).ForEach(func(diff gorethink.Term) gorethink.Term {
 		clock := diff.Field("Clock")
-		fullClock := getTerm(commitTable).GetAllByIndex(commitClockIndex, []interface{}{
-			diff.Field("Repo"),
-			clock.Field("Branch"),
-			clock.Field("Clock"),
-		}).Field("FullClock").Nth(0)
-		return getTerm(diffTable).Get(diff.Field("ID")).Update(map[string]interface{}{
-			"Clock": fullClock,
-		}, gorethink.UpdateOpts{
-			NonAtomic: true,
-		})
+		return gorethink.Branch(
+			clock.TypeOf().Eq("OBJECT"),
+			getTerm(diffTable).Get(diff.Field("ID")).Update(map[string]interface{}{
+				"Clock": getTerm(commitTable).GetAllByIndex(commitClockIndex, []interface{}{
+					diff.Field("Repo"),
+					clock.Field("Branch"),
+					clock.Field("Clock"),
+				}).Field("FullClock").Nth(0),
+			}, gorethink.UpdateOpts{
+				NonAtomic: true,
+			}),
+			nil,
+		)
 	}).RunWrite(session); err != nil {
 		panic(err)
 	}
