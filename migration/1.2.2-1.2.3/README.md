@@ -1,6 +1,6 @@
 ## Backup
 
-Please backup your metadata storage system before running this script.  See the [migration README](../README.md) for details.
+Please backup your metadata storage system before running this script.  See the [migration guide](http://pachyderm.readthedocs.io/en/latest/production/migration.html) for details.
 
 ## How to run this script
 
