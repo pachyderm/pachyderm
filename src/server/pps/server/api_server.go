@@ -368,7 +368,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// even been created.
 	//
 	// Right now numWorkers == numChunks, but it may not remain that way.
-	numChunks, err := GetExpectedNumWorkers(a.kubeClient, request.ParallelismSpec)
+	numChunks, err := GetExpectedNumWorkers(a.kubeClient, persistJobInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -896,21 +896,17 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 
 func (a *apiServer) ContinueJob(ctx context.Context, request *ppsserver.ContinueJobRequest) (response *ppsserver.ContinueJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	fmt.Println("BP1")
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("BP2")
 	chunk, err := persistClient.RenewChunk(ctx, &persist.RenewChunkRequest{
 		ChunkID: request.ChunkID,
 		PodName: request.PodName,
 	})
-	fmt.Printf("chunk: %v\n", chunk)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("BP3")
 	response = &ppsserver.ContinueJobResponse{}
 	if chunk.Owner != request.PodName {
 		response.Exit = true
