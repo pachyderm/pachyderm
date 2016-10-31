@@ -788,6 +788,19 @@ func (a *rethinkAPIServer) SubscribeChunks(request *persist.SubscribeChunksReque
 	return cursor.Err()
 }
 
+func (a *rethinkAPIServer) GetChunks(ctx context.Context, job *ppsclient.Job) (response *persist.Chunks, err error) {
+	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	response = &persist.Chunks{}
+	if err := cursor.All(&response.Chunks); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(chunksTable).Filter(gorethink.Or(gorethink.Row.Field("State").Eq(persist.ChunkState_UNASSIGNED), gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED))).Count().Changes().Filter(gorethink.Row.Eq(0)).Run(a.session)
