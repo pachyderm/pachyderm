@@ -49,6 +49,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     FAQ
     examples/readme
+    production/migration
     CHANGELOG  
 
 .. toctree::
