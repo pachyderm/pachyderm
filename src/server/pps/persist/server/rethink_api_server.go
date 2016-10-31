@@ -460,8 +460,7 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
-// PipelineChangeFeed is used to subscribe to rethinkdb's changefeed
-type PipelineChangeFeed struct {
+type pipelineChangeFeed struct {
 	OldVal *persist.PipelineInfo `gorethink:"old_val,omitempty"`
 	NewVal *persist.PipelineInfo `gorethink:"new_val,omitempty"`
 }
@@ -480,7 +479,7 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 		return err
 	}
 
-	var change PipelineChangeFeed
+	var change pipelineChangeFeed
 	for cursor.Next(&change) {
 		if change.NewVal != nil && change.OldVal != nil {
 			server.Send(&persist.PipelineInfoChange{
@@ -504,8 +503,7 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 	return cursor.Err()
 }
 
-// JobInfoChangeFeed is used to subscribe to rethinkdb's changefeed
-type JobInfoChangeFeed struct {
+type jobInfoChangeFeed struct {
 	OldVal *persist.JobInfo `gorethink:"old_val,omitempty"`
 	NewVal *persist.JobInfo `gorethink:"new_val,omitempty"`
 }
@@ -540,7 +538,7 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 		return err
 	}
 
-	var change JobInfoChangeFeed
+	var change jobInfoChangeFeed
 	for cursor.Next(&change) {
 		if change.NewVal != nil && change.OldVal != nil {
 			server.Send(&persist.JobInfoChange{
@@ -739,7 +737,7 @@ func (a *rethinkAPIServer) UpdateJobState(ctx context.Context, request *persist.
 	return google_protobuf.EmptyInstance, nil
 }
 
-type ChunkChangeFeed struct {
+type chunkChangeFeed struct {
 	OldVal *persist.Chunk `gorethink:"old_val,omitempty"`
 	NewVal *persist.Chunk `gorethink:"new_val,omitempty"`
 	State  string         `gorethink:"state,omitempty"`
@@ -758,7 +756,7 @@ func (a *rethinkAPIServer) SubscribeChunks(request *persist.SubscribeChunksReque
 		return err
 	}
 
-	var change ChunkChangeFeed
+	var change chunkChangeFeed
 	for cursor.Next(&change) {
 		if change.State != "" {
 			if change.State == "ready" {
