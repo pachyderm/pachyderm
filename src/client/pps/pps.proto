@@ -122,9 +122,16 @@ message Chunk {
   ChunkState state = 3;
 }
 
+enum PodState {
+  POD_RUNNING = 0;
+  POD_SUCCESS = 1;
+  POD_FAILED = 2;
+}
+
 message Pod {
   string name = 1;
   pfs.Commit output_commit = 2;
+  PodState state = 3;
 }
 
 message JobInfos {
