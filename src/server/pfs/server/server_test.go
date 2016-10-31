@@ -56,45 +56,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestBlock(t *testing.T) {
-	t.Parallel()
-	blockClient := getBlockClient(t)
-	_, err := blockClient.CreateDiff(
-		context.Background(),
-		&pfs.DiffInfo{
-			Diff: pclient.NewDiff("foo", "", 0),
-		})
-	require.NoError(t, err)
-	_, err = blockClient.CreateDiff(
-		context.Background(),
-		&pfs.DiffInfo{
-			Diff: pclient.NewDiff("foo", "c1", 0),
-		})
-	require.NoError(t, err)
-	_, err = blockClient.CreateDiff(
-		context.Background(),
-		&pfs.DiffInfo{
-			Diff: pclient.NewDiff("foo", "c2", 0),
-		})
-	require.NoError(t, err)
-	listDiffClient, err := blockClient.ListDiff(
-		context.Background(),
-		&pfs.ListDiffRequest{Shard: 0},
-	)
-	require.NoError(t, err)
-	var diffInfos []*pfs.DiffInfo
-	for {
-		diffInfo, err := listDiffClient.Recv()
-		if err == io.EOF {
-			break
-		} else {
-			require.NoError(t, err)
-		}
-		diffInfos = append(diffInfos, diffInfo)
-	}
-	require.Equal(t, 3, len(diffInfos))
-}
-
 func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
