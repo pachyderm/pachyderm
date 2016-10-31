@@ -617,11 +617,19 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 
 	for _, chunk := range chunks.Chunks {
 		var pods []*ppsclient.Pod
-		for _, pod := range chunk.Pods {
-			pods = append(pods, &ppsclient.Pod{
+		for i, pod := range chunk.Pods {
+			pod := &ppsclient.Pod{
 				Name:         pod.Name,
 				OutputCommit: pod.OutputCommit,
-			})
+			}
+			if i == len(chunk.Pods)-1 && chunk.State == persist.ChunkState_SUCCESS {
+				pod.State = ppsclient.PodState_POD_SUCCESS
+			} else if i == len(chunk.Pods)-1 && chunk.State == persist.ChunkState_ASSIGNED {
+				pod.State = ppsclient.PodState_POD_RUNNING
+			} else {
+				pod.State = ppsclient.PodState_POD_FAILED
+			}
+			pods = append(pods, pod)
 		}
 		c := &ppsclient.Chunk{
 			ID:   chunk.ID,
