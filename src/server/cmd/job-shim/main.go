@@ -170,7 +170,7 @@ func do(appEnvObj interface{}) error {
 					}
 					finished = true
 					if res.Fail {
-						return errors.New("restarting...")
+						return errors.New("restarting")
 					}
 					return nil
 				case <-tick:
