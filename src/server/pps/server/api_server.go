@@ -366,12 +366,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// finished.  If there are no chunks, then the jobManager will think
 	// that the job has been finished, when in reality the chunks haven't
 	// even been created.
-	numChunks := 1
-	for _, i := range shardModuli {
-		numChunks *= int(i)
+	//
+	// Right now numWorkers == numChunks, but it may not remain that way.
+	numChunks, err := GetExpectedNumWorkers(a.kubeClient, request.ParallelismSpec)
+	if err != nil {
+		return nil, err
 	}
 	var chunks []*persist.Chunk
-	for i := 0; i < numChunks; i++ {
+	for i := 0; i < int(numChunks); i++ {
 		chunk := &persist.Chunk{
 			ID:     uuid.New(),
 			JobID:  jobID,
@@ -602,7 +604,45 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	if err != nil {
 		return nil, err
 	}
-	return newJobInfo(persistJobInfo)
+
+	jobInfo, err := newJobInfo(persistJobInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	chunks, err := persistClient.GetChunks(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, chunk := range chunks.Chunks {
+		var pods []*ppsclient.Pod
+		for _, pod := range chunk.Pods {
+			pods = append(pods, &ppsclient.Pod{
+				Name:         pod.Name,
+				OutputCommit: pod.OutputCommit,
+			})
+		}
+		c := &ppsclient.Chunk{
+			ID:   chunk.ID,
+			Pods: pods,
+		}
+		switch chunk.State {
+		case persist.ChunkState_UNASSIGNED:
+			c.State = ppsclient.ChunkState_CHUNK_UNASSIGNED
+		case persist.ChunkState_ASSIGNED:
+			c.State = ppsclient.ChunkState_CHUNK_ASSIGNED
+		case persist.ChunkState_SUCCESS:
+			c.State = ppsclient.ChunkState_CHUNK_SUCCESS
+		case persist.ChunkState_FAILED:
+			c.State = ppsclient.ChunkState_CHUNK_FAILURE
+		case persist.ChunkState_SPLITTED:
+			continue
+		}
+		jobInfo.Chunks = append(jobInfo.Chunks, c)
+	}
+
+	return jobInfo, nil
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {

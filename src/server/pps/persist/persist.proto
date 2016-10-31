@@ -228,6 +228,7 @@ service API {
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
   rpc UpdateJobState(UpdateJobStateRequest) returns (google.protobuf.Empty) {}
   rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
+  rpc GetChunks(pachyderm.pps.Job) returns (Chunks) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
