@@ -517,7 +517,7 @@ func TestPipelineTransientFailure(t *testing.T) {
 		false,
 	))
 
-	numJobs := 5
+	numJobs := 50
 	var commit *pfsclient.Commit
 	var err error
 	for i := 0; i < numJobs; i++ {
