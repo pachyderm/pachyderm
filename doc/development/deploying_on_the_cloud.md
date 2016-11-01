@@ -331,7 +331,7 @@ pachctl             1.2.0
 pachd               1.2.0
 ```
 
-## Azure
+## Microsoft Azure
 
 ### Prerequisites
 
@@ -375,7 +375,7 @@ $ azure storage account create ${AZURE_STORAGE_NAME} --location ${AZURE_LOCATION
 $ AZURE_STORAGE_KEY=`azure storage account keys list ${AZURE_STORAGE_NAME} --resource-group ${AZURE_RESOURCE_GROUP} --json | jq .[0].value`
 
 # Build the microsoft_vhd container.
-$ make docker-build-microsoft-vhd:
+$ make docker-build-microsoft-vhd
 
 # Create an empty data disk in the "disks" container
 $ docker run -it microsoft_vhd ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} "disks" ${STORAGE_NAME}
