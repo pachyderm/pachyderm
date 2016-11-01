@@ -725,18 +725,6 @@ func isTerminalChunkState(state persist.ChunkState) bool {
 	return state == persist.ChunkState_SUCCESS || state == persist.ChunkState_FAILED
 }
 
-func (a *rethinkAPIServer) UpdateJobState(ctx context.Context, request *persist.UpdateJobStateRequest) (response *google_protobuf.Empty, retErr error) {
-	// If any chunk failed, we set the job to FAILURE, or SUCCESS otherwise
-	_, err := a.getTerm(jobInfosTable).Get(request.Job.ID).Update(map[string]interface{}{
-		"State": request.State,
-	}).RunWrite(a.session)
-	if err != nil {
-		return nil, err
-	}
-
-	return google_protobuf.EmptyInstance, nil
-}
-
 type chunkChangeFeed struct {
 	OldVal *persist.Chunk `gorethink:"old_val,omitempty"`
 	NewVal *persist.Chunk `gorethink:"new_val,omitempty"`
