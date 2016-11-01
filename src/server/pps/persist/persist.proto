@@ -195,11 +195,6 @@ message WaitJobResponse {
   pps.JobState state = 1;
 }
 
-message UpdateJobStateRequest {
-  pps.Job job = 1;
-  pps.JobState state = 2;
-}
-
 message ChunkChange {
   Chunk chunk = 1;
   ChangeType type = 2;
@@ -226,7 +221,6 @@ service API {
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
-  rpc UpdateJobState(UpdateJobStateRequest) returns (google.protobuf.Empty) {}
   rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
   rpc GetChunks(pachyderm.pps.Job) returns (Chunks) {}
 

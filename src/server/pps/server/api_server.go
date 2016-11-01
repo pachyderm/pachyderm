@@ -1656,7 +1656,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	}
 
 	// Note that there's a failure mode that's not accounted for: if this process
-	// fails after SquashCommit completes, but before UpdateJobState completes,
+	// fails after SquashCommit completes, but before CreateJobState completes,
 	// then another process will attempt to run this jobManager again, causing
 	// the pod commits to be squashed into the output commit again, meaning that
 	// we might get duplicated data in the output commit.
@@ -1686,8 +1686,8 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	} else {
 		state = ppsclient.JobState_JOB_SUCCESS
 	}
-	if _, err := persistClient.UpdateJobState(context.Background(), &persist.UpdateJobStateRequest{
-		Job:   job,
+	if _, err := persistClient.CreateJobState(context.Background(), &persist.JobState{
+		JobID: job.ID,
 		State: state,
 	}); err != nil {
 		return err
