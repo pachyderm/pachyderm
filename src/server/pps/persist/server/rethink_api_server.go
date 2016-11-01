@@ -29,6 +29,8 @@ const (
 	pipelineShardIndex Index = "Shard"
 
 	connectTimeoutSeconds = 5
+	maxIdle               = 5
+	maxOpen               = 100
 )
 
 // A Table is a rethinkdb table name.
@@ -618,6 +620,8 @@ func connect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
+		MaxIdle: maxIdle,
+		MaxOpen: maxOpen,
 	})
 }
 
