@@ -221,8 +221,6 @@ service API {
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
-  rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
-  rpc GetChunks(pachyderm.pps.Job) returns (Chunks) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
@@ -255,4 +253,7 @@ service API {
   rpc RenewChunk(RenewChunkRequest) returns (Chunk) {}
   rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
   rpc RevokeChunk(RevokeChunkRequest) returns (Chunk) {}
+  rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
+  rpc GetChunksForJob(pachyderm.pps.Job) returns (Chunks) {}
+  rpc DeleteChunksForJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
 }
