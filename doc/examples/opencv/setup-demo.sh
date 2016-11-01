@@ -1,4 +1,4 @@
-minikube delete
+#minikube delete
 minikube start
 sleep 10 #minikube doesn't seem to fully startup without a sleep
 kubectl get all
