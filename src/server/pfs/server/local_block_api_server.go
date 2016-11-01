@@ -8,13 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -137,59 +133,6 @@ func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfsclient.DiffInfo) (response *google_protobuf.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	data, err := proto.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(path.Dir(s.diffPath(request.Diff)), 0777); err != nil {
-		return nil, err
-	}
-	if err := ioutil.WriteFile(s.diffPath(request.Diff), data, 0666); err != nil {
-		return nil, err
-	}
-	return google_protobuf.EmptyInstance, nil
-}
-
-func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.InspectDiffRequest) (response *pfsclient.DiffInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return s.readDiff(request.Diff)
-}
-
-func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
-		diff := s.pathToDiff(path)
-		if diff == nil {
-			// likely a directory
-			return nil
-		}
-		if diff.Shard == request.Shard {
-			diffInfo, err := s.readDiff(diff)
-			if err != nil {
-				return err
-			}
-			if err := listDiffServer.Send(diffInfo); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, os.RemoveAll(s.diffPath(request.Diff))
-}
-
 func (s *localBlockAPIServer) tmpDir() string {
 	return filepath.Join(s.dir, "tmp")
 }
@@ -204,51 +147,6 @@ func (s *localBlockAPIServer) blockPath(block *pfsclient.Block) string {
 
 func (s *localBlockAPIServer) diffDir() string {
 	return filepath.Join(s.dir, "diff")
-}
-
-func (s *localBlockAPIServer) diffPath(diff *pfsclient.Diff) string {
-	commitID := diff.Commit.ID
-	if commitID == "" {
-		// each repo creates a diff per shard with an empty commit
-		// so it works as a path we make that an underscore
-		commitID = "_"
-	}
-	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, strconv.FormatUint(diff.Shard, 10), commitID)
-}
-
-// pathToDiff parses a path as a diff, it returns nil when parse fails
-func (s *localBlockAPIServer) pathToDiff(path string) *pfsclient.Diff {
-	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()+"/"), "/")
-	if len(repoCommitShard) < 3 {
-		return nil
-	}
-	commitID := repoCommitShard[2]
-	if commitID == "_" {
-		commitID = ""
-	}
-	shard, err := strconv.ParseUint(repoCommitShard[1], 10, 64)
-	if err != nil {
-		return nil
-	}
-	return &pfsclient.Diff{
-		Commit: &pfsclient.Commit{
-			Repo: &pfsclient.Repo{Name: repoCommitShard[0]},
-			ID:   commitID,
-		},
-		Shard: shard,
-	}
-}
-
-func (s *localBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInfo, error) {
-	data, err := ioutil.ReadFile(s.diffPath(diff))
-	if err != nil {
-		return nil, err
-	}
-	result := &pfsclient.DiffInfo{}
-	if err := proto.Unmarshal(data, result); err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
