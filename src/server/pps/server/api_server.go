@@ -610,7 +610,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 		return nil, err
 	}
 
-	chunks, err := persistClient.GetChunks(ctx, request.Job)
+	chunks, err := persistClient.GetChunksForJob(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -2067,7 +2067,15 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
 				}
 			}
-			return jobPodsErr
+			if jobPodsErr != nil {
+				return jobPodsErr
+			}
+
+			// Remove the chunks for this job
+			_, err := persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
+				ID: jobInfo.JobID,
+			})
+			return err
 		})
 	}
 	if err := eg.Wait(); err != nil {

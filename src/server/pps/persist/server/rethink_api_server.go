@@ -774,7 +774,7 @@ func (a *rethinkAPIServer) SubscribeChunks(request *persist.SubscribeChunksReque
 	return cursor.Err()
 }
 
-func (a *rethinkAPIServer) GetChunks(ctx context.Context, job *ppsclient.Job) (response *persist.Chunks, err error) {
+func (a *rethinkAPIServer) GetChunksForJob(ctx context.Context, job *ppsclient.Job) (response *persist.Chunks, err error) {
 	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(chunksTable).GetAllByIndex(jobIndex, job.ID).Run(a.session)
 	if err != nil {
@@ -785,6 +785,15 @@ func (a *rethinkAPIServer) GetChunks(ctx context.Context, job *ppsclient.Job) (r
 		return nil, err
 	}
 	return response, nil
+}
+
+func (a *rethinkAPIServer) DeleteChunksForJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(job, response, err, time.Since(start)) }(time.Now())
+	_, err = a.getTerm(chunksTable).GetAllByIndex(
+		jobIndex,
+		job.ID,
+	).Delete().RunWrite(a.session)
+	return google_protobuf.EmptyInstance, err
 }
 
 func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
