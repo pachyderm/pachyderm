@@ -16,7 +16,7 @@ Pachyderm is:
 For more details, see [what's new about Pachyderm](https://github.com/pachyderm/pachyderm/#whats-new-about-pachyderm-how-is-it-different-from-hadoop).
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) in about 5 minutes. 
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) in about 5 minutes. 
 
 You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
