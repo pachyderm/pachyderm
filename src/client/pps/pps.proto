@@ -30,13 +30,13 @@ message Job {
 }
 
 enum JobState {
-    JOB_PULLING = 0;
-    JOB_RUNNING = 1;
-    JOB_FAILURE = 2;
-    JOB_SUCCESS = 3;
-    // An empty job is a job that hasn't actually been run.
-    // It's a result of empty input commits.
-    JOB_EMPTY = 4;
+  JOB_CREATING = 0;
+  JOB_RUNNING = 1;
+  JOB_FAILURE = 2;
+  JOB_SUCCESS = 3;
+  // An empty job is a job that hasn't actually been run.
+  // It's a result of empty input commits.
+  JOB_EMPTY = 4;
 }
 
 enum Partition {
@@ -106,7 +106,33 @@ message JobInfo {
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
-  map<uint64, string> pod_commits = 11;
+  repeated Chunk chunks = 11;
+}
+
+enum ChunkState {
+  CHUNK_UNASSIGNED = 0;
+  CHUNK_ASSIGNED = 1;
+  CHUNK_SUCCESS = 2;
+  CHUNK_FAILURE = 3;
+}
+
+message Chunk {
+  string id = 1;
+  // A series of pods, in chronological order, that have processed this shard
+  repeated Pod pods = 2;
+  ChunkState state = 3;
+}
+
+enum PodState {
+  POD_RUNNING = 0;
+  POD_SUCCESS = 1;
+  POD_FAILED = 2;
+}
+
+message Pod {
+  string name = 1;
+  pfs.Commit output_commit = 2;
+  PodState state = 3;
 }
 
 message JobInfos {

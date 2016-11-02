@@ -4,15 +4,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-// NewInternalJobAPIClientFromAddress creates an InternalJobAPIClient
+// NewInternalPodAPIClientFromAddress creates an InternalPodAPIClient
 // connecting to pachd at pachAddr.
-func NewInternalJobAPIClientFromAddress(pachAddr string) (InternalJobAPIClient, error) {
+func NewInternalPodAPIClientFromAddress(pachAddr string) (InternalPodAPIClient, error) {
 	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
-	client := NewInternalJobAPIClient(clientConn)
+	client := NewInternalPodAPIClient(clientConn)
 
 	return client, nil
 }
