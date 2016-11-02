@@ -557,7 +557,6 @@ func TestPipelineThatCrashes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getPachClient(t)
 
@@ -567,7 +566,7 @@ func TestPipelineThatCrashes(t *testing.T) {
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
 	// this pipeline sleeps.
-	// then we are gonna manually kill a pod and see if the job completes successfully
+	// then we are gonna kill a pod and see if the job completes successfully
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -591,6 +590,26 @@ func TestPipelineThatCrashes(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// waiting for pods to run a bit...
+	time.Sleep(10 * time.Second)
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_RUNNING, jobInfos[0].State)
+
+	restartOnePodForJob(t, jobInfos[0].Job.ID)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel()
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 func TestPipelineWithEmptyInputs(t *testing.T) {
@@ -3626,6 +3645,20 @@ func restartOne(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
 	labelSelector, err := labels.Parse("app=pachd")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	require.NoError(t, podsInterface.Delete(podList.Items[rand.Intn(len(podList.Items))].Name, api.NewDeleteOptions(0)))
+	waitForReadiness(t)
+}
+
+func restartOnePodForJob(t *testing.T, jobID string) {
+	k := getKubeClient(t)
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", jobID))
 	require.NoError(t, err)
 	podList, err := podsInterface.List(
 		api.ListOptions{
