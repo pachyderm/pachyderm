@@ -9,24 +9,44 @@ package pachyderm.pps;
 
 option go_package = "pps";
 
-message StartJobRequest {
+message StartPodRequest {
   Job job = 1;
+  string pod_name = 2;
 }
 
-message StartJobResponse {
-    Transform transform = 1;
-    repeated fuse.CommitMount commit_mounts = 2;
-    uint64 pod_index = 3;
+message StartPodResponse {
+  string chunk_id = 1;
+  Transform transform = 2;
+  repeated fuse.CommitMount commit_mounts = 3;
 }
 
-message FinishJobRequest {
-    Job job = 1;
-    bool success = 2;
-    uint64 pod_index = 3;
+message FinishPodRequest {
+  string chunk_id = 1;
+  string pod_name = 2;
+  bool success = 3;
 }
 
-service InternalJobAPI {
-    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+message FinishPodResponse {
+  // If fail is true, the pod is expected to exit with a non-zero code
+  // so that k8s knows to reschedule the pod.
+  bool fail = 1;
+}
+
+message ContinuePodRequest {
+  string chunk_id = 1;
+  string pod_name = 2;
+}
+
+message ContinuePodResponse {
+  // if exit is true, the pod is expected to abandon its work and exit.
+  // this happens if the chunk that the pod is working on has been assigned
+  // to another pod.
+  bool exit = 1;
+}
+
+service InternalPodAPI {
+    rpc StartPod(StartPodRequest) returns (StartPodResponse) {}
+    rpc ContinuePod(ContinuePodRequest) returns (ContinuePodResponse) {}
+    rpc FinishPod(FinishPodRequest) returns (FinishPodResponse) {}
 }
 
