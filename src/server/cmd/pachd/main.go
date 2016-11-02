@@ -181,7 +181,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
+			ppsserver.RegisterInternalPodAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)

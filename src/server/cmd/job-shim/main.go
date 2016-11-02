@@ -37,37 +37,37 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
-			ppsClient, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
+			ppsClient, err := ppsserver.NewInternalPodAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				return err
 			}
-			response, err := ppsClient.StartJob(
+			response, err := ppsClient.StartPod(
 				context.Background(),
-				&ppsserver.StartJobRequest{
+				&ppsserver.StartPodRequest{
 					Job: &ppsclient.Job{
 						ID: args[0],
 					},
 					PodName: appEnv.PodName,
 				})
 			if err != nil {
-				lion.Errorf("error from StartJob: %s", err.Error())
+				lion.Errorf("error from StartPod: %s", err.Error())
 				return err
 			}
 
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
 			}
-			// We want to make sure that we only send FinishJob once.
+			// We want to make sure that we only send FinishPod once.
 			// The most bulletproof way would be to check that on server side,
 			// but this is easier.
 			var finished bool
-			// Make sure that we call FinishJob even if something caused a panic
+			// Make sure that we call FinishPod even if something caused a panic
 			defer func() {
 				if r := recover(); r != nil && !finished {
 					fmt.Println("job shim crashed; this is like a bug in pachyderm")
-					if _, err := ppsClient.FinishJob(
+					if _, err := ppsClient.FinishPod(
 						context.Background(),
-						&ppsserver.FinishJobRequest{
+						&ppsserver.FinishPodRequest{
 							ChunkID: response.ChunkID,
 							PodName: appEnv.PodName,
 							Success: false,
@@ -114,9 +114,9 @@ func do(appEnvObj interface{}) error {
 			}
 			if len(response.Transform.Cmd) == 0 {
 				fmt.Println("unable to run; a cmd needs to be provided")
-				if _, err := ppsClient.FinishJob(
+				if _, err := ppsClient.FinishPod(
 					context.Background(),
-					&ppsserver.FinishJobRequest{
+					&ppsserver.FinishPodRequest{
 						ChunkID: response.ChunkID,
 						PodName: appEnv.PodName,
 						Success: false,
@@ -157,9 +157,9 @@ func do(appEnvObj interface{}) error {
 			for {
 				select {
 				case success := <-cmdCh:
-					res, err := ppsClient.FinishJob(
+					res, err := ppsClient.FinishPod(
 						context.Background(),
-						&ppsserver.FinishJobRequest{
+						&ppsserver.FinishPodRequest{
 							ChunkID: response.ChunkID,
 							PodName: appEnv.PodName,
 							Success: success,
@@ -174,9 +174,9 @@ func do(appEnvObj interface{}) error {
 					}
 					return nil
 				case <-tick:
-					res, err := ppsClient.ContinueJob(
+					res, err := ppsClient.ContinuePod(
 						context.Background(),
-						&ppsserver.ContinueJobRequest{
+						&ppsserver.ContinuePodRequest{
 							ChunkID: response.ChunkID,
 							PodName: appEnv.PodName,
 						},

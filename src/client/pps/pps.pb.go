@@ -457,7 +457,8 @@ func (m *JobInfo) GetChunks() []*Chunk {
 }
 
 type Chunk struct {
-	ID    string     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	// A series of pods, in chronological order, that have processed this shard
 	Pods  []*Pod     `protobuf:"bytes,2,rep,name=pods" json:"pods,omitempty"`
 	State ChunkState `protobuf:"varint,3,opt,name=state,enum=pachyderm.pps.ChunkState" json:"state,omitempty"`
 }
