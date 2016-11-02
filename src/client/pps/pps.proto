@@ -118,6 +118,7 @@ enum ChunkState {
 
 message Chunk {
   string id = 1;
+  // A series of pods, in chronological order, that have processed this shard
   repeated Pod pods = 2;
   ChunkState state = 3;
 }

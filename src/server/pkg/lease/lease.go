@@ -2,8 +2,8 @@ package lease
 
 import "time"
 
-// Manager manages resources via leases
-type Manager interface {
+// Leaser manages resources via leases
+type Leaser interface {
 	// lease the resource r for duration d.  When the lease expires, invoke `revoke`
 	// a lease can be refreshed by calling Lease() again on the same resource
 	Lease(r string, d time.Duration, revoke func())
@@ -11,18 +11,18 @@ type Manager interface {
 	Return(r string)
 }
 
-type manager struct {
+type leaser struct {
 	timers map[string]*time.Timer
 }
 
-// NewManager creates a new lease manager
-func NewManager() Manager {
-	return &manager{
+// NewLeaser creates a new lease leaser
+func NewLeaser() Leaser {
+	return &leaser{
 		timers: make(map[string]*time.Timer),
 	}
 }
 
-func (l *manager) Lease(r string, d time.Duration, revoke func()) {
+func (l *leaser) Lease(r string, d time.Duration, revoke func()) {
 	timer := time.AfterFunc(d, revoke)
 	// cancel the old timer and add the new one
 	if t, ok := l.timers[r]; ok {
@@ -31,7 +31,7 @@ func (l *manager) Lease(r string, d time.Duration, revoke func()) {
 	l.timers[r] = timer
 }
 
-func (l *manager) Return(r string) {
+func (l *leaser) Return(r string) {
 	if t, ok := l.timers[r]; ok {
 		t.Stop()
 	}

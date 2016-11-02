@@ -1569,6 +1569,10 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	}
 }
 
+// jobManager manages a job.  Specifically, it subscribes to status updates of
+// chunks (units of work that make up of a job) and updates the state of the job
+// as chunks are being finished.  It also squashes all the output commits of
+// the chunks into the final output commit.
 func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1593,7 +1597,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 	// there are more chunks to come, some of which might have not been
 	// finished.
 	var ready bool
-	lm := lease.NewManager()
+	lm := lease.NewLeaser()
 	for {
 		chunkChange, err := chunkClient.Recv()
 		if err != nil {
