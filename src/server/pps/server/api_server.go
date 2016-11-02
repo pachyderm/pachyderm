@@ -722,7 +722,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	return nil
 }
 
-func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
+func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodRequest) (response *ppsserver.StartPodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
@@ -876,7 +876,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		})
 	}
 
-	return &ppsserver.StartJobResponse{
+	return &ppsserver.StartPodResponse{
 		ChunkID:      chunk.ID,
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
@@ -894,7 +894,7 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 	return res
 }
 
-func (a *apiServer) ContinueJob(ctx context.Context, request *ppsserver.ContinueJobRequest) (response *ppsserver.ContinueJobResponse, retErr error) {
+func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.ContinuePodRequest) (response *ppsserver.ContinuePodResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -907,14 +907,14 @@ func (a *apiServer) ContinueJob(ctx context.Context, request *ppsserver.Continue
 	if err != nil {
 		return nil, err
 	}
-	response = &ppsserver.ContinueJobResponse{}
+	response = &ppsserver.ContinuePodResponse{}
 	if chunk.Owner != request.PodName {
 		response.Exit = true
 	}
 	return response, nil
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *ppsserver.FinishJobResponse, retErr error) {
+func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodRequest) (response *ppsserver.FinishPodResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -951,7 +951,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		return nil, err
 	}
 
-	response = &ppsserver.FinishJobResponse{
+	response = &ppsserver.FinishPodResponse{
 		Fail: !request.Success && chunk.State != persist.ChunkState_FAILED,
 	}
 

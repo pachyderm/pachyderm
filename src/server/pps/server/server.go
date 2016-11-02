@@ -13,7 +13,7 @@ import (
 // APIServer represents an api server.
 type APIServer interface {
 	ppsclient.APIServer
-	ppsserver.InternalJobAPIServer
+	ppsserver.InternalPodAPIServer
 	shard.Frontend
 	shard.Server
 }
