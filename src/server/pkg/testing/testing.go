@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"testing"
@@ -48,6 +49,15 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 		require.Equal(t, len(repoState.Commits), len(commitInfos))
 		for i, commitState := range repoState.Commits {
 			matchCommitState(commitState, commitInfos[i], t)
+			for _, fileState := range commitState.Files {
+				fileInfo, err := c.InspectFile(fileState.Info.File.Commit.Repo.Name,
+					fileState.Info.File.Commit.ID, fileState.Info.File.Path, "", false, nil)
+				require.NoError(t, err)
+				var buffer bytes.Buffer
+				require.NoError(t, c.GetFile(fileState.Info.File.Commit.Repo.Name,
+					fileState.Info.File.Commit.ID, fileState.Info.File.Path, 0, 0, "", false, nil, &buffer))
+				matchFileState(fileState, fileInfo, buffer.Bytes(), t)
+			}
 		}
 	}
 }
@@ -66,7 +76,6 @@ func matchRepoState(repoState *RepoState, repoInfo *pfs.RepoInfo, t *testing.T) 
 }
 
 func matchRepoProvenance(x []*pfs.Repo, y []*pfs.Repo, t *testing.T) {
-	require.Equal(t, len(x), len(y))
 	var xs []string
 	var ys []string
 	for _, repo := range x {
@@ -106,7 +115,6 @@ func matchCommitState(commitState *CommitState, commitInfo *pfs.CommitInfo, t *t
 }
 
 func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {
-	require.Equal(t, len(x), len(y))
 	var xs []string
 	var ys []string
 	for _, commit := range x {
@@ -114,6 +122,36 @@ func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {
 	}
 	for _, commit := range y {
 		ys = append(ys, fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID))
+	}
+	sort.Strings(xs)
+	sort.Strings(ys)
+	require.Equal(t, xs, ys)
+}
+
+func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content []byte, t *testing.T) {
+	require.Equal(t, fileState.Info.File, fileInfo.File)
+	if fileState.Info.FileType != pfs.FileType_FILE_TYPE_NONE {
+		require.Equal(t, fileState.Info.FileType, fileInfo.FileType)
+	}
+	if fileState.Info.SizeBytes != 0 {
+		require.Equal(t, fileState.Info.SizeBytes, fileInfo.SizeBytes)
+	}
+	if fileState.Info.Modified != nil {
+		require.Equal(t, fileState.Info.Modified, fileInfo.Modified)
+	}
+	if fileState.Info.Children != nil {
+		matchFiles(fileState.Info.Children, fileInfo.Children, t)
+	}
+}
+
+func matchFiles(x []*pfs.File, y []*pfs.File, t *testing.T) {
+	var xs []string
+	var ys []string
+	for _, file := range x {
+		xs = append(xs, fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.ID, file.Path))
+	}
+	for _, file := range y {
+		ys = append(ys, fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.ID, file.Path))
 	}
 	sort.Strings(xs)
 	sort.Strings(ys)
