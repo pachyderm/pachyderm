@@ -18,7 +18,7 @@ import (
 
 var mu sync.Mutex
 
-func RunCmd(cmd *cobra.Command, args []string, stdin []byte, t *testing.T) {
+func RunCmd(cmd *cobra.Command, args []string, stdin string, t *testing.T) {
 	// we lock a global mutex because this func modifies global state so 2
 	// copies of it can't run concurrently
 	mu.Lock()
@@ -26,12 +26,12 @@ func RunCmd(cmd *cobra.Command, args []string, stdin []byte, t *testing.T) {
 	osArgs := os.Args
 	defer func() { os.Args = osArgs }()
 	os.Args = append([]string{"pachctl"}, args...)
-	if stdin != nil {
+	if stdin != "" {
 		osStdin := os.Stdin
 		defer func() { os.Stdin = osStdin }()
 		fauxStdin, err := ioutil.TempFile("", "RunCmd_stdin")
 		require.NoError(t, err)
-		_, err = fauxStdin.Write(stdin)
+		_, err = fauxStdin.Write([]byte(stdin))
 		require.NoError(t, err)
 		_, err = fauxStdin.Seek(0, 0)
 		require.NoError(t, err)
@@ -40,7 +40,7 @@ func RunCmd(cmd *cobra.Command, args []string, stdin []byte, t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
-func TestCmd(cmd *cobra.Command, args []string, stdin []byte, expectedState *State, c *client.APIClient, t *testing.T) {
+func TestCmd(cmd *cobra.Command, args []string, stdin string, expectedState *State, c *client.APIClient, t *testing.T) {
 	RunCmd(cmd, args, stdin, t)
 	MatchState(expectedState, c, t)
 }
@@ -84,7 +84,7 @@ func (s *CommitState) File(path string) *FileState {
 // FileState describes state for a file.
 type FileState struct {
 	Info    *pfs.FileInfo
-	Content []byte
+	Content string
 }
 
 // MatchState attempts to match the state specified by `state` with the state
@@ -111,7 +111,7 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 				var buffer bytes.Buffer
 				require.NoError(t, c.GetFile(fileState.Info.File.Commit.Repo.Name,
 					fileState.Info.File.Commit.ID, fileState.Info.File.Path, 0, 0, "", false, nil, &buffer))
-				matchFileState(fileState, fileInfo, buffer.Bytes(), t)
+				matchFileState(fileState, fileInfo, buffer.String(), t)
 			}
 		}
 	}
@@ -183,7 +183,7 @@ func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {
 	require.Equal(t, xs, ys)
 }
 
-func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content []byte, t *testing.T) {
+func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content string, t *testing.T) {
 	require.Equal(t, fileState.Info.File, fileInfo.File)
 	if fileState.Info.FileType != pfs.FileType_FILE_TYPE_NONE {
 		require.Equal(t, fileState.Info.FileType, fileInfo.FileType)
@@ -197,6 +197,7 @@ func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content []byte
 	if fileState.Info.Children != nil {
 		matchFiles(fileState.Info.Children, fileInfo.Children, t)
 	}
+	require.Equal(t, fileState.Content, content)
 }
 
 func matchFiles(x []*pfs.File, y []*pfs.File, t *testing.T) {
