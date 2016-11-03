@@ -168,11 +168,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// method for them
 	setDefaultJobInputMethod(request.Inputs)
 
-	pipelineInfo, err := a.InspectPipeline(ctx, &ppsclient.InspectPipelineRequest{
-		Pipeline: request.Pipeline,
-	})
-	if err != nil {
-		return nil, err
+	var pipelineInfo *ppsclient.PipelineInfo
+	if request.Pipeline != nil {
+		pipelineInfo, err = a.InspectPipeline(ctx, &ppsclient.InspectPipelineRequest{
+			Pipeline: request.Pipeline,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
