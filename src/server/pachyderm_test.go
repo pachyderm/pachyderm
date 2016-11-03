@@ -378,7 +378,6 @@ func TestJobLongOutputLine(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
-
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -484,6 +483,133 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	// there should only be two commits in the pipeline
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
+}
+
+func TestPipelineTransientFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+
+	// create repos
+	dataRepo := uniqueString("TestPipelineTransientFailure_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	// this pipeline fails at random
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"if (( RANDOM % 2 )); then exit 0; else exit 1; fi",
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+
+	numJobs := 50
+	var commit *pfsclient.Commit
+	var err error
+	for i := 0; i < numJobs; i++ {
+		commit, err = c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	}
+
+	// Wait for the last job to complete
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, numJobs, len(jobInfos))
+
+	var jobStates []interface{}
+	for _, jobInfo := range jobInfos {
+		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
+		require.NoError(t, err)
+		jobStates = append(jobStates, jobInfo.State)
+	}
+
+	// the jobs should've either succeeded or failed
+	for _, jobState := range jobStates {
+		require.EqualOneOf(t, []interface{}{ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE}, jobState)
+	}
+	// unless we are super unlucky (1 in 2^(RETRY_LIMIT*numJobs)), at least one job should've succeeded.
+	require.EqualOneOf(t, jobStates, ppsclient.JobState_JOB_SUCCESS)
+	// unless we are super unlucky (1-((1/2)^RETRY_LIMIT))^numJobs, at least one job should've failed.
+	// with RETRY_LIMIT=3 and numJobs=50, this comes down to 0.001
+	require.EqualOneOf(t, jobStates, ppsclient.JobState_JOB_FAILURE)
+}
+
+func TestPipelineThatCrashes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+
+	// create repos
+	dataRepo := uniqueString("TestPipelineThatCrashes_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	// this pipeline sleeps.
+	// then we are gonna kill a pod and see if the job completes successfully
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 30",
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// waiting for pods to run a bit...
+	time.Sleep(10 * time.Second)
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, ppsclient.JobState_JOB_RUNNING, jobInfos[0].State)
+
+	restartOnePodForJob(t, jobInfos[0].Job.ID)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel()
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 func TestPipelineWithEmptyInputs(t *testing.T) {
@@ -2217,7 +2343,7 @@ func TestJobState(t *testing.T) {
 	c := getPachClient(t)
 
 	// This job uses a nonexistent image; it's supposed to stay in the
-	// "pulling" state
+	// "creating" state
 	job, err := c.CreateJob(
 		"nonexistent",
 		[]string{"bash"},
@@ -2230,7 +2356,7 @@ func TestJobState(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	jobInfo, err := c.InspectJob(job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, ppsclient.JobState_JOB_PULLING, jobInfo.State)
+	require.Equal(t, ppsclient.JobState_JOB_CREATING, jobInfo.State)
 
 	// This job sleeps for 20 secs
 	job, err = c.CreateJob(
@@ -3534,6 +3660,20 @@ func restartOne(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
 	labelSelector, err := labels.Parse("app=pachd")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	require.NoError(t, podsInterface.Delete(podList.Items[rand.Intn(len(podList.Items))].Name, api.NewDeleteOptions(0)))
+	waitForReadiness(t)
+}
+
+func restartOnePodForJob(t *testing.T, jobID string) {
+	k := getKubeClient(t)
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse(fmt.Sprintf("app=%s", jobID))
 	require.NoError(t, err)
 	podList, err := podsInterface.List(
 		api.ListOptions{
