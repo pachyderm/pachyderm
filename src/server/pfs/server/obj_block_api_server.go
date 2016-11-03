@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -246,78 +245,4 @@ func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.Li
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
-}
-
-func (s *objBlockAPIServer) CreateDiff(ctx context.Context, request *pfsclient.DiffInfo) (response *google_protobuf.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	data, err := proto.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	writer, err := s.objClient.Writer(s.localServer.diffPath(request.Diff))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if _, err := writer.Write(data); err != nil {
-		return nil, err
-	}
-	return google_protobuf.EmptyInstance, nil
-}
-
-func (s *objBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.InspectDiffRequest) (response *pfsclient.DiffInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return s.readDiff(request.Diff)
-}
-
-func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	if err := s.objClient.Walk(s.localServer.diffDir(), func(path string) error {
-		diff := s.localServer.pathToDiff(path)
-		if diff == nil {
-			return fmt.Errorf("couldn't parse %s", path)
-		}
-		if diff.Shard == request.Shard {
-			diffInfo, err := s.readDiff(diff)
-			if err != nil {
-				return err
-			}
-			if err := listDiffServer.Send(diffInfo); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *objBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := s.objClient.Delete(s.localServer.diffPath(request.Diff)); err != nil && !s.objClient.IsNotExist(err) {
-		return nil, err
-	}
-	return google_protobuf.EmptyInstance, nil
-}
-
-func (s *objBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInfo, error) {
-	reader, err := s.objClient.Reader(s.localServer.diffPath(diff), 0, 0)
-	if err != nil {
-		return nil, err
-	}
-	data, err := ioutil.ReadAll(reader)
-	result := &pfsclient.DiffInfo{}
-	if err := proto.Unmarshal(data, result); err != nil {
-		return nil, err
-	}
-	return result, nil
 }
