@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"strconv"
@@ -17,6 +16,19 @@ import (
 	"go.pedge.io/pkg/exec"
 )
 
+func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
+	if dryRun {
+		_, err := os.Stdout.Write(manifest.Bytes())
+		return err
+	}
+	return pkgexec.RunIO(
+		pkgexec.IO{
+			Stdin:  manifest,
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		}, "kubectl", "create", "-f", "-")
+}
+
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
 func DeployCmd() *cobra.Command {
 	var shards int
@@ -25,84 +37,96 @@ func DeployCmd() *cobra.Command {
 	var dryRun bool
 	var registry bool
 	var rethinkdbCacheSize string
-	cmd := &cobra.Command{
-		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
-		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
-		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 8}, func(args []string) error {
-			version := version.PrettyPrintVersion(version.Version)
+	var curVersion = version.PrettyPrintVersion(version.Version)
+
+	deployBasic := &cobra.Command{
+		Use:   "basic",
+		Short: "Deploy a basic, single-node Pachyderm cluster.",
+		Long:  "Deploy a basic, single-node Pachyderm cluster.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
+			manifest := &bytes.Buffer{}
+			version := curVersion
 			if dev {
 				version = deploy.DevVersionTag
 			}
-			var out io.Writer
-			var manifest bytes.Buffer
-			out = &manifest
-			if dryRun {
-				out = os.Stdout
-			}
-			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
-			} else {
-				switch args[0] {
-				case "amazon":
-					if len(args) != 8 {
-						return fmt.Errorf("expected 8 args, got %d", len(args))
-					}
-					volumeName := args[6]
-					volumeSize, err := strconv.Atoi(args[7])
-					if err != nil {
-						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
-					}
-					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
-				case "google":
-					if len(args) != 4 {
-						return fmt.Errorf("expected 4 args, got %d", len(args))
-					}
-					volumeName := args[2]
-					volumeSize, err := strconv.Atoi(args[3])
-					if err != nil {
-						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
-					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
-				case "microsoft":
-					if len(args) != 6 {
-						return fmt.Errorf("expected 6 args, got %d", len(args))
-					}
-					_, err := base64.StdEncoding.DecodeString(args[3])
-					if err != nil {
-						return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[3])
-					}
-					volumeURI, err := url.ParseRequestURI(args[4])
-					if err != nil {
-						return fmt.Errorf("volume-uri needs to be a well-formed URI; instead got '%v'", args[4])
-					}
-					volumeSize, err := strconv.Atoi(args[5])
-					if err != nil {
-						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
-					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, rethinkdbCacheSize, version)
-				default:
-					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
-				}
-			}
-			if !dryRun {
-				return pkgexec.RunIO(
-					pkgexec.IO{
-						Stdin:  &manifest,
-						Stdout: os.Stdout,
-						Stderr: os.Stderr,
-					}, "kubectl", "create", "-f", "-")
-			}
-			return nil
+			assets.WriteLocalAssets(manifest, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
+			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
-	cmd.Flags().StringVarP(&hostPath, "host-path", "p", "/tmp/pach", "the path on the host machine where data will be stored; this is only relevant if you are running pachyderm locally.")
-	cmd.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
-	cmd.Flags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
-	cmd.Flags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
+	deployBasic.Flags().StringVar(&hostPath, "host-path", "/tmp/pach", "Location on the host machine where PFS metadata will be stored.")
+	deployBasic.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
+
+	deployGoogle := &cobra.Command{
+		Use:   "google <GCS bucket> <GCE persistent disk> <Disk size (in GB)>",
+		Short: "Deploy a Pachyderm cluster running on GCP.",
+		Long:  "Deploy a Pachyderm cluster running on GCP.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) error {
+			volumeName := args[1]
+			volumeSize, err := strconv.Atoi(args[2])
+			if err != nil {
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
+			}
+			manifest := &bytes.Buffer{}
+			assets.WriteGoogleAssets(manifest, uint64(shards), args[0],
+				volumeName, volumeSize, registry, rethinkdbCacheSize, curVersion)
+			return maybeKcCreate(dryRun, manifest)
+		}),
+	}
+
+	deployAmazon := &cobra.Command{
+		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume name> <volume size (in GB)>",
+		Short: "Deploy a Pachyderm cluster running on AWS.",
+		Long:  "Deploy a Pachyderm cluster running on AWS.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) error {
+			volumeName := args[5]
+			volumeSize, err := strconv.Atoi(args[6])
+			if err != nil {
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[6])
+			}
+			manifest := &bytes.Buffer{}
+			assets.WriteAmazonAssets(manifest, uint64(shards), args[0], args[1], args[2], args[3],
+				args[4], volumeName, volumeSize, registry, rethinkdbCacheSize, curVersion)
+			return maybeKcCreate(dryRun, manifest)
+		}),
+	}
+
+	deployMicrosoft := &cobra.Command{
+		Use:   "microsoft <container> <storage account name> <storage account key> <volume uri> <volume size in GB>",
+		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
+		Long:  "Deploy a Pachyderm cluster running on Microsoft Azure.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) error {
+			_, err := base64.StdEncoding.DecodeString(args[2])
+			if err != nil {
+				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
+			}
+			volumeURI, err := url.ParseRequestURI(args[3])
+			if err != nil {
+				return fmt.Errorf("volume-uri needs to be a well-formed URI; instead got '%v'", args[3])
+			}
+			volumeSize, err := strconv.Atoi(args[4])
+			if err != nil {
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[4])
+			}
+			manifest := &bytes.Buffer{}
+			assets.WriteMicrosoftAssets(manifest, uint64(shards), args[0], args[1], args[2],
+				volumeURI.String(), volumeSize, registry, rethinkdbCacheSize, curVersion)
+			return maybeKcCreate(dryRun, manifest)
+		}),
+	}
+
+	cmd := &cobra.Command{
+		Use:   "deploy amazon|google|microsoft|basic",
+		Short: "Deploy a Pachyderm cluster.",
+		Long:  "Deploy a Pachyderm cluster.",
+	}
+	cmd.PersistentFlags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
+	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	cmd.PersistentFlags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
+	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
+	cmd.AddCommand(deployBasic)
+	cmd.AddCommand(deployAmazon)
+	cmd.AddCommand(deployGoogle)
+	cmd.AddCommand(deployMicrosoft)
 	return cmd
 }
