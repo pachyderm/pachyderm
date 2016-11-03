@@ -72,7 +72,7 @@ Technically, this [1] error could be coming from some other part of your code, b
 	$ pachctl archive-all
 
 	# Remove Pachyderm from your kubernetes cluster
-	$ pachctl deploy --dry-run | kubectl delete -f -
+	$ pachctl deploy basic --dry-run | kubectl delete -f -
 
 	# Kill the entire minikube VM and restart. Don't skip the minikube delete step
 	# because it keeps around some weird intermediate state.

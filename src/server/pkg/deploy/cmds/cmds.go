@@ -33,22 +33,28 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string
+	var dev bool
 	var dryRun bool
 	var registry bool
 	var rethinkdbCacheSize string
 	var curVersion = version.PrettyPrintVersion(version.Version)
 
-	deployLocal := &cobra.Command{
-		Use:   "local",
-		Short: "Deploy a local, single-node Pachyderm cluster.",
-		Long:  "Deploy a local, single-node Pachyderm cluster.",
+	deployBasic := &cobra.Command{
+		Use:   "basic",
+		Short: "Deploy a basic, single-node Pachyderm cluster.",
+		Long:  "Deploy a basic, single-node Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
 			manifest := &bytes.Buffer{}
-			assets.WriteLocalAssets(manifest, uint64(shards), hostPath, registry, rethinkdbCacheSize, deploy.DevVersionTag)
+			version := curVersion
+			if dev {
+				version = deploy.DevVersionTag
+			}
+			assets.WriteLocalAssets(manifest, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-	deployLocal.Flags().StringVar(&hostPath, "host-path", "/tmp/pach", "Location on the host machine where PFS metadata will be stored.")
+	deployBasic.Flags().StringVar(&hostPath, "host-path", "/tmp/pach", "Location on the host machine where PFS metadata will be stored.")
+	deployBasic.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 
 	deployGoogle := &cobra.Command{
 		Use:   "google <GCS bucket> <GCE persistent disk> <Disk size (in GB)>",
@@ -109,7 +115,7 @@ func DeployCmd() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "deploy amazon|google|microsoft|local",
+		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 	}
@@ -118,7 +124,7 @@ func DeployCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
-	cmd.AddCommand(deployLocal)
+	cmd.AddCommand(deployBasic)
 	cmd.AddCommand(deployAmazon)
 	cmd.AddCommand(deployGoogle)
 	cmd.AddCommand(deployMicrosoft)
