@@ -6,10 +6,27 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	helpers "github.com/pachyderm/pachyderm/src/server/pkg/testing"
+	"github.com/spf13/cobra"
 	api "k8s.io/kubernetes/pkg/api/v1"
 )
+
+func cmd(t *testing.T) *cobra.Command {
+	cmd, err := PachctlCmd("0.0.0.0:30650")
+	require.NoError(t, err)
+	return cmd
+}
+
+func TestCreateRepo(t *testing.T) {
+	c, err := client.NewFromAddress("0.0.0.0:30650")
+	require.NoError(t, err)
+	expectedState := &helpers.State{}
+	expectedState.Repo("foo")
+	helpers.TestCmd(cmd(t), []string{"create-repo", "foo"}, nil, expectedState, c, t)
+}
 
 func TestMetrics(t *testing.T) {
 
