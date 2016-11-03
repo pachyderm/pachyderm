@@ -30,8 +30,7 @@ You'll need the following credentials / tools:
 4) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
 
 ```
-> VERSION=<new version, e.g. 1.2.3>
-> git commit -a -m"Update version and run make doc for ${VERSION} point release"
+> git commit -a -m"Update version and run make doc for VERSION point release"
 > git push origin master
 ```
 
