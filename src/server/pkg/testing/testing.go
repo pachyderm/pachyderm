@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +25,7 @@ func RunCmd(cmd *cobra.Command, args []string, stdin []byte, t *testing.T) {
 	defer mu.Unlock()
 	osArgs := os.Args
 	defer func() { os.Args = osArgs }()
-	os.Args = args
+	os.Args = append([]string{"pachctl"}, args...)
 	if stdin != nil {
 		osStdin := os.Stdin
 		defer func() { os.Stdin = osStdin }()
@@ -210,4 +211,8 @@ func matchFiles(x []*pfs.File, y []*pfs.File, t *testing.T) {
 	sort.Strings(xs)
 	sort.Strings(ys)
 	require.Equal(t, xs, ys)
+}
+
+func UniqueString(prefix string) string {
+	return prefix + uuid.NewWithoutDashes()[0:12]
 }
