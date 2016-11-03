@@ -14,6 +14,7 @@ message JobInfo {
   string job_id = 1;
   pps.Transform transform = 2;
   string pipeline_name = 3;
+  uint64 pipeline_version = 19;
   ParallelismSpec parallelism_spec = 18;
   repeated pps.JobInput inputs = 5;
   pps.Job parent_job = 6;
@@ -60,6 +61,7 @@ message AddOutputCommitRequest {
 message PipelineInfo {
   reserved 3;
   string pipeline_name = 1;
+  uint64 version = 13;
   pachyderm.pps.Transform transform = 2;
   ParallelismSpec parallelism_spec = 12;
   repeated pps.PipelineInput inputs = 4;

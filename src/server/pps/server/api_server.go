@@ -159,14 +159,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// method for them
 	setDefaultJobInputMethod(request.Inputs)
 
+	pipelineInfo, err := a.InspectPipeline(ctx, &ppsclient.InspectPipelineRequest{
+		Pipeline: request.Pipeline,
+	})
+	if err != nil {
+		return nil, err
+	}
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
-		pipelineInfo, err := a.InspectPipeline(ctx, &ppsclient.InspectPipelineRequest{
-			Pipeline: request.Pipeline,
-		})
-		if err != nil {
-			return nil, err
-		}
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 	}
@@ -295,7 +295,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		OutputCommit: outputCommit,
 	}
 	if request.Pipeline != nil {
-		persistJobInfo.PipelineName = request.Pipeline.Name
+		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
+		persistJobInfo.PipelineVersion = pipelineInfo.Version
 	}
 
 	// If the job has no input, we respect the specified degree of parallelism
@@ -1329,6 +1330,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
+		Version:         persistPipelineInfo.Version,
 		Transform:       persistPipelineInfo.Transform,
 		ParallelismSpec: persistPipelineInfo.ParallelismSpec,
 		Inputs:          persistPipelineInfo.Inputs,
@@ -1477,7 +1479,7 @@ func (a *apiServer) parentJob(
 	for _, input := range parentTrueInputs {
 		parentTrueInputCommits = append(parentTrueInputCommits, input.Commit)
 	}
-	jobInfo, err := a.ListJob(
+	jobInfos, err := a.ListJob(
 		ctx,
 		&ppsclient.ListJobRequest{
 			Pipeline:    pipelineInfo.Pipeline,
@@ -1486,10 +1488,12 @@ func (a *apiServer) parentJob(
 	if err != nil {
 		return nil, err
 	}
-	if len(jobInfo.JobInfo) == 0 {
-		return nil, nil
+	for _, jobInfo := range jobInfos.JobInfo {
+		if jobInfo.PipelineVersion == pipelineInfo.Version {
+			return jobInfo.Job, nil
+		}
 	}
-	return jobInfo.JobInfo[0].Job, nil
+	return nil, nil
 }
 
 // inputsAreParental returns true if a job run from oldTrueInputs can be used
@@ -1649,6 +1653,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Job:             job,
 		Transform:       persistJobInfo.Transform,
 		Pipeline:        &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
+		PipelineVersion: persistJobInfo.PipelineVersion,
 		ParallelismSpec: persistJobInfo.ParallelismSpec,
 		Inputs:          persistJobInfo.Inputs,
 		ParentJob:       persistJobInfo.ParentJob,

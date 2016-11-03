@@ -99,6 +99,7 @@ message JobInfo {
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
+  uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
@@ -146,6 +147,7 @@ enum PipelineState {
 message PipelineInfo {
   reserved 3;
   Pipeline pipeline = 1;
+  uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
