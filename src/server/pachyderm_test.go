@@ -204,14 +204,21 @@ func TestDuplicatedJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipelineName := uniqueString("TestDuplicatedJob_pipeline")
-	_, err = c.PfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfsclient.CreateRepoRequest{
-			Repo:       client.NewRepo(pipelineName),
-			Provenance: []*pfsclient.Repo{client.NewRepo(dataRepo)},
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
 		},
-	)
-	require.NoError(t, err)
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
 
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 	// Now we manually create the same job
