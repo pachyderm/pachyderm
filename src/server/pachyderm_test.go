@@ -184,6 +184,8 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 	require.Equal(t, jobInfo.Inputs[1].Commit.ID, strings.TrimSpace(buffer.String()))
 }
 
+// TestDuplicatedJob tests that PPS never runs two jobs that have the same
+// inputs and transforms
 func TestDuplicatedJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -204,10 +206,11 @@ func TestDuplicatedJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipelineName := uniqueString("TestDuplicatedJob_pipeline")
+	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		cmd,
 		nil,
 		&ppsclient.ParallelismSpec{
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
@@ -219,8 +222,14 @@ func TestDuplicatedJob(t *testing.T) {
 		}},
 		false,
 	))
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+	require.NoError(t, err)
 
-	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	job1 := jobInfos[0].Job
+
 	// Now we manually create the same job
 	req := &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
@@ -234,14 +243,13 @@ func TestDuplicatedJob(t *testing.T) {
 		}},
 	}
 
-	job1, err := c.PpsAPIClient.CreateJob(context.Background(), req)
-	require.NoError(t, err)
-
 	job2, err := c.PpsAPIClient.CreateJob(context.Background(), req)
 	require.NoError(t, err)
 
+	// the job should be the same one as before
 	require.Equal(t, job1, job2)
 
+	// with the Force flag, the job should be different
 	req.Force = true
 	job3, err := c.PpsAPIClient.CreateJob(context.Background(), req)
 	require.NoError(t, err)
