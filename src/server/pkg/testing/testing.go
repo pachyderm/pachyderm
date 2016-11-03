@@ -3,13 +3,46 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/spf13/cobra"
 )
+
+var mu sync.Mutex
+
+func RunCmd(cmd *cobra.Command, args []string, stdin []byte, t *testing.T) {
+	// we lock a global mutex because this func modifies global state so 2
+	// copies of it can't run concurrently
+	mu.Lock()
+	defer mu.Unlock()
+	osArgs := os.Args
+	defer func() { os.Args = osArgs }()
+	os.Args = args
+	if stdin != nil {
+		osStdin := os.Stdin
+		defer func() { os.Stdin = osStdin }()
+		fauxStdin, err := ioutil.TempFile("", "RunCmd_stdin")
+		require.NoError(t, err)
+		_, err = fauxStdin.Write(stdin)
+		require.NoError(t, err)
+		_, err = fauxStdin.Seek(0, 0)
+		require.NoError(t, err)
+		os.Stdin = fauxStdin
+	}
+	require.NoError(t, cmd.Execute())
+}
+
+func TestCmd(cmd *cobra.Command, args []string, stdin []byte, expectedState *State, c *client.APIClient, t *testing.T) {
+	RunCmd(cmd, args, stdin, t)
+	MatchState(expectedState, c, t)
+}
 
 // State describes the state of a Pachyderm cluster. It's used to specify what
 // a cluster should look like for the purposes of automating tests.
@@ -17,16 +50,37 @@ type State struct {
 	Repos []*RepoState
 }
 
+func (s *State) Repo(name string) *RepoState {
+	repoState := &RepoState{Info: &pfs.RepoInfo{Repo: client.NewRepo(name)}}
+	s.Repos = append(s.Repos, repoState)
+	return repoState
+}
+
+// RepoState describes state for a repo.
 type RepoState struct {
 	Info    *pfs.RepoInfo
 	Commits []*CommitState
 }
 
+func (s *RepoState) Commit(id string) *CommitState {
+	commitState := &CommitState{Info: &pfs.CommitInfo{Commit: client.NewCommit(s.Info.Repo.Name, id)}}
+	s.Commits = append(s.Commits, commitState)
+	return commitState
+}
+
+// CommitState describes state for a commit.
 type CommitState struct {
 	Info  *pfs.CommitInfo
 	Files []*FileState
 }
 
+func (s *CommitState) File(path string) *FileState {
+	fileState := &FileState{Info: &pfs.FileInfo{File: client.NewFile(s.Info.Commit.Repo.Name, s.Info.Commit.ID, path)}}
+	s.Files = append(s.Files, fileState)
+	return fileState
+}
+
+// FileState describes state for a file.
 type FileState struct {
 	Info    *pfs.FileInfo
 	Content []byte
