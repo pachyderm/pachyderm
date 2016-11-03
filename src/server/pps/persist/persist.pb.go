@@ -10,20 +10,32 @@ It is generated from these files:
 
 It has these top-level messages:
 	JobInfo
+	Pod
+	Chunk
+	Chunks
 	JobInfos
 	JobOutput
 	JobState
-	AddPodCommitRequest
 	AddOutputCommitRequest
 	PipelineInfo
 	PipelineInfoChange
 	PipelineInfos
 	SubscribePipelineInfosRequest
+	SubscribeJobInfosRequest
+	JobInfoChange
 	ListPipelineInfosRequest
+	Shard
 	UpdatePipelineStateRequest
 	UpdatePipelineStoppedRequest
 	BlockPipelineStateRequest
-	Shard
+	AddChunkRequest
+	ClaimChunkRequest
+	RenewChunkRequest
+	FinishChunkRequest
+	RevokeChunkRequest
+	WaitJobResponse
+	ChunkChange
+	SubscribeChunksRequest
 */
 package persist
 
@@ -51,6 +63,42 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type ChunkState int32
+
+const (
+	// the chunk is available for a pod to work on
+	ChunkState_UNASSIGNED ChunkState = 0
+	// the chunk has been assigned to a pod
+	ChunkState_ASSIGNED ChunkState = 1
+	// the chunk has been processed successfully
+	ChunkState_SUCCESS ChunkState = 2
+	// the chunk could not be processed
+	ChunkState_FAILED ChunkState = 3
+	// the chunk has been splitted into smaller chunks, so this chunk no longer
+	// needs to be processed.
+	ChunkState_SPLITTED ChunkState = 4
+)
+
+var ChunkState_name = map[int32]string{
+	0: "UNASSIGNED",
+	1: "ASSIGNED",
+	2: "SUCCESS",
+	3: "FAILED",
+	4: "SPLITTED",
+}
+var ChunkState_value = map[string]int32{
+	"UNASSIGNED": 0,
+	"ASSIGNED":   1,
+	"SUCCESS":    2,
+	"FAILED":     3,
+	"SPLITTED":   4,
+}
+
+func (x ChunkState) String() string {
+	return proto.EnumName(ChunkState_name, int32(x))
+}
+func (ChunkState) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
 type ChangeType int32
 
 const (
@@ -73,26 +121,23 @@ var ChangeType_value = map[string]int32{
 func (x ChangeType) String() string {
 	return proto.EnumName(ChangeType_name, int32(x))
 }
-func (ChangeType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (ChangeType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 type JobInfo struct {
-	JobID           string                      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
-	Transform       *pps.Transform              `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	PipelineName    string                      `protobuf:"bytes,3,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
-	ParallelismSpec *pps.ParallelismSpec        `protobuf:"bytes,18,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
-	Inputs          []*pps.JobInput             `protobuf:"bytes,5,rep,name=inputs" json:"inputs,omitempty"`
-	ParentJob       *pps.Job                    `protobuf:"bytes,6,opt,name=parent_job,json=parentJob" json:"parent_job,omitempty"`
-	Started         *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=started" json:"started,omitempty"`
-	Finished        *google_protobuf1.Timestamp `protobuf:"bytes,8,opt,name=finished" json:"finished,omitempty"`
-	OutputCommit    *pfs.Commit                 `protobuf:"bytes,9,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
-	Branch          string                      `protobuf:"bytes,17,opt,name=branch" json:"branch,omitempty"`
-	State           pps.JobState                `protobuf:"varint,10,opt,name=state,enum=pps.JobState" json:"state,omitempty"`
-	CommitIndex     string                      `protobuf:"bytes,11,opt,name=commit_index,json=commitIndex" json:"commit_index,omitempty"`
-	PodsStarted     uint64                      `protobuf:"varint,12,opt,name=pods_started,json=podsStarted" json:"pods_started,omitempty"`
-	PodsSucceeded   uint64                      `protobuf:"varint,13,opt,name=pods_succeeded,json=podsSucceeded" json:"pods_succeeded,omitempty"`
-	PodsFailed      uint64                      `protobuf:"varint,14,opt,name=pods_failed,json=podsFailed" json:"pods_failed,omitempty"`
-	ShardModuli     []uint64                    `protobuf:"varint,15,rep,packed,name=shard_moduli,json=shardModuli" json:"shard_moduli,omitempty"`
-	PodCommits      map[string]*pfs.Commit      `protobuf:"bytes,16,rep,name=pod_commits,json=podCommits" json:"pod_commits,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	JobID              string                      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	Transform          *pps.Transform              `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	PipelineName       string                      `protobuf:"bytes,3,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
+	ParallelismSpec    *pps.ParallelismSpec        `protobuf:"bytes,18,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
+	Inputs             []*pps.JobInput             `protobuf:"bytes,5,rep,name=inputs" json:"inputs,omitempty"`
+	ParentJob          *pps.Job                    `protobuf:"bytes,6,opt,name=parent_job,json=parentJob" json:"parent_job,omitempty"`
+	Started            *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=started" json:"started,omitempty"`
+	Finished           *google_protobuf1.Timestamp `protobuf:"bytes,8,opt,name=finished" json:"finished,omitempty"`
+	OutputCommit       *pfs.Commit                 `protobuf:"bytes,9,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	Branch             string                      `protobuf:"bytes,17,opt,name=branch" json:"branch,omitempty"`
+	State              pps.JobState                `protobuf:"varint,10,opt,name=state,enum=pps.JobState" json:"state,omitempty"`
+	CommitIndex        string                      `protobuf:"bytes,11,opt,name=commit_index,json=commitIndex" json:"commit_index,omitempty"`
+	DefaultShardModuli []uint64                    `protobuf:"varint,15,rep,packed,name=default_shard_moduli,json=defaultShardModuli" json:"default_shard_moduli,omitempty"`
+	Shard              uint64                      `protobuf:"varint,19,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *JobInfo) Reset()                    { *m = JobInfo{} }
@@ -149,9 +194,69 @@ func (m *JobInfo) GetOutputCommit() *pfs.Commit {
 	return nil
 }
 
-func (m *JobInfo) GetPodCommits() map[string]*pfs.Commit {
+type Pod struct {
+	Name         string      `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	OutputCommit *pfs.Commit `protobuf:"bytes,2,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+}
+
+func (m *Pod) Reset()                    { *m = Pod{} }
+func (m *Pod) String() string            { return proto.CompactTextString(m) }
+func (*Pod) ProtoMessage()               {}
+func (*Pod) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *Pod) GetOutputCommit() *pfs.Commit {
 	if m != nil {
-		return m.PodCommits
+		return m.OutputCommit
+	}
+	return nil
+}
+
+// Chunk is a unit of work that can be assigned to a pod
+type Chunk struct {
+	ID    string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	JobID string `protobuf:"bytes,2,opt,name=job_id,json=jobId" json:"job_id,omitempty"`// the ID of the job that the Chunk belongs to
+
+	// moduli and index together specify the portion of inputs that the shard represents
+	// For instance, if moduli is (2, 3, 4) and index is 15, then we have:
+	// 15 = 1 * (3 * 4) + 0 * 4 + 3 * 1
+	// So the shard represents the second half of input 1, the first third of input 2,
+	// and the fourth quarter of input 3.
+	Moduli []uint64 `protobuf:"varint,3,rep,packed,name=moduli" json:"moduli,omitempty"`
+	Index  uint64   `protobuf:"varint,4,opt,name=index" json:"index,omitempty"`
+	// the pod that currently owns this shard
+	Owner string `protobuf:"bytes,5,opt,name=owner" json:"owner,omitempty"`
+	// A series of pods, in chronological order, that have processed this shard
+	Pods  []*Pod     `protobuf:"bytes,6,rep,name=pods" json:"pods,omitempty"`
+	State ChunkState `protobuf:"varint,7,opt,name=state,enum=pps.persist.ChunkState" json:"state,omitempty"`
+	// a unix timestamp representing the last time we received a ContinueJob
+	// for this chunk
+	LeaseTime uint64 `protobuf:"varint,8,opt,name=lease_time,json=leaseTime" json:"lease_time,omitempty"`
+}
+
+func (m *Chunk) Reset()                    { *m = Chunk{} }
+func (m *Chunk) String() string            { return proto.CompactTextString(m) }
+func (*Chunk) ProtoMessage()               {}
+func (*Chunk) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *Chunk) GetPods() []*Pod {
+	if m != nil {
+		return m.Pods
+	}
+	return nil
+}
+
+type Chunks struct {
+	Chunks []*Chunk `protobuf:"bytes,1,rep,name=chunks" json:"chunks,omitempty"`
+}
+
+func (m *Chunks) Reset()                    { *m = Chunks{} }
+func (m *Chunks) String() string            { return proto.CompactTextString(m) }
+func (*Chunks) ProtoMessage()               {}
+func (*Chunks) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *Chunks) GetChunks() []*Chunk {
+	if m != nil {
+		return m.Chunks
 	}
 	return nil
 }
@@ -163,7 +268,7 @@ type JobInfos struct {
 func (m *JobInfos) Reset()                    { *m = JobInfos{} }
 func (m *JobInfos) String() string            { return proto.CompactTextString(m) }
 func (*JobInfos) ProtoMessage()               {}
-func (*JobInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*JobInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 func (m *JobInfos) GetJobInfo() []*JobInfo {
 	if m != nil {
@@ -180,7 +285,7 @@ type JobOutput struct {
 func (m *JobOutput) Reset()                    { *m = JobOutput{} }
 func (m *JobOutput) String() string            { return proto.CompactTextString(m) }
 func (*JobOutput) ProtoMessage()               {}
-func (*JobOutput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*JobOutput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 	if m != nil {
@@ -198,29 +303,11 @@ type JobState struct {
 func (m *JobState) Reset()                    { *m = JobState{} }
 func (m *JobState) String() string            { return proto.CompactTextString(m) }
 func (*JobState) ProtoMessage()               {}
-func (*JobState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*JobState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 func (m *JobState) GetFinished() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Finished
-	}
-	return nil
-}
-
-type AddPodCommitRequest struct {
-	JobID    string      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
-	PodIndex uint64      `protobuf:"varint,2,opt,name=pod_index,json=podIndex" json:"pod_index,omitempty"`
-	Commit   *pfs.Commit `protobuf:"bytes,3,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *AddPodCommitRequest) Reset()                    { *m = AddPodCommitRequest{} }
-func (m *AddPodCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*AddPodCommitRequest) ProtoMessage()               {}
-func (*AddPodCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *AddPodCommitRequest) GetCommit() *pfs.Commit {
-	if m != nil {
-		return m.Commit
 	}
 	return nil
 }
@@ -234,7 +321,7 @@ type AddOutputCommitRequest struct {
 func (m *AddOutputCommitRequest) Reset()                    { *m = AddOutputCommitRequest{} }
 func (m *AddOutputCommitRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddOutputCommitRequest) ProtoMessage()               {}
-func (*AddOutputCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (*AddOutputCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *AddOutputCommitRequest) GetCommit() *pfs.Commit {
 	if m != nil {
@@ -260,7 +347,7 @@ type PipelineInfo struct {
 func (m *PipelineInfo) Reset()                    { *m = PipelineInfo{} }
 func (m *PipelineInfo) String() string            { return proto.CompactTextString(m) }
 func (*PipelineInfo) ProtoMessage()               {}
-func (*PipelineInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (*PipelineInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 func (m *PipelineInfo) GetTransform() *pps.Transform {
 	if m != nil {
@@ -312,7 +399,7 @@ type PipelineInfoChange struct {
 func (m *PipelineInfoChange) Reset()                    { *m = PipelineInfoChange{} }
 func (m *PipelineInfoChange) String() string            { return proto.CompactTextString(m) }
 func (*PipelineInfoChange) ProtoMessage()               {}
-func (*PipelineInfoChange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (*PipelineInfoChange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *PipelineInfoChange) GetPipeline() *PipelineInfo {
 	if m != nil {
@@ -328,7 +415,7 @@ type PipelineInfos struct {
 func (m *PipelineInfos) Reset()                    { *m = PipelineInfos{} }
 func (m *PipelineInfos) String() string            { return proto.CompactTextString(m) }
 func (*PipelineInfos) ProtoMessage()               {}
-func (*PipelineInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (*PipelineInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 	if m != nil {
@@ -345,11 +432,47 @@ type SubscribePipelineInfosRequest struct {
 func (m *SubscribePipelineInfosRequest) Reset()                    { *m = SubscribePipelineInfosRequest{} }
 func (m *SubscribePipelineInfosRequest) String() string            { return proto.CompactTextString(m) }
 func (*SubscribePipelineInfosRequest) ProtoMessage()               {}
-func (*SubscribePipelineInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (*SubscribePipelineInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *SubscribePipelineInfosRequest) GetShard() *Shard {
 	if m != nil {
 		return m.Shard
+	}
+	return nil
+}
+
+type SubscribeJobInfosRequest struct {
+	IncludeInitial bool           `protobuf:"varint,1,opt,name=include_initial,json=includeInitial" json:"include_initial,omitempty"`
+	IncludeChanges bool           `protobuf:"varint,2,opt,name=include_changes,json=includeChanges" json:"include_changes,omitempty"`
+	Shard          *Shard         `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
+	State          []pps.JobState `protobuf:"varint,4,rep,packed,name=state,enum=pps.JobState" json:"state,omitempty"`
+}
+
+func (m *SubscribeJobInfosRequest) Reset()                    { *m = SubscribeJobInfosRequest{} }
+func (m *SubscribeJobInfosRequest) String() string            { return proto.CompactTextString(m) }
+func (*SubscribeJobInfosRequest) ProtoMessage()               {}
+func (*SubscribeJobInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+
+func (m *SubscribeJobInfosRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
+
+type JobInfoChange struct {
+	JobInfo *JobInfo   `protobuf:"bytes,1,opt,name=jobInfo" json:"jobInfo,omitempty"`
+	Type    ChangeType `protobuf:"varint,2,opt,name=type,enum=pps.persist.ChangeType" json:"type,omitempty"`
+}
+
+func (m *JobInfoChange) Reset()                    { *m = JobInfoChange{} }
+func (m *JobInfoChange) String() string            { return proto.CompactTextString(m) }
+func (*JobInfoChange) ProtoMessage()               {}
+func (*JobInfoChange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+
+func (m *JobInfoChange) GetJobInfo() *JobInfo {
+	if m != nil {
+		return m.JobInfo
 	}
 	return nil
 }
@@ -361,7 +484,7 @@ type ListPipelineInfosRequest struct {
 func (m *ListPipelineInfosRequest) Reset()                    { *m = ListPipelineInfosRequest{} }
 func (m *ListPipelineInfosRequest) String() string            { return proto.CompactTextString(m) }
 func (*ListPipelineInfosRequest) ProtoMessage()               {}
-func (*ListPipelineInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+func (*ListPipelineInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 func (m *ListPipelineInfosRequest) GetShard() *Shard {
 	if m != nil {
@@ -369,6 +492,15 @@ func (m *ListPipelineInfosRequest) GetShard() *Shard {
 	}
 	return nil
 }
+
+type Shard struct {
+	Number uint64 `protobuf:"varint,1,opt,name=number" json:"number,omitempty"`
+}
+
+func (m *Shard) Reset()                    { *m = Shard{} }
+func (m *Shard) String() string            { return proto.CompactTextString(m) }
+func (*Shard) ProtoMessage()               {}
+func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 type UpdatePipelineStateRequest struct {
 	PipelineName string            `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
@@ -379,7 +511,7 @@ type UpdatePipelineStateRequest struct {
 func (m *UpdatePipelineStateRequest) Reset()                    { *m = UpdatePipelineStateRequest{} }
 func (m *UpdatePipelineStateRequest) String() string            { return proto.CompactTextString(m) }
 func (*UpdatePipelineStateRequest) ProtoMessage()               {}
-func (*UpdatePipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (*UpdatePipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 type UpdatePipelineStoppedRequest struct {
 	PipelineName string `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
@@ -389,7 +521,7 @@ type UpdatePipelineStoppedRequest struct {
 func (m *UpdatePipelineStoppedRequest) Reset()                    { *m = UpdatePipelineStoppedRequest{} }
 func (m *UpdatePipelineStoppedRequest) String() string            { return proto.CompactTextString(m) }
 func (*UpdatePipelineStoppedRequest) ProtoMessage()               {}
-func (*UpdatePipelineStoppedRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (*UpdatePipelineStoppedRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 type BlockPipelineStateRequest struct {
 	PipelineName string            `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
@@ -399,34 +531,150 @@ type BlockPipelineStateRequest struct {
 func (m *BlockPipelineStateRequest) Reset()                    { *m = BlockPipelineStateRequest{} }
 func (m *BlockPipelineStateRequest) String() string            { return proto.CompactTextString(m) }
 func (*BlockPipelineStateRequest) ProtoMessage()               {}
-func (*BlockPipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (*BlockPipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
-// As in, sharding
-type Shard struct {
-	Number uint64 `protobuf:"varint,1,opt,name=number" json:"number,omitempty"`
+type AddChunkRequest struct {
+	Chunks []*Chunk `protobuf:"bytes,1,rep,name=chunks" json:"chunks,omitempty"`
 }
 
-func (m *Shard) Reset()                    { *m = Shard{} }
-func (m *Shard) String() string            { return proto.CompactTextString(m) }
-func (*Shard) ProtoMessage()               {}
-func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (m *AddChunkRequest) Reset()                    { *m = AddChunkRequest{} }
+func (m *AddChunkRequest) String() string            { return proto.CompactTextString(m) }
+func (*AddChunkRequest) ProtoMessage()               {}
+func (*AddChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+
+func (m *AddChunkRequest) GetChunks() []*Chunk {
+	if m != nil {
+		return m.Chunks
+	}
+	return nil
+}
+
+type ClaimChunkRequest struct {
+	JobID string `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	Pod   *Pod   `protobuf:"bytes,2,opt,name=pod" json:"pod,omitempty"`
+}
+
+func (m *ClaimChunkRequest) Reset()                    { *m = ClaimChunkRequest{} }
+func (m *ClaimChunkRequest) String() string            { return proto.CompactTextString(m) }
+func (*ClaimChunkRequest) ProtoMessage()               {}
+func (*ClaimChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+
+func (m *ClaimChunkRequest) GetPod() *Pod {
+	if m != nil {
+		return m.Pod
+	}
+	return nil
+}
+
+type RenewChunkRequest struct {
+	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
+	PodName string `protobuf:"bytes,2,opt,name=pod_name,json=podName" json:"pod_name,omitempty"`
+}
+
+func (m *RenewChunkRequest) Reset()                    { *m = RenewChunkRequest{} }
+func (m *RenewChunkRequest) String() string            { return proto.CompactTextString(m) }
+func (*RenewChunkRequest) ProtoMessage()               {}
+func (*RenewChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
+
+type FinishChunkRequest struct {
+	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
+	PodName string `protobuf:"bytes,2,opt,name=pod_name,json=podName" json:"pod_name,omitempty"`
+}
+
+func (m *FinishChunkRequest) Reset()                    { *m = FinishChunkRequest{} }
+func (m *FinishChunkRequest) String() string            { return proto.CompactTextString(m) }
+func (*FinishChunkRequest) ProtoMessage()               {}
+func (*FinishChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+
+type RevokeChunkRequest struct {
+	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
+	PodName string `protobuf:"bytes,2,opt,name=pod_name,json=podName" json:"pod_name,omitempty"`
+	// if the number of pods that have processed this chunk exceeds maxPods,
+	// then we switch the state of the chunk to FAILED instead of UNASSIGNED
+	MaxPods uint64 `protobuf:"varint,3,opt,name=maxPods" json:"maxPods,omitempty"`
+}
+
+func (m *RevokeChunkRequest) Reset()                    { *m = RevokeChunkRequest{} }
+func (m *RevokeChunkRequest) String() string            { return proto.CompactTextString(m) }
+func (*RevokeChunkRequest) ProtoMessage()               {}
+func (*RevokeChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
+
+type WaitJobResponse struct {
+	State pps.JobState `protobuf:"varint,1,opt,name=state,enum=pps.JobState" json:"state,omitempty"`
+}
+
+func (m *WaitJobResponse) Reset()                    { *m = WaitJobResponse{} }
+func (m *WaitJobResponse) String() string            { return proto.CompactTextString(m) }
+func (*WaitJobResponse) ProtoMessage()               {}
+func (*WaitJobResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
+
+type ChunkChange struct {
+	Chunk *Chunk     `protobuf:"bytes,1,opt,name=chunk" json:"chunk,omitempty"`
+	Type  ChangeType `protobuf:"varint,2,opt,name=type,enum=pps.persist.ChangeType" json:"type,omitempty"`
+	// If ready is set to true, then all initial documents have been sent
+	// See docs on `includeState` for rethinkdb's changefeed:
+	// https://www.rethinkdb.com/api/javascript/changes/
+	Ready bool `protobuf:"varint,3,opt,name=ready" json:"ready,omitempty"`
+}
+
+func (m *ChunkChange) Reset()                    { *m = ChunkChange{} }
+func (m *ChunkChange) String() string            { return proto.CompactTextString(m) }
+func (*ChunkChange) ProtoMessage()               {}
+func (*ChunkChange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
+
+func (m *ChunkChange) GetChunk() *Chunk {
+	if m != nil {
+		return m.Chunk
+	}
+	return nil
+}
+
+type SubscribeChunksRequest struct {
+	Job            *pps.Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	IncludeInitial bool     `protobuf:"varint,2,opt,name=include_initial,json=includeInitial" json:"include_initial,omitempty"`
+}
+
+func (m *SubscribeChunksRequest) Reset()                    { *m = SubscribeChunksRequest{} }
+func (m *SubscribeChunksRequest) String() string            { return proto.CompactTextString(m) }
+func (*SubscribeChunksRequest) ProtoMessage()               {}
+func (*SubscribeChunksRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
+
+func (m *SubscribeChunksRequest) GetJob() *pps.Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterType((*JobInfo)(nil), "pps.persist.JobInfo")
+	proto.RegisterType((*Pod)(nil), "pps.persist.Pod")
+	proto.RegisterType((*Chunk)(nil), "pps.persist.Chunk")
+	proto.RegisterType((*Chunks)(nil), "pps.persist.Chunks")
 	proto.RegisterType((*JobInfos)(nil), "pps.persist.JobInfos")
 	proto.RegisterType((*JobOutput)(nil), "pps.persist.JobOutput")
 	proto.RegisterType((*JobState)(nil), "pps.persist.JobState")
-	proto.RegisterType((*AddPodCommitRequest)(nil), "pps.persist.AddPodCommitRequest")
 	proto.RegisterType((*AddOutputCommitRequest)(nil), "pps.persist.AddOutputCommitRequest")
 	proto.RegisterType((*PipelineInfo)(nil), "pps.persist.PipelineInfo")
 	proto.RegisterType((*PipelineInfoChange)(nil), "pps.persist.PipelineInfoChange")
 	proto.RegisterType((*PipelineInfos)(nil), "pps.persist.PipelineInfos")
 	proto.RegisterType((*SubscribePipelineInfosRequest)(nil), "pps.persist.SubscribePipelineInfosRequest")
+	proto.RegisterType((*SubscribeJobInfosRequest)(nil), "pps.persist.SubscribeJobInfosRequest")
+	proto.RegisterType((*JobInfoChange)(nil), "pps.persist.JobInfoChange")
 	proto.RegisterType((*ListPipelineInfosRequest)(nil), "pps.persist.ListPipelineInfosRequest")
+	proto.RegisterType((*Shard)(nil), "pps.persist.Shard")
 	proto.RegisterType((*UpdatePipelineStateRequest)(nil), "pps.persist.UpdatePipelineStateRequest")
 	proto.RegisterType((*UpdatePipelineStoppedRequest)(nil), "pps.persist.UpdatePipelineStoppedRequest")
 	proto.RegisterType((*BlockPipelineStateRequest)(nil), "pps.persist.BlockPipelineStateRequest")
-	proto.RegisterType((*Shard)(nil), "pps.persist.Shard")
+	proto.RegisterType((*AddChunkRequest)(nil), "pps.persist.AddChunkRequest")
+	proto.RegisterType((*ClaimChunkRequest)(nil), "pps.persist.ClaimChunkRequest")
+	proto.RegisterType((*RenewChunkRequest)(nil), "pps.persist.RenewChunkRequest")
+	proto.RegisterType((*FinishChunkRequest)(nil), "pps.persist.FinishChunkRequest")
+	proto.RegisterType((*RevokeChunkRequest)(nil), "pps.persist.RevokeChunkRequest")
+	proto.RegisterType((*WaitJobResponse)(nil), "pps.persist.WaitJobResponse")
+	proto.RegisterType((*ChunkChange)(nil), "pps.persist.ChunkChange")
+	proto.RegisterType((*SubscribeChunksRequest)(nil), "pps.persist.SubscribeChunksRequest")
+	proto.RegisterEnum("pps.persist.ChunkState", ChunkState_name, ChunkState_value)
 	proto.RegisterEnum("pps.persist.ChangeType", ChangeType_name, ChangeType_value)
 }
 
@@ -451,6 +699,7 @@ type APIClient interface {
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	DeleteJobInfosForPipeline(ctx context.Context, in *pps.Pipeline, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	SubscribeJobInfos(ctx context.Context, in *SubscribeJobInfosRequest, opts ...grpc.CallOption) (API_SubscribeJobInfosClient, error)
 	// JobOutput rpcs
 	CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// JobState rpcs
@@ -458,9 +707,7 @@ type APIClient interface {
 	// StartJob sets the state of the job to "running" if the state
 	// is currently "pulling".
 	// This API updates the job state in a transactional manner.
-	StartJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	// Job commit rpcs
-	AddPodCommit(ctx context.Context, in *AddPodCommitRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	StartJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
 	// Pipeline rpcs
 	CreatePipelineInfo(ctx context.Context, in *PipelineInfo, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	UpdatePipelineInfo(ctx context.Context, in *PipelineInfo, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
@@ -474,11 +721,15 @@ type APIClient interface {
 	BlockPipelineState(ctx context.Context, in *BlockPipelineStateRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// DeleteAll deletes everything
 	DeleteAll(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	// Shard rpcs
-	// Returns the new job info
-	StartPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
-	SucceedPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
-	FailPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
+	// Chunk rpcs
+	AddChunk(ctx context.Context, in *AddChunkRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	ClaimChunk(ctx context.Context, in *ClaimChunkRequest, opts ...grpc.CallOption) (*Chunk, error)
+	RenewChunk(ctx context.Context, in *RenewChunkRequest, opts ...grpc.CallOption) (*Chunk, error)
+	FinishChunk(ctx context.Context, in *FinishChunkRequest, opts ...grpc.CallOption) (*Chunk, error)
+	RevokeChunk(ctx context.Context, in *RevokeChunkRequest, opts ...grpc.CallOption) (*Chunk, error)
+	SubscribeChunks(ctx context.Context, in *SubscribeChunksRequest, opts ...grpc.CallOption) (API_SubscribeChunksClient, error)
+	GetChunksForJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*Chunks, error)
+	DeleteChunksForJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
 type aPIClient struct {
@@ -534,6 +785,38 @@ func (c *aPIClient) DeleteJobInfosForPipeline(ctx context.Context, in *pps.Pipel
 	return out, nil
 }
 
+func (c *aPIClient) SubscribeJobInfos(ctx context.Context, in *SubscribeJobInfosRequest, opts ...grpc.CallOption) (API_SubscribeJobInfosClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pps.persist.API/SubscribeJobInfos", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPISubscribeJobInfosClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_SubscribeJobInfosClient interface {
+	Recv() (*JobInfoChange, error)
+	grpc.ClientStream
+}
+
+type aPISubscribeJobInfosClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPISubscribeJobInfosClient) Recv() (*JobInfoChange, error) {
+	m := new(JobInfoChange)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pps.persist.API/CreateJobOutput", in, out, c.cc, opts...)
@@ -552,18 +835,9 @@ func (c *aPIClient) CreateJobState(ctx context.Context, in *JobState, opts ...gr
 	return out, nil
 }
 
-func (c *aPIClient) StartJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *aPIClient) StartJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error) {
+	out := new(JobInfo)
 	err := grpc.Invoke(ctx, "/pps.persist.API/StartJob", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) AddPodCommit(ctx context.Context, in *AddPodCommitRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pps.persist.API/AddPodCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +890,7 @@ func (c *aPIClient) DeletePipelineInfo(ctx context.Context, in *pps.Pipeline, op
 }
 
 func (c *aPIClient) SubscribePipelineInfos(ctx context.Context, in *SubscribePipelineInfosRequest, opts ...grpc.CallOption) (API_SubscribePipelineInfosClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pps.persist.API/SubscribePipelineInfos", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[1], c.cc, "/pps.persist.API/SubscribePipelineInfos", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -683,27 +957,95 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *google_protobuf.Empty, op
 	return out, nil
 }
 
-func (c *aPIClient) StartPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error) {
-	out := new(JobInfo)
-	err := grpc.Invoke(ctx, "/pps.persist.API/StartPod", in, out, c.cc, opts...)
+func (c *aPIClient) AddChunk(ctx context.Context, in *AddChunkRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pps.persist.API/AddChunk", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) SucceedPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error) {
-	out := new(JobInfo)
-	err := grpc.Invoke(ctx, "/pps.persist.API/SucceedPod", in, out, c.cc, opts...)
+func (c *aPIClient) ClaimChunk(ctx context.Context, in *ClaimChunkRequest, opts ...grpc.CallOption) (*Chunk, error) {
+	out := new(Chunk)
+	err := grpc.Invoke(ctx, "/pps.persist.API/ClaimChunk", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) FailPod(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*JobInfo, error) {
-	out := new(JobInfo)
-	err := grpc.Invoke(ctx, "/pps.persist.API/FailPod", in, out, c.cc, opts...)
+func (c *aPIClient) RenewChunk(ctx context.Context, in *RenewChunkRequest, opts ...grpc.CallOption) (*Chunk, error) {
+	out := new(Chunk)
+	err := grpc.Invoke(ctx, "/pps.persist.API/RenewChunk", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) FinishChunk(ctx context.Context, in *FinishChunkRequest, opts ...grpc.CallOption) (*Chunk, error) {
+	out := new(Chunk)
+	err := grpc.Invoke(ctx, "/pps.persist.API/FinishChunk", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) RevokeChunk(ctx context.Context, in *RevokeChunkRequest, opts ...grpc.CallOption) (*Chunk, error) {
+	out := new(Chunk)
+	err := grpc.Invoke(ctx, "/pps.persist.API/RevokeChunk", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) SubscribeChunks(ctx context.Context, in *SubscribeChunksRequest, opts ...grpc.CallOption) (API_SubscribeChunksClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[2], c.cc, "/pps.persist.API/SubscribeChunks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPISubscribeChunksClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_SubscribeChunksClient interface {
+	Recv() (*ChunkChange, error)
+	grpc.ClientStream
+}
+
+type aPISubscribeChunksClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPISubscribeChunksClient) Recv() (*ChunkChange, error) {
+	m := new(ChunkChange)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *aPIClient) GetChunksForJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*Chunks, error) {
+	out := new(Chunks)
+	err := grpc.Invoke(ctx, "/pps.persist.API/GetChunksForJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) DeleteChunksForJob(ctx context.Context, in *pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pps.persist.API/DeleteChunksForJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -723,6 +1065,7 @@ type APIServer interface {
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(context.Context, *pps.Job) (*google_protobuf.Empty, error)
 	DeleteJobInfosForPipeline(context.Context, *pps.Pipeline) (*google_protobuf.Empty, error)
+	SubscribeJobInfos(*SubscribeJobInfosRequest, API_SubscribeJobInfosServer) error
 	// JobOutput rpcs
 	CreateJobOutput(context.Context, *JobOutput) (*google_protobuf.Empty, error)
 	// JobState rpcs
@@ -730,9 +1073,7 @@ type APIServer interface {
 	// StartJob sets the state of the job to "running" if the state
 	// is currently "pulling".
 	// This API updates the job state in a transactional manner.
-	StartJob(context.Context, *pps.Job) (*google_protobuf.Empty, error)
-	// Job commit rpcs
-	AddPodCommit(context.Context, *AddPodCommitRequest) (*google_protobuf.Empty, error)
+	StartJob(context.Context, *pps.Job) (*JobInfo, error)
 	// Pipeline rpcs
 	CreatePipelineInfo(context.Context, *PipelineInfo) (*google_protobuf.Empty, error)
 	UpdatePipelineInfo(context.Context, *PipelineInfo) (*google_protobuf.Empty, error)
@@ -746,11 +1087,15 @@ type APIServer interface {
 	BlockPipelineState(context.Context, *BlockPipelineStateRequest) (*google_protobuf.Empty, error)
 	// DeleteAll deletes everything
 	DeleteAll(context.Context, *google_protobuf.Empty) (*google_protobuf.Empty, error)
-	// Shard rpcs
-	// Returns the new job info
-	StartPod(context.Context, *pps.Job) (*JobInfo, error)
-	SucceedPod(context.Context, *pps.Job) (*JobInfo, error)
-	FailPod(context.Context, *pps.Job) (*JobInfo, error)
+	// Chunk rpcs
+	AddChunk(context.Context, *AddChunkRequest) (*google_protobuf.Empty, error)
+	ClaimChunk(context.Context, *ClaimChunkRequest) (*Chunk, error)
+	RenewChunk(context.Context, *RenewChunkRequest) (*Chunk, error)
+	FinishChunk(context.Context, *FinishChunkRequest) (*Chunk, error)
+	RevokeChunk(context.Context, *RevokeChunkRequest) (*Chunk, error)
+	SubscribeChunks(*SubscribeChunksRequest, API_SubscribeChunksServer) error
+	GetChunksForJob(context.Context, *pps.Job) (*Chunks, error)
+	DeleteChunksForJob(context.Context, *pps.Job) (*google_protobuf.Empty, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -847,6 +1192,27 @@ func _API_DeleteJobInfosForPipeline_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_SubscribeJobInfos_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeJobInfosRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).SubscribeJobInfos(m, &aPISubscribeJobInfosServer{stream})
+}
+
+type API_SubscribeJobInfosServer interface {
+	Send(*JobInfoChange) error
+	grpc.ServerStream
+}
+
+type aPISubscribeJobInfosServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPISubscribeJobInfosServer) Send(m *JobInfoChange) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _API_CreateJobOutput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JobOutput)
 	if err := dec(in); err != nil {
@@ -897,24 +1263,6 @@ func _API_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(APIServer).StartJob(ctx, req.(*pps.Job))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _API_AddPodCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddPodCommitRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(APIServer).AddPodCommit(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pps.persist.API/AddPodCommit",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).AddPodCommit(ctx, req.(*AddPodCommitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1102,56 +1450,149 @@ func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_StartPod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(pps.Job)
+func _API_AddChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddChunkRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).StartPod(ctx, in)
+		return srv.(APIServer).AddChunk(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pps.persist.API/StartPod",
+		FullMethod: "/pps.persist.API/AddChunk",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).StartPod(ctx, req.(*pps.Job))
+		return srv.(APIServer).AddChunk(ctx, req.(*AddChunkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_SucceedPod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(pps.Job)
+func _API_ClaimChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClaimChunkRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).SucceedPod(ctx, in)
+		return srv.(APIServer).ClaimChunk(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pps.persist.API/SucceedPod",
+		FullMethod: "/pps.persist.API/ClaimChunk",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).SucceedPod(ctx, req.(*pps.Job))
+		return srv.(APIServer).ClaimChunk(ctx, req.(*ClaimChunkRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_FailPod_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _API_RenewChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenewChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).RenewChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pps.persist.API/RenewChunk",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).RenewChunk(ctx, req.(*RenewChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_FinishChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FinishChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).FinishChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pps.persist.API/FinishChunk",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).FinishChunk(ctx, req.(*FinishChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_RevokeChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).RevokeChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pps.persist.API/RevokeChunk",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).RevokeChunk(ctx, req.(*RevokeChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_SubscribeChunks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeChunksRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).SubscribeChunks(m, &aPISubscribeChunksServer{stream})
+}
+
+type API_SubscribeChunksServer interface {
+	Send(*ChunkChange) error
+	grpc.ServerStream
+}
+
+type aPISubscribeChunksServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPISubscribeChunksServer) Send(m *ChunkChange) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _API_GetChunksForJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(pps.Job)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).FailPod(ctx, in)
+		return srv.(APIServer).GetChunksForJob(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pps.persist.API/FailPod",
+		FullMethod: "/pps.persist.API/GetChunksForJob",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).FailPod(ctx, req.(*pps.Job))
+		return srv.(APIServer).GetChunksForJob(ctx, req.(*pps.Job))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_DeleteChunksForJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(pps.Job)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).DeleteChunksForJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pps.persist.API/DeleteChunksForJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteChunksForJob(ctx, req.(*pps.Job))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1193,10 +1634,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_StartJob_Handler,
 		},
 		{
-			MethodName: "AddPodCommit",
-			Handler:    _API_AddPodCommit_Handler,
-		},
-		{
 			MethodName: "CreatePipelineInfo",
 			Handler:    _API_CreatePipelineInfo_Handler,
 		},
@@ -1233,22 +1670,48 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_DeleteAll_Handler,
 		},
 		{
-			MethodName: "StartPod",
-			Handler:    _API_StartPod_Handler,
+			MethodName: "AddChunk",
+			Handler:    _API_AddChunk_Handler,
 		},
 		{
-			MethodName: "SucceedPod",
-			Handler:    _API_SucceedPod_Handler,
+			MethodName: "ClaimChunk",
+			Handler:    _API_ClaimChunk_Handler,
 		},
 		{
-			MethodName: "FailPod",
-			Handler:    _API_FailPod_Handler,
+			MethodName: "RenewChunk",
+			Handler:    _API_RenewChunk_Handler,
+		},
+		{
+			MethodName: "FinishChunk",
+			Handler:    _API_FinishChunk_Handler,
+		},
+		{
+			MethodName: "RevokeChunk",
+			Handler:    _API_RevokeChunk_Handler,
+		},
+		{
+			MethodName: "GetChunksForJob",
+			Handler:    _API_GetChunksForJob_Handler,
+		},
+		{
+			MethodName: "DeleteChunksForJob",
+			Handler:    _API_DeleteChunksForJob_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
+			StreamName:    "SubscribeJobInfos",
+			Handler:       _API_SubscribeJobInfos_Handler,
+			ServerStreams: true,
+		},
+		{
 			StreamName:    "SubscribePipelineInfos",
 			Handler:       _API_SubscribePipelineInfos_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribeChunks",
+			Handler:       _API_SubscribeChunks_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -1258,94 +1721,121 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("server/pps/persist/persist.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 1414 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xbc, 0x57, 0xed, 0x6e, 0xdb, 0x36,
-	0x14, 0x8d, 0x3f, 0x63, 0x5f, 0x7f, 0xc4, 0x65, 0xd3, 0x4c, 0x75, 0x37, 0xc4, 0x55, 0xd7, 0xd5,
-	0x4b, 0x0b, 0xa7, 0x48, 0xb7, 0x61, 0x1f, 0xed, 0x06, 0x37, 0x71, 0x0b, 0x07, 0xdd, 0x1a, 0x28,
-	0xe9, 0x50, 0x0c, 0x1b, 0x0c, 0xd9, 0xa2, 0x13, 0xa5, 0xb2, 0xc4, 0x89, 0x72, 0xd1, 0xfc, 0xd9,
-	0x23, 0xec, 0x45, 0xf6, 0x10, 0x7b, 0xa7, 0x3d, 0xc1, 0xc0, 0x4b, 0xca, 0x96, 0x6c, 0x4b, 0x49,
-	0xf6, 0x63, 0x3f, 0x82, 0x48, 0x87, 0x97, 0x87, 0x97, 0x97, 0xe7, 0x1e, 0xd1, 0xd0, 0xe2, 0xd4,
-	0x7f, 0x4f, 0xfd, 0x5d, 0xc6, 0xf8, 0x2e, 0xa3, 0x3e, 0xb7, 0x79, 0x10, 0xfe, 0xef, 0x30, 0xdf,
-	0x0b, 0x3c, 0x52, 0x61, 0x8c, 0x77, 0x14, 0xd4, 0xbc, 0x73, 0xea, 0x79, 0xa7, 0x0e, 0xdd, 0xc5,
-	0xa1, 0xe1, 0x74, 0xbc, 0x4b, 0x27, 0x2c, 0xb8, 0x90, 0x91, 0xcd, 0xed, 0xc5, 0xc1, 0xc0, 0x9e,
-	0x50, 0x1e, 0x98, 0x13, 0xa6, 0x02, 0x36, 0x47, 0x8e, 0x4d, 0xdd, 0x60, 0x97, 0x8d, 0xb9, 0xf8,
-	0x5b, 0x44, 0x45, 0x0a, 0x4c, 0xa1, 0xfa, 0x5f, 0x45, 0x58, 0x3f, 0xf4, 0x86, 0x7d, 0x77, 0xec,
-	0x91, 0x5b, 0x50, 0x3c, 0xf7, 0x86, 0x03, 0xdb, 0xd2, 0x32, 0xad, 0x4c, 0xbb, 0x6c, 0x14, 0xce,
-	0xbd, 0x61, 0xdf, 0x22, 0x8f, 0xa0, 0x1c, 0xf8, 0xa6, 0xcb, 0xc7, 0x9e, 0x3f, 0xd1, 0xb2, 0xad,
-	0x4c, 0xbb, 0xb2, 0x57, 0xef, 0x08, 0x86, 0x93, 0x10, 0x35, 0xe6, 0x01, 0xe4, 0x1e, 0xd4, 0x98,
-	0xcd, 0xa8, 0x63, 0xbb, 0x74, 0xe0, 0x9a, 0x13, 0xaa, 0xe5, 0x90, 0xab, 0x1a, 0x82, 0x3f, 0x99,
-	0x13, 0x4a, 0x7e, 0x80, 0x06, 0x33, 0x7d, 0xd3, 0x71, 0xa8, 0x63, 0xf3, 0xc9, 0x80, 0x33, 0x3a,
-	0xd2, 0x08, 0x32, 0x6f, 0x22, 0xf3, 0xd1, 0x7c, 0xf0, 0x98, 0xd1, 0x91, 0xb1, 0xc1, 0xe2, 0x00,
-	0xb9, 0x0f, 0x45, 0xdb, 0x65, 0xd3, 0x80, 0x6b, 0x85, 0x56, 0xae, 0x5d, 0xd9, 0xab, 0xe1, 0x34,
-	0xdc, 0x08, 0x9b, 0x06, 0x86, 0x1a, 0x24, 0x0f, 0x00, 0x98, 0xe9, 0x53, 0x37, 0x18, 0x9c, 0x7b,
-	0x43, 0xad, 0x88, 0x2b, 0x94, 0xc2, 0x50, 0xa3, 0x2c, 0xc7, 0x0e, 0xbd, 0x21, 0xf9, 0x02, 0xd6,
-	0x79, 0x60, 0xfa, 0x01, 0xb5, 0xb4, 0x75, 0x8c, 0x6a, 0x76, 0x64, 0x95, 0x3b, 0x61, 0x95, 0x3b,
-	0x27, 0x61, 0x95, 0x8d, 0x30, 0x94, 0x7c, 0x05, 0xa5, 0xb1, 0xed, 0xda, 0xfc, 0x8c, 0x5a, 0x5a,
-	0xe9, 0xd2, 0x69, 0xb3, 0x58, 0xf2, 0x18, 0x6a, 0xde, 0x34, 0x60, 0xd3, 0x60, 0x30, 0xf2, 0x26,
-	0x13, 0x3b, 0xd0, 0xca, 0x38, 0xb9, 0xd2, 0x11, 0xa7, 0xb5, 0x8f, 0x90, 0x51, 0x95, 0x11, 0xf2,
-	0x8d, 0x6c, 0x41, 0x71, 0xe8, 0x9b, 0xee, 0xe8, 0x4c, 0xbb, 0x81, 0xe5, 0x54, 0x6f, 0xe4, 0x1e,
-	0x14, 0x78, 0x60, 0x06, 0x54, 0x83, 0x56, 0xa6, 0x5d, 0x9f, 0x97, 0xe1, 0x58, 0x80, 0x86, 0x1c,
-	0x23, 0x77, 0xa1, 0x2a, 0xd7, 0x19, 0xd8, 0xae, 0x45, 0x3f, 0x68, 0x15, 0xa4, 0xa8, 0x48, 0xac,
-	0x2f, 0x20, 0x11, 0xc2, 0x3c, 0x8b, 0x0f, 0xc2, 0x22, 0x54, 0x5b, 0x99, 0x76, 0xde, 0xa8, 0x08,
-	0xec, 0x58, 0x6d, 0xf6, 0x3e, 0xd4, 0x65, 0xc8, 0x74, 0x34, 0xa2, 0xd4, 0xa2, 0x96, 0x56, 0xc3,
-	0xa0, 0x1a, 0x06, 0x85, 0x20, 0xd9, 0x06, 0x9c, 0x35, 0x18, 0x9b, 0xb6, 0x43, 0x2d, 0xad, 0x8e,
-	0x31, 0x20, 0xa0, 0x17, 0x88, 0x88, 0xa5, 0xf8, 0x99, 0xe9, 0x5b, 0x83, 0x89, 0x67, 0x4d, 0x1d,
-	0x5b, 0xdb, 0x68, 0xe5, 0xc4, 0x52, 0x88, 0xfd, 0x88, 0x10, 0xe9, 0x21, 0x87, 0x2a, 0x0e, 0xd7,
-	0x1a, 0x78, 0xc4, 0x9f, 0x76, 0x22, 0x1d, 0xd2, 0x51, 0x9a, 0xed, 0x1c, 0x79, 0x96, 0x2c, 0x11,
-	0xef, 0xb9, 0x81, 0x7f, 0x81, 0x2b, 0x29, 0xa0, 0x79, 0x08, 0x1b, 0x0b, 0xc3, 0xa4, 0x01, 0xb9,
-	0x77, 0xf4, 0x42, 0xe9, 0x5b, 0x3c, 0x92, 0xbb, 0x50, 0x78, 0x6f, 0x3a, 0x53, 0xaa, 0x94, 0x1d,
-	0x3b, 0x03, 0x39, 0xf2, 0x6d, 0xf6, 0xeb, 0xcc, 0x61, 0xbe, 0x94, 0x6f, 0x14, 0xf4, 0xef, 0xa0,
-	0xa4, 0x16, 0xe6, 0x64, 0x17, 0x4a, 0xd8, 0x2d, 0xee, 0xd8, 0xd3, 0x32, 0x98, 0xe1, 0xe6, 0xaa,
-	0x0c, 0x8d, 0xf5, 0x73, 0xf9, 0xa0, 0x9f, 0x40, 0xf9, 0xd0, 0x1b, 0xbe, 0xc6, 0x63, 0x4d, 0xea,
-	0xb5, 0x25, 0x65, 0x64, 0x2f, 0x51, 0x86, 0xfe, 0x07, 0xa6, 0x84, 0xe7, 0x9d, 0x44, 0x3a, 0x13,
-	0x49, 0x36, 0x45, 0x24, 0x51, 0x2d, 0xe7, 0xae, 0xae, 0x65, 0xdd, 0x85, 0x9b, 0x5d, 0xcb, 0x9a,
-	0xd5, 0xd9, 0xa0, 0xbf, 0x4f, 0x29, 0x4f, 0xdc, 0xdf, 0x1d, 0x28, 0x8b, 0x93, 0x95, 0x3a, 0xcc,
-	0xa2, 0x36, 0x4a, 0xcc, 0xb3, 0xa4, 0x08, 0xef, 0x41, 0x51, 0xed, 0x3a, 0xb7, 0xbc, 0x6b, 0x35,
-	0xa4, 0x3b, 0xb0, 0xd5, 0xb5, 0xac, 0xd7, 0x91, 0x12, 0x5c, 0xb2, 0xe4, 0x9c, 0x35, 0x9b, 0xc8,
-	0x1a, 0xe9, 0xaf, 0x5c, 0xb4, 0xbf, 0xf4, 0xbf, 0xf3, 0x50, 0x3d, 0x52, 0xce, 0x85, 0x1e, 0xb9,
-	0x64, 0x6f, 0x99, 0x15, 0xf6, 0x76, 0x3d, 0xc7, 0x5c, 0x65, 0x86, 0xd5, 0xeb, 0x98, 0xe1, 0xce,
-	0xcc, 0x0c, 0xf3, 0xa8, 0x43, 0x22, 0xa7, 0xcd, 0xd2, 0x8e, 0x3a, 0xe2, 0x0e, 0x54, 0x94, 0xc0,
-	0x7c, 0xca, 0x3c, 0xad, 0x80, 0xeb, 0x94, 0xb1, 0x24, 0x06, 0x65, 0x9e, 0x01, 0x72, 0x54, 0x3c,
-	0x93, 0x6f, 0x00, 0x46, 0x3e, 0x35, 0x03, 0x6a, 0x0d, 0xcc, 0x40, 0xb9, 0x67, 0x9a, 0x28, 0xca,
-	0x2a, 0xba, 0x1b, 0x90, 0x4d, 0x28, 0x60, 0x43, 0xa3, 0x9b, 0xe6, 0x0d, 0xf9, 0x42, 0xda, 0xa1,
-	0x10, 0x4b, 0x28, 0xc4, 0x78, 0x9e, 0x8b, 0x96, 0xe5, 0xd3, 0x91, 0x30, 0x6e, 0xea, 0xfb, 0x9e,
-	0x8f, 0x06, 0x59, 0x36, 0x2a, 0x12, 0xeb, 0x09, 0x88, 0xbc, 0x04, 0x10, 0xc7, 0x3d, 0xf2, 0xa6,
-	0x6e, 0xc0, 0x35, 0xc0, 0x9d, 0xb7, 0x63, 0x1d, 0x18, 0x3d, 0x38, 0xa1, 0xf7, 0x7d, 0x0c, 0x95,
-	0x3e, 0x51, 0x3e, 0x0f, 0xdf, 0x89, 0x26, 0xbc, 0xdf, 0x63, 0x8c, 0x5a, 0xe8, 0x8c, 0x25, 0x23,
-	0x7c, 0x6d, 0x3e, 0x85, 0x7a, 0x7c, 0x5a, 0xd4, 0x3f, 0x0a, 0xd2, 0x3f, 0x36, 0xa3, 0xfe, 0x51,
-	0x88, 0x5b, 0x46, 0xae, 0x91, 0xd7, 0x3f, 0x00, 0x89, 0xe6, 0xb1, 0x7f, 0x66, 0xba, 0xa7, 0x94,
-	0x7c, 0x09, 0xa5, 0x50, 0x31, 0x48, 0x56, 0xd9, 0xbb, 0x9d, 0x98, 0xba, 0x31, 0x0b, 0x25, 0x0f,
-	0x21, 0x1f, 0x5c, 0xb0, 0xb0, 0x91, 0x3f, 0x8a, 0x4d, 0x91, 0xcc, 0x27, 0x17, 0x8c, 0x1a, 0x18,
-	0xa4, 0xbf, 0x86, 0x5a, 0x94, 0x86, 0x93, 0xef, 0x23, 0xda, 0x8d, 0xd8, 0x56, 0xca, 0xca, 0x33,
-	0x59, 0xa3, 0x81, 0xf9, 0xf0, 0xc9, 0xf1, 0x74, 0xc8, 0x47, 0xbe, 0x3d, 0xa4, 0x31, 0xe6, 0xb0,
-	0x03, 0x1f, 0xc0, 0x86, 0xed, 0x8e, 0x9c, 0xa9, 0x25, 0xf8, 0xed, 0xc0, 0x36, 0x1d, 0xdc, 0x5c,
-	0xc9, 0xa8, 0x2b, 0xb8, 0x2f, 0x51, 0x14, 0x02, 0xca, 0x43, 0x36, 0x07, 0x89, 0x65, 0x70, 0x2c,
-	0x46, 0x94, 0x64, 0xf4, 0x03, 0xd0, 0x5e, 0xd9, 0x3c, 0x58, 0xb9, 0xdc, 0x8c, 0x25, 0x73, 0x19,
-	0xcb, 0x9f, 0x19, 0x68, 0xbe, 0x61, 0x96, 0x19, 0xd0, 0xb8, 0xda, 0x14, 0xd1, 0x95, 0x9a, 0xba,
-	0x1d, 0x77, 0xd1, 0x6b, 0x88, 0x37, 0xb7, 0x24, 0x5e, 0xfd, 0x37, 0xf8, 0x78, 0x31, 0x1f, 0x94,
-	0xdc, 0xb5, 0x32, 0x8a, 0x08, 0x37, 0x1b, 0x13, 0xae, 0x7e, 0x0e, 0xb7, 0x9f, 0x3b, 0xde, 0xe8,
-	0xdd, 0xff, 0xb0, 0x5b, 0x7d, 0x1b, 0x0a, 0x58, 0x6b, 0xe1, 0xa1, 0xee, 0x74, 0x32, 0xa4, 0x3e,
-	0x12, 0xe6, 0x0d, 0xf5, 0xb6, 0xf3, 0x18, 0x60, 0xae, 0x4d, 0x02, 0x50, 0xdc, 0x37, 0x7a, 0xdd,
-	0x93, 0x5e, 0x63, 0x4d, 0x3c, 0xbf, 0x39, 0x3a, 0x10, 0xcf, 0x19, 0xf1, 0x7c, 0xd0, 0x7b, 0xd5,
-	0x3b, 0xe9, 0x35, 0xb2, 0x7b, 0xff, 0x54, 0x20, 0xd7, 0x3d, 0xea, 0x93, 0x67, 0x50, 0xdb, 0x47,
-	0x4b, 0x09, 0x6f, 0xa8, 0x2b, 0xbf, 0xb0, 0xcd, 0x95, 0xa8, 0xbe, 0x46, 0x9e, 0x02, 0xf4, 0x5d,
-	0x61, 0xa7, 0x78, 0xc5, 0xdb, 0xc2, 0xa8, 0x39, 0xa0, 0xca, 0x91, 0x32, 0xbb, 0x2a, 0x94, 0x37,
-	0xfb, 0xde, 0xdf, 0xc4, 0x38, 0x05, 0x85, 0x93, 0x6f, 0xad, 0x9a, 0xcc, 0xf5, 0x35, 0xf2, 0x04,
-	0x6a, 0x07, 0xd4, 0xa1, 0xf3, 0xd4, 0x67, 0xd7, 0xce, 0xe6, 0xd6, 0x92, 0x85, 0xf6, 0xc4, 0xed,
-	0x5e, 0x5f, 0x23, 0x07, 0x70, 0x3b, 0x36, 0x89, 0xbf, 0xf0, 0xfc, 0xb0, 0xe6, 0xa4, 0x16, 0x3b,
-	0x82, 0x14, 0x96, 0x7d, 0xd8, 0x98, 0x55, 0x4d, 0xdd, 0x36, 0xb6, 0x16, 0xd3, 0x94, 0x78, 0x0a,
-	0x49, 0x17, 0xea, 0x33, 0x12, 0x75, 0xb9, 0x58, 0xe4, 0x40, 0x38, 0x85, 0xa2, 0x03, 0x25, 0xbc,
-	0x3b, 0x8a, 0xe2, 0x5f, 0x65, 0xf7, 0x87, 0x50, 0x8d, 0xde, 0x24, 0x48, 0x2b, 0xb6, 0xe0, 0x8a,
-	0x4b, 0x46, 0x0a, 0x57, 0x1f, 0x88, 0x4c, 0x3f, 0xf6, 0xf1, 0x4e, 0x76, 0xba, 0x74, 0xaa, 0x78,
-	0xab, 0xfe, 0x77, 0xaa, 0x67, 0xb0, 0xf1, 0x92, 0xc6, 0xbc, 0x6c, 0xf1, 0x54, 0x93, 0x69, 0xf5,
-	0x35, 0xf2, 0x16, 0x6e, 0x2c, 0x79, 0x21, 0xb9, 0x1f, 0x9b, 0x91, 0xe4, 0x95, 0xcd, 0x66, 0x22,
-	0x31, 0xc7, 0xc4, 0x88, 0x14, 0x5e, 0x5a, 0x6e, 0xc9, 0xfb, 0xb2, 0x61, 0x6b, 0xf5, 0x87, 0x81,
-	0xec, 0xc4, 0x3d, 0x39, 0xed, 0xeb, 0xd1, 0xdc, 0x4e, 0x4c, 0x51, 0xda, 0x87, 0xbe, 0xf6, 0x38,
-	0x43, 0xde, 0xc2, 0xcd, 0x15, 0x46, 0x4e, 0x1e, 0xc4, 0xe6, 0x26, 0x5b, 0x7d, 0xca, 0x26, 0x7e,
-	0x85, 0x5b, 0x2b, 0x2d, 0x99, 0x7c, 0x9e, 0xca, 0x1d, 0xb5, 0xed, 0x14, 0xf6, 0x9f, 0x81, 0x2c,
-	0x3b, 0x32, 0xf9, 0x2c, 0x46, 0x9d, 0x68, 0xd9, 0xa9, 0x92, 0x2a, 0xcb, 0x93, 0xeb, 0x3a, 0x0e,
-	0x49, 0x08, 0x4b, 0x99, 0xfe, 0x48, 0xf5, 0xe8, 0x91, 0x67, 0x45, 0x7a, 0x34, 0xc9, 0x12, 0x3b,
-	0x00, 0xea, 0x87, 0xde, 0xd5, 0xe2, 0x1f, 0xc2, 0xba, 0xf8, 0xd1, 0x77, 0xa5, 0xe0, 0xe7, 0xe5,
-	0x5f, 0xd6, 0x15, 0x38, 0x2c, 0x62, 0x9e, 0x4f, 0xfe, 0x0d, 0x00, 0x00, 0xff, 0xff, 0x63, 0xd4,
-	0x52, 0x2e, 0x36, 0x11, 0x00, 0x00,
+	// 1844 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xbc, 0x57, 0xef, 0x92, 0xdb, 0x48,
+	0x11, 0x5f, 0xd9, 0xb2, 0x2d, 0xb7, 0xd7, 0x7f, 0x76, 0xb2, 0x59, 0x14, 0x73, 0x47, 0x16, 0x85,
+	0x23, 0x66, 0x39, 0xbc, 0xa9, 0xbd, 0xe3, 0xea, 0x80, 0x0b, 0x94, 0x63, 0x3b, 0x29, 0x9b, 0x90,
+	0x2c, 0xb2, 0x03, 0x57, 0x57, 0x5c, 0xb9, 0x64, 0x6b, 0x36, 0xab, 0x8d, 0xac, 0x19, 0x24, 0x39,
+	0x97, 0xe5, 0x03, 0x8f, 0x40, 0x15, 0xcf, 0xc3, 0x07, 0xde, 0x86, 0x0f, 0x3c, 0x05, 0x35, 0x3d,
+	0x92, 0x2d, 0xd9, 0x96, 0x73, 0x06, 0xea, 0x3e, 0x6c, 0xad, 0xa7, 0xa7, 0xfb, 0x37, 0x3d, 0xfd,
+	0xe7, 0x37, 0x2d, 0x38, 0x0d, 0xa8, 0xff, 0x96, 0xfa, 0xe7, 0x9c, 0x07, 0xe7, 0x9c, 0xfa, 0x81,
+	0x13, 0x84, 0xf1, 0xff, 0x36, 0xf7, 0x59, 0xc8, 0x48, 0x85, 0xf3, 0xa0, 0x1d, 0x89, 0x9a, 0xdf,
+	0x7f, 0xcd, 0xd8, 0x6b, 0x97, 0x9e, 0xe3, 0xd6, 0x74, 0x71, 0x75, 0x4e, 0xe7, 0x3c, 0xbc, 0x95,
+	0x9a, 0xcd, 0xfb, 0xeb, 0x9b, 0xa1, 0x33, 0xa7, 0x41, 0x68, 0xcd, 0x79, 0xa4, 0x70, 0x3c, 0x73,
+	0x1d, 0xea, 0x85, 0xe7, 0xfc, 0x2a, 0x10, 0x7f, 0xeb, 0x52, 0xe1, 0x02, 0x8f, 0xa4, 0xc6, 0xbf,
+	0x55, 0x28, 0x0d, 0xd9, 0x74, 0xe0, 0x5d, 0x31, 0x72, 0x17, 0x8a, 0x37, 0x6c, 0x3a, 0x71, 0x6c,
+	0x5d, 0x39, 0x55, 0x5a, 0x65, 0xb3, 0x70, 0xc3, 0xa6, 0x03, 0x9b, 0x7c, 0x0c, 0xe5, 0xd0, 0xb7,
+	0xbc, 0xe0, 0x8a, 0xf9, 0x73, 0x3d, 0x77, 0xaa, 0xb4, 0x2a, 0x17, 0xb5, 0xb6, 0x40, 0x18, 0xc7,
+	0x52, 0x73, 0xa5, 0x40, 0x1e, 0x40, 0x95, 0x3b, 0x9c, 0xba, 0x8e, 0x47, 0x27, 0x9e, 0x35, 0xa7,
+	0x7a, 0x1e, 0xb1, 0x0e, 0x63, 0xe1, 0x0b, 0x6b, 0x4e, 0xc9, 0x6f, 0xa0, 0xc1, 0x2d, 0xdf, 0x72,
+	0x5d, 0xea, 0x3a, 0xc1, 0x7c, 0x12, 0x70, 0x3a, 0xd3, 0x09, 0x22, 0x1f, 0x23, 0xf2, 0xe5, 0x6a,
+	0x73, 0xc4, 0xe9, 0xcc, 0xac, 0xf3, 0xb4, 0x80, 0x7c, 0x04, 0x45, 0xc7, 0xe3, 0x8b, 0x30, 0xd0,
+	0x0b, 0xa7, 0xf9, 0x56, 0xe5, 0xa2, 0x8a, 0x66, 0x78, 0x11, 0xbe, 0x08, 0xcd, 0x68, 0x93, 0x3c,
+	0x04, 0xe0, 0x96, 0x4f, 0xbd, 0x70, 0x72, 0xc3, 0xa6, 0x7a, 0x11, 0x4f, 0xd0, 0x62, 0x55, 0xb3,
+	0x2c, 0xf7, 0x86, 0x6c, 0x4a, 0x3e, 0x85, 0x52, 0x10, 0x5a, 0x7e, 0x48, 0x6d, 0xbd, 0x84, 0x5a,
+	0xcd, 0xb6, 0x8c, 0x72, 0x3b, 0x8e, 0x72, 0x7b, 0x1c, 0x47, 0xd9, 0x8c, 0x55, 0xc9, 0x67, 0xa0,
+	0x5d, 0x39, 0x9e, 0x13, 0x5c, 0x53, 0x5b, 0xd7, 0xde, 0x6b, 0xb6, 0xd4, 0x25, 0x8f, 0xa0, 0xca,
+	0x16, 0x21, 0x5f, 0x84, 0x93, 0x19, 0x9b, 0xcf, 0x9d, 0x50, 0x2f, 0xa3, 0x71, 0xa5, 0x2d, 0xb2,
+	0xd5, 0x45, 0x91, 0x79, 0x28, 0x35, 0xe4, 0x8a, 0x9c, 0x40, 0x71, 0xea, 0x5b, 0xde, 0xec, 0x5a,
+	0x3f, 0xc2, 0x70, 0x46, 0x2b, 0xf2, 0x00, 0x0a, 0x41, 0x68, 0x85, 0x54, 0x87, 0x53, 0xa5, 0x55,
+	0x5b, 0x85, 0x61, 0x24, 0x84, 0xa6, 0xdc, 0x23, 0x3f, 0x84, 0x43, 0x79, 0xce, 0xc4, 0xf1, 0x6c,
+	0xfa, 0x4e, 0xaf, 0x20, 0x44, 0x45, 0xca, 0x06, 0x42, 0x44, 0x1e, 0xc1, 0xb1, 0x4d, 0xaf, 0xac,
+	0x85, 0x1b, 0x4e, 0x82, 0x6b, 0xcb, 0xb7, 0x27, 0x73, 0x66, 0x2f, 0x5c, 0x47, 0xaf, 0x9f, 0xe6,
+	0x5b, 0xaa, 0x49, 0xa2, 0xbd, 0x91, 0xd8, 0xfa, 0x1d, 0xee, 0x90, 0x63, 0x28, 0xa0, 0xa6, 0x7e,
+	0xe7, 0x54, 0x69, 0xa9, 0xa6, 0x5c, 0x0c, 0x55, 0x4d, 0x6d, 0x14, 0x86, 0xaa, 0x76, 0xd8, 0xa8,
+	0x0e, 0x55, 0xad, 0xda, 0xa8, 0x0d, 0x55, 0xad, 0xd6, 0xa8, 0x0f, 0x55, 0xad, 0xd1, 0x38, 0x32,
+	0x7e, 0x0b, 0xf9, 0x4b, 0x66, 0x13, 0x02, 0x2a, 0x56, 0x86, 0xac, 0x32, 0xfc, 0xbd, 0x19, 0x92,
+	0xdc, 0x7b, 0x42, 0x62, 0xfc, 0x4b, 0x81, 0x42, 0xf7, 0x7a, 0xe1, 0xbd, 0x21, 0x35, 0xc8, 0x2d,
+	0x6b, 0x36, 0xe7, 0xd8, 0x89, 0x3a, 0xce, 0x25, 0xeb, 0xf8, 0x04, 0x8a, 0xd1, 0xad, 0xf2, 0x78,
+	0xab, 0x68, 0x25, 0x6e, 0x22, 0xe3, 0xa2, 0xca, 0x9b, 0xe0, 0x42, 0x48, 0xd9, 0x37, 0x1e, 0xf5,
+	0xf5, 0x82, 0xc4, 0xc0, 0x05, 0xf9, 0x11, 0xa8, 0x9c, 0xd9, 0x81, 0x5e, 0xc4, 0xaa, 0x6b, 0xb4,
+	0x13, 0x4d, 0xdb, 0xbe, 0x64, 0xb6, 0x89, 0xbb, 0xe4, 0x67, 0x71, 0x56, 0x4a, 0x98, 0x95, 0xef,
+	0xa5, 0xd4, 0xd0, 0xe7, 0x54, 0x7e, 0x3e, 0x04, 0x70, 0xa9, 0x15, 0xd0, 0x89, 0x68, 0x64, 0x2c,
+	0x24, 0xd5, 0x2c, 0xa3, 0x44, 0x14, 0x8f, 0xf1, 0x29, 0x14, 0xd1, 0x26, 0x20, 0x67, 0x50, 0x9c,
+	0xe1, 0x2f, 0x5d, 0xc1, 0xf3, 0xc9, 0x26, 0xb0, 0x19, 0x69, 0x18, 0xbf, 0x02, 0x2d, 0xea, 0xeb,
+	0x80, 0x9c, 0x83, 0x86, 0x01, 0xf1, 0xae, 0x58, 0x64, 0x79, 0x9c, 0xb2, 0x8c, 0x14, 0xcd, 0xd2,
+	0x8d, 0xfc, 0x61, 0x8c, 0xa1, 0x3c, 0x64, 0xd3, 0x97, 0x18, 0xee, 0x2c, 0x5a, 0xd8, 0x3f, 0x63,
+	0x7f, 0x45, 0x97, 0xf0, 0xea, 0x59, 0xa0, 0xcb, 0x7a, 0xce, 0xed, 0xa8, 0xe7, 0x64, 0xdb, 0xe5,
+	0xbf, 0x7d, 0xdb, 0x19, 0x2e, 0x9c, 0x74, 0x6c, 0xfb, 0x65, 0xc2, 0x25, 0x93, 0xfe, 0x79, 0x41,
+	0x83, 0x30, 0xdb, 0x9b, 0x62, 0xf6, 0xdd, 0xa2, 0xad, 0x44, 0x6b, 0xe6, 0x93, 0xad, 0x69, 0xfc,
+	0x53, 0x85, 0xc3, 0xcb, 0x88, 0xf4, 0x90, 0x5e, 0x37, 0x98, 0x51, 0xd9, 0xc2, 0x8c, 0xfb, 0x91,
+	0xed, 0x36, 0x1e, 0x3d, 0xdc, 0x87, 0x47, 0xcf, 0x96, 0x3c, 0xaa, 0x26, 0x2a, 0x6a, 0xe5, 0x76,
+	0x92, 0x4c, 0xcf, 0xa0, 0x12, 0x25, 0xdc, 0xa7, 0x9c, 0x61, 0x5f, 0x54, 0x2e, 0xca, 0x18, 0x12,
+	0x93, 0x72, 0x66, 0x82, 0xdc, 0x15, 0xbf, 0xc9, 0x2f, 0x00, 0x66, 0x3e, 0xb5, 0x42, 0x6a, 0x4f,
+	0xac, 0x30, 0x22, 0xde, 0x5d, 0x49, 0x2a, 0x47, 0xda, 0x9d, 0x70, 0x45, 0x2c, 0xa5, 0x04, 0xb1,
+	0x90, 0x56, 0x5c, 0x18, 0x1a, 0x16, 0x46, 0xda, 0xcf, 0x75, 0xb6, 0xf3, 0xe9, 0x4c, 0x70, 0x3e,
+	0xf5, 0x7d, 0xe6, 0x23, 0xb7, 0x96, 0xcd, 0x8a, 0x94, 0xf5, 0x85, 0x88, 0x3c, 0x03, 0x10, 0xe9,
+	0x9e, 0xb1, 0x85, 0x17, 0x06, 0x3a, 0xe0, 0xcd, 0x5b, 0xe9, 0x5e, 0x4e, 0x24, 0x4e, 0xd4, 0x5f,
+	0x17, 0x55, 0xfb, 0x5e, 0xe8, 0xdf, 0x9a, 0xe5, 0x9b, 0x78, 0x4d, 0x74, 0xf1, 0x6c, 0x30, 0xce,
+	0xa9, 0x8d, 0xa4, 0xaa, 0x99, 0xf1, 0xb2, 0xf9, 0x05, 0xd4, 0xd2, 0x66, 0xa4, 0x01, 0xf9, 0x37,
+	0xf4, 0x16, 0x93, 0x5e, 0x30, 0xc5, 0x4f, 0x71, 0xd3, 0xb7, 0x96, 0xbb, 0x90, 0xc5, 0x5e, 0x30,
+	0xe5, 0xe2, 0x97, 0xb9, 0xcf, 0x95, 0xa1, 0xaa, 0xe5, 0x1b, 0xaa, 0xf1, 0x0e, 0x48, 0xd2, 0x8f,
+	0xee, 0xb5, 0xe5, 0xbd, 0xa6, 0xe4, 0xe7, 0xa0, 0xc5, 0x15, 0x83, 0x60, 0x95, 0x8b, 0x7b, 0x99,
+	0xae, 0x9b, 0x4b, 0x55, 0xf2, 0x53, 0x50, 0xc3, 0x5b, 0x1e, 0x37, 0xd6, 0x3a, 0x25, 0x09, 0xe4,
+	0xf1, 0x2d, 0xa7, 0x26, 0x2a, 0x19, 0x2f, 0xa1, 0x9a, 0x84, 0x09, 0xc8, 0xaf, 0x13, 0xb5, 0x9b,
+	0xa0, 0x91, 0x1d, 0x27, 0x2f, 0xcb, 0x1a, 0x09, 0xc5, 0x87, 0x0f, 0x47, 0x8b, 0x69, 0x30, 0xf3,
+	0x9d, 0x29, 0x4d, 0x21, 0xc7, 0x1d, 0xf8, 0x10, 0xea, 0x8e, 0x37, 0x73, 0x17, 0xb6, 0xc0, 0x77,
+	0x42, 0xc7, 0x72, 0xf1, 0x72, 0x9a, 0x59, 0x8b, 0xc4, 0x03, 0x29, 0xc5, 0x42, 0xc0, 0xf2, 0x90,
+	0xcd, 0x91, 0xa6, 0x40, 0x7c, 0xa0, 0xa2, 0x92, 0x31, 0xfe, 0xa1, 0x80, 0xbe, 0x3c, 0x34, 0xe6,
+	0xc2, 0xbd, 0xcf, 0x4b, 0x28, 0xce, 0x30, 0x4c, 0x01, 0x9e, 0xbc, 0x52, 0x94, 0xc1, 0x0b, 0x56,
+	0x8e, 0xe5, 0xdf, 0xe3, 0xd8, 0x8a, 0xe4, 0x44, 0xcf, 0x65, 0x90, 0x9c, 0xe1, 0x42, 0x35, 0xf2,
+	0x39, 0xca, 0x7b, 0x1b, 0x62, 0x7a, 0x8e, 0xd2, 0xbe, 0x9b, 0xc3, 0xf7, 0x4b, 0x78, 0x0f, 0xf4,
+	0xe7, 0x4e, 0x10, 0x6e, 0x4d, 0xcd, 0xf2, 0x62, 0xca, 0xfb, 0x22, 0x7e, 0x1f, 0x0a, 0xb8, 0x16,
+	0x9c, 0xe8, 0x2d, 0xe6, 0x53, 0xea, 0xa3, 0x8d, 0x6a, 0x46, 0x2b, 0xe3, 0x6f, 0x0a, 0x34, 0x5f,
+	0x71, 0xdb, 0x0a, 0x69, 0xba, 0x75, 0xa3, 0x93, 0xbe, 0x15, 0x43, 0xb6, 0xd2, 0x4f, 0xc4, 0x1e,
+	0x4c, 0x90, 0xdf, 0x60, 0x02, 0xe3, 0x6b, 0xf8, 0x60, 0xdd, 0x1f, 0xec, 0xdf, 0xbd, 0x3c, 0x4a,
+	0xb0, 0x40, 0x2e, 0xc5, 0x02, 0xc6, 0x0d, 0xdc, 0x7b, 0xe2, 0xb2, 0xd9, 0x9b, 0xef, 0xe0, 0xb6,
+	0xc6, 0x63, 0xa8, 0x77, 0x6c, 0x5b, 0x0e, 0x01, 0xd1, 0x09, 0xfb, 0xcc, 0x0b, 0x2f, 0xe0, 0xa8,
+	0xeb, 0x5a, 0xce, 0x3c, 0x05, 0x90, 0xf1, 0x2e, 0x1a, 0x90, 0xe7, 0x2c, 0xee, 0xc0, 0xcd, 0x21,
+	0x48, 0x6c, 0x1a, 0x03, 0x38, 0x32, 0xa9, 0x47, 0xbf, 0x49, 0xe1, 0xdd, 0x03, 0x0d, 0x8f, 0x5b,
+	0x21, 0x96, 0x70, 0x3d, 0xb0, 0xc5, 0x16, 0x67, 0xb6, 0x0c, 0x84, 0x1c, 0xdb, 0x4a, 0x9c, 0xd9,
+	0x22, 0x06, 0xc6, 0x10, 0xc8, 0x53, 0x7c, 0xc3, 0xff, 0x0f, 0x58, 0x36, 0x10, 0x93, 0xbe, 0x65,
+	0x6f, 0xe8, 0xff, 0x8e, 0x25, 0xf2, 0x3e, 0xb7, 0xde, 0x5d, 0x8a, 0x79, 0x30, 0x8f, 0x65, 0x1e,
+	0x2f, 0x8d, 0xcf, 0xa0, 0xfe, 0x47, 0xcb, 0x11, 0x5f, 0x16, 0x26, 0x0d, 0x38, 0xf3, 0x02, 0xba,
+	0x6a, 0x7a, 0x25, 0x7b, 0xb2, 0x31, 0xfe, 0x02, 0x15, 0xf4, 0x2b, 0x6a, 0xf9, 0x16, 0x14, 0xd0,
+	0x8d, 0xad, 0x9d, 0x27, 0x2f, 0x20, 0x15, 0xf6, 0x6a, 0x76, 0xf1, 0xee, 0xf8, 0xd4, 0xb2, 0x6f,
+	0xd1, 0x6b, 0xcd, 0x94, 0x0b, 0xe3, 0x6b, 0x38, 0x59, 0xb2, 0xa5, 0x9c, 0x37, 0xe3, 0xe8, 0x34,
+	0x21, 0x2f, 0x3e, 0x9f, 0x94, 0xb5, 0xcf, 0x27, 0x21, 0xdc, 0xc6, 0xa3, 0xb9, 0x6d, 0x3c, 0x7a,
+	0xf6, 0x7b, 0x80, 0xd5, 0xe4, 0x4b, 0x6a, 0x00, 0xaf, 0x5e, 0x74, 0x46, 0xa3, 0xc1, 0xb3, 0x17,
+	0xfd, 0x5e, 0xe3, 0x80, 0x1c, 0x82, 0xb6, 0x5c, 0x29, 0xa4, 0x02, 0xa5, 0xd1, 0xab, 0x6e, 0xb7,
+	0x3f, 0x1a, 0x35, 0x72, 0x04, 0xa0, 0xf8, 0xb4, 0x33, 0x78, 0xde, 0xef, 0x35, 0xf2, 0x42, 0x6d,
+	0x74, 0xf9, 0x7c, 0x30, 0x1e, 0xf7, 0x7b, 0x0d, 0xf5, 0xec, 0x91, 0x80, 0x8c, 0xef, 0x26, 0xf4,
+	0xba, 0x66, 0xbf, 0x33, 0xee, 0x37, 0x0e, 0xc4, 0xef, 0x57, 0x97, 0x3d, 0xf1, 0x5b, 0x11, 0xbf,
+	0x7b, 0xfd, 0xe7, 0xfd, 0x71, 0xbf, 0x91, 0xbb, 0xf8, 0x7b, 0x1d, 0xf2, 0x9d, 0xcb, 0x01, 0x79,
+	0x0c, 0xd5, 0x2e, 0x0e, 0x1c, 0xf1, 0xa7, 0xef, 0x56, 0x2e, 0x6d, 0x6e, 0x95, 0x1a, 0x07, 0xe4,
+	0x0b, 0x80, 0x81, 0x27, 0x86, 0x2d, 0xfc, 0x76, 0x3c, 0x41, 0xad, 0x95, 0x20, 0x0a, 0xdb, 0x0e,
+	0xeb, 0x43, 0xc1, 0xb5, 0xcb, 0xe9, 0xfc, 0x0e, 0xea, 0x45, 0xa2, 0xd8, 0xf8, 0xee, 0x36, 0xe3,
+	0xc0, 0x38, 0x20, 0x9f, 0x40, 0xb5, 0x47, 0x5d, 0xba, 0x72, 0x7d, 0x99, 0x90, 0xe6, 0xc9, 0xc6,
+	0x80, 0xd5, 0x9f, 0xf3, 0xf0, 0xd6, 0x38, 0x20, 0x3d, 0xb8, 0x97, 0x32, 0x0a, 0x9e, 0x32, 0x3f,
+	0x26, 0x11, 0x52, 0x4d, 0x71, 0xca, 0x0e, 0x94, 0xaf, 0xe0, 0x68, 0xe3, 0x3d, 0x25, 0x1f, 0xa5,
+	0x9f, 0x83, 0x8c, 0xf7, 0xb6, 0xd9, 0xdc, 0x76, 0x1f, 0x99, 0x3d, 0xe3, 0xe0, 0x91, 0x42, 0xba,
+	0x50, 0x5f, 0x66, 0x24, 0xfa, 0xee, 0x38, 0x59, 0x37, 0x91, 0xf2, 0x1d, 0x0e, 0x76, 0xa0, 0xb6,
+	0x04, 0x89, 0x3e, 0x33, 0xd6, 0x31, 0x50, 0xbc, 0x03, 0xe2, 0x63, 0xd0, 0x46, 0xe2, 0xeb, 0x5e,
+	0x24, 0x76, 0x15, 0xd9, 0xac, 0x54, 0x0e, 0x80, 0xc8, 0x03, 0x53, 0x83, 0x7e, 0xf6, 0x54, 0xb4,
+	0xe3, 0xe0, 0x01, 0x90, 0xf4, 0x4b, 0xf4, 0xdf, 0x43, 0x3d, 0x86, 0xfa, 0x33, 0x9a, 0x7a, 0xcb,
+	0xd7, 0x73, 0x9c, 0x0d, 0x6b, 0x1c, 0x90, 0x2f, 0xe1, 0x68, 0x63, 0x16, 0x58, 0x4b, 0x73, 0xd6,
+	0xac, 0xb0, 0x96, 0xe6, 0x94, 0x0a, 0x3a, 0x46, 0x64, 0x19, 0xee, 0xf2, 0x2d, 0xfb, 0x5e, 0x4e,
+	0x82, 0xa1, 0xd2, 0xde, 0x9d, 0x6d, 0x2f, 0xc2, 0xad, 0x2e, 0xde, 0xcf, 0x74, 0x31, 0x51, 0x8e,
+	0x5f, 0xc2, 0x9d, 0x2d, 0x73, 0x0a, 0x79, 0x98, 0xb2, 0xcd, 0x9e, 0x64, 0x76, 0x5c, 0xe2, 0x4f,
+	0x70, 0x77, 0xeb, 0xc4, 0x41, 0x7e, 0xb2, 0x13, 0x3b, 0x39, 0x95, 0xec, 0x40, 0xff, 0x03, 0x90,
+	0xcd, 0x81, 0x83, 0xfc, 0x38, 0x05, 0x9d, 0x39, 0x91, 0xec, 0x2c, 0xa9, 0xb2, 0xcc, 0x5c, 0xc7,
+	0x75, 0x49, 0x86, 0xda, 0x0e, 0xf3, 0x27, 0xa0, 0xc5, 0xb3, 0x09, 0xf9, 0x20, 0xe5, 0xcc, 0xda,
+	0xc8, 0xb2, 0x13, 0x03, 0x56, 0x03, 0x0a, 0xf9, 0x41, 0xfa, 0x89, 0x5b, 0x9f, 0x5c, 0x9a, 0x5b,
+	0xde, 0x4a, 0x89, 0xb1, 0x1a, 0x4a, 0xd6, 0x30, 0x36, 0xa6, 0x95, 0x0c, 0x8c, 0x1e, 0x54, 0x12,
+	0xd3, 0x08, 0x49, 0x97, 0xd3, 0xe6, 0x9c, 0x92, 0x8d, 0x92, 0x98, 0x43, 0xd6, 0x50, 0x36, 0x27,
+	0x94, 0x0c, 0x94, 0x31, 0xd4, 0xd7, 0xde, 0x6c, 0xf2, 0x60, 0x7b, 0x2b, 0xa4, 0x5e, 0xf4, 0xa6,
+	0xbe, 0x89, 0x96, 0x28, 0xfe, 0x0b, 0xe4, 0x0f, 0x69, 0xf1, 0x94, 0xf9, 0x69, 0x2a, 0xbc, 0xb3,
+	0x69, 0x2a, 0x5a, 0xfb, 0xf3, 0xb8, 0xb5, 0x33, 0xcc, 0x32, 0xf3, 0xfa, 0xa4, 0xfc, 0x55, 0x29,
+	0x42, 0x9b, 0x16, 0x71, 0xf3, 0x93, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff, 0x8d, 0x38, 0x10, 0x82,
+	0x2e, 0x17, 0x00, 0x00,
 }

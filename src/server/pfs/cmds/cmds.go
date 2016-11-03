@@ -678,7 +678,7 @@ files into your Pachyderm cluster.
 		Use:   "delete-file repo-name commit-id path/to/file",
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
-		Run: cmd.RunFixedArgs(2, func(args []string) error {
+		Run: cmd.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewFromAddress(address)
 			if err != nil {
 				return err
