@@ -1,0 +1,9 @@
+{
+  "pipeline": {
+    "name": "test_push_images"
+  },
+  "transform": {
+    "cmd": [ "true" ],
+	"image": "test-job-shim"
+  }
+}

@@ -42,7 +42,7 @@
 ##### How is data storage handled in Pachyderm?
 Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc).
 You can link your object storage backend to Pachyderm by following our
-[cloud deployment guide](development/deploying_on_the_cloud.html)
+[cloud deployment guide](deployment/deploying_on_the_cloud.html)
 and passing your credentials as a Kubernetes secret.
 
 ##### What object storage backends are supported?
@@ -110,7 +110,7 @@ performance in modern data centers.
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since
 Pachyderm’s only dependency is Kubernetes, it can be run locally, AWS, Google Cloud,
 Azure, or on-prem. Check out our [local installation](getting_started/local_installation.html) 
-and [cloud deployment](development/deploying_on_the_cloud.html) guides.
+and [cloud deployment](deployment/deploying_on_the_cloud.html) guides.
 
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
 Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be
@@ -146,7 +146,7 @@ experimentation or exploring your data. Once you have a job that's working well 
 ##### What are pipelines and how do they work?
 Pipelines are data transformations that are “subscribed” to data changes on
 their input repos and automatically create jobs to process the new data as it comes in. A pipeline is defined by a JSON spec that describes one or more transformations
-to execute when new input data is committed. All the details of a [pipeline spec](development/pipeline_spec.html) are outlined in our documentation and demonstrated in our [examples](examples/examples.html).
+to execute when new input data is committed. All the details of a [pipeline spec](deployment/pipeline_spec.html) are outlined in our documentation and demonstrated in our [examples](examples/examples.html).
 
 ##### How does Pachyderm manage pipeline dependencies?
 Dependencies for pipelines are handled explicitly in the pipeline spec.
@@ -177,7 +177,7 @@ seamlessly transition from a large nightly batch job down to a streaming
 operation processing tiny micro-batches of data.
 
 ##### How is my computation parallelized?
-Both jobs and pipelines have a “paralellism” parameter as outlined in the [pipeline spec](development/pipeline_spec.html). This parameter dictates how
+Both jobs and pipelines have a “paralellism” parameter as outlined in the [pipeline spec](deployment/pipeline_spec.html). This parameter dictates how
 many containers Pachyderm spins up to process your data in parallel. For
 example, `“paralellism”: 10` would create up to 10 containers that each process 1/10 of
 the data. Each pipeline can have a different parallelization factor, giving you
