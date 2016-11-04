@@ -43,6 +43,6 @@ Backup the data storage system
 We don’t currently have migration scripts that touch the data storage
 system.
 
-.. _“Deploying on the Cloud”: http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html
+.. _“Deploying on the Cloud”: http://pachyderm.readthedocs.io/en/latest/deployment/deploying_on_the_cloud.html
 .. _GCE Persistent Volume: https://cloud.google.com/compute/docs/disks/create-snapshots
 .. _Elastic Block Store (EBS): http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html

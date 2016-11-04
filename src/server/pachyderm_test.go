@@ -1815,11 +1815,11 @@ func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 	require.NoError(t, c.DeleteRepo(repo, false))
 }
 
-// This test fails if you updated some static assets (such as doc/development/pipeline_spec.md)
+// This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
 func TestAssets(t *testing.T) {
-	assetPaths := []string{"doc/development/pipeline_spec.md"}
+	assetPaths := []string{"doc/deployment/pipeline_spec.md"}
 
 	for _, path := range assetPaths {
 		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
