@@ -55,7 +55,7 @@ func ReportUserAction(ctx context.Context, r *Reporter, action string) func(time
 		return func(time.Time, error) {}
 	}
 	// If we report nil, segment sees it, but mixpanel omits the field
-	r.reportUserAction(ctx, fmt.Sprintf("%vStarted", action), 0)
+	r.reportUserAction(ctx, fmt.Sprintf("%vStarted", action), 1)
 	return func(start time.Time, err error) {
 		if err == nil {
 			r.reportUserAction(ctx, fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
@@ -104,7 +104,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 // It handles reporting the start, finish, and error conditions of the action
 func ReportAndFlushUserAction(action string) func(time.Time, error) {
 	// If we report nil, segment sees it, but mixpanel omits the field
-	reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), 0)
+	reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), 1)
 	return func(start time.Time, err error) {
 		if err == nil {
 			reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
