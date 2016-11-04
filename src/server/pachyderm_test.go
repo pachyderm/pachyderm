@@ -3488,6 +3488,9 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 }
 
 func TestParallelismSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	// Test Constant strategy
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &ppsclient.ParallelismSpec{
 		Strategy: ppsclient.ParallelismSpec_CONSTANT,
