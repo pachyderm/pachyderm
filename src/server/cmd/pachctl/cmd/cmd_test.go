@@ -32,19 +32,22 @@ func TestPachctl(t *testing.T) {
 		helpers.TestCmd(cmd, []string{"create-repo", repoName}, "", expectedState, c, t)
 	})
 
-	commitState := repoState.Commit("master/0")
+	commitState1 := repoState.Commit("master/0")
 	t.Run("start/finish-commit", func(t *testing.T) {
-		commitState.Info.CommitType = client.CommitTypeWrite
+		commitState1.Info.CommitType = client.CommitTypeWrite
 		helpers.TestCmd(cmd, []string{"start-commit", repoName, "master"}, "", expectedState, c, t)
-		commitState.Info.CommitType = client.CommitTypeRead
+		fileState1 := commitState1.File("/file1")
+		fileState1.Content = "foo\n"
+		helpers.TestCmd(cmd, []string{"put-file", repoName, "master", "file1"}, fileState1.Content, expectedState, c, t)
+		commitState1.Info.CommitType = client.CommitTypeRead
 		helpers.TestCmd(cmd, []string{"finish-commit", repoName, "master"}, "", expectedState, c, t)
 	})
 
 	commitState2 := repoState.Commit("master/1")
-	fileState := commitState2.File("/file")
-	fileState.Content = "foo\n"
+	fileState2 := commitState2.File("/file2")
+	fileState2.Content = "bar\n"
 	t.Run("put-file", func(t *testing.T) {
-		helpers.TestCmd(cmd, []string{"put-file", repoName, "master", "file", "-c"}, fileState.Content, expectedState, c, t)
+		helpers.TestCmd(cmd, []string{"put-file", repoName, "master", "file2", "-c"}, fileState2.Content, expectedState, c, t)
 	})
 }
 
