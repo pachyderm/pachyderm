@@ -29,7 +29,7 @@ Common Errors
 
 **Solution**: This is usually due to a version mismatch. Start with ``pachctl version`` and make sure your client and server version are matching. 
 
-If you got the error when running a pipeline, it's likely you're using the wrong version of the pipeline spec. For example, ``json: cannot unmarshal bool into Go value of type pps.Incremental`` is because the pipeline spec between v1.1 and v1.2 changed the type for incrememental from ``bool`` to ``string``. Refer to :doc:`../development/pipeline_spec` to check that yours is correct.
+If you got the error when running a pipeline, it's likely you're using the wrong version of the pipeline spec. For example, ``json: cannot unmarshal bool into Go value of type pps.Incremental`` is because the pipeline spec between v1.1 and v1.2 changed the type for incrememental from ``bool`` to ``string``. Refer to :doc:`../deployment/pipeline_spec` to check that yours is correct.
 
 
 **Error**: Job status is stuck in "pulling" state
@@ -46,7 +46,7 @@ or ``repo <NAME> already exists``
 
 	1. Delete the previous pipelines and associated repos. ``pachctl delete-repo <name>`` and  ``pachctl delete-pipeline <name>``.
 	2. Change the "name" field in your pipeline spec JSON file. 
-	3. Use the ``update-pipeline`` command. ``update-pipeline`` is a bit more complicated to use so make sure to read the :doc:`../development/updating_pipelines` docs.
+	3. Use the ``update-pipeline`` command. ``update-pipeline`` is a bit more complicated to use so make sure to read the :doc:`../deployment/updating_pipelines` docs.
 
 
 **Error**: A pipeline using ``grep`` fails with a [1] error code.
