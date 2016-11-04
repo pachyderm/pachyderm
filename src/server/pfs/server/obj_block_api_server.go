@@ -36,7 +36,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		return nil, err
 	}
 	return &objBlockAPIServer{
-		Logger:      protorpclog.NewLogger("pachyderm.pfsclient.objBlockAPIServer"),
+		Logger:      protorpclog.NewLogger("pfs.BlockAPI.Obj"),
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
