@@ -1013,20 +1013,23 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
 	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"sh"},
-		[]string{
-			"echo foo > /pfs/out/file",
-		},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 3,
-		},
-		nil,
-		false,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"echo foo > /pfs/out/file",
+				},
+				Overwrite: true,
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 3,
+			},
+		})
+	require.NoError(t, err)
 
 	// Manually trigger the pipeline
 	job, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
@@ -1163,18 +1166,18 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestRemoveAndAppend(t *testing.T) {
-	testParellelRemoveAndAppend(t, 1)
+func TestAppend(t *testing.T) {
+	testParallelAppend(t, 1)
 }
 
-func TestParellelRemoveAndAppend(t *testing.T) {
+func TestParellelAppend(t *testing.T) {
 	// This test does not pass on Travis which is why it's skipped right now As
 	// soon as we have a hypothesis for why this fails on travis but not
 	// locally we should un skip this test and try to fix it.
-	testParellelRemoveAndAppend(t, 3)
+	testParallelAppend(t, 3)
 }
 
-func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
+func testParallelAppend(t *testing.T, parallelism int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1215,7 +1218,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
-				"unlink /pfs/out/file && echo bar > /pfs/out/file",
+				"echo bar > /pfs/out/file",
 			},
 		},
 		ParallelismSpec: &ppsclient.ParallelismSpec{
@@ -1237,7 +1240,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", false, nil, &buffer2))
-	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
+	require.Equal(t, strings.Repeat("foo\n", parallelism)+strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {
