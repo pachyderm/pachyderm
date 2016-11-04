@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +49,8 @@ func TestCmd(cmd *cobra.Command, args []string, stdin string, expectedState *Sta
 // State describes the state of a Pachyderm cluster. It's used to specify what
 // a cluster should look like for the purposes of automating tests.
 type State struct {
-	Repos []*RepoState
+	Repos     []*RepoState
+	Pipelines []*PipelineState
 }
 
 func (s *State) Repo(name string) *RepoState {
@@ -87,6 +89,16 @@ type FileState struct {
 	Content string
 }
 
+func (s *State) Pipeline(name string) *PipelineState {
+	pipelineState := &PipelineState{Info: &pps.PipelineInfo{Pipeline: client.NewPipeline(name)}}
+	s.Pipelines = append(s.Pipelines, pipelineState)
+	return pipelineState
+}
+
+type PipelineState struct {
+	Info *pps.PipelineInfo
+}
+
 // MatchState attempts to match the state specified by `state` with the state
 // it can access through `c`. It returns nil if the state matches otherwise it
 // returns an error which describes what it didn't find. It also may return
@@ -114,6 +126,11 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 				matchFileState(fileState, fileInfo, buffer.String(), t)
 			}
 		}
+	}
+	for _, pipelineState := range state.Pipelines {
+		pipelineInfo, err := c.InspectPipeline(pipelineState.Info.Pipeline.Name)
+		require.NoError(t, err)
+		matchPipelineState(pipelineState, pipelineInfo, t)
 	}
 }
 
@@ -212,6 +229,17 @@ func matchFiles(x []*pfs.File, y []*pfs.File, t *testing.T) {
 	sort.Strings(xs)
 	sort.Strings(ys)
 	require.Equal(t, xs, ys)
+}
+
+func matchPipelineState(pipelineState *PipelineState, pipelineInfo *pps.PipelineInfo, t *testing.T) {
+	require.Equal(t, pipelineState.Info.Pipeline, pipelineInfo.Pipeline)
+	if pipelineState.Info.Transform != nil {
+		require.Equal(t, pipelineState.Info.Transform, pipelineInfo.Transform)
+	}
+	if pipelineState.Info.ParallelismSpec != nil {
+		require.Equal(t, pipelineState.Info.ParallelismSpec, pipelineInfo.ParallelismSpec)
+	}
+	//TODO this isn't matching everything
 }
 
 func UniqueString(prefix string) string {
