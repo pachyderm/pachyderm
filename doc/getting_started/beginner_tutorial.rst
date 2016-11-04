@@ -82,7 +82,7 @@ Now that we've got some data in our repo, it's time to do something with it.
 ``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at `examples/fruit_stand/pipeline.json on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/fruit_stand/pipeline.json>`_. Please open a new tab to view the pipeline while we talk through it.
 
-When you want to create your own pipelines later, you can refer to the full :doc:`../development/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
+When you want to create your own pipelines later, you can refer to the full :doc:`../deployment/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
 
 For now, we're going to create a pipeline with 2 transformations in it. The first transformation filters the sales logs into separate records for apples,
 oranges and bananas. The second step sums these sales numbers into a final sales count.
@@ -228,8 +228,8 @@ You've now got Pachyderm running locally with data and a pipeline! If you want t
 
 You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
-- :doc:`../development/deploying_on_the_cloud`
-- :doc:`../development/inputing_your_data` from other sources
-- :doc:`../development/custom_pipelines` using your own code
+- :doc:`../deployment/deploying_on_the_cloud`
+- :doc:`../deployment/inputing_your_data` from other sources
+- :doc:`../deployment/custom_pipelines` using your own code
 
 We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
