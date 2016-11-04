@@ -25,6 +25,7 @@ func DeployCmd() *cobra.Command {
 	var dryRun bool
 	var registry bool
 	var rethinkdbCacheSize string
+	var logLevel string
 	cmd := &cobra.Command{
 		Use:   "deploy [amazon bucket id secret token region volume-name volume-size-in-GB | google bucket volume-name volume-size-in-GB | microsoft container storage-account-name storage-account-key volume-uri volume-size-in-GB]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
@@ -40,8 +41,15 @@ func DeployCmd() *cobra.Command {
 			if dryRun {
 				out = os.Stdout
 			}
+			opts := &assets.AssetOpts{
+				Shards:             uint64(shards),
+				Registry:           registry,
+				RethinkdbCacheSize: rethinkdbCacheSize,
+				Version:            version,
+				LogLevel:           logLevel,
+			}
 			if len(args) == 0 {
-				assets.WriteLocalAssets(out, uint64(shards), hostPath, registry, rethinkdbCacheSize, version)
+				assets.WriteLocalAssets(out, opts, hostPath)
 			} else {
 				switch args[0] {
 				case "amazon":
@@ -53,8 +61,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[7])
 					}
-					assets.WriteAmazonAssets(out, uint64(shards), args[1], args[2], args[3], args[4],
-						args[5], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteAmazonAssets(out, opts, args[1], args[2], args[3], args[4], args[5], volumeName, volumeSize)
 				case "google":
 					if len(args) != 4 {
 						return fmt.Errorf("expected 4 args, got %d", len(args))
@@ -64,7 +71,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 					}
-					assets.WriteGoogleAssets(out, uint64(shards), args[1], volumeName, volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteGoogleAssets(out, opts, args[1], volumeName, volumeSize)
 				case "microsoft":
 					if len(args) != 6 {
 						return fmt.Errorf("expected 6 args, got %d", len(args))
@@ -81,7 +88,7 @@ func DeployCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 					}
-					assets.WriteMicrosoftAssets(out, uint64(shards), args[1], args[2], args[3], volumeURI.String(), volumeSize, registry, rethinkdbCacheSize, version)
+					assets.WriteMicrosoftAssets(out, opts, args[1], args[2], args[3], volumeURI.String(), volumeSize)
 				default:
 					return fmt.Errorf("expected one of google, amazon, or microsoft; instead got '%v'", args[0])
 				}
@@ -104,5 +111,6 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	cmd.Flags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	return cmd
 }
