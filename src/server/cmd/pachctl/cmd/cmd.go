@@ -101,7 +101,6 @@ Environment variables:
 			return writer.Flush()
 		}),
 	}
-	version.Flags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
 		Short: "Delete everything.",
