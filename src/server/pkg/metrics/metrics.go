@@ -52,6 +52,7 @@ func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsD
 // and reports the start, finish, and error conditions
 func ReportUserAction(ctx context.Context, r *Reporter, action string) func(time.Time, error) {
 	if r == nil {
+		// This happens when stubbing out metrics for testing, e.g. src/server/pfs/server/server_test.go
 		return func(time.Time, error) {}
 	}
 	// If we report nil, segment sees it, but mixpanel omits the field
