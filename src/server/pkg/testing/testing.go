@@ -89,10 +89,10 @@ type FileState struct {
 	Content string
 }
 
-func (s *State) Pipeline(name string) *PipelineState {
+func (s *State) Pipeline(name string) (*PipelineState, *RepoState) {
 	pipelineState := &PipelineState{Info: &pps.PipelineInfo{Pipeline: client.NewPipeline(name)}}
 	s.Pipelines = append(s.Pipelines, pipelineState)
-	return pipelineState
+	return pipelineState, s.Repo(name)
 }
 
 type PipelineState struct {

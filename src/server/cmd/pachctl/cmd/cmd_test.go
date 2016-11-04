@@ -6,8 +6,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	helpers "github.com/pachyderm/pachyderm/src/server/pkg/testing"
 	"github.com/spf13/cobra"
@@ -25,7 +27,7 @@ func TestPachctl(t *testing.T) {
 	require.NoError(t, err)
 	cmd := rootCmd(t)
 	expectedState := &helpers.State{}
-	repoName := helpers.UniqueString("TestCreateRepo")
+	repoName := helpers.UniqueString("TestPachctl")
 
 	repoState := expectedState.Repo(repoName)
 	t.Run("create-repo", func(t *testing.T) {
@@ -48,6 +50,36 @@ func TestPachctl(t *testing.T) {
 	fileState2.Content = "bar\n"
 	t.Run("put-file", func(t *testing.T) {
 		helpers.TestCmd(cmd, []string{"put-file", repoName, "master", "file2", "-c"}, fileState2.Content, expectedState, c, t)
+	})
+
+	pipelineName := helpers.UniqueString("TestPachctl")
+	_, outputRepoState := expectedState.Pipeline(pipelineName)
+	outputRepoState.Commit("").File("/file1").Content = "foo\n"
+	outputRepoState.Commit("").File("/file1").Content = "foo\n"
+	t.Run("create-pipeline", func(t *testing.T) {
+		createPipelineRequest := &pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", "/pfs/in/file1", "/pfs/out/file1"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*pps.PipelineInput{
+				{
+					Repo: client.NewRepo(repoName),
+					Method: &pps.Method{
+						Partition:   pps.Partition_BLOCK,
+						Incremental: pps.Incremental_NONE,
+					},
+				},
+			},
+		}
+		marshaler := &jsonpb.Marshaler{}
+		pipelineSpec, err := marshaler.MarshalToString(createPipelineRequest)
+		require.NoError(t, err)
+		helpers.TestCmd(cmd, []string{"create-pipeline"}, pipelineSpec, expectedState, c, t)
 	})
 }
 
