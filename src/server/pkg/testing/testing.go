@@ -135,7 +135,7 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 }
 
 func matchRepoState(repoState *RepoState, repoInfo *pfs.RepoInfo, t *testing.T) {
-	require.Equal(t, repoState.Info.Repo, repoInfo.Repo)
+	matchRepo(repoState.Info.Repo, repoInfo.Repo, t)
 	if repoState.Info.Created != nil {
 		require.Equal(t, repoState.Info.Created, repoInfo.Created)
 	}
@@ -144,6 +144,12 @@ func matchRepoState(repoState *RepoState, repoInfo *pfs.RepoInfo, t *testing.T) 
 	}
 	if repoState.Info.Provenance != nil {
 		matchRepoProvenance(repoState.Info.Provenance, repoInfo.Provenance, t)
+	}
+}
+
+func matchRepo(x *pfs.Repo, y *pfs.Repo, t *testing.T) {
+	if x.Name != "" {
+		require.Equal(t, x.Name, y.Name)
 	}
 }
 
@@ -162,7 +168,7 @@ func matchRepoProvenance(x []*pfs.Repo, y []*pfs.Repo, t *testing.T) {
 }
 
 func matchCommitState(commitState *CommitState, commitInfo *pfs.CommitInfo, t *testing.T) {
-	require.Equal(t, commitState.Info.Commit, commitInfo.Commit)
+	matchCommit(commitState.Info.Commit, commitInfo.Commit, t)
 	if commitState.Info.Branch != "" {
 		require.Equal(t, commitState.Info.Branch, commitInfo.Commit)
 	}
@@ -186,6 +192,13 @@ func matchCommitState(commitState *CommitState, commitInfo *pfs.CommitInfo, t *t
 	}
 }
 
+func matchCommit(x *pfs.Commit, y *pfs.Commit, t *testing.T) {
+	matchRepo(x.Repo, y.Repo, t)
+	if x.ID != "" {
+		require.Equal(t, x.ID, y.ID)
+	}
+}
+
 func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {
 	var xs []string
 	var ys []string
@@ -201,7 +214,7 @@ func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {
 }
 
 func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content string, t *testing.T) {
-	require.Equal(t, fileState.Info.File, fileInfo.File)
+	matchFile(fileState.Info.File, fileInfo.File, t)
 	if fileState.Info.FileType != pfs.FileType_FILE_TYPE_NONE {
 		require.Equal(t, fileState.Info.FileType, fileInfo.FileType)
 	}
@@ -215,6 +228,13 @@ func matchFileState(fileState *FileState, fileInfo *pfs.FileInfo, content string
 		matchFiles(fileState.Info.Children, fileInfo.Children, t)
 	}
 	require.Equal(t, fileState.Content, content)
+}
+
+func matchFile(x *pfs.File, y *pfs.File, t *testing.T) {
+	matchCommit(x.Commit, y.Commit, t)
+	if x.Path != "" {
+		require.Equal(t, x.Path, y.Path)
+	}
 }
 
 func matchFiles(x []*pfs.File, y []*pfs.File, t *testing.T) {
