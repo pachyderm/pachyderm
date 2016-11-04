@@ -3,7 +3,7 @@ Pachyderm Pipeline System (PPS)
 
 ## Get Started
 
-To get started using Pipelines, refer to our [Beginner Tutorial](./getting_started/beginner_tutorial.html) or [Pipeline](./development/custom_pipelines.html) docs.
+To get started using Pipelines, refer to our [Beginner Tutorial](./getting_started/beginner_tutorial.html) or [Pipeline](./deployment/custom_pipelines.html) docs.
 
 ## Overview
 
@@ -26,7 +26,7 @@ Jobs are transformations that are only run once.
 
 Broadly, they take the following inputs:
 
-- a transformation image, [refer to the pipeline spec](./development/pipeline_spec.html) for instructions on creating your own image
+- a transformation image, [refer to the pipeline spec](./deployment/pipeline_spec.html) for instructions on creating your own image
   - an entry point to run the transformation
   - some other configuration options about how to run the job (parallelism, partitioning method, etc)
 - at least one PFS input `Repo` containing some data
@@ -45,13 +45,13 @@ When creating a job, PPS:
 
 Pipelines are configured once, but run every time new data is present in the form of a new `Commit` on any of their input `Repo`s. You can think of them as automatically up-to-date long-running jobs.
 
-For detailed instructions on pipelines, [refer to the pipeline spec](./development/pipeline_spec.html)
+For detailed instructions on pipelines, [refer to the pipeline spec](./deployment/pipeline_spec.html)
 
 ## Provenance
 
 You'll be using and composing pipelines frequently with PPS. Quickly, you're going to want to understand how your outputs are related to the inputs.
 
-[Check out the flush-commit](./development/getting_your_results.html) docs for specifics on how to track provenance.
+[Check out the flush-commit](./deployment/getting_your_results.html) docs for specifics on how to track provenance.
 
 ## Debugging tools
 
