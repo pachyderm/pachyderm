@@ -44,7 +44,7 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	}
 	// the noMetrics flag is defined globally, so is undefined on just this command
 	// but we can pass it in directly to the command:
-	err := deploycmds.DeployCmd(noMetrics).Execute()
+	err := deploycmds.DeployCmd(!noMetrics).Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	// restore stdout
