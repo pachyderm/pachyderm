@@ -37,14 +37,6 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
-// NewDiff creates a pfs.Diff.
-func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
-	return &pfs.Diff{
-		Commit: NewCommit(repoName, commitID),
-		Shard:  shard,
-	}
-}
-
 // CommitTypes alias pfs.CommitType_*
 const (
 	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE

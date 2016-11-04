@@ -28,7 +28,7 @@ CLUSTER_SIZE?=4
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
