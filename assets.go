@@ -208,7 +208,7 @@ func docFaqMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/FAQ.md", size: 18002, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/FAQ.md", size: 18002, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -228,7 +228,7 @@ func docGh_logoPng() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/GH_logo.png", size: 33977, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/GH_logo.png", size: 33977, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -248,7 +248,7 @@ func docMakefile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/Makefile", size: 7618, mode: os.FileMode(436), modTime: time.Unix(1472851900, 0)}
+	info := bindataFileInfo{name: "doc/Makefile", size: 7618, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -268,7 +268,7 @@ func docReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/README.md", size: 793, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/README.md", size: 793, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -288,7 +288,7 @@ func docAdvancedAdvancedRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/advanced.rst", size: 473, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/advanced/advanced.rst", size: 473, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -308,7 +308,7 @@ func docAdvancedComposing_pipelinesRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/composing_pipelines.rst", size: 2203, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/advanced/composing_pipelines.rst", size: 2203, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -328,7 +328,7 @@ func docAdvancedIncrementalityRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/incrementality.rst", size: 6755, mode: os.FileMode(436), modTime: time.Unix(1476308146, 0)}
+	info := bindataFileInfo{name: "doc/advanced/incrementality.rst", size: 6755, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -348,7 +348,7 @@ func docAdvancedOn_premRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/on_prem.rst", size: 37, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/advanced/on_prem.rst", size: 37, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -368,7 +368,7 @@ func docAdvancedParallelizationRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/parallelization.rst", size: 44, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/advanced/parallelization.rst", size: 44, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -388,7 +388,7 @@ func docAdvancedProvenanceRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/advanced/provenance.rst", size: 923, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/advanced/provenance.rst", size: 923, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -408,7 +408,7 @@ func docConfPy() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/conf.py", size: 10001, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/conf.py", size: 10001, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -428,7 +428,7 @@ func docDeploymentAnalyze_your_dataRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/analyze_your_data.rst", size: 1135, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/analyze_your_data.rst", size: 1135, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -448,7 +448,7 @@ func docDeploymentCluster_hygieneRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/cluster_hygiene.rst", size: 185, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/cluster_hygiene.rst", size: 185, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -468,7 +468,7 @@ func docDeploymentCustom_pipelinesMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/custom_pipelines.md", size: 6017, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/custom_pipelines.md", size: 6017, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -488,7 +488,7 @@ func docDeploymentDeploying_on_the_cloudMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/deploying_on_the_cloud.md", size: 18548, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/deploying_on_the_cloud.md", size: 18548, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -508,7 +508,7 @@ func docDeploymentGetting_your_resultsRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/getting_your_results.rst", size: 3276, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/getting_your_results.rst", size: 3276, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -528,7 +528,7 @@ func docDeploymentInputing_your_dataRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/inputing_your_data.rst", size: 4293, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/inputing_your_data.rst", size: 4293, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -548,7 +548,7 @@ func docDeploymentLogs_exampleRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/logs_example.rst", size: 160, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/logs_example.rst", size: 160, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -568,7 +568,7 @@ func docDeploymentPipeline_specMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/pipeline_spec.md", size: 13183, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/pipeline_spec.md", size: 13183, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -588,7 +588,7 @@ func docDeploymentScalingRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/scaling.rst", size: 278, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/scaling.rst", size: 278, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -608,7 +608,7 @@ func docDeploymentUpdating_pipelinesRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/deployment/updating_pipelines.rst", size: 2123, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/deployment/updating_pipelines.rst", size: 2123, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -628,7 +628,7 @@ func docExamplesFruit_standReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/README.md", size: 202, mode: os.FileMode(436), modTime: time.Unix(1476308146, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/README.md", size: 202, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -648,7 +648,7 @@ func docExamplesFruit_standFruit_stand_testGo() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/fruit_stand_test.go", size: 814, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/fruit_stand_test.go", size: 814, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -668,7 +668,7 @@ func docExamplesFruit_standGenerateGenerateGo() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/generate/generate.go", size: 1567, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/generate/generate.go", size: 1567, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -688,7 +688,7 @@ func docExamplesFruit_standPipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/pipeline.json", size: 959, mode: os.FileMode(436), modTime: time.Unix(1474595257, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/pipeline.json", size: 959, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -708,7 +708,7 @@ func docExamplesFruit_standRunSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/run.sh", size: 470, mode: os.FileMode(509), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/run.sh", size: 470, mode: os.FileMode(509), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -728,7 +728,7 @@ func docExamplesFruit_standSet1Txt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/set1.txt", size: 874, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/set1.txt", size: 874, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -748,7 +748,7 @@ func docExamplesFruit_standSet2Txt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/fruit_stand/set2.txt", size: 863, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/fruit_stand/set2.txt", size: 863, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -768,7 +768,7 @@ func docExamplesOpencvDockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/Dockerfile", size: 839, mode: os.FileMode(436), modTime: time.Unix(1478194732, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/Dockerfile", size: 839, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -788,7 +788,7 @@ func docExamplesOpencvReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/README.md", size: 5462, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/README.md", size: 5462, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -808,7 +808,7 @@ func docExamplesOpencvEdgesJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/edges.json", size: 284, mode: os.FileMode(436), modTime: time.Unix(1474592884, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/edges.json", size: 284, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -828,7 +828,7 @@ func docExamplesOpencvEdgesPy() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/edges.py", size: 707, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/edges.py", size: 707, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -848,7 +848,7 @@ func docExamplesOpencvImagesTxt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/images.txt", size: 1944, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/images.txt", size: 1944, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -868,7 +868,7 @@ func docExamplesOpencvImages2Txt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/images2.txt", size: 527, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/images2.txt", size: 527, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -888,7 +888,7 @@ func docExamplesOpencvImages3Txt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv/images3.txt", size: 1147, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv/images3.txt", size: 1147, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -908,7 +908,7 @@ func docExamplesOpencv_dominant_colorDockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/Dockerfile", size: 234, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/Dockerfile", size: 234, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -928,7 +928,7 @@ func docExamplesOpencv_dominant_colorMakefile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/Makefile", size: 190, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/Makefile", size: 190, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -948,7 +948,7 @@ func docExamplesOpencv_dominant_colorReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/README.md", size: 12349, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/README.md", size: 12349, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -968,7 +968,7 @@ func docExamplesOpencv_dominant_colorDominant_colorGo() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/dominant_color.go", size: 1332, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/dominant_color.go", size: 1332, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -988,7 +988,7 @@ func docExamplesOpencv_dominant_colorImagesTxt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/images.txt", size: 9893, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/images.txt", size: 9893, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1008,7 +1008,7 @@ func docExamplesOpencv_dominant_colorOpencvPipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/opencv-pipeline.json", size: 593, mode: os.FileMode(436), modTime: time.Unix(1474592884, 0)}
+	info := bindataFileInfo{name: "doc/examples/opencv_dominant_color/opencv-pipeline.json", size: 593, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1028,7 +1028,7 @@ func docExamplesReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/readme.md", size: 1500, mode: os.FileMode(436), modTime: time.Unix(1476308146, 0)}
+	info := bindataFileInfo{name: "doc/examples/readme.md", size: 1500, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1048,7 +1048,7 @@ func docExamplesScraperReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/scraper/README.md", size: 9224, mode: os.FileMode(436), modTime: time.Unix(1476308146, 0)}
+	info := bindataFileInfo{name: "doc/examples/scraper/README.md", size: 9224, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1068,7 +1068,7 @@ func docExamplesScraperScraperJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/scraper/scraper.json", size: 610, mode: os.FileMode(436), modTime: time.Unix(1474592884, 0)}
+	info := bindataFileInfo{name: "doc/examples/scraper/scraper.json", size: 610, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1088,7 +1088,7 @@ func docExamplesScraperScraper_testGo() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/scraper/scraper_test.go", size: 801, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/scraper/scraper_test.go", size: 801, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1108,7 +1108,7 @@ func docExamplesScraperUrls() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/scraper/urls", size: 44, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/scraper/urls", size: 44, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1128,7 +1128,7 @@ func docExamplesScraperUrls2() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/scraper/urls2", size: 61, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/scraper/urls2", size: 61, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1148,7 +1148,7 @@ func docExamplesTensor_flowDockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/Dockerfile", size: 791, mode: os.FileMode(436), modTime: time.Unix(1478194732, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/Dockerfile", size: 791, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1168,7 +1168,7 @@ func docExamplesTensor_flowMakefile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/Makefile", size: 1934, mode: os.FileMode(436), modTime: time.Unix(1478194732, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/Makefile", size: 1934, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1188,7 +1188,7 @@ func docExamplesTensor_flowCodeBuildTxt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/BUILD.txt", size: 1056, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/BUILD.txt", size: 1056, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1208,7 +1208,7 @@ func docExamplesTensor_flowCode__init__Py() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/__init__.py", size: 905, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/__init__.py", size: 905, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1228,7 +1228,7 @@ func docExamplesTensor_flowCodePtb_word_lmPy() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/ptb_word_lm.py", size: 14056, mode: os.FileMode(436), modTime: time.Unix(1474592884, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/ptb_word_lm.py", size: 14056, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1248,7 +1248,7 @@ func docExamplesTensor_flowCodeReaderPy() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/reader.py", size: 3773, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/reader.py", size: 3773, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1268,7 +1268,7 @@ func docExamplesTensor_flowCodeReader_testPy() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/reader_test.py", size: 2036, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/code/reader_test.py", size: 2036, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1288,7 +1288,7 @@ func docExamplesTensor_flowPipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/pipeline.json", size: 1177, mode: os.FileMode(436), modTime: time.Unix(1474589503, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/pipeline.json", size: 1177, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1308,7 +1308,7 @@ func docExamplesTensor_flowReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/tensor_flow/readme.md", size: 18594, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/examples/tensor_flow/readme.md", size: 18594, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1328,7 +1328,7 @@ func docExamplesWord_countDockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/Dockerfile", size: 797, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/Dockerfile", size: 797, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1348,7 +1348,7 @@ func docExamplesWord_countReadmeMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/README.md", size: 4125, mode: os.FileMode(436), modTime: time.Unix(1476308146, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/README.md", size: 4125, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1368,7 +1368,7 @@ func docExamplesWord_countInputpipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/inputPipeline.json", size: 491, mode: os.FileMode(436), modTime: time.Unix(1477251152, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/inputPipeline.json", size: 491, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1388,7 +1388,7 @@ func docExamplesWord_countMapGo() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/map.go", size: 2144, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/map.go", size: 2144, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1408,7 +1408,7 @@ func docExamplesWord_countMappipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/mapPipeline.json", size: 249, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/mapPipeline.json", size: 249, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1428,7 +1428,7 @@ func docExamplesWord_countReducepipelineJson() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/examples/word_count/reducePipeline.json", size: 436, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/examples/word_count/reducePipeline.json", size: 436, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1448,7 +1448,7 @@ func docGetting_startedDs_store() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/.DS_Store", size: 6148, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/.DS_Store", size: 6148, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1468,7 +1468,7 @@ func docGetting_startedBeginner_tutorialRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/beginner_tutorial.rst", size: 12038, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/beginner_tutorial.rst", size: 12038, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1488,7 +1488,7 @@ func docGetting_startedGetting_startedRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/getting_started.rst", size: 1264, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/getting_started.rst", size: 1264, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1508,7 +1508,7 @@ func docGetting_startedLocal_installationMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/local_installation.md", size: 3455, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/local_installation.md", size: 3455, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1528,7 +1528,7 @@ func docGetting_startedOther_installationMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/other_installation.md", size: 5186, mode: os.FileMode(436), modTime: time.Unix(1477442991, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/other_installation.md", size: 5186, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1548,7 +1548,7 @@ func docGetting_startedTroubleshootingRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/getting_started/troubleshooting.rst", size: 4042, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/getting_started/troubleshooting.rst", size: 4042, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1568,7 +1568,7 @@ func docGolang_clientGolang_clientRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/golang_client/golang_client.rst", size: 262, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/golang_client/golang_client.rst", size: 262, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1588,7 +1588,7 @@ func docIndexRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/index.rst", size: 1802, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/index.rst", size: 1802, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1608,7 +1608,7 @@ func docPachctlPachctlMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl.md", size: 3811, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl.md", size: 3811, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1628,7 +1628,7 @@ func docPachctlPachctl_archiveAllMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_archive-all.md", size: 333, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_archive-all.md", size: 333, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1648,7 +1648,7 @@ func docPachctlPachctl_commitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_commit.md", size: 763, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_commit.md", size: 763, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1668,7 +1668,7 @@ func docPachctlPachctl_createJobMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-job.md", size: 1403, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-job.md", size: 1403, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1688,7 +1688,7 @@ func docPachctlPachctl_createPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-pipeline.md", size: 13954, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-pipeline.md", size: 13954, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1708,7 +1708,7 @@ func docPachctlPachctl_createRepoMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-repo.md", size: 311, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_create-repo.md", size: 311, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1728,7 +1728,7 @@ func docPachctlPachctl_deleteAllMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-all.md", size: 380, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-all.md", size: 380, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1748,7 +1748,7 @@ func docPachctlPachctl_deleteFileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-file.md", size: 326, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-file.md", size: 326, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1768,7 +1768,7 @@ func docPachctlPachctl_deletePipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-pipeline.md", size: 323, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-pipeline.md", size: 323, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1788,7 +1788,7 @@ func docPachctlPachctl_deleteRepoMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-repo.md", size: 393, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_delete-repo.md", size: 393, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1808,7 +1808,7 @@ func docPachctlPachctl_deployMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_deploy.md", size: 1389, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_deploy.md", size: 1389, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1828,7 +1828,7 @@ func docPachctlPachctl_fileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_file.md", size: 448, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_file.md", size: 448, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1848,7 +1848,7 @@ func docPachctlPachctl_finishCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_finish-commit.md", size: 432, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_finish-commit.md", size: 432, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1868,7 +1868,7 @@ func docPachctlPachctl_flushCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_flush-commit.md", size: 803, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_flush-commit.md", size: 803, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1888,7 +1888,7 @@ func docPachctlPachctl_forkCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_fork-commit.md", size: 585, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_fork-commit.md", size: 585, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1908,7 +1908,7 @@ func docPachctlPachctl_getFileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_get-file.md", size: 761, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_get-file.md", size: 761, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1928,7 +1928,7 @@ func docPachctlPachctl_getLogsMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_get-logs.md", size: 312, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_get-logs.md", size: 312, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1948,7 +1948,7 @@ func docPachctlPachctl_inspectCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-commit.md", size: 345, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-commit.md", size: 345, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1968,7 +1968,7 @@ func docPachctlPachctl_inspectFileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-file.md", size: 759, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-file.md", size: 759, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1988,7 +1988,7 @@ func docPachctlPachctl_inspectJobMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-job.md", size: 409, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-job.md", size: 409, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2008,7 +2008,7 @@ func docPachctlPachctl_inspectPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-pipeline.md", size: 347, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-pipeline.md", size: 347, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2028,7 +2028,7 @@ func docPachctlPachctl_inspectRepoMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-repo.md", size: 327, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_inspect-repo.md", size: 327, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2048,7 +2048,7 @@ func docPachctlPachctl_jobMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_job.md", size: 832, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_job.md", size: 832, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2068,7 +2068,7 @@ func docPachctlPachctl_listBranchMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-branch.md", size: 427, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-branch.md", size: 427, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2088,7 +2088,7 @@ func docPachctlPachctl_listCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-commit.md", size: 1083, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-commit.md", size: 1083, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2108,7 +2108,7 @@ func docPachctlPachctl_listFileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-file.md", size: 966, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-file.md", size: 966, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2128,7 +2128,7 @@ func docPachctlPachctl_listJobMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-job.md", size: 775, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-job.md", size: 775, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2148,7 +2148,7 @@ func docPachctlPachctl_listPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-pipeline.md", size: 333, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-pipeline.md", size: 333, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2168,7 +2168,7 @@ func docPachctlPachctl_listRepoMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-repo.md", size: 409, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_list-repo.md", size: 409, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2188,7 +2188,7 @@ func docPachctlPachctl_mountMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_mount.md", size: 710, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_mount.md", size: 710, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2208,7 +2208,7 @@ func docPachctlPachctl_pipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_pipeline.md", size: 665, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_pipeline.md", size: 665, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2228,7 +2228,7 @@ func docPachctlPachctl_portForwardMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_port-forward.md", size: 483, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_port-forward.md", size: 483, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2248,7 +2248,7 @@ func docPachctlPachctl_putFileMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_put-file.md", size: 1970, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_put-file.md", size: 1970, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2268,7 +2268,7 @@ func docPachctlPachctl_replayCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_replay-commit.md", size: 501, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_replay-commit.md", size: 501, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2288,7 +2288,7 @@ func docPachctlPachctl_repoMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_repo.md", size: 375, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_repo.md", size: 375, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2308,7 +2308,7 @@ func docPachctlPachctl_runPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_run-pipeline.md", size: 803, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_run-pipeline.md", size: 803, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2328,7 +2328,7 @@ func docPachctlPachctl_squashCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_squash-commit.md", size: 560, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_squash-commit.md", size: 560, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2348,7 +2348,7 @@ func docPachctlPachctl_startCommitMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_start-commit.md", size: 654, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_start-commit.md", size: 654, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2368,7 +2368,7 @@ func docPachctlPachctl_startPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_start-pipeline.md", size: 339, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_start-pipeline.md", size: 339, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2388,7 +2388,7 @@ func docPachctlPachctl_stopPipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_stop-pipeline.md", size: 331, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_stop-pipeline.md", size: 331, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2408,7 +2408,7 @@ func docPachctlPachctl_unmountMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_unmount.md", size: 360, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_unmount.md", size: 360, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2428,7 +2428,7 @@ func docPachctlPachctl_updatePipelineMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_update-pipeline.md", size: 14096, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_update-pipeline.md", size: 14096, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2448,7 +2448,7 @@ func docPachctlPachctl_versionMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachctl/pachctl_version.md", size: 311, mode: os.FileMode(436), modTime: time.Unix(1478224222, 0)}
+	info := bindataFileInfo{name: "doc/pachctl/pachctl_version.md", size: 311, mode: os.FileMode(436), modTime: time.Unix(1478287278, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2468,7 +2468,7 @@ func docPachyderm_factory_ghPng() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachyderm_factory_gh.png", size: 255617, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/pachyderm_factory_gh.png", size: 255617, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2488,7 +2488,7 @@ func docPachyderm_file_systemMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachyderm_file_system.md", size: 6254, mode: os.FileMode(436), modTime: time.Unix(1475718841, 0)}
+	info := bindataFileInfo{name: "doc/pachyderm_file_system.md", size: 6254, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2508,7 +2508,7 @@ func docPachyderm_pipeline_systemMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/pachyderm_pipeline_system.md", size: 2619, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/pachyderm_pipeline_system.md", size: 2619, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2528,7 +2528,7 @@ func docProductionBest_practicesRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/best_practices.rst", size: 29, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/best_practices.rst", size: 29, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2548,7 +2548,7 @@ func docProductionCollaborationRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/collaboration.rst", size: 453, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/collaboration.rst", size: 453, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2568,7 +2568,7 @@ func docProductionConnecting_to_other_data_sourcesRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/connecting_to_other_data_sources.rst", size: 73, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/connecting_to_other_data_sources.rst", size: 73, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2588,7 +2588,7 @@ func docProductionMaintenanceRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/maintenance.rst", size: 205, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/maintenance.rst", size: 205, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2608,7 +2608,7 @@ func docProductionMigrationRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/migration.rst", size: 1884, mode: os.FileMode(436), modTime: time.Unix(1478274415, 0)}
+	info := bindataFileInfo{name: "doc/production/migration.rst", size: 1884, mode: os.FileMode(436), modTime: time.Unix(1478287306, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2628,7 +2628,7 @@ func docProductionOutputting_resultsRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/outputting_results.rst", size: 37, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/outputting_results.rst", size: 37, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2648,7 +2648,7 @@ func docProductionPerformance_benchmarksRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/performance_benchmarks.rst", size: 82, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/performance_benchmarks.rst", size: 82, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2668,7 +2668,7 @@ func docProductionProductionRst() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/production/production.rst", size: 23, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/production/production.rst", size: 23, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2688,7 +2688,7 @@ func docRelease_instructionsMd() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/release_instructions.md", size: 1055, mode: os.FileMode(436), modTime: time.Unix(1478132413, 0)}
+	info := bindataFileInfo{name: "doc/release_instructions.md", size: 1055, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2708,7 +2708,7 @@ func docRequirementsTxt() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "doc/requirements.txt", size: 436, mode: os.FileMode(436), modTime: time.Unix(1474581172, 0)}
+	info := bindataFileInfo{name: "doc/requirements.txt", size: 436, mode: os.FileMode(436), modTime: time.Unix(1477947234, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
