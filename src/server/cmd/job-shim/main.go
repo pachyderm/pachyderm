@@ -80,7 +80,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 	return os.MkdirAll(PFSOutputPrefix, 0777)
 }
 
-func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
+func uploadOutput(c *client.APIClient, out *fuse.CommitMount, overwrite bool) error {
 	repo := out.Commit.Repo.Name
 	commit := out.Commit.ID
 	return filepath.Walk(PFSOutputPrefix, func(path string, info os.FileInfo, err error) error {
@@ -95,6 +95,11 @@ func uploadOutput(c *client.APIClient, out *fuse.CommitMount) error {
 		relPath, err := filepath.Rel(PFSOutputPrefix, path)
 		if err != nil {
 			return err
+		}
+		if overwrite {
+			if err := c.DeleteFile(repo, commit, relPath); err != nil {
+				return err
+			}
 		}
 		_, err = c.PutFile(repo, commit, relPath, f)
 		return err
@@ -214,7 +219,7 @@ func do(appEnvObj interface{}) error {
 							break
 						}
 					}
-					if err := uploadOutput(c, outputMount); err != nil {
+					if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
 						fmt.Printf("err from uploading output: %s\n", err)
 						success = false
 					}
