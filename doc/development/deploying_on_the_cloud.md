@@ -114,7 +114,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
+pachctl             1.2.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -175,28 +175,7 @@ pachd               1.2.0
 
 The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/).
 
-WARNING: As of 9/1/16, the guide has a [minor bug](https://github.com/kubernetes/kubernetes/issues/30495). TLDR: You need to add three lines in `~/kubernetes/aws/cluster/kubernetes/cluster/common.sh` starting at line 524.
-
-```
-function build-kube-env {
-  local master=$1
-  local file=$2
-
-  # Add these lines
-  KUBE_MANIFESTS_TAR_URL="${SERVER_BINARY_TAR_URL/server-linux-amd64/manifests}"
-  MASTER_OS_DISTRIBUTION="${KUBE_MASTER_OS_DISTRIBUTION}"
-  NODE_OS_DISTRIBUTION="${KUBE_NODE_OS_DISTRIBUTION}"
-
-  local server_binary_tar_url=$SERVER_BINARY_TAR_URL
-  local salt_tar_url=$SALT_TAR_URL
-  local kube_manifests_tar_url="${KUBE_MANIFESTS_TAR_URL:-}"
-  if [[ "${master}" == "true" && "${MASTER_OS_DISTRIBUTION}" == "coreos" ]] || \
-     [[ "${master}" == "false" && "${NODE_OS_DISTRIBUTION}" == "coreos" ]] ; then
-    # TODO: Support fallback .tar.gz settings on CoreOS
-    server_binary_tar_url=$(split_csv "${SERVER_BINARY_TAR_URL}")
-    salt_tar_url=$(split_csv "${SALT_TAR_URL}")
-    kube_manifests_tar_url=$(split_csv "${KUBE_MANIFESTS_TAR_URL}")
- ```
+ NOTE: If you've already got a Kubernetes cluster running, you may see the error `An error occurred (InvalidIPAddress.InUse) when calling the RunInstances operation: Address 172.20.0.9 is in use`. You can terminate the old cluster with `kubernetes/cluster/kube-down.sh` and then rerun the script. 
 
  NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:
  ```
@@ -216,7 +195,10 @@ Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a 
 Here are the parameters to set up these resources:
 
 ```shell
-$ KUBECTLFLAGS="-s [The public IP of the Kubernetes master:`kubectl cluster-info`]"
+$ kubectl cluster-info
+  Kubernetes master is running at https://1.2.3.4
+  ...
+$ KUBECTLFLAGS="-s [The public IP of the Kubernetes master. e.g. 1.2.3.4]"
 
 # BUCKET_NAME needs to be globally unique across the entire AWS region
 $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
@@ -225,7 +207,7 @@ $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
 # should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
 
-$ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2"]
+$ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2" (not us-west-2a)]
 
 $ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
 
@@ -233,7 +215,7 @@ $ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e
 
 And then run:
 ```
-$ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+$ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
 
 $ aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2
 ```
@@ -269,7 +251,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.1.0
+pachctl             1.2.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 
 #### Start Pachyderm
@@ -320,15 +302,15 @@ Finally, we need to set up forward a port so that pachctl can talk to the cluste
 
 ```sh
 # Forward the ports. We background this process because it blocks.
-$ pachctl portforward &
+$ pachctl port-forward &
 ```
 
 And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
-pachd               1.2.0
+pachctl             1.2.3
+pachd               1.2.3
 ```
 
 ## Microsoft Azure
