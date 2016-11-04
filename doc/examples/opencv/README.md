@@ -8,7 +8,7 @@ Pachyderm pipeline which means it will be both streaming and distributed.
 
 This tutorial assumes that you've already got a Pachyderm cluster up and
 running and that you can talk to it with pachctl. You'll know it's working if
-`pachctl version` returns without any errors. If not head on over to the [local installation](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [cloud deployment](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html) to get a cluster up and running.
+`pachctl version` returns without any errors. If not head on over to the [local installation](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [cloud deployment](http://pachyderm.readthedocs.io/en/latest/deployment/deploying_on_the_cloud.html) to get a cluster up and running.
 
 ## Load Images Into Pachyderm
 The first thing we'll need to do is create a repo to store our images in, we'll
