@@ -5,7 +5,7 @@ import "server/pfs/fuse/fuse.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
-package pachyderm.pps;
+package pps;
 
 option go_package = "pps";
 

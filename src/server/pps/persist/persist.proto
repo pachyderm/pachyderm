@@ -5,7 +5,7 @@ import "google/protobuf/timestamp.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
-package pachyderm.pps.persist;
+package pps.persist;
 
 option go_package = "persist";
 
@@ -98,7 +98,7 @@ message PipelineInfo {
   reserved 3;
   string pipeline_name = 1;
   uint64 version = 13;
-  pachyderm.pps.Transform transform = 2;
+  pps.Transform transform = 2;
   ParallelismSpec parallelism_spec = 12;
   repeated pps.PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
@@ -216,12 +216,12 @@ service API {
   // job_id cannot be set
   // timestamp cannot be set
   rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
-  rpc InspectJob(pachyderm.pps.InspectJobRequest) returns (JobInfo) {}
+  rpc InspectJob(pps.InspectJobRequest) returns (JobInfo) {}
   // ordered by time, latest to earliest
-  rpc ListJobInfos(pachyderm.pps.ListJobRequest) returns (JobInfos) {}
+  rpc ListJobInfos(pps.ListJobRequest) returns (JobInfos) {}
   // should only be called when rolling back if a Job does not start!
-  rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
-  rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc DeleteJobInfo(pps.Job) returns (google.protobuf.Empty) {}
+  rpc DeleteJobInfosForPipeline(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
 
   // JobOutput rpcs
@@ -232,15 +232,15 @@ service API {
   // StartJob sets the state of the job to "running" if the state
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
-  rpc StartJob(pachyderm.pps.Job) returns (JobInfo) {} 
+  rpc StartJob(pps.Job) returns (JobInfo) {} 
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
-  rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
+  rpc GetPipelineInfo(pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
-  rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc DeletePipelineInfo(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
   rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineStopped(UpdatePipelineStoppedRequest) returns (google.protobuf.Empty) {}
@@ -256,6 +256,6 @@ service API {
   rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
   rpc RevokeChunk(RevokeChunkRequest) returns (Chunk) {}
   rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
-  rpc GetChunksForJob(pachyderm.pps.Job) returns (Chunks) {}
-  rpc DeleteChunksForJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+  rpc GetChunksForJob(pps.Job) returns (Chunks) {}
+  rpc DeleteChunksForJob(pps.Job) returns (google.protobuf.Empty) {}
 }

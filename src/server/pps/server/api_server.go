@@ -153,7 +153,6 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -598,7 +597,6 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -659,7 +657,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -684,7 +681,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
@@ -728,7 +724,6 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 
 func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodRequest) (response *ppsserver.StartPodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -905,7 +900,7 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 }
 
 func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.ContinuePodRequest) (response *ppsserver.ContinuePodResponse, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(request, nil, nil, 0) }()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -925,7 +920,7 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 }
 
 func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodRequest) (response *ppsserver.FinishPodResponse, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	func() { a.Log(request, nil, nil, 0) }()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -970,7 +965,6 @@ func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodR
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
@@ -1135,7 +1129,6 @@ func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1150,7 +1143,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1171,7 +1163,6 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
@@ -1180,7 +1171,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 
 func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1200,7 +1190,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 
 func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *google_protobuf.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(stop time.Time) { a.Log(request, response, err, time.Since(stop)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1220,7 +1209,6 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
