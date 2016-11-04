@@ -26,7 +26,7 @@ type localBlockAPIServer struct {
 
 func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	server := &localBlockAPIServer{
-		Logger: protorpclog.NewLogger("pachyderm.pfsclient.localBlockAPIServer"),
+		Logger: protorpclog.NewLogger("pfs.BlockAPIServer.Local"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
