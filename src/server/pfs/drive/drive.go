@@ -10,6 +10,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+// ListFileMode specifies how ListFile executes.
+type ListFileMode int
+
+const (
+	// ListFileNORMAL computes sizes for files but not for directories
+	ListFileNORMAL ListFileMode = iota
+	// ListFileFAST does not compute sizes for files or directories
+	ListFileFAST
+	// ListFileRECURSE computes sizes for files and directories
+	ListFileRECURSE
+)
+
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
@@ -41,7 +53,7 @@ type Driver interface {
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 		size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error)
 	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode ListFileMode) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File) error
 
 	DeleteAll() error

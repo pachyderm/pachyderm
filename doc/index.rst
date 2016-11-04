@@ -26,13 +26,13 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     :maxdepth: 1
     :caption: Analyze Your Data
 
-    development/analyze_your_data
-    development/deploying_on_the_cloud
-    development/inputing_your_data
-    development/custom_pipelines
-    development/pipeline_spec
-    development/getting_your_results
-    development/updating_pipelines
+    deployment/analyze_your_data
+    deployment/deploying_on_the_cloud
+    deployment/inputing_your_data
+    deployment/custom_pipelines
+    deployment/pipeline_spec
+    deployment/getting_your_results
+    deployment/updating_pipelines
 
 .. toctree::
     :maxdepth: 1
@@ -49,6 +49,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     FAQ
     examples/readme
+    production/migration
     CHANGELOG  
 
 .. toctree::

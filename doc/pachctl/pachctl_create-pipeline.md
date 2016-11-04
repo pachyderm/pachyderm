@@ -84,12 +84,12 @@ __Note:__ Pachyderm treats this config as an upper bound. Pachyderm may choose t
 
 `inputs` specifies a set of Repos that will be visible to the jobs during runtime. Commits to these repos will automatically trigger the pipeline to create new jobs to process them.
 
-`inputs.runEmpty` specifies what happens when an empty commit (i.e. No data) comes into the input repo of this pipeline. This can easily happen if a previous pipeline produces no data. This flag specifies if it makes sense for your pipeline to still run if it has no new data to process. If this flag is set to false (the default), then an empty commit won't trigger a job.  If set to true, an empty commit will trigger a job. 
+`inputs.runEmpty` specifies what happens when an empty commit (i.e. no data) comes into the input repo of this pipeline (for example, if an input pipeline produced no data). If this flag is set to true, Pachyderm will still run your pipeline even if it has no new input data to process. Specifically: if this flag is set to false (the default), then an empty commit won't trigger a job; if set to true, an empty commit will trigger a job.
 
 `inputs.method` specifies two different properties:
 - Partition unit: How input data  will be partitioned across parallel containers.
-- Incrementality: Whether the entire all of the data or just the new data (diff) is processed. 
- 
+- Incrementality: Whether the entire all of the data or just the new data (diff) is processed.
+
 The next section explains input methods in detail.
 
 ### Pipeline Input Methods
@@ -99,20 +99,20 @@ For each pipeline input, you may specify a "method".  A method dictates exactly 
 A method consists of two properties: partition unit and incrementality.
 
 #### Partition Unit
-Partition unit ("BLOCK", "FILE", or "REPO") specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
+Partition unit ("BLOCK", "FILE", or "REPO") specifies the granularity at which input data is parallelized across containers.  It can be of three values:
 
 1.  `BLOCK`: different blocks of the same file may be parelleized across containers.
-2. `FILE`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
+2. `FILE`: the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like:
 
 ```
-/foo 
+/foo
 /bar
 /buzz
    /a
    /b
 ```
-then there are only three top-level objects, `/foo`, `/bar`, and `/buzz`, each of which will remain grouped in the same container. 
-3. `REPO`: the entire repo.  In this case, the input won't be partitioned at all. 
+then there are only three top-level objects, `/foo`, `/bar`, and `/buzz`, each of which will remain grouped in the same container.
+3. `REPO`: the entire repo.  In this case, the input won't be partitioned at all.
 
 #### Incrementality
 
@@ -124,17 +124,17 @@ For instance, if you have a repo with the file `/foo` in commit 1 and file `/bar
 
 * If the input is non-incremental("NONE"), every job sees all the data. The first job sees file `/foo` and the second job sees file `/foo` and file `/bar`.
 
-* "File" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  `Incremental: "file"` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it. 
+* "File" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  `Incremental: "file"` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it.
 
 #### Combining Partition unit and Incrementality
 
-For convenience, we have defined aliases for the three most commonly used (and most familiar) input methods: "map", "reduce", and "global". 
+For convenience, we have defined aliases for the three most commonly used (and most familiar) input methods: "map", "reduce", and "global".
 
-* A "map" (BLOCK + DIFF), for example, can partition files at the block level and jobs only need to see the new data. 
+* A "map" (BLOCK + DIFF), for example, can partition files at the block level and jobs only need to see the new data.
 
-* "Reduce" (FILE + NONE) as it's typically seen in Hadoop, requires all parts of a file to be seen by the same container ("FILE") and your job needs to reprocess _all_ the data in the whole repo ("NONE"). 
+* "Reduce" (FILE + NONE) as it's typically seen in Hadoop, requires all parts of a file to be seen by the same container ("FILE") and your job needs to reprocess _all_ the data in the whole repo ("NONE").
 
-* "Global" (REPO + NONE), means that the entire repo needs to be seen by _every_ container. This is commonly used if you had a repo with just parameters, and every container needed to see all the parameter data and pull out the ones that are relevant to it. 
+* "Global" (REPO + NONE), means that the entire repo needs to be seen by _every_ container. This is commonly used if you had a repo with just parameters, and every container needed to see all the parameter data and pull out the ones that are relevant to it.
 
 They are defined below:
 
@@ -151,8 +151,48 @@ They are defined below:
   | "FILE" (top-lvl object)  |         |                      |        |
   +--------------------------+---------+----------------------+--------+
 ```
+
 #### Defaults
 If no method is specified, the `map` method (BLOCK + DIFF) is used by default.
+
+### Multiple Inputs
+
+A pipeline is allowed to have multiple inputs.  The important thing to understand is what happens when a new commit comes into one of the input repos.  In short, a pipeline processes the **cross product** of its inputs.  We will use an example to illustrate.
+
+Consider a pipeline that has two input repos: `foo` and `bar`.  `foo` uses the `file/incremental` method and `bar` uses the `reduce` method.  Now let's say that the following events occur:
+
+```
+1. PUT /file-1 in commit1 in foo -- no jobs triggered
+2. PUT /file-a in commit1 in bar -- triggers job1
+3. PUT /file-2 in commit2 in foo -- triggers job2
+4. PUT /file-b in commit2 in bar -- triggers job3
+```
+
+The first time the pipeline is triggered will be when the second event completes.  This is because we need data in both repos before we can run the pipeline.
+
+Here is a breakdown of the files that each job sees:
+
+```
+job1:
+    /pfs/foo/file-1
+    /pfs/bar/file-a
+
+job2:
+    /pfs/foo/file-2
+    /pfs/bar/file-a
+
+job3:
+    /pfs/foo/file-1
+    /pfs/foo/file-2
+    /pfs/bar/file-a
+    /pfs/bar/file-b
+```
+
+`job1` sees `/pfs/foo/file-1` and `/pfs/bar/file-a` because those are the only files available.
+
+`job2` sees `/pfs/foo/file-2` and `/pfs/bar/file-a` because it's triggered by commit2 in `foo`, and `foo` uses an incremental input method (`file/incremental`).
+
+`job3` sees all the files because it's triggered by commit2 in `bar`, and `bar` uses a non-incremental input method (`reduce`).
 
 ## Examples
 
@@ -226,7 +266,10 @@ For instance, imagine that you have a dataset that contains `file_A`, `file_B`, 
 ### Options
 
 ```
-  -f, --file string   The file containing the pipeline, it can be a url or local file. - reads from stdin. (default "-")
+  -f, --file string       The file containing the pipeline, it can be a url or local file. - reads from stdin. (default "-")
+  -p, --push-images       If true, push local docker images into the cluster registry.
+  -r, --registry string   The registry to push images to, defaults to the pachyderm cluster registry.
+  -u, --username string   The username to push images as, defaults to your OS username.
 ```
 
 ### Options inherited from parent commands
@@ -238,4 +281,4 @@ For instance, imagine that you have a dataset that contains `file_A`, `file_B`, 
 ### SEE ALSO
 * [./pachctl](./pachctl.md)	 - 
 
-###### Auto generated by spf13/cobra on 21-Oct-2016
+###### Auto generated by spf13/cobra on 31-Oct-2016

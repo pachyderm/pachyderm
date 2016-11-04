@@ -28,7 +28,7 @@ CLUSTER_SIZE?=4
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
@@ -260,7 +260,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
-	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --rethinkdb-cache-size=5G --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)

@@ -63,6 +63,7 @@ type appEnv struct {
 	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
 	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
 	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
+	LogLevel           string `env:"LOG_LEVEL,default=info"`
 }
 
 func main() {
@@ -74,6 +75,17 @@ func do(appEnvObj interface{}) error {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
 	appEnv := appEnvObj.(*appEnv)
+	switch appEnv.LogLevel {
+	case "debug":
+		lion.SetLevel(lion.LevelDebug)
+	case "info":
+		lion.SetLevel(lion.LevelInfo)
+	case "error":
+		lion.SetLevel(lion.LevelError)
+	default:
+		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		lion.SetLevel(lion.LevelInfo)
+	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 	if appEnv.Init {
@@ -182,7 +194,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
+			ppsserver.RegisterInternalPodAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)

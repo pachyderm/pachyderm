@@ -132,7 +132,7 @@ func ClockToArray(clock gorethink.Term) []interface{} {
 
 // CommitID returns the CommitID of the clock associated with the diff
 func (d *Diff) CommitID() string {
-	return NewCommitID(d.Repo, d.Clock)
+	return NewCommitID(d.Repo, FullClockHead(d.Clock))
 }
 
 // ClockRangeList is an ordered list of ClockRanges

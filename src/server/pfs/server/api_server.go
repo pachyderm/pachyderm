@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -32,7 +31,7 @@ type apiServer struct {
 
 func newAPIServer(driver drive.Driver, reporter *metrics.Reporter) *apiServer {
 	return &apiServer{
-		Logger:   protorpclog.NewLogger("pachyderm.pfsserver.API"),
+		Logger:   protorpclog.NewLogger("pfs.API"),
 		driver:   driver,
 		reporter: reporter,
 	}
@@ -221,12 +220,6 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		if request != nil {
-			request.Value = nil // we set the value to nil so as not to spam logs
-		}
-		a.Log(request, nil, retErr, time.Since(start))
-	}(time.Now())
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
@@ -290,7 +283,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.DiffMethod)
 	if err != nil {
 		return err
@@ -318,8 +310,17 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	finalMetrics := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
 	defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
 
+	var mode drive.ListFileMode
+	switch request.Mode {
+	case pfs.ListFileMode_ListFile_NORMAL:
+		mode = drive.ListFileNORMAL
+	case pfs.ListFileMode_ListFile_FAST:
+		mode = drive.ListFileFAST
+	case pfs.ListFileMode_ListFile_RECURSE:
+		mode = drive.ListFileRECURSE
+	}
 	fileInfos, err := a.driver.ListFile(request.File, request.Shard,
-		request.DiffMethod, request.Recurse)
+		request.DiffMethod, mode)
 	if err != nil {
 		return nil, err
 	}
