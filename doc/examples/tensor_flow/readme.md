@@ -8,7 +8,7 @@ In this example, you'll generate a new Game of Thrones script based on a bunch o
 
 To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensor Flow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
 
-This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html).
+This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/latest/deployment/deploying_on_the_cloud.html).
 
 ## How
 
