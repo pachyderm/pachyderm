@@ -38,7 +38,8 @@ import (
 const (
 	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
 	// chunk in case of failures.
-	MaxPodsPerChunk = 3
+	MaxPodsPerChunk  = 3
+	DefaultUserImage = "ubuntu:16.04"
 )
 
 var (
@@ -1924,11 +1925,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		return nil, err
 	}
 	parallelism := int32(parallelism64)
-	image := jobShimImage
-	// If the job image refers to pachyderm/job-shim explicitly, we want to use the version of
-	// job-shim that pachd gets from the JOB_SHIM_IMAGE environment variable
-	if jobInfo.Transform.Image != "" && jobInfo.Transform.Image != "pachyderm/job-shim" {
-		image = jobInfo.Transform.Image
+	userImage := jobInfo.Transform.Image
+	if userImage == "" {
+		userImage = DefaultUserImage
 	}
 	if jobImagePullPolicy == "" {
 		jobImagePullPolicy = "IfNotPresent"
@@ -1983,6 +1982,17 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		})
 	}
 
+	volumes = append(volumes, api.Volume{
+		Name: "pfs",
+		VolumeSource: api.VolumeSource{
+			EmptyDir: &api.EmptyDirVolumeSource{},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pfs",
+		MountPath: "/pfs",
+	})
+
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -2005,14 +2015,21 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Labels: labels,
 				},
 				Spec: api.PodSpec{
+					InitContainers: []api.Container{
+						{
+							Name:            "init",
+							Image:           jobShimImage,
+							Command:         []string{"cp", "/job-shim", "/pfs/job-shim"},
+							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
+							Env:             jobEnv,
+							VolumeMounts:    volumeMounts,
+						},
+					},
 					Containers: []api.Container{
 						{
-							Name:    "user",
-							Image:   image,
-							Command: []string{"/job-shim", jobInfo.JobID},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
+							Name:            "user",
+							Image:           userImage,
+							Command:         []string{"/pfs/job-shim", jobInfo.JobID},
 							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
 							Env:             jobEnv,
 							VolumeMounts:    volumeMounts,
