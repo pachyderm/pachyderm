@@ -155,7 +155,7 @@ Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your jo
 ```shell
 $ kubectl get job
 JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR                                                         SUCCESSFUL
-09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
+09a7eb68995c43979cba2b0d29432073   user           ubuntu:14.04   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
 ```
 
 Every `pipeline` creates a corresponding `repo` with the same
