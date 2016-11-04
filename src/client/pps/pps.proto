@@ -23,6 +23,9 @@ message Transform {
   repeated string stdin = 5;
   repeated int64 accept_return_code = 6;
   bool debug = 7;
+  // If set to true, writing to a file overwrites the original file, as opposed to
+  // appending to it.
+  bool overwrite = 8;
 }
 
 message Job {
@@ -217,7 +220,8 @@ message CreatePipelineRequest {
   ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
   bool update = 5;
-  bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
+  // don't archive previously processed data, meaningful only if update is true
+  bool no_archive = 6; 
 }
 
 message InspectPipelineRequest {
