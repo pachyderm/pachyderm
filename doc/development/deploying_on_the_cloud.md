@@ -114,7 +114,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
+pachctl             1.2.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
