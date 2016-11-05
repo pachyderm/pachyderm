@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -113,16 +114,28 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 		commitInfos, err := c.ListCommit([]*pfs.Commit{client.NewCommit(repoState.Info.Repo.Name, "")},
 			nil, client.CommitTypeNone, client.CommitStatusAll, false)
 		require.NoError(t, err)
-		require.Equal(t, len(repoState.Commits), len(commitInfos))
 		for i, commitState := range repoState.Commits {
-			matchCommitState(commitState, commitInfos[i], t)
+			var commitInfo *pfs.CommitInfo
+			if len(commitState.Info.Provenance) == 0 {
+				require.True(t, i < len(commitInfos))
+				commitInfo = commitInfos[i]
+			} else {
+				for _, rangeCommitInfo := range commitInfos {
+					if equalCommitProvenance(commitState.Info.Provenance, rangeCommitInfo.Provenance) {
+						commitInfo = rangeCommitInfo
+						break
+					}
+				}
+			}
+			require.NotNil(t, commitInfo, "failed to find a commit with provenance %+v", commitState.Info.Provenance)
+			matchCommitState(commitState, commitInfo, t)
 			for _, fileState := range commitState.Files {
-				fileInfo, err := c.InspectFile(fileState.Info.File.Commit.Repo.Name,
-					fileState.Info.File.Commit.ID, fileState.Info.File.Path, "", false, nil)
+				fileInfo, err := c.InspectFile(commitInfo.Commit.Repo.Name,
+					commitInfo.Commit.ID, fileState.Info.File.Path, "", false, nil)
 				require.NoError(t, err)
 				var buffer bytes.Buffer
-				require.NoError(t, c.GetFile(fileState.Info.File.Commit.Repo.Name,
-					fileState.Info.File.Commit.ID, fileState.Info.File.Path, 0, 0, "", false, nil, &buffer))
+				require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name,
+					commitInfo.Commit.ID, fileState.Info.File.Path, 0, 0, "", false, nil, &buffer))
 				matchFileState(fileState, fileInfo, buffer.String(), t)
 			}
 		}
@@ -197,6 +210,21 @@ func matchCommit(x *pfs.Commit, y *pfs.Commit, t *testing.T) {
 	if x.ID != "" {
 		require.Equal(t, x.ID, y.ID)
 	}
+}
+
+func equalCommitProvenance(x []*pfs.Commit, y []*pfs.Commit) bool {
+	var xs []string
+	var ys []string
+	for _, commit := range x {
+		xs = append(xs, fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID))
+	}
+	for _, commit := range y {
+		ys = append(ys, fmt.Sprintf("%s/%s", commit.Repo.Name, commit.ID))
+	}
+	sort.Strings(xs)
+	sort.Strings(ys)
+	fmt.Printf("Comparing\n %+v\n %+v", xs, ys)
+	return reflect.DeepEqual(xs, ys)
 }
 
 func matchCommitProvenance(x []*pfs.Commit, y []*pfs.Commit, t *testing.T) {

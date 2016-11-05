@@ -52,10 +52,14 @@ func TestPachctl(t *testing.T) {
 		helpers.TestCmd(cmd, []string{"put-file", repoName, "master", "file2", "-c"}, fileState2.Content, expectedState, c, t)
 	})
 
-	pipelineName := helpers.UniqueString("TestPachctl")
+	pipelineName := helpers.UniqueString("TestPachctlPipeline")
 	_, outputRepoState := expectedState.Pipeline(pipelineName)
-	outputRepoState.Commit("").File("/file1").Content = "foo\n"
-	outputRepoState.Commit("").File("/file1").Content = "foo\n"
+	outCommitState1 := outputRepoState.Commit("")
+	outCommitState1.Info.Provenance = append(outCommitState1.Info.Provenance, commitState1.Info.Commit)
+	outCommitState1.File("/file1").Content = "foo\n"
+	outCommitState2 := outputRepoState.Commit("")
+	outCommitState2.Info.Provenance = append(outCommitState2.Info.Provenance, commitState2.Info.Commit)
+	outCommitState2.File("/file1").Content = "foo\n"
 	t.Run("create-pipeline", func(t *testing.T) {
 		createPipelineRequest := &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
