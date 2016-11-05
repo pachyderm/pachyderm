@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -16,12 +15,14 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
 	"go.pedge.io/lion"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -39,71 +40,21 @@ func main() {
 }
 
 func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
+	var g errgroup.Group
 	for _, commitMount := range commitMounts {
+		commitMount := commitMount
 		if commitMount.Alias == "prev" || commitMount.Alias == "out" {
 			continue
 		}
-		repo := commitMount.Commit.Repo.Name
-		commitID := commitMount.Commit.ID
-		var fromCommitID string
-		if commitMount.DiffMethod != nil && commitMount.DiffMethod.FromCommit != nil {
-			fromCommitID = commitMount.DiffMethod.FromCommit.ID
-		}
-		var fullFile bool
-		if commitMount.DiffMethod != nil {
-			fullFile = commitMount.DiffMethod.FullFile
-		}
-		shard := commitMount.Shard
-		fileInfos, err := c.ListFile(repo, commitID, "/", fromCommitID, fullFile, shard, false)
-		if err != nil {
-			return err
-		}
-		for _, fileInfo := range fileInfos {
-			if err := os.MkdirAll(filepath.Join(PFSInputPrefix, repo), 0777); err != nil {
-				return err
-			}
-			path := filepath.Join(PFSInputPrefix, repo, fileInfo.File.Path)
-			f, err := os.Create(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			w := bufio.NewWriter(f)
-			if err := c.GetFile(repo, commitID, fileInfo.File.Path, 0, 0, fromCommitID, fullFile, shard, w); err != nil {
-				return err
-			}
-			if err := w.Flush(); err != nil {
-				return err
-			}
-		}
+		g.Go(func() error {
+			return sync.Pull(c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
+		})
 	}
-	return os.MkdirAll(PFSOutputPrefix, 0777)
+	return g.Wait()
 }
 
 func uploadOutput(c *client.APIClient, out *fuse.CommitMount, overwrite bool) error {
-	repo := out.Commit.Repo.Name
-	commit := out.Commit.ID
-	return filepath.Walk(PFSOutputPrefix, func(path string, info os.FileInfo, err error) error {
-		if path == PFSOutputPrefix {
-			return nil
-		}
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		relPath, err := filepath.Rel(PFSOutputPrefix, path)
-		if err != nil {
-			return err
-		}
-		if overwrite {
-			if err := c.DeleteFile(repo, commit, relPath); err != nil {
-				return err
-			}
-		}
-		_, err = c.PutFile(repo, commit, relPath, f)
-		return err
-	})
+	return sync.Push(c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
 }
 
 func do(appEnvObj interface{}) error {
@@ -160,6 +111,11 @@ func do(appEnvObj interface{}) error {
 			}
 
 			if err := downloadInput(c, response.CommitMounts); err != nil {
+				return err
+			}
+
+			// Create /pfs/out
+			if err := os.MkdirAll(PFSOutputPrefix, 0777); err != nil {
 				return err
 			}
 
