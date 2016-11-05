@@ -223,7 +223,6 @@ func equalCommitProvenance(x []*pfs.Commit, y []*pfs.Commit) bool {
 	}
 	sort.Strings(xs)
 	sort.Strings(ys)
-	fmt.Printf("Comparing\n %+v\n %+v", xs, ys)
 	return reflect.DeepEqual(xs, ys)
 }
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -64,7 +65,7 @@ func TestPachctl(t *testing.T) {
 		createPipelineRequest := &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
-				Cmd: []string{"cp", "/pfs/in/file1", "/pfs/out/file1"},
+				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file1", repoName), "/pfs/out/file1"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Strategy: pps.ParallelismSpec_CONSTANT,
