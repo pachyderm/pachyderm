@@ -47,14 +47,14 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			continue
 		}
 		g.Go(func() error {
-			return sync.Pull(c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
+			return sync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
 		})
 	}
 	return g.Wait()
 }
 
 func uploadOutput(c *client.APIClient, out *fuse.CommitMount, overwrite bool) error {
-	return sync.Push(c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
+	return sync.Push(context.Background(), c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
 }
 
 func do(appEnvObj interface{}) error {

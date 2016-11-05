@@ -3,7 +3,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -112,7 +111,6 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 			pclient := pachclient.APIClient{
 				PfsAPIClient: client,
 			}
-			fmt.Printf("Putting file %s\n", relPath)
 			if _, err := pclient.PutFile(commit.Repo.Name, commit.ID, relPath, f); err != nil {
 				return err
 			}
