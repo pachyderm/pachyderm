@@ -38,7 +38,9 @@ import (
 const (
 	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
 	// chunk in case of failures.
-	MaxPodsPerChunk  = 3
+	MaxPodsPerChunk = 3
+	// DefaultUserImage is the image used for jobs when the user does not specify
+	// an image.
 	DefaultUserImage = "ubuntu:16.04"
 )
 

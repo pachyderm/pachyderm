@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Repo clones an entire repo at a certain commit
+// Pull clones an entire repo at a certain commit
 //
 // root is the local path you want to clone to
 // commit is the commit you want to clone
@@ -79,6 +79,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 	return g.Wait()
 }
 
+// Push puts files under root into an open commit.
 func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
 	var g errgroup.Group
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
