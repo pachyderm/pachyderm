@@ -2565,6 +2565,8 @@ func TestListFileFast(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/1", "bar", strings.NewReader(fileContent))
 	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
 	fileInfos, err = client.ListFileFast(repo, "master/1", "", "", false, nil)
