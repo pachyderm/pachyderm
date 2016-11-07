@@ -38,6 +38,8 @@ const (
 	commitTable Table = "Commits"
 
 	connectTimeoutSeconds = 5
+	maxIdle               = 5
+	maxOpen               = 100
 )
 
 const (
@@ -118,6 +120,9 @@ func initDB(session *gorethink.Session, dbName string) error {
 	_, err := gorethink.DBCreate(dbName).RunWrite(session)
 	if err != nil && !isDBCreated(err) {
 		return err
+	} else if err != nil && isDBCreated(err) {
+		// This function has already run so we abort.
+		return nil
 	}
 
 	// Create tables
@@ -168,6 +173,8 @@ func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
+		MaxIdle: maxIdle,
+		MaxOpen: maxOpen,
 	})
 }
 
@@ -1111,7 +1118,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 			Repo:     commit.Repo,
 			Delete:   false,
 			Path:     prefix,
-			Clock:    persist.FullClockHead(commit.FullClock),
+			Clock:    commit.FullClock,
 			FileType: persist.FileType_DIR,
 			Modified: now(),
 		})
@@ -1125,7 +1132,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		Path:      file.Path,
 		BlockRefs: refs,
 		Size:      size,
-		Clock:     persist.FullClockHead(commit.FullClock),
+		Clock:     commit.FullClock,
 		FileType:  persist.FileType_FILE,
 		Modified:  now(),
 	})
@@ -1204,7 +1211,7 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		Repo:     commit.Repo,
 		Delete:   false,
 		Path:     file.Path,
-		Clock:    persist.FullClockHead(commit.FullClock),
+		Clock:    commit.FullClock,
 		FileType: persist.FileType_DIR,
 		Modified: now(),
 	}
@@ -1363,7 +1370,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 		res.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.Clock.ReadableCommitID(),
+			ID:   persist.FullClockHead(diff.Clock).ReadableCommitID(),
 		}
 		res.SizeBytes = diff.Size
 	case persist.FileType_DIR:
@@ -1548,7 +1555,6 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 	if err := cursor.One(&newPersistCommit); err != nil {
 		return err
 	}
-	newClock := persist.FullClockHead(newPersistCommit.FullClock)
 
 	diffs, err := d.getDiffsToMerge(fromCommits, toCommit)
 	if err != nil {
@@ -1563,7 +1569,7 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 			// Diff.  But in Squash and Replay, the Diffs are not supposed to
 			// be mutated anymore.
 			"ID":    gorethink.UUID(),
-			"Clock": newClock,
+			"Clock": newPersistCommit.FullClock,
 		}
 	})).RunWrite(d.dbClient)
 	if err != nil {
@@ -1627,14 +1633,13 @@ func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pf
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
 		}
-		newClock := persist.FullClockHead(newPersistCommit.FullClock)
 		oldClock := persist.FullClockHead(rawCommit.FullClock)
 
 		// TODO: conflict detection
 		_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 			return map[string]interface{}{
 				"ID":    gorethink.UUID(),
-				"Clock": newClock,
+				"Clock": newPersistCommit.FullClock,
 			}
 		})).RunWrite(d.dbClient)
 		if err != nil {
@@ -1700,6 +1705,34 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 	})
 }
 
+// getChildrenFast is the same as getChildren except that it only computes the
+// presence of children, but not their sizes, blockrefs, etc.
+func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, parent, clock)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cursor, err := query.Group("Path").Reduce(func(left, right gorethink.Term) gorethink.Term {
+		return gorethink.Branch(persist.DBClockDescendent(left.Field("clock"), right.Field("clock")),
+			right,
+			left)
+	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+		return diff.Field("FileType").Ne(persist.FileType_NONE)
+	}).Without("BlockRefs", "Size").OrderBy("Path").Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var diffs []*persist.Diff
+	if err := cursor.All(&diffs); err != nil {
+		return nil, err
+	}
+	return diffs, nil
+}
+
 func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
 	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
 		return diffParentIndexKey(repo, parent, clock)
@@ -1710,7 +1743,7 @@ func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMet
 
 	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
-	}).OrderBy("Path").Run(d.dbClient)
+	}).OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
 	if err != nil {
 		return nil, err
 	}
@@ -1754,7 +1787,7 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 				"Size": left.Field("Size").Add(right.Field("Size")),
 			}),
 		)
-	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient)
+	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
 	if err != nil {
 		return nil, err
 	}
@@ -1886,7 +1919,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	return filterBlocks(diff, filterShard, file)
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode drive.ListFileMode) ([]*pfs.FileInfo, error) {
 	fixPath(file)
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
@@ -1906,10 +1939,13 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 
 	var diffs []*persist.Diff
 	var err error
-	if recurse {
-		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
-	} else {
+	switch mode {
+	case drive.ListFileNORMAL:
 		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+	case drive.ListFileFAST:
+		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+	case drive.ListFileRECURSE:
+		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
 	}
 	if err != nil {
 		return nil, err
@@ -1944,7 +1980,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 		fileInfo.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.Clock.ReadableCommitID(),
+			ID:   persist.FullClockHead(diff.Clock).ReadableCommitID(),
 		}
 		fileInfos = append(fileInfos, fileInfo)
 	}
@@ -1994,7 +2030,7 @@ func (d *driver) DeleteFile(file *pfs.File) error {
 			BlockRefs: nil,
 			Delete:    true,
 			Size:      0,
-			Clock:     persist.FullClockHead(commit.FullClock),
+			Clock:     commit.FullClock,
 			FileType:  persist.FileType_NONE,
 		})
 	}

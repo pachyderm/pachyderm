@@ -37,14 +37,6 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
-// NewDiff creates a pfs.Diff.
-func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
-	return &pfs.Diff{
-		Commit: NewCommit(repoName, commitID),
-		Shard:  shard,
-	}
-}
-
 // CommitTypes alias pfs.CommitType_*
 const (
 	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE
@@ -552,21 +544,39 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string,
 // in which case info about all the files and all the blocks in those files
 // will be returned.
 // recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
-func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recurse)
-}
-
-func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
+func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
+	req := &pfs.ListFileRequest{
+		File:       NewFile(repoName, commitID, path),
+		Shard:      shard,
+		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
+	}
+	if recurse {
+		req.Mode = pfs.ListFileMode_ListFile_RECURSE
+	} else {
+		req.Mode = pfs.ListFileMode_ListFile_NORMAL
+	}
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		c.ctx(),
-		&pfs.ListFileRequest{
-			File:       NewFile(repoName, commitID, path),
-			Shard:      shard,
-			DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
-			Recurse:    recurse,
-		},
+		req,
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return fileInfos.FileInfo, nil
+}
+
+// ListFileFast is the same as ListFile except that it doesn't compute the sizes
+// of the files.  As a result it's faster than ListFile.
+func (c APIClient) ListFileFast(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard) ([]*pfs.FileInfo, error) {
+	req := &pfs.ListFileRequest{
+		File:       NewFile(repoName, commitID, path),
+		Shard:      shard,
+		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
+		Mode:       pfs.ListFileMode_ListFile_FAST,
+	}
+	fileInfos, err := c.PfsAPIClient.ListFile(
+		c.ctx(),
+		req,
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)

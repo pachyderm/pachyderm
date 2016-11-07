@@ -44,7 +44,7 @@ message Diff {
   repeated BlockRef block_refs = 4;
   bool delete = 5;
   uint64 size = 6;
-  Clock clock = 7;
+  repeated Clock clock = 7;
   FileType file_type = 8;
   google.protobuf.Timestamp modified = 9;
 }

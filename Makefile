@@ -28,7 +28,7 @@ CLUSTER_SIZE?=4
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
@@ -114,6 +114,9 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+
+docker-build-microsoft-vhd:
+	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
 
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
@@ -257,7 +260,7 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 google-cluster-manifest:
-	@pachctl deploy --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
+	@pachctl deploy --rethinkdb-cache-size=5G --dry-run google $(BUCKET_NAME) $(STORAGE_NAME) $(STORAGE_SIZE)
 
 google-cluster:
 	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw --machine-type $(CLUSTER_MACHINE_TYPE) --num-nodes $(CLUSTER_SIZE)
@@ -299,7 +302,19 @@ amazon-clean:
 	N|n) echo "The amazon clean process has been cancelled by user!";break;; \ 
 	*) echo "input parameter error, please input again ";continue;;esac; \
         fi;done;
+		
+microsoft-cluster-manifest:
+	@pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
+microsoft-cluster:
+	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
+	azure storage account create $(AZURE_STORAGE_NAME) --location $(AZURE_LOCATION) --resource-group $(AZURE_RESOURCE_GROUP) --sku-name LRS --kind Storage
+	$(eval _AZURE_STORAGE_KEY :="`azure storage account keys list $(AZURE_STORAGE_NAME) --resource-group $(AZURE_RESOURCE_GROUP) --json | jq .[0].value`")
+	docker run -it microsoft_vhd $(AZURE_STORAGE_NAME) $(_AZURE_STORAGE_KEY) vhds $(DISK_NAME)
+
+clean-microsoft-cluster:
+	azure group delete $(AZURE_RESOURCE_GROUP) -q
+	
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
@@ -352,10 +367,11 @@ goxc-build:
 	release-manifest \
 	release-pachd \
 	release-version \
+	docker-build \
 	docker-build-compile \
 	docker-build-job-shim \
+	docker-build-microsoft-vhd \
 	docker-build-pachd \
-	docker-build \
 	docker-build-proto \
 	docker-push-job-shim \
 	docker-push-pachd \
