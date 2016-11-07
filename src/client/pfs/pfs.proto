@@ -35,11 +35,6 @@ message Block {
   string hash = 1;
 }
 
-message Diff {
-  Commit commit = 1;
-  uint64 shard = 2;
-}
-
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -124,20 +119,6 @@ message BlockInfo {
 
 message BlockInfos {
   repeated BlockInfo block_info = 1;
-}
-
-message DiffInfo {
-  Diff diff = 1;
-  Commit parent_commit = 2;
-  string branch = 3;
-  google.protobuf.Timestamp started = 4;
-  google.protobuf.Timestamp finished = 5;
-  // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, Append> appends = 6;
-  uint64 size_bytes = 7;
-  bool cancelled = 8;
-  repeated Commit provenance = 9;
-  bool archived = 10;
 }
 
 message Shard {
@@ -257,11 +238,17 @@ message InspectFileRequest {
   DiffMethod diff_method = 3;
 }
 
+enum ListFileMode {
+  ListFile_NORMAL = 0;
+  ListFile_FAST = 1;
+  ListFile_RECURSE = 2;
+}
+
 message ListFileRequest {
   File file = 1;
   Shard shard = 2;
   DiffMethod diff_method = 3;
-  bool recurse = 4;
+  ListFileMode mode = 4;
 }
 
 message DeleteFileRequest {
@@ -354,29 +341,12 @@ message InspectBlockRequest {
 message ListBlockRequest {
 }
 
-message InspectDiffRequest {
-  Diff diff = 1;
-}
-
-message ListDiffRequest {
-  uint64 shard = 1;
-}
-
-message DeleteDiffRequest {
-  Diff diff = 1;
-}
-
 service BlockAPI {
   rpc PutBlock(stream PutBlockRequest) returns (BlockRefs) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc DeleteBlock(DeleteBlockRequest) returns (google.protobuf.Empty) {}
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
-
-  rpc CreateDiff(DiffInfo) returns (google.protobuf.Empty) {}
-  rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
-  rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
-  rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
 }
 
 
