@@ -1716,7 +1716,7 @@ func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.Dif
 	}
 
 	cursor, err := query.Group("Path").Reduce(func(left, right gorethink.Term) gorethink.Term {
-		return gorethink.Branch(persist.DBClockDescendent(left.Field("clock"), right.Field("clock")),
+		return gorethink.Branch(persist.DBClockDescendent(left.Field("Clock"), right.Field("Clock")),
 			right,
 			left)
 	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
