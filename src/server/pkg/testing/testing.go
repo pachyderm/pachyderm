@@ -20,6 +20,7 @@ import (
 
 var mu sync.Mutex
 
+// RunCmd runs a cobra command setting os.Args and os.Stdin appropriately.
 func RunCmd(cmd *cobra.Command, args []string, stdin string, t *testing.T) {
 	// we lock a global mutex because this func modifies global state so 2
 	// copies of it can't run concurrently
@@ -42,6 +43,7 @@ func RunCmd(cmd *cobra.Command, args []string, stdin string, t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
+// TestCmd runs a command using RunCmd and then checks that the cluster state matches expectedState.
 func TestCmd(cmd *cobra.Command, args []string, stdin string, expectedState *State, c *client.APIClient, t *testing.T) {
 	RunCmd(cmd, args, stdin, t)
 	MatchState(expectedState, c, t)
@@ -54,6 +56,7 @@ type State struct {
 	Pipelines []*PipelineState
 }
 
+// Repo adds an expected repo to a State object.
 func (s *State) Repo(name string) *RepoState {
 	repoState := &RepoState{Info: &pfs.RepoInfo{Repo: client.NewRepo(name)}}
 	s.Repos = append(s.Repos, repoState)
@@ -66,6 +69,7 @@ type RepoState struct {
 	Commits []*CommitState
 }
 
+// Commit adds an expected Commit to a State object.
 func (s *RepoState) Commit(id string) *CommitState {
 	commitState := &CommitState{Info: &pfs.CommitInfo{Commit: client.NewCommit(s.Info.Repo.Name, id)}}
 	s.Commits = append(s.Commits, commitState)
@@ -78,6 +82,7 @@ type CommitState struct {
 	Files []*FileState
 }
 
+// File adds an expected file to a State object.
 func (s *CommitState) File(path string) *FileState {
 	fileState := &FileState{Info: &pfs.FileInfo{File: client.NewFile(s.Info.Commit.Repo.Name, s.Info.Commit.ID, path)}}
 	s.Files = append(s.Files, fileState)
@@ -90,12 +95,14 @@ type FileState struct {
 	Content string
 }
 
+// Pipeline adds an expected Pipeline to a State object.
 func (s *State) Pipeline(name string) (*PipelineState, *RepoState) {
 	pipelineState := &PipelineState{Info: &pps.PipelineInfo{Pipeline: client.NewPipeline(name)}}
 	s.Pipelines = append(s.Pipelines, pipelineState)
 	return pipelineState, s.Repo(name)
 }
 
+// PipelineState describes the state for a Pipeline.
 type PipelineState struct {
 	Info *pps.PipelineInfo
 }
@@ -289,6 +296,7 @@ func matchPipelineState(pipelineState *PipelineState, pipelineInfo *pps.Pipeline
 	//TODO this isn't matching everything
 }
 
+// UniqueString string creates a unique string with a prefix.
 func UniqueString(prefix string) string {
 	return prefix + uuid.NewWithoutDashes()[0:12]
 }
