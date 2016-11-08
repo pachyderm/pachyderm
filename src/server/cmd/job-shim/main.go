@@ -26,7 +26,9 @@ import (
 )
 
 const (
-	PFSInputPrefix  = "/pfs"
+	// PFSInputPrefix is where the input repos reside
+	PFSInputPrefix = "/pfs"
+	// PFSOutputPrefix is where the output data resides
 	PFSOutputPrefix = "/pfs/out"
 )
 
