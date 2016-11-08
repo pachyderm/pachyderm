@@ -44,7 +44,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 	var g errgroup.Group
 	for _, fileInfo := range fileInfos.FileInfo {
 		fileInfo := fileInfo
-		g.Go(func() error {
+		g.Go(func() (retErr error) {
 			switch fileInfo.FileType {
 			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
@@ -52,6 +52,11 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 				if err != nil {
 					return err
 				}
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 				getFileClient, err := client.GetFile(
 					ctx,
 					&pfs.GetFileRequest{
@@ -66,10 +71,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 				if err != nil {
 					return err
 				}
-				if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-					return err
-				}
-				return f.Close()
+				return protostream.WriteFromStreamingBytesClient(getFileClient, f)
 			case pfs.FileType_FILE_TYPE_DIR:
 				return pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path)
 			}
@@ -83,7 +85,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
 	var g errgroup.Group
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		g.Go(func() error {
+		g.Go(func() (retErr error) {
 			if path == root || info.IsDir() {
 				return nil
 			}
@@ -92,6 +94,11 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 
 			relPath, err := filepath.Rel(root, path)
 			if err != nil {
@@ -112,11 +119,8 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 			pclient := pachclient.APIClient{
 				PfsAPIClient: client,
 			}
-			if _, err := pclient.PutFile(commit.Repo.Name, commit.ID, relPath, f); err != nil {
-				return err
-			}
-
-			return f.Close()
+			_, err = pclient.PutFile(commit.Repo.Name, commit.ID, relPath, f)
+			return err
 		})
 		return nil
 	}); err != nil {
