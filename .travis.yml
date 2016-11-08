@@ -27,6 +27,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
+- grep -c ^processor /proc/cpuinfo
 - make lint
 - travis_wait 60 make test
 notifications:

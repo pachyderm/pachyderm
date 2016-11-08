@@ -179,12 +179,6 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
-integration-tests:
-	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
-
-example-tests:
-	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
-
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
@@ -217,11 +211,12 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests example-tests
+test: pretest test-client docker-build clean-launch-dev launch-dev test-server
 
 bench:
 	go test ./src/server -run=XXX -bench=.
 
+# This task cannot be run in parallel with server, as it requires special vendoring setup & teardown to compile properly
 test-client:
 	rm -rf src/client/vendor
 	rm -rf src/server/vendor/github.com/pachyderm
@@ -230,11 +225,8 @@ test-client:
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
 
-test-fuse:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
-
-test-local:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
+test-server:
+	CGOENABLED=0 go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') $(TESTFLAGS) -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
 
