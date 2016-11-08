@@ -35,7 +35,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 		},
 		Shard:      shard,
 		DiffMethod: diffMethod,
-		Mode:       pfs.ListFileMode_ListFile_FAST,
+		Mode:       pfs.ListFileMode_ListFile_NORMAL,
 	})
 	if err != nil {
 		return err
