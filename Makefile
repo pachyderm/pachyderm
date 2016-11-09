@@ -189,7 +189,7 @@ proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
 	| xargs tar cf - \
-	| docker run -i pachyderm_proto \
+	| docker run -i jdoliner/proto \
 	| tar xf -
 
 # Use this to grab a binary for profiling purposes
