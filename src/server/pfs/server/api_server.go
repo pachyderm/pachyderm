@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -182,23 +185,61 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		var r io.Reader
 		var delimiter pfs.Delimiter
 		if request.Url != "" {
-			resp, err := http.Get(request.Url)
+			url, err := url.Parse(request.Url)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil && retErr == nil {
-					retErr = err
+			if url.Scheme == "http" || url.Scheme == "https" {
+				resp, err := http.Get(request.Url)
+				if err != nil {
+					return err
 				}
-			}()
-			r = resp.Body
-			switch resp.Header.Get("Content-Type") {
-			case "application/json":
-				delimiter = pfs.Delimiter_JSON
-			case "application/text":
-				delimiter = pfs.Delimiter_LINE
-			default:
-				delimiter = pfs.Delimiter_NONE
+				defer func() {
+					if err := resp.Body.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				r = resp.Body
+				switch resp.Header.Get("Content-Type") {
+				case "application/json":
+					delimiter = pfs.Delimiter_JSON
+				case "application/text":
+					delimiter = pfs.Delimiter_LINE
+				default:
+					delimiter = pfs.Delimiter_NONE
+				}
+			} else if url.Scheme == "s3" {
+				id, err := ioutil.ReadFile("/amazon-secret/id")
+				if err != nil {
+					return err
+				}
+				secret, err := ioutil.ReadFile("/amazon-secret/secret")
+				if err != nil {
+					return err
+				}
+				token, err := ioutil.ReadFile("/amazon-secret/token")
+				if err != nil {
+					return err
+				}
+				region, err := ioutil.ReadFile("/amazon-secret/region")
+				if err != nil {
+					return err
+				}
+				objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
+				if err != nil {
+					return err
+				}
+				reader, err := objClient.Reader(url.Path, 0, 0)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := reader.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				r = reader
+				delimiter = request.Delimiter
 			}
 		} else {
 			reader := putFileReader{
