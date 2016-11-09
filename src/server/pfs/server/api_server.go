@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -17,6 +19,7 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -209,37 +212,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 					delimiter = pfs.Delimiter_NONE
 				}
 			} else if url.Scheme == "s3" {
-				id, err := ioutil.ReadFile("/amazon-secret/id")
-				if err != nil {
-					return err
-				}
-				secret, err := ioutil.ReadFile("/amazon-secret/secret")
-				if err != nil {
-					return err
-				}
-				token, err := ioutil.ReadFile("/amazon-secret/token")
-				if err != nil {
-					return err
-				}
-				region, err := ioutil.ReadFile("/amazon-secret/region")
-				if err != nil {
-					return err
-				}
-				objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
-				if err != nil {
-					return err
-				}
-				reader, err := objClient.Reader(url.Path, 0, 0)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := reader.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				r = reader
-				delimiter = request.Delimiter
+				return a.putFileS3(request, url)
 			}
 		} else {
 			reader := putFileReader{
@@ -257,6 +230,50 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) putFileS3(request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+	id, err := ioutil.ReadFile("/amazon-secret/id")
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.ReadFile("/amazon-secret/secret")
+	if err != nil {
+		return err
+	}
+	token, err := ioutil.ReadFile("/amazon-secret/token")
+	if err != nil {
+		return err
+	}
+	region, err := ioutil.ReadFile("/amazon-secret/region")
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
+	if err != nil {
+		return err
+	}
+	put := func(filePath string, objPath string) error {
+		r, err := objClient.Reader(objPath, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return a.driver.PutFile(client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), request.Delimiter, r)
+	}
+	if request.Recursive {
+		var eg errgroup.Group
+		objClient.Walk(url.Path, func(name string) error {
+			eg.Go(func() error { return put(strings.TrimPrefix(name, url.Path), name) })
+			return nil
+		})
+		return eg.Wait()
+	}
+	return put(request.File.Path, url.Path)
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
