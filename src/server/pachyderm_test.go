@@ -3516,7 +3516,7 @@ func TestPutFiles3URL(t *testing.T) {
 	}
 	t.Parallel()
 	c := getPachClient(t)
-	repo := "TestPutFileURL"
+	repo := uniqueString("TestPutFiles3URL")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
