@@ -163,6 +163,7 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
+	func() { a.Log(request, nil, nil, 0) }()
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
@@ -177,7 +178,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		// tolerate people calling and immediately hanging up
 		return nil
 	}
-	func() { a.Log(request, nil, nil, 0) }()
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
