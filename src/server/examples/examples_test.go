@@ -46,9 +46,7 @@ func TestExampleTensorFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "GoT_scripts"},
-		}},
+		[]string{"GoT_scripts"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusAll,
@@ -127,9 +125,7 @@ func TestWordCount(t *testing.T) {
 	// Flush Commit can't help us here since there are no inputs
 	// So we block on ListCommit
 	commitInfos, err := c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_input"},
-		}},
+		[]string{"wordcount_input"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -143,9 +139,7 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_map"},
-		}},
+		[]string{"wordcount_map"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -175,9 +169,7 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_reduce"},
-		}},
+		[]string{"wordcount_reduce"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -226,9 +218,7 @@ func TestFruitStand(t *testing.T) {
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "data"},
-		}},
+		[]string{"data"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -265,9 +255,7 @@ func TestFruitStand(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "sum"},
-		}},
+		[]string{"sum"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -302,9 +290,7 @@ func TestFruitStand(t *testing.T) {
 
 	// Flush commit!
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "data"},
-		}},
+		[]string{"data"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusAll,
@@ -318,9 +304,7 @@ func TestFruitStand(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "sum"},
-		}},
+		[]string{"sum"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -365,9 +349,7 @@ func TestScraper(t *testing.T) {
 	var commitInfos []*pfsclient.CommitInfo
 	commitInfos, err = c.ListCommit(
 		// fromCommits (only use commits to the 'urls' repo)
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "urls"},
-		}},
+		[]string{"urls"},
 		nil, // provenance (any provenance)
 		client.CommitTypeWrite, // Commit hasn't finished, so we want "write"
 		pfsclient.CommitStatus_NORMAL,
@@ -398,9 +380,7 @@ func TestScraper(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		// fromCommits (use only commits to the 'scraper' repo)
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "scraper"},
-		}},
+		[]string{"scraper"},
 		nil,
 		client.CommitTypeRead,
 		pfsclient.CommitStatus_NORMAL,
