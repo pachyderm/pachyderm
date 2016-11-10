@@ -3510,23 +3510,6 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(1), parellelism)
 }
 
-func TestPutFiles3URL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
-	repo := uniqueString("TestPutFiles3URL")
-	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFileURL(repo, "master", "game", "s3://pachyderm-data/chess/file000000000"))
-	require.NoError(t, c.FinishCommit(repo, "master"))
-	fileInfo, err := c.InspectFile(repo, "master", "game", "", false, nil)
-	require.NoError(t, err)
-	require.True(t, fileInfo.SizeBytes > 0)
-}
-
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
