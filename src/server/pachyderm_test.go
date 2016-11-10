@@ -1288,9 +1288,7 @@ func TestSimple(t *testing.T) {
 	_, err = c.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit1.ID))
-	commitInfos, err := c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: repo},
-	}}, nil, client.CommitTypeNone, pfsclient.CommitStatus_NORMAL, false)
+	commitInfos, err := c.ListCommit([]string{repo}, nil, client.CommitTypeNone, pfsclient.CommitStatus_NORMAL, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -1917,9 +1915,7 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	// There should only be 2 commits on cRepo
-	commitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: cPipeline},
-	}}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, pfsclient.CommitStatus_NORMAL, false)
+	commitInfos, err = c.ListCommit([]string{cPipeline}, nil, pfsclient.CommitType_COMMIT_TYPE_READ, pfsclient.CommitStatus_NORMAL, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 	for _, commitInfo := range commitInfos {
@@ -2901,16 +2897,12 @@ cat /pfs/%s/file >>/pfs/out/file
 	}
 
 	// We archive the temporary commits created per job/pod
-	// So the total we see here is 4, but 'real' commits is just 2
-	outputRepoCommitInfos, err := c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	// So the total we see here is 4, but 'real' commits is just 1
+	outputRepoCommitInfos, err := c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(outputRepoCommitInfos))
 
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(outputRepoCommitInfos))
 
@@ -2942,15 +2934,11 @@ cat /pfs/%s/file2 >>/pfs/out/file
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file2\nfile2\n", buffer.String())
 	}
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 8, len(outputRepoCommitInfos))
-	// Expect real commits to still be 2
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+	// Expect real commits to still be 1
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(outputRepoCommitInfos))
 
@@ -2979,21 +2967,15 @@ cat /pfs/%s/file3 >>/pfs/out/file
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file3\nfile3\n", buffer.String())
 	}
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 12, len(outputRepoCommitInfos))
-	// Expect real commits to still be 2
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+	// Expect real commits to still be 1
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(outputRepoCommitInfos))
 
-	commitInfos, _ = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	commitInfos, _ = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	// Do an update that shouldn't cause archiving
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -3024,15 +3006,11 @@ cat /pfs/%s/file3 >>/pfs/out/file
 		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 		require.Equal(t, "file3\nfile3\n", buffer.String())
 	}
-	commitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	commitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 12, len(commitInfos))
 	// Expect real commits to still be 1
-	outputRepoCommitInfos, err = c.ListCommit([]*pfsclient.Commit{{
-		Repo: &pfsclient.Repo{Name: pipelineName},
-	}}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+	outputRepoCommitInfos, err = c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(outputRepoCommitInfos))
 }
@@ -3264,9 +3242,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 
 	require.NoError(t, c.ArchiveAll())
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: dataRepo},
-		}},
+		[]string{dataRepo},
 		nil,
 		client.CommitTypeNone,
 		client.CommitStatusNormal,
