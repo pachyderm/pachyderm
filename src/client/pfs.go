@@ -225,20 +225,55 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 	return commitInfo, nil
 }
 
-// ListCommit returns info about multiple commits.
+// ListCommit lists commits in the given repos.
+//
 // repoNames defines a set of Repos to consider commits from, if repoNames is left
 // nil or empty then the result will be empty.
-// fromCommitIDs lets you get info about Commits that occurred after this
-// set of commits.
-// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
-// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
-// Using fromCommitIDs and block you can get subscription semantics from ListCommit.
-// commitStatus, controls the statuses of the returned commits. The default
-// value `Normal` will filter out archived and cancelled commits.
+//
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
-func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
+//
+// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
+//
+// status specifies the status of commit you want returned.  By default, cancelled
+// or archived commits are not returned.
+//
+// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
+// Using repoNames and block you can get subscription semantics from ListCommit.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
+func (c APIClient) ListCommit(repoNames []string, provenance []*pfs.Commit,
+	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+	var fromCommits []*pfs.Commit
+	for _, repoName := range repoNames {
+		fromCommits = append(fromCommits, &pfs.Commit{
+			Repo: NewRepo(repoName),
+		})
+	}
+	return c.ListCommitFrom(fromCommits, provenance, commitType, status, block)
+}
+
+// ListCommitFrom lists commits that occurred after the given commits.
+//
+// fromCommits lets you get Commits that occurred after this set of commits.
+// If a fromCommit has only a repo but not a commit ID, all commits in the repo
+// are returned.
+//
+// provenance specifies a set of provenance commits, only commits which have
+// ALL of the specified commits as provenance will be returned unless
+// provenance is nil in which case it is ignored.
+//
+// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
+//
+// status specifies the status of commit you want returned.  By default, cancelled
+// or archived commits are not returned.
+//
+// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
+// Using fromCommits and block you can get subscription semantics from ListCommit.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
+func (c APIClient) ListCommitFrom(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
