@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -267,8 +268,9 @@ func (a *apiServer) putFileS3(request *pfs.PutFileRequest, url *url.URL) (retErr
 	}
 	if request.Recursive {
 		var eg errgroup.Group
-		objClient.Walk(url.Path, func(name string) error {
-			eg.Go(func() error { return put(strings.TrimPrefix(name, url.Path), name) })
+		path := strings.TrimPrefix(url.Path, "/")
+		objClient.Walk(path, func(name string) error {
+			eg.Go(func() error { return put(filepath.Join(request.File.Path, name), name) })
 			return nil
 		})
 		return eg.Wait()
