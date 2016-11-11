@@ -117,6 +117,7 @@ func InitDB(address string, dbName string) error {
 }
 
 func initDB(session *gorethink.Session, dbName string) error {
+	fmt.Printf("!!! initializing db\n")
 	_, err := gorethink.DBCreate(dbName).RunWrite(session)
 	if err != nil && !isDBCreated(err) {
 		return err
@@ -133,6 +134,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 		}
 	}
 
+	fmt.Printf("!!! initialized tables\n")
 	// Create indexes
 	for _, someIndex := range Indexes {
 		if _, err := gorethink.DB(dbName).Table(someIndex.Table).IndexCreateFunc(someIndex.Name, someIndex.CreateFunction, someIndex.CreateOptions).RunWrite(session); err != nil {

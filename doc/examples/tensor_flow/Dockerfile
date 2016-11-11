@@ -29,6 +29,10 @@ ADD code /code
 ADD pachyderm /go/src/github.com/pachyderm/pachyderm
 
 # Install Pachyderm job-shim
-RUN go get github.com/pachyderm/pachyderm/src/server/cmd/job-shim && \
-    cp $GOPATH/bin/job-shim /job-shim
+RUN go get github.com/pachyderm/pachyderm
+RUN cd  /go/src/github.com/pachyderm/pachyderm && \
+    git checkout v1.2.3
+RUN cd /go/src/github.com/pachyderm/pachyderm && \
+    go install ./src/server/cmd/job-shim && \
+    cp $GOPATH/bin/job-shim /job-shim 
 
