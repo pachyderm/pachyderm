@@ -24,6 +24,9 @@ echo "LD_FLAGS=$LD_FLAGS"
 if [ -z ${PROFILE} ]
 then
     cp Dockerfile.${BINARY} _tmp/Dockerfile
+    if [ ${BINARY} = "job-shim" ]; then
+        cp ./etc/job-shim/* _tmp/
+    fi
     docker build -t pachyderm_${BINARY} _tmp
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:local

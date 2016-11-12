@@ -869,6 +869,21 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 
+	// If a job has a parent commit, we expose the parent commit
+	// to the job under /pfs/fuse/prev
+	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+		Commit: outputCommitMount.Commit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.ParentCommit != nil {
+		commitMounts = append(commitMounts, &fuse.CommitMount{
+			Commit: commitInfo.ParentCommit,
+			Alias:  "prev",
+		})
+	}
+
 	return &ppsserver.StartPodResponse{
 		ChunkID:      chunk.ID,
 		Transform:    jobInfo.Transform,
@@ -2002,7 +2017,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 						{
 							Name:            "init",
 							Image:           jobShimImage,
-							Command:         []string{"cp", "/job-shim", "/pfs/job-shim"},
+							Command:         []string{"/job-shim.sh"},
 							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
 							Env:             jobEnv,
 							VolumeMounts:    volumeMounts,
@@ -2010,9 +2025,12 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					},
 					Containers: []api.Container{
 						{
-							Name:            "user",
-							Image:           userImage,
-							Command:         []string{"/pfs/job-shim", jobInfo.JobID},
+							Name:    "user",
+							Image:   userImage,
+							Command: []string{"/pfs/.bin/guest.sh", jobInfo.JobID},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
 							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
 							Env:             jobEnv,
 							VolumeMounts:    volumeMounts,

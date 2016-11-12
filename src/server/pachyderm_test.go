@@ -1740,6 +1740,93 @@ echo $numfiles > /pfs/out/file
 	}
 }
 
+func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf(`
+cat /pfs/%s/file >>/pfs/out/file
+if [ -d "/pfs/fuse/prev" ]; then
+  cat /pfs/fuse/prev/file >>/pfs/out/file
+fi
+`, repo)},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{
+			{
+				Repo:   &pfsclient.Repo{Name: repo},
+				Method: client.IncrementalReduceMethod,
+			},
+		},
+		false,
+	))
+
+	commit1, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, c.FinishCommit(repo, commit1.ID))
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		FromCommits: []*pfsclient.Commit{{
+			Repo: &pfsclient.Repo{Name: pipelineName},
+		}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	lines := strings.Split(strings.TrimSpace(buffer.String()), "\n")
+	require.Equal(t, 1, len(lines))
+	require.Equal(t, "foo", lines[0])
+
+	commit2, err := c.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, c.FinishCommit(repo, commit2.ID))
+
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		FromCommits: []*pfsclient.Commit{outCommits[0].Commit},
+		CommitType:  pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:       true,
+	}
+	listCommitResponse, err = c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	var buffer2 bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer2))
+	lines = strings.Split(strings.TrimSpace(buffer2.String()), "\n")
+	require.Equal(t, 3, len(lines))
+	require.Equal(t, "foo", lines[0])
+	require.Equal(t, "bar", lines[1])
+	require.Equal(t, "foo", lines[2])
+}
+
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
