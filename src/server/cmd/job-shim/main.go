@@ -30,6 +30,8 @@ const (
 	PFSInputPrefix = "/pfs"
 	// PFSOutputPrefix is where the output data resides
 	PFSOutputPrefix = "/pfs/out"
+	// FUSEMountPoint is where we mount FUSE
+	FUSEMountPoint = "/pfs/fuse"
 )
 
 type appEnv struct {
@@ -134,7 +136,7 @@ func do(appEnvObj interface{}) error {
 			errCh := make(chan error)
 			go func() {
 				if err := mounter.MountAndCreate(
-					"/pfs/fuse",
+					FUSEMountPoint,
 					nil,
 					mounts,
 					ready,
@@ -150,7 +152,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			defer func() {
-				if err := mounter.Unmount("/pfs/prev"); err != nil && retErr == nil {
+				if err := mounter.Unmount(FUSEMountPoint); err != nil && retErr == nil {
 					retErr = err
 				}
 			}()
