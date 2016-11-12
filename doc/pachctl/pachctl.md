@@ -27,7 +27,7 @@ Environment variables:
 * [./pachctl delete-file](./pachctl_delete-file.md)	 - Delete a file.
 * [./pachctl delete-pipeline](./pachctl_delete-pipeline.md)	 - Delete a pipeline.
 * [./pachctl delete-repo](./pachctl_delete-repo.md)	 - Delete a repo.
-* [./pachctl deploy](./pachctl_deploy.md)	 - Print a kubernetes manifest for a Pachyderm cluster.
+* [./pachctl deploy](./pachctl_deploy.md)	 - Deploy a Pachyderm cluster.
 * [./pachctl file](./pachctl_file.md)	 - Docs for files.
 * [./pachctl finish-commit](./pachctl_finish-commit.md)	 - Finish a started commit.
 * [./pachctl flush-commit](./pachctl_flush-commit.md)	 - Wait for all commits caused by the specified commits to finish and return them.

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -45,9 +46,7 @@ func TestExampleTensorFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	commitInfos, err := c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "GoT_scripts"},
-		}},
+		[]string{"GoT_scripts"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusAll,
@@ -126,9 +125,7 @@ func TestWordCount(t *testing.T) {
 	// Flush Commit can't help us here since there are no inputs
 	// So we block on ListCommit
 	commitInfos, err := c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_input"},
-		}},
+		[]string{"wordcount_input"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -142,9 +139,7 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_map"},
-		}},
+		[]string{"wordcount_map"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -174,9 +169,7 @@ func TestWordCount(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "wordcount_reduce"},
-		}},
+		[]string{"wordcount_reduce"},
 		nil,
 		client.CommitTypeRead,
 		client.CommitStatusNormal,
@@ -195,6 +188,143 @@ func TestWordCount(t *testing.T) {
 	if len(fileInfos) < 100 {
 		t.Fatalf("Word count result is too small. Should have counted a bunch of words. Only counted %v:\n%v\n", len(fileInfos), fileInfos)
 	}
+}
+
+func TestFruitStand(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	t.Parallel()
+
+	require.NoError(t, c.CreateRepo("data"))
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	require.OneOfEquals(t, "data", toRepoNames(repoInfos))
+
+	cmd := exec.Command(
+		"pachctl",
+		"put-file",
+		"data",
+		"master",
+		"sales",
+		"-c",
+		"-f",
+		"../../../doc/examples/fruit_stand/set1.txt",
+	)
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+
+	commitInfos, err := c.ListCommit(
+		[]string{"data"},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
+	require.Equal(t, 1, len(commitInfos))
+	commit := commitInfos[0].Commit
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile("data", commit.ID, "sales", 0, 0, "", false, nil, &buffer))
+	lines := strings.Split(buffer.String(), "\n")
+	if len(lines) < 100 {
+		t.Fatalf("Sales file has too few lines (%v)\n", len(lines))
+	}
+
+	cmd = exec.Command(
+		"pachctl",
+		"create-pipeline",
+		"-f",
+		"../../../doc/examples/fruit_stand/pipeline.json",
+	)
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+
+	repoInfos, err = c.ListRepo(nil)
+	require.NoError(t, err)
+	repoNames := toRepoNames(repoInfos)
+	require.OneOfEquals(t, "sum", repoNames)
+	require.OneOfEquals(t, "filter", repoNames)
+	require.OneOfEquals(t, "data", repoNames)
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit("data", commit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(
+		[]string{"sum"},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile("sum", commitInfos[0].Commit.ID, "apple", 0, 0, "", false, nil, &buffer))
+	require.NotNil(t, buffer)
+	firstCount, err := strconv.ParseInt(strings.TrimRight(buffer.String(), "\n"), 10, 0)
+	require.NoError(t, err)
+	if firstCount < 100 {
+		t.Fatalf("Wrong sum for apple (%d) ... too low\n", firstCount)
+	}
+
+	// Add more data to input
+
+	cmd = exec.Command(
+		"pachctl",
+		"put-file",
+		"data",
+		"master",
+		"sales",
+		"-c",
+		"-f",
+		"../../../doc/examples/fruit_stand/set2.txt",
+	)
+	_, err = cmd.Output()
+	require.NoError(t, err)
+
+	// Flush commit!
+	commitInfos, err = c.ListCommit(
+		[]string{"data"},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusAll,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit("data", commitInfos[1].Commit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(
+		[]string{"sum"},
+		nil,
+		client.CommitTypeRead,
+		client.CommitStatusNormal,
+		false,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile("sum", commitInfos[1].Commit.ID, "apple", 0, 0, "", false, nil, &buffer))
+	require.NotNil(t, buffer)
+	secondCount, err := strconv.ParseInt(strings.TrimRight(buffer.String(), "\n"), 10, 0)
+	require.NoError(t, err)
+	if firstCount > secondCount {
+		t.Fatalf("Second sum (%v) is smaller than first (%v)\n", secondCount, firstCount)
+	}
+
+	require.NoError(t, c.DeleteRepo("sum", false))
+	require.NoError(t, c.DeleteRepo("filter", false))
+	require.NoError(t, c.DeleteRepo("data", false))
 }
 
 func TestScraper(t *testing.T) {
@@ -219,9 +349,7 @@ func TestScraper(t *testing.T) {
 	var commitInfos []*pfsclient.CommitInfo
 	commitInfos, err = c.ListCommit(
 		// fromCommits (only use commits to the 'urls' repo)
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "urls"},
-		}},
+		[]string{"urls"},
 		nil, // provenance (any provenance)
 		client.CommitTypeWrite, // Commit hasn't finished, so we want "write"
 		pfsclient.CommitStatus_NORMAL,
@@ -252,9 +380,7 @@ func TestScraper(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(
 		// fromCommits (use only commits to the 'scraper' repo)
-		[]*pfsclient.Commit{{
-			Repo: &pfsclient.Repo{Name: "scraper"},
-		}},
+		[]string{"scraper"},
 		nil,
 		client.CommitTypeRead,
 		pfsclient.CommitStatus_NORMAL,

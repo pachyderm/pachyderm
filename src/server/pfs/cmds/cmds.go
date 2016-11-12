@@ -282,7 +282,7 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommit(fromCommits, provenance, client.CommitTypeNone, status, block)
+			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}

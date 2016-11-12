@@ -1921,6 +1921,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode drive.ListFileMode) ([]*pfs.FileInfo, error) {
 	fixPath(file)
+	if mode == drive.ListFileFAST && filterShard != nil && filterShard.BlockModulus > 1 {
+		return nil, fmt.Errorf("the FAST mode of ListFile does not support block shards")
+	}
+
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod)

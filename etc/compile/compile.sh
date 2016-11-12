@@ -10,7 +10,7 @@ LD_FLAGS="${2}"
 PROFILE="${3}"
 
 mkdir -p _tmp
-go build \
+CGO_ENABLED=0 GOOS=linux go build \
   -a \
   -installsuffix netgo \
   -tags netgo \
@@ -27,6 +27,7 @@ then
     if [ ${BINARY} = "job-shim" ]; then
         cp ./etc/job-shim/* _tmp/
     fi
+    cp /etc/ssl/certs/ca-certificates.crt _tmp/ca-certificates.crt
     docker build -t pachyderm_${BINARY} _tmp
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
