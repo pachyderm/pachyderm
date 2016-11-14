@@ -53,7 +53,7 @@ func DeployCmd() *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-	deployLocal.Flags().StringVar(&hostPath, "host-path", "/tmp/pach", "Location on the host machine where PFS metadata will be stored.")
+	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 
 	deployGoogle := &cobra.Command{
