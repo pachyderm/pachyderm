@@ -2017,7 +2017,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 						{
 							Name:            "init",
 							Image:           jobShimImage,
-							Command:         []string{"/job-shim.sh"},
+							Command:         []string{"/pach/job-shim.sh"},
 							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
 							Env:             jobEnv,
 							VolumeMounts:    volumeMounts,

@@ -1,14 +1,29 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER jdoliner@pachyderm.io
 
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
+    build-essential \
     ca-certificates \
-    fuse \
     wget && \
   apt-get clean && \
-  rm -rf /var/lib/apt
-ADD ./job-shim.sh /
-ADD ./guest.sh /
-ADD ./job-shim /
+  rm -rf /var/lib/apt \
+  mkdir /pach
+ADD ./job-shim.sh /pach/
+ADD ./guest.sh /pach/
+ADD ./job-shim /pach/
+
+# statically compile FUSE
+
+ENV FUSE_VERSION 2.9.7
+
+RUN wget https://github.com/libfuse/libfuse/releases/download/fuse-${FUSE_VERSION}/fuse-${FUSE_VERSION}.tar.gz \
+&& wget https://github.com/libfuse/libfuse/releases/download/fuse-${FUSE_VERSION}/fuse-${FUSE_VERSION}.tar.gz.asc \
+&& gpg --keyserver hkps.pool.sks-keyservers.net --recv-key 3C4E599F \
+&& gpg fuse-${FUSE_VERSION}.tar.gz.asc \
+&& tar zxf fuse-${FUSE_VERSION}.tar.gz \
+&& cd fuse-${FUSE_VERSION} \
+&& ./configure \
+&& make -C util LDFLAGS="-all-static -Wl,-v -Wl,--strip-all" V=1 fusermount \
+&& cp util/fusermount /pach/
