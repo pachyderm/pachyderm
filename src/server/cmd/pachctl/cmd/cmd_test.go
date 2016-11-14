@@ -95,7 +95,7 @@ func TestMetrics(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	os.Args = []string{"deploy", "--dry-run"}
+	os.Args = []string{"deploy", "local", "--dry-run"}
 	err := deploycmds.DeployCmd().Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
@@ -104,7 +104,10 @@ func TestMetrics(t *testing.T) {
 
 	decoder := json.NewDecoder(r)
 	foundPachdManifest := false
-	for {
+	// Loop through generated manifest until we find a
+	// ReplicationController (limit of 100 makes sure test
+	// fails quickly if there is no RC)
+	for i := 0; i < 100; i++ {
 		var manifest *api.ReplicationController
 		err = decoder.Decode(&manifest)
 		if err == io.EOF {
@@ -135,7 +138,7 @@ func TestMetrics(t *testing.T) {
 	r, w, _ = os.Pipe()
 	os.Stdout = w
 
-	os.Args = []string{"deploy", "-d", "--dry-run"}
+	os.Args = []string{"deploy", "local", "-d", "--dry-run"}
 	err = deploycmds.DeployCmd().Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
@@ -144,7 +147,7 @@ func TestMetrics(t *testing.T) {
 
 	decoder = json.NewDecoder(r)
 	foundPachdManifest = false
-	for {
+	for i := 0; i < 100; i++ {
 		var manifest *api.ReplicationController
 		err = decoder.Decode(&manifest)
 		if err == io.EOF {

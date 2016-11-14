@@ -378,8 +378,12 @@ func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *pers
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	doc := gorethink.Expr(request).Without("CreatedAt")
-	if _, err := a.getTerm(pipelineInfosTable).Insert(doc, gorethink.InsertOpts{Conflict: "update"}).RunWrite(a.session); err != nil {
+	doc := gorethink.Expr(request).Without("CreatedAt").Without("Version")
+	if _, err := a.getTerm(pipelineInfosTable).Get(request.PipelineName).Update(func(p gorethink.Term) gorethink.Term {
+		return doc.Merge(map[string]interface{}{
+			"Version": p.Field("Version").Add(1),
+		})
+	}).RunWrite(a.session); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil

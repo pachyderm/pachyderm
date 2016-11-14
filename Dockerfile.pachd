@@ -1,11 +1,6 @@
-FROM ubuntu:14.04
+FROM scratch
 MAINTAINER jdoliner@pachyderm.io
 
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    ca-certificates && \
-  apt-get clean && \
-  rm -rf /var/lib/apt
 ADD ./pachd /
+ADD ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/pachd"]
