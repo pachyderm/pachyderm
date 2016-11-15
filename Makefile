@@ -180,7 +180,7 @@ clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
 
 integration-tests:
-	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
+	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT) -parallel 5
 
 example-tests:
 	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
