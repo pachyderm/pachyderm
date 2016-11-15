@@ -21,7 +21,7 @@ var (
 	volumeSuite            = "pachyderm-pps-storage"
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage           = "rethinkdb:2.3.3"
+	rethinkImage           = "rethinkdb:2.3.5"
 	registryImage          = "registry:2"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
@@ -150,7 +150,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(1)
+	replicas := int32(4)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
