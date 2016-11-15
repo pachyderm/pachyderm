@@ -559,6 +559,7 @@ func TestPipelineOverwrite(t *testing.T) {
 }
 
 func TestPipelineTransientFailure(t *testing.T) {
+	t.Skip("this test overwhelms k8s")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
