@@ -22,14 +22,12 @@ var (
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage           = "rethinkdb:2.3.3"
-	registryImage          = "registry:2"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
 	pachdName              = "pachd"
 	rethinkName            = "rethink"
 	rethinkVolumeName      = "rethink-volume"
 	rethinkVolumeClaimName = "rethink-volume-claim"
-	registryName           = "registry"
 	amazonSecretName       = "amazon-secret"
 	googleSecretName       = "google-secret"
 	microsoftSecretName    = "microsoft-secret"
@@ -541,106 +539,6 @@ func InitJob(version string) *extensions.Job {
 	}
 }
 
-// RegistryRc returns a registry Replication Controller.
-func RegistryRc() *api.ReplicationController {
-	replicas := int32(1)
-	return &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   registryName,
-			Labels: labels(registryName),
-		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": registryName,
-			},
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   registryName,
-					Labels: labels(registryName),
-				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:  registryName,
-							Image: registryImage,
-							Env: []api.EnvVar{
-								{
-									Name:  "REGISTRY_HTTP_ADDR",
-									Value: ":5000",
-								},
-								{
-									Name:  "REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY",
-									Value: "/var/lib/registry",
-								},
-							},
-							Resources: api.ResourceRequirements{
-								Limits: map[api.ResourceName]resource.Quantity{
-									"cpu":    resource.MustParse("100m"),
-									"memory": resource.MustParse("100Mi"),
-								},
-								Requests: map[api.ResourceName]resource.Quantity{
-									"cpu":    resource.MustParse("100m"),
-									"memory": resource.MustParse("100Mi"),
-								},
-							},
-							Ports: []api.ContainerPort{
-								{
-									ContainerPort: 5000,
-									Name:          "registry",
-								},
-							},
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      "image-storage",
-									MountPath: "/var/lib/registry",
-								},
-							},
-							ImagePullPolicy: "IfNotPresent",
-						},
-					},
-					Volumes: []api.Volume{
-						{
-							Name: "image-storage",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-// RegistryService returns a registry service.
-func RegistryService() *api.Service {
-	return &api.Service{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   registryName,
-			Labels: labels(registryName),
-		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
-			Selector: map[string]string{
-				"app": registryName,
-			},
-			Ports: []api.ServicePort{
-				{
-					Port:     5000,
-					Name:     "registry",
-					NodePort: 30500,
-				},
-			},
-		},
-	}
-}
-
 // AmazonSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
@@ -791,7 +689,6 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
 	Shards             uint64
-	Registry           bool
 	RethinkdbCacheSize string
 	Version            string
 	LogLevel           string
@@ -828,13 +725,6 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(opts.Shards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-
-	if opts.Registry {
-		RegistryRc().CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-		RegistryService().CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-	}
 }
 
 // WriteLocalAssets writes assets to a local backend.

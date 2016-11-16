@@ -39,6 +39,7 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 
 	os.Args = []string{
 		"deploy",
+		"local",
 		"--dry-run",
 		fmt.Sprintf("-d=%v", devFlag),
 	}
@@ -52,7 +53,10 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 
 	decoder := json.NewDecoder(r)
 	foundPachdManifest := false
-	for {
+	// Loop through generated manifest until we find a
+	// ReplicationController (limit of 100 makes sure test
+	// fails quickly if there is no RC)
+	for i := 0; i < 100; i++ {
 		var manifest *api.ReplicationController
 		err = decoder.Decode(&manifest)
 		if err == io.EOF {

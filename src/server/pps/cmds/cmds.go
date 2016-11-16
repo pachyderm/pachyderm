@@ -146,6 +146,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	var pushImages bool
 	var registry string
 	var username string
+	var password string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -193,7 +194,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				return sanitizeErr(err)
 			}
 			if pushImages {
-				pushedImage, err := pushImage(registry, username, request.Transform.Image)
+				pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 				if err != nil {
 					return err
 				}
@@ -212,8 +213,9 @@ The increase the throughput of a job increase the Shard paremeter.
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
 	createJob.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
 	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	createJob.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -342,7 +344,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				if pushImages {
-					pushedImage, err := pushImage(registry, username, request.Transform.Image)
+					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
 						return err
 					}
@@ -360,8 +362,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	createPipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var archive bool
 	updatePipeline := &cobra.Command{
@@ -387,7 +390,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request.Update = true
 				request.NoArchive = !archive
 				if pushImages {
-					pushedImage, err := pushImage(registry, username, request.Transform.Image)
+					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
 						return err
 					}
@@ -406,8 +409,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults to the pachyderm cluster registry.")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
@@ -652,13 +656,9 @@ func sanitizeErr(err error) error {
 	return errors.New(grpc.ErrorDesc(err))
 }
 
-const (
-	defaultRegistry string = "localhost:30500"
-)
-
 // pushImage pushes an image as registry/user/image. Registry and user can be
 // left empty.
-func pushImage(registry string, username string, image string) (string, error) {
+func pushImage(registry string, username string, password string, image string) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return "", err
@@ -666,9 +666,6 @@ func pushImage(registry string, username string, image string) (string, error) {
 	repo, _ := docker.ParseRepositoryTag(image)
 	components := strings.Split(repo, "/")
 	name := components[len(components)-1]
-	if registry == "" {
-		registry = defaultRegistry
-	}
 	if username == "" {
 		user, err := user.Current()
 		if err != nil {
@@ -676,7 +673,10 @@ func pushImage(registry string, username string, image string) (string, error) {
 		}
 		username = user.Username
 	}
-	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
+	pushRepo := fmt.Sprintf("%s/%s", username, name)
+	if registry != "" {
+		pushRepo = fmt.Sprintf("%s/%s/%s", registry, username, name)
+	}
 	pushTag := uuid.NewWithoutDashes()
 	if err := client.TagImage(image, docker.TagImageOptions{
 		Repo:    pushRepo,
@@ -693,6 +693,8 @@ func pushImage(registry string, username string, image string) (string, error) {
 		},
 		docker.AuthConfiguration{
 			ServerAddress: registry,
+			Username:      username,
+			Password:      password,
 		},
 	); err != nil {
 		return "", err

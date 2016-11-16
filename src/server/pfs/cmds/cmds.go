@@ -282,7 +282,7 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommit(fromCommits, provenance, client.CommitTypeNone, status, block)
+			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -641,7 +641,7 @@ files into your Pachyderm cluster.
 		Long:  "Return the files in a directory.",
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
 			if fast && recurse {
-				return fmt.Errorf("You may only provide either --fast or --recurse, but not both.")
+				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
