@@ -70,7 +70,7 @@ func getKeyFromMD(md metadata.MD, key string) (string, error) {
 	if md[key] != nil && len(md[key]) > 0 {
 		return md[key][0], nil
 	}
-	return "", fmt.Errorf("error extracting userid from metadata. userid is empty\n")
+	return "", fmt.Errorf("error extracting userid from metadata. userid is empty")
 }
 
 func (r *Reporter) reportUserAction(ctx context.Context, action string, value interface{}) {
