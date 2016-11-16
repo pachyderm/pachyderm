@@ -641,7 +641,7 @@ files into your Pachyderm cluster.
 		Long:  "Return the files in a directory.",
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
 			if fast && recurse {
-				return fmt.Errorf("You may only provide either --fast or --recurse, but not both.")
+				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
 			client, err := client.NewFromAddress(address)

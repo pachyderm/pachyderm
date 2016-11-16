@@ -173,13 +173,27 @@ pachd               1.2.0
 
 ### Deploy Kubernetes
 
-The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/).
+The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/). The script defaults to using 1 m3.medium instance and 3 t2.micros. t2.micros can have significant network and cpu problems so we suggest using all m3.mediums or larger. Before running kube-up.sh make sure to set:
+
+```
+export NODE_SIZE=m3.medium
+
+# You can also easily change the number of nodes
+export NUM_NODES=2
+
+# The kubernetes guide lists a bunch of other configurations that you can change
+```
+
 
  NOTE: If you've already got a Kubernetes cluster running, you may see the error `An error occurred (InvalidIPAddress.InUse) when calling the RunInstances operation: Address 172.20.0.9 is in use`. You can terminate the old cluster with `kubernetes/cluster/kube-down.sh` and then rerun the script. 
 
  NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:
  ```
  kubectl config use-context minikube
+
+ # You can also view your current context
+ kubectl config current-context
+ aws-kubernetes
  ```
 
  Now we've got Kubernetes up and running, it's time to deploy Pachyderm!
