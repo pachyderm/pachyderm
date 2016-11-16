@@ -194,7 +194,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	var parentJobInfo *persist.JobInfo
 	if request.ParentJob != nil {
-		inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.ParentJob}
+		// We Block on our parent's state because the job may access its
+		// parent's output while it's running so we want the job and its output
+		// commit to have finished.
+		inspectJobRequest := &ppsclient.InspectJobRequest{
+			Job:        request.ParentJob,
+			BlockState: true,
+		}
 		parentJobInfo, err = persistClient.InspectJob(ctx, inspectJobRequest)
 		if err != nil {
 			return nil, err
@@ -743,12 +749,8 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 
 	var parentJobInfo *persist.JobInfo
 	if jobInfo.ParentJob != nil {
-		// We Block on our parent's state because the job may access its
-		// parent's output while it's running so we want the job and its output
-		// commit to have finished.
 		inspectJobRequest := &ppsclient.InspectJobRequest{
-			Job:        jobInfo.ParentJob,
-			BlockState: true,
+			Job: jobInfo.ParentJob,
 		}
 		parentJobInfo, err = persistClient.InspectJob(ctx, inspectJobRequest)
 		if err != nil {
