@@ -66,7 +66,7 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 			continue
 		}
 		require.NoError(t, err)
-
+		fmt.Printf("this manifest obj: %v\n", manifest)
 		if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "ReplicationController" {
 			foundPachdManifest = true
 			expectedMetricEnvVar := api.EnvVar{
