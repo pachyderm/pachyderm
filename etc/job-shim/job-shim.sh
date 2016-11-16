@@ -1,3 +1,5 @@
 #!/bin/sh
-mkdir /pfs/.bin
-cp /pach/* /pfs/.bin/
+if [ -d "/pfs/.bin" ]; then
+    mkdir -p /pfs/.bin
+    cp /pach/* /pfs/.bin/
+fi
