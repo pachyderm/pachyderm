@@ -35,7 +35,6 @@ func DeployCmd() *cobra.Command {
 	var hostPath string
 	var dev bool
 	var dryRun bool
-	var registry bool
 	var rethinkdbCacheSize string
 	var logLevel string
 	var opts *assets.AssetOpts
@@ -120,7 +119,6 @@ func DeployCmd() *cobra.Command {
 		PersistentPreRun: func(*cobra.Command, []string) {
 			opts = &assets.AssetOpts{
 				Shards:             uint64(shards),
-				Registry:           registry,
 				RethinkdbCacheSize: rethinkdbCacheSize,
 				Version:            version.PrettyPrintVersion(version.Version),
 				LogLevel:           logLevel,
@@ -129,7 +127,6 @@ func DeployCmd() *cobra.Command {
 	}
 	cmd.PersistentFlags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	cmd.PersistentFlags().BoolVarP(&registry, "registry", "r", true, "Deploy a docker registry along side pachyderm.")
 	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Default is \"768M\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
