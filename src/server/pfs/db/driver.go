@@ -1716,7 +1716,7 @@ func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.Dif
 	}
 
 	cursor, err := query.Group("Path").Reduce(func(left, right gorethink.Term) gorethink.Term {
-		return gorethink.Branch(persist.DBClockDescendent(left.Field("clock"), right.Field("clock")),
+		return gorethink.Branch(persist.DBClockDescendent(left.Field("Clock"), right.Field("Clock")),
 			right,
 			left)
 	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
@@ -1921,6 +1921,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode drive.ListFileMode) ([]*pfs.FileInfo, error) {
 	fixPath(file)
+	if mode == drive.ListFileFAST && filterShard != nil && filterShard.BlockModulus > 1 {
+		return nil, fmt.Errorf("the FAST mode of ListFile does not support block shards")
+	}
+
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod)

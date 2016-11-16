@@ -11,12 +11,13 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 You'll need the following credentials / tools:
 
 - goxc (`go get github.com/laher/goxc`)
-- goxc configured ... 
+- goxc configured ...
     - run: `make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local`
     - You can get your personal oauth token here: https://github.com/settings/tokens
 - sha256sum (if you're on mac ... `brew install coreutils`)
 - access to `homebrew-tap` and `www` repositories
-- S3 credentials 
+- S3 credentials
+- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/
 
 ## Releasing:
 
@@ -24,7 +25,18 @@ You'll need the following credentials / tools:
 
 2) Update `src/client/version/version.go` version values
 
-3) Release
+3) Run `make doc` with the new version values.
+
+4) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
+
+```
+> git commit -a -m"Update version and run make doc for VERSION point release"
+> git push origin master
+```
+
+5) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
+
+6) Run `make release` or `make point-release`
 
 To specify an additional version string:
 

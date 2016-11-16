@@ -100,7 +100,7 @@ func TestSimple(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	commitInfos, err := client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -299,14 +299,14 @@ func TestCreateDeletedRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	require.NoError(t, client.DeleteRepo(repo, false))
 	require.NoError(t, client.CreateRepo(repo))
 
-	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 }
@@ -850,14 +850,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
-	commitInfos, err := client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err := client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, true)
+		_, err = client.ListCommitFrom([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, true)
 		close(ch)
 	}()
 
@@ -885,10 +885,10 @@ func TestListCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.CancelCommit(repo, commit3.ID))
-	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusAll, false)
+	commitInfos, err = client.ListCommit([]string{repo}, nil, pclient.CommitTypeNone, pclient.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commit3, commitInfos[2].Commit)
@@ -1459,7 +1459,7 @@ func TestScrubbedErrorStrings(t *testing.T) {
 	_, err = client.StartCommit("zzzzz", "master")
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
-	_, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit("zzzzz", "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	_, err = client.ListCommit([]string{"zzzzz"}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.Equal(t, "repo zzzzz not found", err.Error())
 
 	_, err = client.InspectRepo("bogusrepo")
@@ -1736,11 +1736,11 @@ func TestArchiveCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
 
-	commitInfos, err := client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo1, ""), pclient.NewCommit(repo2, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err := client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 	require.NoError(t, client.ArchiveCommit(repo1, commit1.ID))
-	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo1, ""), pclient.NewCommit(repo2, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 
@@ -1756,7 +1756,7 @@ func TestArchiveCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
 	// there should still be no commits to list
-	commitInfos, err = client.ListCommit([]*pfs.Commit{pclient.NewCommit(repo1, ""), pclient.NewCommit(repo2, "")}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err = client.ListCommit([]string{repo1, repo2}, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 }
@@ -1798,7 +1798,7 @@ func TestArchiveAll(t *testing.T) {
 		require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	}
 
-	commitInfos, err := client.ListCommit(fromCommits, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err := client.ListCommitFrom(fromCommits, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, numRepos, len(commitInfos))
 
@@ -1809,7 +1809,7 @@ func TestArchiveAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numRepos, len(repoInfos))
 
-	commitInfos, err = client.ListCommit(fromCommits, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
+	commitInfos, err = client.ListCommitFrom(fromCommits, nil, pclient.CommitTypeNone, pclient.CommitStatusNormal, false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commitInfos))
 }
@@ -1967,7 +1967,7 @@ func TestListCommitBasic(t *testing.T) {
 	}
 
 	commitInfos, err := client.ListCommit(
-		[]*pfs.Commit{pclient.NewCommit("test", "")},
+		[]string{"test"},
 		nil,
 		pclient.CommitTypeNone,
 		pfs.CommitStatus_NORMAL,
@@ -1981,7 +1981,7 @@ func TestListCommitBasic(t *testing.T) {
 	}
 }
 
-func TestListCommitFromCommit(t *testing.T) {
+func TestListCommitFrom(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1995,7 +1995,7 @@ func TestListCommitFromCommit(t *testing.T) {
 		commitIDs = append(commitIDs, commit.ID)
 	}
 
-	commitInfos, err := client.ListCommit(
+	commitInfos, err := client.ListCommitFrom(
 		[]*pfs.Commit{pclient.NewCommit("test", "master/4")},
 		nil,
 		pclient.CommitTypeNone,
@@ -2029,7 +2029,7 @@ func TestListCommitCorrectDescendents(t *testing.T) {
 		require.NoError(t, client.FinishCommit("test", commit.ID))
 	}
 
-	commitInfos, err := client.ListCommit(
+	commitInfos, err := client.ListCommitFrom(
 		[]*pfs.Commit{pclient.NewCommit("test", "a/4")},
 		nil,
 		pclient.CommitTypeNone,
@@ -2564,6 +2564,8 @@ func TestListFileFast(t *testing.T) {
 	_, err = client.PutFile(repo, "master/1", "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/1", "bar", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "dir/1", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master/1"))
 
@@ -3159,7 +3161,7 @@ func TestListCommitOrder(t *testing.T) {
 		} else {
 			fromCommits = append(fromCommits, pclient.NewCommit(repo, ""))
 		}
-		commitInfos, err := client.ListCommit(fromCommits, nil, pclient.CommitTypeRead, pclient.CommitStatusNormal, true)
+		commitInfos, err := client.ListCommitFrom(fromCommits, nil, pclient.CommitTypeRead, pclient.CommitStatusNormal, true)
 		require.NoError(t, err)
 		for _, commitInfo := range commitInfos {
 			received++

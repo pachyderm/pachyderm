@@ -1,13 +1,8 @@
-FROM python:2.7.12-alpine
+FROM golang:1.7.1-alpine
 
 ADD . /src
 WORKDIR /src
 
-RUN apk add --update \
-    build-base \
-    libffi-dev \
-    openssl-dev \
-  && pip install -r requirements.txt
+RUN /src/docker-build.sh
 
-ENTRYPOINT ["python", "create_blank_vhd.py"]
-
+ENTRYPOINT ["go", "run", "create_blank_vhd.go"]
