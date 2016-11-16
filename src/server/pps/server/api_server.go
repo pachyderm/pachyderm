@@ -2017,16 +2017,6 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Labels: labels,
 				},
 				Spec: api.PodSpec{
-					InitContainers: []api.Container{
-						{
-							Name:            "init",
-							Image:           jobShimImage,
-							Command:         []string{"/pach/job-shim.sh"},
-							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
-							Env:             jobEnv,
-							VolumeMounts:    volumeMounts,
-						},
-					},
 					Containers: []api.Container{
 						{
 							Name:    "user",

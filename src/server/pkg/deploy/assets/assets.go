@@ -20,6 +20,7 @@ var (
 	suite                  = "pachyderm"
 	volumeSuite            = "pachyderm-pps-storage"
 	pachdImage             = "pachyderm/pachd"
+	jobShimImage           = "pachyderm/job-shim"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage           = "rethinkdb:2.3.5"
 	serviceAccountName     = "pachyderm"
@@ -32,6 +33,7 @@ var (
 	googleSecretName       = "google-secret"
 	microsoftSecretName    = "microsoft-secret"
 	initName               = "pachd-init"
+	jobShimInitName        = "job-shim-init"
 	trueVal                = true
 	jsonEncoderHandle      = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
@@ -540,6 +542,63 @@ func InitJob(version string) *extensions.Job {
 	}
 }
 
+func JobShimInitJob(version string) *extensions.Job {
+	image := jobShimImage
+	if version != "" {
+		image += ":" + version
+	}
+
+	var volumes []api.Volume
+	var volumeMounts []api.VolumeMount
+	volumes = append(volumes, api.Volume{
+		Name: "pfs",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/var/pach/bins",
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pfs",
+		MountPath: "/pfs",
+	})
+
+	return &extensions.Job{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "extensions/v1beta1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   jobShimInitName,
+			Labels: labels(jobShimInitName),
+		},
+		Spec: extensions.JobSpec{
+			Selector: &extensions.LabelSelector{
+				MatchLabels: labels(jobShimInitName),
+			},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   jobShimInitName,
+					Labels: labels(jobShimInitName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:            "init",
+							Image:           image,
+							Command:         []string{"/pach/job-shim.sh"},
+							ImagePullPolicy: api.PullIfNotPresent,
+							VolumeMounts:    volumeMounts,
+						},
+					},
+					RestartPolicy: "OnFailure",
+					Volumes:       volumes,
+				},
+			},
+		},
+	}
+}
+
 // AmazonSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
@@ -719,6 +778,8 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	fmt.Fprintf(w, "\n")
 
 	InitJob(opts.Version).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	JobShimInitJob(opts.Version).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)

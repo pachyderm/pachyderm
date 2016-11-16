@@ -353,6 +353,9 @@ func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *pers
 }
 
 func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	if _, err := a.getTerm(chunksTable).Delete().Run(a.session); err != nil {
+		return nil, err
+	}
 	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
 		return nil, err
 	}
