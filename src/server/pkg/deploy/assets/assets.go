@@ -551,16 +551,16 @@ func JobShimInitJob(version string) *extensions.Job {
 	var volumes []api.Volume
 	var volumeMounts []api.VolumeMount
 	volumes = append(volumes, api.Volume{
-		Name: "pfs",
+		Name: "pach-bin",
 		VolumeSource: api.VolumeSource{
 			HostPath: &api.HostPathVolumeSource{
-				Path: "/var/pach/bins",
+				Path: "/var/pach/bin",
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      "pfs",
-		MountPath: "/pfs",
+		Name:      "pach-bin",
+		MountPath: "/pach-bin",
 	})
 
 	return &extensions.Job{

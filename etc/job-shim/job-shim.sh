@@ -1,5 +1,4 @@
 #!/bin/sh
-if [ ! -d "/pfs/.bin" ]; then
-    mkdir -p /pfs/.bin
-    cp /pach/* /pfs/.bin/
+if [ ! -f "/pach-bin/job-shim" ]; then
+    cp /pach/* /pach-bin/
 fi
