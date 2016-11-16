@@ -559,7 +559,6 @@ func TestPipelineOverwrite(t *testing.T) {
 }
 
 func TestPipelineTransientFailure(t *testing.T) {
-	t.Skip("this test overwhelms k8s")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -591,7 +590,7 @@ func TestPipelineTransientFailure(t *testing.T) {
 		false,
 	))
 
-	numJobs := 50
+	numJobs := 20
 	var commit *pfsclient.Commit
 	var err error
 	for i := 0; i < numJobs; i++ {
@@ -2099,9 +2098,7 @@ func TestFailedJobReadData(t *testing.T) {
 		BlockState: true,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_FAILURE.String(), jobInfo.State.String())
 	parallelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
