@@ -178,6 +178,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 	// Currently this happens when someone attempts to run a pipeline once
 	if request.Pipeline != nil && request.Transform == nil {
+		request.PipelineVersion = pipelineInfo.Version
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 	}
@@ -315,8 +316,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}),
 	}
 	if request.Pipeline != nil {
-		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
-		persistJobInfo.PipelineVersion = pipelineInfo.Version
+		persistJobInfo.PipelineName = request.Pipeline.Name
+		persistJobInfo.PipelineVersion = request.PipelineVersion
 	}
 
 	// If the job has no input, we respect the specified degree of parallelism
@@ -589,6 +590,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 	// twice.
 	if req.Pipeline != nil && len(req.Inputs) > 0 && !req.Force {
 		s := req.Pipeline.Name
+		s += req.PipelineVersion.String()
 		s += req.Transform.String()
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
@@ -1557,6 +1559,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 					&ppsclient.CreateJobRequest{
 						Transform:       pipelineInfo.Transform,
 						Pipeline:        pipelineInfo.Pipeline,
+						PipelineVersion: pipelineInfo.Version,
 						ParallelismSpec: pipelineInfo.ParallelismSpec,
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
