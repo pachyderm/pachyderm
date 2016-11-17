@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -52,7 +53,13 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	// restore stdout
 	os.Stdout = old
 
-	decoder := json.NewDecoder(r)
+	b := make([]byte, 100000)
+	n, err := r.Read(b)
+	b = b[0:n]
+	jsonReader := bytes.NewBuffer(b)
+	fmt.Printf("got result [%v]\n", string(b))
+
+	decoder := json.NewDecoder(jsonReader)
 	foundPachdManifest := false
 	// Loop through generated manifest until we find a
 	// ReplicationController (limit of 100 makes sure test
