@@ -150,7 +150,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(4)
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
