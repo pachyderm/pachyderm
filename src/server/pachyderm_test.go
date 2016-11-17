@@ -465,7 +465,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "bar\n", buffer.String())
+	require.Equal(t, "foo\nbar\n", buffer.String())
 
 	require.NoError(t, c.DeletePipeline(pipelineName))
 
@@ -500,6 +500,64 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
+func TestPipelineOverwrite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Image:     "alpine:latest",
+				Cmd:       []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+				Overwrite: true,
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+		})
+	require.NoError(t, err)
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+
+	// Do second commit to repo
+	commit2, err := c.StartCommit(dataRepo, commit1.ID)
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit2.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(outRepo.Name, commitInfos[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+}
+
 func TestPipelineTransientFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -532,7 +590,7 @@ func TestPipelineTransientFailure(t *testing.T) {
 		false,
 	))
 
-	numJobs := 50
+	numJobs := 20
 	var commit *pfsclient.Commit
 	var err error
 	for i := 0; i < numJobs; i++ {
@@ -955,20 +1013,23 @@ func TestPipelineThatOverwritesFile(t *testing.T) {
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
 	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"sh"},
-		[]string{
-			"echo foo > /pfs/out/file",
-		},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 3,
-		},
-		nil,
-		false,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"echo foo > /pfs/out/file",
+				},
+				Overwrite: true,
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 3,
+			},
+		})
+	require.NoError(t, err)
 
 	// Manually trigger the pipeline
 	job, err := c.PpsAPIClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
@@ -1105,18 +1166,18 @@ func TestPipelineThatAppendsToFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\nfoo\nfoo\n", buffer2.String())
 }
 
-func TestRemoveAndAppend(t *testing.T) {
-	testParellelRemoveAndAppend(t, 1)
+func TestAppend(t *testing.T) {
+	testParallelAppend(t, 1)
 }
 
-func TestParellelRemoveAndAppend(t *testing.T) {
+func TestParellelAppend(t *testing.T) {
 	// This test does not pass on Travis which is why it's skipped right now As
 	// soon as we have a hypothesis for why this fails on travis but not
 	// locally we should un skip this test and try to fix it.
-	testParellelRemoveAndAppend(t, 3)
+	testParallelAppend(t, 3)
 }
 
-func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
+func testParallelAppend(t *testing.T, parallelism int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1157,7 +1218,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
-				"unlink /pfs/out/file && echo bar > /pfs/out/file",
+				"echo bar > /pfs/out/file",
 			},
 		},
 		ParallelismSpec: &ppsclient.ParallelismSpec{
@@ -1179,7 +1240,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", false, nil, &buffer2))
-	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
+	require.Equal(t, strings.Repeat("foo\n", parallelism)+strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {
@@ -1694,8 +1755,8 @@ func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf(`
 cat /pfs/%s/file >>/pfs/out/file
-if [ -d "/pfs/prev" ]; then
-  cat /pfs/prev/file >>/pfs/out/file
+if [ -d "/pfs/fuse/prev" ]; then
+  cat /pfs/fuse/prev/file >>/pfs/out/file
 fi
 `, repo)},
 		&ppsclient.ParallelismSpec{
@@ -1968,6 +2029,7 @@ func TestDirectory(t *testing.T) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
+				"mkdir /pfs/out/dir",
 				"echo bar >> /pfs/out/dir/file",
 			},
 		},
@@ -2036,9 +2098,7 @@ func TestFailedJobReadData(t *testing.T) {
 		BlockState: true,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_FAILURE.String(), jobInfo.State.String())
 	parallelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
@@ -2146,6 +2206,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 // TestFlushCommitWithFailure is similar to TestFlushCommit except that
 // the pipeline is designed to fail
 func TestFlushCommitWithFailure(t *testing.T) {
+	t.Skip("this causes the fifth pipeline to be stuck in a crash loop, thus overwhelming the cluster.")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

@@ -60,7 +60,7 @@ This document discusses each of the fields present in a pipeline specification. 
 
 ### Transform
 
-`transform.image` is the name of the Docker image that your jobs run in.  Currently, this image needs to [inherit from a Pachyderm-provided image known as `job-shim`](https://github.com/pachyderm/pachyderm/blob/fae98e54af0d6932e258e4b0df4ea784414c921e/examples/fruit_stand/Dockerfile#L1).
+`transform.image` is the name of the Docker image that your jobs run in.  If you don't specify an image, it defaults to `ubuntu:16.04`.
 
 `transform.cmd` is the command passed to the Docker run invocation.  Note that as with Docker, cmd is not run inside a shell which means that things like wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not work.  To get that behavior, you can set `cmd` to be a shell of your choice (e.g. `sh`) and pass a shell script to stdin.
 
@@ -232,7 +232,7 @@ The root mount point is at `/pfs`, which contains:
   - Each input repo will be found here by name
   - Note: Unlike when mounting locally for debugging, there is no `Commit` ID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the `incrementality` flag above
 - `/pfs/out` which is where you write any output
-- `/pfs/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent).
+- `/pfs/fuse/prev` which is this `Job` or `Pipeline`'s previous output, if it exists. (You can think of it as this job's output commit's parent).
 
 ### Output Formats
 

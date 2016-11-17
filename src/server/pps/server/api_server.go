@@ -39,6 +39,9 @@ const (
 	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
 	// chunk in case of failures.
 	MaxPodsPerChunk = 3
+	// DefaultUserImage is the image used for jobs when the user does not specify
+	// an image.
+	DefaultUserImage = "ubuntu:16.04"
 )
 
 var (
@@ -869,7 +872,7 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	commitMounts = append(commitMounts, outputCommitMount)
 
 	// If a job has a parent commit, we expose the parent commit
-	// to the job under /pfs/prev
+	// to the job under /pfs/fuse/prev
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 		Commit: outputCommitMount.Commit,
 	})
@@ -1922,11 +1925,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		return nil, err
 	}
 	parallelism := int32(parallelism64)
-	image := jobShimImage
-	// If the job image refers to pachyderm/job-shim explicitly, we want to use the version of
-	// job-shim that pachd gets from the JOB_SHIM_IMAGE environment variable
-	if jobInfo.Transform.Image != "" && jobInfo.Transform.Image != "pachyderm/job-shim" {
-		image = jobInfo.Transform.Image
+	userImage := jobInfo.Transform.Image
+	if userImage == "" {
+		userImage = DefaultUserImage
 	}
 	if jobImagePullPolicy == "" {
 		jobImagePullPolicy = "IfNotPresent"
@@ -1981,6 +1982,19 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		})
 	}
 
+	volumes = append(volumes, api.Volume{
+		Name: "pach-bin",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/var/pach/bin",
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pach-bin",
+		MountPath: "/pach-bin",
+	})
+
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -2006,8 +2020,8 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Containers: []api.Container{
 						{
 							Name:    "user",
-							Image:   image,
-							Command: []string{"/job-shim", jobInfo.JobID},
+							Image:   userImage,
+							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},

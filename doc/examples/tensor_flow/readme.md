@@ -107,14 +107,7 @@ FROM tensorflow/tensorflow
 ADD code /code
 ```
 
-3) The rest of the Dockerfile installs the dependencies that Pachyderm needs to run the transformation.
-
-This boils down to:
-
-- installing FUSE so that PFS can expose the data to the container
-- installing `job-shim` which is the binary that actually runs the transformation
-
-4) Generate the image
+3) Generate the image
 
 Again, we have a helper. If you run:
 

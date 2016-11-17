@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
+	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
 const (
@@ -3172,6 +3174,67 @@ func TestListCommitOrder(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestSyncPullPush(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo1 := "repo1"
+	require.NoError(t, client.CreateRepo(repo1))
+
+	commit1, err := client.StartCommit(repo1, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "dir/bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, commit1.ID))
+
+	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
+	require.NoError(t, err)
+
+	require.NoError(t, pfssync.Pull(context.Background(), client.PfsAPIClient, tmpDir, commit1, nil, nil))
+
+	repo2 := "repo2"
+	require.NoError(t, client.CreateRepo(repo2))
+
+	commit2, err := client.StartCommit(repo2, "master")
+	require.NoError(t, err)
+
+	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit2, false))
+	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo2, commit2.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit2.ID, "dir/bar", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+
+	fileInfos, err := client.ListFile(repo2, commit2.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	commit3, err := client.StartCommit(repo2, "master")
+	require.NoError(t, err)
+
+	// Test the overwrite flag.
+	// After this Push operation, all files should still look the same, since
+	// the old files were overwritten.
+	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit3, true))
+	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit3.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit3.ID, "dir/bar", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+
+	fileInfos, err = client.ListFile(repo2, commit3.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
 }
 
 func generateRandomString(n int) string {
