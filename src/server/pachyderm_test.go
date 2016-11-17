@@ -3510,6 +3510,22 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(1), parellelism)
 }
 
+func TestCleanPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	repo := uniqueString("TestCleanPath")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "./././file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	_, err = c.InspectFile(repo, "master", "file", "", false, nil)
+	require.NoError(t, err)
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
