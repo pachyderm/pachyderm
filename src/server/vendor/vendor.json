@@ -958,32 +958,32 @@
 		{
 			"checksumSHA1": "tMYGv5jXkse09RM4gWH91NL28UM=",
 			"path": "go.pedge.io/proto/rpclog",
-			"revision": "bd3beee6a03cd820a902905a96aca53c5395be6b",
-			"revisionTime": "2016-09-20T16:22:02Z"
+			"revision": "141da3773a911d0b86562d0bea0e3e7ab0c0e584",
+			"revisionTime": "2016-11-17T22:56:55Z"
 		},
 		{
 			"checksumSHA1": "wvbl69CN/DUDjcvBd5dadEQ4zxY=",
 			"path": "go.pedge.io/proto/server",
-			"revision": "bd3beee6a03cd820a902905a96aca53c5395be6b",
-			"revisionTime": "2016-09-20T16:22:02Z"
+			"revision": "141da3773a911d0b86562d0bea0e3e7ab0c0e584",
+			"revisionTime": "2016-11-17T22:56:55Z"
 		},
 		{
 			"checksumSHA1": "NVElCVKCtIjKcfj+8pSJSicdRq0=",
 			"path": "go.pedge.io/proto/stream",
-			"revision": "bd3beee6a03cd820a902905a96aca53c5395be6b",
-			"revisionTime": "2016-09-20T16:22:02Z"
+			"revision": "141da3773a911d0b86562d0bea0e3e7ab0c0e584",
+			"revisionTime": "2016-11-17T22:56:55Z"
 		},
 		{
 			"checksumSHA1": "uXz44b5xJsjD1Mj4xH3099H+OLw=",
 			"path": "go.pedge.io/proto/time",
-			"revision": "bd3beee6a03cd820a902905a96aca53c5395be6b",
-			"revisionTime": "2016-09-20T16:22:02Z"
+			"revision": "141da3773a911d0b86562d0bea0e3e7ab0c0e584",
+			"revisionTime": "2016-11-17T22:56:55Z"
 		},
 		{
 			"checksumSHA1": "vv7XEWZyLTvfzia1TJGBL4aeulg=",
 			"path": "go.pedge.io/proto/version",
-			"revision": "bd3beee6a03cd820a902905a96aca53c5395be6b",
-			"revisionTime": "2016-09-20T16:22:02Z"
+			"revision": "141da3773a911d0b86562d0bea0e3e7ab0c0e584",
+			"revisionTime": "2016-11-17T22:56:55Z"
 		},
 		{
 			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
