@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,7 +40,6 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	_, err := config.Read()
 	require.NoError(t, err)
 
-	fmt.Printf("running testDeploy: dev %v, nometrics %v, expectedval %v\n", devFlag, noMetrics, expectedEnvValue)
 	old := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -60,13 +58,7 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	// restore stdout
 	os.Stdout = old
 
-	b := make([]byte, 100000)
-	n, err := r.Read(b)
-	b = b[0:n]
-	jsonReader := bytes.NewBuffer(b)
-	fmt.Printf("got result [%v]\n", string(b))
-
-	decoder := json.NewDecoder(jsonReader)
+	decoder := json.NewDecoder(r)
 	foundPachdManifest := false
 	// Loop through generated manifest until we find a
 	// ReplicationController (limit of 100 makes sure test
@@ -75,18 +67,13 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 		var manifest *api.ReplicationController
 		err = decoder.Decode(&manifest)
 		if err == io.EOF {
-			fmt.Printf("got EOF\n")
 			break
 		}
 		if err != nil {
 			// Not a replication controller
-			fmt.Printf("Got error decoding: %v\n", err)
 			continue
 		}
 		require.NoError(t, err)
-		fmt.Printf("this manifest obj: %v\n", manifest)
-		fmt.Printf("this name: %v\n", manifest.ObjectMeta.Name)
-		fmt.Printf("this kind: %v\n\n", manifest.Kind)
 		if manifest.ObjectMeta.Name == "pachd" && manifest.Kind == "ReplicationController" {
 			foundPachdManifest = true
 			expectedMetricEnvVar := api.EnvVar{
