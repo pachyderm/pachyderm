@@ -2029,7 +2029,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 						{
 							Name:    "user",
 							Image:   userImage,
-							Command: []string{"/pfs/.bin/guest.sh", jobInfo.JobID},
+							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
