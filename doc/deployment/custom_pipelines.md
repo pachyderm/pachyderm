@@ -18,68 +18,9 @@ All writes simply need to go to `/pfs/out`. This is a special directory that is 
 
 ## Building a Docker Image
 
-As part of a pipeline, you need to specify a Docker image including the code you want to run.
+As part of a pipeline, you need to specify a Docker image including the code you want to run.  Please refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/) for building Docker images.
 
-There are two ways to construct the image. Both require some familiarity with [Dockerfiles](https://docs.docker.com/engine/tutorials/dockerimages/#/building-an-image-from-a-dockerfile).
-
-In short, you need to include a bit of Pachyderm code, called the Job Shim, in your image, but a Dockerfile can only have a single `FROM` directive. Therefore, you can either add your code to our job-shim image or you can add our job-shim code to your own image. 
-
-### Using the Pachyderm Job Shim
-
-Use this method if your dependencies are simple. Just base your image off of Pachyderm's job shim image:
-
-```
-FROM pachyderm/job-shim:latest
-
-```
-
-[Here is an example](https://github.com/pachyderm/pachyderm/blob/master/examples/word_count/Dockerfile) where the transformation code was written in Go, so in addition to using the job-shim image, this Dockerfile installed go1.6.2 and compiled the program needed for the transformation. 
-
-### Adding the Job-shim Code to Your Image
-
-Use this method if your dependencies are pretty complex or you're using a published 3rd-party image such as [TensorFlow](https://github.com/pachyderm/pachyderm/blob/master/examples/tensor_flow/Dockerfile).
-
-In this case, the `FROM` directive will specify the 3rd party image of your choice and then you'll add the Pachyderm code to your Dockerfile. Below is the code you need to add (you can also [view it on GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/user-job/Dockerfile)).
-
-
-```
-FROM `Your Image`
-
-# then ...
-# Install FUSE
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    git \
-    ca-certificates \
-    curl \
-    fuse && \
-  apt-get clean && \
-  rm -rf /var/lib/apt
-
-# Install Go 1.6.0 (if you don't already have it in your base image)
-RUN \
-  curl -sSL https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz | tar -C /usr/local -xz && \
-  mkdir -p /go/bin
-ENV PATH /usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
-ENV GOPATH /go
-ENV GOROOT /usr/local/go
-
-# Install Pachyderm job-shim
-RUN go get github.com/pachyderm/pachyderm && \
-	go get github.com/pachyderm/pachyderm/src/server/cmd/job-shim && \
-    cp $GOPATH/bin/job-shim /job-shim
-```
-
-### Distributing your Image
-Unless Pachyderm is running on the same Docker host that you used to build your
-image you'll need to use a registry to get your image into the cluster.
-`pachctl` can help you with this by way of the `--push-images` flag which is
-accepted by `create-pipeline` and `update-pipeline`. By default the flag will
-attempt to push the image to a registry that's started inside of the Kubernetes
-cluster when you launch Pachyderm. You can use it with other registries such as
-DockerHub and Google Container Registry. Learn more about `--push-images` from
-the `create-pipeline` [docs](./pachctl/pachctl_create-pipeline.html).
+Unless Pachyderm is running on the same Docker host that you used to build your image you'll need to use a registry to get your image into the cluster.  Please refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/#/push-an-image-to-docker-hub) for pushing images to Docker Hub.
 
 ## Creating a Pipeline
 
