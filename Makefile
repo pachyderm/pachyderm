@@ -235,6 +235,7 @@ test-fuse:
 
 test-local:
 	#CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	go test -v ./src/server/cmd/pachctl/cmd -run=TestMetricsNormalDeploymentNoMetricsFlagSet
 	go test -v ./src/server/cmd/pachctl/cmd -run=TestMetricsNormalDeployment
 
 clean: clean-launch clean-launch-kube
