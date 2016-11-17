@@ -460,7 +460,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) < 3 {
 				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
 			}
-			return client.PutFileURL(args[0], args[1], args[2], url.String())
+			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String())
 		}
 		if !recursive {
 			if len(args) == 3 {
