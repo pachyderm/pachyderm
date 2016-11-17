@@ -1983,6 +1983,11 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 	}
 
 	volumes = append(volumes, api.Volume{
+		Name: "pfs",
+		VolumeSource: api.VolumeSource{
+			EmptyDir: &api.EmptyDirVolumeSource{},
+		},
+	}, api.Volume{
 		Name: "pach-bin",
 		VolumeSource: api.VolumeSource{
 			HostPath: &api.HostPathVolumeSource{
@@ -1991,6 +1996,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pfs",
+		MountPath: "/pfs",
+	}, api.VolumeMount{
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
