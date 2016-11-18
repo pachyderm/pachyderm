@@ -667,6 +667,7 @@ func (a *rethinkAPIServer) RevokeChunk(ctx context.Context, request *persist.Rev
 				persist.ChunkState_FAILED,
 				persist.ChunkState_UNASSIGNED,
 			),
+			"Owner": "",
 		},
 		nil,
 	), gorethink.UpdateOpts{
