@@ -52,6 +52,13 @@ func (m *KubeEndpoint) String() string            { return proto.CompactTextStri
 func (*KubeEndpoint) ProtoMessage()               {}
 func (*KubeEndpoint) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *KubeEndpoint) GetHost() string {
+	if m != nil {
+		return m.Host
+	}
+	return ""
+}
+
 type Cluster struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
@@ -60,6 +67,13 @@ func (m *Cluster) Reset()                    { *m = Cluster{} }
 func (m *Cluster) String() string            { return proto.CompactTextString(m) }
 func (*Cluster) ProtoMessage()               {}
 func (*Cluster) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *Cluster) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
 
 type ClusterInfo struct {
 	Cluster *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
@@ -76,6 +90,13 @@ func (m *ClusterInfo) GetCluster() *Cluster {
 		return m.Cluster
 	}
 	return nil
+}
+
+func (m *ClusterInfo) GetShards() uint64 {
+	if m != nil {
+		return m.Shards
+	}
+	return 0
 }
 
 type ClusterInfos struct {
@@ -111,6 +132,13 @@ func (m *CreateClusterRequest) GetCluster() *Cluster {
 	return nil
 }
 
+func (m *CreateClusterRequest) GetShards() uint64 {
+	if m != nil {
+		return m.Shards
+	}
+	return 0
+}
+
 type UpdateClusterRequest struct {
 	Cluster *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
 	Nodes   uint64   `protobuf:"varint,2,opt,name=nodes" json:"nodes,omitempty"`
@@ -126,6 +154,13 @@ func (m *UpdateClusterRequest) GetCluster() *Cluster {
 		return m.Cluster
 	}
 	return nil
+}
+
+func (m *UpdateClusterRequest) GetNodes() uint64 {
+	if m != nil {
+		return m.Nodes
+	}
+	return 0
 }
 
 type InspectClusterRequest struct {
@@ -186,7 +221,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion3
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for API service
 
@@ -381,7 +416,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: fileDescriptor0,
+	Metadata: "server/pkg/deploy/deploy.proto",
 }
 
 func init() { proto.RegisterFile("server/pkg/deploy/deploy.proto", fileDescriptor0) }

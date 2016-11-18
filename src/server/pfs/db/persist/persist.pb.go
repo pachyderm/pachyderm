@@ -71,6 +71,20 @@ func (m *Clock) String() string            { return proto.CompactTextString(m) }
 func (*Clock) ProtoMessage()               {}
 func (*Clock) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *Clock) GetBranch() string {
+	if m != nil {
+		return m.Branch
+	}
+	return ""
+}
+
+func (m *Clock) GetClock() uint64 {
+	if m != nil {
+		return m.Clock
+	}
+	return 0
+}
+
 type ClockID struct {
 	ID     string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	Repo   string `protobuf:"bytes,2,opt,name=repo" json:"repo,omitempty"`
@@ -82,6 +96,34 @@ func (m *ClockID) Reset()                    { *m = ClockID{} }
 func (m *ClockID) String() string            { return proto.CompactTextString(m) }
 func (*ClockID) ProtoMessage()               {}
 func (*ClockID) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *ClockID) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *ClockID) GetRepo() string {
+	if m != nil {
+		return m.Repo
+	}
+	return ""
+}
+
+func (m *ClockID) GetBranch() string {
+	if m != nil {
+		return m.Branch
+	}
+	return ""
+}
+
+func (m *ClockID) GetClock() uint64 {
+	if m != nil {
+		return m.Clock
+	}
+	return 0
+}
 
 type Repo struct {
 	Name    string                     `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
@@ -96,9 +138,30 @@ func (m *Repo) String() string            { return proto.CompactTextString(m) }
 func (*Repo) ProtoMessage()               {}
 func (*Repo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
+func (m *Repo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
 func (m *Repo) GetCreated() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Created
+	}
+	return nil
+}
+
+func (m *Repo) GetSize() uint64 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
+}
+
+func (m *Repo) GetProvenance() []string {
+	if m != nil {
+		return m.Provenance
 	}
 	return nil
 }
@@ -113,6 +176,27 @@ func (m *BlockRef) Reset()                    { *m = BlockRef{} }
 func (m *BlockRef) String() string            { return proto.CompactTextString(m) }
 func (*BlockRef) ProtoMessage()               {}
 func (*BlockRef) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *BlockRef) GetHash() string {
+	if m != nil {
+		return m.Hash
+	}
+	return ""
+}
+
+func (m *BlockRef) GetLower() uint64 {
+	if m != nil {
+		return m.Lower
+	}
+	return 0
+}
+
+func (m *BlockRef) GetUpper() uint64 {
+	if m != nil {
+		return m.Upper
+	}
+	return 0
+}
 
 type Diff struct {
 	ID   string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
@@ -132,6 +216,27 @@ func (m *Diff) String() string            { return proto.CompactTextString(m) }
 func (*Diff) ProtoMessage()               {}
 func (*Diff) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
+func (m *Diff) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *Diff) GetRepo() string {
+	if m != nil {
+		return m.Repo
+	}
+	return ""
+}
+
+func (m *Diff) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
 func (m *Diff) GetBlockRefs() []*BlockRef {
 	if m != nil {
 		return m.BlockRefs
@@ -139,11 +244,32 @@ func (m *Diff) GetBlockRefs() []*BlockRef {
 	return nil
 }
 
+func (m *Diff) GetDelete() bool {
+	if m != nil {
+		return m.Delete
+	}
+	return false
+}
+
+func (m *Diff) GetSize() uint64 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
+}
+
 func (m *Diff) GetClock() []*Clock {
 	if m != nil {
 		return m.Clock
 	}
 	return nil
+}
+
+func (m *Diff) GetFileType() FileType {
+	if m != nil {
+		return m.FileType
+	}
+	return FileType_NONE
 }
 
 func (m *Diff) GetModified() *google_protobuf.Timestamp {
@@ -173,6 +299,20 @@ func (m *Commit) String() string            { return proto.CompactTextString(m) 
 func (*Commit) ProtoMessage()               {}
 func (*Commit) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
+func (m *Commit) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *Commit) GetRepo() string {
+	if m != nil {
+		return m.Repo
+	}
+	return ""
+}
+
 func (m *Commit) GetFullClock() []*Clock {
 	if m != nil {
 		return m.FullClock
@@ -194,11 +334,32 @@ func (m *Commit) GetFinished() *google_protobuf.Timestamp {
 	return nil
 }
 
+func (m *Commit) GetCancelled() bool {
+	if m != nil {
+		return m.Cancelled
+	}
+	return false
+}
+
+func (m *Commit) GetArchived() bool {
+	if m != nil {
+		return m.Archived
+	}
+	return false
+}
+
 func (m *Commit) GetProvenance() []*ProvenanceCommit {
 	if m != nil {
 		return m.Provenance
 	}
 	return nil
+}
+
+func (m *Commit) GetSize() uint64 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
 }
 
 type ProvenanceCommit struct {
@@ -210,6 +371,20 @@ func (m *ProvenanceCommit) Reset()                    { *m = ProvenanceCommit{} 
 func (m *ProvenanceCommit) String() string            { return proto.CompactTextString(m) }
 func (*ProvenanceCommit) ProtoMessage()               {}
 func (*ProvenanceCommit) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+
+func (m *ProvenanceCommit) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *ProvenanceCommit) GetRepo() string {
+	if m != nil {
+		return m.Repo
+	}
+	return ""
+}
 
 func init() {
 	proto.RegisterType((*Clock)(nil), "Clock")
