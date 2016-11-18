@@ -7,7 +7,7 @@ import (
 // NewInternalPodAPIClientFromAddress creates an InternalPodAPIClient
 // connecting to pachd at pachAddr.
 func NewInternalPodAPIClientFromAddress(pachAddr string) (InternalPodAPIClient, error) {
-	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}

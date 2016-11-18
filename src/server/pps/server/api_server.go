@@ -1861,7 +1861,7 @@ func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
 	if a.pfsAPIClient == nil {
 		var onceErr error
 		a.pfsClientOnce.Do(func() {
-			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure(), grpc.WithBlock())
 			if err != nil {
 				onceErr = err
 			}
@@ -1878,7 +1878,7 @@ func (a *apiServer) getPersistClient() (persist.APIClient, error) {
 	if a.persistAPIClient == nil {
 		var onceErr error
 		a.persistClientOnce.Do(func() {
-			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure(), grpc.WithBlock())
 			if err != nil {
 				onceErr = err
 			}

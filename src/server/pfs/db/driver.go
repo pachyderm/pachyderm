@@ -81,7 +81,7 @@ type driver struct {
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
-	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
