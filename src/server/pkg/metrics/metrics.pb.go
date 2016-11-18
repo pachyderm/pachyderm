@@ -48,6 +48,90 @@ func (m *Metrics) String() string            { return proto.CompactTextString(m)
 func (*Metrics) ProtoMessage()               {}
 func (*Metrics) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *Metrics) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *Metrics) GetPodId() string {
+	if m != nil {
+		return m.PodId
+	}
+	return ""
+}
+
+func (m *Metrics) GetNodes() int64 {
+	if m != nil {
+		return m.Nodes
+	}
+	return 0
+}
+
+func (m *Metrics) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *Metrics) GetRepos() int64 {
+	if m != nil {
+		return m.Repos
+	}
+	return 0
+}
+
+func (m *Metrics) GetCommits() int64 {
+	if m != nil {
+		return m.Commits
+	}
+	return 0
+}
+
+func (m *Metrics) GetFiles() int64 {
+	if m != nil {
+		return m.Files
+	}
+	return 0
+}
+
+func (m *Metrics) GetBytes() int64 {
+	if m != nil {
+		return m.Bytes
+	}
+	return 0
+}
+
+func (m *Metrics) GetJobs() int64 {
+	if m != nil {
+		return m.Jobs
+	}
+	return 0
+}
+
+func (m *Metrics) GetPipelines() int64 {
+	if m != nil {
+		return m.Pipelines
+	}
+	return 0
+}
+
+func (m *Metrics) GetArchivedCommits() int64 {
+	if m != nil {
+		return m.ArchivedCommits
+	}
+	return 0
+}
+
+func (m *Metrics) GetCancelledCommits() int64 {
+	if m != nil {
+		return m.CancelledCommits
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*Metrics)(nil), "Metrics")
 }
