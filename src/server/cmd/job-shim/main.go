@@ -68,22 +68,62 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
+			defer func() {
+				// Kubernetes' jobs have the semantic that a pod is always restarted
+				// until it exits successfully.  Therefore, we always return a non-zero
+				// exit code to ensure that there's always N pods running, where N is
+				// the user-specified parallelism.
+				//
+				// A pod only ever truly terminates when the job is finished.  It learns
+				// that through ContinuePod.
+				if retErr == nil {
+					os.Exit(1)
+				}
+			}()
 			ppsClient, err := ppsserver.NewInternalPodAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				return err
 			}
+			job := &ppsclient.Job{
+				ID: args[0],
+			}
 			response, err := ppsClient.StartPod(
 				context.Background(),
 				&ppsserver.StartPodRequest{
-					Job: &ppsclient.Job{
-						ID: args[0],
-					},
+					Job:     job,
 					PodName: appEnv.PodName,
 				})
 			if err != nil {
 				lion.Errorf("error from StartPod: %s", err.Error())
 				return err
 			}
+
+			// Start sending ContinuePod so PPS knows that we are alive
+			go func() {
+				tick := time.Tick(10 * time.Second)
+				for {
+					<-tick
+					res, err := ppsClient.ContinuePod(
+						context.Background(),
+						&ppsserver.ContinuePodRequest{
+							Job:     job,
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+						},
+					)
+					if err != nil {
+						lion.Errorf("error from ContinuePod: %s", err.Error())
+					}
+					switch res.Exit {
+					case ppsserver.ExitMode_EM_TERMINATE:
+						os.Exit(0)
+					case ppsserver.ExitMode_EM_RESTART:
+						os.Exit(1)
+					case ppsserver.ExitMode_EM_NONE:
+						continue
+					}
+				}
+			}()
 
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
@@ -202,53 +242,33 @@ func do(appEnvObj interface{}) error {
 				cmdCh <- success
 			}()
 
-			tick := time.Tick(10 * time.Second)
-			for {
-				select {
-				case success := <-cmdCh:
-					var outputMount *fuse.CommitMount
-					for _, c := range response.CommitMounts {
-						if c.Alias == "out" {
-							outputMount = c
-							break
-						}
-					}
-					if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
-						fmt.Printf("err from uploading output: %s\n", err)
-						success = false
-					}
-
-					res, err := ppsClient.FinishPod(
-						context.Background(),
-						&ppsserver.FinishPodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-							Success: success,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					finished = true
-					if res.Fail {
-						return errors.New("restarting")
-					}
-					return nil
-				case <-tick:
-					res, err := ppsClient.ContinuePod(
-						context.Background(),
-						&ppsserver.ContinuePodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					if res.Exit {
-						return nil
-					}
+			success := <-cmdCh
+			var outputMount *fuse.CommitMount
+			for _, c := range response.CommitMounts {
+				if c.Alias == "out" {
+					outputMount = c
+					break
 				}
+			}
+			if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
+				fmt.Printf("err from uploading output: %s\n", err)
+				success = false
+			}
+
+			res, err := ppsClient.FinishPod(
+				context.Background(),
+				&ppsserver.FinishPodRequest{
+					ChunkID: response.ChunkID,
+					PodName: appEnv.PodName,
+					Success: success,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			finished = true
+			if res.Fail {
+				return errors.New("restarting")
 			}
 			return nil
 		}),

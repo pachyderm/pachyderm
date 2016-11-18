@@ -35,13 +35,20 @@ message FinishPodResponse {
 message ContinuePodRequest {
   string chunk_id = 1;
   string pod_name = 2;
+  Job job = 3;
+}
+
+enum ExitMode {
+  // Don't exit
+  EM_NONE = 0;
+  // Exit with a non-zero code so kubernetes restarts the pod
+  EM_RESTART = 1;
+  // Exit with a zero code
+  EM_TERMINATE = 2;
 }
 
 message ContinuePodResponse {
-  // if exit is true, the pod is expected to abandon its work and exit.
-  // this happens if the chunk that the pod is working on has been assigned
-  // to another pod.
-  bool exit = 1;
+  ExitMode exit = 1;
 }
 
 service InternalPodAPI {

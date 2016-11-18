@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dancannon/gorethink"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -838,6 +839,9 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 			OutputCommit: commit,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(chunk.Index, chunk.Moduli)
@@ -917,12 +921,40 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 	return res
 }
 
+// isNotFoundErr determines if an error returned from the persist server is saying
+// that the requested object is not found
+func isNotFoundErr(err error) bool {
+	return strings.Contains(err.Error(), gorethink.ErrEmptyResult.Error())
+}
+
 func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.ContinuePodRequest) (response *ppsserver.ContinuePodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
 	}
+
+	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: request.Job,
+	})
+	if err != nil {
+		// If the job has been deleted, tell the pod to terminate
+		if isNotFoundErr(err) {
+			return &ppsserver.ContinuePodResponse{
+				Exit: ppsserver.ExitMode_EM_TERMINATE,
+			}, nil
+		}
+		return nil, err
+	}
+	// Check if the job has completed.
+	// If it has, tell the pod to terminate.
+	switch jobInfo.State {
+	case ppsclient.JobState_JOB_EMPTY, ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE:
+		return &ppsserver.ContinuePodResponse{
+			Exit: ppsserver.ExitMode_EM_TERMINATE,
+		}, nil
+	}
+
 	chunk, err := persistClient.RenewChunk(ctx, &persist.RenewChunkRequest{
 		ChunkID: request.ChunkID,
 		PodName: request.PodName,
@@ -930,10 +962,14 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 	if err != nil {
 		return nil, err
 	}
+
+	// If the chunk has been claimed by some other pod, tell the pod to
+	// restart so it can get another chunk of work.
 	response = &ppsserver.ContinuePodResponse{}
 	if chunk.Owner != request.PodName {
-		response.Exit = true
+		response.Exit = ppsserver.ExitMode_EM_RESTART
 	}
+
 	return response, nil
 }
 
