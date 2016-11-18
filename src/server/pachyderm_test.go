@@ -465,7 +465,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
-	require.Equal(t, "bar\n", buffer.String())
+	require.Equal(t, "foo\nbar\n", buffer.String())
 
 	require.NoError(t, c.DeletePipeline(pipelineName))
 
@@ -590,7 +590,7 @@ func TestPipelineTransientFailure(t *testing.T) {
 		false,
 	))
 
-	numJobs := 50
+	numJobs := 25
 	var commit *pfsclient.Commit
 	var err error
 	for i := 0; i < numJobs; i++ {
@@ -1218,7 +1218,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
-				"unlink /pfs/out/file && echo bar > /pfs/out/file",
+				"echo bar > /pfs/out/file",
 			},
 		},
 		ParallelismSpec: &ppsclient.ParallelismSpec{
@@ -1240,7 +1240,7 @@ func testParellelRemoveAndAppend(t *testing.T, parallelism int) {
 
 	var buffer2 bytes.Buffer
 	require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "file", 0, 0, "", false, nil, &buffer2))
-	require.Equal(t, strings.Repeat("bar\n", parallelism), buffer2.String())
+	require.Equal(t, strings.Repeat("foo\n", parallelism)+strings.Repeat("bar\n", parallelism), buffer2.String())
 }
 
 func TestWorkload(t *testing.T) {
