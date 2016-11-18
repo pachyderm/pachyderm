@@ -518,7 +518,6 @@ func TestPipelineOverwrite(t *testing.T) {
 		&ppsclient.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &ppsclient.Transform{
-				Image:     "alpine:latest",
 				Cmd:       []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				Overwrite: true,
 			},
@@ -2029,6 +2028,7 @@ func TestDirectory(t *testing.T) {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"sh"},
 			Stdin: []string{
+				"mkdir /pfs/out/dir",
 				"echo bar >> /pfs/out/dir/file",
 			},
 		},
