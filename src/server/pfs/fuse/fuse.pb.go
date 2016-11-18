@@ -73,20 +73,6 @@ func (m *CommitMount) GetDiffMethod() *pfs.DiffMethod {
 	return nil
 }
 
-func (m *CommitMount) GetFullFile() bool {
-	if m != nil {
-		return m.FullFile
-	}
-	return false
-}
-
-func (m *CommitMount) GetAlias() string {
-	if m != nil {
-		return m.Alias
-	}
-	return ""
-}
-
 func (m *CommitMount) GetShard() *pfs.Shard {
 	if m != nil {
 		return m.Shard
@@ -138,20 +124,6 @@ func (m *Node) GetFile() *pfs.File {
 	return nil
 }
 
-func (m *Node) GetRepoAlias() string {
-	if m != nil {
-		return m.RepoAlias
-	}
-	return ""
-}
-
-func (m *Node) GetWrite() bool {
-	if m != nil {
-		return m.Write
-	}
-	return false
-}
-
 func (m *Node) GetShard() *pfs.Shard {
 	if m != nil {
 		return m.Shard
@@ -175,13 +147,6 @@ func (m *Attr) String() string            { return proto.CompactTextString(m) }
 func (*Attr) ProtoMessage()               {}
 func (*Attr) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *Attr) GetMode() uint32 {
-	if m != nil {
-		return m.Mode
-	}
-	return 0
-}
-
 type Dirent struct {
 	Inode uint64 `protobuf:"varint,1,opt,name=inode" json:"inode,omitempty"`
 	Name  string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
@@ -191,20 +156,6 @@ func (m *Dirent) Reset()                    { *m = Dirent{} }
 func (m *Dirent) String() string            { return proto.CompactTextString(m) }
 func (*Dirent) ProtoMessage()               {}
 func (*Dirent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *Dirent) GetInode() uint64 {
-	if m != nil {
-		return m.Inode
-	}
-	return 0
-}
-
-func (m *Dirent) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
 
 type Root struct {
 	Filesystem *Filesystem `protobuf:"bytes,1,opt,name=filesystem" json:"filesystem,omitempty"`
@@ -229,13 +180,6 @@ func (m *Root) GetResult() *Node {
 		return m.Result
 	}
 	return nil
-}
-
-func (m *Root) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 type DirectoryAttr struct {
@@ -263,13 +207,6 @@ func (m *DirectoryAttr) GetResult() *Attr {
 	return nil
 }
 
-func (m *DirectoryAttr) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type DirectoryLookup struct {
 	Directory *Node  `protobuf:"bytes,1,opt,name=directory" json:"directory,omitempty"`
 	Name      string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
@@ -289,25 +226,11 @@ func (m *DirectoryLookup) GetDirectory() *Node {
 	return nil
 }
 
-func (m *DirectoryLookup) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
 func (m *DirectoryLookup) GetResult() *Node {
 	if m != nil {
 		return m.Result
 	}
 	return nil
-}
-
-func (m *DirectoryLookup) GetErr() string {
-	if m != nil {
-		return m.Err
-	}
-	return ""
 }
 
 type DirectoryReadDirAll struct {
@@ -335,13 +258,6 @@ func (m *DirectoryReadDirAll) GetResult() []*Dirent {
 	return nil
 }
 
-func (m *DirectoryReadDirAll) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type DirectoryCreate struct {
 	Directory *Node  `protobuf:"bytes,1,opt,name=directory" json:"directory,omitempty"`
 	Result    *Node  `protobuf:"bytes,2,opt,name=result" json:"result,omitempty"`
@@ -365,13 +281,6 @@ func (m *DirectoryCreate) GetResult() *Node {
 		return m.Result
 	}
 	return nil
-}
-
-func (m *DirectoryCreate) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 type DirectoryMkdir struct {
@@ -399,13 +308,6 @@ func (m *DirectoryMkdir) GetResult() *Node {
 	return nil
 }
 
-func (m *DirectoryMkdir) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type FileAttr struct {
 	File   *Node  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Result *Attr  `protobuf:"bytes,2,opt,name=result" json:"result,omitempty"`
@@ -431,13 +333,6 @@ func (m *FileAttr) GetResult() *Attr {
 	return nil
 }
 
-func (m *FileAttr) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type FileSetAttr struct {
 	File  *Node  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -453,13 +348,6 @@ func (m *FileSetAttr) GetFile() *Node {
 		return m.File
 	}
 	return nil
-}
-
-func (m *FileSetAttr) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 type FileRead struct {
@@ -480,20 +368,6 @@ func (m *FileRead) GetFile() *Node {
 	return nil
 }
 
-func (m *FileRead) GetData() string {
-	if m != nil {
-		return m.Data
-	}
-	return ""
-}
-
-func (m *FileRead) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type FileOpen struct {
 	File  *Node  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -509,13 +383,6 @@ func (m *FileOpen) GetFile() *Node {
 		return m.File
 	}
 	return nil
-}
-
-func (m *FileOpen) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 type FileWrite struct {
@@ -537,27 +404,6 @@ func (m *FileWrite) GetFile() *Node {
 	return nil
 }
 
-func (m *FileWrite) GetData() string {
-	if m != nil {
-		return m.Data
-	}
-	return ""
-}
-
-func (m *FileWrite) GetOffset() int64 {
-	if m != nil {
-		return m.Offset
-	}
-	return 0
-}
-
-func (m *FileWrite) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type FileRemove struct {
 	File  *Node  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Name  string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
@@ -575,27 +421,6 @@ func (m *FileRemove) GetFile() *Node {
 		return m.File
 	}
 	return nil
-}
-
-func (m *FileRemove) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *FileRemove) GetDir() bool {
-	if m != nil {
-		return m.Dir
-	}
-	return false
-}
-
-func (m *FileRemove) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 func init() {

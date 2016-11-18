@@ -56,20 +56,6 @@ func (m *ServerState) String() string            { return proto.CompactTextStrin
 func (*ServerState) ProtoMessage()               {}
 func (*ServerState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *ServerState) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *ServerState) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
 type FrontendState struct {
 	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	Version int64  `protobuf:"varint,2,opt,name=version" json:"version,omitempty"`
@@ -79,20 +65,6 @@ func (m *FrontendState) Reset()                    { *m = FrontendState{} }
 func (m *FrontendState) String() string            { return proto.CompactTextString(m) }
 func (*FrontendState) ProtoMessage()               {}
 func (*FrontendState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
-
-func (m *FrontendState) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *FrontendState) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
 
 type ServerRole struct {
 	Address string          `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
@@ -104,20 +76,6 @@ func (m *ServerRole) Reset()                    { *m = ServerRole{} }
 func (m *ServerRole) String() string            { return proto.CompactTextString(m) }
 func (*ServerRole) ProtoMessage()               {}
 func (*ServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
-func (m *ServerRole) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *ServerRole) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
 
 func (m *ServerRole) GetShards() map[uint64]bool {
 	if m != nil {
@@ -136,13 +94,6 @@ func (m *Addresses) String() string            { return proto.CompactTextString(
 func (*Addresses) ProtoMessage()               {}
 func (*Addresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *Addresses) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
 func (m *Addresses) GetAddresses() map[uint64]string {
 	if m != nil {
 		return m.Addresses
@@ -159,13 +110,6 @@ func (m *StartRegister) String() string            { return proto.CompactTextStr
 func (*StartRegister) ProtoMessage()               {}
 func (*StartRegister) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
-func (m *StartRegister) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
 type FinishRegister struct {
 	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	Error   string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -176,20 +120,6 @@ func (m *FinishRegister) String() string            { return proto.CompactTextSt
 func (*FinishRegister) ProtoMessage()               {}
 func (*FinishRegister) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
-func (m *FinishRegister) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *FinishRegister) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type Version struct {
 	Result int64  `protobuf:"varint,1,opt,name=result" json:"result,omitempty"`
 	Error  string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -199,20 +129,6 @@ func (m *Version) Reset()                    { *m = Version{} }
 func (m *Version) String() string            { return proto.CompactTextString(m) }
 func (*Version) ProtoMessage()               {}
 func (*Version) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
-
-func (m *Version) GetResult() int64 {
-	if m != nil {
-		return m.Result
-	}
-	return 0
-}
-
-func (m *Version) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
 
 type StartAssignRoles struct {
 }
@@ -231,13 +147,6 @@ func (m *FinishAssignRoles) String() string            { return proto.CompactTex
 func (*FinishAssignRoles) ProtoMessage()               {}
 func (*FinishAssignRoles) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
-func (m *FinishAssignRoles) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type FailedToAssignRoles struct {
 	ServerStates map[string]*ServerState `protobuf:"bytes,1,rep,name=server_states,json=serverStates" json:"server_states,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	NumShards    uint64                  `protobuf:"varint,2,opt,name=num_shards,json=numShards" json:"num_shards,omitempty"`
@@ -254,20 +163,6 @@ func (m *FailedToAssignRoles) GetServerStates() map[string]*ServerState {
 		return m.ServerStates
 	}
 	return nil
-}
-
-func (m *FailedToAssignRoles) GetNumShards() uint64 {
-	if m != nil {
-		return m.NumShards
-	}
-	return 0
-}
-
-func (m *FailedToAssignRoles) GetNumReplicas() uint64 {
-	if m != nil {
-		return m.NumReplicas
-	}
-	return 0
 }
 
 type SetServerState struct {
@@ -319,13 +214,6 @@ func (m *AddServerRole) GetServerRole() *ServerRole {
 	return nil
 }
 
-func (m *AddServerRole) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type RemoveServerRole struct {
 	ServerRole *ServerRole `protobuf:"bytes,1,opt,name=serverRole" json:"serverRole,omitempty"`
 	Error      string      `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -341,13 +229,6 @@ func (m *RemoveServerRole) GetServerRole() *ServerRole {
 		return m.ServerRole
 	}
 	return nil
-}
-
-func (m *RemoveServerRole) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 type SetServerRole struct {
@@ -411,41 +292,6 @@ func (m *GetAddress) String() string            { return proto.CompactTextString
 func (*GetAddress) ProtoMessage()               {}
 func (*GetAddress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
-func (m *GetAddress) GetShard() uint64 {
-	if m != nil {
-		return m.Shard
-	}
-	return 0
-}
-
-func (m *GetAddress) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
-func (m *GetAddress) GetResult() string {
-	if m != nil {
-		return m.Result
-	}
-	return ""
-}
-
-func (m *GetAddress) GetOk() bool {
-	if m != nil {
-		return m.Ok
-	}
-	return false
-}
-
-func (m *GetAddress) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
-}
-
 type GetShardToAddress struct {
 	Version int64             `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
 	Result  map[uint64]string `protobuf:"bytes,2,rep,name=result" json:"result,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -457,25 +303,11 @@ func (m *GetShardToAddress) String() string            { return proto.CompactTex
 func (*GetShardToAddress) ProtoMessage()               {}
 func (*GetShardToAddress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
-func (m *GetShardToAddress) GetVersion() int64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
 func (m *GetShardToAddress) GetResult() map[uint64]string {
 	if m != nil {
 		return m.Result
 	}
 	return nil
-}
-
-func (m *GetShardToAddress) GetError() string {
-	if m != nil {
-		return m.Error
-	}
-	return ""
 }
 
 func init() {
