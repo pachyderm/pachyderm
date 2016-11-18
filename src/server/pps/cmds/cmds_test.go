@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,11 @@ func testJSONSyntaxErrorsReported(inputFile string, inputFileValue string, input
 }
 
 func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue string, inputCommand []string, expectedOutput string) {
+
+	// Setup user config prior to test
+	// So that stdout only contains JSON no warnings
+	_, err := config.Read()
+	require.NoError(t, err)
 
 	if os.Getenv("BE_CRASHER") == "1" {
 		testJSONSyntaxErrorsReported(inputFile, inputFileValue, inputCommand)
