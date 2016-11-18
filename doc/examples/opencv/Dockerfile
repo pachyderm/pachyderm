@@ -1,6 +1,4 @@
-# Our image must derive from pachyderm/job-shim, otherwise Pachyderm won't be
-# able to expose data to it.
-FROM pachyderm/job-shim
+FROM ubuntu:14.04
 
 # Install opencv and matplotlib.
 RUN apt-get update \
