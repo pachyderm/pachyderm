@@ -874,7 +874,7 @@ func testFuse(
 	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(driver)
+	apiServer := server.NewAPIServer(driver, nil)
 	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	wg.Add(1)

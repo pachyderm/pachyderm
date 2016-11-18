@@ -9,11 +9,14 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
+	"go.pedge.io/lion"
 	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
@@ -31,11 +34,32 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	BlockAPIClient
-	addr         string
-	clientConn   *grpc.ClientConn
-	healthClient health.HealthClient
-	_ctx         context.Context
-	cancel       func()
+	addr              string
+	clientConn        *grpc.ClientConn
+	healthClient      health.HealthClient
+	_ctx              context.Context
+	config            *config.Config
+	cancel            func()
+	reportUserMetrics bool
+	metricsPrefix     string
+}
+
+// NewMetricsClientFromAddress Creates a client that will report a user's Metrics
+func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
+	c, err := NewFromAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := config.Read()
+	if err != nil {
+		// metrics errors are non fatal
+		lion.Errorf("error loading user config from ~/.pachderm/config: %v\n", err)
+	} else {
+		c.config = cfg
+	}
+	c.reportUserMetrics = metrics
+	c.metricsPrefix = prefix
+	return c, err
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
@@ -120,13 +144,37 @@ func (c *APIClient) connect() error {
 	return nil
 }
 
+func (c *APIClient) addMetadata(ctx context.Context) context.Context {
+	if !c.reportUserMetrics {
+		return ctx
+	}
+	if c.config == nil {
+		cfg, err := config.Read()
+		if err != nil {
+			// Don't report error if config fails to read
+			// metrics errors are non fatal
+			lion.Errorf("Error loading config: %v\n", err)
+			return ctx
+		}
+		c.config = cfg
+	}
+	// metadata API downcases all the key names
+	return metadata.NewContext(
+		ctx,
+		metadata.Pairs(
+			"userid", c.config.UserID,
+			"prefix", c.metricsPrefix,
+		),
+	)
+}
+
 // TODO this method only exists because we initialize some APIClient in such a
 // way that ctx will be nil
 func (c *APIClient) ctx() context.Context {
 	if c._ctx == nil {
-		return context.Background()
+		return c.addMetadata(context.Background())
 	}
-	return c._ctx
+	return c.addMetadata(c._ctx)
 }
 
 func sanitizeErr(err error) error {
