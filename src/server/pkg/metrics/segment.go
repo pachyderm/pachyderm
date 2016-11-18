@@ -1,15 +1,30 @@
 package metrics
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/segmentio/analytics-go"
 	"go.pedge.io/lion"
 )
 
-func reportSegment(metrics *Metrics) {
-	client := analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
+const reportingInterval time.Duration = 15 * time.Second
+
+func newPersistentClient() *analytics.Client {
+	c := newSegmentClient()
+	c.Interval = reportingInterval
+	c.Size = 100
+	return c
+}
+
+func newSegmentClient() *analytics.Client {
+	return analytics.New("hhxbyr7x50w3jtgcwcZUyOFrTf4VNMrD")
+}
+
+func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 	err := client.Track(&analytics.Track{
-		Event:       "metrics",
-		AnonymousId: metrics.ID,
+		Event:       "cluster.metrics",
+		AnonymousId: metrics.ClusterID,
 		Properties: map[string]interface{}{
 			"PodID":     metrics.PodID,
 			"nodes":     metrics.Nodes,
@@ -23,6 +38,36 @@ func reportSegment(metrics *Metrics) {
 		},
 	})
 	if err != nil {
-		lion.Errorf("error reporting to Segment: %s", err.Error())
+		lion.Errorf("error reporting cluster metrics to Segment: %s", err.Error())
+	}
+}
+
+/*
+Segment needs us to identify a user before we report any events for that user.
+We have no way of knowing if a user has previously been identified, so we call this
+before every `Track()` call containing user data.
+*/
+func identifyUser(client *analytics.Client, userID string) {
+	err := client.Identify(&analytics.Identify{
+		UserId: userID,
+	})
+	if err != nil {
+		lion.Errorf("error reporting user identity to Segment: %s", err.Error())
+	}
+}
+
+func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix string, action string, value interface{}, clusterID string) {
+	identifyUser(client, userID)
+	properties := map[string]interface{}{
+		"ClusterID": clusterID,
+	}
+	properties[action] = value
+	err := client.Track(&analytics.Track{
+		Event:      fmt.Sprintf("%v.usage", prefix),
+		UserId:     userID,
+		Properties: properties,
+	})
+	if err != nil {
+		lion.Errorf("error reporting user action to Segment: %s", err.Error())
 	}
 }

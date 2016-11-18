@@ -90,8 +90,7 @@ To construct the image, we need to:
 
 1. Make sure we use an image with the Tensor Flow library installed
 2. Make sure the image includes our code
-3. Update the image to include Pachyderm's job shim
-4. Actually compile the image
+3. Build the image
 
 If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll notice a couple things.
 
@@ -101,20 +100,13 @@ If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll n
 FROM tensorflow/tensorflow
 ```
 
-2) On line 25 we're including the [code found locally](./code) in the Docker image:
+2) On line 5 we're including the [code found locally](./code) in the Docker image:
 
 ```
 ADD code /code
 ```
 
-3) The rest of the Dockerfile installs the dependencies that Pachyderm needs to run the transformation.
-
-This boils down to:
-
-- installing FUSE so that PFS can expose the data to the container
-- installing `job-shim` which is the binary that actually runs the transformation
-
-4) Generate the image
+3) Build the image
 
 Again, we have a helper. If you run:
 
