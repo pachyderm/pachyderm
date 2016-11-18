@@ -33,7 +33,8 @@
         "for fruit in apple orange banana; do",
         "   { cat /pfs/fuse/prev/$fruit || echo 0; cat /pfs/filter/$fruit; } | awk '{s+=$1} END {print s}' > /pfs/out/$fruit",
         "done"
-    ]
+    ],
+    "overwrite": true
   },
   "parallelism_spec": {
     "strategy": "CONSTANT",
