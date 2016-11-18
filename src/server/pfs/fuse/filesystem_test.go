@@ -847,14 +847,14 @@ func testFuse(
 		_ = os.RemoveAll(tmp)
 	}()
 
-	// closed on successful termination
-	quit := make(chan struct{})
-	defer close(quit)
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	defer func() {
 		_ = listener.Close()
 	}()
+	// closed on successful termination
+	quit := make(chan struct{})
+	defer close(quit)
 
 	// TODO try to share more of this setup code with various main
 	// functions
