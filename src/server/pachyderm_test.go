@@ -1694,8 +1694,8 @@ func TestPipelineWithPrevRepoAndIncrementalReduceMethod(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf(`
 cat /pfs/%s/file >>/pfs/out/file
-if [ -d "/pfs/prev" ]; then
-  cat /pfs/prev/file >>/pfs/out/file
+if [ -d "/pfs/fuse/prev" ]; then
+  cat /pfs/fuse/prev/file >>/pfs/out/file
 fi
 `, repo)},
 		&ppsclient.ParallelismSpec{
