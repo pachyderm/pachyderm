@@ -59,13 +59,6 @@ func (m *StartPodRequest) GetJob() *pps1.Job {
 	return nil
 }
 
-func (m *StartPodRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
-
 type StartPodResponse struct {
 	ChunkID      string              `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
 	Transform    *pps1.Transform     `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
@@ -76,13 +69,6 @@ func (m *StartPodResponse) Reset()                    { *m = StartPodResponse{} 
 func (m *StartPodResponse) String() string            { return proto.CompactTextString(m) }
 func (*StartPodResponse) ProtoMessage()               {}
 func (*StartPodResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
-
-func (m *StartPodResponse) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
 
 func (m *StartPodResponse) GetTransform() *pps1.Transform {
 	if m != nil {
@@ -109,27 +95,6 @@ func (m *FinishPodRequest) String() string            { return proto.CompactText
 func (*FinishPodRequest) ProtoMessage()               {}
 func (*FinishPodRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-func (m *FinishPodRequest) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
-
-func (m *FinishPodRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
-
-func (m *FinishPodRequest) GetSuccess() bool {
-	if m != nil {
-		return m.Success
-	}
-	return false
-}
-
 type FinishPodResponse struct {
 	// If fail is true, the pod is expected to exit with a non-zero code
 	// so that k8s knows to reschedule the pod.
@@ -141,13 +106,6 @@ func (m *FinishPodResponse) String() string            { return proto.CompactTex
 func (*FinishPodResponse) ProtoMessage()               {}
 func (*FinishPodResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *FinishPodResponse) GetFail() bool {
-	if m != nil {
-		return m.Fail
-	}
-	return false
-}
-
 type ContinuePodRequest struct {
 	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
 	PodName string `protobuf:"bytes,2,opt,name=pod_name,json=podName" json:"pod_name,omitempty"`
@@ -157,20 +115,6 @@ func (m *ContinuePodRequest) Reset()                    { *m = ContinuePodReques
 func (m *ContinuePodRequest) String() string            { return proto.CompactTextString(m) }
 func (*ContinuePodRequest) ProtoMessage()               {}
 func (*ContinuePodRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *ContinuePodRequest) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
-
-func (m *ContinuePodRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
 
 type ContinuePodResponse struct {
 	// if exit is true, the pod is expected to abandon its work and exit.
@@ -183,13 +127,6 @@ func (m *ContinuePodResponse) Reset()                    { *m = ContinuePodRespo
 func (m *ContinuePodResponse) String() string            { return proto.CompactTextString(m) }
 func (*ContinuePodResponse) ProtoMessage()               {}
 func (*ContinuePodResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
-
-func (m *ContinuePodResponse) GetExit() bool {
-	if m != nil {
-		return m.Exit
-	}
-	return false
-}
 
 func init() {
 	proto.RegisterType((*StartPodRequest)(nil), "pps.StartPodRequest")
@@ -206,7 +143,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion3
 
 // Client API for InternalPodAPI service
 
@@ -335,7 +272,7 @@ var _InternalPodAPI_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/pps/pps.proto",
+	Metadata: fileDescriptor0,
 }
 
 func init() { proto.RegisterFile("server/pps/pps.proto", fileDescriptor0) }

@@ -214,13 +214,6 @@ func (m *Repo) String() string            { return proto.CompactTextString(m) }
 func (*Repo) ProtoMessage()               {}
 func (*Repo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *Repo) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
 type Commit struct {
 	Repo *Repo  `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	ID   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
@@ -236,13 +229,6 @@ func (m *Commit) GetRepo() *Repo {
 		return m.Repo
 	}
 	return nil
-}
-
-func (m *Commit) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
 }
 
 type Commits struct {
@@ -270,13 +256,6 @@ func (m *Branches) String() string            { return proto.CompactTextString(m
 func (*Branches) ProtoMessage()               {}
 func (*Branches) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *Branches) GetBranches() []string {
-	if m != nil {
-		return m.Branches
-	}
-	return nil
-}
-
 type File struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Path   string  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
@@ -294,13 +273,6 @@ func (m *File) GetCommit() *Commit {
 	return nil
 }
 
-func (m *File) GetPath() string {
-	if m != nil {
-		return m.Path
-	}
-	return ""
-}
-
 type Block struct {
 	Hash string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
 }
@@ -309,13 +281,6 @@ func (m *Block) Reset()                    { *m = Block{} }
 func (m *Block) String() string            { return proto.CompactTextString(m) }
 func (*Block) ProtoMessage()               {}
 func (*Block) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
-
-func (m *Block) GetHash() string {
-	if m != nil {
-		return m.Hash
-	}
-	return ""
-}
 
 type RepoInfo struct {
 	Repo       *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
@@ -341,13 +306,6 @@ func (m *RepoInfo) GetCreated() *google_protobuf2.Timestamp {
 		return m.Created
 	}
 	return nil
-}
-
-func (m *RepoInfo) GetSizeBytes() uint64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 func (m *RepoInfo) GetProvenance() []*Repo {
@@ -398,20 +356,6 @@ func (m *CommitInfo) GetCommit() *Commit {
 	return nil
 }
 
-func (m *CommitInfo) GetBranch() string {
-	if m != nil {
-		return m.Branch
-	}
-	return ""
-}
-
-func (m *CommitInfo) GetCommitType() CommitType {
-	if m != nil {
-		return m.CommitType
-	}
-	return CommitType_COMMIT_TYPE_NONE
-}
-
 func (m *CommitInfo) GetParentCommit() *Commit {
 	if m != nil {
 		return m.ParentCommit
@@ -431,27 +375,6 @@ func (m *CommitInfo) GetFinished() *google_protobuf2.Timestamp {
 		return m.Finished
 	}
 	return nil
-}
-
-func (m *CommitInfo) GetSizeBytes() uint64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
-}
-
-func (m *CommitInfo) GetCancelled() bool {
-	if m != nil {
-		return m.Cancelled
-	}
-	return false
-}
-
-func (m *CommitInfo) GetArchived() bool {
-	if m != nil {
-		return m.Archived
-	}
-	return false
 }
 
 func (m *CommitInfo) GetProvenance() []*Commit {
@@ -496,20 +419,6 @@ func (m *FileInfo) GetFile() *File {
 		return m.File
 	}
 	return nil
-}
-
-func (m *FileInfo) GetFileType() FileType {
-	if m != nil {
-		return m.FileType
-	}
-	return FileType_FILE_TYPE_NONE
-}
-
-func (m *FileInfo) GetSizeBytes() uint64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 func (m *FileInfo) GetModified() *google_protobuf2.Timestamp {
@@ -558,20 +467,6 @@ func (m *ByteRange) Reset()                    { *m = ByteRange{} }
 func (m *ByteRange) String() string            { return proto.CompactTextString(m) }
 func (*ByteRange) ProtoMessage()               {}
 func (*ByteRange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
-
-func (m *ByteRange) GetLower() uint64 {
-	if m != nil {
-		return m.Lower
-	}
-	return 0
-}
-
-func (m *ByteRange) GetUpper() uint64 {
-	if m != nil {
-		return m.Upper
-	}
-	return 0
-}
 
 type BlockRef struct {
 	Block *Block     `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
@@ -647,20 +542,6 @@ func (m *Append) GetLastRef() *Commit {
 	return nil
 }
 
-func (m *Append) GetDelete() bool {
-	if m != nil {
-		return m.Delete
-	}
-	return false
-}
-
-func (m *Append) GetFileType() FileType {
-	if m != nil {
-		return m.FileType
-	}
-	return FileType_FILE_TYPE_NONE
-}
-
 type BlockInfo struct {
 	Block     *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
@@ -684,13 +565,6 @@ func (m *BlockInfo) GetCreated() *google_protobuf2.Timestamp {
 		return m.Created
 	}
 	return nil
-}
-
-func (m *BlockInfo) GetSizeBytes() uint64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 type BlockInfos struct {
@@ -720,34 +594,6 @@ func (m *Shard) Reset()                    { *m = Shard{} }
 func (m *Shard) String() string            { return proto.CompactTextString(m) }
 func (*Shard) ProtoMessage()               {}
 func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
-
-func (m *Shard) GetFileNumber() uint64 {
-	if m != nil {
-		return m.FileNumber
-	}
-	return 0
-}
-
-func (m *Shard) GetFileModulus() uint64 {
-	if m != nil {
-		return m.FileModulus
-	}
-	return 0
-}
-
-func (m *Shard) GetBlockNumber() uint64 {
-	if m != nil {
-		return m.BlockNumber
-	}
-	return 0
-}
-
-func (m *Shard) GetBlockModulus() uint64 {
-	if m != nil {
-		return m.BlockModulus
-	}
-	return 0
-}
 
 type CreateRepoRequest struct {
 	Repo       *Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
@@ -822,13 +668,6 @@ func (m *DeleteRepoRequest) GetRepo() *Repo {
 	return nil
 }
 
-func (m *DeleteRepoRequest) GetForce() bool {
-	if m != nil {
-		return m.Force
-	}
-	return false
-}
-
 type StartCommitRequest struct {
 	Parent     *Commit   `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
 	Provenance []*Commit `protobuf:"bytes,2,rep,name=provenance" json:"provenance,omitempty"`
@@ -871,13 +710,6 @@ func (m *ForkCommitRequest) GetParent() *Commit {
 	return nil
 }
 
-func (m *ForkCommitRequest) GetBranch() string {
-	if m != nil {
-		return m.Branch
-	}
-	return ""
-}
-
 func (m *ForkCommitRequest) GetProvenance() []*Commit {
 	if m != nil {
 		return m.Provenance
@@ -900,13 +732,6 @@ func (m *FinishCommitRequest) GetCommit() *Commit {
 		return m.Commit
 	}
 	return nil
-}
-
-func (m *FinishCommitRequest) GetCancel() bool {
-	if m != nil {
-		return m.Cancel
-	}
-	return false
 }
 
 type ArchiveCommitRequest struct {
@@ -968,27 +793,6 @@ func (m *ListCommitRequest) GetProvenance() []*Commit {
 	return nil
 }
 
-func (m *ListCommitRequest) GetCommitType() CommitType {
-	if m != nil {
-		return m.CommitType
-	}
-	return CommitType_COMMIT_TYPE_NONE
-}
-
-func (m *ListCommitRequest) GetStatus() CommitStatus {
-	if m != nil {
-		return m.Status
-	}
-	return CommitStatus_NORMAL
-}
-
-func (m *ListCommitRequest) GetBlock() bool {
-	if m != nil {
-		return m.Block
-	}
-	return false
-}
-
 type ListBranchRequest struct {
 	Repo   *Repo        `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Status CommitStatus `protobuf:"varint,2,opt,name=status,enum=pfs.CommitStatus" json:"status,omitempty"`
@@ -1004,13 +808,6 @@ func (m *ListBranchRequest) GetRepo() *Repo {
 		return m.Repo
 	}
 	return nil
-}
-
-func (m *ListBranchRequest) GetStatus() CommitStatus {
-	if m != nil {
-		return m.Status
-	}
-	return CommitStatus_NORMAL
 }
 
 type DeleteCommitRequest struct {
@@ -1076,13 +873,6 @@ func (m *DiffMethod) GetFromCommit() *Commit {
 	return nil
 }
 
-func (m *DiffMethod) GetFullFile() bool {
-	if m != nil {
-		return m.FullFile
-	}
-	return false
-}
-
 type GetFileRequest struct {
 	File        *File       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	OffsetBytes int64       `protobuf:"varint,2,opt,name=offset_bytes,json=offsetBytes" json:"offset_bytes,omitempty"`
@@ -1101,20 +891,6 @@ func (m *GetFileRequest) GetFile() *File {
 		return m.File
 	}
 	return nil
-}
-
-func (m *GetFileRequest) GetOffsetBytes() int64 {
-	if m != nil {
-		return m.OffsetBytes
-	}
-	return 0
-}
-
-func (m *GetFileRequest) GetSizeBytes() int64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 func (m *GetFileRequest) GetShard() *Shard {
@@ -1149,34 +925,6 @@ func (m *PutFileRequest) GetFile() *File {
 		return m.File
 	}
 	return nil
-}
-
-func (m *PutFileRequest) GetFileType() FileType {
-	if m != nil {
-		return m.FileType
-	}
-	return FileType_FILE_TYPE_NONE
-}
-
-func (m *PutFileRequest) GetValue() []byte {
-	if m != nil {
-		return m.Value
-	}
-	return nil
-}
-
-func (m *PutFileRequest) GetDelimiter() Delimiter {
-	if m != nil {
-		return m.Delimiter
-	}
-	return Delimiter_NONE
-}
-
-func (m *PutFileRequest) GetUrl() string {
-	if m != nil {
-		return m.Url
-	}
-	return ""
 }
 
 type InspectFileRequest struct {
@@ -1244,13 +992,6 @@ func (m *ListFileRequest) GetDiffMethod() *DiffMethod {
 	return nil
 }
 
-func (m *ListFileRequest) GetMode() ListFileMode {
-	if m != nil {
-		return m.Mode
-	}
-	return ListFileMode_ListFile_NORMAL
-}
-
 type DeleteFileRequest struct {
 	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
@@ -1308,13 +1049,6 @@ func (m *ReplayCommitRequest) GetFromCommits() []*Commit {
 	return nil
 }
 
-func (m *ReplayCommitRequest) GetToBranch() string {
-	if m != nil {
-		return m.ToBranch
-	}
-	return ""
-}
-
 type PutBlockRequest struct {
 	Value     []byte    `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	Delimiter Delimiter `protobuf:"varint,2,opt,name=delimiter,enum=pfs.Delimiter" json:"delimiter,omitempty"`
@@ -1324,20 +1058,6 @@ func (m *PutBlockRequest) Reset()                    { *m = PutBlockRequest{} }
 func (m *PutBlockRequest) String() string            { return proto.CompactTextString(m) }
 func (*PutBlockRequest) ProtoMessage()               {}
 func (*PutBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{40} }
-
-func (m *PutBlockRequest) GetValue() []byte {
-	if m != nil {
-		return m.Value
-	}
-	return nil
-}
-
-func (m *PutBlockRequest) GetDelimiter() Delimiter {
-	if m != nil {
-		return m.Delimiter
-	}
-	return Delimiter_NONE
-}
 
 type GetBlockRequest struct {
 	Block       *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
@@ -1355,20 +1075,6 @@ func (m *GetBlockRequest) GetBlock() *Block {
 		return m.Block
 	}
 	return nil
-}
-
-func (m *GetBlockRequest) GetOffsetBytes() uint64 {
-	if m != nil {
-		return m.OffsetBytes
-	}
-	return 0
-}
-
-func (m *GetBlockRequest) GetSizeBytes() uint64 {
-	if m != nil {
-		return m.SizeBytes
-	}
-	return 0
 }
 
 type DeleteBlockRequest struct {
@@ -1470,7 +1176,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion3
 
 // Client API for API service
 
@@ -2340,7 +2046,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "client/pfs/pfs.proto",
+	Metadata: fileDescriptor0,
 }
 
 // Client API for BlockAPI service
@@ -2598,7 +2304,7 @@ var _BlockAPI_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "client/pfs/pfs.proto",
+	Metadata: fileDescriptor0,
 }
 
 func init() { proto.RegisterFile("client/pfs/pfs.proto", fileDescriptor0) }

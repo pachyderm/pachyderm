@@ -146,32 +146,11 @@ func (m *JobInfo) String() string            { return proto.CompactTextString(m)
 func (*JobInfo) ProtoMessage()               {}
 func (*JobInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *JobInfo) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
 func (m *JobInfo) GetTransform() *pps.Transform {
 	if m != nil {
 		return m.Transform
 	}
 	return nil
-}
-
-func (m *JobInfo) GetPipelineName() string {
-	if m != nil {
-		return m.PipelineName
-	}
-	return ""
-}
-
-func (m *JobInfo) GetPipelineVersion() uint64 {
-	if m != nil {
-		return m.PipelineVersion
-	}
-	return 0
 }
 
 func (m *JobInfo) GetParallelismSpec() *pps.ParallelismSpec {
@@ -216,41 +195,6 @@ func (m *JobInfo) GetOutputCommit() *pfs.Commit {
 	return nil
 }
 
-func (m *JobInfo) GetBranch() string {
-	if m != nil {
-		return m.Branch
-	}
-	return ""
-}
-
-func (m *JobInfo) GetState() pps.JobState {
-	if m != nil {
-		return m.State
-	}
-	return pps.JobState_JOB_CREATING
-}
-
-func (m *JobInfo) GetCommitIndex() string {
-	if m != nil {
-		return m.CommitIndex
-	}
-	return ""
-}
-
-func (m *JobInfo) GetDefaultShardModuli() []uint64 {
-	if m != nil {
-		return m.DefaultShardModuli
-	}
-	return nil
-}
-
-func (m *JobInfo) GetShard() uint64 {
-	if m != nil {
-		return m.Shard
-	}
-	return 0
-}
-
 type Pod struct {
 	Name         string      `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	OutputCommit *pfs.Commit `protobuf:"bytes,2,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
@@ -260,13 +204,6 @@ func (m *Pod) Reset()                    { *m = Pod{} }
 func (m *Pod) String() string            { return proto.CompactTextString(m) }
 func (*Pod) ProtoMessage()               {}
 func (*Pod) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
-
-func (m *Pod) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
 
 func (m *Pod) GetOutputCommit() *pfs.Commit {
 	if m != nil {
@@ -302,60 +239,11 @@ func (m *Chunk) String() string            { return proto.CompactTextString(m) }
 func (*Chunk) ProtoMessage()               {}
 func (*Chunk) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-func (m *Chunk) GetId() string {
-	if m != nil {
-		return m.Id
-	}
-	return ""
-}
-
-func (m *Chunk) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
-func (m *Chunk) GetModuli() []uint64 {
-	if m != nil {
-		return m.Moduli
-	}
-	return nil
-}
-
-func (m *Chunk) GetIndex() uint64 {
-	if m != nil {
-		return m.Index
-	}
-	return 0
-}
-
-func (m *Chunk) GetOwner() string {
-	if m != nil {
-		return m.Owner
-	}
-	return ""
-}
-
 func (m *Chunk) GetPods() []*Pod {
 	if m != nil {
 		return m.Pods
 	}
 	return nil
-}
-
-func (m *Chunk) GetState() ChunkState {
-	if m != nil {
-		return m.State
-	}
-	return ChunkState_UNASSIGNED
-}
-
-func (m *Chunk) GetLeaseTime() uint64 {
-	if m != nil {
-		return m.LeaseTime
-	}
-	return 0
 }
 
 type Chunks struct {
@@ -400,13 +288,6 @@ func (m *JobOutput) String() string            { return proto.CompactTextString(
 func (*JobOutput) ProtoMessage()               {}
 func (*JobOutput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
-func (m *JobOutput) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
 func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 	if m != nil {
 		return m.OutputCommit
@@ -424,20 +305,6 @@ func (m *JobState) Reset()                    { *m = JobState{} }
 func (m *JobState) String() string            { return proto.CompactTextString(m) }
 func (*JobState) ProtoMessage()               {}
 func (*JobState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
-
-func (m *JobState) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
-func (m *JobState) GetState() pps.JobState {
-	if m != nil {
-		return m.State
-	}
-	return pps.JobState_JOB_CREATING
-}
 
 func (m *JobState) GetFinished() *google_protobuf1.Timestamp {
 	if m != nil {
@@ -457,25 +324,11 @@ func (m *AddOutputCommitRequest) String() string            { return proto.Compa
 func (*AddOutputCommitRequest) ProtoMessage()               {}
 func (*AddOutputCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
-func (m *AddOutputCommitRequest) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
 func (m *AddOutputCommitRequest) GetCommit() *pfs.Commit {
 	if m != nil {
 		return m.Commit
 	}
 	return nil
-}
-
-func (m *AddOutputCommitRequest) GetBranch() string {
-	if m != nil {
-		return m.Branch
-	}
-	return ""
 }
 
 type PipelineInfo struct {
@@ -497,20 +350,6 @@ func (m *PipelineInfo) Reset()                    { *m = PipelineInfo{} }
 func (m *PipelineInfo) String() string            { return proto.CompactTextString(m) }
 func (*PipelineInfo) ProtoMessage()               {}
 func (*PipelineInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
-
-func (m *PipelineInfo) GetPipelineName() string {
-	if m != nil {
-		return m.PipelineName
-	}
-	return ""
-}
-
-func (m *PipelineInfo) GetVersion() uint64 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
 
 func (m *PipelineInfo) GetTransform() *pps.Transform {
 	if m != nil {
@@ -547,39 +386,11 @@ func (m *PipelineInfo) GetCreatedAt() *google_protobuf1.Timestamp {
 	return nil
 }
 
-func (m *PipelineInfo) GetShard() uint64 {
-	if m != nil {
-		return m.Shard
-	}
-	return 0
-}
-
-func (m *PipelineInfo) GetState() pps.PipelineState {
-	if m != nil {
-		return m.State
-	}
-	return pps.PipelineState_PIPELINE_IDLE
-}
-
-func (m *PipelineInfo) GetRecentError() string {
-	if m != nil {
-		return m.RecentError
-	}
-	return ""
-}
-
 func (m *PipelineInfo) GetJobCounts() map[int32]int32 {
 	if m != nil {
 		return m.JobCounts
 	}
 	return nil
-}
-
-func (m *PipelineInfo) GetStopped() bool {
-	if m != nil {
-		return m.Stopped
-	}
-	return false
 }
 
 type PipelineInfoChange struct {
@@ -597,13 +408,6 @@ func (m *PipelineInfoChange) GetPipeline() *PipelineInfo {
 		return m.Pipeline
 	}
 	return nil
-}
-
-func (m *PipelineInfoChange) GetType() ChangeType {
-	if m != nil {
-		return m.Type
-	}
-	return ChangeType_CREATE
 }
 
 type PipelineInfos struct {
@@ -632,13 +436,6 @@ func (m *SubscribePipelineInfosRequest) String() string            { return prot
 func (*SubscribePipelineInfosRequest) ProtoMessage()               {}
 func (*SubscribePipelineInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
-func (m *SubscribePipelineInfosRequest) GetIncludeInitial() bool {
-	if m != nil {
-		return m.IncludeInitial
-	}
-	return false
-}
-
 func (m *SubscribePipelineInfosRequest) GetShard() *Shard {
 	if m != nil {
 		return m.Shard
@@ -658,30 +455,9 @@ func (m *SubscribeJobInfosRequest) String() string            { return proto.Com
 func (*SubscribeJobInfosRequest) ProtoMessage()               {}
 func (*SubscribeJobInfosRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
-func (m *SubscribeJobInfosRequest) GetIncludeInitial() bool {
-	if m != nil {
-		return m.IncludeInitial
-	}
-	return false
-}
-
-func (m *SubscribeJobInfosRequest) GetIncludeChanges() bool {
-	if m != nil {
-		return m.IncludeChanges
-	}
-	return false
-}
-
 func (m *SubscribeJobInfosRequest) GetShard() *Shard {
 	if m != nil {
 		return m.Shard
-	}
-	return nil
-}
-
-func (m *SubscribeJobInfosRequest) GetState() []pps.JobState {
-	if m != nil {
-		return m.State
 	}
 	return nil
 }
@@ -701,13 +477,6 @@ func (m *JobInfoChange) GetJobInfo() *JobInfo {
 		return m.JobInfo
 	}
 	return nil
-}
-
-func (m *JobInfoChange) GetType() ChangeType {
-	if m != nil {
-		return m.Type
-	}
-	return ChangeType_CREATE
 }
 
 type ListPipelineInfosRequest struct {
@@ -735,13 +504,6 @@ func (m *Shard) String() string            { return proto.CompactTextString(m) }
 func (*Shard) ProtoMessage()               {}
 func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
-func (m *Shard) GetNumber() uint64 {
-	if m != nil {
-		return m.Number
-	}
-	return 0
-}
-
 type UpdatePipelineStateRequest struct {
 	PipelineName string            `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
 	State        pps.PipelineState `protobuf:"varint,2,opt,name=state,enum=pps.PipelineState" json:"state,omitempty"`
@@ -753,27 +515,6 @@ func (m *UpdatePipelineStateRequest) String() string            { return proto.C
 func (*UpdatePipelineStateRequest) ProtoMessage()               {}
 func (*UpdatePipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
-func (m *UpdatePipelineStateRequest) GetPipelineName() string {
-	if m != nil {
-		return m.PipelineName
-	}
-	return ""
-}
-
-func (m *UpdatePipelineStateRequest) GetState() pps.PipelineState {
-	if m != nil {
-		return m.State
-	}
-	return pps.PipelineState_PIPELINE_IDLE
-}
-
-func (m *UpdatePipelineStateRequest) GetRecentError() string {
-	if m != nil {
-		return m.RecentError
-	}
-	return ""
-}
-
 type UpdatePipelineStoppedRequest struct {
 	PipelineName string `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
 	Stopped      bool   `protobuf:"varint,2,opt,name=stopped" json:"stopped,omitempty"`
@@ -784,20 +525,6 @@ func (m *UpdatePipelineStoppedRequest) String() string            { return proto
 func (*UpdatePipelineStoppedRequest) ProtoMessage()               {}
 func (*UpdatePipelineStoppedRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
-func (m *UpdatePipelineStoppedRequest) GetPipelineName() string {
-	if m != nil {
-		return m.PipelineName
-	}
-	return ""
-}
-
-func (m *UpdatePipelineStoppedRequest) GetStopped() bool {
-	if m != nil {
-		return m.Stopped
-	}
-	return false
-}
-
 type BlockPipelineStateRequest struct {
 	PipelineName string            `protobuf:"bytes,1,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
 	State        pps.PipelineState `protobuf:"varint,2,opt,name=state,enum=pps.PipelineState" json:"state,omitempty"`
@@ -807,20 +534,6 @@ func (m *BlockPipelineStateRequest) Reset()                    { *m = BlockPipel
 func (m *BlockPipelineStateRequest) String() string            { return proto.CompactTextString(m) }
 func (*BlockPipelineStateRequest) ProtoMessage()               {}
 func (*BlockPipelineStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
-
-func (m *BlockPipelineStateRequest) GetPipelineName() string {
-	if m != nil {
-		return m.PipelineName
-	}
-	return ""
-}
-
-func (m *BlockPipelineStateRequest) GetState() pps.PipelineState {
-	if m != nil {
-		return m.State
-	}
-	return pps.PipelineState_PIPELINE_IDLE
-}
 
 type AddChunkRequest struct {
 	Chunks []*Chunk `protobuf:"bytes,1,rep,name=chunks" json:"chunks,omitempty"`
@@ -848,13 +561,6 @@ func (m *ClaimChunkRequest) String() string            { return proto.CompactTex
 func (*ClaimChunkRequest) ProtoMessage()               {}
 func (*ClaimChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
 
-func (m *ClaimChunkRequest) GetJobId() string {
-	if m != nil {
-		return m.JobId
-	}
-	return ""
-}
-
 func (m *ClaimChunkRequest) GetPod() *Pod {
 	if m != nil {
 		return m.Pod
@@ -872,20 +578,6 @@ func (m *RenewChunkRequest) String() string            { return proto.CompactTex
 func (*RenewChunkRequest) ProtoMessage()               {}
 func (*RenewChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
 
-func (m *RenewChunkRequest) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
-
-func (m *RenewChunkRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
-
 type FinishChunkRequest struct {
 	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
 	PodName string `protobuf:"bytes,2,opt,name=pod_name,json=podName" json:"pod_name,omitempty"`
@@ -895,20 +587,6 @@ func (m *FinishChunkRequest) Reset()                    { *m = FinishChunkReques
 func (m *FinishChunkRequest) String() string            { return proto.CompactTextString(m) }
 func (*FinishChunkRequest) ProtoMessage()               {}
 func (*FinishChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
-
-func (m *FinishChunkRequest) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
-
-func (m *FinishChunkRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
 
 type RevokeChunkRequest struct {
 	ChunkID string `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId" json:"chunk_id,omitempty"`
@@ -923,27 +601,6 @@ func (m *RevokeChunkRequest) String() string            { return proto.CompactTe
 func (*RevokeChunkRequest) ProtoMessage()               {}
 func (*RevokeChunkRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
 
-func (m *RevokeChunkRequest) GetChunkId() string {
-	if m != nil {
-		return m.ChunkId
-	}
-	return ""
-}
-
-func (m *RevokeChunkRequest) GetPodName() string {
-	if m != nil {
-		return m.PodName
-	}
-	return ""
-}
-
-func (m *RevokeChunkRequest) GetMaxPods() uint64 {
-	if m != nil {
-		return m.MaxPods
-	}
-	return 0
-}
-
 type WaitJobResponse struct {
 	State pps.JobState `protobuf:"varint,1,opt,name=state,enum=pps.JobState" json:"state,omitempty"`
 }
@@ -952,13 +609,6 @@ func (m *WaitJobResponse) Reset()                    { *m = WaitJobResponse{} }
 func (m *WaitJobResponse) String() string            { return proto.CompactTextString(m) }
 func (*WaitJobResponse) ProtoMessage()               {}
 func (*WaitJobResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
-
-func (m *WaitJobResponse) GetState() pps.JobState {
-	if m != nil {
-		return m.State
-	}
-	return pps.JobState_JOB_CREATING
-}
 
 type ChunkChange struct {
 	Chunk *Chunk     `protobuf:"bytes,1,opt,name=chunk" json:"chunk,omitempty"`
@@ -981,20 +631,6 @@ func (m *ChunkChange) GetChunk() *Chunk {
 	return nil
 }
 
-func (m *ChunkChange) GetType() ChangeType {
-	if m != nil {
-		return m.Type
-	}
-	return ChangeType_CREATE
-}
-
-func (m *ChunkChange) GetReady() bool {
-	if m != nil {
-		return m.Ready
-	}
-	return false
-}
-
 type SubscribeChunksRequest struct {
 	Job            *pps.Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	IncludeInitial bool     `protobuf:"varint,2,opt,name=include_initial,json=includeInitial" json:"include_initial,omitempty"`
@@ -1010,13 +646,6 @@ func (m *SubscribeChunksRequest) GetJob() *pps.Job {
 		return m.Job
 	}
 	return nil
-}
-
-func (m *SubscribeChunksRequest) GetIncludeInitial() bool {
-	if m != nil {
-		return m.IncludeInitial
-	}
-	return false
 }
 
 func init() {
@@ -1057,7 +686,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
+const _ = grpc.SupportPackageIsVersion3
 
 // Client API for API service
 
@@ -2088,7 +1717,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "server/pps/persist/persist.proto",
+	Metadata: fileDescriptor0,
 }
 
 func init() { proto.RegisterFile("server/pps/persist/persist.proto", fileDescriptor0) }
