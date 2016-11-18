@@ -3311,7 +3311,7 @@ func getClient(t *testing.T) pclient.APIClient {
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
-		apiServer := newAPIServer(driver)
+		apiServer := newAPIServer(driver, nil)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
 	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
