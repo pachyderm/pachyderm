@@ -85,6 +85,27 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
+			// Start sending ContinuePod to PPS to signal that we are alive
+			go func() {
+				tick := time.Tick(10 * time.Second)
+				for {
+					<-tick
+					res, err := ppsClient.ContinuePod(
+						context.Background(),
+						&ppsserver.ContinuePodRequest{
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+						},
+					)
+					if err != nil {
+						lion.Errorf("error from ContinuePod: %s", err.Error())
+					}
+					if res != nil && res.Exit {
+						os.Exit(0)
+					}
+				}
+			}()
+
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
 			}
@@ -202,53 +223,33 @@ func do(appEnvObj interface{}) error {
 				cmdCh <- success
 			}()
 
-			tick := time.Tick(10 * time.Second)
-			for {
-				select {
-				case success := <-cmdCh:
-					var outputMount *fuse.CommitMount
-					for _, c := range response.CommitMounts {
-						if c.Alias == "out" {
-							outputMount = c
-							break
-						}
-					}
-					if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
-						fmt.Printf("err from uploading output: %s\n", err)
-						success = false
-					}
-
-					res, err := ppsClient.FinishPod(
-						context.Background(),
-						&ppsserver.FinishPodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-							Success: success,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					finished = true
-					if res.Fail {
-						return errors.New("restarting")
-					}
-					return nil
-				case <-tick:
-					res, err := ppsClient.ContinuePod(
-						context.Background(),
-						&ppsserver.ContinuePodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					if res.Exit {
-						return nil
-					}
+			success := <-cmdCh
+			var outputMount *fuse.CommitMount
+			for _, c := range response.CommitMounts {
+				if c.Alias == "out" {
+					outputMount = c
+					break
 				}
+			}
+			if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
+				fmt.Printf("err from uploading output: %s\n", err)
+				success = false
+			}
+
+			res, err := ppsClient.FinishPod(
+				context.Background(),
+				&ppsserver.FinishPodRequest{
+					ChunkID: response.ChunkID,
+					PodName: appEnv.PodName,
+					Success: success,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			finished = true
+			if res.Fail {
+				return errors.New("restarting")
 			}
 			return nil
 		}),
