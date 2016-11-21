@@ -1495,6 +1495,10 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 	}
 }
 
+func isCommitCancelledErr(err error) bool {
+	return strings.Contains(err.Error(), "cancelled")
+}
+
 func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) error {
 	if len(pipelineInfo.Inputs) == 0 {
 		// this pipeline does not have inputs; there is nothing to be done
@@ -1577,19 +1581,30 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				commitSets = newCommitSets
 			}
 			for _, commitSet := range commitSets {
+				rawInputs := append(commitSet, commitInfo.Commit)
 				// + 1 as the commitSet doesn't contain the commit we just got
-				if len(commitSet)+1 < len(rawInputRepos) {
+				if len(rawInputs) < len(rawInputRepos) {
 					continue
 				}
-				trueInputs, err := a.trueInputs(ctx, append(commitSet, commitInfo.Commit), pipelineInfo)
+				trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
 				if err != nil {
+					if isCommitCancelledErr(err) {
+						protolion.Errorf("could not process raw commit set (%v) due to commit cancellation: %s", rawInputs, err)
+						continue
+					}
 					return err
 				}
 				var parentJob *ppsclient.Job
 				if commitInfo.ParentCommit != nil {
-					parentJob, err = a.parentJob(ctx, trueInputs, commitSet, commitInfo.ParentCommit, pipelineInfo)
+					parentRawInputs := append(commitSet, commitInfo.ParentCommit)
+					parentJob, err = a.parentJob(ctx, trueInputs, parentRawInputs, pipelineInfo)
 					if err != nil {
 						return err
+					}
+					if parentJob == nil {
+						// This happens if the parent job was not run due to reasons
+						// such as the parent's input commits got cancelled.
+						continue
 					}
 				}
 				_, err = a.CreateJob(
@@ -1744,11 +1759,10 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 func (a *apiServer) parentJob(
 	ctx context.Context,
 	trueInputs []*ppsclient.JobInput,
-	oldRawInputCommits []*pfsclient.Commit,
-	newRawInputCommitParent *pfsclient.Commit,
+	rawInputs []*pfsclient.Commit,
 	pipelineInfo *ppsclient.PipelineInfo,
 ) (*ppsclient.Job, error) {
-	parentTrueInputs, err := a.trueInputs(ctx, append(oldRawInputCommits, newRawInputCommitParent), pipelineInfo)
+	parentTrueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
 	if err != nil {
 		return nil, err
 	}
