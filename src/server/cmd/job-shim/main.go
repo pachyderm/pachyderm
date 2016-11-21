@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
-	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	"github.com/spf13/cobra"
@@ -52,14 +51,14 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			continue
 		}
 		g.Go(func() error {
-			return pfssync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
+			return sync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
 		})
 	}
 	return g.Wait()
 }
 
 func uploadOutput(c *client.APIClient, out *fuse.CommitMount, overwrite bool) error {
-	return pfssync.Push(context.Background(), c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
+	return sync.Push(context.Background(), c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
 }
 
 func do(appEnvObj interface{}) error {
@@ -88,43 +87,6 @@ func do(appEnvObj interface{}) error {
 			job := &ppsclient.Job{
 				ID: args[0],
 			}
-
-			var chunkID string
-			var chunkIDLock sync.Mutex
-
-			// Start sending ContinuePod so PPS knows that we are alive.
-			// We want to start sending ContinuePod before we send StartPod,
-			// because StartPod can block if the job has been finished.  Therefore
-			// we need to send ContinuePod to find out if the job has been finished.
-			go func() {
-				tick := time.Tick(10 * time.Second)
-				for {
-					<-tick
-					chunkIDLock.Lock()
-					res, err := ppsClient.ContinuePod(
-						context.Background(),
-						&ppsserver.ContinuePodRequest{
-							Job:     job,
-							ChunkID: chunkID,
-							PodName: appEnv.PodName,
-						},
-					)
-					chunkIDLock.Unlock()
-					if err != nil {
-						lion.Errorf("error from ContinuePod: %s", err.Error())
-					}
-					fmt.Printf("ContinuePod response: %v\n", res)
-					switch res.Exit {
-					case ppsserver.ExitMode_EM_TERMINATE:
-						os.Exit(0)
-					case ppsserver.ExitMode_EM_RESTART:
-						os.Exit(1)
-					case ppsserver.ExitMode_EM_NONE:
-						continue
-					}
-				}
-			}()
-
 			response, err := ppsClient.StartPod(
 				context.Background(),
 				&ppsserver.StartPodRequest{
@@ -135,9 +97,33 @@ func do(appEnvObj interface{}) error {
 				lion.Errorf("error from StartPod: %s", err.Error())
 				return err
 			}
-			chunkIDLock.Lock()
-			chunkID = response.ChunkID
-			chunkIDLock.Unlock()
+
+			// Start sending ContinuePod so PPS knows that we are alive
+			go func() {
+				tick := time.Tick(10 * time.Second)
+				for {
+					<-tick
+					res, err := ppsClient.ContinuePod(
+						context.Background(),
+						&ppsserver.ContinuePodRequest{
+							Job:     job,
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+						},
+					)
+					if err != nil {
+						lion.Errorf("error from ContinuePod: %s", err.Error())
+					}
+					switch res.Exit {
+					case ppsserver.ExitMode_EM_TERMINATE:
+						os.Exit(0)
+					case ppsserver.ExitMode_EM_RESTART:
+						os.Exit(1)
+					case ppsserver.ExitMode_EM_NONE:
+						continue
+					}
+				}
+			}()
 
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
