@@ -460,7 +460,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) < 3 {
 				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
 			}
-			return client.PutFileURL(args[0], args[1], args[2], url.String(), recursive)
+			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String(), recursive)
 		}
 		if !recursive {
 			if len(args) == 3 {
@@ -641,7 +641,7 @@ files into your Pachyderm cluster.
 		Long:  "Return the files in a directory.",
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
 			if fast && recurse {
-				return fmt.Errorf("You may only provide either --fast or --recurse, but not both.")
+				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
 			client, err := client.NewFromAddress(address)
