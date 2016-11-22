@@ -178,7 +178,8 @@ enum CommitStatus {
 }
 
 message ListCommitRequest {
-  repeated Commit from_commits = 1;
+  repeated Commit exclude = 1;
+  repeated Commit include = 6;
   repeated Commit provenance = 2;
   CommitType commit_type = 3;
   CommitStatus status = 4;
