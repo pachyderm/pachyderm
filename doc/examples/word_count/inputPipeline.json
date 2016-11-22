@@ -3,16 +3,10 @@
     "name": "wordcount_input"
   },
   "transform": {
-    "cmd": [ "wget",
-        "-e", "robots=off",
-        "--recursive",
-        "--level", "1",
-        "--adjust-extension",
-        "--no-check-certificate",
-        "--no-directories",
-        "--directory-prefix",
-        "/pfs/out",
-        "https://en.wikipedia.org/wiki/Main_Page"
+    "cmd": [ "sh" ],
+    "stdin": [
+        "apt-get update -yq && apt-get install -yq --no-install-recommends ca-certificates wget",
+        "wget -e robots=off --recursive --level 1 --adjust-extension --no-check-certificate --no-directories --directory-prefix /pfs/out https://en.wikipedia.org/wiki/Main_Page"
     ],
     "acceptReturnCode": [4,5,6,7,8]
   },
