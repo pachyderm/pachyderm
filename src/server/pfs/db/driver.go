@@ -139,15 +139,16 @@ func initDB(session *gorethink.Session, dbName string) error {
 	config.InitialInterval = 1 * time.Second
 	config.Multiplier = 2
 	config.MaxElapsedTime = 5 * time.Minute
-
+	tablesToInitialize = make([]string, len(tables))
+	copy(tablesToInitialize, tables)
 	backoff.RetryNotify(func() error {
 		// Create tables
-		for i, table := range tables {
+		for i, table := range tablesToInitialize {
 			tableCreateOpts := tableToTableCreateOpts[table]
 			if _, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
 				return err
 			}
-			tables = append(tables[:i], tables[i+1:]...)
+			tablesToInitialize = append(tablesToInitialize[:i], tablesToInitialize[i+1:]...)
 		}
 		return nil
 	}, config, func(err error, d time.Duration) {
