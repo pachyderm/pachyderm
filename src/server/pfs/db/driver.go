@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
-
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -128,40 +127,38 @@ func initDB(session *gorethink.Session, dbName string) error {
 		return nil
 	}
 
-
-// There is a race here.
-    //
-    // When rethink is under load, we consistently fail on the table creation
-    // w a 'db not found' error right after we created it a few lines above.
-    // However, the db shows up fine in the dashboard, so it does in fact get
-    // created. This is only relevant for tests, because thats the only time
-    // we create a bunch of databases while R/W from rethink as well
-    randomTableName := fmt.Sprintf("check_creation_%v", uuid.NewWithoutDashes())
-    randomTableOpts := []gorethink.TableCreateOpts{
-        gorethink.TableCreateOpts{
-            PrimaryKey: "ID",
-        },
-    }
-
-    config := backoff.NewExponentialBackOff()
-    // We want to backoff more aggressively (i.e. wait longer) than the default
-    config.InitialInterval = 1 * time.Second
-    config.Multiplier = 2
-    config.MaxElapsedTime = 5 * time.Minute
-    backoff.RetryNotify(func() error {
-        _, err = gorethink.DB(dbName).TableCreate(randomTableName, randomTableOpts...).RunWrite(session)
-        return err
-    }, config, func(err error, d time.Duration) {
-        fmt.Printf("Error; retrying in %s: %#v\n", d, err)
-    })
-    if err == nil {
-        _, err = gorethink.DB(dbName).TableDrop(randomTableName).RunWrite(session)
-        if err != nil {
-            return err
-        }
-    } else {
-        return fmt.Errorf("Could not validate database (%v) was created.", dbName)
-    }
+	// There is a race here.
+	//
+	// When rethink is under load, we consistently fail on the table creation
+	// w a 'db not found' error right after we created it a few lines above.
+	// However, the db shows up fine in the dashboard, so it does in fact get
+	// created. This is only relevant for tests, because thats the only time
+	// we create a bunch of databases while R/W from rethink as well
+	randomTableName := fmt.Sprintf("check_creation_%v", uuid.NewWithoutDashes())
+	randomTableOpts := []gorethink.TableCreateOpts{
+		gorethink.TableCreateOpts{
+			PrimaryKey: "ID",
+		},
+	}
+	config := backoff.NewExponentialBackOff()
+	// We want to backoff more aggressively (i.e. wait longer) than the default
+	config.InitialInterval = 1 * time.Second
+	config.Multiplier = 2
+	config.MaxElapsedTime = 5 * time.Minute
+	backoff.RetryNotify(func() error {
+		_, err = gorethink.DB(dbName).TableCreate(randomTableName, randomTableOpts...).RunWrite(session)
+		return err
+	}, config, func(err error, d time.Duration) {
+		fmt.Printf("Error; retrying in %s: %#v\n", d, err)
+	})
+	if err == nil {
+		_, err = gorethink.DB(dbName).TableDrop(randomTableName).RunWrite(session)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("Could not validate database (%v) was created.", dbName)
+	}
 
 	// Create tables
 	for _, table := range tables {
