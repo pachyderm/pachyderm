@@ -798,41 +798,55 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 	}
 }
 
-func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
-	repoToFromCommit := make(map[string]string)
-	for _, commit := range fromCommits {
-		// make sure that the repos exist
-		_, err := d.inspectRepo(commit.Repo)
-		if err != nil {
-			return nil, err
-		}
-		repoToFromCommit[commit.Repo.Name] = commit.ID
-	}
-	var queries []interface{}
-	for repo, commit := range repoToFromCommit {
-		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: CommitFullClockIndex.Name,
-			}).Filter(map[string]interface{}{
-				"Repo": repo,
-			}))
-		} else {
-			fullClock, err := d.getFullClock(&pfs.Commit{
-				Repo: &pfs.Repo{Name: repo},
-				ID:   commit,
-			})
+func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+	repoToQuery := make(map[string]gorethink.Term)
+
+	buildQueries := func(commits []*pfs.Commit, typ string) error {
+		for _, commit := range commits {
+			// make sure that the repos exist
+			_, err := d.inspectRepo(commit.Repo)
 			if err != nil {
 				return nil, err
 			}
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: CommitFullClockIndex.Name,
-			}).Filter(func(r gorethink.Term) gorethink.Term {
-				return gorethink.And(
-					r.Field("Repo").Eq(repo),
-					persist.DBClockDescendent(r.Field("FullClock"), gorethink.Expr(fullClock)),
-				)
-			}))
+			query, ok := repoToQuery[commit.Repo.Name]
+			if !ok {
+				query = d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+					Index: CommitFullClockIndex.Name,
+				}).Filter(map[string]interface{}{
+					"Repo": repo,
+				})
+				repoToQuery[commit.Repo.Name] = query
+			}
+			if commit.ID == "" {
+				continue
+			}
+			fullClock, err := d.getFullClock(commit)
+			if err != nil {
+				return nil, err
+			}
+			if typ == "include" {
+				query = query.Filter(func(r gorethink.Term) gorethink.Term {
+					return persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock))
+				})
+			} else {
+				query = query.Filter(func(r gorethink.Term) gorethink.Term {
+					return gorethink.Not(persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock)))
+				})
+			}
+			repoToQuery[commit.Repo.Name] = query
 		}
+	}
+
+	if err := buildQueries(include, "include"); err != nil {
+		return nil, err
+	}
+	if err := buildQueries(exclude, "exclude"); err != nil {
+		return nil, err
+	}
+
+	var queries []gorethink.Term
+	for _, query := range repoToQuery {
+		queries = append(queries, query)
 	}
 
 	var query gorethink.Term
