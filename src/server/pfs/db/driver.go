@@ -806,14 +806,14 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 			// make sure that the repos exist
 			_, err := d.inspectRepo(commit.Repo)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			query, ok := repoToQuery[commit.Repo.Name]
 			if !ok {
 				query = d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 					Index: CommitFullClockIndex.Name,
 				}).Filter(map[string]interface{}{
-					"Repo": repo,
+					"Repo": commit.Repo.Name,
 				})
 				repoToQuery[commit.Repo.Name] = query
 			}
@@ -822,7 +822,7 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 			}
 			fullClock, err := d.getFullClock(commit)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if typ == "include" {
 				query = query.Filter(func(r gorethink.Term) gorethink.Term {
@@ -835,6 +835,7 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 			}
 			repoToQuery[commit.Repo.Name] = query
 		}
+		return nil
 	}
 
 	if err := buildQueries(include, "include"); err != nil {
@@ -844,7 +845,7 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 		return nil, err
 	}
 
-	var queries []gorethink.Term
+	var queries []interface{}
 	for _, query := range repoToQuery {
 		queries = append(queries, query)
 	}

@@ -223,7 +223,7 @@ func DBClockDescendent(child, parent gorethink.Term) gorethink.Term {
 
 // DBClockAncestor returns whether one FullClock is the ancestor of the other,
 // assuming both are rethinkdb terms.  A FullClock is the ancestor of itself.
-func DBClockAncestor(ancestor, child gorethink.Term) gorethink.Term {
+func DBClockAncestor(parent, child gorethink.Term) gorethink.Term {
 	return gorethink.Branch(
 		gorethink.Or(child.Count().Lt(parent.Count()), parent.Count().Eq(0)),
 		gorethink.Expr(false),
