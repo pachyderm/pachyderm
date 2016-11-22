@@ -108,7 +108,7 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 }
 
 // Cmds returns a slice containing pps commands.
-func Cmds(address string) ([]*cobra.Command, error) {
+func Cmds(address string, metrics bool) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	job := &cobra.Command{
@@ -152,7 +152,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -223,7 +223,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ Examples:
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
@@ -298,7 +298,7 @@ Examples:
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -332,7 +332,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -376,7 +376,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -418,7 +418,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -438,7 +438,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -460,7 +460,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -476,7 +476,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -492,7 +492,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -509,7 +509,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pach.NewFromAddress(address)
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
