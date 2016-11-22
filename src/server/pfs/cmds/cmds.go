@@ -244,6 +244,8 @@ Examples:
 
 	var all bool
 	var block bool
+	var listCommitInclude cmd.RepeatedStringArg
+	var listCommitExclude cmd.RepeatedStringArg
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
@@ -253,23 +255,26 @@ Examples:
 Examples:
 
 	# return commits in repo "foo" and repo "bar"
-	$ pachctl list-commit foo bar
+	$ pachctl list-commit -i foo -i bar
 
-	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
-	$ pachctl list-commit foo/master/2 bar/master/4
+	# return commits in repo "foo" on branch "master"
+	$ pachctl list-commit -i foo/master
+
+	# return commits in repo "foo" since commit master/2
+	$ pachctl list-commit  -i foo/master -e foo/master/2
 
 	# return commits in repo "foo" that have commits
 	# "bar/master/3" and "baz/master/5" as provenance
-	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
+	$ pachctl list-commit -i foo -p bar/master/3 -p baz/master/5
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			fromCommits, err := cmd.ParseCommits(args)
+			include, err := cmd.ParseCommits(listCommitInclude)
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			exclude, err := cmd.ParseCommits(listCommitExclude)
 			if err != nil {
 				return err
 			}
@@ -282,7 +287,13 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
+
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			commitInfos, err := c.ListCommit(exclude, include, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
