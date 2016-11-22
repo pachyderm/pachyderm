@@ -225,7 +225,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 	return commitInfo, nil
 }
 
-// ListCommit lists commits in the given repos.
+// ListCommitByRepo lists commits in the given repos.
 //
 // repoNames defines a set of Repos to consider commits from, if repoNames is left
 // nil or empty then the result will be empty.
@@ -243,22 +243,31 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 // Using repoNames and block you can get subscription semantics from ListCommit.
 // commitStatus, controls the statuses of the returned commits. The default
 // value `Normal` will filter out archived and cancelled commits.
-func (c APIClient) ListCommit(repoNames []string, provenance []*pfs.Commit,
+func (c APIClient) ListCommitByRepo(repoNames []string, provenance []*pfs.Commit,
 	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
-	var fromCommits []*pfs.Commit
+	var include []*pfs.Commit
 	for _, repoName := range repoNames {
-		fromCommits = append(fromCommits, &pfs.Commit{
+		include = append(include, &pfs.Commit{
 			Repo: NewRepo(repoName),
 		})
 	}
-	return c.ListCommitFrom(fromCommits, provenance, commitType, status, block)
+	return c.ListCommit(include, nil, provenance, commitType, status, block)
 }
 
-// ListCommitFrom lists commits that occurred after the given commits.
+// ListCommit lists commits.
 //
-// fromCommits lets you get Commits that occurred after this set of commits.
-// If a fromCommit has only a repo but not a commit ID, all commits in the repo
-// are returned.
+// exclude and include are filters that either include or exclude the ancestors of the
+// given commits.  A commit is considered the ancestor of itself.
+// For instance, ListCommit(include("foo/2")) returns commits foo/0, foo/1, and foo/2,
+// if they exist.  In contrast, ListCommit(exclude("foo/2")) returns commits that are
+// *not* foo/0, foo/1, or foo/2.
+//
+// To get all commits on a given branch, simply include a commit whose ID is the branch
+// name: ListCommit(include("foo"))
+//
+// To get all commits in a repo, use ListCommitByRepo.
+//
+// To get all commits, simply don't provide include or exclude.
 //
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
@@ -273,16 +282,18 @@ func (c APIClient) ListCommit(repoNames []string, provenance []*pfs.Commit,
 // Using fromCommits and block you can get subscription semantics from ListCommit.
 // commitStatus, controls the statuses of the returned commits. The default
 // value `Normal` will filter out archived and cancelled commits.
-func (c APIClient) ListCommitFrom(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
-	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(exclude []*pfs.Commit, include []*pfs.Commit,
+	provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus,
+	block bool) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
 		&pfs.ListCommitRequest{
-			FromCommits: fromCommits,
-			Provenance:  provenance,
-			CommitType:  commitType,
-			Status:      status,
-			Block:       block,
+			Exclude:    exclude,
+			Include:    include,
+			Provenance: provenance,
+			CommitType: commitType,
+			Status:     status,
+			Block:      block,
 		},
 	)
 	if err != nil {
