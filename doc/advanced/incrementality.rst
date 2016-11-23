@@ -91,9 +91,9 @@ The root mount point is at ``/pfs``, which contains:
   - Each input repo will be found here by name
   - Note: Unlike when mounting pfs locally, there is no CommitID in the path. This is because the commit will always change, and the ID isn't relevant to the processing. The commit that is exposed is configured based on the incrementality flag above.
 - ``/pfs/out`` which is where you write any output
-- ``/pfs/fuse/prev`` which is this pipeline's previous output, if it exists. (You can think of it as this job's output commit's parent). 
+- ``/pfs/prev`` which is this pipeline's previous output, if it exists. (You can think of it as this job's output commit's parent). 
 
-The easiest way to understand how to use incrementality and ``/pfs/fuse/prev`` is through a simple example.
+The easiest way to understand how to use incrementality and ``/pfs/prev`` is through a simple example.
 
 Example (Sum)
 ^^^^^^^^^^^^^
@@ -102,5 +102,5 @@ Sum is a great starting example for how to do processing incrementally. If your 
 
 First, we should set ``partition: "FILE" and ``Incremental: "DIFF"``. Setting partition in this way ensures that all the values are seen by one container. If we had this set to ``map`` instead, we may get some input values spread across containers and we wouldn't get an accurate total. Incremental ansures that only the new values are shown.
 
-For each run of the pipeline, ``/pfs/<input_data>`` will be a file with all the new values that have been added in the most recent commit. Our pipeline should simply sum up those new values and add them to the previous total in ``/pfs/fuse/prev`` and write that new total to ``/pfs/out``. 
+For each run of the pipeline, ``/pfs/<input_data>`` will be a file with all the new values that have been added in the most recent commit. Our pipeline should simply sum up those new values and add them to the previous total in ``/pfs/prev`` and write that new total to ``/pfs/out``. 
 
