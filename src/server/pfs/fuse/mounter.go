@@ -100,9 +100,9 @@ func (m *mounter) Mount(
 		if len(commitMounts) != 1 {
 			return fmt.Errorf("expect 1 CommitMount, got %d", len(commitMounts))
 		}
-		newRepoFilesystem(m.apiClient, shard, commitMounts[0], allCommits)
+		filesystem = newRepoFilesystem(m.apiClient, shard, commitMounts[0], allCommits)
 	} else {
-		newFilesystem(m.apiClient, shard, commitMounts, allCommits)
+		filesystem = newFilesystem(m.apiClient, shard, commitMounts, allCommits)
 	}
 	if err := fs.New(conn, config).Serve(filesystem); err != nil {
 		return err

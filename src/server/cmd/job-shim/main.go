@@ -154,41 +154,42 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
-			// mount /pfs/fuse
-			// right now we only have /pfs/fuse/prev
+			// mount /pfs/prev
 			var mounts []*fuse.CommitMount
 			for _, m := range response.CommitMounts {
 				if m.Alias == "prev" {
 					mounts = append(mounts, m)
 				}
 			}
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, c)
-			ready := make(chan bool)
-			errCh := make(chan error)
-			go func() {
-				if err := mounter.MountAndCreate(
-					FUSEMountPoint,
-					nil,
-					mounts,
-					ready,
-					response.Transform.Debug,
-					false,
-					true,
-				); err != nil {
-					errCh <- err
+			if len(mounts) > 0 {
+				mounter := fuse.NewMounter(appEnv.PachydermAddress, c)
+				ready := make(chan bool)
+				errCh := make(chan error)
+				go func() {
+					if err := mounter.MountAndCreate(
+						FUSEMountPoint,
+						nil,
+						mounts,
+						ready,
+						response.Transform.Debug,
+						false,
+						true,
+					); err != nil {
+						errCh <- err
+					}
+				}()
+				select {
+				case <-ready:
+				case err := <-errCh:
+					return err
 				}
-			}()
-			select {
-			case <-ready:
-			case err := <-errCh:
-				return err
-			}
-			defer func() {
-				if err := mounter.Unmount(FUSEMountPoint); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
+				defer func() {
+					if err := mounter.Unmount(FUSEMountPoint); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 
+			}
 			var readers []io.Reader
 			for _, line := range response.Transform.Stdin {
 				readers = append(readers, strings.NewReader(line+"\n"))
