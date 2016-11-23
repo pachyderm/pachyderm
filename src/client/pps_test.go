@@ -48,7 +48,7 @@ func Example_pps() {
 		return // handle error
 	}
 
-	commits, err := c.ListCommit( // List commits that are...
+	commits, err := c.ListCommitByRepo( // List commits that are...
 		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
 		nil,                // no provenance
 		client.CommitTypeRead,     // are readable

@@ -798,41 +798,46 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 	}
 }
 
-func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
-	repoToFromCommit := make(map[string]string)
-	for _, commit := range fromCommits {
+func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+	repoToQuery := make(map[string]gorethink.Term)
+
+	for i, commit := range append(include, exclude...) {
 		// make sure that the repos exist
 		_, err := d.inspectRepo(commit.Repo)
 		if err != nil {
 			return nil, err
 		}
-		repoToFromCommit[commit.Repo.Name] = commit.ID
-	}
-	var queries []interface{}
-	for repo, commit := range repoToFromCommit {
-		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+		query, ok := repoToQuery[commit.Repo.Name]
+		if !ok {
+			query = d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 				Index: CommitFullClockIndex.Name,
 			}).Filter(map[string]interface{}{
-				"Repo": repo,
-			}))
-		} else {
-			fullClock, err := d.getFullClock(&pfs.Commit{
-				Repo: &pfs.Repo{Name: repo},
-				ID:   commit,
+				"Repo": commit.Repo.Name,
 			})
-			if err != nil {
-				return nil, err
-			}
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: CommitFullClockIndex.Name,
-			}).Filter(func(r gorethink.Term) gorethink.Term {
-				return gorethink.And(
-					r.Field("Repo").Eq(repo),
-					persist.DBClockDescendent(r.Field("FullClock"), gorethink.Expr(fullClock)),
-				)
-			}))
+			repoToQuery[commit.Repo.Name] = query
 		}
+		if commit.ID == "" {
+			continue
+		}
+		fullClock, err := d.getFullClock(commit)
+		if err != nil {
+			return nil, err
+		}
+		if i < len(include) {
+			query = query.Filter(func(r gorethink.Term) gorethink.Term {
+				return persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock))
+			})
+		} else {
+			query = query.Filter(func(r gorethink.Term) gorethink.Term {
+				return gorethink.Not(persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock)))
+			})
+		}
+		repoToQuery[commit.Repo.Name] = query
+	}
+
+	var queries []interface{}
+	for _, query := range repoToQuery {
+		queries = append(queries, query)
 	}
 
 	var query gorethink.Term
