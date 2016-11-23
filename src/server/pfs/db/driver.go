@@ -19,11 +19,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
+	"github.com/cenkalti/backoff"
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
+	"go.pedge.io/lion"
 )
 
 // A Table is a rethinkdb table name.
@@ -125,12 +127,28 @@ func initDB(session *gorethink.Session, dbName string) error {
 		return nil
 	}
 
+	// There is a race here
+	//
+	// When rethink is under load, we consistently fail on the table creation
+	// w a 'db not found' error right after we created it a few lines above.
+	//
+	// However, the db shows up fine in the dashboard, so it does in fact get
+	// created. This is only relevant for tests, because thats the only time
+	// we create a bunch of databases while R/W from rethink as well
+	config := backoff.NewExponentialBackOff()
+	// We want to backoff more aggressively (i.e. wait longer) than the default
+	config.InitialInterval = 1 * time.Second
+	config.Multiplier = 2
+	config.MaxElapsedTime = 5 * time.Minute
 	// Create tables
 	for _, table := range tables {
-		tableCreateOpts := tableToTableCreateOpts[table]
-		if _, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
+		backoff.RetryNotify(func() error {
+			tableCreateOpts := tableToTableCreateOpts[table]
+			_, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session)
 			return err
-		}
+		}, config, func(err error, d time.Duration) {
+			lion.Errorf("error creating table %v on database %v; retrying in %s: %v\n", table, dbName, d, err)
+		})
 	}
 
 	// Create indexes
