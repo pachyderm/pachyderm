@@ -255,7 +255,7 @@ Examples:
 Examples:
 
 	# return commits in repo "foo" and repo "bar"
-	$ pachctl list-commit -i foo -i bar
+	$ pachctl list-commit foo bar
 
 	# return commits in repo "foo" on branch "master"
 	$ pachctl list-commit -i foo/master
@@ -269,7 +269,7 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			include, err := cmd.ParseCommits(listCommitInclude)
+			include, err := cmd.ParseCommits(append(args, listCommitInclude...))
 			if err != nil {
 				return err
 			}
@@ -308,6 +308,10 @@ Examples:
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitInclude, "include", "i",
+		"include only the ancestors of this commit, or include only the commits on this branch")
+	listCommit.Flags().VarP(&listCommitExclude, "exclude", "e",
+		"exclude the ancestors of this commit, or exclude the commits on this branch")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 
