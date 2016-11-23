@@ -1512,7 +1512,11 @@ done
 	}
 	require.NoError(t, c.FinishCommit(inputRepo1, commit3.ID))
 
-	listCommitRequest.Exclude[0] = outCommits[0].Commit
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Exclude:    []*pfsclient.Commit{outCommits[0].Commit},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
 	listCommitResponse, err = c.PfsAPIClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
@@ -1662,7 +1666,11 @@ done
 	}
 	require.NoError(t, c.FinishCommit(inputRepo1, commit3.ID))
 
-	listCommitRequest.Exclude[0] = outCommits[0].Commit
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Exclude:    []*pfsclient.Commit{outCommits[0].Commit},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
 	listCommitResponse, err = c.PfsAPIClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
