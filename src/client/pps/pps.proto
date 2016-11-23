@@ -196,6 +196,9 @@ message CreateJobRequest {
   repeated JobInput inputs = 4;
   Job parent_job = 5;
   bool force = 6;
+  bool is_a_service = 8;
+  int32 internal_port = 9;
+  int32 external_port = 10;
 }
 
 message InspectJobRequest {
