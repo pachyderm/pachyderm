@@ -468,7 +468,8 @@ func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path s
 
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
-func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string) (retErr error) {
+// recursive allow for recursive scraping of some types URLs for example on s3:// urls.
+func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return sanitizeErr(err)
@@ -479,9 +480,10 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 		}
 	}()
 	if err := putFileClient.Send(&pfs.PutFileRequest{
-		File:     NewFile(repoName, commitID, path),
-		FileType: pfs.FileType_FILE_TYPE_REGULAR,
-		Url:      url,
+		File:      NewFile(repoName, commitID, path),
+		FileType:  pfs.FileType_FILE_TYPE_REGULAR,
+		Url:       url,
+		Recursive: recursive,
 	}); err != nil {
 		return sanitizeErr(err)
 	}
