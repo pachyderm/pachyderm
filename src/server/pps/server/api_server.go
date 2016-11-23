@@ -424,12 +424,25 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
-		return nil, err
+	if request.IsAService {
+		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.InternalPort, request.ExternalPort)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Extensions().ReplicationControllers(a.namespace).Create(rc); err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Extensions().Services(a.namespace).Create(service); err != nil {
+			return nil, err
+		}
+	} else {
+		job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
+			return nil, err
+		}
 	}
 
 	return &ppsclient.Job{
@@ -1954,8 +1967,18 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-// Convert a persist.JobInfo into a Kubernetes batch.Job spec
-func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
+type jobOptions struct {
+	labels             map[string]string
+	parallelism        int32
+	userImage          string
+	jobShimImage       string
+	jobImagePullPolicy string
+	jobEnv             []api.EnvVar
+	volumes            []api.Volume
+	volumeMounts       []api.VolumeMounts
+}
+
+func jobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
 	labels := labels(jobInfo.JobID)
 	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
@@ -2030,6 +2053,107 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		MountPath: "/pach-bin",
 	})
 
+	return &jobOptions{
+		labels:             labels,
+		parallelism:        parallelism,
+		userImage:          userImage,
+		jobShimImage:       jobShimImage,
+		jobImagePullPolicy: jobImagePullPolicy,
+		jobEnv:             jobEnv,
+		volumes:            volumes,
+		volumeMounts:       volumeMounts,
+	}
+}
+
+func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
+
+	options, err := jobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	if err != nil {
+		return nil, nil, err
+	}
+	rc := &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   jobInfo.JobID,
+			Labels: options.labels,
+		},
+		Spec: api.ReplicationControllerSpec{
+			ManualSelector: &trueVal,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: options.labels,
+			},
+			Replicas: &options.parallelism,
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   jobInfo.JobID,
+					Labels: options.labels,
+				},
+				Spec: api.PodSpec{
+					InitContainers: []api.Container{
+						{
+							Name:            "init",
+							Image:           options.jobShimImage,
+							Command:         []string{"/pach/job-shim.sh"},
+							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+							Env:             options.jobEnv,
+							VolumeMounts:    options.volumeMounts,
+						},
+					},
+					Containers: []api.Container{
+						{
+							Name:    "user",
+							Image:   options.userImage,
+							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
+							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+							Env:             options.jobEnv,
+							VolumeMounts:    options.volumeMounts,
+						},
+					},
+					RestartPolicy: "Never",
+					Volumes:       options.volumes,
+				},
+			},
+		},
+	}
+	service := &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   jobInfo.JobID,
+			Labels: options.labels,
+		},
+		Spec: api.ServiceSpec{
+			Type:           api.ServiceTypeLoadBalancer,
+			ManualSelector: &trueVal,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: options.labels,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port:     internalPort,
+					Name:     "user-service-port",
+					NodePort: externalPort,
+				},
+			},
+		},
+	}
+	return rc, service, nil
+}
+
+// Convert a persist.JobInfo into a Kubernetes batch.Job spec
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
+	options, err := jobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	if err != nil {
+		return nil, err
+	}
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -2037,46 +2161,46 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   jobInfo.JobID,
-			Labels: labels,
+			Labels: options.labels,
 		},
 		Spec: batch.JobSpec{
 			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: options.labels,
 			},
-			Parallelism: &parallelism,
-			Completions: &parallelism,
+			Parallelism: &options.parallelism,
+			Completions: &options.parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
-					Labels: labels,
+					Labels: options.labels,
 				},
 				Spec: api.PodSpec{
 					InitContainers: []api.Container{
 						{
 							Name:            "init",
-							Image:           jobShimImage,
+							Image:           options.jobShimImage,
 							Command:         []string{"/pach/job-shim.sh"},
-							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
-							Env:             jobEnv,
-							VolumeMounts:    volumeMounts,
+							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+							Env:             options.jobEnv,
+							VolumeMounts:    options.volumeMounts,
 						},
 					},
 					Containers: []api.Container{
 						{
 							Name:    "user",
-							Image:   userImage,
+							Image:   options.userImage,
 							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
-							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
-							Env:             jobEnv,
-							VolumeMounts:    volumeMounts,
+							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+							Env:             options.jobEnv,
+							VolumeMounts:    options.volumeMounts,
 						},
 					},
 					RestartPolicy: "Never",
-					Volumes:       volumes,
+					Volumes:       options.volumes,
 				},
 			},
 		},
