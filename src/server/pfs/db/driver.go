@@ -140,7 +140,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 	config.Multiplier = 2
 	config.MaxElapsedTime = 5 * time.Minute
 	// Create tables
-	for _, table := range tablesToInitialize {
+	for _, table := range tables {
 		backoff.RetryNotify(func() error {
 			tableCreateOpts := tableToTableCreateOpts[table]
 			_, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session)
