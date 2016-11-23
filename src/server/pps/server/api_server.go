@@ -885,7 +885,7 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	commitMounts = append(commitMounts, outputCommitMount)
 
 	// If a job has a parent commit, we expose the parent commit
-	// to the job under /pfs/fuse/prev
+	// to the job under /pfs/prev
 	commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
 		Commit: outputCommitMount.Commit,
 	})
