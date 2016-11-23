@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -12,6 +13,8 @@ import (
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	api "k8s.io/kubernetes/pkg/api/v1"
 )
+
+var stdoutMutex = &sync.Mutex{}
 
 func TestMetricsNormalDeployment(t *testing.T) {
 	// Run deploy normally, should see METRICS=true
@@ -34,6 +37,9 @@ func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
 }
 
 func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue bool) {
+	t.Parallel()
+	stdoutMutex.Lock()
+	defer stdoutMutex.Unlock()
 
 	// Setup user config prior to test
 	// So that stdout only contains JSON no warnings

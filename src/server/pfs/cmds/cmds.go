@@ -470,9 +470,9 @@ Files can be read from finished commits with get-file.`,
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
 			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
+				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
 			}
-			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String())
+			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String(), recursive)
 		}
 		if !recursive {
 			if len(args) == 3 {
