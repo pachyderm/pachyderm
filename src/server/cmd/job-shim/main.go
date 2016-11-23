@@ -31,7 +31,7 @@ const (
 	// PFSOutputPrefix is where the output data resides
 	PFSOutputPrefix = "/pfs/out"
 	// FUSEMountPoint is where we mount FUSE
-	FUSEMountPoint = "/pfs/fuse"
+	FUSEMountPoint = "/pfs/prev"
 )
 
 type appEnv struct {
@@ -173,6 +173,7 @@ func do(appEnvObj interface{}) error {
 					ready,
 					response.Transform.Debug,
 					false,
+					true,
 				); err != nil {
 					errCh <- err
 				}
