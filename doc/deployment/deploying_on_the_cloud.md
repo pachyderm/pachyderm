@@ -267,6 +267,7 @@ $ pachctl version
 COMPONENT           VERSION
 pachctl             1.2.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+```
 
 #### Start Pachyderm
 
