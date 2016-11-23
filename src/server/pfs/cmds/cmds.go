@@ -706,7 +706,7 @@ files into your Pachyderm cluster.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits, false)
 			if err != nil {
 				return err
 			}

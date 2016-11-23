@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -36,11 +37,12 @@ func (m *mounter) MountAndCreate(
 	ready chan bool,
 	debug bool,
 	allCommits bool,
+	oneMount bool,
 ) error {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	return m.Mount(mountPoint, shard, commitMounts, ready, debug, allCommits)
+	return m.Mount(mountPoint, shard, commitMounts, ready, debug, allCommits, oneMount)
 }
 
 func (m *mounter) Mount(
@@ -50,6 +52,7 @@ func (m *mounter) Mount(
 	ready chan bool,
 	debug bool,
 	allCommits bool,
+	oneMount bool,
 ) (retErr error) {
 	var once sync.Once
 	defer once.Do(func() {
@@ -92,7 +95,16 @@ func (m *mounter) Mount(
 	if debug {
 		config.Debug = func(msg interface{}) { lion.Printf("%+v", msg) }
 	}
-	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts, allCommits)); err != nil {
+	var filesystem fs.FS
+	if oneMount {
+		if len(commitMounts) != 1 {
+			return fmt.Errorf("expect 1 CommitMount, got %d", len(commitMounts))
+		}
+		newRepoFilesystem(m.apiClient, shard, commitMounts[0], allCommits)
+	} else {
+		newFilesystem(m.apiClient, shard, commitMounts, allCommits)
+	}
+	if err := fs.New(conn, config).Serve(filesystem); err != nil {
 		return err
 	}
 	<-conn.Ready
