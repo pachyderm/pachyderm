@@ -244,6 +244,7 @@ Examples:
 
 	var all bool
 	var block bool
+	var listCommitExclude cmd.RepeatedStringArg
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
@@ -255,8 +256,11 @@ Examples:
 	# return commits in repo "foo" and repo "bar"
 	$ pachctl list-commit foo bar
 
-	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
-	$ pachctl list-commit foo/master/2 bar/master/4
+	# return commits in repo "foo" on branch "master"
+	$ pachctl list-commit foo/master
+
+	# return commits in repo "foo" since commit master/2
+	$ pachctl list-commit foo/master -e foo/master/2
 
 	# return commits in repo "foo" that have commits
 	# "bar/master/3" and "baz/master/5" as provenance
@@ -264,12 +268,12 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			fromCommits, err := cmd.ParseCommits(args)
+			include, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			exclude, err := cmd.ParseCommits(listCommitExclude)
 			if err != nil {
 				return err
 			}
@@ -282,7 +286,13 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
+
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			commitInfos, err := c.ListCommit(exclude, include, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -297,6 +307,8 @@ Examples:
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitExclude, "exclude", "x",
+		"exclude the ancestors of this commit, or exclude the commits on this branch")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 

@@ -1072,7 +1072,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			commitInfos, err := pfsAPIClient.ListCommit(
 				ctx,
 				&pfsclient.ListCommitRequest{
-					FromCommits: []*pfsclient.Commit{&pfsclient.Commit{
+					Include: []*pfsclient.Commit{&pfsclient.Commit{
 						Repo: ppsserver.PipelineRepo(request.Pipeline),
 					}},
 				})
@@ -1526,29 +1526,29 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 		return err
 	}
 	for {
-		var fromCommits []*pfsclient.Commit
+		var exclude []*pfsclient.Commit
 		for repo, leaves := range repoToLeaves {
 			if len(leaves) > 0 {
 				for leaf := range leaves {
-					fromCommits = append(
-						fromCommits,
+					exclude = append(
+						exclude,
 						&pfsclient.Commit{
 							Repo: &pfsclient.Repo{Name: repo},
 							ID:   leaf,
 						})
 				}
 			} else {
-				fromCommits = append(
-					fromCommits,
+				exclude = append(
+					exclude,
 					&pfsclient.Commit{
 						Repo: &pfsclient.Repo{Name: repo},
 					})
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
-			FromCommits: fromCommits,
-			CommitType:  pfsclient.CommitType_COMMIT_TYPE_READ,
-			Block:       true,
+			Exclude:    exclude,
+			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+			Block:      true,
 		}
 		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
