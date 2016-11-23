@@ -86,6 +86,7 @@ func do(appEnvObj interface{}) error {
 			}
 
 			// Start sending ContinuePod to PPS to signal that we are alive
+			exitCh := make(chan struct{})
 			go func() {
 				tick := time.Tick(10 * time.Second)
 				for {
@@ -101,7 +102,16 @@ func do(appEnvObj interface{}) error {
 						lion.Errorf("error from ContinuePod: %s", err.Error())
 					}
 					if res != nil && res.Exit {
-						os.Exit(0)
+						select {
+						case exitCh <- struct{}{}:
+							// If someone received this signal, then they are
+							// responsible to exiting the program and release
+							// all resources.
+							return
+						default:
+							// Otherwise, we just terminate the program.
+							os.Exit(0)
+						}
 					}
 				}
 			}()
@@ -223,7 +233,12 @@ func do(appEnvObj interface{}) error {
 				cmdCh <- success
 			}()
 
-			success := <-cmdCh
+			var success bool
+			select {
+			case <-exitCh:
+				return nil
+			case success = <-cmdCh:
+			}
 			var outputMount *fuse.CommitMount
 			for _, c := range response.CommitMounts {
 				if c.Alias == "out" {
