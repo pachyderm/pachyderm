@@ -244,7 +244,6 @@ Examples:
 
 	var all bool
 	var block bool
-	var listCommitInclude cmd.RepeatedStringArg
 	var listCommitExclude cmd.RepeatedStringArg
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
@@ -258,18 +257,18 @@ Examples:
 	$ pachctl list-commit foo bar
 
 	# return commits in repo "foo" on branch "master"
-	$ pachctl list-commit -i foo/master
+	$ pachctl list-commit foo/master
 
 	# return commits in repo "foo" since commit master/2
-	$ pachctl list-commit  -i foo/master -e foo/master/2
+	$ pachctl list-commit foo/master -e foo/master/2
 
 	# return commits in repo "foo" that have commits
 	# "bar/master/3" and "baz/master/5" as provenance
-	$ pachctl list-commit -i foo -p bar/master/3 -p baz/master/5
+	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			include, err := cmd.ParseCommits(append(args, listCommitInclude...))
+			include, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
 			}
@@ -308,9 +307,7 @@ Examples:
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
-	listCommit.Flags().VarP(&listCommitInclude, "include", "i",
-		"include only the ancestors of this commit, or include only the commits on this branch")
-	listCommit.Flags().VarP(&listCommitExclude, "exclude", "e",
+	listCommit.Flags().VarP(&listCommitExclude, "exclude", "x",
 		"exclude the ancestors of this commit, or exclude the commits on this branch")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
