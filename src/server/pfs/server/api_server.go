@@ -4,19 +4,26 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -235,23 +242,40 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		var r io.Reader
 		var delimiter pfs.Delimiter
 		if request.Url != "" {
-			resp, err := http.Get(request.Url)
+			url, err := url.Parse(request.Url)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil && retErr == nil {
-					retErr = err
+			switch url.Scheme {
+			case "http":
+				fallthrough
+			case "https":
+				resp, err := http.Get(request.Url)
+				if err != nil {
+					return err
 				}
-			}()
-			r = resp.Body
-			switch resp.Header.Get("Content-Type") {
-			case "application/json":
-				delimiter = pfs.Delimiter_JSON
-			case "application/text":
-				delimiter = pfs.Delimiter_LINE
-			default:
-				delimiter = pfs.Delimiter_NONE
+				defer func() {
+					if err := resp.Body.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				r = resp.Body
+				switch resp.Header.Get("Content-Type") {
+				case "application/json":
+					delimiter = pfs.Delimiter_JSON
+				case "application/text":
+					delimiter = pfs.Delimiter_LINE
+				default:
+					delimiter = pfs.Delimiter_NONE
+				}
+			case "s3":
+				return a.putFileS3(request, url)
+			case "gcs":
+				fallthrough
+			case "gs":
+				return a.putFileGcs(request, url)
+			case "as":
+				return a.putFileAs(request, url)
 			}
 		} else {
 			reader := putFileReader{
@@ -269,6 +293,79 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) putFileS3(request *pfs.PutFileRequest, url *url.URL) error {
+	id, err := ioutil.ReadFile("/amazon-secret/id")
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.ReadFile("/amazon-secret/secret")
+	if err != nil {
+		return err
+	}
+	token, err := ioutil.ReadFile("/amazon-secret/token")
+	if err != nil {
+		return err
+	}
+	region, err := ioutil.ReadFile("/amazon-secret/region")
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileGcs(request *pfs.PutFileRequest, url *url.URL) error {
+	objClient, err := obj.NewGoogleClient(context.Background(), url.Host)
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileAs(request *pfs.PutFileRequest, url *url.URL) error {
+	id, err := ioutil.ReadFile("/microsoft-secret/id")
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewMicrosoftClient(url.Host, string(id), string(secret))
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+	put := func(filePath string, objPath string) error {
+		r, err := objClient.Reader(objPath, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return a.driver.PutFile(client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), request.Delimiter, r)
+	}
+	if request.Recursive {
+		var eg errgroup.Group
+		path := strings.TrimPrefix(url.Path, "/")
+		objClient.Walk(path, func(name string) error {
+			eg.Go(func() error { return put(filepath.Join(request.File.Path, name), name) })
+			return nil
+		})
+		return eg.Wait()
+	}
+	return put(request.File.Path, url.Path)
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
