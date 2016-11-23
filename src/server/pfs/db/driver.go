@@ -25,6 +25,7 @@ import (
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
+	"go.pedge.io/lion"
 )
 
 // A Table is a rethinkdb table name.
@@ -146,7 +147,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 			_, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session)
 			return err
 		}, config, func(err error, d time.Duration) {
-			fmt.Printf("Error; retrying in %s: %#v\n", d, err)
+			lion.Errorf("error creating table %v on database %v; retrying in %s: %v\n", table, dbName, d, err)
 		})
 	}
 
