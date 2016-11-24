@@ -5,7 +5,9 @@ Create a new job. Returns the id of the created job.
 ### Synopsis
 
 
-Create a new job from a spec, the spec looks like this
+Create a new job from a spec, the spec looks like this:
+
+```
 {
   "transform": {
     "cmd": [
@@ -45,6 +47,7 @@ Create a new job from a spec, the spec looks like this
     "id": "a951ca06cfda4377b8ffaa050d1074df"
   }
 }
+```
 
 ```
 ./pachctl create-job -f job.json
