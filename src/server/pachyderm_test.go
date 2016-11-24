@@ -694,7 +694,7 @@ func TestPipelineFaultTolerance(t *testing.T) {
 			Constant: 1,
 		},
 		[]*ppsclient.PipelineInput{{
-			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Repo:   &pfsclient.Repo{Name: upstreamPipelineName},
 			Method: client.MapMethod,
 		}},
 		false,
@@ -721,8 +721,8 @@ func TestPipelineFaultTolerance(t *testing.T) {
 
 	jobInfos, err := c.ListJob(downstreamPipelineName, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	require.True(t, jobInfos[0].State == ppsclient.JobState_JOB_FAILURE && jobInfos[1].State == ppsclient.JobState_JOB_SUCCESS || jobInfos[1].State == ppsclient.JobState_JOB_FAILURE && jobInfos[0].State == ppsclient.JobState_JOB_SUCCESS)
+	require.Equal(t, 1, len(jobInfos))
+	require.True(t, jobInfos[0].State == ppsclient.JobState_JOB_SUCCESS)
 }
 
 func TestPipelineThatCrashes(t *testing.T) {
