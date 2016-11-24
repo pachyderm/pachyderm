@@ -649,9 +649,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	if d.fs.allCommits {
 		status = pfsclient.CommitStatus_ALL
 	}
-	commitInfos, err := d.fs.apiClient.ListCommitFrom([]*pfsclient.Commit{
-		client.NewCommit(d.File.Commit.Repo.Name, ""),
-	}, nil, client.CommitTypeNone, status, false)
+	commitInfos, err := d.fs.apiClient.ListCommitByRepo([]string{d.File.Commit.Repo.Name}, nil, client.CommitTypeNone, status, false)
 	if err != nil {
 		return nil, err
 	}
