@@ -722,7 +722,16 @@ func TestPipelineFaultTolerance(t *testing.T) {
 	jobInfos, err := c.ListJob(downstreamPipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.True(t, jobInfos[0].State == ppsclient.JobState_JOB_SUCCESS)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 func TestPipelineThatCrashes(t *testing.T) {
