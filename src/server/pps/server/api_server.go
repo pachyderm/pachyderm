@@ -2062,7 +2062,7 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		jobEnv:             jobEnv,
 		volumes:            volumes,
 		volumeMounts:       volumeMounts,
-	}
+	}, nil
 }
 
 func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
@@ -2081,7 +2081,6 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Labels: options.labels,
 		},
 		Spec: api.ReplicationControllerSpec{
-			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: options.labels,
 			},
@@ -2131,8 +2130,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
-			Type:           api.ServiceTypeLoadBalancer,
-			ManualSelector: &trueVal,
+			Type: api.ServiceTypeLoadBalancer,
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: options.labels,
 			},
