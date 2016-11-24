@@ -1975,10 +1975,10 @@ type jobOptions struct {
 	jobImagePullPolicy string
 	jobEnv             []api.EnvVar
 	volumes            []api.Volume
-	volumeMounts       []api.VolumeMounts
+	volumeMounts       []api.VolumeMount
 }
 
-func jobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
+func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
 	labels := labels(jobInfo.JobID)
 	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
@@ -2067,7 +2067,7 @@ func jobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage 
 
 func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
 
-	options, err := jobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2150,7 +2150,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 
 // Convert a persist.JobInfo into a Kubernetes batch.Job spec
 func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
-	options, err := jobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
 	if err != nil {
 		return nil, err
 	}
