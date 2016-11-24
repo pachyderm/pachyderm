@@ -648,6 +648,92 @@ func TestPipelineTransientFailure(t *testing.T) {
 	require.EqualOneOf(t, jobStates, ppsclient.JobState_JOB_FAILURE)
 }
 
+// TestPipelineFaultTolerance monitors issue 1084.  Basically, it tests that a
+// pipeline will keep functioning even if one of its jobs failed.
+func TestPipelineFaultTolerance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+
+	// create repos
+	dataRepo := uniqueString("TestPipelineTransientFailure_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	upstreamPipelineName := uniqueString("upstream_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		upstreamPipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+
+	downstreamPipelineName := uniqueString("downstream_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		downstreamPipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", upstreamPipelineName),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: upstreamPipelineName},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+
+	// We create two branches: one that has malformed data, the other that doesn't
+	commit1, err := c.StartCommit(dataRepo, "failure")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "wrong_file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(dataRepo, "success")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	require.YesError(t, err)
+
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
+	require.NoError(t, err)
+
+	jobInfos, err := c.ListJob(downstreamPipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
 func TestPipelineThatCrashes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
