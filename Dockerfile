@@ -19,7 +19,7 @@ RUN \
   curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz | tar -C /bin -xz docker/docker --strip-components=1 && \
   chmod +x /bin/docker
 RUN \
-  curl -sSL https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz | tar -C /usr/local -xz && \
+  curl -sSL https://storage.googleapis.com/golang/go1.7.3.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
