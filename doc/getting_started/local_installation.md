@@ -66,8 +66,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
-pachd               1.2.0
+pachctl             1.2.4
+pachd               1.2.4
 ```
 
 We're good to go!

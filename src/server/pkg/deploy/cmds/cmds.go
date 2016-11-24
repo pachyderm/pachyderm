@@ -47,8 +47,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				finalMetrics := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			manifest := &bytes.Buffer{}
 			if dev {
@@ -67,8 +67,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster running on GCP.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				finalMetrics := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			volumeName := args[1]
 			volumeSize, err := strconv.Atoi(args[2])
@@ -88,8 +88,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster running on AWS.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				finalMetrics := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			volumeName := args[5]
 			volumeSize, err := strconv.Atoi(args[6])
@@ -109,8 +109,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				finalMetrics := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { finalMetrics(start, retErr) }(time.Now())
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			_, err := base64.StdEncoding.DecodeString(args[2])
 			if err != nil {
