@@ -16,6 +16,8 @@ type Mounter interface {
 		ready chan bool,
 		debug bool,
 		allCommits bool,
+		// if oneMount is true, mount only one CommitMount
+		oneMount bool,
 	) error
 
 	Mount(
@@ -25,6 +27,7 @@ type Mounter interface {
 		ready chan bool,
 		debug bool,
 		allCommits bool,
+		oneMount bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).
 	// There's nothing special about this unmount, it's just doing a syscall under the hood.
