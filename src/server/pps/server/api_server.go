@@ -1281,6 +1281,9 @@ func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) con
 	ctx, cancel := context.WithCancel(ctx)
 	a.pipelineCancelFuncsLock.Lock()
 	defer a.pipelineCancelFuncsLock.Unlock()
+	if oldCancel, ok := a.pipelineCancelFuncs[pipelineName]; ok {
+		oldCancel()
+	}
 	a.pipelineCancelFuncs[pipelineName] = cancel
 	return ctx
 }
@@ -1332,85 +1335,90 @@ func (a *apiServer) AddShard(shard uint64) error {
 	}
 	a.shardCancelFuncs[shard] = cancel
 
-	pipelineClient, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
-		IncludeInitial: true,
-		Shard:          &persist.Shard{Number: shard},
-	})
-	if err != nil {
-		return err
-	}
-
 	go func() {
-		for {
-			pipelineChange, err := pipelineClient.Recv()
+		b := backoff.NewExponentialBackOff()
+		// never stop retrying
+		b.MaxElapsedTime = 0
+		backoff.RetryNotify(func() error {
+			pipelineClient, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
+				IncludeInitial: true,
+				Shard:          &persist.Shard{Number: shard},
+			})
 			if err != nil {
-				protolion.Errorf("error from receive: %s", err.Error())
-				return
+				return err
 			}
-			pipelineName := pipelineChange.Pipeline.PipelineName
+			for {
+				pipelineChange, err := pipelineClient.Recv()
+				if err != nil {
+					return err
+				}
+				pipelineName := pipelineChange.Pipeline.PipelineName
 
-			switch pipelineChange.Type {
-			case persist.ChangeType_DELETE:
-				if err := a.cancelPipeline(pipelineName); err != nil {
-					protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
-				}
-			case persist.ChangeType_UPDATE:
-				if err := a.cancelPipeline(pipelineName); err != nil {
-					protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
-				}
-				fallthrough
-			case persist.ChangeType_CREATE:
-				pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
-				if pipelineChange.Pipeline.Stopped {
-					if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
-						PipelineName: pipelineName,
-						State:        ppsclient.PipelineState_PIPELINE_STOPPED,
-					}); err != nil {
-						protolion.Errorf("error updating pipeline state: %v", err)
+				switch pipelineChange.Type {
+				case persist.ChangeType_DELETE:
+					if err := a.cancelPipeline(pipelineName); err != nil {
+						protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
 					}
-					continue
-				}
-				go func() {
-					b := backoff.NewExponentialBackOff()
-					// We set MaxElapsedTime to 0 because we want the retry to
-					// never stop.
-					// However, ideally we should crash this pps server so the
-					// pipeline gets reassigned to another pps server.
-					// The reason we don't do that right now is that pps and
-					// pfs are bundled together, so by crashing this program
-					// we will be crashing a pfs node too, which might cause
-					// cascading failures as other pps nodes might be depending
-					// on it.
-					b.MaxElapsedTime = 0
-					err = backoff.RetryNotify(func() error {
-						if err := a.runPipeline(pipelineCtx, newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
+				case persist.ChangeType_UPDATE:
+					if err := a.cancelPipeline(pipelineName); err != nil {
+						protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
+					}
+					fallthrough
+				case persist.ChangeType_CREATE:
+					pipelineCtx := a.newPipelineCtx(ctx, pipelineName)
+					if pipelineChange.Pipeline.Stopped {
+						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+							PipelineName: pipelineName,
+							State:        ppsclient.PipelineState_PIPELINE_STOPPED,
+						}); err != nil {
 							return err
 						}
-						return nil
-					}, b, func(err error, d time.Duration) {
-						protolion.Errorf("error running pipeline %v: %v; retrying in %s", pipelineName, err, d)
-						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineName,
-							State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
-							RecentError:  err.Error(),
-						}); err != nil {
-							protolion.Errorf("error updating pipeline state: %v", err)
-						}
-					})
-					// At this point we stop retrying and update the pipeline state
-					// to FAILED
-					if err != nil {
-						if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
-							PipelineName: pipelineName,
-							State:        ppsclient.PipelineState_PIPELINE_FAILURE,
-							RecentError:  err.Error(),
-						}); err != nil {
-							protolion.Errorf("error updating pipeline state: %v", err)
-						}
+						continue
 					}
-				}()
+					go func() {
+						b := backoff.NewExponentialBackOff()
+						// We set MaxElapsedTime to 0 because we want the retry to
+						// never stop.
+						// However, ideally we should crash this pps server so the
+						// pipeline gets reassigned to another pps server.
+						// The reason we don't do that right now is that pps and
+						// pfs are bundled together, so by crashing this program
+						// we will be crashing a pfs node too, which might cause
+						// cascading failures as other pps nodes might be depending
+						// on it.
+						b.MaxElapsedTime = 0
+						err = backoff.RetryNotify(func() error {
+							if err := a.runPipeline(pipelineCtx, newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
+								return err
+							}
+							return nil
+						}, b, func(err error, d time.Duration) {
+							protolion.Errorf("error running pipeline %v: %v; retrying in %s", pipelineName, err, d)
+							if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+								PipelineName: pipelineName,
+								State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
+								RecentError:  err.Error(),
+							}); err != nil {
+								protolion.Errorf("error updating pipeline state: %v", err)
+							}
+						})
+						// At this point we stop retrying and update the pipeline state
+						// to FAILED
+						if err != nil {
+							if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
+								PipelineName: pipelineName,
+								State:        ppsclient.PipelineState_PIPELINE_FAILURE,
+								RecentError:  err.Error(),
+							}); err != nil {
+								protolion.Errorf("error updating pipeline state: %v", err)
+							}
+						}
+					}()
+				}
 			}
-		}
+		}, b, func(err error, d time.Duration) {
+			protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
+		})
 	}()
 
 	jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
