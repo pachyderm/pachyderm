@@ -1373,6 +1373,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 						}); err != nil {
 							return err
 						}
+						continue
 					}
 					go func() {
 						b := backoff.NewExponentialBackOff()
