@@ -1281,8 +1281,8 @@ func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) con
 	ctx, cancel := context.WithCancel(ctx)
 	a.pipelineCancelFuncsLock.Lock()
 	defer a.pipelineCancelFuncsLock.Unlock()
-	if old_cancel, ok := a.pipelineCancelFuncs[pipelineName]; ok {
-		old_cancel()
+	if oldCancel, ok := a.pipelineCancelFuncs[pipelineName]; ok {
+		oldCancel()
 	}
 	a.pipelineCancelFuncs[pipelineName] = cancel
 	return ctx
