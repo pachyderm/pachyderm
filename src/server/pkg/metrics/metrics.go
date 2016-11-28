@@ -133,20 +133,8 @@ func (r *Reporter) dbMetrics(metrics *Metrics) {
 		gorethink.DB(r.pfsDbName).Table("Repos").Count(),
 		"Commits",
 		gorethink.DB(r.pfsDbName).Table("Commits").Count(),
-		"ArchivedCommits",
-		gorethink.DB(r.pfsDbName).Table("Commits").Filter(
-			map[string]interface{}{
-				"Archived": true,
-			},
-		).Count(),
-		"CancelledCommits",
-		gorethink.DB(r.pfsDbName).Table("Commits").Filter(
-			map[string]interface{}{
-				"Cancelled": true,
-			},
-		).Count(),
-		"Files",
-		gorethink.DB(r.pfsDbName).Table("Diffs").Group("Path").Ungroup().Count(),
+		"Diffs",
+		gorethink.DB(r.pfsDbName).Table("Diffs").Count(),
 		"Jobs",
 		gorethink.DB(r.ppsDbName).Table("JobInfos").Count(),
 		"Pipelines",
