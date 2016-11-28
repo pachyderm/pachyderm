@@ -2081,9 +2081,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Labels: options.labels,
 		},
 		Spec: api.ReplicationControllerSpec{
-			Selector: &unversioned.LabelSelector{
-				MatchLabels: options.labels,
-			},
+			Selector: options.labels,
 			Replicas: options.parallelism,
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
@@ -2130,10 +2128,8 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeLoadBalancer,
-			Selector: &unversioned.LabelSelector{
-				MatchLabels: options.labels,
-			},
+			Type:     api.ServiceTypeLoadBalancer,
+			Selector: options.labels,
 			Ports: []api.ServicePort{
 				{
 					Port:     internalPort,
