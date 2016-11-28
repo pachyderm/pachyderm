@@ -429,10 +429,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if err != nil {
 			return nil, err
 		}
-		if _, err := a.kubeClient.Extensions().ReplicationControllers(a.namespace).Create(rc); err != nil {
+		if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
 			return nil, err
 		}
-		if _, err := a.kubeClient.Extensions().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
 			return nil, err
 		}
 	} else {
