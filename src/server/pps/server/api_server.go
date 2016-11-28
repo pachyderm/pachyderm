@@ -2084,8 +2084,8 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: options.labels,
 			},
-			Replicas: &options.parallelism,
-			Template: api.PodTemplateSpec{
+			Replicas: options.parallelism,
+			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
 					Labels: options.labels,
