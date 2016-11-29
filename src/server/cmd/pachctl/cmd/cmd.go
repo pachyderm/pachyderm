@@ -59,7 +59,7 @@ Environment variables:
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(address, !noMetrics)
+	ppsCmds, err := ppscmds.Cmds(address, rootCmd)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
