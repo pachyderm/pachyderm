@@ -633,9 +633,8 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// SquashCommit creates a single commit that contains all diffs in `fromCommits`
-// * Replay: create a series of commits, each of which corresponds to a single
-// commit in `fromCommits`.
+// SquashCommit copies the content of `fromCommits` to `to`, which needs to be an
+// open commit.
 func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) error {
 
 	var realFromCommits []*pfs.Commit
