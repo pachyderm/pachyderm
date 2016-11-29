@@ -4,16 +4,26 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -24,18 +34,23 @@ var (
 
 type apiServer struct {
 	protorpclog.Logger
-	driver drive.Driver
+	driver   drive.Driver
+	reporter *metrics.Reporter
 }
 
-func newAPIServer(driver drive.Driver) *apiServer {
+func newAPIServer(driver drive.Driver, reporter *metrics.Reporter) *apiServer {
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
-		driver: driver,
+		Logger:   protorpclog.NewLogger("pfs.API"),
+		driver:   driver,
+		reporter: reporter,
 	}
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateRepo")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.CreateRepo(request.Repo, request.Provenance); err != nil {
 		return nil, err
 	}
@@ -44,17 +59,26 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectRepo")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	return a.driver.InspectRepo(request.Repo)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListRepo")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	repoInfos, err := a.driver.ListRepo(request.Provenance)
 	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteRepo")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	err := a.driver.DeleteRepo(request.Repo, request.Force)
 	if err != nil {
 		return nil, err
@@ -64,6 +88,9 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 
 func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ForkCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	commit, err := a.driver.ForkCommit(request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
@@ -73,6 +100,9 @@ func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitReque
 
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	commit, err := a.driver.StartCommit(request.Parent, request.Provenance)
 	if err != nil {
 		return nil, err
@@ -82,6 +112,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FinishCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.FinishCommit(request.Commit, request.Cancel); err != nil {
 		return nil, err
 	}
@@ -90,6 +123,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 
 func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ArchiveCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.ArchiveCommit(request.Commits); err != nil {
 		return nil, err
 	}
@@ -98,12 +134,18 @@ func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommi
 
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	return a.driver.InspectCommit(request.Commit)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	commitInfos, err := a.driver.ListCommit(request.FromCommits, request.Provenance, request.CommitType, request.Status, request.Block)
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	commitInfos, err := a.driver.ListCommit(request.Include, request.Exclude, request.Provenance, request.CommitType, request.Status, request.Block)
 	if err != nil {
 		return nil, err
 	}
@@ -114,11 +156,17 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "SquashCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	return google_protobuf.EmptyInstance, a.driver.SquashCommit(request.FromCommits, request.ToCommit)
 }
 
 func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitRequest) (response *pfs.Commits, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ReplayCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	commits, err := a.driver.ReplayCommit(request.FromCommits, request.ToBranch)
 	if err != nil {
 		return nil, err
@@ -128,6 +176,9 @@ func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitR
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	branches, err := a.driver.ListBranch(request.Repo, request.Status)
 	if err != nil {
 		return nil, err
@@ -137,6 +188,9 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.DeleteCommit(request.Commit); err != nil {
 		return nil, err
 	}
@@ -145,6 +199,9 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 
 func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	commitInfos, err := a.driver.FlushCommit(request.Commit, request.ToRepo)
 	if err != nil {
 		return nil, err
@@ -171,6 +228,9 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		// tolerate people calling and immediately hanging up
 		return nil
 	}
+	// not cleaning the path can result in weird effects like files called
+	// ./foo which won't display correctly when the filesystem is mounted
+	request.File.Path = path.Clean(request.File.Path)
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
@@ -182,23 +242,40 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		var r io.Reader
 		var delimiter pfs.Delimiter
 		if request.Url != "" {
-			resp, err := http.Get(request.Url)
+			url, err := url.Parse(request.Url)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil && retErr == nil {
-					retErr = err
+			switch url.Scheme {
+			case "http":
+				fallthrough
+			case "https":
+				resp, err := http.Get(request.Url)
+				if err != nil {
+					return err
 				}
-			}()
-			r = resp.Body
-			switch resp.Header.Get("Content-Type") {
-			case "application/json":
-				delimiter = pfs.Delimiter_JSON
-			case "application/text":
-				delimiter = pfs.Delimiter_LINE
-			default:
-				delimiter = pfs.Delimiter_NONE
+				defer func() {
+					if err := resp.Body.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				r = resp.Body
+				switch resp.Header.Get("Content-Type") {
+				case "application/json":
+					delimiter = pfs.Delimiter_JSON
+				case "application/text":
+					delimiter = pfs.Delimiter_LINE
+				default:
+					delimiter = pfs.Delimiter_NONE
+				}
+			case "s3":
+				return a.putFileS3(request, url)
+			case "gcs":
+				fallthrough
+			case "gs":
+				return a.putFileGcs(request, url)
+			case "as":
+				return a.putFileAs(request, url)
 			}
 		} else {
 			reader := putFileReader{
@@ -218,6 +295,79 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return nil
 }
 
+func (a *apiServer) putFileS3(request *pfs.PutFileRequest, url *url.URL) error {
+	id, err := ioutil.ReadFile("/amazon-secret/id")
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.ReadFile("/amazon-secret/secret")
+	if err != nil {
+		return err
+	}
+	token, err := ioutil.ReadFile("/amazon-secret/token")
+	if err != nil {
+		return err
+	}
+	region, err := ioutil.ReadFile("/amazon-secret/region")
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileGcs(request *pfs.PutFileRequest, url *url.URL) error {
+	objClient, err := obj.NewGoogleClient(context.Background(), url.Host)
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileAs(request *pfs.PutFileRequest, url *url.URL) error {
+	id, err := ioutil.ReadFile("/microsoft-secret/id")
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
+	if err != nil {
+		return err
+	}
+	objClient, err := obj.NewMicrosoftClient(url.Host, string(id), string(secret))
+	if err != nil {
+		return err
+	}
+	return a.putFileObj(objClient, request, url)
+}
+
+func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+	put := func(filePath string, objPath string) error {
+		r, err := objClient.Reader(objPath, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return a.driver.PutFile(client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), request.Delimiter, r)
+	}
+	if request.Recursive {
+		var eg errgroup.Group
+		path := strings.TrimPrefix(url.Path, "/")
+		objClient.Walk(path, func(name string) error {
+			eg.Go(func() error { return put(filepath.Join(request.File.Path, name), name) })
+			return nil
+		})
+		return eg.Wait()
+	}
+	return put(request.File.Path, url.Path)
+}
+
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.DiffMethod)
@@ -234,11 +384,17 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectFile")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	return a.driver.InspectFile(request.File, request.Shard, request.DiffMethod)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	var mode drive.ListFileMode
 	switch request.Mode {
 	case pfs.ListFileMode_ListFile_NORMAL:
@@ -260,6 +416,9 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteFile")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	err := a.driver.DeleteFile(request.File)
 	if err != nil {
 		return nil, err
@@ -269,6 +428,9 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PFSDeleteAll")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.DeleteAll(); err != nil {
 		return nil, err
 	}
@@ -277,6 +439,9 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 
 func (a *apiServer) ArchiveAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
 	a.Log(request, nil, nil, 0)
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ArchiveAll")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
 	if err := a.driver.ArchiveAll(); err != nil {
 		return nil, err
 	}

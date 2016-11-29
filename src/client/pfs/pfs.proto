@@ -178,7 +178,8 @@ enum CommitStatus {
 }
 
 message ListCommitRequest {
-  repeated Commit from_commits = 1;
+  repeated Commit exclude = 1;
+  repeated Commit include = 6;
   repeated Commit provenance = 2;
   CommitType commit_type = 3;
   CommitStatus status = 4;
@@ -230,6 +231,8 @@ message PutFileRequest {
   bytes value = 3;
   Delimiter delimiter = 4;
   string url = 5;
+  // applies only to URLs that can be recursively walked, for example s3:// URLs
+  bool recursive = 6;
 }
 
 message InspectFileRequest {

@@ -43,7 +43,7 @@ type Driver interface {
 	ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
 	ArchiveCommit(commit []*pfs.Commit) error
 	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
-	ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
+	ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]string, error)
 	DeleteCommit(commit *pfs.Commit) error

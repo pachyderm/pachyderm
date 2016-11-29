@@ -98,7 +98,6 @@ func do(appEnvObj interface{}) error {
 		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
 	if readinessCheck {
-		//c, err := client.NewInCluster()
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
 			return err
@@ -129,8 +128,9 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		go metrics.ReportMetrics(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
+		reporter = metrics.NewReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
@@ -169,7 +169,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
-	apiServer := pfs_server.NewAPIServer(driver)
+	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -177,6 +177,7 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 		appEnv.JobShimImage,
 		appEnv.JobImagePullPolicy,
+		reporter,
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {

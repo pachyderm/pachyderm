@@ -7,10 +7,12 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/pkg/exec"
@@ -30,7 +32,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 }
 
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
-func DeployCmd() *cobra.Command {
+func DeployCmd(metrics bool) *cobra.Command {
 	var shards int
 	var hostPath string
 	var dev bool
@@ -43,7 +45,11 @@ func DeployCmd() *cobra.Command {
 		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) (retErr error) {
+			if metrics && !dev {
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
 			manifest := &bytes.Buffer{}
 			if dev {
 				opts.Version = deploy.DevVersionTag
@@ -59,7 +65,11 @@ func DeployCmd() *cobra.Command {
 		Use:   "google <GCS bucket> <GCE persistent disk> <Disk size (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on GCP.",
 		Long:  "Deploy a Pachyderm cluster running on GCP.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) (retErr error) {
+			if metrics && !dev {
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
 			volumeName := args[1]
 			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
@@ -76,7 +86,11 @@ func DeployCmd() *cobra.Command {
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume name> <volume size (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long:  "Deploy a Pachyderm cluster running on AWS.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) (retErr error) {
+			if metrics && !dev {
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
 			volumeName := args[5]
 			volumeSize, err := strconv.Atoi(args[6])
 			if err != nil {
@@ -93,7 +107,11 @@ func DeployCmd() *cobra.Command {
 		Use:   "microsoft <container> <storage account name> <storage account key> <volume uri> <volume size in GB>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long:  "Deploy a Pachyderm cluster running on Microsoft Azure.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) (retErr error) {
+			if metrics && !dev {
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
 			_, err := base64.StdEncoding.DecodeString(args[2])
 			if err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
@@ -122,6 +140,7 @@ func DeployCmd() *cobra.Command {
 				RethinkdbCacheSize: rethinkdbCacheSize,
 				Version:            version.PrettyPrintVersion(version.Version),
 				LogLevel:           logLevel,
+				Metrics:            metrics,
 			}
 		},
 	}

@@ -29,7 +29,7 @@ import (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string) []*cobra.Command {
+func Cmds(address string, metrics bool) []*cobra.Command {
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -66,7 +66,7 @@ Repos are created with create-repo.`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -79,7 +79,7 @@ Repos are created with create-repo.`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ Repos are created with create-repo.`,
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ Repos are created with create-repo.`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -167,7 +167,7 @@ Examples:
 	$ pachctl start-commit foo master/3
 `,
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ Examples:
 	$ pachctl fork-commit test foo/2 bar
 `,
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -210,7 +210,7 @@ Examples:
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -227,7 +227,7 @@ Examples:
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -244,6 +244,7 @@ Examples:
 
 	var all bool
 	var block bool
+	var listCommitExclude cmd.RepeatedStringArg
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
@@ -255,8 +256,11 @@ Examples:
 	# return commits in repo "foo" and repo "bar"
 	$ pachctl list-commit foo bar
 
-	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
-	$ pachctl list-commit foo/master/2 bar/master/4
+	# return commits in repo "foo" on branch "master"
+	$ pachctl list-commit foo/master
+
+	# return commits in repo "foo" since commit master/2
+	$ pachctl list-commit foo/master -e foo/master/2
 
 	# return commits in repo "foo" that have commits
 	# "bar/master/3" and "baz/master/5" as provenance
@@ -264,12 +268,12 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			fromCommits, err := cmd.ParseCommits(args)
+			include, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			exclude, err := cmd.ParseCommits(listCommitExclude)
 			if err != nil {
 				return err
 			}
@@ -282,7 +286,13 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
+
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			commitInfos, err := c.ListCommit(exclude, include, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -297,6 +307,8 @@ Examples:
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitExclude, "exclude", "x",
+		"exclude the ancestors of this commit, or exclude the commits on this branch")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 
@@ -317,7 +329,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -342,7 +354,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -380,7 +392,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -410,7 +422,7 @@ Examples:
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -458,9 +470,9 @@ Files can be read from finished commits with get-file.`,
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
 			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
+				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
 			}
-			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String())
+			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String(), recursive)
 		}
 		if !recursive {
 			if len(args) == 3 {
@@ -520,7 +532,7 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -601,7 +613,7 @@ files into your Pachyderm cluster.
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -616,7 +628,7 @@ files into your Pachyderm cluster.
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -644,7 +656,7 @@ files into your Pachyderm cluster.
 				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -679,7 +691,7 @@ files into your Pachyderm cluster.
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -694,7 +706,7 @@ files into your Pachyderm cluster.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
 			if err != nil {
 				return err
 			}
@@ -706,7 +718,7 @@ files into your Pachyderm cluster.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits, false)
 			if err != nil {
 				return err
 			}
@@ -774,7 +786,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}

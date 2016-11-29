@@ -1,4 +1,4 @@
-FROM pachyderm/job-shim
+FROM ubuntu:14.04
 WORKDIR /home
 
 # OpenCV dynamic link dependancies
