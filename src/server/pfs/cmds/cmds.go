@@ -19,6 +19,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
@@ -459,36 +460,36 @@ Files can be read from finished commits with get-file.`,
 	var commitFlag bool
 	var inputFile string
 	// putFilePath is a helper for putFile
-	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
+	putFilePath := func(client *client.APIClient, repoName, commitID, path, filePath string) error {
 		if filePath == "-" {
-			if len(args) < 3 {
+			if path == "" {
 				return errors.New("either a path or the -f flag needs to be provided")
 			}
-			_, err := client.PutFile(args[0], args[1], args[2], os.Stdin)
+			_, err := client.PutFile(repoName, commitID, path, os.Stdin)
 			return err
 		}
 		// try parsing the filename as a url, if it is one do a PutFileURL
 		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
-			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
+			if path == "" {
+				return client.PutFileURL(repoName, commitID, strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
 			}
-			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String(), recursive)
+			return client.PutFileURL(repoName, commitID, filepath.Join(path, url.Path), url.String(), recursive)
 		}
 		if !recursive {
-			if len(args) == 3 {
-				return cpFile(client, args[0], args[1], args[2], filePath)
+			if path != "" {
+				return cpFile(client, repoName, commitID, path, filePath)
 			}
-			return cpFile(client, args[0], args[1], filePath, filePath)
+			return cpFile(client, repoName, commitID, filePath, filePath)
 		}
 		var eg errgroup.Group
-		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(filePath, func(file string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
 			}
-			if len(args) == 3 {
-				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
+			if path != "" {
+				eg.Go(func() error { return cpFile(client, repoName, commitID, filepath.Join(path, file), file) })
 			}
-			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
+			eg.Go(func() error { return cpFile(client, repoName, commitID, file, file) })
 			return nil
 		})
 		return eg.Wait()
@@ -536,20 +537,56 @@ files into your Pachyderm cluster.
 			if err != nil {
 				return err
 			}
+			repoName := args[0]
+			commitID := args[1]
+			var path string
+			if len(args) == 3 {
+				path = args[2]
+			}
 			if commitFlag {
-				commit, err := client.StartCommit(args[0], args[1])
+				// We start a commit on a UUID branch and merge the commit
+				// back to the main branch if PutFile was successful.
+				//
+				// The reason we do that is that we don't want to create a cancelled
+				// commit on the main branch, which can cause future commits to be
+				// cancelled as well.
+				tmpCommit, err := client.StartCommit(repoName, uuid.NewWithoutDashes())
 				if err != nil {
 					return err
 				}
+				// Archiving the commit because we don't want this temporary commit
+				// to trigger downstream pipelines.
+				if err := client.ArchiveCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
+					return err
+				}
+
+				// PutFile should be operating on this temporary commit
+				commitID = tmpCommit.ID
 				defer func() {
 					if retErr != nil {
 						// something errored so we try to cancel the commit
-						if err := client.CancelCommit(commit.Repo.Name, commit.ID); err != nil {
+						if err := client.CancelCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							fmt.Printf("Error cancelling commit: %s", err.Error())
 						}
 					} else {
-						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+						if err := client.FinishCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							retErr = err
+							return
+						}
+						// create a commit on the main branch and squash the temporary
+						// commit into it.
+						mainCommit, err := client.StartCommit(repoName, args[1])
+						if err != nil {
+							retErr = err
+							return
+						}
+						if err := client.SquashCommit(repoName, []string{tmpCommit.ID}, mainCommit.ID); err != nil {
+							retErr = err
+							return
+						}
+						if err := client.FinishCommit(mainCommit.Repo.Name, mainCommit.ID); err != nil {
+							retErr = err
+							return
 						}
 					}
 				}()
@@ -586,12 +623,12 @@ files into your Pachyderm cluster.
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
 					if filePath := scanner.Text(); filePath != "" {
-						eg.Go(func() error { return putFilePath(client, args, filePath) })
+						eg.Go(func() error { return putFilePath(client, repoName, commitID, path, filePath) })
 					}
 				}
 			} else {
 				for _, filePath := range filePaths {
-					eg.Go(func() error { return putFilePath(client, args, filePath) })
+					eg.Go(func() error { return putFilePath(client, repoName, commitID, path, filePath) })
 				}
 			}
 			return eg.Wait()
