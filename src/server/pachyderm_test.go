@@ -3614,6 +3614,69 @@ func TestCleanPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSimpleService(t *testing.T) {
+	t.Parallel()
+	shards := 2
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "foo\n"
+	// We want to create lots of files so that each parallel job will be
+	// started with some files
+	numFiles := shards*100 + 100
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	job, err := c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(shards),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		true,
+		33033,
+		33034,
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
+	require.NoError(t, err)
+	require.True(t, parellelism > 0)
+	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	require.NoError(t, err)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.NotNil(t, jobInfo.Started)
+	require.NotNil(t, jobInfo.Finished)
+	require.True(t, prototime.TimestampToTime(jobInfo.Finished).After(prototime.TimestampToTime(jobInfo.Started)))
+	for i := 0; i < numFiles; i++ {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", false, nil, &buffer))
+		require.Equal(t, fileContent, buffer.String())
+	}
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
