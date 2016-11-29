@@ -32,7 +32,8 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 }
 
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
-func DeployCmd(metrics bool) *cobra.Command {
+func DeployCmd(noMetrics *bool) *cobra.Command {
+	metrics := !*noMetrics
 	var shards int
 	var hostPath string
 	var dev bool
