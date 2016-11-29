@@ -108,7 +108,7 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 	return &result, nil
 }
 
-// Cmds returns a slice containing pps commands.
+// AddCmds returns a slice containing pps commands.
 func AddCmds(address string, rootCmd *cobra.Command) error {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 

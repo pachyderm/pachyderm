@@ -35,7 +35,7 @@ func noMetricsFlag(c *cobra.Command) bool {
 	return noMetrics
 }
 
-// Cmds returns a slice containing pfs commands.
+// AddCmds adds all the PFS commands to the provided root command
 func AddCmds(address string, rootCmd *cobra.Command) {
 	var fileNumber int
 	var fileModulus int
