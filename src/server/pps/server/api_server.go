@@ -2112,7 +2112,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 							VolumeMounts:    options.volumeMounts,
 						},
 					},
-					RestartPolicy: "Never",
+					RestartPolicy: "Always",
 					Volumes:       options.volumes,
 				},
 			},
@@ -2124,7 +2124,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   jobInfo.JobID,
+			Name:   fmt.Sprintf("pachservice-%v", jobInfo.JobID),
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
