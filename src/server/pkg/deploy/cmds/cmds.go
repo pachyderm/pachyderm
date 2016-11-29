@@ -32,7 +32,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 }
 
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
-func DeployCmd(metrics bool) *cobra.Command {
+func DeployCmd() *cobra.Command {
 	var shards int
 	var hostPath string
 	var dev bool
@@ -46,7 +46,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) (retErr error) {
-			if metrics && !dev {
+			fmt.Printf("!!! got metrics: %v\n", opts.Metrics)
+			if opts.Metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
@@ -54,6 +55,8 @@ func DeployCmd(metrics bool) *cobra.Command {
 			if dev {
 				opts.Version = deploy.DevVersionTag
 			}
+			fmt.Printf("!!! metrics? %v\n", opts.Metrics)
+			fmt.Printf("!!! writing manifest w options: %v\n", opts)
 			assets.WriteLocalAssets(manifest, opts, hostPath)
 			return maybeKcCreate(dryRun, manifest)
 		}),
@@ -66,7 +69,7 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster running on GCP.",
 		Long:  "Deploy a Pachyderm cluster running on GCP.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) (retErr error) {
-			if metrics && !dev {
+			if opts.Metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
@@ -87,7 +90,7 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long:  "Deploy a Pachyderm cluster running on AWS.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) (retErr error) {
-			if metrics && !dev {
+			if opts.Metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
@@ -108,7 +111,7 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long:  "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) (retErr error) {
-			if metrics && !dev {
+			if opts.Metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
@@ -134,13 +137,15 @@ func DeployCmd(metrics bool) *cobra.Command {
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
-		PersistentPreRun: func(*cobra.Command, []string) {
+		PersistentPreRun: func(c *cobra.Command, args []string) {
+			// we can ignore the error since cobra already validates that the flag is a valid boolean
+			noMetrics, _ := strconv.ParseBool(c.Flags().Lookup("no-metrics").Value.String())
 			opts = &assets.AssetOpts{
 				Shards:             uint64(shards),
 				RethinkdbCacheSize: rethinkdbCacheSize,
 				Version:            version.PrettyPrintVersion(version.Version),
 				LogLevel:           logLevel,
-				Metrics:            metrics,
+				Metrics:            !noMetrics,
 			}
 		},
 	}
