@@ -30,7 +30,7 @@ To check that installation was successful, you can try running `pachctl help`, w
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-pachctl deploy
+pachctl deploy local
 ```
 This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
