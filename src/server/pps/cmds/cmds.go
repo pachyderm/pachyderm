@@ -147,7 +147,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	var registry string
 	var username string
 	var password string
-	var service string
+	var service bool
 	var internalPort int32
 	var externalPort int32
 	createJob := &cobra.Command{
