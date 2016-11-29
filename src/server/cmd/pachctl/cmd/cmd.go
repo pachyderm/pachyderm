@@ -55,7 +55,7 @@ Environment variables:
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address, !noMetrics)
+	pfsCmds := pfscmds.Cmds(address, rootCmd)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
