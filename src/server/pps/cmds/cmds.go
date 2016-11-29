@@ -109,7 +109,7 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 }
 
 // Cmds returns a slice containing pps commands.
-func Cmds(address string, rootCmd *cobra.Command) ([]*cobra.Command, error) {
+func AddCmds(address string, rootCmd *cobra.Command) error {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	job := &cobra.Command{
@@ -133,12 +133,12 @@ The increase the throughput of a job increase the Shard paremeter.
 
 	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	pipelineSpec := string(pachyderm.MustAsset("doc/deployment/pipeline_spec.md"))
@@ -564,22 +564,26 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
-	var result []*cobra.Command
-	result = append(result, job)
-	result = append(result, createJob)
-	result = append(result, inspectJob)
-	result = append(result, getLogs)
-	result = append(result, listJob)
-	result = append(result, pipeline)
-	result = append(result, createPipeline)
-	result = append(result, updatePipeline)
-	result = append(result, inspectPipeline)
-	result = append(result, listPipeline)
-	result = append(result, deletePipeline)
-	result = append(result, startPipeline)
-	result = append(result, stopPipeline)
-	result = append(result, runPipeline)
-	return result, nil
+	var commands []*cobra.Command
+	commands = append(commands, job)
+	commands = append(commands, createJob)
+	commands = append(commands, inspectJob)
+	commands = append(commands, getLogs)
+	commands = append(commands, listJob)
+	commands = append(commands, pipeline)
+	commands = append(commands, createPipeline)
+	commands = append(commands, updatePipeline)
+	commands = append(commands, inspectPipeline)
+	commands = append(commands, listPipeline)
+	commands = append(commands, deletePipeline)
+	commands = append(commands, startPipeline)
+	commands = append(commands, stopPipeline)
+	commands = append(commands, runPipeline)
+
+	for _, cmd := range commands {
+		rootCmd.AddCommand(cmd)
+	}
+	return nil
 }
 
 func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {

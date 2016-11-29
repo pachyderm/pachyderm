@@ -36,7 +36,7 @@ func noMetricsFlag(c *cobra.Command) bool {
 }
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string, rootCmd *cobra.Command) []*cobra.Command {
+func AddCmds(address string, rootCmd *cobra.Command) {
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -801,32 +801,34 @@ mount | grep pfs:// | cut -f 3 -d " "
 		}),
 	}
 
-	var result []*cobra.Command
-	result = append(result, repo)
-	result = append(result, createRepo)
-	result = append(result, inspectRepo)
-	result = append(result, listRepo)
-	result = append(result, deleteRepo)
-	result = append(result, commit)
-	result = append(result, startCommit)
-	result = append(result, forkCommit)
-	result = append(result, finishCommit)
-	result = append(result, inspectCommit)
-	result = append(result, listCommit)
-	result = append(result, squashCommit)
-	result = append(result, replayCommit)
-	result = append(result, flushCommit)
-	result = append(result, listBranch)
-	result = append(result, file)
-	result = append(result, putFile)
-	result = append(result, getFile)
-	result = append(result, inspectFile)
-	result = append(result, listFile)
-	result = append(result, deleteFile)
-	result = append(result, mount)
-	result = append(result, unmount)
-	result = append(result, archiveAll)
-	return result
+	var commands []*cobra.Command
+	commands = append(commands, repo)
+	commands = append(commands, createRepo)
+	commands = append(commands, inspectRepo)
+	commands = append(commands, listRepo)
+	commands = append(commands, deleteRepo)
+	commands = append(commands, commit)
+	commands = append(commands, startCommit)
+	commands = append(commands, forkCommit)
+	commands = append(commands, finishCommit)
+	commands = append(commands, inspectCommit)
+	commands = append(commands, listCommit)
+	commands = append(commands, squashCommit)
+	commands = append(commands, replayCommit)
+	commands = append(commands, flushCommit)
+	commands = append(commands, listBranch)
+	commands = append(commands, file)
+	commands = append(commands, putFile)
+	commands = append(commands, getFile)
+	commands = append(commands, inspectFile)
+	commands = append(commands, listFile)
+	commands = append(commands, deleteFile)
+	commands = append(commands, mount)
+	commands = append(commands, unmount)
+	commands = append(commands, archiveAll)
+	for _, cmd := range commands {
+		rootCmd.AddCommand(cmd)
+	}
 }
 
 func parseCommitMounts(args []string) []*fuse.CommitMount {

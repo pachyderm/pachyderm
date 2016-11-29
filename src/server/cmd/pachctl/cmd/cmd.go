@@ -55,16 +55,10 @@ Environment variables:
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address, rootCmd)
-	for _, cmd := range pfsCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	ppsCmds, err := ppscmds.Cmds(address, rootCmd)
+	pfscmds.AddCmds(address, rootCmd)
+	err := ppscmds.AddCmds(address, rootCmd)
 	if err != nil {
 		return nil, sanitizeErr(err)
-	}
-	for _, cmd := range ppsCmds {
-		rootCmd.AddCommand(cmd)
 	}
 	rootCmd.AddCommand(deploycmds.DeployCmd())
 
