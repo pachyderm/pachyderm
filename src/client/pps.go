@@ -109,6 +109,9 @@ func (c APIClient) CreateJob(
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
 	parentJobID string,
+	service bool,
+	internalPort int32,
+	externalPort int32,
 ) (*pps.Job, error) {
 	var parentJob *pps.Job
 	if parentJobID != "" {
@@ -125,6 +128,9 @@ func (c APIClient) CreateJob(
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
 			ParentJob:       parentJob,
+			IsAService:      service,
+			InternalPort:    internalPort,
+			ExternalPort:    externalPort,
 		},
 	)
 	return job, sanitizeErr(err)
