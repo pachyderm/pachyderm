@@ -58,7 +58,7 @@ This document discusses each of the fields present in a pipeline specification. 
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.  Lines need not end in newline characters.
 
-`transform.env is a map from key to value of environment variables that will be injected into the container
+`transform.env` is a map from key to value of environment variables that will be injected into the container
 
 `transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
 
