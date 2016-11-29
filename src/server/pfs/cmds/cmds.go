@@ -29,7 +29,8 @@ import (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string, metrics bool) []*cobra.Command {
+func Cmds(address string, noMetrics *bool) []*cobra.Command {
+	metrics := !*noMetrics
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
