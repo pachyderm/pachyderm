@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	api "k8s.io/kubernetes/pkg/api/v1"
 )
 
@@ -51,14 +50,16 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	os.Stdout = w
 
 	os.Args = []string{
+		"pachctl",
 		"deploy",
 		"local",
 		"--dry-run",
 		fmt.Sprintf("-d=%v", devFlag),
+		fmt.Sprintf("--no-metrics=%v", noMetrics),
 	}
-	// the noMetrics flag is defined globally, so is undefined on just this command
-	// but we can pass it in directly to the command:
-	err = deploycmds.DeployCmd(!noMetrics).Execute()
+	rootCommand, err := PachctlCmd("127.0.0.1:30650")
+	require.NoError(t, err)
+	err = rootCommand.Execute()
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	// restore stdout

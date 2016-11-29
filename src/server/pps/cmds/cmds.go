@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/user"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -107,8 +108,8 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 	return &result, nil
 }
 
-// Cmds returns a slice containing pps commands.
-func Cmds(address string, metrics bool) ([]*cobra.Command, error) {
+// AddCmds adds all the PPS commands to the provided root command
+func AddCmds(address string, rootCmd *cobra.Command) error {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	job := &cobra.Command{
@@ -132,12 +133,12 @@ The increase the throughput of a job increase the Shard paremeter.
 
 	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	pipelineSpec := string(pachyderm.MustAsset("doc/deployment/pipeline_spec.md"))
@@ -152,7 +153,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -223,7 +224,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -261,7 +262,7 @@ Examples:
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
@@ -298,7 +299,7 @@ Examples:
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -332,7 +333,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -376,7 +377,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -418,7 +419,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -438,7 +439,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -460,7 +461,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -476,7 +477,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -492,7 +493,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -509,7 +510,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
 		Run: pkgcmd.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -563,22 +564,26 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
-	var result []*cobra.Command
-	result = append(result, job)
-	result = append(result, createJob)
-	result = append(result, inspectJob)
-	result = append(result, getLogs)
-	result = append(result, listJob)
-	result = append(result, pipeline)
-	result = append(result, createPipeline)
-	result = append(result, updatePipeline)
-	result = append(result, inspectPipeline)
-	result = append(result, listPipeline)
-	result = append(result, deletePipeline)
-	result = append(result, startPipeline)
-	result = append(result, stopPipeline)
-	result = append(result, runPipeline)
-	return result, nil
+	var commands []*cobra.Command
+	commands = append(commands, job)
+	commands = append(commands, createJob)
+	commands = append(commands, inspectJob)
+	commands = append(commands, getLogs)
+	commands = append(commands, listJob)
+	commands = append(commands, pipeline)
+	commands = append(commands, createPipeline)
+	commands = append(commands, updatePipeline)
+	commands = append(commands, inspectPipeline)
+	commands = append(commands, listPipeline)
+	commands = append(commands, deletePipeline)
+	commands = append(commands, startPipeline)
+	commands = append(commands, stopPipeline)
+	commands = append(commands, runPipeline)
+
+	for _, cmd := range commands {
+		rootCmd.AddCommand(cmd)
+	}
+	return nil
 }
 
 func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
@@ -700,4 +705,15 @@ func pushImage(registry string, username string, password string, image string) 
 		return "", err
 	}
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
+}
+
+func noMetricsFlag(c *cobra.Command) bool {
+	// we can ignore the error since cobra already validates that the flag is a valid boolean
+	flag := c.Flags().Lookup("no-metrics")
+	if flag == nil {
+		// This only happens in tests because of how the harness initializes commands
+		return false
+	}
+	noMetrics, _ := strconv.ParseBool(flag.Value.String())
+	return noMetrics
 }

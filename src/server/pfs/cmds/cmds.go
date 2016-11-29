@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -28,8 +29,14 @@ import (
 	"go.pedge.io/pkg/exec"
 )
 
-// Cmds returns a slice containing pfs commands.
-func Cmds(address string, metrics bool) []*cobra.Command {
+func noMetricsFlag(c *cobra.Command) bool {
+	// we can ignore the error since cobra already validates that the flag is a valid boolean
+	noMetrics, _ := strconv.ParseBool(c.Flags().Lookup("no-metrics").Value.String())
+	return noMetrics
+}
+
+// AddCmds adds all the PFS commands to the provided root command
+func AddCmds(address string, rootCmd *cobra.Command) {
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -66,7 +73,7 @@ Repos are created with create-repo.`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -79,7 +86,7 @@ Repos are created with create-repo.`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -100,7 +107,7 @@ Repos are created with create-repo.`,
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -124,7 +131,7 @@ Repos are created with create-repo.`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -167,7 +174,7 @@ Examples:
 	$ pachctl start-commit foo master/3
 `,
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -191,7 +198,7 @@ Examples:
 	$ pachctl fork-commit test foo/2 bar
 `,
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -210,7 +217,7 @@ Examples:
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -227,7 +234,7 @@ Examples:
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -287,7 +294,7 @@ Examples:
 				status = pfsclient.CommitStatus_ALL
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -329,7 +336,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -354,7 +361,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -392,7 +399,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -422,7 +429,7 @@ Examples:
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -532,7 +539,7 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -613,7 +620,7 @@ files into your Pachyderm cluster.
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -628,7 +635,7 @@ files into your Pachyderm cluster.
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -656,7 +663,7 @@ files into your Pachyderm cluster.
 				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -691,7 +698,7 @@ files into your Pachyderm cluster.
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -706,7 +713,7 @@ files into your Pachyderm cluster.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -786,7 +793,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetricsFlag(rootCmd), "user")
 			if err != nil {
 				return err
 			}
@@ -794,32 +801,34 @@ mount | grep pfs:// | cut -f 3 -d " "
 		}),
 	}
 
-	var result []*cobra.Command
-	result = append(result, repo)
-	result = append(result, createRepo)
-	result = append(result, inspectRepo)
-	result = append(result, listRepo)
-	result = append(result, deleteRepo)
-	result = append(result, commit)
-	result = append(result, startCommit)
-	result = append(result, forkCommit)
-	result = append(result, finishCommit)
-	result = append(result, inspectCommit)
-	result = append(result, listCommit)
-	result = append(result, squashCommit)
-	result = append(result, replayCommit)
-	result = append(result, flushCommit)
-	result = append(result, listBranch)
-	result = append(result, file)
-	result = append(result, putFile)
-	result = append(result, getFile)
-	result = append(result, inspectFile)
-	result = append(result, listFile)
-	result = append(result, deleteFile)
-	result = append(result, mount)
-	result = append(result, unmount)
-	result = append(result, archiveAll)
-	return result
+	var commands []*cobra.Command
+	commands = append(commands, repo)
+	commands = append(commands, createRepo)
+	commands = append(commands, inspectRepo)
+	commands = append(commands, listRepo)
+	commands = append(commands, deleteRepo)
+	commands = append(commands, commit)
+	commands = append(commands, startCommit)
+	commands = append(commands, forkCommit)
+	commands = append(commands, finishCommit)
+	commands = append(commands, inspectCommit)
+	commands = append(commands, listCommit)
+	commands = append(commands, squashCommit)
+	commands = append(commands, replayCommit)
+	commands = append(commands, flushCommit)
+	commands = append(commands, listBranch)
+	commands = append(commands, file)
+	commands = append(commands, putFile)
+	commands = append(commands, getFile)
+	commands = append(commands, inspectFile)
+	commands = append(commands, listFile)
+	commands = append(commands, deleteFile)
+	commands = append(commands, mount)
+	commands = append(commands, unmount)
+	commands = append(commands, archiveAll)
+	for _, cmd := range commands {
+		rootCmd.AddCommand(cmd)
+	}
 }
 
 func parseCommitMounts(args []string) []*fuse.CommitMount {
