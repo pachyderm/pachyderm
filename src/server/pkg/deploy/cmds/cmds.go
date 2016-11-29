@@ -46,7 +46,6 @@ func DeployCmd() *cobra.Command {
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) (retErr error) {
-			fmt.Printf("!!! got metrics: %v\n", opts.Metrics)
 			if opts.Metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -55,8 +54,6 @@ func DeployCmd() *cobra.Command {
 			if dev {
 				opts.Version = deploy.DevVersionTag
 			}
-			fmt.Printf("!!! metrics? %v\n", opts.Metrics)
-			fmt.Printf("!!! writing manifest w options: %v\n", opts)
 			assets.WriteLocalAssets(manifest, opts, hostPath)
 			return maybeKcCreate(dryRun, manifest)
 		}),

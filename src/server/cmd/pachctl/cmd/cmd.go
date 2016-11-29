@@ -44,8 +44,6 @@ Environment variables:
   ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("!!! prerun verbose: %v\n", verbose)
-			fmt.Printf("!!! prerun nometrics: %v\n", noMetrics)
 			if !verbose {
 				// Silence any grpc logs
 				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
@@ -56,10 +54,6 @@ Environment variables:
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
-
-	fmt.Printf("!!! root noMetrics: %v\n", noMetrics)
-	fmt.Printf("!!! root verbose: %v\n", verbose)
-	fmt.Printf("!!! querying a metrics value: %v\n", rootCmd.PersistentFlags().Lookup("no-metrics").Value)
 
 	pfsCmds := pfscmds.Cmds(address, !noMetrics)
 	for _, cmd := range pfsCmds {
@@ -72,7 +66,6 @@ Environment variables:
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	fmt.Printf("In pachctl cmd, metrics: %v\n", !noMetrics)
 	rootCmd.AddCommand(deploycmds.DeployCmd())
 
 	version := &cobra.Command{
