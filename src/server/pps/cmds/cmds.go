@@ -709,6 +709,11 @@ func pushImage(registry string, username string, password string, image string) 
 
 func noMetricsFlag(c *cobra.Command) bool {
 	// we can ignore the error since cobra already validates that the flag is a valid boolean
-	noMetrics, _ := strconv.ParseBool(c.Flags().Lookup("no-metrics").Value.String())
+	flag := c.Flags().Lookup("no-metrics")
+	if flag == nil {
+		// This only happens in tests because of how the harness initializes commands
+		return false
+	}
+	noMetrics, _ := strconv.ParseBool(flag.Value.String())
 	return noMetrics
 }

@@ -34,10 +34,7 @@ const badJSON2 = `
 
 func rootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{}
-	cmds, _ := Cmds("0.0.0.0:30650", false)
-	for _, cmd := range cmds {
-		rootCmd.AddCommand(cmd)
-	}
+	AddCmds("0.0.0.0:30650", rootCmd)
 	return rootCmd
 }
 
