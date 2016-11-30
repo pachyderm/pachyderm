@@ -110,7 +110,8 @@ func do(appEnvObj interface{}) error {
 							return
 						default:
 							// Otherwise, we just terminate the program.
-							os.Exit(0)
+							lion.Errorf("chunk was revoked. restarting...")
+							os.Exit(1)
 						}
 					}
 				}
@@ -238,7 +239,7 @@ func do(appEnvObj interface{}) error {
 			var success bool
 			select {
 			case <-exitCh:
-				return nil
+				return fmt.Errorf("chunk was revoked. restarting...")
 			case success = <-cmdCh:
 			}
 			var outputMount *fuse.CommitMount
