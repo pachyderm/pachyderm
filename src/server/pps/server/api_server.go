@@ -2128,7 +2128,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
-			Type:     api.ServiceTypeLoadBalancer,
+			Type:     api.ServiceTypeNodePort,
 			Selector: options.labels,
 			Ports: []api.ServicePort{
 				{
