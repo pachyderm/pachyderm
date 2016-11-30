@@ -99,9 +99,12 @@ func do(appEnvObj interface{}) error {
 						},
 					)
 					if err != nil {
-						lion.Errorf("error from ContinuePod: %s", err.Error())
+						lion.Errorf("error from ContinuePod: %s; restarting...", err.Error())
 					}
-					if res != nil && res.Exit {
+					if res != nil && res.Restart {
+						lion.Errorf("chunk was revoked. restarting...")
+					}
+					if err != nil || res != nil && res.Restart {
 						select {
 						case exitCh <- struct{}{}:
 							// If someone received this signal, then they are
@@ -110,7 +113,8 @@ func do(appEnvObj interface{}) error {
 							return
 						default:
 							// Otherwise, we just terminate the program.
-							lion.Errorf("chunk was revoked. restarting...")
+							// We use a non-zero exit code so k8s knows to create
+							// a new pod.
 							os.Exit(1)
 						}
 					}
@@ -266,7 +270,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			finished = true
-			if res.Fail {
+			if res.Restart {
 				return errors.New("restarting")
 			}
 			return nil
