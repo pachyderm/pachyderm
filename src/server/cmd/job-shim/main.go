@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -53,6 +52,38 @@ func do(appEnvObj interface{}) error {
 				lion.Errorf("error from StartPod: %s", err.Error())
 				return err
 			}
+
+			// Start sending ContinuePod to PPS to signal that we are alive
+			exitCh := make(chan struct{})
+			go func() {
+				tick := time.Tick(10 * time.Second)
+				for {
+					<-tick
+					res, err := ppsClient.ContinuePod(
+						context.Background(),
+						&ppsserver.ContinuePodRequest{
+							ChunkID: response.ChunkID,
+							PodName: appEnv.PodName,
+						},
+					)
+					if err != nil {
+						lion.Errorf("error from ContinuePod: %s", err.Error())
+					}
+					if res != nil && res.Exit {
+						select {
+						case exitCh <- struct{}{}:
+							// If someone received this signal, then they are
+							// responsible to exiting the program and release
+							// all resources.
+							return
+						default:
+							// Otherwise, we just terminate the program.
+							lion.Errorf("chunk was revoked. restarting...")
+							os.Exit(1)
+						}
+					}
+				}
+			}()
 
 			if response.Transform.Debug {
 				lion.SetLevel(lion.LevelDebug)
@@ -153,40 +184,17 @@ func do(appEnvObj interface{}) error {
 				cmdCh <- success
 			}()
 
-			tick := time.Tick(10 * time.Second)
-			for {
-				select {
-				case success := <-cmdCh:
-					res, err := ppsClient.FinishPod(
-						context.Background(),
-						&ppsserver.FinishPodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-							Success: success,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					finished = true
-					if res.Fail {
-						return errors.New("restarting")
-					}
-					return nil
-				case <-tick:
-					res, err := ppsClient.ContinuePod(
-						context.Background(),
-						&ppsserver.ContinuePodRequest{
-							ChunkID: response.ChunkID,
-							PodName: appEnv.PodName,
-						},
-					)
-					if err != nil {
-						return err
-					}
-					if res.Exit {
-						return nil
-					}
+			var success bool
+			select {
+			case <-exitCh:
+				return fmt.Errorf("chunk was revoked. restarting...")
+			case success = <-cmdCh:
+			}
+			var outputMount *fuse.CommitMount
+			for _, c := range response.CommitMounts {
+				if c.Alias == "out" {
+					outputMount = c
+					break
 				}
 			}
 			return nil

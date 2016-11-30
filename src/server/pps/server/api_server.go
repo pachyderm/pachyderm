@@ -931,7 +931,9 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 		return nil, err
 	}
 	response = &ppsserver.ContinuePodResponse{}
-	if chunk.Owner != request.PodName {
+	// If the chunk's owner has changed, or if the chunk is no longer assigned
+	// to the pod, then we tell the pod to restart so it can work on another chunk.
+	if !(chunk.Owner == request.PodName && chunk.State == persist.ChunkState_ASSIGNED) {
 		response.Exit = true
 	}
 	return response, nil
