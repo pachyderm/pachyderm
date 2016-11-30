@@ -1,7 +1,7 @@
 # Local Installation
 This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
 
-If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
+If you hit any errors not covered in this guide, check our [troubleshooting](http://pachyderm.readthedocs.io/en/latest/getting_started/troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ## Prerequisites
 - [Minikube](#minikube) (and VirtualBox)
