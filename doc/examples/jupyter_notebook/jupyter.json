@@ -1,0 +1,27 @@
+{
+  "service" : {
+    "internal_port": 8888,
+    "external_port": 30888,
+  },
+  "transform": {
+    "image": "jupyter/minimal-notebook",
+    "cmd": [ "sh" ],
+    "stdin": [
+		"jupyter notebook"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "inputs": [
+    {
+      "commit": {
+        "repo": {
+            "name": "foo"
+        },
+        "id": "master/0"
+      }
+    }
+  ]
+}
