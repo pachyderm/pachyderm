@@ -844,6 +844,7 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
+			Lazy:   jobInput.Lazy,
 		}
 		parentJobCommit := repoToParentJobCommit[jobInput.Commit.Repo.Name]
 		if parentJobCommit != nil && jobInput.Commit.ID != parentJobCommit.ID {
