@@ -243,7 +243,8 @@ func do(appEnvObj interface{}) error {
 			var success bool
 			select {
 			case <-exitCh:
-				return fmt.Errorf("chunk was revoked; restarting")
+				// Returning an error to ensure that this pod will be restarted
+				return errors.New("")
 			case success = <-cmdCh:
 			}
 			var outputMount *fuse.CommitMount
