@@ -656,8 +656,9 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) er
 	return nil
 }
 
-// ReplayCommit creates a series of commits, each of which corresponds to a single
-// commit in `fromCommits`.
+// ReplayCommit replays a series of commits on top of commit "to".  The replayed commits
+// are the ancestors of the commits in "fromCommits", with no duplicates in case of
+// common ancestors.
 func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
