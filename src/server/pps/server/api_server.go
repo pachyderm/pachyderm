@@ -1313,6 +1313,9 @@ func (a *apiServer) newJobCtx(ctx context.Context, jobID string) context.Context
 	ctx, cancel := context.WithCancel(ctx)
 	a.jobCancelFuncsLock.Lock()
 	defer a.jobCancelFuncsLock.Unlock()
+	if oldCancel, ok := a.jobCancelFuncs[jobID]; ok {
+		oldCancel()
+	}
 	a.jobCancelFuncs[jobID] = cancel
 	return ctx
 }
@@ -1429,49 +1432,55 @@ func (a *apiServer) AddShard(shard uint64) error {
 		})
 	}()
 
-	jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
-		IncludeInitial: true,
-		IncludeChanges: false,
-		Shard:          &persist.Shard{Number: shard},
-		State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
-	})
-	if err != nil {
-		return err
-	}
 	go func() {
-		for {
-			jobChange, err := jobInfoClient.Recv()
+		b := backoff.NewExponentialBackOff()
+		// never stop retrying
+		b.MaxElapsedTime = 0
+		backoff.RetryNotify(func() error {
+			jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
+				IncludeInitial: true,
+				IncludeChanges: false,
+				Shard:          &persist.Shard{Number: shard},
+				State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
+			})
 			if err != nil {
-				protolion.Errorf("error from receive: %s", err.Error())
-				return
+				return err
 			}
-			jobID := jobChange.JobInfo.JobID
+			for {
+				jobChange, err := jobInfoClient.Recv()
+				if err != nil {
+					return fmt.Errorf("error from receive: %s", err.Error())
+				}
+				jobID := jobChange.JobInfo.JobID
 
-			switch jobChange.Type {
-			case persist.ChangeType_DELETE:
-				if err := a.cancelJob(jobID); err != nil {
-					protolion.Errorf("error cancelling job %v: %s", jobID, err.Error())
-				}
-			case persist.ChangeType_CREATE:
-				// If we see a job that's running or creating, we start a job
-				// manager for it.
-				if jobChange.JobInfo.State == ppsclient.JobState_JOB_RUNNING || jobChange.JobInfo.State == ppsclient.JobState_JOB_CREATING {
-					jobCtx := a.newJobCtx(ctx, jobID)
-					go func() {
-						b := backoff.NewExponentialBackOff()
-						b.MaxElapsedTime = 0
-						backoff.RetryNotify(func() error {
-							if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
-								return err
-							}
-							return nil
-						}, b, func(err error, d time.Duration) {
-							protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
-						})
-					}()
+				switch jobChange.Type {
+				case persist.ChangeType_DELETE:
+					if err := a.cancelJob(jobID); err != nil {
+						return fmt.Errorf("error cancelling job %v: %s", jobID, err.Error())
+					}
+				case persist.ChangeType_CREATE:
+					// If we see a job that's running or creating, we start a job
+					// manager for it.
+					if jobChange.JobInfo.State == ppsclient.JobState_JOB_RUNNING || jobChange.JobInfo.State == ppsclient.JobState_JOB_CREATING {
+						jobCtx := a.newJobCtx(ctx, jobID)
+						go func() {
+							b := backoff.NewExponentialBackOff()
+							b.MaxElapsedTime = 0
+							backoff.RetryNotify(func() error {
+								if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
+									return err
+								}
+								return nil
+							}, b, func(err error, d time.Duration) {
+								protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
+							})
+						}()
+					}
 				}
 			}
-		}
+		}, b, func(err error, d time.Duration) {
+			protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
+		})
 	}()
 
 	return nil
