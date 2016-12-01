@@ -2124,7 +2124,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   fmt.Sprintf("pachservice-%v", jobInfo.JobID),
+			Name:   fmt.Sprintf("pach-%v", jobInfo.JobID),
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
