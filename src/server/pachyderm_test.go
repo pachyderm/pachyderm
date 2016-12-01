@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -79,6 +80,9 @@ func testJob(t *testing.T, shards int) {
 			Method: client.ReduceMethod,
 		}},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -156,6 +160,9 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 			},
 		},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -286,6 +293,9 @@ func TestLogs(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -333,6 +343,9 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	job2, err := c.CreateJob(
@@ -345,6 +358,9 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -381,6 +397,9 @@ func TestJobLongOutputLine(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -2117,6 +2136,9 @@ func TestFailedJobReadData(t *testing.T) {
 			},
 		},
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -2450,6 +2472,9 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2465,6 +2490,9 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		false,
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2536,7 +2564,17 @@ func TestScrubbedErrors(t *testing.T) {
 	)
 	require.Equal(t, "repo test not found", err.Error())
 
-	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"askjdfhgsdflkjh",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		false,
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	_, err = c.InspectJob("blah", true)
@@ -2568,7 +2606,17 @@ func TestLeakingRepo(t *testing.T) {
 	require.NoError(t, err)
 	initialCount := len(repoInfos)
 
-	_, err = c.CreateJob("bogusImage", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"bogusImage",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		false,
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	repoInfos, err = c.ListRepo(nil)
@@ -3616,7 +3664,6 @@ func TestCleanPath(t *testing.T) {
 
 func TestSimpleService(t *testing.T) {
 	t.Parallel()
-	shards := 2
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3625,22 +3672,21 @@ func TestSimpleService(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	fileContent := "foo\n"
-	// We want to create lots of files so that each parallel job will be
-	// started with some files
-	numFiles := shards*100 + 100
-	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
-		require.NoError(t, err)
-	}
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	job, err := c.CreateJob(
-		"",
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
+		"appropriate/nc:latest",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
 		&ppsclient.ParallelismSpec{
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: uint64(shards),
+			Constant: uint64(1),
 		},
 		[]*ppsclient.JobInput{{
 			Commit: commit,
@@ -3648,33 +3694,38 @@ func TestSimpleService(t *testing.T) {
 		}},
 		"",
 		true,
-		33033,
-		33034,
+		30003,
+		30004,
 	)
 	require.NoError(t, err)
+	fmt.Printf("! created service\n")
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job,
-		BlockState: true,
+		BlockState: false,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
+	// We need to wait to poll the job since we're not blocking on its state
+	time.Sleep(15 * time.Second)
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	fmt.Printf("! inspected job: %v\n", jobInfo)
 	require.NoError(t, err)
-	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
-	require.NoError(t, err)
-	require.True(t, parellelism > 0)
-	commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-	require.NoError(t, err)
-	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, ppsclient.JobState_JOB_RUNNING.String(), jobInfo.State.String())
+	/*
+		parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
+		require.NoError(t, err)
+		require.True(t, parellelism > 0)
+		commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+		require.NoError(t, err)
+		require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	*/
 	require.NotNil(t, jobInfo.Started)
-	require.NotNil(t, jobInfo.Finished)
-	require.True(t, prototime.TimestampToTime(jobInfo.Finished).After(prototime.TimestampToTime(jobInfo.Started)))
-	for i := 0; i < numFiles; i++ {
-		var buffer bytes.Buffer
-		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", false, nil, &buffer))
-		require.Equal(t, fileContent, buffer.String())
-	}
+	require.Nil(t, jobInfo.Finished)
+	// Hit the service via the node port
+	output, err := exec.Command("nc", "localhost", "30004").Output()
+	require.NoError(t, err)
+	require.Equal(t, "hai\n", string(output))
+	// TODO - garbage collect the service
 }
 
 func getPachClient(t testing.TB) *client.APIClient {

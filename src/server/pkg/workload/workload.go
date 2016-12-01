@@ -152,6 +152,9 @@ func (w *worker) work(c *client.APIClient) error {
 				},
 				jobInputs,
 				"",
+				false,
+				0,
+				0,
 			)
 			if err != nil {
 				return err
