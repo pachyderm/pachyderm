@@ -346,8 +346,9 @@ Examples:
 
 Examples:
 
-	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
-	$ pachctl replay-commit test foo/2 foo/3 bar
+	# replay unique commits on branch "foo" to branch "bar".  The common commits on
+	# these branches won't be replayed.
+	$ pachctl replay-commit test foo bar
 `,
 		Run: pkgcobra.Run(func(args []string) error {
 			if len(args) < 3 {
