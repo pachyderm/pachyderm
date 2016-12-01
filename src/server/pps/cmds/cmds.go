@@ -147,8 +147,6 @@ The increase the throughput of a job increase the Shard paremeter.
 	var registry string
 	var username string
 	var password string
-	var internalPort int32
-	var externalPort int32
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -202,10 +200,6 @@ The increase the throughput of a job increase the Shard paremeter.
 				}
 				request.Transform.Image = pushedImage
 			}
-			request.Service = &ppsclient.Service{
-				InternalPort: internalPort,
-				ExternalPort: externalPort,
-			}
 			job, err := client.PpsAPIClient.CreateJob(
 				context.Background(),
 				&request,
@@ -222,8 +216,6 @@ The increase the throughput of a job increase the Shard paremeter.
 	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
 	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createJob.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
-	createJob.Flags().Int32VarP(&internalPort, "internal-port", "", 0, "The port on which the service runs internally.")
-	createJob.Flags().Int32VarP(&externalPort, "external-port", "", 0, "The port on which the service will be exposed.")
 
 	var block bool
 	inspectJob := &cobra.Command{
