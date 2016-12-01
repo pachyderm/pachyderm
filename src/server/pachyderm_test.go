@@ -3651,6 +3651,43 @@ func TestCleanPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInvalidSimpleService(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.CreateJob(
+		"appropriate/nc:latest",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+}
+
 func TestSimpleService(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
