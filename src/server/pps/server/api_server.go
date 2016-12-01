@@ -931,8 +931,14 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 		return nil, err
 	}
 	response = &ppsserver.ContinuePodResponse{}
-	if chunk.Owner != request.PodName {
-		response.Exit = true
+	// A pod should only continue executing if it still owns the chunk, or the chunk
+	// has been finished (in which case the pod just continues executing and eventually peacefully exit).
+	// Otherwise, we tell the pod to exit and restart, so it can claim another chunk
+	// to process.
+	if (chunk.Owner == request.PodName && chunk.State == persist.ChunkState_ASSIGNED) || (chunk.State == persist.ChunkState_SUCCESS) {
+		response.Restart = false
+	} else {
+		response.Restart = true
 	}
 	return response, nil
 }
@@ -977,8 +983,10 @@ func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodR
 		return nil, err
 	}
 
+	// Restart the pod if it fails, and the chunk has not exceeded the maximum
+	// number of retries (at which point its state will be set to FAILED)
 	response = &ppsserver.FinishPodResponse{
-		Fail: !request.Success && chunk.State != persist.ChunkState_FAILED,
+		Restart: !request.Success && chunk.State != persist.ChunkState_FAILED,
 	}
 
 	return response, nil
