@@ -65,6 +65,7 @@ message JobInput {
   // This flag specifies whether the pipeline should be triggered
   // when this input gets an empty commit.
   bool run_empty = 3;
+  bool lazy = 4;
 }
 
 message ParallelismSpec {
@@ -153,6 +154,7 @@ message PipelineInput {
   // This flag specifies whether the pipeline should be triggered
   // when this input gets an empty commit.
   bool run_empty = 3;
+  bool lazy = 4;
 }
 
 enum PipelineState {
