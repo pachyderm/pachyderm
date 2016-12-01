@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"time"
 
@@ -109,11 +110,22 @@ func (c APIClient) CreateJob(
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
 	parentJobID string,
-	service bool,
 	internalPort int32,
 	externalPort int32,
 ) (*pps.Job, error) {
 	var parentJob *pps.Job
+	var service *pps.Service
+	if internalPort != 0 {
+		service = &pps.Service{
+			InternalPort: internalPort,
+		}
+	}
+	if externalPort != 0 {
+		if internalPort == 0 {
+			return nil, fmt.Errorf("external port specified without internal port")
+		}
+		service.ExternalPort = externalPort
+	}
 	if parentJobID != "" {
 		parentJob = NewJob(parentJobID)
 	}
@@ -128,9 +140,7 @@ func (c APIClient) CreateJob(
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
 			ParentJob:       parentJob,
-			IsAService:      service,
-			InternalPort:    internalPort,
-			ExternalPort:    externalPort,
+			Service:         service,
 		},
 	)
 	return job, sanitizeErr(err)

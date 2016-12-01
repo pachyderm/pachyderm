@@ -424,8 +424,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if request.IsAService {
-		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.InternalPort, request.ExternalPort)
+	if request.Service != nil {
+		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.Service.InternalPort, request.Service.ExternalPort)
 		if err != nil {
 			return nil, err
 		}

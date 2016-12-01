@@ -80,7 +80,6 @@ func testJob(t *testing.T, shards int) {
 			Method: client.ReduceMethod,
 		}},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -160,7 +159,6 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 			},
 		},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -293,7 +291,6 @@ func TestLogs(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -343,7 +340,6 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -358,7 +354,6 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -397,7 +392,6 @@ func TestJobLongOutputLine(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -2136,7 +2130,6 @@ func TestFailedJobReadData(t *testing.T) {
 			},
 		},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -2472,7 +2465,6 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
-		false,
 		0,
 		0,
 	)
@@ -2490,7 +2482,6 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
-		false,
 		0,
 		0,
 	)
@@ -2571,7 +2562,6 @@ func TestScrubbedErrors(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -2613,7 +2603,6 @@ func TestLeakingRepo(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
 		"",
-		false,
 		0,
 		0,
 	)
@@ -3693,7 +3682,6 @@ func TestSimpleService(t *testing.T) {
 			Method: client.ReduceMethod,
 		}},
 		"",
-		true,
 		30003,
 		30004,
 	)
