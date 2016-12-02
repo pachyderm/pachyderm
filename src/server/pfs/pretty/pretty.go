@@ -134,7 +134,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool, fast bool)
 // PrintDetailedFileInfo pretty-prints detailed file info.
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
-		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
+		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
 Modifed: {{prettyAgo .Modified}}
 Size: {{prettySize .SizeBytes}}
