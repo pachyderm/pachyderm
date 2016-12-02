@@ -121,7 +121,7 @@ docker-build-microsoft-vhd:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-netcat
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -220,7 +220,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests example-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
