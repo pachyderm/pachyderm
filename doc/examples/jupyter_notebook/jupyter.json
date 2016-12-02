@@ -7,7 +7,7 @@
     "image": "jupyter/minimal-notebook",
     "cmd": [ "sh" ],
     "stdin": [
-		"jupyter notebook"
+		"/opt/conda/bin/jupyter notebook"
     ]
   },
   "parallelism_spec": {
