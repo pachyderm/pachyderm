@@ -1,7 +1,7 @@
 {
   "service" : {
     "internal_port": 8888,
-    "external_port": 30888,
+    "external_port": 30888
   },
   "transform": {
     "image": "jupyter/minimal-notebook",
