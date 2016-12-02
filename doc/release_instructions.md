@@ -66,7 +66,7 @@ Then after a successful release:
   - To mitigate this, you'll have to go to github.com/pachyderm/pachyderm/releases, and manually delete the release that goxc created
   - Also make sure you delete the tag
   - Then manually tag the head of your branch (after the release process has finished successfully)
-- The docs version may not show up. If this is the case, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/<Paste>
+- The docs version may not show up. If this is the case, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/
 
 
 
