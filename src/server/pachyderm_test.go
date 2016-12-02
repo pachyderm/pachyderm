@@ -3723,7 +3723,6 @@ func TestSimpleService(t *testing.T) {
 		30004,
 	)
 	require.NoError(t, err)
-	fmt.Printf("! created service\n")
 	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:        job,
 		BlockState: false,
@@ -3733,24 +3732,14 @@ func TestSimpleService(t *testing.T) {
 	// We need to wait to poll the job since we're not blocking on its state
 	time.Sleep(15 * time.Second)
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-	fmt.Printf("! inspected job: %v\n", jobInfo)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_RUNNING.String(), jobInfo.State.String())
-	/*
-		parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
-		require.NoError(t, err)
-		require.True(t, parellelism > 0)
-		commitInfo, err := c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-		require.NoError(t, err)
-		require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
-	*/
 	require.NotNil(t, jobInfo.Started)
 	require.Nil(t, jobInfo.Finished)
 	// Hit the service via the node port
 	output, err := exec.Command("nc", "localhost", "30004").Output()
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", string(output))
-	// TODO - garbage collect the service
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
