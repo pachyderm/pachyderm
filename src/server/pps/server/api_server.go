@@ -2065,6 +2065,36 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 	}, nil
 }
 
+func podSpec(options *jobOptions, jobID string) api.PodSpec {
+	return api.PodSpec{
+		InitContainers: []api.Container{
+			{
+				Name:            "init",
+				Image:           options.jobShimImage,
+				Command:         []string{"/pach/job-shim.sh"},
+				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+				Env:             options.jobEnv,
+				VolumeMounts:    options.volumeMounts,
+			},
+		},
+		Containers: []api.Container{
+			{
+				Name:    "user",
+				Image:   options.userImage,
+				Command: []string{"/pach-bin/guest.sh", jobID},
+				SecurityContext: &api.SecurityContext{
+					Privileged: &trueVal, // god is this dumb
+				},
+				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+				Env:             options.jobEnv,
+				VolumeMounts:    options.volumeMounts,
+			},
+		},
+		RestartPolicy: "Always",
+		Volumes:       options.volumes,
+	}
+}
+
 func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
 
 	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
@@ -2088,33 +2118,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 					Name:   jobInfo.JobID,
 					Labels: options.labels,
 				},
-				Spec: api.PodSpec{
-					InitContainers: []api.Container{
-						{
-							Name:            "init",
-							Image:           options.jobShimImage,
-							Command:         []string{"/pach/job-shim.sh"},
-							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-							Env:             options.jobEnv,
-							VolumeMounts:    options.volumeMounts,
-						},
-					},
-					Containers: []api.Container{
-						{
-							Name:    "user",
-							Image:   options.userImage,
-							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-							Env:             options.jobEnv,
-							VolumeMounts:    options.volumeMounts,
-						},
-					},
-					RestartPolicy: "Always",
-					Volumes:       options.volumes,
-				},
+				Spec: podSpec(options, jobInfo.JobID),
 			},
 		},
 	}
@@ -2169,33 +2173,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Name:   jobInfo.JobID,
 					Labels: options.labels,
 				},
-				Spec: api.PodSpec{
-					InitContainers: []api.Container{
-						{
-							Name:            "init",
-							Image:           options.jobShimImage,
-							Command:         []string{"/pach/job-shim.sh"},
-							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-							Env:             options.jobEnv,
-							VolumeMounts:    options.volumeMounts,
-						},
-					},
-					Containers: []api.Container{
-						{
-							Name:    "user",
-							Image:   options.userImage,
-							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-							ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-							Env:             options.jobEnv,
-							VolumeMounts:    options.volumeMounts,
-						},
-					},
-					RestartPolicy: "Never",
-					Volumes:       options.volumes,
-				},
+				Spec: podSpec(options, jobInfo.JobID),
 			},
 		},
 	}, nil
