@@ -75,6 +75,11 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 							lion.Printf("error opening %s: %s", path, err)
 							return
 						}
+						defer func() {
+							if err := f.Close(); err != nil {
+								lion.Printf("error closing %s: %s", path, err)
+							}
+						}()
 						getFileClient, err := client.GetFile(ctx, request)
 						if err != nil {
 							lion.Printf("error from GetFile: %s", err)
