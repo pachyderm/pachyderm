@@ -647,7 +647,9 @@ type CreateJobRequest struct {
 	Inputs          []*JobInput      `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
 	ParentJob       *Job             `protobuf:"bytes,5,opt,name=parent_job,json=parentJob" json:"parent_job,omitempty"`
 	Force           bool             `protobuf:"varint,6,opt,name=force" json:"force,omitempty"`
-	Service         *Service         `protobuf:"bytes,8,opt,name=service" json:"service,omitempty"`
+	// When service is defined, we create a long running job
+	// by using a k8s RC and Service instead of a k8s Job
+	Service *Service `protobuf:"bytes,8,opt,name=service" json:"service,omitempty"`
 }
 
 func (m *CreateJobRequest) Reset()                    { *m = CreateJobRequest{} }
