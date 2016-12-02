@@ -1,7 +1,7 @@
 # Local Installation
 This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
 
-If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
+If you hit any errors not covered in this guide, check our [troubleshooting](http://pachyderm.readthedocs.io/en/latest/getting_started/troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our users channel on Slack, or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ## Prerequisites
 - [Minikube](#minikube) (and VirtualBox)
@@ -30,7 +30,7 @@ To check that installation was successful, you can try running `pachctl help`, w
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-pachctl deploy
+pachctl deploy local
 ```
 This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
@@ -66,8 +66,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
-pachd               1.2.0
+pachctl             1.2.4
+pachd               1.2.4
 ```
 
 We're good to go!

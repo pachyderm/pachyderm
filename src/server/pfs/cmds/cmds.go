@@ -29,7 +29,8 @@ import (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string, metrics bool) []*cobra.Command {
+func Cmds(address string, noMetrics *bool) []*cobra.Command {
+	metrics := !*noMetrics
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -345,8 +346,9 @@ Examples:
 
 Examples:
 
-	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
-	$ pachctl replay-commit test foo/2 foo/3 bar
+	# replay unique commits on branch "foo" to branch "bar".  The common commits on
+	# these branches won't be replayed.
+	$ pachctl replay-commit test foo bar
 `,
 		Run: pkgcobra.Run(func(args []string) error {
 			if len(args) < 3 {
@@ -718,7 +720,7 @@ files into your Pachyderm cluster.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits, false)
 			if err != nil {
 				return err
 			}
