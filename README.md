@@ -1,7 +1,7 @@
 <img src='doc/pachyderm_factory_gh.png' height='225' title='Pachyderm'> 
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
-[![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-apache-blue.svg)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 

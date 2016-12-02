@@ -900,7 +900,7 @@ func testFuse(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits, false))
 	}()
 
 	<-ready

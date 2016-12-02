@@ -110,6 +110,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
+Output: {{.OutputCommit.ID}}
 Chunks:
 {{prettyChunks .Chunks}}
 `)
