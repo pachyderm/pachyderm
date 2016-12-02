@@ -3769,7 +3769,7 @@ func TestLazyPipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline_data")
+	dataRepo := uniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")

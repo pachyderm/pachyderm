@@ -1886,6 +1886,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 			delete(repoToInput, commit.Repo.Name)
 		}
