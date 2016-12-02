@@ -121,10 +121,13 @@ docker-build-microsoft-vhd:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
+docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd docker-build-netcat
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
+
+docker-build-netcat:
+	docker build -t pachyderm_netcat etc/netcat
 
 check-kubectl:
 	# check that kubectl is installed

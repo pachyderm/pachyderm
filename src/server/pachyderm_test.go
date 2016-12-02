@@ -3666,7 +3666,7 @@ func TestInvalidSimpleService(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	_, err = c.CreateJob(
-		"appropriate/nc:latest",
+		"pachyderm_netcat",
 		[]string{"sh"},
 		[]string{
 			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
@@ -3703,7 +3703,7 @@ func TestSimpleService(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	job, err := c.CreateJob(
-		"appropriate/nc:latest",
+		"pachyderm_netcat",
 		[]string{"sh"},
 		[]string{
 			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
