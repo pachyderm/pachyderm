@@ -3796,6 +3796,12 @@ func TestLazyPipeline(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
+	// We put 2 files, 1 of which will never be touched by the pipeline code.
+	// This is an important part of the correctness of this test because the
+	// job-shim sets up a goro for each pipe, pipes that are never opened will
+	// leak but that shouldn't prevent the job from completing.
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
