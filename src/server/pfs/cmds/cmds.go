@@ -242,6 +242,22 @@ Examples:
 		}),
 	}
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete a commit.",
+		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteCommit(args[0], args[1]); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+
 	var all bool
 	var block bool
 	var listCommitExclude cmd.RepeatedStringArg
@@ -805,6 +821,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listCommit)
 	result = append(result, squashCommit)
 	result = append(result, replayCommit)
