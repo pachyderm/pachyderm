@@ -252,8 +252,16 @@ Examples:
 			if err != nil {
 				return err
 			}
-			if err := client.DeleteCommit(args[0], args[1]); err != nil {
+			fmt.Printf("delete-commit is a beta feature; specifically, it may race with concurrent start-commit on the same branch.  Are you sure you want to proceed? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
 				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				if err := client.DeleteCommit(args[0], args[1]); err != nil {
+					return err
+				}
 			}
 			return nil
 		}),
