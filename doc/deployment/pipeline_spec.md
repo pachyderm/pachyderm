@@ -19,7 +19,8 @@ This document discusses each of the fields present in a pipeline specification. 
     "secrets": [ {
         "name": "secret_name",
         "mountPath": "/path/in/container"
-    } ]
+    } ],
+    "overwrite": bool
   },
   "parallelism_spec": {
     "strategy": "CONSTANT"|"COEFFICIENT"
@@ -51,7 +52,7 @@ This document discusses each of the fields present in a pipeline specification. 
 
 ### Transform
 
-`transform.image` is the name of the Docker image that your jobs run in.  Currently, this image needs to [inherit from a Pachyderm-provided image known as `job-shim`](https://github.com/pachyderm/pachyderm/blob/fae98e54af0d6932e258e4b0df4ea784414c921e/examples/fruit_stand/Dockerfile#L1).
+`transform.image` is the name of the Docker image that your jobs run in.
 
 `transform.cmd` is the command passed to the Docker run invocation.  Note that as with Docker, cmd is not run inside a shell which means that things like wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not work.  To get that behavior, you can set `cmd` to be a shell of your choice (e.g. `sh`) and pass a shell script to stdin.
 
@@ -60,6 +61,8 @@ This document discusses each of the fields present in a pipeline specification. 
 `transform.env is a map from key to value of environment variables that will be injected into the container
 
 `transform.secrets` is an array of secrets, secrets reference Kubernetes secrets by name and specify a path that the secrets should be mounted to. Secrets are useful for embedding sensitive data such as credentials. Read more about secrets in Kubernetes [here](http://kubernetes.io/docs/user-guide/secrets/).
+
+`transform.overwrite` is a boolean flag that controls whether the output of this pipeline overwrites the previous output, as opposed to appending to it (the default).  For instance, if `overwrite` is set to true and the pipeline outputs the same file in two subsequent runs, the second write to that file will overwrite the first one.  This flag defaults to false.
 
 ### Parallelism Spec
 

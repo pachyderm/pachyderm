@@ -49,6 +49,47 @@ func newFilesystem(
 	}
 }
 
+// repoFilesystem is the same as filesystem except that it only presents the content
+// of one specific repo.
+type repoFilesystem struct {
+	*filesystem
+}
+
+func newRepoFilesystem(
+	apiClient *client.APIClient,
+	shard *pfsclient.Shard,
+	commitMount *CommitMount,
+	allCommits bool,
+) *repoFilesystem {
+	return &repoFilesystem{&filesystem{
+		apiClient: apiClient,
+		Filesystem: Filesystem{
+			shard,
+			[]*CommitMount{commitMount},
+		},
+		inodes:     make(map[string]uint64),
+		allCommits: allCommits,
+	}}
+}
+
+func (f *repoFilesystem) Root() (result fs.Node, retErr error) {
+	defer func() {
+		if retErr == nil {
+			protolion.Debug(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		} else {
+			protolion.Error(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		}
+	}()
+	return &directory{
+		f.filesystem,
+		Node{
+			File: &pfsclient.File{
+				Commit: f.filesystem.CommitMounts[0].Commit,
+			},
+		},
+	}, nil
+}
+
 func (f *filesystem) Root() (result fs.Node, retErr error) {
 	defer func() {
 		if retErr == nil {
@@ -649,9 +690,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	if d.fs.allCommits {
 		status = pfsclient.CommitStatus_ALL
 	}
-	commitInfos, err := d.fs.apiClient.ListCommitFrom([]*pfsclient.Commit{
-		client.NewCommit(d.File.Commit.Repo.Name, ""),
-	}, nil, client.CommitTypeNone, status, false)
+	commitInfos, err := d.fs.apiClient.ListCommitByRepo([]string{d.File.Commit.Repo.Name}, nil, client.CommitTypeNone, status, false)
 	if err != nil {
 		return nil, err
 	}

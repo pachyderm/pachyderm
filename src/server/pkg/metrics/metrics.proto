@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 message Metrics {
-    string id = 1;
+    string cluster_id = 1;
     string pod_id = 2;
     int64 nodes = 3;
 	string version = 4;
