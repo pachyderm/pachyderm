@@ -175,6 +175,16 @@ enum PipelineState {
     PIPELINE_STOPPED = 4;
 }
 
+// GCPolicy describes when jobs can be garbage-collected.
+message GCPolicy {
+  // The amount of time, in hours, that needs to pass before a successful job
+  // can be GC-ed.
+  uint64 success = 1;
+  // The amount of time, in hours, that needs to pass before a failed job
+  // can be GC-ed.
+  uint64 failure = 2;
+}
+
 message PipelineInfo {
   reserved 3;
   Pipeline pipeline = 1;
@@ -187,6 +197,7 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
+  GCPolicy gc_policy = 12;
 }
 
 message PipelineInfos {

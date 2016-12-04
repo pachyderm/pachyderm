@@ -43,6 +43,12 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// DefaultGCPolicy is the default GC policy used by a pipeline if one is not
+	// specified.
+	DefaultGCPolicy = &ppsclient.GCPolicy{
+		success: 24,     // a day
+		failure: 7 * 24, // a week
+	}
 )
 
 var (
@@ -1057,6 +1063,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}()
 	}
+
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName:    request.Pipeline.Name,
 		Transform:       request.Transform,
@@ -1065,7 +1072,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		OutputRepo:      repo,
 		Shard:           a.hasher.HashPipeline(request.Pipeline),
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
+		GCPolicy:        request.GCPolicy,
 	}
+	if persistPipelineInfo.GCPolicy == nil {
+		persistPipelineInfo.GCPolicy = DefaultGCPolicy
+	}
+
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 			if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
@@ -1518,6 +1530,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		State:           persistPipelineInfo.State,
 		RecentError:     persistPipelineInfo.RecentError,
 		JobCounts:       persistPipelineInfo.JobCounts,
+		GCPolicy:        persistPipelineInfo.GCPolicy,
 	}
 }
 
