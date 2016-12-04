@@ -26,6 +26,8 @@ message JobInfo {
   string commit_index = 11;
   repeated uint64 default_shard_moduli = 15;
   uint64 shard = 19;
+  // if true, the underlying Kubernetes job has been deleted 
+  bool deleted = 21;
 }
 
 message Pod {
@@ -108,6 +110,7 @@ message PipelineInfo {
   string recent_error = 9;
   map<int32, int32> job_counts = 10;
   bool stopped = 11;
+  pps.GCPolicy gc_policy = 14;
 }
 
 enum ChangeType {
