@@ -29,7 +29,7 @@ Each commit carries a vector clock.  The rule for setting the vector clock is si
 For instance, this is a valid commit graph with three branches:
 
 ```
-[(foo, 0)] -> [(foo, 1)] -> [(foo, 2)] -> [(foo, 2)]
+[(foo, 0)] -> [(foo, 1)] -> [(foo, 2)] -> [(foo, 3)]
            |
            -> [(foo, 0), (bar, 0)] -> [(foo, 0), (bar, 1)] -> [(foo, 0), (bar, 2)]
                                                            |
