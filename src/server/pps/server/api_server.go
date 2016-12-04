@@ -43,12 +43,6 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
-	// DefaultGCPolicy is the default GC policy used by a pipeline if one is not
-	// specified.
-	DefaultGCPolicy = &ppsclient.GCPolicy{
-		success: 24,     // a day
-		failure: 7 * 24, // a week
-	}
 )
 
 var (
@@ -1072,10 +1066,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		OutputRepo:      repo,
 		Shard:           a.hasher.HashPipeline(request.Pipeline),
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
-		GCPolicy:        request.GCPolicy,
+		GcPolicy:        request.GcPolicy,
 	}
-	if persistPipelineInfo.GCPolicy == nil {
-		persistPipelineInfo.GCPolicy = DefaultGCPolicy
+	if persistPipelineInfo.GcPolicy == nil {
+		persistPipelineInfo.GcPolicy = DefaultGCPolicy
 	}
 
 	if !request.Update {
@@ -1530,7 +1524,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		State:           persistPipelineInfo.State,
 		RecentError:     persistPipelineInfo.RecentError,
 		JobCounts:       persistPipelineInfo.JobCounts,
-		GCPolicy:        persistPipelineInfo.GCPolicy,
+		GcPolicy:        persistPipelineInfo.GcPolicy,
 	}
 }
 
@@ -1548,6 +1542,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
 	_, err = persistClient.UpdatePipelineState(ctx, &persist.UpdatePipelineStateRequest{
 		PipelineName: pipelineInfo.Pipeline.Name,
 		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
@@ -1555,6 +1550,10 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
+	gcCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go runGC(gcCtx, persistClient, pipelineInfo)
 
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
