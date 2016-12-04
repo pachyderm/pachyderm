@@ -3490,6 +3490,7 @@ func TestArchiveAllWithPipelines(t *testing.T) {
 // This test / failure pattern shouldn't be possible after
 // the pfs-refactor branch lands
 func TestListCommitReturnsBlankCommit(t *testing.T) {
+	t.Skip("This test is flaky due to its use of restartAll()")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
