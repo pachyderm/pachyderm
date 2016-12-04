@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 import "client/pfs/pfs.proto";
 
@@ -177,12 +178,12 @@ enum PipelineState {
 
 // GCPolicy describes when jobs can be garbage-collected.
 message GCPolicy {
-  // The amount of time, in hours, that needs to pass before a successful job
+  // The amount of time that needs to pass before a successful job
   // can be GC-ed.
-  uint64 success = 1;
-  // The amount of time, in hours, that needs to pass before a failed job
+  google.protobuf.Duration success = 1;
+  // The amount of time that needs to pass before a failed job
   // can be GC-ed.
-  uint64 failure = 2;
+  google.protobuf.Duration failure = 2;
 }
 
 message PipelineInfo {
@@ -236,6 +237,7 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
+  GCPolicy gc_policy = 8;
 }
 
 message InspectPipelineRequest {

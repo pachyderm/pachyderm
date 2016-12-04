@@ -25,6 +25,7 @@ const (
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
 	jobInfoShardIndex          Index = "Shard"
+	stateAndDeletedIndex       Index = "StateAndDeletedIndex"
 
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
@@ -125,9 +126,21 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(jobInfoShardIndex).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		stateAndDeletedIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("State"),
+				row.Field("Deleted"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
+
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
 		return err
 	}
+
 	if _, err := gorethink.DB(databaseName).Table(chunksTable).IndexCreate(jobIndex).RunWrite(session); err != nil {
 		return err
 	}
