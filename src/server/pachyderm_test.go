@@ -3877,12 +3877,15 @@ func TestSimpleService(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
-	// We need to wait to poll the job since we're not blocking on its state
 	var runningJobInfo *ppsclient.JobInfo
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 60 * time.Second
+	b.MaxElapsedTime = 120 * time.Second
 	backoff.RetryNotify(func() error {
 		jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+		fmt.Printf("got jobinfo %v, %v\n", jobInfo, err)
+		if jobInfo != nil {
+			fmt.Printf("jobstate: %v\n", jobInfo.State.String())
+		}
 		if err != nil {
 			return err
 		}
