@@ -2104,7 +2104,7 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 	}, nil
 }
 
-func podSpec(options *jobOptions, jobID string) api.PodSpec {
+func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy) api.PodSpec {
 	return api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -2129,7 +2129,7 @@ func podSpec(options *jobOptions, jobID string) api.PodSpec {
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
-		RestartPolicy: "Always",
+		RestartPolicy: restartPolicy,
 		Volumes:       options.volumes,
 	}
 }
@@ -2157,7 +2157,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 					Name:   jobInfo.JobID,
 					Labels: options.labels,
 				},
-				Spec: podSpec(options, jobInfo.JobID),
+				Spec: podSpec(options, jobInfo.JobID, "Always"),
 			},
 		},
 	}
@@ -2212,7 +2212,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 					Name:   jobInfo.JobID,
 					Labels: options.labels,
 				},
-				Spec: podSpec(options, jobInfo.JobID),
+				Spec: podSpec(options, jobInfo.JobID, "Never"),
 			},
 		},
 	}, nil
