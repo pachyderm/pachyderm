@@ -174,6 +174,10 @@ func CheckDBs(address string, databaseName string) error {
 		return err
 	}
 
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameAndStateAndGCIndex).RunWrite(session); err != nil {
+		return err
+	}
+
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexWait(pipelineShardIndex).RunWrite(session); err != nil {
 		return err
 	}
@@ -579,7 +583,7 @@ func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.List
 			duration = prototime.DurationFromProto(request.GcPolicy.Failure)
 		}
 		timestamp := prototime.TimeToTimestamp(time.Now().Add(-duration))
-		query = query.Filter(gorethink.Row.Field("Finished").Lt(timestamp))
+		query = query.Filter(gorethink.Row.Field("Finished").Field("Seconds").Lt(timestamp.Seconds)).Field("JobID")
 		queries = append(queries, query)
 	}
 	cursor, err := gorethink.Union(queries...).Run(a.session)
