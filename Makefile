@@ -182,7 +182,7 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-example-tests:
+example-tests: install
 	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
