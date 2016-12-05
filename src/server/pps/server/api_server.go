@@ -2008,7 +2008,7 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		userImage = DefaultUserImage
 	}
 	if jobImagePullPolicy == "" {
-		jobImagePullPolicy = "IfNotPresent"
+		jobImagePullPolicy = "Always"
 	}
 
 	var jobEnv []api.EnvVar

@@ -182,14 +182,14 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-example-tests:
+example-tests: install
 	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
 	| xargs tar cf - \
-	| docker run -i pachyderm_proto \
+	| docker run -i jdoliner/proto \
 	| tar xf -
 
 # Use this to grab a binary for profiling purposes
