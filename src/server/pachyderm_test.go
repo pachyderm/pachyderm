@@ -3837,7 +3837,6 @@ func TestInvalidSimpleService(t *testing.T) {
 }
 
 func TestSimpleService(t *testing.T) {
-	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
