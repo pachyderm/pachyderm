@@ -3878,22 +3878,25 @@ func TestSimpleService(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
 	// We need to wait to poll the job since we're not blocking on its state
-	var jobInfo *ppsclient.JobInfo
+	var runningJobInfo *ppsclient.JobInfo
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 120 * time.Second
+	b.MaxElapsedTime = 60 * time.Second
 	backoff.RetryNotify(func() error {
 		jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		if jobInfo.State != ppsclient.JobState_JOB_RUNNING {
 			return fmt.Errorf("job state is not 'running': %v", jobInfo.State.String())
 		}
+		runningJobInfo = jobInfo
 		return nil
 	}, b, func(err error, d time.Duration) {
 		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
 	})
-	require.NotNil(t, jobInfo)
-	require.NotNil(t, jobInfo.Started)
-	require.Nil(t, jobInfo.Finished)
+	require.NotNil(t, runningJobInfo)
+	require.NotNil(t, runningJobInfo.Started)
+	require.Nil(t, runningJobInfo.Finished)
 	// Hit the service via the node port
 	output, err := exec.Command("nc", "localhost", "30004").Output()
 	require.NoError(t, err)
