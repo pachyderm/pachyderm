@@ -25,5 +25,7 @@ var (
 )
 
 func runGC(ctx context.Context, client persist.APIClient, pipelineInfo *ppsclient.PipelineInfo) {
-
+	for {
+	}
+	panic("unreachable")
 }

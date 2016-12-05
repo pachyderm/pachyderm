@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	jobInfosTable              Table = "JobInfos"
-	pipelineNameIndex          Index = "PipelineName"
-	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
-	commitIndex                Index = "CommitIndex"
-	jobInfoShardIndex          Index = "Shard"
-	stateAndDeletedIndex       Index = "StateAndDeletedIndex"
+	jobInfosTable                       Table = "JobInfos"
+	pipelineNameIndex                   Index = "PipelineName"
+	pipelineNameAndCommitIndex          Index = "PipelineNameAndCommitIndex"
+	commitIndex                         Index = "CommitIndex"
+	jobInfoShardIndex                   Index = "Shard"
+	pipelineNameAndStateAndDeletedIndex Index = "PipelineNameAndStateAndDeletedIndex"
 
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
@@ -127,9 +127,10 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
-		stateAndDeletedIndex,
+		pipelineNameAndStateAndDeletedIndex,
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
+				row.Field("PipelineName"),
 				row.Field("State"),
 				row.Field("Deleted"),
 			}
@@ -561,6 +562,25 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 		}
 	}
 	return cursor.Err()
+}
+
+func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.ListGCJobsRequest) (response *persist.JobIDs, retErr error) {
+	response = &persist.JobIDs{}
+	for _, state := range []ppsclient.JobState{ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE} {
+		cursor, err := a.getTerm(jobInfosTable).GetAllByIndex(
+			pipelineNameAndStateAndDeletedIndex,
+			gorethink.Expr([]interface{}{request.PipelineName, state, false}),
+		).Field("JobID").Run(a.session)
+		if err != nil {
+			return nil, err
+		}
+		jobIDs := &persist.JobIDs{}
+		if err := cursor.All(&jobIDs.Jobs); err != nil {
+			return nil, err
+		}
+		response.Jobs = append(response.Jobs, jobIDs.Jobs...)
+	}
+	return response, nil
 }
 
 // AddChunk inserts an array of chunks into the database
