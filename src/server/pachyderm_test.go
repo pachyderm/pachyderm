@@ -3793,7 +3793,7 @@ func TestNoopUpdatePipeline(t *testing.T) {
 	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	outputRepoCommitInfos, err := c.ListCommit([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+	outputRepoCommitInfos, err := c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(outputRepoCommitInfos))
 }
