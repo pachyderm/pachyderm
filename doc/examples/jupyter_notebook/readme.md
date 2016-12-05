@@ -4,7 +4,7 @@
 
 ```
 pachctl create-repo foo
-echo 'hai' | pachctl put-file foo master -c -
+pachctl put-file foo master iris.csv -c -f iris.csv
 ```
 
 2) Deploy a Jupyter Notebook using a Pachyderm Service
