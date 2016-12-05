@@ -79,6 +79,10 @@ message JobInfos {
   repeated JobInfo job_info = 1;
 }
 
+message JobIDs {
+  repeated string jobs = 1;
+}
+
 message JobOutput {
   string job_id = 1;
   pfs.Commit output_commit = 2;
@@ -214,6 +218,11 @@ message SubscribeChunksRequest {
   bool include_initial = 2;
 }
 
+message ListGCJobsRequest {
+  string pipeline_name = 1;
+  pps.GCPolicy gc_policy = 2;
+}
+
 service API {
   // Job rpcs
   // job_id cannot be set
@@ -226,6 +235,9 @@ service API {
   rpc DeleteJobInfo(pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
+  // List the IDs of jobs that should be GC-ed
+  rpc ListGCJobs(ListGCJobsRequest) returns (JobIDs) {}
+
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
