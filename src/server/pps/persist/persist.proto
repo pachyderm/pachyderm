@@ -27,7 +27,7 @@ message JobInfo {
   repeated uint64 default_shard_moduli = 15;
   uint64 shard = 19;
   // if true, the underlying Kubernetes job has been deleted 
-  bool deleted = 21;
+  bool gc = 21;
 }
 
 message Pod {
@@ -235,9 +235,6 @@ service API {
   rpc DeleteJobInfo(pps.Job) returns (google.protobuf.Empty) {}
   rpc DeleteJobInfosForPipeline(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
-  // List the IDs of jobs that should be GC-ed
-  rpc ListGCJobs(ListGCJobsRequest) returns (JobIDs) {}
-
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
@@ -248,6 +245,13 @@ service API {
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
   rpc StartJob(pps.Job) returns (JobInfo) {} 
+
+  // GC rpcs
+  // List the IDs of jobs that should be GC-ed
+  rpc ListGCJobs(ListGCJobsRequest) returns (JobIDs) {}
+  // Mark a job has having been GC-ed
+  rpc GCJob(pps.Job) returns (google.protobuf.Empty) {}
+
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}

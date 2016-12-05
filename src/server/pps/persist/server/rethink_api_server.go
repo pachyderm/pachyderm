@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dancannon/gorethink"
-	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
+	"github.com/dancannon/gorethink"
+	"github.com/golang/protobuf/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	jobInfosTable                       Table = "JobInfos"
-	pipelineNameIndex                   Index = "PipelineName"
-	pipelineNameAndCommitIndex          Index = "PipelineNameAndCommitIndex"
-	commitIndex                         Index = "CommitIndex"
-	jobInfoShardIndex                   Index = "Shard"
-	pipelineNameAndStateAndDeletedIndex Index = "PipelineNameAndStateAndDeletedIndex"
+	jobInfosTable                  Table = "JobInfos"
+	pipelineNameIndex              Index = "PipelineName"
+	pipelineNameAndCommitIndex     Index = "PipelineNameAndCommitIndex"
+	commitIndex                    Index = "CommitIndex"
+	jobInfoShardIndex              Index = "Shard"
+	pipelineNameAndStateAndGCIndex Index = "PipelineNameAndStateAndGCIndex"
 
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
@@ -127,12 +127,12 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
-		pipelineNameAndStateAndDeletedIndex,
+		pipelineNameAndStateAndGCIndex,
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
 				row.Field("PipelineName"),
 				row.Field("State"),
-				row.Field("Deleted"),
+				row.Field("Gc"),
 			}
 		}).RunWrite(session); err != nil {
 		return err
@@ -565,22 +565,41 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 }
 
 func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.ListGCJobsRequest) (response *persist.JobIDs, retErr error) {
-	response = &persist.JobIDs{}
+	var queries []interface{}
 	for _, state := range []ppsclient.JobState{ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE} {
-		cursor, err := a.getTerm(jobInfosTable).GetAllByIndex(
-			pipelineNameAndStateAndDeletedIndex,
+		query := a.getTerm(jobInfosTable).GetAllByIndex(
+			pipelineNameAndStateAndGCIndex,
 			gorethink.Expr([]interface{}{request.PipelineName, state, false}),
-		).Field("JobID").Run(a.session)
-		if err != nil {
-			return nil, err
+		)
+		var duration time.Duration
+		switch state {
+		case ppsclient.JobState_JOB_SUCCESS:
+			duration = prototime.DurationFromProto(request.GcPolicy.Success)
+		case ppsclient.JobState_JOB_FAILURE:
+			duration = prototime.DurationFromProto(request.GcPolicy.Failure)
 		}
-		jobIDs := &persist.JobIDs{}
-		if err := cursor.All(&jobIDs.Jobs); err != nil {
-			return nil, err
-		}
-		response.Jobs = append(response.Jobs, jobIDs.Jobs...)
+		timestamp := prototime.TimeToTimestamp(time.Now().Add(-duration))
+		query = query.Filter(gorethink.Row.Field("Finished").Lt(timestamp))
+		queries = append(queries, query)
 	}
-	return response, nil
+	cursor, err := gorethink.Union(queries...).Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	jobIDs := &persist.JobIDs{}
+	if err := cursor.All(&jobIDs.Jobs); err != nil {
+		return nil, err
+	}
+	return jobIDs, nil
+}
+
+func (a *rethinkAPIServer) GCJob(ctx context.Context, request *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	if _, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
+		"Gc": true,
+	}).RunWrite(a.session); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 // AddChunk inserts an array of chunks into the database
