@@ -526,6 +526,10 @@ func TestPipelineOverwrite(t *testing.T) {
 				Constant: 1,
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: prototime.DurationToProto(time.Duration(10 * time.Second)),
+				Failure: prototime.DurationToProto(time.Duration(10 * time.Second)),
+			},
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
