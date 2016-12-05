@@ -1553,7 +1553,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 
 	gcCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go runGC(gcCtx, persistClient, pipelineInfo)
+	go a.runGC(gcCtx, pipelineInfo)
 
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
