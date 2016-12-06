@@ -865,12 +865,12 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	}
 	if recursive {
 		var eg errgroup.Group
-		filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			if info.IsDir() {
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, info.Name()), info.Name(), false)
+				return putFileHelper(client, repo, commit, filepath.Join(path, info.Name()), filepath.Join(filePath, info.Name()), false)
 			})
 			return nil
 		})
