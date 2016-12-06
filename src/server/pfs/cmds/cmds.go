@@ -573,18 +573,8 @@ files into your Pachyderm cluster.
 							retErr = err
 							return
 						}
-						// create a commit on the main branch and squash the temporary
-						// commit into it.
-						mainCommit, err := client.StartCommit(repoName, args[1])
-						if err != nil {
-							retErr = err
-							return
-						}
-						if err := client.SquashCommit(repoName, []string{tmpCommit.ID}, mainCommit.ID); err != nil {
-							retErr = err
-							return
-						}
-						if err := client.FinishCommit(mainCommit.Repo.Name, mainCommit.ID); err != nil {
+						// replay the temp commit onto the main branch
+						if _, err := client.ReplayCommit(repoName, []string{tmpCommit.ID}, args[1]); err != nil {
 							retErr = err
 							return
 						}
