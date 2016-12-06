@@ -118,6 +118,7 @@ message JobInfo {
   pfs.Commit output_commit = 9;
   JobState state = 10;
   repeated Chunk chunks = 11;
+  Service service = 14;
 }
 
 enum ChunkState {
