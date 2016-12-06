@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -485,40 +484,6 @@ Files can be read from finished commits with get-file.`,
 	var commitFlag bool
 	var inputFile string
 	// putFilePath is a helper for putFile
-	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
-		if filePath == "-" {
-			if len(args) < 3 {
-				return errors.New("either a path or the -f flag needs to be provided")
-			}
-			_, err := client.PutFile(args[0], args[1], args[2], os.Stdin)
-			return err
-		}
-		// try parsing the filename as a url, if it is one do a PutFileURL
-		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
-			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String(), recursive)
-			}
-			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String(), recursive)
-		}
-		if !recursive {
-			if len(args) == 3 {
-				return cpFile(client, args[0], args[1], args[2], filePath)
-			}
-			return cpFile(client, args[0], args[1], filePath, filePath)
-		}
-		var eg errgroup.Group
-		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-			if info.IsDir() {
-				return nil
-			}
-			if len(args) == 3 {
-				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
-			}
-			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
-			return nil
-		})
-		return eg.Wait()
-	}
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -580,7 +545,6 @@ files into your Pachyderm cluster.
 					}
 				}()
 			}
-			var eg errgroup.Group
 			if inputFile != "" {
 				var r io.Reader
 				if inputFile == "-" {
@@ -612,15 +576,38 @@ files into your Pachyderm cluster.
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
 					if filePath := scanner.Text(); filePath != "" {
-						eg.Go(func() error { return putFilePath(client, args, filePath) })
+						filePaths = append(filePaths, filePath)
 					}
 				}
-			} else {
-				for _, filePath := range filePaths {
-					eg.Go(func() error { return putFilePath(client, args, filePath) })
+			}
+			var eg errgroup.Group
+			defer func() {
+				if err := eg.Wait(); retErr == nil && err != nil {
+					retErr = err
+				}
+			}()
+			for _, filePath := range filePaths {
+				if len(args) == 2 {
+					// The user has not specific a path so we use filePath as path.
+					if filePath == "-" {
+						return fmt.Errorf("no filename specified")
+					}
+					eg.Go(func() error {
+						return putFileHelper(client, args[0], args[1], joinPaths("", filePath), filePath, recursive)
+					})
+				} else if len(filePaths) == 1 && len(args) == 3 {
+					// We have a single filePath and the user has specified a path,
+					// we use the path and ignore filePath (in terms of naming the file).
+					eg.Go(func() error { return putFileHelper(client, args[0], args[1], args[2], filePath, recursive) })
+				} else if len(filePaths) > 1 && len(args) == 3 {
+					// We have multiple filePaths and the user has specified a path,
+					// we use that path as a prefix for the filepaths.
+					eg.Go(func() error {
+						return putFileHelper(client, args[0], args[1], joinPaths(args[2], filePath), filePath, recursive)
+					})
 				}
 			}
-			return eg.Wait()
+			return nil
 		}),
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
@@ -867,8 +854,29 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func cpFile(client *client.APIClient, repo string, commit string, path string, filePath string) (retErr error) {
-	f, err := os.Open(filePath)
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool) (retErr error) {
+	if source == "-" {
+		_, err := client.PutFile(repo, commit, path, os.Stdin)
+		return err
+	}
+	// try parsing the filename as a url, if it is one do a PutFileURL
+	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		return client.PutFileURL(repo, commit, path, url.String(), recursive)
+	}
+	if recursive {
+		var eg errgroup.Group
+		filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			eg.Go(func() error {
+				return putFileHelper(client, repo, commit, filepath.Join(path, info.Name()), info.Name(), false)
+			})
+			return nil
+		})
+		return eg.Wait()
+	}
+	f, err := os.Open(source)
 	if err != nil {
 		return err
 	}
@@ -879,4 +887,11 @@ func cpFile(client *client.APIClient, repo string, commit string, path string, f
 	}()
 	_, err = client.PutFile(repo, commit, path, f)
 	return err
+}
+
+func joinPaths(prefix, filePath string) string {
+	if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
+	}
+	return filepath.Join(prefix, filePath)
 }
