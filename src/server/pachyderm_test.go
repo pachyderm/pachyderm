@@ -3817,6 +3817,7 @@ func TestInvalidSimpleService(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	// Only specifying an external port should error
 	_, err = c.CreateJob(
 		"pachyderm_netcat",
 		[]string{"sh"},
@@ -3828,6 +3829,28 @@ func TestInvalidSimpleService(t *testing.T) {
 		&ppsclient.ParallelismSpec{
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+	// Using anything but parallelism 1 should error
+	_, err = c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(2),
 		},
 		[]*ppsclient.JobInput{{
 			Commit: commit,

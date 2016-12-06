@@ -2154,6 +2154,9 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 	if err != nil {
 		return nil, nil, err
 	}
+	if options.parallelism != int32(1) {
+		return nil, nil, fmt.Errorf("pachyderm service only supports parallelism of 1, got %v", options.parallelism)
+	}
 	rc := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
