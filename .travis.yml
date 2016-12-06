@@ -29,8 +29,6 @@ before_script:
 script:
 - make lint
 - travis_wait 30 make pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests
-- kubectl get all
-- nc localhost 30004
 - travis_wait 30 make example-tests
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
