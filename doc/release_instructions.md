@@ -6,7 +6,7 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 
 (We don't want to enable CGO in part because it doesn't play nice w OSX for us)
 
-If you're doing a custom release (off a branch that isn't master),[skip to the section at the bottom](#custom-release) 
+If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release) 
 
 ## Requirements:
 
