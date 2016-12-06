@@ -28,19 +28,13 @@ before_script:
 - docker version
 script:
 - make lint
+- which nc
+- which netcat
 - travis_wait 30 make docker-build docker-build-netcat clean-launch-dev launch-dev
 - kubectl get all
-- go test -v ./src/server -timeout=10m -run=TestSimpleService
+- go test -v ./src/server -timeout=2m -run=TestSimpleService
 - kubectl get all
-- sleep 20
-- kubectl get all
-- sleep 20
-- kubectl get all
-- sleep 20
-- kubectl get all
-- sleep 20
-- kubectl get all
-- sleep 20
-- kubectl get all
+- travis_wait 1 nc localhost 30004
+- travis_wait 1 nc localhost 30003
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
