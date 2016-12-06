@@ -62,3 +62,17 @@ The only difference from a normal Job specification is the first three lines. We
 The `internal_port` specifies the container port to expose. If you're planning on consuming this service within the cluster, you can just specify an internal port.
 
 The `external_port` specifies the node port to expose. If you're planning on consuming this service outside the cluster, you'll need to specify an external port in addition to the internal port. You may need to specify firewall rules with your provider to access this port ( e.g. [howto for gcloud](https://cloud.google.com/sdk/gcloud/reference/compute/firewall-rules/create)).
+
+
+## Writing the Service
+
+Just like a normal job, when your service runs, any inputs will be provided at `/pfs/...`
+
+For example, for the above specification, the folder `/pfs/foo` would be mounted at the specific commit `master/0` so your service code could access any data from the `foo` repository at `master/0` commit locally.
+
+If you need access to multiple data repos, just provide more inputs in the specification.
+
+## Coming Soon
+
+Soon we'll upgrade the Pachyderm Service to have a Pipeline analog. This will allow you to have a long running Pachyderm Service with data mounted locally. The only difference will be that as new commits become available, the service will be updated with the latest data.
+
