@@ -60,13 +60,49 @@ Occasionally we have a need for a custom release off a non master branch. This i
 
 Follow the instructions above, just run the make script off of your branch. 
 
-Then after a successful release:
+Then _after a successful release_:
+
 
 - The tag created by goxc will point to master, and this is wrong. Opened an issue for this: https://github.com/laher/goxc/issues/112
-  - To mitigate this, you'll have to go to http://github.com/pachyderm/pachyderm/releases, and manually delete the release that goxc created
-  - Also make sure you delete the tag
-  - Then manually tag the head of your branch (after the release process has finished successfully)
-- The docs version may not show up. If this is the case, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/
+- But the binaries built are correct (they're built off of your local code, on the branch you've checked out)
+- So we'll have to manually create the tag + release + binaries
 
+1) Download the binaries that goxc created
 
+Do this for the release you just created.
+
+[Here's an example URL](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
+
+You should download all three binaries:
+
+- pachctl_1.2.5_amd64.deb
+- pachctl_1.2.5_darwin_amd64.zip
+- pachctl_1.2.5_linux_amd64.tar.gz
+
+2) Delete the release
+
+- You'll have to go to http://github.com/pachyderm/pachyderm/releases, and manually delete the release that goxc created
+- Also make sure you delete the tag. [You can see a list of tags here](https://github.com/pachyderm/pachyderm/tags) or here's an [example release tag](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
+
+3) Manually tag your branch
+
+```
+git tag -d v1.2.6 # You may need to delete it locally
+git tag v1.2.6
+git push origin --tags
+```
+
+This will fail if you didn't delete the tag on Github in the previous step
+
+4) Manually create the release on Github
+
+- [Create a new release](https://github.com/pachyderm/pachyderm/releases/new)
+- Use the tag you just pushed to Github
+- Provide a custom message. [Here's an example](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.6)
+- Upload the binaries (the link is at the bottom) that you copied
+- Publish the release
+
+5) Check the docs
+
+The docs version may not show up. If this is the case, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/
 
