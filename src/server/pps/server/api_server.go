@@ -2070,6 +2070,10 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
+	var imagePullSecrets []api.LocalObjectReference
+	for _, secret := range jobInfo.Transform.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
+	}
 
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
@@ -2116,8 +2120,9 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 							VolumeMounts:    volumeMounts,
 						},
 					},
-					RestartPolicy: "Never",
-					Volumes:       volumes,
+					RestartPolicy:    "Never",
+					Volumes:          volumes,
+					ImagePullSecrets: imagePullSecrets,
 				},
 			},
 		},
