@@ -130,6 +130,17 @@ todo_include_todos = True
 html_theme = 'custom_theme'
 html_theme_path = ['.']
 
+# on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
+on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+
+if on_rtd:
+    html_context = {                                                             
+        'css_files': [                                                           
+            'https://media.readthedocs.org/css/theme.css',            
+            'https://media.readthedocs.org/css/readthedocs-doc-embed.css',       
+         ],                                                                       
+    }
+
 html_theme_options = {
    'collapse_navigation': True,
    'display_version': False,
