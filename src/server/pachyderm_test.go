@@ -3893,9 +3893,11 @@ func TestSimpleService(t *testing.T) {
 		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
 	})
 	require.NotNil(t, runningJobInfo)
+	fmt.Printf("!!! got jobinfo: %v, %v\n", runningJobInfo, runningJobInfo.State.String())
 	require.NotNil(t, runningJobInfo.Started)
 	require.Nil(t, runningJobInfo.Finished)
 	// Hit the service via the node port
+	fmt.Printf("!!! running net cat command\n")
 	output, err := exec.Command("nc", "localhost", "30004").Output()
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", string(output))
