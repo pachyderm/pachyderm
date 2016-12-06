@@ -320,6 +320,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Shard: a.hasher.HashJob(&ppsclient.Job{
 			ID: jobID,
 		}),
+		Service: request.Service,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
@@ -2011,6 +2012,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Finished:        persistJobInfo.Finished,
 		OutputCommit:    persistJobInfo.OutputCommit,
 		State:           persistJobInfo.State,
+		Service:         persistJobInfo.Service,
 	}, nil
 }
 
