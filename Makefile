@@ -115,13 +115,23 @@ docker-clean-pachd:
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
-docker-build-microsoft-vhd:
-	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
-
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
+docker-clean-pachctl:
+	docker stop pachctl_compile || true
+	docker rm pachctl_compile || true
+
+docker-build-pachctl: docker-clean-pachctl
+	docker run --name pachctl_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachctl "$(LD_FLAGS)"
+
+docker-wait-pachctl:
+	etc/compile/wait.sh pachctl_compile
+
+docker-build-microsoft-vhd:
+	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
+
+docker-build: docker-build-job-shim docker-build-pachd docker-build-pachctl docker-wait-job-shim docker-wait-pachd docker-wait-pachctl
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
