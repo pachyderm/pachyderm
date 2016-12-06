@@ -29,7 +29,7 @@ before_script:
 script:
 - make lint
 - travis_wait 30 make docker-build clean-launch-dev launch-dev
-kubectl get all
+- kubectl get all
 - go test -v ./src/server -timeout=10m -run=TestSimpleService<Paste>
 - kubectl get all
 - sleep 20
