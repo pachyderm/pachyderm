@@ -111,11 +111,13 @@ func do(appEnvObj interface{}) error {
 							// If someone received this signal, then they are
 							// responsible to exiting the program and release
 							// all resources.
+							fmt.Println("releasing resources...")
 							return
 						default:
 							// Otherwise, we just terminate the program.
 							// We use a non-zero exit code so k8s knows to create
 							// a new pod.
+							fmt.Println("terminating...")
 							os.Exit(1)
 						}
 					}
@@ -190,8 +192,19 @@ func do(appEnvObj interface{}) error {
 					return err
 				}
 				defer func() {
-					if err := mounter.Unmount(FUSEMountPoint); err != nil && retErr == nil {
-						retErr = err
+					errCh := make(chan error)
+					go func() {
+						if err := mounter.Unmount(FUSEMountPoint); err != nil {
+							errCh <- err
+						}
+					}()
+					select {
+					case err := <-errCh:
+						if err != nil && retErr == nil {
+							retErr = err
+						}
+					case <-time.After(time.Duration(10 * time.Second)):
+						fmt.Println("unable to unmount FUSE")
 					}
 				}()
 
