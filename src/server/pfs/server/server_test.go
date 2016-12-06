@@ -3169,7 +3169,7 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Pull(context.Background(), client.PfsAPIClient, tmpDir, commit1, nil, nil))
+	require.NoError(t, pfssync.Pull(context.Background(), client.PfsAPIClient, tmpDir, commit1, nil, nil, false))
 
 	repo2 := "repo2"
 	require.NoError(t, client.CreateRepo(repo2))

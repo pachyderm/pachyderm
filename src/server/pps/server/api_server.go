@@ -857,6 +857,7 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
+			Lazy:   jobInput.Lazy,
 		}
 		parentJobCommit := repoToParentJobCommit[jobInput.Commit.Repo.Name]
 		if parentJobCommit != nil && jobInput.Commit.ID != parentJobCommit.ID {
@@ -1069,6 +1070,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}()
 	}
+
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName:    request.Pipeline.Name,
 		Transform:       request.Transform,
@@ -1077,7 +1079,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		OutputRepo:      repo,
 		Shard:           a.hasher.HashPipeline(request.Pipeline),
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
+		GcPolicy:        request.GcPolicy,
 	}
+	if persistPipelineInfo.GcPolicy == nil {
+		persistPipelineInfo.GcPolicy = DefaultGCPolicy
+	}
+
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 			if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
@@ -1530,6 +1537,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		State:           persistPipelineInfo.State,
 		RecentError:     persistPipelineInfo.RecentError,
 		JobCounts:       persistPipelineInfo.JobCounts,
+		GcPolicy:        persistPipelineInfo.GcPolicy,
 	}
 }
 
@@ -1547,6 +1555,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
 	_, err = persistClient.UpdatePipelineState(ctx, &persist.UpdatePipelineStateRequest{
 		PipelineName: pipelineInfo.Pipeline.Name,
 		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
@@ -1554,6 +1563,10 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
+	gcCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go a.runGC(gcCtx, pipelineInfo)
 
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
@@ -1915,6 +1928,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 			delete(repoToInput, commit.Repo.Name)
 		}

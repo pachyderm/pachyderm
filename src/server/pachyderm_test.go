@@ -540,6 +540,10 @@ func TestPipelineOverwrite(t *testing.T) {
 				Constant: 1,
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: prototime.DurationToProto(time.Duration(10 * time.Second)),
+				Failure: prototime.DurationToProto(time.Duration(10 * time.Second)),
+			},
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
@@ -3926,6 +3930,56 @@ func TestSimpleService(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", result)
+}
+
+func TestLazyPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestLazyPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*ppsclient.PipelineInput{{
+				Repo:   &pfsclient.Repo{Name: dataRepo},
+				Method: client.MapMethod,
+				Lazy:   true,
+			}},
+		})
+	require.NoError(t, err)
+	// Do a commit
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// We put 2 files, 1 of which will never be touched by the pipeline code.
+	// This is an important part of the correctness of this test because the
+	// job-shim sets up a goro for each pipe, pipes that are never opened will
+	// leak but that shouldn't prevent the job from completing.
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[1].Commit.Repo.Name, commitInfos[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
