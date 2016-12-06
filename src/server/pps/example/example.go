@@ -33,6 +33,7 @@ var (
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
 				Method: client.MapMethod,
+				Lazy:   true,
 			},
 		},
 		ParentJob: &ppsclient.Job{

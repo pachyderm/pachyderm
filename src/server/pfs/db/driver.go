@@ -22,10 +22,10 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/time"
 	"google.golang.org/grpc"
-	"go.pedge.io/lion"
 )
 
 // A Table is a rethinkdb table name.
@@ -1062,8 +1062,39 @@ func (d *driver) ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]string, 
 	return res, nil
 }
 
+// DeleteCommit deletes a commit.  Currently it only works if the commit is 1) the
+// head of a branch (i.e. it doesnt' have any descendents), and 2) it's not finished.
+// Note that currently DeleteCommit is not atomic/transactional.  You should only
+// use DeleteCommit if you are sure that no other client is operating on the same
+// branch.
 func (d *driver) DeleteCommit(commit *pfs.Commit) error {
-	return errors.New("DeleteCommit is not implemented")
+	rawCommit, err := d.getRawCommit(commit)
+	if err != nil {
+		return err
+	}
+	if rawCommit.Finished != nil {
+		return fmt.Errorf("commit %s is closed; only open commits can be deleted", commit.ID)
+	}
+
+	// if the commit ID is of the full form (e.g. master/2), we make sure that
+	// it's the head of a branch
+	if _, err = parseClock(commit.ID); err == nil {
+		head := &persist.Commit{}
+		branch := persist.FullClockBranch(rawCommit.FullClock)
+		if err := d.getHeadOfBranch(rawCommit.Repo, branch, head); err != nil {
+			return err
+		}
+		if head.ID != rawCommit.ID {
+			return fmt.Errorf("commit %s is not the head of branch %s; only the head of a branch can be deleted", commit.ID, branch)
+		}
+	}
+
+	clock := persist.FullClockHead(rawCommit.FullClock)
+	if _, err := d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(rawCommit.Repo, clock.Branch, clock.Clock)).Delete().RunWrite(d.dbClient); err != nil {
+		return err
+	}
+
+	return d.deleteMessageByPrimaryKey(commitTable, rawCommit.ID)
 }
 
 // checkFileType returns an error if the given type conflicts with the preexisting

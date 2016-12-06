@@ -27,9 +27,9 @@ message FinishPodRequest {
 }
 
 message FinishPodResponse {
-  // If fail is true, the pod is expected to exit with a non-zero code
+  // If restart is true, the pod is expected to exit with a non-zero code
   // so that k8s knows to reschedule the pod.
-  bool fail = 1;
+  bool restart = 1;
 }
 
 message ContinuePodRequest {
@@ -38,10 +38,11 @@ message ContinuePodRequest {
 }
 
 message ContinuePodResponse {
-  // if exit is true, the pod is expected to abandon its work and exit.
-  // this happens if the chunk that the pod is working on has been assigned
-  // to another pod.
-  bool exit = 1;
+  // If restart is true, the pod is expected to abandon its work and exit
+  // with a non-zero code, so k8s knows to reschedule the pod.
+  // This happens if the chunk that the pod is working on has been assigned
+  // to another pod, or if the lease on this chunk has expired.
+  bool restart = 1;
 }
 
 service InternalPodAPI {

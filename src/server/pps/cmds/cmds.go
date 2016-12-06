@@ -108,7 +108,8 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 }
 
 // Cmds returns a slice containing pps commands.
-func Cmds(address string, metrics bool) ([]*cobra.Command, error) {
+func Cmds(address string, noMetrics *bool) ([]*cobra.Command, error) {
+	metrics := !*noMetrics
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	job := &cobra.Command{
