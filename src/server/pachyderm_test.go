@@ -3881,10 +3881,6 @@ func TestSimpleService(t *testing.T) {
 	b.MaxElapsedTime = 120 * time.Second
 	backoff.RetryNotify(func() error {
 		jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-		fmt.Printf("got jobinfo %v, %v\n", jobInfo, err)
-		if jobInfo != nil {
-			fmt.Printf("jobstate: %v\n", jobInfo.State.String())
-		}
 		if err != nil {
 			return err
 		}
