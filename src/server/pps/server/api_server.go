@@ -712,6 +712,23 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	}, nil
 }
 
+func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *google_protobuf.Empty, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: request.Job,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.deleteJob(ctx, jobInfo); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	pods, err := a.jobPods(request.Job)
@@ -2150,6 +2167,10 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 	}
 }
 
+func serviceName(jobID string) string {
+	return fmt.Sprintf("pach-%v", jobID)
+}
+
 func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
 
 	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
@@ -2186,7 +2207,7 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   fmt.Sprintf("pach-%v", jobInfo.JobID),
+			Name:   serviceName(jobInfo.JobID),
 			Labels: options.labels,
 		},
 		Spec: api.ServiceSpec{
@@ -2251,6 +2272,42 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 	return podList.Items, nil
 }
 
+func (a *apiServer) deleteJob(ctx context.Context, jobInfo *ppsclient.JobInfo) error {
+
+	if jobInfo.Service != nil {
+		if _, err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Services(a.namespace).Delete(serviceName(jobInfo.JobID)); err != nil {
+			return nil, err
+		}
+	} else {
+		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			// we don't return on failure here because jobs may get deleted
+			// through other means and we don't want that to prevent users from
+			// deleting pipelines.
+			protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
+		}
+		pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
+		for _, pod := range pods {
+			if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+				// we don't return on failure here because pods may get deleted
+				// through other means and we don't want that to prevent users from
+				// deleting pipelines.
+				protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
+			}
+		}
+		if jobPodsErr != nil {
+			return jobPodsErr
+		}
+	}
+	// Remove the chunks for this job
+	_, err := persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
+		ID: jobInfo.JobID,
+	})
+	return err
+}
+
 func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -2272,32 +2329,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		eg.Go(func() error {
-			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-				// we don't return on failure here because jobs may get deleted
-				// through other means and we don't want that to prevent users from
-				// deleting pipelines.
-				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
-			}
-			pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
-			for _, pod := range pods {
-				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
-					// we don't return on failure here because pods may get deleted
-					// through other means and we don't want that to prevent users from
-					// deleting pipelines.
-					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
-				}
-			}
-			if jobPodsErr != nil {
-				return jobPodsErr
-			}
-
-			// Remove the chunks for this job
-			_, err := persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
-				ID: jobInfo.JobID,
-			})
-			return err
-		})
+		eg.Go(func() error { return deleteJob(jobInfo) })
 	}
 	if err := eg.Wait(); err != nil {
 		return err
