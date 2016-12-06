@@ -20,6 +20,7 @@ message Transform {
   repeated string cmd = 2;
   map<string, string> env = 3;
   repeated Secret secrets = 4;
+  repeated string image_pull_secrets = 9;
   repeated string stdin = 5;
   repeated int64 accept_return_code = 6;
   bool debug = 7;
