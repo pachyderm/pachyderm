@@ -185,7 +185,7 @@ func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.ctx(),
 		&pps.DeleteJobRequest{
-			Pipeline: NewJob(jobID),
+			Job: NewJob(jobID),
 		},
 	)
 	return sanitizeErr(err)
