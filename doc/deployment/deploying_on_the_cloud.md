@@ -177,6 +177,7 @@ The easiest way to deploy a Kubernetes cluster is to use the [official Kubernete
 
 ```
 export NODE_SIZE=m3.large
+export MASTER_SIZE=m3.large
 
 # You can also easily change the number of nodes
 export NUM_NODES=2
