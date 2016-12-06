@@ -1,20 +1,14 @@
-## ./pachctl delete-repo
+## ./pachctl delete-commit
 
-Delete a repo.
+Delete a commit.
 
 ### Synopsis
 
 
-Delete a repo.
+Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.
 
 ```
-./pachctl delete-repo repo-name
-```
-
-### Options
-
-```
-  -f, --force   remove the repo regardless of errors; use with care
+./pachctl delete-commit repo-name commit-id
 ```
 
 ### Options inherited from parent commands
