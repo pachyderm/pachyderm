@@ -118,7 +118,7 @@ func MatchState(state *State, c *client.APIClient, t *testing.T) {
 		repoInfo, err := c.InspectRepo(repoState.Info.Repo.Name)
 		require.NoError(t, err)
 		matchRepoState(repoState, repoInfo, t)
-		commitInfos, err := c.ListCommit([]string{repoState.Info.Repo.Name},
+		commitInfos, err := c.ListCommitByRepo([]string{repoState.Info.Repo.Name},
 			nil, client.CommitTypeNone, client.CommitStatusAll, false)
 		require.NoError(t, err)
 		for i, commitState := range repoState.Commits {
