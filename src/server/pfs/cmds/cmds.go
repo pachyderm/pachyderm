@@ -243,6 +243,30 @@ Examples:
 		}),
 	}
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete a commit.",
+		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			fmt.Printf("delete-commit is a beta feature; specifically, it may race with concurrent start-commit on the same branch.  Are you sure you want to proceed? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				if err := client.DeleteCommit(args[0], args[1]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
+	}
+
 	var all bool
 	var block bool
 	var listCommitExclude cmd.RepeatedStringArg
@@ -807,6 +831,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listCommit)
 	result = append(result, squashCommit)
 	result = append(result, replayCommit)

@@ -21,7 +21,7 @@ var (
 	volumeSuite            = "pachyderm-pps-storage"
 	pachdImage             = "pachyderm/pachd"
 	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage           = "rethinkdb:2.3.3"
+	rethinkImage           = "rethinkdb:2.3.2"
 	serviceAccountName     = "pachyderm"
 	etcdName               = "etcd"
 	pachdName              = "pachd"
