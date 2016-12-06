@@ -28,6 +28,7 @@ message JobInfo {
   uint64 shard = 19;
   // if true, the underlying Kubernetes job has been deleted 
   bool gc = 21;
+  pps.Service service = 22;
 }
 
 message Pod {
