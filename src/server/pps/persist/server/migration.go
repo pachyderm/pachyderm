@@ -60,7 +60,7 @@ func oneTwoFourToOneThreeZero(address, databaseName string) error {
 	}
 
 	lion.Infof("Adding GC flag to all jobs")
-	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).Update(map[string]interface{}{
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).Update(map[string]interface{}{
 		"Gc": false,
 	}).Run(session); err != nil {
 		return err
