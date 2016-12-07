@@ -44,4 +44,4 @@ pachctl create-job -f jupyter.json
 
 5) Open the `/pfs/out` location in the Jupyter file browser, then select `Python 2` under `New` in the upper right hand corner of Jupyter to create a new Jupyter notebook.  You can then explore, manipulate, and visualize PFS data to your heart's content.  See [our example notebook](investigate-unexpected-sales.ipynb) for some inspiration.
 
-![alt tag](jupyter1.png)
+![alt tag](jupyter2.png)
