@@ -41,9 +41,11 @@ import (
 )
 
 var readinessCheck bool
+var migrate string
 
 func init() {
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
+	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
 }
 
@@ -60,7 +62,6 @@ type appEnv struct {
 	Namespace          string `env:"NAMESPACE,default=default"`
 	Metrics            bool   `env:"METRICS,default=true"`
 	Init               bool   `env:"INIT,default=false"`
-	Migrate            string `env:"MIGRATE,default="`
 	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
 	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
 	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
@@ -120,8 +121,8 @@ func do(appEnvObj interface{}) error {
 
 		return nil
 	}
-	if appEnv.Migrate != "" {
-		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, appEnv.Migrate)
+	if migrate != "" {
+		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
 	}
 
 	clusterID, err := getClusterID(etcdClient)
