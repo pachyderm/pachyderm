@@ -180,7 +180,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 	return jobInfos.JobInfo, nil
 }
 
-// DeletevJob deletes a job along with its output Repo
+// DeleteJob deletes a job along with its output Repo
 func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.ctx(),
