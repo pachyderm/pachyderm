@@ -29,7 +29,8 @@ import (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string, metrics bool) []*cobra.Command {
+func Cmds(address string, noMetrics *bool) []*cobra.Command {
+	metrics := !*noMetrics
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -242,6 +243,30 @@ Examples:
 		}),
 	}
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete a commit.",
+		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			fmt.Printf("delete-commit is a beta feature; specifically, it may race with concurrent start-commit on the same branch.  Are you sure you want to proceed? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				if err := client.DeleteCommit(args[0], args[1]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
+	}
+
 	var all bool
 	var block bool
 	var listCommitExclude cmd.RepeatedStringArg
@@ -345,8 +370,9 @@ Examples:
 
 Examples:
 
-	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
-	$ pachctl replay-commit test foo/2 foo/3 bar
+	# replay unique commits on branch "foo" to branch "bar".  The common commits on
+	# these branches won't be replayed.
+	$ pachctl replay-commit test foo bar
 `,
 		Run: pkgcobra.Run(func(args []string) error {
 			if len(args) < 3 {
@@ -718,7 +744,7 @@ files into your Pachyderm cluster.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits, false)
 			if err != nil {
 				return err
 			}
@@ -805,6 +831,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listCommit)
 	result = append(result, squashCommit)
 	result = append(result, replayCommit)

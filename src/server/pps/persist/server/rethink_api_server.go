@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dancannon/gorethink"
-	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
+	"github.com/dancannon/gorethink"
+	"github.com/golang/protobuf/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	jobInfosTable              Table = "JobInfos"
-	pipelineNameIndex          Index = "PipelineName"
-	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
-	commitIndex                Index = "CommitIndex"
-	jobInfoShardIndex          Index = "Shard"
+	jobInfosTable                  Table = "JobInfos"
+	pipelineNameIndex              Index = "PipelineName"
+	pipelineNameAndCommitIndex     Index = "PipelineNameAndCommitIndex"
+	commitIndex                    Index = "CommitIndex"
+	jobInfoShardIndex              Index = "Shard"
+	pipelineNameAndStateAndGCIndex Index = "PipelineNameAndStateAndGCIndex"
 
 	pipelineInfosTable Table = "PipelineInfos"
 	pipelineShardIndex Index = "Shard"
@@ -125,9 +126,22 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(jobInfoShardIndex).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		pipelineNameAndStateAndGCIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("PipelineName"),
+				row.Field("State"),
+				row.Field("Gc"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
+
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
 		return err
 	}
+
 	if _, err := gorethink.DB(databaseName).Table(chunksTable).IndexCreate(jobIndex).RunWrite(session); err != nil {
 		return err
 	}
@@ -157,6 +171,10 @@ func CheckDBs(address string, databaseName string) error {
 	}
 
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameAndCommitIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameAndStateAndGCIndex).RunWrite(session); err != nil {
 		return err
 	}
 
@@ -548,6 +566,44 @@ func (a *rethinkAPIServer) SubscribeJobInfos(request *persist.SubscribeJobInfosR
 		}
 	}
 	return cursor.Err()
+}
+
+func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.ListGCJobsRequest) (response *persist.JobIDs, retErr error) {
+	var queries []interface{}
+	for _, state := range []ppsclient.JobState{ppsclient.JobState_JOB_SUCCESS, ppsclient.JobState_JOB_FAILURE} {
+		query := a.getTerm(jobInfosTable).GetAllByIndex(
+			pipelineNameAndStateAndGCIndex,
+			gorethink.Expr([]interface{}{request.PipelineName, state, false}),
+		)
+		var duration time.Duration
+		switch state {
+		case ppsclient.JobState_JOB_SUCCESS:
+			duration = prototime.DurationFromProto(request.GcPolicy.Success)
+		case ppsclient.JobState_JOB_FAILURE:
+			duration = prototime.DurationFromProto(request.GcPolicy.Failure)
+		}
+		timestamp := prototime.TimeToTimestamp(time.Now().Add(-duration))
+		query = query.Filter(gorethink.Row.Field("Finished").Field("Seconds").Lt(timestamp.Seconds)).Field("JobID")
+		queries = append(queries, query)
+	}
+	cursor, err := gorethink.Union(queries...).Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	jobIDs := &persist.JobIDs{}
+	if err := cursor.All(&jobIDs.Jobs); err != nil {
+		return nil, err
+	}
+	return jobIDs, nil
+}
+
+func (a *rethinkAPIServer) GCJob(ctx context.Context, request *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+	if _, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
+		"Gc": true,
+	}).RunWrite(a.session); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 // AddChunk inserts an array of chunks into the database

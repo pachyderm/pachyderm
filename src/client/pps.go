@@ -180,6 +180,17 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 	return jobInfos.JobInfo, nil
 }
 
+// DeleteJob deletes a job along with its output Repo
+func (c APIClient) DeleteJob(jobID string) error {
+	_, err := c.PpsAPIClient.DeleteJob(
+		c.ctx(),
+		&pps.DeleteJobRequest{
+			Job: NewJob(jobID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // GetLogs gets logs from a job (logs includes stdout and stderr).
 func (c APIClient) GetLogs(
 	jobID string,
