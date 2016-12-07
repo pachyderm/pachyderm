@@ -483,7 +483,6 @@ Files can be read from finished commits with get-file.`,
 	var recursive bool
 	var commitFlag bool
 	var inputFile string
-	// putFilePath is a helper for putFile
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
