@@ -60,6 +60,7 @@ type appEnv struct {
 	Namespace          string `env:"NAMESPACE,default=default"`
 	Metrics            bool   `env:"METRICS,default=true"`
 	Init               bool   `env:"INIT,default=false"`
+	Migrate            string `env:"MIGRATE,default="`
 	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
 	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
 	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
@@ -118,6 +119,9 @@ func do(appEnvObj interface{}) error {
 		os.Exit(0)
 
 		return nil
+	}
+	if appEnv.Migrate != "" {
+		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, appEnv.Migrate)
 	}
 
 	clusterID, err := getClusterID(etcdClient)
