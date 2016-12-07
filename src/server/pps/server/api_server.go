@@ -730,6 +730,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 	if err := a.deleteJob(ctx, jobInfo); err != nil {
 		return nil, err
 	}
+	if _, err := persistClient.DeleteJobInfo(ctx, request.Job); err != nil {
+		return nil, err
+	}
 	return google_protobuf.EmptyInstance, nil
 }
 
