@@ -3957,6 +3957,14 @@ func TestSimpleService(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", result)
+
+	// Now validate that deletion works
+	err = c.DeleteJob(runningJobInfo.Job.ID)
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.YesError(t, err)
+	_, err = c.InspectRepo(runningJobInfo.OutputCommit.Repo.Name)
+	require.YesError(t, err)
 }
 
 func TestLazyPipeline(t *testing.T) {

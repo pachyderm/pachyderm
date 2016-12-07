@@ -717,6 +717,10 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -728,6 +732,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 		return nil, err
 	}
 	if err := a.deleteJob(ctx, jobInfo); err != nil {
+		return nil, err
+	}
+	if _, err := pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: jobInfo.OutputCommit.Repo}); err != nil {
 		return nil, err
 	}
 	if _, err := persistClient.DeleteJobInfo(ctx, request.Job); err != nil {
