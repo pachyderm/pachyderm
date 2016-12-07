@@ -156,6 +156,13 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 	return uint64(math.Max(result, 1)), nil
 }
 
+// onTheSameBranch tests if two commits are on the same branch.
+func onTheSameBranch(a, b *pfsclient.Commit) bool {
+	aParts := strings.Split(a.ID, "/")
+	bParts := strings.Split(b.ID, "/")
+	return aParts[0] == bParts[0]
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
@@ -292,7 +299,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
-				if notOnTheSameBranch(jobInput.Commit, parentJobInfo.Inputs[i].Commit) {
+				if !onTheSameBranch(jobInput.Commit, parentJobInfo.Inputs[i].Commit) {
 					fork = true
 				}
 			}
@@ -311,10 +318,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		forkCommitRequest := &pfsclient.ForkCommitRequest{
 			Provenance: provenance,
 			Parent:     parent,
-			branch:     uuid.NewWithoutDashes(),
+			Branch:     uuid.NewWithoutDashes(),
 		}
 		forkCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
-		outputCommit, err = pfsAPIClient.ForkCommit(ctx, startCommitRequest)
+		outputCommit, err = pfsAPIClient.ForkCommit(ctx, forkCommitRequest)
 		if err != nil {
 			return nil, err
 		}
