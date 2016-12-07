@@ -156,6 +156,13 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 	return uint64(math.Max(result, 1)), nil
 }
 
+// onTheSameBranch tests if two commits are on the same branch.
+func onTheSameBranch(a, b *pfsclient.Commit) bool {
+	aParts := strings.Split(a.ID, "/")
+	bParts := strings.Split(b.ID, "/")
+	return aParts[0] == bParts[0]
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
@@ -280,6 +287,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	// We want to fork the output commit to a new branch if
+	// this job has a parent, but one or more of the input commits are not on
+	// the same branch as their corresponding parent input commits.
+	var fork bool
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
@@ -288,26 +299,47 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
+				if !onTheSameBranch(jobInput.Commit, parentJobInfo.Inputs[i].Commit) {
+					fork = true
+				}
 			}
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
+	var outputCommit *pfsclient.Commit
+	var provenance []*pfsclient.Commit
 	for _, input := range request.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+		provenance = append(provenance, input.Commit)
 	}
-	startCommitRequest.Parent = &pfsclient.Commit{
+	parent := &pfsclient.Commit{
 		Repo: outputRepo,
 	}
-	if parentJobInfo != nil {
-		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+	if fork {
+		forkCommitRequest := &pfsclient.ForkCommitRequest{
+			Provenance: provenance,
+			Parent:     parent,
+			Branch:     uuid.NewWithoutDashes(),
+		}
+		forkCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+		outputCommit, err = pfsAPIClient.ForkCommit(ctx, forkCommitRequest)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		// Without a parent, we start the commit on a random branch
-		startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
-	}
-	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
-	if err != nil {
-		return nil, err
+		startCommitRequest := &pfsclient.StartCommitRequest{
+			Provenance: provenance,
+			Parent:     parent,
+		}
+		if parentJobInfo != nil {
+			startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+		} else {
+			// Without a parent, we start the commit on a random branch
+			startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
+		}
+		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO validate job to make sure input commits and output repo exist
