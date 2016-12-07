@@ -43,6 +43,11 @@ enum JobState {
   JOB_EMPTY = 4;
 }
 
+message Service {
+  int32 internal_port = 1;
+  int32 external_port = 2;
+};
+
 enum Partition {
   BLOCK = 0;
   FILE = 1;
@@ -213,6 +218,9 @@ message CreateJobRequest {
   repeated JobInput inputs = 4;
   Job parent_job = 5;
   bool force = 6;
+  // When service is defined, we create a long running job
+  // by using a k8s RC and Service instead of a k8s Job
+  Service service = 8;
 }
 
 message InspectJobRequest {
