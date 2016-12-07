@@ -18,7 +18,7 @@ var (
 	}
 )
 
-func Migrarte(address, databaseName, migrationKey string) error {
+func Migrate(address, databaseName, migrationKey string) error {
 	migrate, ok := migrationMap[migrationKey]
 	if !ok {
 		return fmt.Errorf("migration %s is not supported", migrationKey)
