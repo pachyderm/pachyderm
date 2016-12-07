@@ -545,6 +545,7 @@ files into your Pachyderm cluster.
 					}
 				}()
 			}
+			var sources []string
 			if inputFile != "" {
 				var r io.Reader
 				if inputFile == "-" {
@@ -576,9 +577,11 @@ files into your Pachyderm cluster.
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
 					if filePath := scanner.Text(); filePath != "" {
-						filePaths = append(filePaths, filePath)
+						sources = append(sources, filePath)
 					}
 				}
+			} else {
+				sources = filePaths
 			}
 			var eg errgroup.Group
 			defer func() {
@@ -586,24 +589,24 @@ files into your Pachyderm cluster.
 					retErr = err
 				}
 			}()
-			for _, filePath := range filePaths {
+			for _, source := range sources {
 				if len(args) == 2 {
-					// The user has not specific a path so we use filePath as path.
-					if filePath == "-" {
+					// The user has not specific a path so we use source as path.
+					if source == "-" {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, args[0], args[1], joinPaths("", filePath), filePath, recursive)
+						return putFileHelper(client, args[0], args[1], joinPaths("", source), source, recursive)
 					})
-				} else if len(filePaths) == 1 && len(args) == 3 {
-					// We have a single filePath and the user has specified a path,
-					// we use the path and ignore filePath (in terms of naming the file).
-					eg.Go(func() error { return putFileHelper(client, args[0], args[1], args[2], filePath, recursive) })
-				} else if len(filePaths) > 1 && len(args) == 3 {
-					// We have multiple filePaths and the user has specified a path,
+				} else if len(sources) == 1 && len(args) == 3 {
+					// We have a single source and the user has specified a path,
+					// we use the path and ignore source (in terms of naming the file).
+					eg.Go(func() error { return putFileHelper(client, args[0], args[1], args[2], source, recursive) })
+				} else if len(sources) > 1 && len(args) == 3 {
+					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, args[0], args[1], joinPaths(args[2], filePath), filePath, recursive)
+						return putFileHelper(client, args[0], args[1], joinPaths(args[2], source), source, recursive)
 					})
 				}
 			}
