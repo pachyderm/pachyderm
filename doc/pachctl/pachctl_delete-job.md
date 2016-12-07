@@ -1,20 +1,14 @@
-## ./pachctl inspect-job
+## ./pachctl delete-job
 
-Return info about a job.
+Delete a job.
 
 ### Synopsis
 
 
-Return info about a job.
+Delete a job.
 
 ```
-./pachctl inspect-job job-id
-```
-
-### Options
-
-```
-  -b, --block   block until the job has either succeeded or failed
+./pachctl delete-job job-id
 ```
 
 ### Options inherited from parent commands
