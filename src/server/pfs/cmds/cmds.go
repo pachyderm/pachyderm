@@ -18,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
@@ -526,20 +527,46 @@ files into your Pachyderm cluster.
 			if err != nil {
 				return err
 			}
+			repoName := args[0]
+			commitID := args[1]
+			var path string
+			if len(args) == 3 {
+				path = args[2]
+			}
 			if commitFlag {
-				commit, err := client.StartCommit(args[0], args[1])
+				// We start a commit on a UUID branch and merge the commit
+				// back to the main branch if PutFile was successful.
+				//
+				// The reason we do that is that we don't want to create a cancelled
+				// commit on the main branch, which can cause future commits to be
+				// cancelled as well.
+				tmpCommit, err := client.StartCommit(repoName, uuid.NewWithoutDashes())
 				if err != nil {
 					return err
 				}
+				// Archiving the commit because we don't want this temporary commit
+				// to trigger downstream pipelines.
+				if err := client.ArchiveCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
+					return err
+				}
+
+				// PutFile should be operating on this temporary commit
+				commitID = tmpCommit.ID
 				defer func() {
 					if retErr != nil {
 						// something errored so we try to cancel the commit
-						if err := client.CancelCommit(commit.Repo.Name, commit.ID); err != nil {
+						if err := client.CancelCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							fmt.Printf("Error cancelling commit: %s", err.Error())
 						}
 					} else {
-						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+						if err := client.FinishCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							retErr = err
+							return
+						}
+						// replay the temp commit onto the main branch
+						if _, err := client.ReplayCommit(repoName, []string{tmpCommit.ID}, args[1]); err != nil {
+							retErr = err
+							return
 						}
 					}
 				}()
@@ -595,17 +622,17 @@ files into your Pachyderm cluster.
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, args[0], args[1], joinPaths("", source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
-					eg.Go(func() error { return putFileHelper(client, args[0], args[1], args[2], source, recursive) })
+					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive) })
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, args[0], args[1], joinPaths(args[2], source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive)
 					})
 				}
 			}
