@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -79,6 +81,8 @@ func testJob(t *testing.T, shards int) {
 			Method: client.ReduceMethod,
 		}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -156,6 +160,8 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 			},
 		},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -286,6 +292,8 @@ func TestLogs(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -333,6 +341,8 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	job2, err := c.CreateJob(
@@ -345,6 +355,8 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -381,6 +393,8 @@ func TestJobLongOutputLine(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -2268,6 +2282,8 @@ func TestFailedJobReadData(t *testing.T) {
 			},
 		},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -2601,6 +2617,8 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2616,6 +2634,8 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2687,7 +2707,16 @@ func TestScrubbedErrors(t *testing.T) {
 	)
 	require.Equal(t, "repo test not found", err.Error())
 
-	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"askjdfhgsdflkjh",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	_, err = c.InspectJob("blah", true)
@@ -2719,7 +2748,16 @@ func TestLeakingRepo(t *testing.T) {
 	require.NoError(t, err)
 	initialCount := len(repoInfos)
 
-	_, err = c.CreateJob("bogusImage", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"bogusImage",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	repoInfos, err = c.ListRepo(nil)
@@ -3763,6 +3801,158 @@ func TestCleanPath(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.InspectFile(repo, "master", "file", "", false, nil)
 	require.NoError(t, err)
+}
+
+func TestInvalidSimpleService(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	// Only specifying an external port should error
+	_, err = c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+	// Using anything but parallelism 1 should error
+	_, err = c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(2),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+}
+
+func TestSimpleService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	job, err := c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		30003,
+		30004,
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: false,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel() //cleanup resources
+	var runningJobInfo *ppsclient.JobInfo
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 120 * time.Second
+	backoff.RetryNotify(func() error {
+		jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != ppsclient.JobState_JOB_RUNNING {
+			return fmt.Errorf("job state is not 'running': %v", jobInfo.State.String())
+		}
+		runningJobInfo = jobInfo
+		return nil
+	}, b, func(err error, d time.Duration) {
+		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
+	})
+	require.NotNil(t, runningJobInfo)
+	require.NotNil(t, runningJobInfo.Started)
+	require.Nil(t, runningJobInfo.Finished)
+	// Hit the service via the node port
+	// We need to backoff here as well
+	// Since the job 'RUNNING' doesn't seem to guarantee that the transform command has been run
+	var result string
+	b = backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 120 * time.Second
+	backoff.RetryNotify(func() error {
+		errCh := make(chan error, 1)
+		go func() {
+			output, err := exec.Command("nc", "localhost", "30004").Output()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			result = string(output)
+		}()
+
+		select {
+		case err := <-errCh:
+			return err
+		case <-time.After(time.Second * 5):
+			if result == "" {
+				return fmt.Errorf("netcat command timed out")
+			}
+		}
+		return nil
+	}, b, func(err error, d time.Duration) {
+		fmt.Errorf("error running netcat command: %v; retrying in %v", err, d)
+	})
+	require.NoError(t, err)
+	require.Equal(t, "hai\n", result)
 }
 
 func TestLazyPipeline(t *testing.T) {
