@@ -33,6 +33,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     deployment/pipeline_spec
     deployment/getting_your_results
     deployment/updating_pipelines
+    deployment/serving_data_from_pachyderm
 
 .. toctree::
     :maxdepth: 1

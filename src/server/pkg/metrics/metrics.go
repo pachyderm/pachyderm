@@ -79,7 +79,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 		// metadata API downcases all the key names
 		userID, err := getKeyFromMD(md, "userid")
 		if err != nil {
-			lion.Errorln(err)
+			// The FUSE client will never have a userID, so normal usage will produce a lot of these errors
 			return
 		}
 		prefix, err := getKeyFromMD(md, "prefix")

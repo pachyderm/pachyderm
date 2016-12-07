@@ -51,7 +51,8 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			continue
 		}
 		g.Go(func() error {
-			return sync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name), commitMount.Commit, commitMount.DiffMethod, commitMount.Shard)
+			return sync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
+				commitMount.Commit, commitMount.DiffMethod, commitMount.Shard, commitMount.Lazy)
 		})
 	}
 	return g.Wait()
@@ -99,18 +100,25 @@ func do(appEnvObj interface{}) error {
 						},
 					)
 					if err != nil {
-						lion.Errorf("error from ContinuePod: %s", err.Error())
+						lion.Errorf("error from ContinuePod: %s; restarting...", err.Error())
 					}
-					if res != nil && res.Exit {
+					if res != nil && res.Restart {
+						lion.Errorf("chunk was revoked. restarting...")
+					}
+					if err != nil || res != nil && res.Restart {
 						select {
 						case exitCh <- struct{}{}:
 							// If someone received this signal, then they are
 							// responsible to exiting the program and release
 							// all resources.
+							lion.Errorf("releasing resources...")
 							return
 						default:
 							// Otherwise, we just terminate the program.
-							os.Exit(0)
+							// We use a non-zero exit code so k8s knows to create
+							// a new pod.
+							lion.Errorf("terminating...")
+							os.Exit(1)
 						}
 					}
 				}
@@ -126,7 +134,7 @@ func do(appEnvObj interface{}) error {
 			// Make sure that we call FinishPod even if something caused a panic
 			defer func() {
 				if r := recover(); r != nil && !finished {
-					fmt.Println("job shim crashed; this is like a bug in pachyderm")
+					lion.Errorf("job shim crashed; this is like a bug in pachyderm")
 					if _, err := ppsClient.FinishPod(
 						context.Background(),
 						&ppsserver.FinishPodRequest{
@@ -184,8 +192,19 @@ func do(appEnvObj interface{}) error {
 					return err
 				}
 				defer func() {
-					if err := mounter.Unmount(FUSEMountPoint); err != nil && retErr == nil {
-						retErr = err
+					errCh := make(chan error)
+					go func() {
+						if err := mounter.Unmount(FUSEMountPoint); err != nil {
+							errCh <- err
+						}
+					}()
+					select {
+					case err := <-errCh:
+						if err != nil && retErr == nil {
+							retErr = err
+						}
+					case <-time.After(time.Duration(10 * time.Second)):
+						lion.Errorf("unable to unmount FUSE")
 					}
 				}()
 
@@ -195,7 +214,7 @@ func do(appEnvObj interface{}) error {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
 			if len(response.Transform.Cmd) == 0 {
-				fmt.Println("unable to run; a cmd needs to be provided")
+				lion.Errorf("unable to run; a cmd needs to be provided")
 				if _, err := ppsClient.FinishPod(
 					context.Background(),
 					&ppsserver.FinishPodRequest{
@@ -238,7 +257,8 @@ func do(appEnvObj interface{}) error {
 			var success bool
 			select {
 			case <-exitCh:
-				return nil
+				// Returning an error to ensure that this pod will be restarted
+				return errors.New("")
 			case success = <-cmdCh:
 			}
 			var outputMount *fuse.CommitMount
@@ -249,7 +269,7 @@ func do(appEnvObj interface{}) error {
 				}
 			}
 			if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
-				fmt.Printf("err from uploading output: %s\n", err)
+				lion.Errorf("err from uploading output: %s\n", err)
 				success = false
 			}
 
@@ -265,7 +285,7 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			finished = true
-			if res.Fail {
+			if res.Restart {
 				return errors.New("restarting")
 			}
 			return nil

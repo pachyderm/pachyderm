@@ -173,10 +173,11 @@ pachd               1.2.4
 
 ### Deploy Kubernetes
 
-The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/). The script defaults to using 1 m3.medium instance and 3 t2.micros. t2.micros can have significant network and cpu problems so we suggest using all m3.mediums or larger. Before running kube-up.sh make sure to set:
+The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/). The script defaults to using one m3.medium instance and three t2.micros. These instances can have network, cpu, and disc space problems so we suggest using all m3.large or larger. Before running kube-up.sh make sure to set:
 
 ```
-export NODE_SIZE=m3.medium
+export NODE_SIZE=m3.large
+export MASTER_SIZE=m3.large
 
 # You can also easily change the number of nodes
 export NUM_NODES=2
