@@ -1,0 +1,71 @@
+package server
+
+import (
+	"fmt"
+
+	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/dancannon/gorethink"
+	"go.pedge.io/lion"
+	"go.pedge.io/pb/go/google/protobuf"
+)
+
+type migrationFunc func(address string, databaseName string) error
+
+var (
+	migrationMap = map[string]migrationFunc{
+		"1.2.4-1.3.0": oneTwoFourToOneThreeZero,
+	}
+)
+
+func Migrarte(address, databaseName, migrationKey string) error {
+	migrate, ok := migrationMap[migrationKey]
+	if !ok {
+		return fmt.Errorf("migration %s is not supported", migrationKey)
+	}
+	return migrate(address, databaseName)
+}
+
+// 1.2.4 -> 1.3.0
+func oneTwoFourToOneThreeZero(address, databaseName string) error {
+	session, err := connect(address)
+	if err != nil {
+		return err
+	}
+	lion.Infof("Creating %s index", pipelineNameAndStateAndGCIndex)
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		pipelineNameAndStateAndGCIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("PipelineName"),
+				row.Field("State"),
+				row.Field("Gc"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
+
+	lion.Infof("Adding default GC policy to all pipelines")
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).Update(map[string]interface{}{
+		"GcPolicy": &pps.GCPolicy{
+			Success: &google_protobuf.Duration{
+				Seconds: 24 * 60 * 60,
+			},
+			Failure: &google_protobuf.Duration{
+				Seconds: 7 * 24 * 60 * 60,
+			},
+		},
+	}).Run(session); err != nil {
+		return err
+	}
+
+	lion.Infof("Adding GC flag to all jobs")
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).Update(map[string]interface{}{
+		"Gc": false,
+	}).Run(session); err != nil {
+		return err
+	}
+
+	lion.Infof("Migration succeeded")
+	return nil
+}
