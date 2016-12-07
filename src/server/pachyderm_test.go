@@ -3922,6 +3922,10 @@ func TestSimpleService(t *testing.T) {
 	require.NotNil(t, runningJobInfo)
 	require.NotNil(t, runningJobInfo.Started)
 	require.Nil(t, runningJobInfo.Finished)
+	require.NotNil(t, runningJobInfo.Service)
+	require.Equal(t, int32(30003), runningJobInfo.Service.InternalPort)
+	require.Equal(t, int32(30004), runningJobInfo.Service.ExternalPort)
+
 	// Hit the service via the node port
 	// We need to backoff here as well
 	// Since the job 'RUNNING' doesn't seem to guarantee that the transform command has been run
