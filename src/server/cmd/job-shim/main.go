@@ -111,13 +111,13 @@ func do(appEnvObj interface{}) error {
 							// If someone received this signal, then they are
 							// responsible to exiting the program and release
 							// all resources.
-							fmt.Println("releasing resources...")
+							lion.Errorf("releasing resources...")
 							return
 						default:
 							// Otherwise, we just terminate the program.
 							// We use a non-zero exit code so k8s knows to create
 							// a new pod.
-							fmt.Println("terminating...")
+							lion.Errorf("terminating...")
 							os.Exit(1)
 						}
 					}
@@ -134,7 +134,7 @@ func do(appEnvObj interface{}) error {
 			// Make sure that we call FinishPod even if something caused a panic
 			defer func() {
 				if r := recover(); r != nil && !finished {
-					fmt.Println("job shim crashed; this is like a bug in pachyderm")
+					lion.Errorf("job shim crashed; this is like a bug in pachyderm")
 					if _, err := ppsClient.FinishPod(
 						context.Background(),
 						&ppsserver.FinishPodRequest{
@@ -204,7 +204,7 @@ func do(appEnvObj interface{}) error {
 							retErr = err
 						}
 					case <-time.After(time.Duration(10 * time.Second)):
-						fmt.Println("unable to unmount FUSE")
+						lion.Errorf("unable to unmount FUSE")
 					}
 				}()
 
@@ -214,7 +214,7 @@ func do(appEnvObj interface{}) error {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
 			if len(response.Transform.Cmd) == 0 {
-				fmt.Println("unable to run; a cmd needs to be provided")
+				lion.Errorf("unable to run; a cmd needs to be provided")
 				if _, err := ppsClient.FinishPod(
 					context.Background(),
 					&ppsserver.FinishPodRequest{
@@ -269,7 +269,7 @@ func do(appEnvObj interface{}) error {
 				}
 			}
 			if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
-				fmt.Printf("err from uploading output: %s\n", err)
+				lion.Errorf("err from uploading output: %s\n", err)
 				success = false
 			}
 
