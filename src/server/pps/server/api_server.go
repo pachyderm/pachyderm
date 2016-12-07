@@ -732,7 +732,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 		return nil, err
 	}
 	if jobInfo.PipelineName != "" {
-		return nil, fmt.Error("cannot delete job (%v) that belongs to a pipeline (%v)", request.Job.ID, jobInfo.PipelineName)
+		return nil, fmt.Errorf("cannot delete job (%v) that belongs to a pipeline (%v)", request.Job.ID, jobInfo.PipelineName)
 	}
 	if err := a.deleteJob(ctx, jobInfo); err != nil {
 		return nil, err
