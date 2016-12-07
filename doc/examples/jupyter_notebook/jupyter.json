@@ -4,7 +4,7 @@
     "external_port": 30888
   },
   "transform": {
-    "image": "pachyderm_jupyter",
+    "image": "dwhitena/pachyderm_jupyter",
     "cmd": [ "sh" ],
     "stdin": [
 		"/opt/conda/bin/jupyter notebook"
@@ -18,9 +18,25 @@
     {
       "commit": {
         "repo": {
-            "name": "foo"
+            "name": "trips"
         },
-        "id": "master/0"
+        "id": "master/30"
+      }
+    },
+    {
+      "commit": {
+        "repo": {
+            "name": "weather"
+        },
+        "id": "master/30"
+      }
+    },
+    {
+      "commit": {
+        "repo": {
+            "name": "sales"
+        },
+        "id": "85d1af7fdc4e4f769189f9bc19e3e6e6/0"
       }
     }
   ]

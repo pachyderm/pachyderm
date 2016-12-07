@@ -1,13 +1,19 @@
 build:
 	docker build -t pachyderm_jupyter .
 
-launch: build
+prep: build
 	pachctl version
-	pachctl create-repo foo
-	echo 'hai' | pachctl put-file foo master -c file
+	./citibike_data/load.sh
+	./weather_data/load.sh
+	pachctl create-pipeline -f ./sales_data/pipeline.json
+	pachctl create-job -f jupyter.json
+
+launch-jupyter:
 	pachctl create-job -f jupyter.json
 
 clean-launch:
-	pachctl delete-repo foo
+	pachctl delete-repo trips
+	pachctl delete-repo weather
+	pachctl delete-repo sales
 
 
