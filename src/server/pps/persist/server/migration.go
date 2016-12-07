@@ -18,6 +18,7 @@ var (
 	}
 )
 
+// Migrate updates the database schema only in the forward direction
 func Migrate(address, databaseName, migrationKey string) error {
 	migrate, ok := migrationMap[migrationKey]
 	if !ok {
