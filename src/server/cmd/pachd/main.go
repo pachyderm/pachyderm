@@ -52,7 +52,7 @@ func init() {
 type appEnv struct {
 	Port               uint16 `env:"PORT,default=650"`
 	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot        string `env:"PACH_ROOT,required"`
+	StorageRoot        string `env:"PACH_ROOT,default=/pach`
 	StorageBackend     string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress    string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
