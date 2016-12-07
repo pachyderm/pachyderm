@@ -22,6 +22,21 @@ As part of a pipeline, you need to specify a Docker image including the code you
 
 Unless Pachyderm is running on the same Docker host that you used to build your image you'll need to use a registry to get your image into the cluster.  Please refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/#/push-an-image-to-docker-hub) for pushing images to Docker Hub.
 
+### Reusing the minikube Docker daemon
+
+If you're running Pachyderm locally in minikube, its really handy to reuse the Docker daemon inside the VM; as this means you don't have to build on your host machine and push the image into a docker registry - you can just build inside the same docker daemon as minikube which speeds up local experiments.
+
+To be able to work with the docker daemon on your mac/linux host use the docker-env command in your shell:
+
+```
+$ eval $(minikube docker-env)
+```
+you should now be able to use docker on the command line on your host mac/linux machine talking to the docker daemon inside the minikube VM:
+
+```
+$ docker ps
+```
+
 ## Creating a Pipeline
 
 Now that you've got your code and image built, the final step is to add a pipeline manifest to Pachyderm. Pachdyerm pipelines are described using a JSON file. There are four main components to a pipeline: name, transform, parallelism and inputs. Detailed explanations of parameters and how they work can be found in the [pipeline_spec](./pipeline_spec.html). 

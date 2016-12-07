@@ -126,6 +126,9 @@ docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim dock
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
 
+docker-build-netcat:
+	docker build -t pachyderm_netcat etc/netcat
+
 check-kubectl:
 	# check that kubectl is installed
 	which kubectl
@@ -217,7 +220,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build clean-launch-dev launch-dev integration-tests example-tests
+test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
 bench:
 	go test ./src/server -run=XXX -bench=.
