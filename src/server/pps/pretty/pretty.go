@@ -67,7 +67,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 
 // PrintJobInputHeader pretty prints a job input header.
 func PrintJobInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\t\n")
+	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\tLAZY\t\n")
 }
 
 // PrintJobInput pretty-prints a job input.
@@ -75,19 +75,21 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
 	fmt.Fprintf(w, "%s\t", jobInput.Method.Partition)
-	fmt.Fprintf(w, "%s\t\n", jobInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t", jobInput.Method.Incremental)
+	fmt.Fprintf(w, "%t\t\n", jobInput.Lazy)
 }
 
 // PrintPipelineInputHeader prints a pipeline input header.
 func PrintPipelineInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
+	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\tLAZY\t\n")
 }
 
 // PrintPipelineInput pretty-prints a pipeline input.
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
-	fmt.Fprintf(w, "%s\t\n", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%t\t\n", pipelineInput.Lazy)
 }
 
 // PrintJobCountsHeader prints a job counts header.
@@ -107,6 +109,9 @@ Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
 ParallelismSpec: {{.ParallelismSpec}}
+{{ if .Service }}Service:
+	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
+	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}

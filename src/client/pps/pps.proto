@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 import "client/pfs/pfs.proto";
 
@@ -42,6 +43,11 @@ enum JobState {
   JOB_EMPTY = 4;
 }
 
+message Service {
+  int32 internal_port = 1;
+  int32 external_port = 2;
+};
+
 enum Partition {
   BLOCK = 0;
   FILE = 1;
@@ -65,6 +71,7 @@ message JobInput {
   // This flag specifies whether the pipeline should be triggered
   // when this input gets an empty commit.
   bool run_empty = 3;
+  bool lazy = 4;
 }
 
 message ParallelismSpec {
@@ -111,6 +118,7 @@ message JobInfo {
   pfs.Commit output_commit = 9;
   JobState state = 10;
   repeated Chunk chunks = 11;
+  Service service = 14;
 }
 
 enum ChunkState {
@@ -153,6 +161,7 @@ message PipelineInput {
   // This flag specifies whether the pipeline should be triggered
   // when this input gets an empty commit.
   bool run_empty = 3;
+  bool lazy = 4;
 }
 
 enum PipelineState {
@@ -173,6 +182,16 @@ enum PipelineState {
     PIPELINE_STOPPED = 4;
 }
 
+// GCPolicy describes when jobs can be garbage-collected.
+message GCPolicy {
+  // The amount of time that needs to pass before a successful job
+  // can be GC-ed.
+  google.protobuf.Duration success = 1;
+  // The amount of time that needs to pass before a failed job
+  // can be GC-ed.
+  google.protobuf.Duration failure = 2;
+}
+
 message PipelineInfo {
   reserved 3;
   Pipeline pipeline = 1;
@@ -185,6 +204,7 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
+  GCPolicy gc_policy = 12;
 }
 
 message PipelineInfos {
@@ -199,6 +219,9 @@ message CreateJobRequest {
   repeated JobInput inputs = 4;
   Job parent_job = 5;
   bool force = 6;
+  // When service is defined, we create a long running job
+  // by using a k8s RC and Service instead of a k8s Job
+  Service service = 8;
 }
 
 message InspectJobRequest {
@@ -209,6 +232,10 @@ message InspectJobRequest {
 message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
   repeated pfs.Commit input_commit = 2; // nil means all inputs
+}
+
+message DeleteJobRequest {
+  Job job = 1;
 }
 
 message GetLogsRequest {
@@ -223,6 +250,7 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
+  GCPolicy gc_policy = 8;
 }
 
 message InspectPipelineRequest {
@@ -248,6 +276,7 @@ service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
+  rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc GetLogs(GetLogsRequest) returns (stream google.protobuf.BytesValue) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
