@@ -294,6 +294,22 @@ Examples:
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 
+	deleteJob := &cobra.Command{
+		Use:   "delete-job job-id",
+		Short: "Delete a job.",
+		Long:  "Delete a job.",
+		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteJob(args[0]); err != nil {
+				pkgcmd.ErrorAndExit("error from DeleteJob: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
 	getLogs := &cobra.Command{
 		Use:   "get-logs job-id",
 		Short: "Return logs from a job.",
@@ -570,6 +586,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, getLogs)
 	result = append(result, listJob)
+	result = append(result, deleteJob)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
 	result = append(result, updatePipeline)

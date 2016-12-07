@@ -717,6 +717,10 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
 	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
 		Job: request.Job,
 	})
@@ -2272,17 +2276,17 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 	return podList.Items, nil
 }
 
-func (a *apiServer) deleteJob(ctx context.Context, jobInfo *ppsclient.JobInfo) error {
+func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) error {
 
 	if jobInfo.Service != nil {
-		if _, err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-			return nil, err
+		if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			return err
 		}
-		if _, err := a.kubeClient.Services(a.namespace).Delete(serviceName(jobInfo.JobID)); err != nil {
-			return nil, err
+		if err := a.kubeClient.Services(a.namespace).Delete(serviceName(jobInfo.JobID)); err != nil {
+			return err
 		}
 	} else {
-		if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+		if err := a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
 			// we don't return on failure here because jobs may get deleted
 			// through other means and we don't want that to prevent users from
 			// deleting pipelines.
@@ -2290,7 +2294,7 @@ func (a *apiServer) deleteJob(ctx context.Context, jobInfo *ppsclient.JobInfo) e
 		}
 		pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 		for _, pod := range pods {
-			if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+			if err := a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
 				// we don't return on failure here because pods may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
@@ -2301,8 +2305,12 @@ func (a *apiServer) deleteJob(ctx context.Context, jobInfo *ppsclient.JobInfo) e
 			return jobPodsErr
 		}
 	}
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
 	// Remove the chunks for this job
-	_, err := persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
+	_, err = persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
 		ID: jobInfo.JobID,
 	})
 	return err
@@ -2329,7 +2337,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		eg.Go(func() error { return deleteJob(jobInfo) })
+		eg.Go(func() error { return a.deleteJob(ctx, jobInfo) })
 	}
 	if err := eg.Wait(); err != nil {
 		return err
