@@ -2279,7 +2279,11 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) error {
 
 	if jobInfo.Service != nil {
-		if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+		falseVal := false
+		deleteOptions := &api.DeleteOptions{
+			OrphanDependents: &falseVal,
+		}
+		if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, deleteOptions); err != nil {
 			return err
 		}
 		if err := a.kubeClient.Services(a.namespace).Delete(serviceName(jobInfo.JobID)); err != nil {
