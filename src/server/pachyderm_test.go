@@ -655,6 +655,67 @@ func TestPipelineTwoBranches(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
+// TestPipelineForkedInput tracks issue 1163
+func TestPipelineForkedInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineForkedInput_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+	// Make two commits on branch foo
+	_, err := c.StartCommit(dataRepo, "foo")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "foo", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "foo"))
+	_, err = c.StartCommit(dataRepo, "foo")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "foo", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "foo"))
+
+	commits, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, "foo")}, nil)
+	require.Equal(t, 2, len(commits))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(outRepo.Name, commits[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+
+	// Fork foo/0 to another branch
+	_, err = c.ForkCommit(dataRepo, "foo/0", "bar")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "bar", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "bar"))
+
+	commits, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, "bar")}, nil)
+	require.Equal(t, 2, len(commits))
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outRepo.Name, commits[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\nbar\n", buffer.String())
+}
+
 func TestPipelineTransientFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
