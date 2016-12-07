@@ -41,16 +41,18 @@ import (
 )
 
 var readinessCheck bool
+var migrate string
 
 func init() {
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
+	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
 }
 
 type appEnv struct {
 	Port               uint16 `env:"PORT,default=650"`
 	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot        string `env:"PACH_ROOT,required"`
+	StorageRoot        string `env:"PACH_ROOT,default=/pach`
 	StorageBackend     string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress    string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
@@ -118,6 +120,9 @@ func do(appEnvObj interface{}) error {
 		os.Exit(0)
 
 		return nil
+	}
+	if migrate != "" {
+		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
 	}
 
 	clusterID, err := getClusterID(etcdClient)
