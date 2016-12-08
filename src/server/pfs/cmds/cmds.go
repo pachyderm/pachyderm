@@ -611,6 +611,7 @@ files into your Pachyderm cluster.
 			}
 			var eg errgroup.Group
 			for _, source := range sources {
+				source := source
 				if len(args) == 2 {
 					// The user has not specific a path so we use source as path.
 					if source == "-" {
