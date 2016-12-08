@@ -214,7 +214,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
 	createJob.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	createJob.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
+	createJob.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createJob.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
@@ -379,7 +379,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	createPipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
+	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
@@ -426,7 +426,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "", "The registry to push images to, defaults DockerHub.")
+	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
@@ -691,10 +691,7 @@ func pushImage(registry string, username string, password string, image string) 
 		}
 		username = user.Username
 	}
-	pushRepo := fmt.Sprintf("%s/%s", username, name)
-	if registry != "" {
-		pushRepo = fmt.Sprintf("%s/%s/%s", registry, username, name)
-	}
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
 	pushTag := uuid.NewWithoutDashes()
 	if err := client.TagImage(image, docker.TagImageOptions{
 		Repo:    pushRepo,
@@ -703,17 +700,31 @@ func pushImage(registry string, username string, password string, image string) 
 	}); err != nil {
 		return "", err
 	}
+	var authConfig docker.AuthConfiguration
+	if password != "" {
+		authConfig = docker.AuthConfiguration{ServerAddress: registry}
+		authConfig.Username = username
+		authConfig.Password = password
+	} else {
+		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
+		if err != nil {
+			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+		}
+		for _, _authConfig := range authConfigs.Configs {
+			serverAddress := _authConfig.ServerAddress
+			if strings.Contains(serverAddress, registry) {
+				authConfig = _authConfig
+				break
+			}
+		}
+	}
 	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
 	if err := client.PushImage(
 		docker.PushImageOptions{
 			Name: pushRepo,
 			Tag:  pushTag,
 		},
-		docker.AuthConfiguration{
-			ServerAddress: registry,
-			Username:      username,
-			Password:      password,
-		},
+		authConfig,
 	); err != nil {
 		return "", err
 	}
