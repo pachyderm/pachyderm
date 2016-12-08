@@ -1719,11 +1719,6 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 					if err != nil {
 						return err
 					}
-					if parentJob == nil {
-						// This happens if the parent job was not run due to reasons
-						// such as the parent's input commits got cancelled.
-						continue
-					}
 				}
 				_, err = a.CreateJob(
 					ctx,
