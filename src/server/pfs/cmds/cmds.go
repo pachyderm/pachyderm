@@ -610,11 +610,6 @@ files into your Pachyderm cluster.
 				sources = filePaths
 			}
 			var eg errgroup.Group
-			defer func() {
-				if err := eg.Wait(); retErr == nil && err != nil {
-					retErr = err
-				}
-			}()
 			for _, source := range sources {
 				if len(args) == 2 {
 					// The user has not specific a path so we use source as path.
@@ -636,7 +631,7 @@ files into your Pachyderm cluster.
 					})
 				}
 			}
-			return nil
+			return eg.Wait()
 		}),
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
