@@ -152,7 +152,7 @@ Finally, we need to set up forward a port so that pachctl can talk to the cluste
 
 ```sh
 # Forward the ports. We background this process because it blocks.
-$ pachctl portforward &
+$ pachctl port-forward &
 ```
 
 And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
