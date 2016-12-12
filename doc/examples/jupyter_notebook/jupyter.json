@@ -1,0 +1,43 @@
+{
+  "service" : {
+    "internal_port": 8888,
+    "external_port": 30888
+  },
+  "transform": {
+    "image": "pachyderm_jupyter",
+    "cmd": [ "sh" ],
+    "stdin": [
+		"/opt/conda/bin/jupyter notebook"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "inputs": [
+    {
+      "commit": {
+        "repo": {
+            "name": "trips"
+        },
+        "id": "master/30"
+      }
+    },
+    {
+      "commit": {
+        "repo": {
+            "name": "weather"
+        },
+        "id": "master/30"
+      }
+    },
+    {
+      "commit": {
+        "repo": {
+            "name": "sales"
+        },
+        "id": "<output-commitid>/0"
+      }
+    }
+  ]
+}
