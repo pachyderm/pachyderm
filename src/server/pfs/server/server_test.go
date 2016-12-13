@@ -1292,6 +1292,54 @@ func TestFlush(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestFlush2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	require.NoError(t, client.CreateRepo("B"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("A"), pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+
+	ACommit, err := client.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	BCommit, err := client.StartCommit("B", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	CCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit("C", "master"),
+			Provenance: []*pfs.Commit{ACommit, BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+
+	BCommit, err = client.StartCommit("B", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	CCommit, err = client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit("C", "master"),
+			Provenance: []*pfs.Commit{ACommit, BCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+
+	commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	require.Equal(t, commitInfos[2].Commit.Repo.Name, "C")
+	require.Equal(t, commitInfos[2].Commit.ID, "master/1")
+}
+
 func TestFlushCommitReturnsFromCommit(t *testing.T) {
 	t.Parallel()
 	c := getClient(t)
