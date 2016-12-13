@@ -730,9 +730,9 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 
 // WriteRethinkVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
-func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) {
+func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
 	if backend != localBackend && len(names) < shards {
-		panic(fmt.Errorf("Could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names)))
+		return fmt.Errorf("Could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	for i := 0; i < shards; i++ {
@@ -787,11 +787,12 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 				},
 			}
 		default:
-			panic(fmt.Sprintf("Cannot generate volume spec for unknown backend \"%v\".", backend))
+			return fmt.Errorf("Cannot generate volume spec for unknown backend \"%v\"", backend)
 		}
 		spec.CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
+	return nil
 }
 
 // RethinkVolumeClaim creates a persistent volume claim with a size in gigabytes.
@@ -836,13 +837,16 @@ type AssetOpts struct {
 
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
-	volumeNames []string, volumeSize int, hostPath string) {
+	volumeNames []string, volumeSize int, hostPath string) error {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	WriteRethinkVolumes(w, backend, int(opts.Shards), hostPath, volumeNames, volumeSize)
+	err := WriteRethinkVolumes(w, backend, int(opts.Shards), hostPath, volumeNames, volumeSize)
+	if err != nil {
+		return err
+	}
 
 	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -853,7 +857,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	fmt.Fprintf(w, "\n")
 	if opts.DeployRethinkAsRc {
 		if backend != localBackend && len(volumeNames) != 1 {
-			panic(fmt.Sprintf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames)))
+			return fmt.Errorf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames))
 		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		volumeName := ""
@@ -875,36 +879,49 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(opts.Shards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) {
-	WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
+func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
+	return WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
-	token string, region string, volumeNames []string, volumeSize int) {
-	WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, "")
+	token string, region string, volumeNames []string, volumeSize int) error {
+	err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, "")
+	if err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) {
-	WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, "")
+func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) error {
+	err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, "")
+	if err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) {
-	WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, "")
+func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) error {
+	err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, "")
+	if err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 func labels(name string) map[string]string {

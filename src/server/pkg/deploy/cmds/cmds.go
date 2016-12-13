@@ -57,7 +57,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if dev {
 				opts.Version = deploy.DevVersionTag
 			}
-			assets.WriteLocalAssets(manifest, opts, hostPath)
+			err := assets.WriteLocalAssets(manifest, opts, hostPath)
+			if err != nil {
+				return err
+			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
@@ -86,7 +89,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			manifest := &bytes.Buffer{}
-			assets.WriteGoogleAssets(manifest, opts, args[0], volumeNames, volumeSize)
+			err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeNames, volumeSize)
+			if err != nil {
+				return err
+			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
@@ -111,8 +117,11 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[6])
 			}
 			manifest := &bytes.Buffer{}
-			assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3],
+			err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3],
 				args[4], volumeNames, volumeSize)
+			if err != nil {
+				return err
+			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
@@ -145,7 +154,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[4])
 			}
 			manifest := &bytes.Buffer{}
-			assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeURIs, volumeSize)
+			err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeURIs, volumeSize)
+			if err != nil {
+				return err
+			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
