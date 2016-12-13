@@ -936,14 +936,28 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 }
 
 func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
 	repoSet1 := make(map[string]bool)
+	repoToProvenance := make(map[string][]*persist.ProvenanceCommit)
 	for _, commit := range fromCommits {
 		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
 		if err != nil {
 			return nil, err
 		}
+		rawCommit, err := d.getRawCommit(commit)
+		if err != nil {
+			return nil, err
+		}
+		// always include fromCommits themselves in the result
+		result = append(result, d.rawCommitToCommitInfo(rawCommit))
 		for _, repoInfo := range repoInfos {
 			repoSet1[repoInfo.Repo.Name] = true
+			repoToProvenance[repoInfo.Repo.Name] = append(repoToProvenance[repoInfo.Repo.Name], &persist.ProvenanceCommit{
+				Repo: commit.Repo.Name,
+				// We can't just use commit.ID directly because it might be a
+				// branch name instead of a commitID
+				ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
+			})
 		}
 	}
 
@@ -967,38 +981,22 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
-	var result []*pfs.CommitInfo
-	// The commit IDs of the provenance commits
-	var provenanceIDs []interface{}
-	for _, commit := range fromCommits {
-		rawCommit, err := d.getRawCommit(commit)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, d.rawCommitToCommitInfo(rawCommit))
-		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
-			Repo: commit.Repo.Name,
-			// We can't just use commit.ID directly because it might be a
-			// branch name instead of a commitID
-			ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
-		})
+	var queries []interface{}
+	for _, repo := range repos {
+		queries = append(queries, d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+			provenance := repoToProvenance[repo]
+			return gorethink.And(
+				commit.Field("Archived").Eq(false),
+				commit.Field("Finished").Ne(nil),
+				commit.Field("Provenance").SetDifference(provenance).Count().Eq(0),
+				commit.Field("Repo").Eq(repo),
+			)
+		}))
 	}
 
-	if len(provenanceIDs) == 0 {
-		return nil, nil
-	}
-
-	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
-		return gorethink.And(
-			commit.Field("Archived").Eq(false),
-			commit.Field("Finished").Ne(nil),
-			commit.Field("Provenance").SetIntersection(provenanceIDs).Count().Ne(0),
-			gorethink.Expr(repos).Contains(commit.Field("Repo")),
-		)
-	}).Changes(gorethink.ChangesOpts{
+	query := gorethink.Union(queries...).Changes(gorethink.ChangesOpts{
 		IncludeInitial: true,
 	}).Field("new_val")
-
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
