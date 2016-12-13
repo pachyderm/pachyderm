@@ -156,6 +156,13 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 	return uint64(math.Max(result, 1)), nil
 }
 
+// onTheSameBranch tests if two commits are on the same branch.
+func onTheSameBranch(a, b *pfsclient.Commit) bool {
+	aParts := strings.Split(a.ID, "/")
+	bParts := strings.Split(b.ID, "/")
+	return aParts[0] == bParts[0]
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
@@ -280,6 +287,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	// We want to fork the output commit to a new branch if
+	// this job has a parent, but one or more of the input commits are not on
+	// the same branch as their corresponding parent input commits.
+	var fork bool
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	if parentJobInfo != nil {
 		if len(request.Inputs) != len(parentJobInfo.Inputs) {
@@ -288,26 +299,47 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		for i, jobInput := range request.Inputs {
 			if jobInput.Method.Incremental != ppsclient.Incremental_NONE {
 				repoToFromCommit[jobInput.Commit.Repo.Name] = parentJobInfo.Inputs[i].Commit
+				if !onTheSameBranch(jobInput.Commit, parentJobInfo.Inputs[i].Commit) {
+					fork = true
+				}
 			}
 		}
 	}
 
-	startCommitRequest := &pfsclient.StartCommitRequest{}
+	var outputCommit *pfsclient.Commit
+	var provenance []*pfsclient.Commit
 	for _, input := range request.Inputs {
-		startCommitRequest.Provenance = append(startCommitRequest.Provenance, input.Commit)
+		provenance = append(provenance, input.Commit)
 	}
-	startCommitRequest.Parent = &pfsclient.Commit{
+	parent := &pfsclient.Commit{
 		Repo: outputRepo,
 	}
-	if parentJobInfo != nil {
-		startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+	if fork {
+		forkCommitRequest := &pfsclient.ForkCommitRequest{
+			Provenance: provenance,
+			Parent:     parent,
+			Branch:     uuid.NewWithoutDashes(),
+		}
+		forkCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+		outputCommit, err = pfsAPIClient.ForkCommit(ctx, forkCommitRequest)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		// Without a parent, we start the commit on a random branch
-		startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
-	}
-	outputCommit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
-	if err != nil {
-		return nil, err
+		startCommitRequest := &pfsclient.StartCommitRequest{
+			Provenance: provenance,
+			Parent:     parent,
+		}
+		if parentJobInfo != nil {
+			startCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+		} else {
+			// Without a parent, we start the commit on a random branch
+			startCommitRequest.Parent.ID = uuid.NewWithoutDashes()
+		}
+		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO validate job to make sure input commits and output repo exist
@@ -320,6 +352,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Shard: a.hasher.HashJob(&ppsclient.Job{
 			ID: jobID,
 		}),
+		Service: request.Service,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
@@ -424,12 +457,25 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
-		return nil, err
+	if request.Service != nil {
+		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.Service.InternalPort, request.Service.ExternalPort)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
+			return nil, err
+		}
+	} else {
+		job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
+			return nil, err
+		}
 	}
 
 	return &ppsclient.Job{
@@ -698,6 +744,40 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	}, nil
 }
 
+func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *google_protobuf.Empty, err error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: request.Job,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.PipelineName != "" {
+		return nil, fmt.Errorf("cannot delete job (%v) that belongs to a pipeline (%v)", request.Job.ID, jobInfo.PipelineName)
+	}
+	if err := a.deleteJob(ctx, jobInfo); err != nil {
+		return nil, err
+	}
+	if _, err := pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: jobInfo.OutputCommit.Repo}); err != nil {
+		return nil, err
+	}
+	if _, err := persistClient.DeleteJobInfo(ctx, request.Job); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	pods, err := a.jobPods(request.Job)
@@ -844,6 +924,7 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 	for i, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
 			Commit: jobInput.Commit,
+			Lazy:   jobInput.Lazy,
 		}
 		parentJobCommit := repoToParentJobCommit[jobInput.Commit.Repo.Name]
 		if parentJobCommit != nil && jobInput.Commit.ID != parentJobCommit.ID {
@@ -931,8 +1012,14 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 		return nil, err
 	}
 	response = &ppsserver.ContinuePodResponse{}
-	if chunk.Owner != request.PodName {
-		response.Exit = true
+	// A pod should only continue executing if it still owns the chunk, or the chunk
+	// has been finished (in which case the pod just continues executing and eventually peacefully exit).
+	// Otherwise, we tell the pod to exit and restart, so it can claim another chunk
+	// to process.
+	if (chunk.Owner == request.PodName && chunk.State == persist.ChunkState_ASSIGNED) || (chunk.State == persist.ChunkState_SUCCESS) {
+		response.Restart = false
+	} else {
+		response.Restart = true
 	}
 	return response, nil
 }
@@ -977,8 +1064,10 @@ func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodR
 		return nil, err
 	}
 
+	// Restart the pod if it fails, and the chunk has not exceeded the maximum
+	// number of retries (at which point its state will be set to FAILED)
 	response = &ppsserver.FinishPodResponse{
-		Fail: !request.Success && chunk.State != persist.ChunkState_FAILED,
+		Restart: !request.Success && chunk.State != persist.ChunkState_FAILED,
 	}
 
 	return response, nil
@@ -1048,6 +1137,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}()
 	}
+
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName:    request.Pipeline.Name,
 		Transform:       request.Transform,
@@ -1056,7 +1146,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		OutputRepo:      repo,
 		Shard:           a.hasher.HashPipeline(request.Pipeline),
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
+		GcPolicy:        request.GcPolicy,
 	}
+	if persistPipelineInfo.GcPolicy == nil {
+		persistPipelineInfo.GcPolicy = DefaultGCPolicy
+	}
+
 	if !request.Update {
 		if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 			if strings.Contains(err.Error(), "Duplicate primary key `PipelineName`") {
@@ -1305,6 +1400,9 @@ func (a *apiServer) newJobCtx(ctx context.Context, jobID string) context.Context
 	ctx, cancel := context.WithCancel(ctx)
 	a.jobCancelFuncsLock.Lock()
 	defer a.jobCancelFuncsLock.Unlock()
+	if oldCancel, ok := a.jobCancelFuncs[jobID]; ok {
+		oldCancel()
+	}
 	a.jobCancelFuncs[jobID] = cancel
 	return ctx
 }
@@ -1421,49 +1519,55 @@ func (a *apiServer) AddShard(shard uint64) error {
 		})
 	}()
 
-	jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
-		IncludeInitial: true,
-		IncludeChanges: false,
-		Shard:          &persist.Shard{Number: shard},
-		State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
-	})
-	if err != nil {
-		return err
-	}
 	go func() {
-		for {
-			jobChange, err := jobInfoClient.Recv()
+		b := backoff.NewExponentialBackOff()
+		// never stop retrying
+		b.MaxElapsedTime = 0
+		backoff.RetryNotify(func() error {
+			jobInfoClient, err := persistClient.SubscribeJobInfos(ctx, &persist.SubscribeJobInfosRequest{
+				IncludeInitial: true,
+				IncludeChanges: false,
+				Shard:          &persist.Shard{Number: shard},
+				State:          []ppsclient.JobState{ppsclient.JobState_JOB_RUNNING},
+			})
 			if err != nil {
-				protolion.Errorf("error from receive: %s", err.Error())
-				return
+				return err
 			}
-			jobID := jobChange.JobInfo.JobID
+			for {
+				jobChange, err := jobInfoClient.Recv()
+				if err != nil {
+					return fmt.Errorf("error from receive: %s", err.Error())
+				}
+				jobID := jobChange.JobInfo.JobID
 
-			switch jobChange.Type {
-			case persist.ChangeType_DELETE:
-				if err := a.cancelJob(jobID); err != nil {
-					protolion.Errorf("error cancelling job %v: %s", jobID, err.Error())
-				}
-			case persist.ChangeType_CREATE:
-				// If we see a job that's running or creating, we start a job
-				// manager for it.
-				if jobChange.JobInfo.State == ppsclient.JobState_JOB_RUNNING || jobChange.JobInfo.State == ppsclient.JobState_JOB_CREATING {
-					jobCtx := a.newJobCtx(ctx, jobID)
-					go func() {
-						b := backoff.NewExponentialBackOff()
-						b.MaxElapsedTime = 0
-						backoff.RetryNotify(func() error {
-							if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
-								return err
-							}
-							return nil
-						}, b, func(err error, d time.Duration) {
-							protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
-						})
-					}()
+				switch jobChange.Type {
+				case persist.ChangeType_DELETE:
+					if err := a.cancelJob(jobID); err != nil {
+						return fmt.Errorf("error cancelling job %v: %s", jobID, err.Error())
+					}
+				case persist.ChangeType_CREATE:
+					// If we see a job that's running or creating, we start a job
+					// manager for it.
+					if jobChange.JobInfo.State == ppsclient.JobState_JOB_RUNNING || jobChange.JobInfo.State == ppsclient.JobState_JOB_CREATING {
+						jobCtx := a.newJobCtx(ctx, jobID)
+						go func() {
+							b := backoff.NewExponentialBackOff()
+							b.MaxElapsedTime = 0
+							backoff.RetryNotify(func() error {
+								if err := a.jobManager(jobCtx, &ppsclient.Job{jobID}); err != nil && !isContextCancelled(err) {
+									return err
+								}
+								return nil
+							}, b, func(err error, d time.Duration) {
+								protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
+							})
+						}()
+					}
 				}
 			}
-		}
+		}, b, func(err error, d time.Duration) {
+			protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
+		})
 	}()
 
 	return nil
@@ -1500,6 +1604,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		State:           persistPipelineInfo.State,
 		RecentError:     persistPipelineInfo.RecentError,
 		JobCounts:       persistPipelineInfo.JobCounts,
+		GcPolicy:        persistPipelineInfo.GcPolicy,
 	}
 }
 
@@ -1517,6 +1622,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
 	_, err = persistClient.UpdatePipelineState(ctx, &persist.UpdatePipelineStateRequest{
 		PipelineName: pipelineInfo.Pipeline.Name,
 		State:        ppsclient.PipelineState_PIPELINE_RUNNING,
@@ -1524,6 +1630,10 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 	if err != nil {
 		return err
 	}
+
+	gcCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go a.runGC(gcCtx, pipelineInfo)
 
 	repoToLeaves := make(map[string]map[string]bool)
 	rawInputRepos, err := a.rawInputs(ctx, pipelineInfo)
@@ -1608,11 +1718,6 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 					parentJob, err = a.parentJob(ctx, trueInputs, parentRawInputs, pipelineInfo)
 					if err != nil {
 						return err
-					}
-					if parentJob == nil {
-						// This happens if the parent job was not run due to reasons
-						// such as the parent's input commits got cancelled.
-						continue
 					}
 				}
 				_, err = a.CreateJob(
@@ -1885,6 +1990,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 			delete(repoToInput, commit.Repo.Name)
 		}
@@ -1967,6 +2073,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Finished:        persistJobInfo.Finished,
 		OutputCommit:    persistJobInfo.OutputCommit,
 		State:           persistJobInfo.State,
+		Service:         persistJobInfo.Service,
 	}, nil
 }
 
@@ -1976,8 +2083,18 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-// Convert a persist.JobInfo into a Kubernetes batch.Job spec
-func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
+type jobOptions struct {
+	labels             map[string]string
+	parallelism        int32
+	userImage          string
+	jobShimImage       string
+	jobImagePullPolicy string
+	jobEnv             []api.EnvVar
+	volumes            []api.Volume
+	volumeMounts       []api.VolumeMount
+}
+
+func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
 	labels := labels(jobInfo.JobID)
 	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
@@ -2052,6 +2169,112 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		MountPath: "/pach-bin",
 	})
 
+	return &jobOptions{
+		labels:             labels,
+		parallelism:        parallelism,
+		userImage:          userImage,
+		jobShimImage:       jobShimImage,
+		jobImagePullPolicy: jobImagePullPolicy,
+		jobEnv:             jobEnv,
+		volumes:            volumes,
+		volumeMounts:       volumeMounts,
+	}, nil
+}
+
+func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy) api.PodSpec {
+	return api.PodSpec{
+		InitContainers: []api.Container{
+			{
+				Name:            "init",
+				Image:           options.jobShimImage,
+				Command:         []string{"/pach/job-shim.sh"},
+				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+				Env:             options.jobEnv,
+				VolumeMounts:    options.volumeMounts,
+			},
+		},
+		Containers: []api.Container{
+			{
+				Name:    "user",
+				Image:   options.userImage,
+				Command: []string{"/pach-bin/guest.sh", jobID},
+				SecurityContext: &api.SecurityContext{
+					Privileged: &trueVal, // god is this dumb
+				},
+				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
+				Env:             options.jobEnv,
+				VolumeMounts:    options.volumeMounts,
+			},
+		},
+		RestartPolicy: restartPolicy,
+		Volumes:       options.volumes,
+	}
+}
+
+func serviceName(jobID string) string {
+	return fmt.Sprintf("pach-%v", jobID)
+}
+
+func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
+
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	if err != nil {
+		return nil, nil, err
+	}
+	if options.parallelism != int32(1) {
+		return nil, nil, fmt.Errorf("pachyderm service only supports parallelism of 1, got %v", options.parallelism)
+	}
+	rc := &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   jobInfo.JobID,
+			Labels: options.labels,
+		},
+		Spec: api.ReplicationControllerSpec{
+			Selector: options.labels,
+			Replicas: options.parallelism,
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   jobInfo.JobID,
+					Labels: options.labels,
+				},
+				Spec: podSpec(options, jobInfo.JobID, "Always"),
+			},
+		},
+	}
+	service := &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   serviceName(jobInfo.JobID),
+			Labels: options.labels,
+		},
+		Spec: api.ServiceSpec{
+			Type:     api.ServiceTypeNodePort,
+			Selector: options.labels,
+			Ports: []api.ServicePort{
+				{
+					Port:     internalPort,
+					Name:     "user-service-port",
+					NodePort: externalPort,
+				},
+			},
+		},
+	}
+	return rc, service, nil
+}
+
+// Convert a persist.JobInfo into a Kubernetes batch.Job spec
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+	if err != nil {
+		return nil, err
+	}
 	return &batch.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -2059,47 +2282,21 @@ func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string,
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   jobInfo.JobID,
-			Labels: labels,
+			Labels: options.labels,
 		},
 		Spec: batch.JobSpec{
 			ManualSelector: &trueVal,
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: options.labels,
 			},
-			Parallelism: &parallelism,
-			Completions: &parallelism,
+			Parallelism: &options.parallelism,
+			Completions: &options.parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,
-					Labels: labels,
+					Labels: options.labels,
 				},
-				Spec: api.PodSpec{
-					InitContainers: []api.Container{
-						{
-							Name:            "init",
-							Image:           jobShimImage,
-							Command:         []string{"/pach/job-shim.sh"},
-							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
-							Env:             jobEnv,
-							VolumeMounts:    volumeMounts,
-						},
-					},
-					Containers: []api.Container{
-						{
-							Name:    "user",
-							Image:   userImage,
-							Command: []string{"/pach-bin/guest.sh", jobInfo.JobID},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-							ImagePullPolicy: api.PullPolicy(jobImagePullPolicy),
-							Env:             jobEnv,
-							VolumeMounts:    volumeMounts,
-						},
-					},
-					RestartPolicy: "Never",
-					Volumes:       volumes,
-				},
+				Spec: podSpec(options, jobInfo.JobID, "Never"),
 			},
 		},
 	}, nil
@@ -2117,6 +2314,50 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 		return nil, err
 	}
 	return podList.Items, nil
+}
+
+func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) error {
+
+	if jobInfo.Service != nil {
+		falseVal := false
+		deleteOptions := &api.DeleteOptions{
+			OrphanDependents: &falseVal,
+		}
+		if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, deleteOptions); err != nil {
+			return err
+		}
+		if err := a.kubeClient.Services(a.namespace).Delete(serviceName(jobInfo.JobID)); err != nil {
+			return err
+		}
+	} else {
+		if err := a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
+			// we don't return on failure here because jobs may get deleted
+			// through other means and we don't want that to prevent users from
+			// deleting pipelines.
+			protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
+		}
+		pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
+		for _, pod := range pods {
+			if err := a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+				// we don't return on failure here because pods may get deleted
+				// through other means and we don't want that to prevent users from
+				// deleting pipelines.
+				protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
+			}
+		}
+		if jobPodsErr != nil {
+			return jobPodsErr
+		}
+	}
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+	// Remove the chunks for this job
+	_, err = persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
+		ID: jobInfo.JobID,
+	})
+	return err
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipeline) error {
@@ -2140,32 +2381,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, pipeline *ppsclient.Pipe
 	var eg errgroup.Group
 	for _, jobInfo := range jobInfos.JobInfo {
 		jobInfo := jobInfo
-		eg.Go(func() error {
-			if err = a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobInfo.JobID, nil); err != nil {
-				// we don't return on failure here because jobs may get deleted
-				// through other means and we don't want that to prevent users from
-				// deleting pipelines.
-				protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
-			}
-			pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
-			for _, pod := range pods {
-				if err = a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
-					// we don't return on failure here because pods may get deleted
-					// through other means and we don't want that to prevent users from
-					// deleting pipelines.
-					protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
-				}
-			}
-			if jobPodsErr != nil {
-				return jobPodsErr
-			}
-
-			// Remove the chunks for this job
-			_, err := persistClient.DeleteChunksForJob(ctx, &ppsclient.Job{
-				ID: jobInfo.JobID,
-			})
-			return err
-		})
+		eg.Go(func() error { return a.deleteJob(ctx, jobInfo) })
 	}
 	if err := eg.Wait(); err != nil {
 		return err
