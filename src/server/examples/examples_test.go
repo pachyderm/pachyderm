@@ -293,7 +293,7 @@ func TestFruitStand(t *testing.T) {
 		[]string{"data"},
 		nil,
 		client.CommitTypeRead,
-		client.CommitStatusAll,
+		client.CommitStatusNormal,
 		false,
 	)
 	require.NoError(t, err)

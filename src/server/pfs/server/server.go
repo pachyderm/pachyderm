@@ -44,7 +44,7 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.
 	switch backend {
 	case AmazonBackendEnvVar:
 		// amazon doesn't like leading slashes
-		if dir[0] == '/' {
+		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
 		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes)
