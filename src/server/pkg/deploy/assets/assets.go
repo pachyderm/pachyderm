@@ -376,7 +376,7 @@ func EtcdService() *api.Service {
 }
 
 // RethinkRc returns a rethinkdb replication controller.
-func RethinkRc(backend backend, volume string, hostPath string, rethinkdbCacheSize string) *api.ReplicationController {
+func RethinkRc(volume string, rethinkdbCacheSize string) *api.ReplicationController {
 	replicas := int32(1)
 	rethinkCacheQuantity := resource.MustParse(rethinkdbCacheSize)
 	containerFootprint := rethinkCacheQuantity.Copy()
@@ -458,7 +458,7 @@ func RethinkRc(backend backend, volume string, hostPath string, rethinkdbCacheSi
 }
 
 // RethinkPetSet returns a rethinkdb pet set
-func RethinkPetSet(backend backend, shards int, diskSpace int, cacheSize string) interface{} {
+func RethinkPetSet(shards int, diskSpace int, cacheSize string) interface{} {
 	rethinkCacheQuantity := resource.MustParse(cacheSize)
 	containerFootprint := rethinkCacheQuantity.Copy()
 	containerFootprint.Add(rethinkNonCacheMemFootprint)
@@ -852,13 +852,17 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	RethinkNodeportService(opts).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	if opts.DeployRethinkAsRc {
-		if len(volumeNames) != 1 {
+		if backend != localBackend && len(volumeNames) != 1 {
 			panic(fmt.Sprintf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames)))
 		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
-		RethinkRc(backend, volumeNames[0], hostPath, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
+		volumeName := ""
+		if backend != localBackend {
+			volumeName = volumeNames[0]
+		}
+		RethinkRc(volumeName, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
 	} else {
-		encoder.Encode(RethinkPetSet(backend, int(opts.Shards), volumeSize, opts.RethinkdbCacheSize))
+		encoder.Encode(RethinkPetSet(int(opts.Shards), volumeSize, opts.RethinkdbCacheSize))
 		fmt.Fprintf(w, "\n")
 		RethinkHeadlessService().CodecEncodeSelf(encoder)
 	}
