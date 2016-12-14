@@ -1237,7 +1237,6 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	commitInfo, err := client.InspectCommit("B", BCommit.ID)
 	require.NoError(t, err)
-	fmt.Printf("provenance for B: %v\n", commitInfo.Provenance)
 
 	CCommit, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
@@ -1250,7 +1249,6 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, client.FinishCommit("C", CCommit.ID))
 	commitInfo, err = client.InspectCommit("C", CCommit.ID)
 	require.NoError(t, err)
-	fmt.Printf("provenance for C: %v\n", commitInfo.Provenance)
 
 	DCommit, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
@@ -1264,9 +1262,8 @@ func TestProvenance2(t *testing.T) {
 
 	commitInfo, err = client.InspectCommit("D", DCommit.ID)
 	require.NoError(t, err)
-	fmt.Printf("provenance for D: %v\n", commitInfo.Provenance)
-	for _, commit := range []*pfs.Commit{ACommit, ECommit, BCommit, CCommit} {
-		require.EqualOneOf(t, []interface{}{commitInfo.Provenance}, commit)
+	for _, commit := range commitInfo.Provenance {
+		require.EqualOneOf(t, []interface{}{ACommit, ECommit, BCommit, CCommit}, commit)
 	}
 }
 

@@ -431,7 +431,7 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 		}
 
 		for _, p := range commitInfo.Provenance {
-			provenanceSet[p.ID] = p
+			provenanceSet[fmt.Sprintf("%s:%s", p.Repo.Name, p.ID)] = p
 		}
 	}
 
