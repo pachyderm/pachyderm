@@ -194,9 +194,7 @@ func do(appEnvObj interface{}) error {
 				defer func() {
 					errCh := make(chan error)
 					go func() {
-						if err := mounter.Unmount(FUSEMountPoint); err != nil {
-							errCh <- err
-						}
+						errCh <- mounter.Unmount(FUSEMountPoint)
 					}()
 					select {
 					case err := <-errCh:
