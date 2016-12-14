@@ -1995,6 +1995,12 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 	}
 
+	// there's always going to be changes in the root directory,
+	// but we don't want to always return everything under the root directory
+	if file.Path == "/" {
+		diffMethod.FullFile = false
+	}
+
 	var diffs []*persist.Diff
 	var err error
 	switch mode {

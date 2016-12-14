@@ -2461,7 +2461,7 @@ func TestListFile2(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos))
 }
 
-func TestListFile3(t *testing.T) {
+func TestListFileFullFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 	repo := "test"
@@ -2496,11 +2496,11 @@ func TestListFile3(t *testing.T) {
 
 	fileInfos, err = client.ListFile(repo, "master/1", "/foo", "master/0", true, nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, 2, len(fileInfos))
 
 	fileInfos, err = client.ListFile(repo, "master/1", "/bar", "master/0", true, nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, 2, len(fileInfos))
 }
 
 func TestListFileRecurse(t *testing.T) {
