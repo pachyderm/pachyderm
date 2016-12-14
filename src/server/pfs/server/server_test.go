@@ -2461,6 +2461,48 @@ func TestListFile2(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos))
 }
 
+func TestListFile3(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	_, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "foo/0", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "bar/0", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "buzz/0", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/0"))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "foo/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/1", "bar/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master/1"))
+
+	fileInfos, err := client.ListFile(repo, "master/1", "/", "master/0", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "/buzz", "master/0", true, nil, false)
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile(repo, "master/1", "/foo", "master/0", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	fileInfos, err = client.ListFile(repo, "master/1", "/bar", "master/0", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+}
+
 func TestListFileRecurse(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
