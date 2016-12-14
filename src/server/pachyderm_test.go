@@ -3778,9 +3778,13 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		false,
 	))
 
+	fmt.Println("BP1")
+
 	results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, eCommit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(results))
+
+	fmt.Println("BP2")
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
@@ -3791,6 +3795,8 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(results))
+
+	fmt.Println("BP3")
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil)

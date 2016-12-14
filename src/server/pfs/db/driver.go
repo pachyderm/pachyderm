@@ -940,16 +940,18 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	repoSet1 := make(map[string]bool)
 	repoToProvenance := make(map[string][]*persist.ProvenanceCommit)
 	for _, commit := range fromCommits {
-		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
-		if err != nil {
-			return nil, err
-		}
 		rawCommit, err := d.getRawCommit(commit)
 		if err != nil {
 			return nil, err
 		}
 		// always include fromCommits themselves in the result
 		result = append(result, d.rawCommitToCommitInfo(rawCommit))
+
+		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("repoInfos: %v\n", repoInfos)
 		for _, repoInfo := range repoInfos {
 			repoSet1[repoInfo.Repo.Name] = true
 			repoToProvenance[repoInfo.Repo.Name] = append(repoToProvenance[repoInfo.Repo.Name], &persist.ProvenanceCommit{
@@ -960,6 +962,8 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 			})
 		}
 	}
+
+	fmt.Printf("repoSet1: %v\n", repoSet1)
 
 	repoSet2 := make(map[string]bool)
 	for _, repo := range toRepos {
@@ -972,6 +976,7 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 		repoSet2[repo.Name] = true
 	}
+	fmt.Printf("repoSet2: %v\n", repoSet2)
 
 	// The list of the repos that we care about.
 	var repos []string
@@ -981,14 +986,21 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
+	fmt.Printf("repos: %v\n", repos)
+
+	if len(repos) == 0 {
+		return result, nil
+	}
+
 	var queries []interface{}
 	for _, repo := range repos {
 		queries = append(queries, d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 			provenance := repoToProvenance[repo]
+			fmt.Printf("repo: %s, provenance: %v\n", repo, provenance)
 			return gorethink.And(
 				commit.Field("Archived").Eq(false),
 				commit.Field("Finished").Ne(nil),
-				commit.Field("Provenance").SetDifference(provenance).Count().Eq(0),
+				commit.Field("Provenance").SetIntersection(provenance).Count().Eq(len(provenance)),
 				commit.Field("Repo").Eq(repo),
 			)
 		}))
