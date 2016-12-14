@@ -951,7 +951,6 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("repoInfos: %v\n", repoInfos)
 		for _, repoInfo := range repoInfos {
 			repoSet1[repoInfo.Repo.Name] = true
 			repoToProvenance[repoInfo.Repo.Name] = append(repoToProvenance[repoInfo.Repo.Name], &persist.ProvenanceCommit{
@@ -962,8 +961,6 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 			})
 		}
 	}
-
-	fmt.Printf("repoSet1: %v\n", repoSet1)
 
 	repoSet2 := make(map[string]bool)
 	for _, repo := range toRepos {
@@ -976,7 +973,6 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 		repoSet2[repo.Name] = true
 	}
-	fmt.Printf("repoSet2: %v\n", repoSet2)
 
 	// The list of the repos that we care about.
 	var repos []string
@@ -986,8 +982,6 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
-	fmt.Printf("repos: %v\n", repos)
-
 	if len(repos) == 0 {
 		return result, nil
 	}
@@ -996,7 +990,6 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 	for _, repo := range repos {
 		queries = append(queries, d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
 			provenance := repoToProvenance[repo]
-			fmt.Printf("repo: %s, provenance: %v\n", repo, provenance)
 			return gorethink.And(
 				commit.Field("Archived").Eq(false),
 				commit.Field("Finished").Ne(nil),

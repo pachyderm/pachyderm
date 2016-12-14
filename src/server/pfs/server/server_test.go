@@ -2534,7 +2534,6 @@ func TestInspectDirectory(t *testing.T) {
 
 	fileInfo, err = client.InspectFile(repo, "master/2", "dir", "", false, nil)
 	require.NoError(t, err)
-	fmt.Printf("children: %+v", fileInfo.Children)
 	require.Equal(t, 2, len(fileInfo.Children))
 }
 
