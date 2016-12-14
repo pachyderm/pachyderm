@@ -42,7 +42,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
       // strategies above should suffice.
       "method": {
         "partition": "BLOCK"/"FILE"/"REPO",
-        "incremental": "NONE"/"DIFF"/"FILE",
+        "incremental": "NONE"/"DIFF"/"FULL",
       }
     }
   ],
@@ -188,10 +188,10 @@ of which will remain grouped in the same container.
 
 ### Incrementality
 
-Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be
+Incrementality ("NONE", "DIFF" or "FULL") describes what data needs to be
 available when a new commit is made on an input repo. Namely, do you want to
 process _only the new data_ in that commmit (the "DIFF"), only files with any
-new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
+new data ("FULL"), or does all of the data need to be reprocessed ("NONE")?
 
 For instance, if you have a repo with the file `/foo` in commit 1 and file
 `/bar` in commit 2, then:
