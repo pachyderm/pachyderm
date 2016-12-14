@@ -2473,6 +2473,8 @@ func TestListFileFullFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/0", "foo/0", strings.NewReader(fileContent))
 	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master/0", "foo/dir/0", strings.NewReader(fileContent))
+	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/0", "bar/0", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master/0", "buzz/0", strings.NewReader(fileContent))
@@ -2496,7 +2498,10 @@ func TestListFileFullFile(t *testing.T) {
 
 	fileInfos, err = client.ListFile(repo, "master/1", "/foo", "master/0", true, nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 3, len(fileInfos))
+	fileInfos, err = client.ListFile(repo, "master/1", "/foo/dir", "master/0", true, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
 
 	fileInfos, err = client.ListFile(repo, "master/1", "/bar", "master/0", true, nil, false)
 	require.NoError(t, err)
