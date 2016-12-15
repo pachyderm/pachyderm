@@ -74,27 +74,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 }
 
 func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
-	bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
-	if err != nil {
-		return nil, err
-	}
-	id, err := ioutil.ReadFile("/amazon-secret/id")
-	if err != nil {
-		return nil, err
-	}
-	secret, err := ioutil.ReadFile("/amazon-secret/secret")
-	if err != nil {
-		return nil, err
-	}
-	token, err := ioutil.ReadFile("/amazon-secret/token")
-	if err != nil {
-		return nil, err
-	}
-	region, err := ioutil.ReadFile("/amazon-secret/region")
-	if err != nil {
-		return nil, err
-	}
-	objClient, err := obj.NewAmazonClient(string(bucket), string(id), string(secret), string(token), string(region))
+	objClient, err := obj.NewAmazonClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +82,7 @@ func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, 
 }
 
 func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
-	bucket, err := ioutil.ReadFile("/google-secret/bucket")
-	if err != nil {
-		return nil, err
-	}
-	objClient, err := obj.NewGoogleClient(context.Background(), string(bucket))
+	objClient, err := obj.NewGoogleClientFromSecret(context.Background(), "")
 	if err != nil {
 		return nil, err
 	}
@@ -114,19 +90,7 @@ func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, 
 }
 
 func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
-	container, err := ioutil.ReadFile("/microsoft-secret/container")
-	if err != nil {
-		return nil, err
-	}
-	id, err := ioutil.ReadFile("/microsoft-secret/id")
-	if err != nil {
-		return nil, err
-	}
-	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
-	if err != nil {
-		return nil, err
-	}
-	objClient, err := obj.NewMicrosoftClient(string(container), string(id), string(secret))
+	objClient, err := obj.NewMicrosoftClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
