@@ -275,6 +275,8 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			case "gs":
 				return a.putFileGcs(request, url)
 			case "as":
+				fallthrough
+			case "wasb":
 				return a.putFileAs(request, url)
 			}
 		} else {
