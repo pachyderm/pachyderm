@@ -1843,7 +1843,7 @@ func TestFullFile(t *testing.T) {
 	require.Equal(t, "foobar", buffer.String())
 }
 
-func TestFullFileDir(t *testing.T) {
+func TestFullFileRootDir(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -1868,7 +1868,7 @@ func TestFullFileDir(t *testing.T) {
 
 	fileInfos, err = client.ListFile(repo, "master", "", "master/0", true, nil, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 }
 
 func TestBranchSimple(t *testing.T) {
