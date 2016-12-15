@@ -45,6 +45,7 @@ enum JobState {
   // An empty job is a job that hasn't actually been run.
   // It's a result of empty input commits.
   JOB_EMPTY = 4;
+  JOB_OUTPUTTING = 5;
 }
 
 message Service {
