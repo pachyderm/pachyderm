@@ -29,6 +29,10 @@ message Transform {
   bool overwrite = 8;
 }
 
+message Output {
+  string URL = 1;
+}
+
 message Job {
   string id = 1;
 }
@@ -112,6 +116,7 @@ message JobInfo {
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
+  Output output = 15;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
@@ -199,6 +204,7 @@ message PipelineInfo {
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
+  Output output = 15;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
   PipelineState state = 7;
@@ -217,6 +223,7 @@ message CreateJobRequest {
   Pipeline pipeline = 2;
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
+  Output output = 9;
   Job parent_job = 5;
   bool force = 6;
   // When service is defined, we create a long running job
@@ -248,6 +255,7 @@ message CreatePipelineRequest {
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
+  Output output = 9;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
   GCPolicy gc_policy = 8;
