@@ -732,7 +732,7 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
 func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
 	if backend != localBackend && len(names) < shards {
-		return fmt.Errorf("Could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
+		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	for i := 0; i < shards; i++ {
@@ -787,7 +787,7 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 				},
 			}
 		default:
-			return fmt.Errorf("Cannot generate volume spec for unknown backend \"%v\"", backend)
+			return fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", backend)
 		}
 		spec.CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
@@ -890,8 +890,7 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
 	token string, region string, volumeNames []string, volumeSize int) error {
-	err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, "")
-	if err != nil {
+	if err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -902,8 +901,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) error {
-	err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, "")
-	if err != nil {
+	if err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -914,8 +912,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames 
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) error {
-	err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, "")
-	if err != nil {
+	if err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
