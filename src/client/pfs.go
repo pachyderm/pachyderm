@@ -609,7 +609,7 @@ func (c APIClient) Walk(repoName string, commitID string, path string, fromCommi
 			return err
 		}
 		if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-			if err := c.Walk(repoName, commitID, fileInfo.Path, fromCommitID, fullFile, shard, walkFn); err != nil {
+			if err := c.Walk(repoName, commitID, fileInfo.File.Path, fromCommitID, fullFile, shard, walkFn); err != nil {
 				return err
 			}
 		}
