@@ -597,6 +597,26 @@ func (c APIClient) ListFileFast(repoName string, commitID string, path string, f
 	return fileInfos.FileInfo, nil
 }
 
+type WalkFn func(*pfs.FileInfo) error
+
+func (c APIClient) Walk(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, walkFn WalkFn) error {
+	fileInfos, err := c.ListFileFast(repoName, commitID, path, fromCommitID, fullFile, shard)
+	if err != nil {
+		return err
+	}
+	for _, fileInfo := range fileInfos {
+		if err := walkFn(fileInfo); err != nil {
+			return err
+		}
+		if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+			if err := c.Walk(repoName, commitID, fileInfo.Path, fromCommitID, fullFile, shard, walkFn); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // DeleteFile deletes a file from a Commit.
 // DeleteFile leaves a tombstone in the Commit, assuming the file isn't written
 // to later attempting to get the file from the finished commit will result in
