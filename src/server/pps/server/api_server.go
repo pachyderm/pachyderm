@@ -18,6 +18,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/lease"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -1855,14 +1857,33 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	// We use a new context here because as soon as we update the job state,
-	// the original context will be cancelled.
+	if !failed && jobInfo.Output != nil {
+		// We use a new context here because as soon as we update the job state,
+		// the original context will be cancelled.
+		if _, err := persistClient.CreateJobState(context.Background(), &persist.JobState{
+			JobID: job.ID,
+			State: ppsclient.JobState_JOB_OUTPUTTING,
+		}); err != nil {
+			return err
+		}
+		pClient := client.APIClient{PfsAPIClient: pfsAPIClient}
+		objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.URL)
+		if err != nil {
+			return err
+		}
+		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, ""); err != nil {
+			return err
+		}
+	}
+
 	var state ppsclient.JobState
 	if failed {
 		state = ppsclient.JobState_JOB_FAILURE
 	} else {
 		state = ppsclient.JobState_JOB_SUCCESS
 	}
+	// We use a new context here because as soon as we update the job state,
+	// the original context will be cancelled.
 	if _, err := persistClient.CreateJobState(context.Background(), &persist.JobState{
 		JobID: job.ID,
 		State: state,
