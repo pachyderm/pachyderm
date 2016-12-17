@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -1871,7 +1872,11 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		if err != nil {
 			return err
 		}
-		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, ""); err != nil {
+		url, err := url.Parse(jobInfo.Output.URL)
+		if err != nil {
+			return err
+		}
+		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
 			return err
 		}
 	}
