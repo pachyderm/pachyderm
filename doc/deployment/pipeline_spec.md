@@ -46,6 +46,9 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
       }
     }
   ],
+  "output": {
+    "URL": "s3://bucket/dir"
+  },
   "gc_policy": {
     "success": string,
     "failure": string
@@ -156,6 +159,12 @@ notable if the job only reads a subset of the files that are available to it.
     (diff) is processed.
 
 The next section explains input methods in detail.
+
+### Output (optional)
+`output` allows you to push the results of a Pipeline to an external data store
+such as s3, Google Cloud Storage or Azure Storage. Data will be pushed after
+the user code has finished running but before the job is marked as successful.
+Pipelines and jobs that with `output`s will still output to a Pachyderm repo.
 
 ## Pipeline Input Methods
 
