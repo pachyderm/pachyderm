@@ -366,7 +366,7 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 		sem := make(chan struct{}, concurrentPuts)
 		objClient.Walk(path, func(name string) error {
 			sem <- struct{}{}
-			eg.Go(func() error { return put(filepath.Join(request.File.Path, name), name) })
+			eg.Go(func() error { return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name) })
 			<-sem
 			return nil
 		})
