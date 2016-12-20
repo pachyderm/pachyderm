@@ -109,6 +109,9 @@ Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
 ParallelismSpec: {{.ParallelismSpec}}
+{{ if .Service }}Service:
+	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
+	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}

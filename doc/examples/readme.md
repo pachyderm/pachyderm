@@ -4,7 +4,7 @@
 
 This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
 
-[Fruit Stand](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html)
+[Fruit Stand](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html)
 
 ## Open CV
 

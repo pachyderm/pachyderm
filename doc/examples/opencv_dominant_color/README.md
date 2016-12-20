@@ -3,7 +3,7 @@ In this guide you're going to create a Pachyderm pipeline to run a dominant colo
  
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html).
 
 As mentioned in the introduction, having a statically linked native opencv binary simplifies the dev environment and reduces the size of docker images required. Note: an approach that was taken for the purposes of this guide was to build the binary (called `dominantColor`) in a docker images such as [this one](https://github.com/SoheilSalehian/Docker-OpenCV) and then copy over the resulting binary into the containers that run the pipeline.
 

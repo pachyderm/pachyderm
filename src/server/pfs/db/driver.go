@@ -431,7 +431,7 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 		}
 
 		for _, p := range commitInfo.Provenance {
-			provenanceSet[p.ID] = p
+			provenanceSet[fmt.Sprintf("%s:%s", p.Repo.Name, p.ID)] = p
 		}
 	}
 
@@ -936,14 +936,29 @@ func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, proven
 }
 
 func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
 	repoSet1 := make(map[string]bool)
+	repoToProvenance := make(map[string][]*persist.ProvenanceCommit)
 	for _, commit := range fromCommits {
+		rawCommit, err := d.getRawCommit(commit)
+		if err != nil {
+			return nil, err
+		}
+		// always include fromCommits themselves in the result
+		result = append(result, d.rawCommitToCommitInfo(rawCommit))
+
 		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
 		if err != nil {
 			return nil, err
 		}
 		for _, repoInfo := range repoInfos {
 			repoSet1[repoInfo.Repo.Name] = true
+			repoToProvenance[repoInfo.Repo.Name] = append(repoToProvenance[repoInfo.Repo.Name], &persist.ProvenanceCommit{
+				Repo: commit.Repo.Name,
+				// We can't just use commit.ID directly because it might be a
+				// branch name instead of a commitID
+				ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
+			})
 		}
 	}
 
@@ -967,38 +982,26 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
-	var result []*pfs.CommitInfo
-	// The commit IDs of the provenance commits
-	var provenanceIDs []interface{}
-	for _, commit := range fromCommits {
-		rawCommit, err := d.getRawCommit(commit)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, d.rawCommitToCommitInfo(rawCommit))
-		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
-			Repo: commit.Repo.Name,
-			// We can't just use commit.ID directly because it might be a
-			// branch name instead of a commitID
-			ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
-		})
+	if len(repos) == 0 {
+		return result, nil
 	}
 
-	if len(provenanceIDs) == 0 {
-		return nil, nil
+	var queries []interface{}
+	for _, repo := range repos {
+		queries = append(queries, d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+			provenance := repoToProvenance[repo]
+			return gorethink.And(
+				commit.Field("Archived").Eq(false),
+				commit.Field("Finished").Ne(nil),
+				commit.Field("Provenance").SetIntersection(provenance).Count().Eq(len(provenance)),
+				commit.Field("Repo").Eq(repo),
+			)
+		}))
 	}
 
-	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
-		return gorethink.And(
-			commit.Field("Archived").Eq(false),
-			commit.Field("Finished").Ne(nil),
-			commit.Field("Provenance").SetIntersection(provenanceIDs).Count().Ne(0),
-			gorethink.Expr(repos).Contains(commit.Field("Repo")),
-		)
-	}).Changes(gorethink.ChangesOpts{
+	query := gorethink.Union(queries...).Changes(gorethink.ChangesOpts{
 		IncludeInitial: true,
 	}).Field("new_val")
-
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -1430,7 +1433,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	case persist.FileType_DIR:
 		res.FileType = pfs.FileType_FILE_TYPE_DIR
 		res.Modified = diff.Modified
-		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file, diffMethod)
 		if err != nil {
 			return nil, err
 		}
@@ -1761,9 +1764,9 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 
 // getChildrenFast is the same as getChildren except that it only computes the
 // presence of children, but not their sizes, blockrefs, etc.
-func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
-		return diffParentIndexKey(repo, parent, clock)
+func (d *driver) getChildrenFast(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1787,9 +1790,9 @@ func (d *driver) getChildrenFast(repo string, parent string, diffMethod *pfs.Dif
 	return diffs, nil
 }
 
-func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
-		return diffParentIndexKey(repo, parent, clock)
+func (d *driver) getChildren(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1809,14 +1812,15 @@ func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMet
 	return diffs, nil
 }
 
-func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
-		return diffPrefixIndexKey(repo, parent, clock)
+func (d *driver) getChildrenRecursive(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+		return diffPrefixIndexKey(repo, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	parent := file.Path
 	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Group(func(diff gorethink.Term) gorethink.Term {
@@ -1856,30 +1860,47 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 
 type clockToIndexKeyFunc func(interface{}) interface{}
 
-func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
+func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, file *pfs.File, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
 	var from *pfs.Commit
 	if diffMethod != nil {
 		from = diffMethod.FromCommit
 	}
-	query, err := d._getDiffsInCommitRange(from, toCommit, reverse, indexName, keyFunc)
+	query, err := d._getDiffsInCommitRange(from, file.Commit, reverse, indexName, keyFunc)
 	if err != nil {
 		return nilTerm, err
 	}
 	if diffMethod != nil && diffMethod.FullFile {
 		// If FullFile is set to true, we first figure out if anything
 		// has changed since FromCommit.  If so, we set FromCommit to nil
-		cursor, err := query.Count().Gt(0).Run(d.dbClient)
+		var somethingChanged bool
+		var somethingChangedQuery gorethink.Term
+		// If the file is under a top-level directory, then FullFile applies
+		// if *any* file under the directory changed.
+		parts := strings.Split(file.Path, "/")
+		// note that the first element of parts is going to be an empty string,
+		// since our path starts with a slash
+		// So len(parts)>2 is checking for paths that have 2 components or more,
+		// such as /foo/bar
+		if len(parts) > 2 {
+			somethingChangedQuery, err = d._getDiffsInCommitRange(from, file.Commit, reverse, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+				return diffPrefixIndexKey(file.Commit.Repo.Name, fmt.Sprintf("/%s", parts[1]), clock)
+			})
+			if err != nil {
+				return nilTerm, err
+			}
+		} else {
+			somethingChangedQuery = query
+		}
+		cursor, err := somethingChangedQuery.Count().Gt(0).Run(d.dbClient)
 		if err != nil {
 			return nilTerm, err
 		}
-		var hasDiff bool
-		if err := cursor.One(&hasDiff); err != nil {
+		if err := cursor.One(&somethingChanged); err != nil {
 			return nilTerm, err
 		}
 
-		if hasDiff {
-			from = nil
-			query, err = d._getDiffsInCommitRange(from, toCommit, reverse, indexName, keyFunc)
+		if somethingChanged {
+			query, err = d._getDiffsInCommitRange(nil, file.Commit, reverse, indexName, keyFunc)
 			if err != nil {
 				return nilTerm, err
 			}
@@ -1950,7 +1971,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 
-	query, err := d.getDiffsInCommitRange(diffMethod, file.Commit, false, DiffPathIndex.Name, func(clock interface{}) interface{} {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffPathIndex.Name, func(clock interface{}) interface{} {
 		return diffPathIndexKey(file.Commit.Repo.Name, file.Path, clock)
 	})
 	if err != nil {
@@ -1995,15 +2016,21 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 	}
 
+	// there's always going to be changes in the root directory,
+	// but we don't want to always return everything under the root directory
+	if file.Path == "/" && diffMethod != nil {
+		diffMethod.FullFile = false
+	}
+
 	var diffs []*persist.Diff
 	var err error
 	switch mode {
 	case drive.ListFileNORMAL:
-		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+		diffs, err = d.getChildren(file.Commit.Repo.Name, file, diffMethod)
 	case drive.ListFileFAST:
-		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file, diffMethod)
 	case drive.ListFileRECURSE:
-		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file, diffMethod)
 	}
 	if err != nil {
 		return nil, err
@@ -2058,7 +2085,7 @@ func (d *driver) DeleteFile(file *pfs.File) error {
 	commitID := commit.ID
 	prefix := file.Path
 
-	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+	query, err := d.getDiffsInCommitRange(nil, file, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
 		return diffPrefixIndexKey(repo, prefix, clock)
 	})
 	if err != nil {
