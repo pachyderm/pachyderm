@@ -164,7 +164,7 @@ The next section explains input methods in detail.
 `output` allows you to push the results of a Pipeline to an external data store
 such as s3, Google Cloud Storage or Azure Storage. Data will be pushed after
 the user code has finished running but before the job is marked as successful.
-Pipelines and jobs that with `output`s will still output to a Pachyderm repo.
+Pipelines and jobs with `output`s will still output to a Pachyderm repo.
 
 ## Pipeline Input Methods
 
