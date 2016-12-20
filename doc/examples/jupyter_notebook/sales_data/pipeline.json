@@ -1,0 +1,18 @@
+{
+  "pipeline": {
+    "name": "sales"
+  },
+  "transform": {
+    "image": "dwhitena/bike-share-sales",
+    "cmd": [ "/sales" ],
+    "stdin": []
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "trips"
+      },
+      "method": "global"
+    }
+  ]
+}

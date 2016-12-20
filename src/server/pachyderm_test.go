@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -79,6 +81,8 @@ func testJob(t *testing.T, shards int) {
 			Method: client.ReduceMethod,
 		}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -156,6 +160,8 @@ func TestPachCommitIdEnvVarInJob(t *testing.T) {
 			},
 		},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -286,6 +292,8 @@ func TestLogs(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -333,6 +341,8 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	job2, err := c.CreateJob(
@@ -345,6 +355,8 @@ func TestGrep(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -381,6 +393,8 @@ func TestJobLongOutputLine(t *testing.T) {
 		},
 		[]*ppsclient.JobInput{},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -526,6 +540,10 @@ func TestPipelineOverwrite(t *testing.T) {
 				Constant: 1,
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: prototime.DurationToProto(time.Duration(10 * time.Second)),
+				Failure: prototime.DurationToProto(time.Duration(10 * time.Second)),
+			},
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
@@ -635,6 +653,67 @@ func TestPipelineTwoBranches(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
+}
+
+// TestPipelineForkedInput tracks issue 1163
+func TestPipelineForkedInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineForkedInput_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+	// Make two commits on branch foo
+	_, err := c.StartCommit(dataRepo, "foo")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "foo", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "foo"))
+	_, err = c.StartCommit(dataRepo, "foo")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "foo", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "foo"))
+
+	commits, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, "foo")}, nil)
+	require.Equal(t, 2, len(commits))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(outRepo.Name, commits[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+
+	// Fork foo/0 to another branch
+	_, err = c.ForkCommit(dataRepo, "foo/0", "bar")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "bar", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "bar"))
+
+	commits, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, "bar")}, nil)
+	require.Equal(t, 2, len(commits))
+	buffer.Reset()
+	require.NoError(t, c.GetFile(outRepo.Name, commits[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
 func TestPipelineTransientFailure(t *testing.T) {
@@ -2264,6 +2343,8 @@ func TestFailedJobReadData(t *testing.T) {
 			},
 		},
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	inspectJobRequest := &ppsclient.InspectJobRequest{
@@ -2597,6 +2678,8 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2612,6 +2695,8 @@ func TestJobState(t *testing.T) {
 		&ppsclient.ParallelismSpec{},
 		nil,
 		"",
+		0,
+		0,
 	)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
@@ -2683,7 +2768,16 @@ func TestScrubbedErrors(t *testing.T) {
 	)
 	require.Equal(t, "repo test not found", err.Error())
 
-	_, err = c.CreateJob("askjdfhgsdflkjh", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"askjdfhgsdflkjh",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	_, err = c.InspectJob("blah", true)
@@ -2715,7 +2809,16 @@ func TestLeakingRepo(t *testing.T) {
 	require.NoError(t, err)
 	initialCount := len(repoInfos)
 
-	_, err = c.CreateJob("bogusImage", []string{}, []string{}, &ppsclient.ParallelismSpec{}, []*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)}, "")
+	_, err = c.CreateJob(
+		"bogusImage",
+		[]string{},
+		[]string{},
+		&ppsclient.ParallelismSpec{},
+		[]*ppsclient.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+		"",
+		0,
+		0,
+	)
 	require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
 
 	repoInfos, err = c.ListRepo(nil)
@@ -3595,7 +3698,6 @@ func TestChainedPipelines(t *testing.T) {
 
 // TestChainedPipelinesNoDelay tracks https://github.com/pachyderm/pachyderm/issues/842
 func TestChainedPipelinesNoDelay(t *testing.T) {
-	t.Skip("This test fails")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3680,22 +3782,20 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(results))
 
-	_, err = c.StartCommit(eRepo, "master") // eCommit2, err = c.StartCommit(eRepo, "master")
+	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(eRepo, "master"))
 
-	// This test should pass, but just blocks at FlushCommit, commented out for now
-	//results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
-	//require.NoError(t, err)
-	//require.Equal(t, 3, len(results))
+	results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(results))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-
 }
 
 func TestParallelismSpec(t *testing.T) {
@@ -3759,6 +3859,227 @@ func TestCleanPath(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.InspectFile(repo, "master", "file", "", false, nil)
 	require.NoError(t, err)
+}
+
+func TestInvalidSimpleService(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	// Only specifying an external port should error
+	_, err = c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+	// Using anything but parallelism 1 should error
+	_, err = c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(2),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		0,
+		30004,
+	)
+	require.YesError(t, err)
+}
+
+func TestSimpleService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	fileContent := "hai\n"
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	job, err := c.CreateJob(
+		"pachyderm_netcat",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
+			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
+			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
+		},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: uint64(1),
+		},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Method: client.ReduceMethod,
+		}},
+		"",
+		30003,
+		30004,
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: false,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel() //cleanup resources
+	var runningJobInfo *ppsclient.JobInfo
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 120 * time.Second
+	backoff.RetryNotify(func() error {
+		jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != ppsclient.JobState_JOB_RUNNING {
+			return fmt.Errorf("job state is not 'running': %v", jobInfo.State.String())
+		}
+		runningJobInfo = jobInfo
+		return nil
+	}, b, func(err error, d time.Duration) {
+		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
+	})
+	require.NotNil(t, runningJobInfo)
+	require.NotNil(t, runningJobInfo.Started)
+	require.Nil(t, runningJobInfo.Finished)
+	require.NotNil(t, runningJobInfo.Service)
+	require.Equal(t, int32(30003), runningJobInfo.Service.InternalPort)
+	require.Equal(t, int32(30004), runningJobInfo.Service.ExternalPort)
+
+	// Hit the service via the node port
+	// We need to backoff here as well
+	// Since the job 'RUNNING' doesn't seem to guarantee that the transform command has been run
+	var result string
+	b = backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 120 * time.Second
+	backoff.RetryNotify(func() error {
+		errCh := make(chan error, 1)
+		go func() {
+			output, err := exec.Command("nc", "localhost", "30004").Output()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			result = string(output)
+		}()
+
+		select {
+		case err := <-errCh:
+			return err
+		case <-time.After(time.Second * 5):
+			if result == "" {
+				return fmt.Errorf("netcat command timed out")
+			}
+		}
+		return nil
+	}, b, func(err error, d time.Duration) {
+		fmt.Errorf("error running netcat command: %v; retrying in %v", err, d)
+	})
+	require.NoError(t, err)
+	require.Equal(t, "hai\n", result)
+
+	// Now validate that deletion works
+	err = c.DeleteJob(runningJobInfo.Job.ID)
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.YesError(t, err)
+	_, err = c.InspectRepo(runningJobInfo.OutputCommit.Repo.Name)
+	require.YesError(t, err)
+}
+
+func TestPipelineJobDeletion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(client.NewPipeline(pipelineName))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Include: []*pfsclient.Commit{&pfsclient.Commit{
+			Repo: outRepo,
+		}},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := c.PfsAPIClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+
+	// Now delete the corresponding job
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	err = c.DeleteJob(jobInfos[0].Job.ID)
+	require.YesError(t, err)
 }
 
 func TestLazyPipeline(t *testing.T) {

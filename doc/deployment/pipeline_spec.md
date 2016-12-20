@@ -28,7 +28,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "strategy": "CONSTANT"|"COEFFICIENT"
     "constant": int        // if strategy == CONSTANT
     "coefficient": double  // if strategy == COEFFICIENT
-  }
+  },
   "inputs": [
     {
       "repo": {
@@ -45,16 +45,20 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
         "incremental": "NONE"/"DIFF"/"FILE",
       }
     }
-  ]
+  ],
+  "gc_policy": {
+    "success": string,
+    "failure": string
+  }
 }
 ```
 
-### Name
+### Name (required)
 
 `pipeline.name` is the name of the pipeline that you are creating.  Each
 pipeline needs to have a unique name.
 
-### Transform
+### Transform (required)
 
 `transform.image` is the name of the Docker image that your jobs run in.
 
@@ -82,7 +86,7 @@ this pipeline overwrites the previous output, as opposed to appending to it
 outputs the same file in two subsequent runs, the second write to that file
 will overwrite the first one.  This flag defaults to false.
 
-### Parallelism Spec
+### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm should parallelize your pipeline.
 Currently, Pachyderm has two parallelism strategies: `CONSTANT` and
@@ -99,12 +103,29 @@ has 10 nodes, and you set `coefficient` to 0.5, Pachyderm will start five
 workers. If you set it to 2.0, Pachyderm will start 20 workers (two per
 Kubernetes node).
 
+By default, we use the parallelism spec "coefficient=1".
+
 __Note:__ Pachyderm treats this config as an upper bound. Pachyderm may choose
 to start fewer workers than specified if the pipeline's input data set is small
 or otherwise doesn't parallelize well (for example, if you use an input method
 of file and the input repo only has one file in it).
 
-### Inputs
+### GC Policy (optional)
+
+`gc_policy` specifies when completed jobs can be garbage collected.  Completed
+jobs are typically kept around for a while because the logs can be of interest
+to developers, especially if a job has failed.
+
+`gc_policy` has two string fields: `success` specifies how long successful jobs
+are kept around, and `failure` specifies how long failed jobs are kept around.  
+The string needs to be sequence of decimal numbers, each with optional fraction
+and a unit suffix, such as "300ms", "1.5h" or "2h45m". Valid time units are "s", 
+"m", "h".
+
+By default, successful jobs are kept for 24 hours (a day), and failed jobs are
+kept for 168 hours (a week).
+
+### Inputs (optional)
 
 `inputs` specifies a set of Repos that will be visible to the jobs during
 runtime. Commits to these repos will automatically trigger the pipeline to
@@ -136,14 +157,14 @@ notable if the job only reads a subset of the files that are available to it.
 
 The next section explains input methods in detail.
 
-### Pipeline Input Methods
+## Pipeline Input Methods
 
 For each pipeline input, you may specify a "method".  A method dictates exactly
 what happens in the pipeline when a commit comes into the input repo.
 
 A method consists of two properties: partition unit and incrementality.
 
-#### Partition Unit
+### Partition Unit
 Partition unit ("BLOCK", "FILE", or "REPO") specifies the granularity at which
 input data is parallelized across containers.  It can be of three values:
 
@@ -165,7 +186,7 @@ of which will remain grouped in the same container.
 3. `REPO`: the entire repo.  In this case, the input won't be partitioned at
    all.
 
-#### Incrementality
+### Incrementality
 
 Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be
 available when a new commit is made on an input repo. Namely, do you want to
@@ -190,7 +211,7 @@ see the entire directory if at least one file in that directory has changed. If
 only one vendor file in the whole repo was was changed and it was in the
 Colorado directory, all Colorado vendor files would be present, but that's it.
 
-#### Combining Partition unit and Incrementality
+### Combining Partition unit and Incrementality
 
 For convenience, we have defined aliases for the three most commonly used (and
 most familiar) input methods: "map", "reduce", and "global".
@@ -223,10 +244,10 @@ They are defined below:
   +--------------------------+---------+----------------------+--------+
 ```
 
-#### Defaults
+### Defaults
 If no method is specified, the `map` method (BLOCK + DIFF) is used by default.
 
-### Multiple Inputs
+## Multiple Inputs
 
 A pipeline is allowed to have multiple inputs.  The important thing to
 understand is what happens when a new commit comes into one of the input repos.
