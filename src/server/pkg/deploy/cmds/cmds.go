@@ -35,11 +35,13 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
 func DeployCmd(noMetrics *bool) *cobra.Command {
 	metrics := !*noMetrics
+	var pachdShards int
 	var rethinkShards int
 	var hostPath string
 	var dev bool
 	var dryRun bool
 	var deployRethinkAsRc bool
+	var deployRethinkAsStatefulSet bool
 	var rethinkdbCacheSize string
 	var logLevel string
 	var opts *assets.AssetOpts
@@ -70,9 +72,6 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "google <GCS bucket> <GCE persistent disks> <size of disks (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on GCP.",
 		Long: "Deploy a Pachyderm cluster running on GCP.\n" +
-			"NOTE: Pachyderm currently uses PetSets, which are an alpha-stage Kubernetes feature. You must either:\n" +
-			"  1) set --deploy-rethink-as-rc (to disable PetSets, and deploy RethinkDB as a single-node application), or\n" +
-			"  2) create a GKE alpha cluster (see https://cloud.google.com/container-engine/docs/alpha-clusters)\n\n" +
 			"Arguments are:\n" +
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per rethink shard (see --rethink-shards).\n" +
@@ -161,24 +160,42 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
-		PersistentPreRun: func(*cobra.Command, []string) {
-			opts = &assets.AssetOpts{
-				Shards:             uint64(rethinkShards),
-				RethinkdbCacheSize: rethinkdbCacheSize,
-				DeployRethinkAsRc:  deployRethinkAsRc,
-				Version:            version.PrettyPrintVersion(version.Version),
-				LogLevel:           logLevel,
-				Metrics:            metrics,
+		PersistentPreRun: pkgcobra.Run(func([]string) error {
+			if deployRethinkAsRc {
+				if deployRethinkAsStatefulSet {
+					return fmt.Errorf("Error: pachctl deploy received contradictory flags: " +
+						"--deploy-rethink-as-rc and --deploy-rethink-as-stateful set")
+				}
+				fmt.Fprintf(os.Stderr, "Warning: --deploy-rethink-as-rc is no longer "+
+					"necessary (and is ignored). The default behavior since Pachyderm "+
+					"1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller. "+
+					"This flag will be removed by Pachyderm's 1.4 release, so please remove "+
+					"it from your scripts. Also see --deploy-rethink-as-stateful-set.\n")
 			}
-		},
+			opts = &assets.AssetOpts{
+				PachdShards:                uint64(pachdShards),
+				RethinkShards:              uint64(rethinkShards),
+				RethinkdbCacheSize:         rethinkdbCacheSize,
+				DeployRethinkAsStatefulSet: deployRethinkAsStatefulSet,
+				Version:                    version.PrettyPrintVersion(version.Version),
+				LogLevel:                   logLevel,
+				Metrics:                    metrics,
+			}
+			return nil
+		}),
 	}
-	cmd.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "The static number of RethinkDB shards (for pfs metadata storage).")
+	cmd.PersistentFlags().IntVar(&pachdShards, "shards", 1, "Number of Pachd nodes (stateless Pachyderm API servers).")
+	cmd.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
+		"--deploy-rethink-as-stateful-set is used.")
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
-		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
+		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	cmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	cmd.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Deploy RethinkDB as a single-node cluster controlled by kubernetes ReplicationController, "+
-		"instead of a multi-node cluster controlled by a PetSet. This is for compatibility with GKE, which does not publicly support PetSets yet")
+	cmd.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
+		"Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.")
+	cmd.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
+		"controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both "+
+		"your local kubectl binary and the kubernetes server must be at least version 1.5.")
 	cmd.AddCommand(deployLocal)
 	cmd.AddCommand(deployAmazon)
 	cmd.AddCommand(deployGoogle)
