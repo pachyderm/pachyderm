@@ -28,6 +28,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const (
+	concurrentPuts = 100
+)
+
 var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
@@ -359,8 +363,11 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 	if request.Recursive {
 		var eg errgroup.Group
 		path := strings.TrimPrefix(url.Path, "/")
+		sem := make(chan struct{}, concurrentPuts)
 		objClient.Walk(path, func(name string) error {
-			eg.Go(func() error { return put(filepath.Join(request.File.Path, name), name) })
+			sem <- struct{}{}
+			eg.Go(func() error { return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name) })
+			<-sem
 			return nil
 		})
 		return eg.Wait()
