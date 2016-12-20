@@ -33,7 +33,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 }
 
 // DeployCmd returns a cobra command for deploying a pachyderm cluster.
-func DeployCmd(noMetrics *bool) *cobra.Command {
+func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 	var rethinkShards int
 	var hostPath string
@@ -156,8 +156,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-
-	cmd := &cobra.Command{
+	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -172,16 +171,46 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			}
 		},
 	}
-	cmd.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "The static number of RethinkDB shards (for pfs metadata storage).")
-	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
+	deploy.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "The static number of RethinkDB shards (for pfs metadata storage).")
+	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	deploy.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc)")
-	cmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	cmd.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Deploy RethinkDB as a single-node cluster controlled by kubernetes ReplicationController, "+
+	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Deploy RethinkDB as a single-node cluster controlled by kubernetes ReplicationController, "+
 		"instead of a multi-node cluster controlled by a PetSet. This is for compatibility with GKE, which does not publicly support PetSets yet")
-	cmd.AddCommand(deployLocal)
-	cmd.AddCommand(deployAmazon)
-	cmd.AddCommand(deployGoogle)
-	cmd.AddCommand(deployMicrosoft)
-	return cmd
+	deploy.AddCommand(deployLocal)
+	deploy.AddCommand(deployAmazon)
+	deploy.AddCommand(deployGoogle)
+	deploy.AddCommand(deployMicrosoft)
+	undeploy := &cobra.Command{
+		Use:   "undeploy",
+		Short: "Tear down a deployed Pachyderm cluster.",
+		Long:  "Tear down a deployed Pachyderm cluster.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
+			io := pkgexec.IO{
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "job", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	return []*cobra.Command{deploy, undeploy}
 }
