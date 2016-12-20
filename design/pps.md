@@ -78,9 +78,3 @@ In the case of network partitions between PPS and a pod, PPS will again stop rec
 When a pod finishes processing a chunk, it sends a `FinishPod` request to PPS.  PPS then updates the relevant `Chunk` document to indicate that the chunk has been finished.
 
 When a job is first started, a `jobManager` goroutine is launched.  The `jobManager` subscribes to a changefeed that returns the statuses of the job's chunks.  When all chunks have been finished, the `jobManager` updates the state of the job (which is also stored as a separate document in Rethink) to indicate that the job has been finished.
-
-## Exercises
-
-* Explain the following concepts: pipelines, jobs, pods, chunks
-* What happens when a pod crashes?
-* What happens when a PPS node crashes?
