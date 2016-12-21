@@ -895,7 +895,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, info.Name()), filepath.Join(filePath, info.Name()), false)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false)
 			})
 			return nil
 		})

@@ -27,7 +27,7 @@ var (
 	serviceAccountName          = "pachyderm"
 	etcdName                    = "etcd"
 	pachdName                   = "pachd"
-	rethinkControllerName       = "rethink" // Used by both the RethinkDB PetSet and ReplicationController (whichever is enabled)
+	rethinkControllerName       = "rethink" // Used by both the RethinkDB Stateful Set and ReplicationController (whichever is enabled)
 	rethinkServiceName          = "rethink"
 	rethinkHeadlessName         = "rethink-headless" // headless service; give Rethink pods consistent DNS addresses
 	rethinkVolumeName           = "rethink-volume"
@@ -457,18 +457,18 @@ func RethinkRc(volume string, rethinkdbCacheSize string) *api.ReplicationControl
 	return spec
 }
 
-// RethinkPetSet returns a rethinkdb pet set
-func RethinkPetSet(shards int, diskSpace int, cacheSize string) interface{} {
+// RethinkStatefulSet returns a rethinkdb stateful set
+func RethinkStatefulSet(shards int, diskSpace int, cacheSize string) interface{} {
 	rethinkCacheQuantity := resource.MustParse(cacheSize)
 	containerFootprint := rethinkCacheQuantity.Copy()
 	containerFootprint.Add(rethinkNonCacheMemFootprint)
-	// As of Oct 24 2016, the Kubernetes client does not include structs for PetSet, so we generate the kubernetes
+	// As of Oct 24 2016, the Kubernetes client does not include structs for Stateful Set, so we generate the kubernetes
 	// manifest using raw json.
 
-	// PetSet config:
+	// Stateful Set config:
 	return map[string]interface{}{
-		"apiVersion": "apps/v1alpha1",
-		"kind":       "PetSet",
+		"apiVersion": "apps/v1beta1",
+		"kind":       "StatefulSet",
 		"metadata": map[string]interface{}{
 			"name":              rethinkControllerName,
 			"creationTimestamp": nil,
@@ -605,7 +605,7 @@ func RethinkNodeportService(opts *AssetOpts) *api.Service {
 		},
 	}
 
-	if opts.DeployRethinkAsRc {
+	if !opts.DeployRethinkAsStatefulSet {
 		serviceDef.Spec.Ports = append(serviceDef.Spec.Ports, api.ServicePort{
 			Port: 29015,
 			Name: "cluster-port",
@@ -730,9 +730,9 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 
 // WriteRethinkVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
-func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) {
+func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
 	if backend != localBackend && len(names) < shards {
-		panic(fmt.Errorf("Could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names)))
+		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	for i := 0; i < shards; i++ {
@@ -787,16 +787,17 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 				},
 			}
 		default:
-			panic(fmt.Sprintf("Cannot generate volume spec for unknown backend \"%v\".", backend))
+			return fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", backend)
 		}
 		spec.CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
+	return nil
 }
 
 // RethinkVolumeClaim creates a persistent volume claim with a size in gigabytes.
 //
-// Note that if you're controlling RethinkDB as a PetSet, this is unneccessary.
+// Note that if you're controlling RethinkDB as a Stateful Set, this is unneccessary.
 // We're only keeping it for backwards compatibility with GKE. Therefore at most one
 // persistent volume claim will be created by this function, so it's okay to name it
 // statically
@@ -823,26 +824,30 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
-	Shards             uint64
+	PachdShards        uint64
+	RethinkShards      uint64
 	RethinkdbCacheSize string
 	Version            string
 	LogLevel           string
 	Metrics            bool
 
 	// Deploy single-node rethink managed by a RC, rather than a multi-node,
-	// highly-available PetSet. This will be necessary until GKE supports PetSets
-	DeployRethinkAsRc bool
+	// highly-available Stateful Set. This will be necessary until GKE supports Stateful Set
+	DeployRethinkAsStatefulSet bool
 }
 
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
-	volumeNames []string, volumeSize int, hostPath string) {
+	volumeNames []string, volumeSize int, hostPath string) error {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	WriteRethinkVolumes(w, backend, int(opts.Shards), hostPath, volumeNames, volumeSize)
+	err := WriteRethinkVolumes(w, backend, int(opts.RethinkShards), hostPath, volumeNames, volumeSize)
+	if err != nil {
+		return err
+	}
 
 	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -851,9 +856,13 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	RethinkNodeportService(opts).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	if opts.DeployRethinkAsRc {
+	if opts.DeployRethinkAsStatefulSet {
+		encoder.Encode(RethinkStatefulSet(int(opts.RethinkShards), volumeSize, opts.RethinkdbCacheSize))
+		fmt.Fprintf(w, "\n")
+		RethinkHeadlessService().CodecEncodeSelf(encoder)
+	} else {
 		if backend != localBackend && len(volumeNames) != 1 {
-			panic(fmt.Sprintf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames)))
+			return fmt.Errorf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames))
 		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		volumeName := ""
@@ -861,10 +870,6 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 			volumeName = volumeNames[0]
 		}
 		RethinkRc(volumeName, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
-	} else {
-		encoder.Encode(RethinkPetSet(int(opts.Shards), volumeSize, opts.RethinkdbCacheSize))
-		fmt.Fprintf(w, "\n")
-		RethinkHeadlessService().CodecEncodeSelf(encoder)
 	}
 	fmt.Fprintf(w, "\n")
 
@@ -873,38 +878,48 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.Shards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
+	PachdRc(opts.PachdShards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) {
-	WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
+func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
+	return WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
-	token string, region string, volumeNames []string, volumeSize int) {
-	WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, "")
+	token string, region string, volumeNames []string, volumeSize int) error {
+	if err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, ""); err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) {
-	WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, "")
+func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) error {
+	if err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, ""); err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) {
-	WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, "")
+func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) error {
+	if err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
+		return err
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 func labels(name string) map[string]string {
