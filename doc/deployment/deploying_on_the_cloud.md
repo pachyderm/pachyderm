@@ -54,8 +54,8 @@ $ gcloud container clusters get-credentials ${CLUSTER_NAME}
 Check to see that your cluster is up and running:
 ```sh
 $ kubectl get all
-NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-kubernetes   10.3.240.1   <none>        443/TCP   10m
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+svc/kubernetes   10.0.0.1     <none>        443/TCP   22s
 ```
 
 ### Deploy Pachyderm
@@ -114,7 +114,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
+pachctl             1.3.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -129,22 +129,24 @@ It may take a few minutes for the pachd nodes to be running because it's pulling
 
 ```sh
 $ kubectl get all
-NAME                   DESIRED        CURRENT          AGE
-etcd                   1              1                1m
-pachd                  2              2                1m
-rethink                1              1                1m
-NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
-etcd                   10.3.253.161   <none>           2379/TCP,2380/TCP              1m
-kubernetes             10.3.240.1     <none>           443/TCP                        47m
-pachd                  10.3.254.31    <nodes>          650/TCP,651/TCP                1m
-rethink                10.3.241.56    <nodes>          8080/TCP,28015/TCP,29015/TCP   1m
-NAME                   READY          STATUS           RESTARTS                       AGE
-etcd-1mv3v             1/1            Running          0                              1m
-pachd-6vjpc            1/1            Running          3                              1m
-pachd-nxj54            1/1            Running          3                              1m
-rethink-e4v60          1/1            Running          0                              1m
-NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
-rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
+NAME               READY     STATUS    RESTARTS   AGE
+po/etcd-xzc0d      1/1       Running   0          55s
+po/pachd-6m6wm     1/1       Running   0          55s
+po/rethink-388b3   1/1       Running   0          55s
+
+NAME         DESIRED   CURRENT   READY     AGE
+rc/etcd      1         1         1         55s
+rc/pachd     1         1         1         55s
+rc/rethink   1         1         1         55s
+
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
+svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
+svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
+svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
+
+NAME              DESIRED   SUCCESSFUL   AGE
+jobs/pachd-init   1         1            55s
 ```
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
@@ -160,8 +162,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
-pachd               1.2.4
+pachctl             1.3.2
+pachd               1.3.2
 ```
 
 ## Amazon Web Services (AWS)
@@ -266,7 +268,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
+pachctl             1.3.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -295,22 +297,25 @@ It may take a few minutes for the pachd nodes to be running because it's pulling
 
 ```sh
 $ kubectl get all
-NAME                   DESIRED        CURRENT          AGE
-etcd                   1              1                17m
-pachd                  2              2                17m
-rethink                1              1                17m
-NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
-etcd                   10.0.255.155   <none>           2379/TCP,2380/TCP              17m
-kubernetes             10.0.0.1       <none>           443/TCP                        4h
-pachd                  10.0.43.148    <nodes>          650/TCP,651/TCP                17m
-rethink                10.0.249.8     <nodes>          8080/TCP,28015/TCP,29015/TCP   17m
-NAME                   READY          STATUS           RESTARTS                       AGE
-etcd-04jbq             1/1            Running          0                              17m
-pachd-7a8sp            1/1            Running          2                              17m
-pachd-9egd7            1/1            Running          3                              17m
-rethink-xd7sc          1/1            Running          0                              17m
-NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
-rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           17m
+NAME               READY     STATUS    RESTARTS   AGE
+po/etcd-xzc0d      1/1       Running   0          55s
+po/pachd-6m6wm     1/1       Running   0          55s
+po/rethink-388b3   1/1       Running   0          55s
+
+NAME         DESIRED   CURRENT   READY     AGE
+rc/etcd      1         1         1         55s
+rc/pachd     1         1         1         55s
+rc/rethink   1         1         1         55s
+
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
+svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
+svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
+svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
+
+NAME              DESIRED   SUCCESSFUL   AGE
+jobs/pachd-init   1         1            55s
+
 ```
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
@@ -325,8 +330,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
-pachd               1.2.4
+pachctl             1.3.2
+pachd               1.3.2
 ```
 
 ## Microsoft Azure
@@ -410,7 +415,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
+pachctl             1.3.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -426,22 +431,25 @@ It may take a few minutes for the pachd nodes to be running because it's pulling
 
 ```sh
 $ kubectl get all
-NAME                   DESIRED        CURRENT          AGE
-etcd                   1              1                1m
-pachd                  2              2                1m
-rethink                1              1                1m
-NAME                   CLUSTER-IP     EXTERNAL-IP      PORT(S)                        AGE
-etcd                   10.3.253.161   <none>           2379/TCP,2380/TCP              1m
-kubernetes             10.3.240.1     <none>           443/TCP                        47m
-pachd                  10.3.254.31    <nodes>          650/TCP,651/TCP                1m
-rethink                10.3.241.56    <nodes>          8080/TCP,28015/TCP,29015/TCP   1m
-NAME                   READY          STATUS           RESTARTS                       AGE
-etcd-1mv3v             1/1            Running          0                              1m
-pachd-6vjpc            1/1            Running          3                              1m
-pachd-nxj54            1/1            Running          3                              1m
-rethink-e4v60          1/1            Running          0                              1m
-NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
-rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
+NAME               READY     STATUS    RESTARTS   AGE
+po/etcd-xzc0d      1/1       Running   0          55s
+po/pachd-6m6wm     1/1       Running   0          55s
+po/rethink-388b3   1/1       Running   0          55s
+
+NAME         DESIRED   CURRENT   READY     AGE
+rc/etcd      1         1         1         55s
+rc/pachd     1         1         1         55s
+rc/rethink   1         1         1         55s
+
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
+svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
+svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
+svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
+
+NAME              DESIRED   SUCCESSFUL   AGE
+jobs/pachd-init   1         1            55s
+
 ```
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
@@ -457,8 +465,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
-pachd               1.2.4
+pachctl             1.3.2
+pachd               1.3.2
 ```
 
 
