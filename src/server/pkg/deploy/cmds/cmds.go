@@ -32,7 +32,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 		}, "kubectl", "create", "-f", "-")
 }
 
-// DeployCmd returns a cobra command for deploying a pachyderm cluster.
+// Cmds returns a cobra commands for deploying Pachyderm clusters.
 func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 	var rethinkShards int
