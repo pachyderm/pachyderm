@@ -918,6 +918,9 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 			OutputCommit: commit,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(chunk.Index, chunk.Moduli)
@@ -2136,7 +2139,8 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		Name: client.PPSPodNameEnv,
 		ValueFrom: &api.EnvVarSource{
 			FieldRef: &api.ObjectFieldSelector{
-				FieldPath: "metadata.name",
+				APIVersion: "v1",
+				FieldPath:  "metadata.name",
 			},
 		},
 	})
