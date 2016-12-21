@@ -116,7 +116,7 @@ Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
 Output Commit: {{.OutputCommit.ID}}
-Output: {{.Output.URL}}
+{{ if .Output }}Output: {{.Output.URL}} {{end}}
 Chunks:
 {{prettyChunks .Chunks}}
 `)
@@ -140,7 +140,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
-Output: {{.Output.URL}}
+{{ if .Output }}Output: {{.Output.URL}} {{end}}
 {{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
 Job Counts:
 {{jobCounts .JobCounts}}
