@@ -114,7 +114,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.2
+pachctl             1.2.4
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -152,7 +152,7 @@ Finally, we need to set up forward a port so that pachctl can talk to the cluste
 
 ```sh
 # Forward the ports. We background this process because it blocks.
-$ pachctl portforward &
+$ pachctl port-forward &
 ```
 
 And you're done! You can test to make sure the cluster is working by trying `pachctl version` or even creating a new repo.
@@ -160,8 +160,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
-pachd               1.2.0
+pachctl             1.2.4
+pachd               1.2.4
 ```
 
 ## Amazon Web Services (AWS)
@@ -173,10 +173,11 @@ pachd               1.2.0
 
 ### Deploy Kubernetes
 
-The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/). The script defaults to using 1 m3.medium instance and 3 t2.micros. t2.micros can have significant network and cpu problems so we suggest using all m3.mediums or larger. Before running kube-up.sh make sure to set:
+The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/aws/). The script defaults to using one m3.medium instance and three t2.micros. These instances can have network, cpu, and disc space problems so we suggest using all m3.large or larger. Before running kube-up.sh make sure to set:
 
 ```
-export NODE_SIZE=m3.medium
+export NODE_SIZE=m3.large
+export MASTER_SIZE=m3.large
 
 # You can also easily change the number of nodes
 export NUM_NODES=2
@@ -185,7 +186,7 @@ export NUM_NODES=2
 ```
 
 
- NOTE: If you've already got a Kubernetes cluster running, you may see the error `An error occurred (InvalidIPAddress.InUse) when calling the RunInstances operation: Address 172.20.0.9 is in use`. You can terminate the old cluster with `kubernetes/cluster/kube-down.sh` and then rerun the script. 
+ NOTE: If you've already got a Kubernetes cluster running, you may see the error `An error occurred (InvalidIPAddress.InUse) when calling the RunInstances operation: Address 172.20.0.9 is in use`. You can terminate the old cluster with `kubernetes/cluster/kube-down.sh` and then rerun the script.
 
  NOTE: If you already had kubectl set up from the minikube demo, kubectl will now be talking to your aws cluster. You can switch back to talking to minikube with:
  ```
@@ -204,7 +205,7 @@ Before we deploy Pachyderm, we need to add some storage resources to our cluster
 
 #### Set up the Storage Infrastructure
 
-Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html) (EBS) to function correctly.  
+Pachyderm needs an [S3 bucket](https://aws.amazon.com/documentation/s3/), and a [persistent disk](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumes.html) (EBS) to function correctly.
 
 Here are the parameters to set up these resources:
 
@@ -265,8 +266,9 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.0
+pachctl             1.2.4
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+```
 
 #### Start Pachyderm
 
@@ -323,8 +325,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.3
-pachd               1.2.3
+pachctl             1.2.4
+pachd               1.2.4
 ```
 
 ## Microsoft Azure
@@ -364,7 +366,7 @@ $ STORAGE_NAME=pach-disk.vhd
 # should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the data disk volume that you are going to create, in GBs. e.g. "10"]
 ```
- 
+
 And then run:
 
 ```sh
@@ -384,14 +386,14 @@ $ STORAGE_VOLUME_URI=`docker run -it microsoft_vhd ${AZURE_STORAGE_NAME} ${AZURE
 To check that everything has been setup correctly, try:
 
 ```sh
-$ azure storage account list 
+$ azure storage account list
 # should see a number of storage accounts, including the one specified with ${AZURE_STORAGE_NAME}
 
 $ azure storage blob list --account-name ${AZURE_STORAGE_NAME} --account-key ${_AZURE_STORAGE_KEY}
 # should see a disk with the name ${STORAGE_NAME}
 ```
 
-#### Install Pachctl 
+#### Install Pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -403,12 +405,12 @@ $ brew tap pachyderm/tap && brew install pachctl
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version. 
+You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
 
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.3
+pachctl             1.2.4
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -441,12 +443,12 @@ rethink-e4v60          1/1            Running          0                        
 NAME                   STATUS         VOLUME           CAPACITY                       ACCESSMODES   AGE
 rethink-volume-claim   Bound          rethink-volume   10Gi                           RWO           1m
 ```
-Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.  
+Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
 Finally, we need to set up forward a port so that pachctl can talk to the cluster.
 
 ```sh
-# Forward the ports. We background this process because it blocks. 
+# Forward the ports. We background this process because it blocks.
 $ pachctl portforward &
 ```
 
@@ -455,8 +457,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.3
-pachd               1.2.3
+pachctl             1.2.4
+pachd               1.2.4
 ```
 
 

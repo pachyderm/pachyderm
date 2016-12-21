@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
@@ -29,7 +29,8 @@ import (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(address string) []*cobra.Command {
+func Cmds(address string, noMetrics *bool) []*cobra.Command {
+	metrics := !*noMetrics
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -66,7 +67,7 @@ Repos are created with create-repo.`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -79,7 +80,7 @@ Repos are created with create-repo.`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -100,7 +101,7 @@ Repos are created with create-repo.`,
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -124,7 +125,7 @@ Repos are created with create-repo.`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -167,7 +168,7 @@ Examples:
 	$ pachctl start-commit foo master/3
 `,
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -191,7 +192,7 @@ Examples:
 	$ pachctl fork-commit test foo/2 bar
 `,
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -210,7 +211,7 @@ Examples:
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -227,7 +228,7 @@ Examples:
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmd.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -242,8 +243,33 @@ Examples:
 		}),
 	}
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete a commit.",
+		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
+		Run: cmd.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			fmt.Printf("delete-commit is a beta feature; specifically, it may race with concurrent start-commit on the same branch.  Are you sure you want to proceed? yN\n")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				if err := client.DeleteCommit(args[0], args[1]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
+	}
+
 	var all bool
 	var block bool
+	var listCommitExclude cmd.RepeatedStringArg
 	var listCommitProvenance cmd.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
@@ -255,8 +281,11 @@ Examples:
 	# return commits in repo "foo" and repo "bar"
 	$ pachctl list-commit foo bar
 
-	# return commits in repo "foo" since commit master/2 and those in repo "bar" since commit master/4
-	$ pachctl list-commit foo/master/2 bar/master/4
+	# return commits in repo "foo" on branch "master"
+	$ pachctl list-commit foo/master
+
+	# return commits in repo "foo" since commit master/2
+	$ pachctl list-commit foo/master -e foo/master/2
 
 	# return commits in repo "foo" that have commits
 	# "bar/master/3" and "baz/master/5" as provenance
@@ -264,12 +293,12 @@ Examples:
 
 `,
 		Run: pkgcobra.Run(func(args []string) error {
-			fromCommits, err := cmd.ParseCommits(args)
+			include, err := cmd.ParseCommits(args)
 			if err != nil {
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			exclude, err := cmd.ParseCommits(listCommitExclude)
 			if err != nil {
 				return err
 			}
@@ -282,7 +311,13 @@ Examples:
 			if all {
 				status = pfsclient.CommitStatus_ALL
 			}
-			commitInfos, err := c.ListCommitFrom(fromCommits, provenance, client.CommitTypeNone, status, block)
+
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			commitInfos, err := c.ListCommit(exclude, include, provenance, client.CommitTypeNone, status, block)
 			if err != nil {
 				return err
 			}
@@ -297,6 +332,8 @@ Examples:
 	}
 	listCommit.Flags().BoolVarP(&all, "all", "a", false, "list all commits including cancelled and archived ones")
 	listCommit.Flags().BoolVarP(&block, "block", "b", false, "block until there are new commits since the from commits")
+	listCommit.Flags().VarP(&listCommitExclude, "exclude", "x",
+		"exclude the ancestors of this commit, or exclude the commits on this branch")
 	listCommit.Flags().VarP(&listCommitProvenance, "provenance", "p",
 		"list only commits with the specified `commit`s provenance, commits are specified as RepoName/CommitID")
 
@@ -317,7 +354,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -333,8 +370,9 @@ Examples:
 
 Examples:
 
-	# replay commits foo/2 and foo/3 onto branch "bar" in repo "test"
-	$ pachctl replay-commit test foo/2 foo/3 bar
+	# replay unique commits on branch "foo" to branch "bar".  The common commits on
+	# these branches won't be replayed.
+	$ pachctl replay-commit test foo bar
 `,
 		Run: pkgcobra.Run(func(args []string) error {
 			if len(args) < 3 {
@@ -342,7 +380,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -380,7 +418,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewFromAddress(address)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -410,7 +448,7 @@ Examples:
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -446,41 +484,6 @@ Files can be read from finished commits with get-file.`,
 	var recursive bool
 	var commitFlag bool
 	var inputFile string
-	// putFilePath is a helper for putFile
-	putFilePath := func(client *client.APIClient, args []string, filePath string) error {
-		if filePath == "-" {
-			if len(args) < 3 {
-				return errors.New("either a path or the -f flag needs to be provided")
-			}
-			_, err := client.PutFile(args[0], args[1], args[2], os.Stdin)
-			return err
-		}
-		// try parsing the filename as a url, if it is one do a PutFileURL
-		if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
-			if len(args) < 3 {
-				return client.PutFileURL(args[0], args[1], strings.TrimPrefix(url.Path, "/"), url.String())
-			}
-			return client.PutFileURL(args[0], args[1], filepath.Join(args[2], url.Path), url.String())
-		}
-		if !recursive {
-			if len(args) == 3 {
-				return cpFile(client, args[0], args[1], args[2], filePath)
-			}
-			return cpFile(client, args[0], args[1], filePath, filePath)
-		}
-		var eg errgroup.Group
-		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-			if info.IsDir() {
-				return nil
-			}
-			if len(args) == 3 {
-				eg.Go(func() error { return cpFile(client, args[0], args[1], filepath.Join(args[2], path), path) })
-			}
-			eg.Go(func() error { return cpFile(client, args[0], args[1], path, path) })
-			return nil
-		})
-		return eg.Wait()
-	}
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -520,29 +523,55 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
+			repoName := args[0]
+			commitID := args[1]
+			var path string
+			if len(args) == 3 {
+				path = args[2]
+			}
 			if commitFlag {
-				commit, err := client.StartCommit(args[0], args[1])
+				// We start a commit on a UUID branch and merge the commit
+				// back to the main branch if PutFile was successful.
+				//
+				// The reason we do that is that we don't want to create a cancelled
+				// commit on the main branch, which can cause future commits to be
+				// cancelled as well.
+				tmpCommit, err := client.StartCommit(repoName, uuid.NewWithoutDashes())
 				if err != nil {
 					return err
 				}
+				// Archiving the commit because we don't want this temporary commit
+				// to trigger downstream pipelines.
+				if err := client.ArchiveCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
+					return err
+				}
+
+				// PutFile should be operating on this temporary commit
+				commitID = tmpCommit.ID
 				defer func() {
 					if retErr != nil {
 						// something errored so we try to cancel the commit
-						if err := client.CancelCommit(commit.Repo.Name, commit.ID); err != nil {
+						if err := client.CancelCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							fmt.Printf("Error cancelling commit: %s", err.Error())
 						}
 					} else {
-						if err := client.FinishCommit(commit.Repo.Name, commit.ID); err != nil && retErr == nil {
+						if err := client.FinishCommit(tmpCommit.Repo.Name, tmpCommit.ID); err != nil {
 							retErr = err
+							return
+						}
+						// replay the temp commit onto the main branch
+						if _, err := client.ReplayCommit(repoName, []string{tmpCommit.ID}, args[1]); err != nil {
+							retErr = err
+							return
 						}
 					}
 				}()
 			}
-			var eg errgroup.Group
+			var sources []string
 			if inputFile != "" {
 				var r io.Reader
 				if inputFile == "-" {
@@ -574,12 +603,33 @@ files into your Pachyderm cluster.
 				scanner := bufio.NewScanner(r)
 				for scanner.Scan() {
 					if filePath := scanner.Text(); filePath != "" {
-						eg.Go(func() error { return putFilePath(client, args, filePath) })
+						sources = append(sources, filePath)
 					}
 				}
 			} else {
-				for _, filePath := range filePaths {
-					eg.Go(func() error { return putFilePath(client, args, filePath) })
+				sources = filePaths
+			}
+			var eg errgroup.Group
+			for _, source := range sources {
+				source := source
+				if len(args) == 2 {
+					// The user has not specific a path so we use source as path.
+					if source == "-" {
+						return fmt.Errorf("no filename specified")
+					}
+					eg.Go(func() error {
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive)
+					})
+				} else if len(sources) == 1 && len(args) == 3 {
+					// We have a single source and the user has specified a path,
+					// we use the path and ignore source (in terms of naming the file).
+					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive) })
+				} else if len(sources) > 1 && len(args) == 3 {
+					// We have multiple sources and the user has specified a path,
+					// we use that path as a prefix for the filepaths.
+					eg.Go(func() error {
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive)
+					})
 				}
 			}
 			return eg.Wait()
@@ -601,7 +651,7 @@ files into your Pachyderm cluster.
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -616,7 +666,7 @@ files into your Pachyderm cluster.
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -644,7 +694,7 @@ files into your Pachyderm cluster.
 				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -679,7 +729,7 @@ files into your Pachyderm cluster.
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmd.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -694,7 +744,7 @@ files into your Pachyderm cluster.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmd.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
 			if err != nil {
 				return err
 			}
@@ -706,7 +756,7 @@ files into your Pachyderm cluster.
 				<-ready
 				fmt.Println("Filesystem mounted, CTRL-C to exit.")
 			}()
-			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits)
+			err = mounter.Mount(mountPoint, shard(), nil, ready, debug, allCommits, false)
 			if err != nil {
 				return err
 			}
@@ -774,7 +824,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
 		Run: cmd.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -793,6 +843,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 	result = append(result, forkCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listCommit)
 	result = append(result, squashCommit)
 	result = append(result, replayCommit)
@@ -828,8 +879,29 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func cpFile(client *client.APIClient, repo string, commit string, path string, filePath string) (retErr error) {
-	f, err := os.Open(filePath)
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool) (retErr error) {
+	if source == "-" {
+		_, err := client.PutFile(repo, commit, path, os.Stdin)
+		return err
+	}
+	// try parsing the filename as a url, if it is one do a PutFileURL
+	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		return client.PutFileURL(repo, commit, path, url.String(), recursive)
+	}
+	if recursive {
+		var eg errgroup.Group
+		filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+			if info.IsDir() {
+				return nil
+			}
+			eg.Go(func() error {
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false)
+			})
+			return nil
+		})
+		return eg.Wait()
+	}
+	f, err := os.Open(source)
 	if err != nil {
 		return err
 	}
@@ -840,4 +912,11 @@ func cpFile(client *client.APIClient, repo string, commit string, path string, f
 	}()
 	_, err = client.PutFile(repo, commit, path, f)
 	return err
+}
+
+func joinPaths(prefix, filePath string) string {
+	if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
+	}
+	return filepath.Join(prefix, filePath)
 }

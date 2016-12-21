@@ -41,16 +41,18 @@ import (
 )
 
 var readinessCheck bool
+var migrate string
 
 func init() {
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
+	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
 }
 
 type appEnv struct {
 	Port               uint16 `env:"PORT,default=650"`
 	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot        string `env:"PACH_ROOT,required"`
+	StorageRoot        string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend     string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress    string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
@@ -98,7 +100,6 @@ func do(appEnvObj interface{}) error {
 		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
 	if readinessCheck {
-		//c, err := client.NewInCluster()
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
 			return err
@@ -120,6 +121,9 @@ func do(appEnvObj interface{}) error {
 
 		return nil
 	}
+	if migrate != "" {
+		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
+	}
 
 	clusterID, err := getClusterID(etcdClient)
 	if err != nil {
@@ -129,8 +133,9 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		go metrics.ReportMetrics(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
+		reporter = metrics.NewReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
@@ -169,7 +174,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
-	apiServer := pfs_server.NewAPIServer(driver)
+	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -177,6 +182,7 @@ func do(appEnvObj interface{}) error {
 		getNamespace(),
 		appEnv.JobShimImage,
 		appEnv.JobImagePullPolicy,
+		reporter,
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {

@@ -20,7 +20,7 @@ before_install:
 - sudo mount -o bind /var/lib/kubelet /var/lib/kubelet
 - sudo mount --make-shared /var/lib/kubelet
 before_script:
-- wget https://storage.googleapis.com/kubernetes-release/release/v1.4.0/bin/linux/amd64/kubectl
+- wget https://storage.googleapis.com/kubernetes-release/release/v1.5.1/bin/linux/amd64/kubectl
 - chmod +x kubectl
 - sudo mv kubectl /usr/local/bin/
 - make launch-kube
@@ -28,6 +28,7 @@ before_script:
 - docker version
 script:
 - make lint
-- travis_wait 60 make test
+- travis_wait 30 make pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests
+- travis_wait 30 make example-tests
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

@@ -4,7 +4,7 @@ We'll use a standard unix tool, `wget`, to do our scraping.
 
 ## Setup
 
-This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html).
+This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster. [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html).
 
 ## Create a Repo
 
@@ -155,7 +155,7 @@ Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your jo
 ```shell
 $ kubectl get job
 JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR                                                         SUCCESSFUL
-09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
+09a7eb68995c43979cba2b0d29432073   user           ubuntu:14.04   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
 ```
 
 Every `pipeline` creates a corresponding `repo` with the same

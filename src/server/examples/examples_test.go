@@ -45,7 +45,7 @@ func TestExampleTensorFlow(t *testing.T) {
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	commitInfos, err := c.ListCommit(
+	commitInfos, err := c.ListCommitByRepo(
 		[]string{"GoT_scripts"},
 		nil,
 		client.CommitTypeRead,
@@ -124,7 +124,7 @@ func TestWordCount(t *testing.T) {
 
 	// Flush Commit can't help us here since there are no inputs
 	// So we block on ListCommit
-	commitInfos, err := c.ListCommit(
+	commitInfos, err := c.ListCommitByRepo(
 		[]string{"wordcount_input"},
 		nil,
 		client.CommitTypeRead,
@@ -138,7 +138,7 @@ func TestWordCount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		[]string{"wordcount_map"},
 		nil,
 		client.CommitTypeRead,
@@ -168,7 +168,7 @@ func TestWordCount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		[]string{"wordcount_reduce"},
 		nil,
 		client.CommitTypeRead,
@@ -217,7 +217,7 @@ func TestFruitStand(t *testing.T) {
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	commitInfos, err := c.ListCommit(
+	commitInfos, err := c.ListCommitByRepo(
 		[]string{"data"},
 		nil,
 		client.CommitTypeRead,
@@ -254,7 +254,7 @@ func TestFruitStand(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		[]string{"sum"},
 		nil,
 		client.CommitTypeRead,
@@ -289,11 +289,11 @@ func TestFruitStand(t *testing.T) {
 	require.NoError(t, err)
 
 	// Flush commit!
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		[]string{"data"},
 		nil,
 		client.CommitTypeRead,
-		client.CommitStatusAll,
+		client.CommitStatusNormal,
 		false,
 	)
 	require.NoError(t, err)
@@ -303,7 +303,7 @@ func TestFruitStand(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		[]string{"sum"},
 		nil,
 		client.CommitTypeRead,
@@ -347,7 +347,7 @@ func TestScraper(t *testing.T) {
 	require.Equal(t, "master/0\n", string(output))
 	// Check that it's there
 	var commitInfos []*pfsclient.CommitInfo
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		// fromCommits (only use commits to the 'urls' repo)
 		[]string{"urls"},
 		nil, // provenance (any provenance)
@@ -378,7 +378,7 @@ func TestScraper(t *testing.T) {
 	_, err = c.FlushCommit([]*pfsclient.Commit{commitInfos[0].Commit}, nil) // Wait until the URLs have been scraped
 	require.NoError(t, err)
 
-	commitInfos, err = c.ListCommit(
+	commitInfos, err = c.ListCommitByRepo(
 		// fromCommits (use only commits to the 'scraper' repo)
 		[]string{"scraper"},
 		nil,
