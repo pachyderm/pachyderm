@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -272,14 +271,12 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 				default:
 					delimiter = pfs.Delimiter_NONE
 				}
-			case "s3":
-				return a.putFileS3(request, url)
-			case "gcs":
-				fallthrough
-			case "gs":
-				return a.putFileGcs(request, url)
-			case "as":
-				return a.putFileAs(request, url)
+			default:
+				objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
+				if err != nil {
+					return err
+				}
+				return a.putFileObj(objClient, request, url)
 			}
 		} else {
 			reader := putFileReader{
@@ -297,54 +294,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}
 	return nil
-}
-
-func (a *apiServer) putFileS3(request *pfs.PutFileRequest, url *url.URL) error {
-	id, err := ioutil.ReadFile("/amazon-secret/id")
-	if err != nil {
-		return err
-	}
-	secret, err := ioutil.ReadFile("/amazon-secret/secret")
-	if err != nil {
-		return err
-	}
-	token, err := ioutil.ReadFile("/amazon-secret/token")
-	if err != nil {
-		return err
-	}
-	region, err := ioutil.ReadFile("/amazon-secret/region")
-	if err != nil {
-		return err
-	}
-	objClient, err := obj.NewAmazonClient(url.Host, string(id), string(secret), string(token), string(region))
-	if err != nil {
-		return err
-	}
-	return a.putFileObj(objClient, request, url)
-}
-
-func (a *apiServer) putFileGcs(request *pfs.PutFileRequest, url *url.URL) error {
-	objClient, err := obj.NewGoogleClient(context.Background(), url.Host)
-	if err != nil {
-		return err
-	}
-	return a.putFileObj(objClient, request, url)
-}
-
-func (a *apiServer) putFileAs(request *pfs.PutFileRequest, url *url.URL) error {
-	id, err := ioutil.ReadFile("/microsoft-secret/id")
-	if err != nil {
-		return err
-	}
-	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
-	if err != nil {
-		return err
-	}
-	objClient, err := obj.NewMicrosoftClient(url.Host, string(id), string(secret))
-	if err != nil {
-		return err
-	}
-	return a.putFileObj(objClient, request, url)
 }
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
