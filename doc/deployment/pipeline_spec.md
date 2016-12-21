@@ -22,6 +22,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
         "name": "secret_name",
         "mountPath": "/path/in/container"
     } ],
+    "imagePullSecrets": [ "my_secret" ],
     "overwrite": bool
   },
   "parallelism_spec": {
@@ -82,6 +83,12 @@ secrets by name and specify a path that the secrets should be mounted to.
 Secrets are useful for embedding sensitive data such as credentials. Read more
 about secrets in Kubernetes
 [here](http://kubernetes.io/docs/user-guide/secrets/).
+
+`transform.imagePullSecrets` is an array of image pull secrets, image pull
+secrets are similar to secrets except that they're mounted before the
+containers are created so they can be used to provide credentials for image
+pulling. Read more about image pull secrets
+[here](http://kubernetes.io/docs/user-guide/images/#specifying-imagepullsecrets-on-a-pod).
 
 `transform.overwrite` is a boolean flag that controls whether the output of
 this pipeline overwrites the previous output, as opposed to appending to it

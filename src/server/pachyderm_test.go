@@ -3698,7 +3698,6 @@ func TestChainedPipelines(t *testing.T) {
 
 // TestChainedPipelinesNoDelay tracks https://github.com/pachyderm/pachyderm/issues/842
 func TestChainedPipelinesNoDelay(t *testing.T) {
-	t.Skip("This test fails")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3783,22 +3782,20 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(results))
 
-	_, err = c.StartCommit(eRepo, "master") // eCommit2, err = c.StartCommit(eRepo, "master")
+	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(eRepo, "master"))
 
-	// This test should pass, but just blocks at FlushCommit, commented out for now
-	//results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
-	//require.NoError(t, err)
-	//require.Equal(t, 3, len(results))
+	results, err = c.FlushCommit([]*pfsclient.Commit{eCommit2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(results))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-
 }
 
 func TestParallelismSpec(t *testing.T) {

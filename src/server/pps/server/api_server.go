@@ -922,6 +922,9 @@ func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodReq
 			OutputCommit: commit,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var commitMounts []*fuse.CommitMount
 	filterNumbers := filterNumber(chunk.Index, chunk.Moduli)
@@ -2123,6 +2126,7 @@ type jobOptions struct {
 	jobEnv             []api.EnvVar
 	volumes            []api.Volume
 	volumeMounts       []api.VolumeMount
+	imagePullSecrets   []api.LocalObjectReference
 }
 
 func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
@@ -2167,7 +2171,8 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		Name: client.PPSPodNameEnv,
 		ValueFrom: &api.EnvVarSource{
 			FieldRef: &api.ObjectFieldSelector{
-				FieldPath: "metadata.name",
+				APIVersion: "v1",
+				FieldPath:  "metadata.name",
 			},
 		},
 	})
@@ -2199,6 +2204,10 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
+	var imagePullSecrets []api.LocalObjectReference
+	for _, secret := range jobInfo.Transform.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
+	}
 
 	return &jobOptions{
 		labels:             labels,
@@ -2209,6 +2218,7 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		jobEnv:             jobEnv,
 		volumes:            volumes,
 		volumeMounts:       volumeMounts,
+		imagePullSecrets:   imagePullSecrets,
 	}, nil
 }
 
@@ -2237,8 +2247,9 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
-		RestartPolicy: restartPolicy,
-		Volumes:       options.volumes,
+		RestartPolicy:    restartPolicy,
+		Volumes:          options.volumes,
+		ImagePullSecrets: options.imagePullSecrets,
 	}
 }
 
