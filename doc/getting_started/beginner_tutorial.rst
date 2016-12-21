@@ -49,7 +49,7 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 .. code-block:: shell
 
-	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set1.txt
+	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/set1.txt
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner.
 
@@ -101,7 +101,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
- $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/pipeline.json
+ $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/pipeline.json
 
 
 What Happens When You Create a Pipeline
@@ -156,7 +156,7 @@ Let's create a new commit with our previous commit as the parent and add more sa
 
 .. code-block:: shell
 
-  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set2.txt
+  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/set2.txt
 
 Adding a new commit of data will automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
@@ -222,7 +222,7 @@ Next Steps
 ^^^^^^^^^^
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.1/doc/examples/fruit_stand/generate>`_ if you want to use it.
+- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.3.2/doc/examples/fruit_stand/generate>`_ if you want to use it.
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
 - Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count.
 

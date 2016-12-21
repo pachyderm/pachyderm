@@ -36,20 +36,24 @@ This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may 
 
 ```sh
 $ kubectl get all
-NAME            DESIRED      CURRENT       AGE
-etcd            1            1             6s
-pachd           2            2             6s
-rethink         1            1             6s
-NAME            CLUSTER-IP   EXTERNAL-IP   PORT(S)                        AGE
-etcd            10.0.0.45    <none>        2379/TCP,2380/TCP              6s
-kubernetes      10.0.0.1     <none>        443/TCP                        6m
-pachd           10.0.0.101   <nodes>       650/TCP                        6s
-rethink         10.0.0.182   <nodes>       8080/TCP,28015/TCP,29015/TCP   6s
-NAME            READY        STATUS        RESTARTS                       AGE
-etcd-swoag      1/1          Running       0                              6s
-pachd-7xyse     1/1          Running       0                              6s
-pachd-gfdc6     1/1          Running       0                              6s
-rethink-v5rsx   1/1          Running       0                              6s
+NAME               READY     STATUS    RESTARTS   AGE
+po/etcd-xzc0d      1/1       Running   0          55s
+po/pachd-6m6wm     1/1       Running   0          55s
+po/rethink-388b3   1/1       Running   0          55s
+
+NAME         DESIRED   CURRENT   READY     AGE
+rc/etcd      1         1         1         55s
+rc/pachd     1         1         1         55s
+rc/rethink   1         1         1         55s
+
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
+svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
+svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
+svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
+
+NAME              DESIRED   SUCCESSFUL   AGE
+jobs/pachd-init   1         1            55s
 ```
 Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before Rethink was ready so it restarted them.
 
@@ -66,8 +70,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.2.4
-pachd               1.2.4
+pachctl             1.3.2
+pachd               1.3.2
 ```
 
 We're good to go!
