@@ -17,7 +17,7 @@ import (
 
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tOUTPUT\tSTARTED\tDURATION\tSTATE\t\n")
+	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tSTATE\t\n")
 }
 
 // PrintJobInfo pretty-prints job info.
@@ -39,7 +39,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 
 // PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT REPO\tSTATE\t\n")
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
@@ -115,7 +115,8 @@ ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
-Output: {{.OutputCommit.ID}}
+Output Commit: {{.OutputCommit.ID}}
+Output: {{.Output.URL}}
 Chunks:
 {{prettyChunks .Chunks}}
 `)
@@ -139,6 +140,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
+Output: {{.Output.URL}}
 {{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
 Job Counts:
 {{jobCounts .JobCounts}}
