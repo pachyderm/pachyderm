@@ -32,8 +32,8 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 		}, "kubectl", "create", "-f", "-")
 }
 
-// Cmds returns a cobra commands for deploying Pachyderm clusters.
-func Cmds(noMetrics *bool) []*cobra.Command {
+// DeployCmd returns a cobra.Command to deploy pachyderm.
+func DeployCmd(noMetrics *bool) *cobra.Command {
 	metrics := !*noMetrics
 	var rethinkShards int
 	var hostPath string
@@ -182,6 +182,12 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
+	return deploy
+}
+
+// Cmds returns a cobra commands for deploying Pachyderm clusters.
+func Cmds(noMetrics *bool) []*cobra.Command {
+	deploy := DeployCmd(noMetrics)
 	undeploy := &cobra.Command{
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
