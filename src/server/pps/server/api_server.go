@@ -2092,6 +2092,7 @@ type jobOptions struct {
 	jobEnv             []api.EnvVar
 	volumes            []api.Volume
 	volumeMounts       []api.VolumeMount
+	imagePullSecrets   []api.LocalObjectReference
 }
 
 func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
@@ -2182,6 +2183,7 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		jobEnv:             jobEnv,
 		volumes:            volumes,
 		volumeMounts:       volumeMounts,
+		imagePullSecrets:   imagePullSecrets,
 	}, nil
 }
 
@@ -2212,7 +2214,7 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 		},
 		RestartPolicy:    restartPolicy,
 		Volumes:          options.volumes,
-		ImagePullSecrets: imagePullSecrets,
+		ImagePullSecrets: options.imagePullSecrets,
 	}
 }
 
