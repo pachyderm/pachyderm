@@ -30,6 +30,7 @@ Options
     pachctl_create-pipeline
     pachctl_create-repo
     pachctl_delete-all
+    pachctl_delete-commit
     pachctl_delete-file
     pachctl_delete-job
     pachctl_delete-pipeline
