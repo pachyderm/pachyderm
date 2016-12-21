@@ -151,7 +151,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
+	pachctl deploy local -d --dry-run --deploy-rethink-as-rc | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
