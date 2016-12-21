@@ -9,6 +9,7 @@ import (
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"go.pedge.io/lion"
 	protostream "go.pedge.io/proto/stream"
@@ -162,4 +163,31 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 	}
 
 	return g.Wait()
+}
+
+// PushObj pushes data from commit to an object store.
+func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
+	var eg errgroup.Group
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
+			return nil
+		}
+		eg.Go(func() (retErr error) {
+			w, err := objClient.Writer(filepath.Join(root, fileInfo.File.Path))
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
 }

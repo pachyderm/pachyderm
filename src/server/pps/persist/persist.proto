@@ -29,6 +29,7 @@ message JobInfo {
   // if true, the underlying Kubernetes job has been deleted 
   bool gc = 21;
   pps.Service service = 22;
+  pps.Output output = 23;
 }
 
 message Pod {
@@ -116,6 +117,7 @@ message PipelineInfo {
   map<int32, int32> job_counts = 10;
   bool stopped = 11;
   pps.GCPolicy gc_policy = 14;
+  pps.Output output = 15;
 }
 
 enum ChangeType {

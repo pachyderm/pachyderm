@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/lease"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -353,6 +356,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			ID: jobID,
 		}),
 		Service: request.Service,
+		Output:  request.Output,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
@@ -1150,6 +1154,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Shard:           a.hasher.HashPipeline(request.Pipeline),
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 		GcPolicy:        request.GcPolicy,
+		Output:          request.Output,
 	}
 	if persistPipelineInfo.GcPolicy == nil {
 		persistPipelineInfo.GcPolicy = DefaultGCPolicy
@@ -1608,6 +1613,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		RecentError:     persistPipelineInfo.RecentError,
 		JobCounts:       persistPipelineInfo.JobCounts,
 		GcPolicy:        persistPipelineInfo.GcPolicy,
+		Output:          persistPipelineInfo.Output,
 	}
 }
 
@@ -1731,6 +1737,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParallelismSpec: pipelineInfo.ParallelismSpec,
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
+						Output:          pipelineInfo.Output,
 					},
 				)
 				if err != nil {
@@ -1854,14 +1861,37 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
-	// We use a new context here because as soon as we update the job state,
-	// the original context will be cancelled.
+	if !failed && jobInfo.Output != nil {
+		// We use a new context here because as soon as we update the job state,
+		// the original context will be cancelled.
+		if _, err := persistClient.CreateJobState(context.Background(), &persist.JobState{
+			JobID: job.ID,
+			State: ppsclient.JobState_JOB_OUTPUTTING,
+		}); err != nil {
+			return err
+		}
+		pClient := client.APIClient{PfsAPIClient: pfsAPIClient}
+		objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.URL)
+		if err != nil {
+			return err
+		}
+		url, err := url.Parse(jobInfo.Output.URL)
+		if err != nil {
+			return err
+		}
+		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
+			return err
+		}
+	}
+
 	var state ppsclient.JobState
 	if failed {
 		state = ppsclient.JobState_JOB_FAILURE
 	} else {
 		state = ppsclient.JobState_JOB_SUCCESS
 	}
+	// We use a new context here because as soon as we update the job state,
+	// the original context will be cancelled.
 	if _, err := persistClient.CreateJobState(context.Background(), &persist.JobState{
 		JobID: job.ID,
 		State: state,
@@ -2077,6 +2107,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		OutputCommit:    persistJobInfo.OutputCommit,
 		State:           persistJobInfo.State,
 		Service:         persistJobInfo.Service,
+		Output:          persistJobInfo.Output,
 	}, nil
 }
 
