@@ -18,6 +18,7 @@ var (
 		AcceptReturnCode: []int64{1},
 		Env:              map[string]string{"foo": "bar"},
 		Secrets:          []*ppsclient.Secret{Secret},
+		ImagePullSecrets: []string{"my-secret"},
 	}
 	// CreateJobRequest example
 	CreateJobRequest = &ppsclient.CreateJobRequest{
