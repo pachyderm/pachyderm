@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"math"
 	"net/url"
@@ -25,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"github.com/cenkalti/backoff"
+	_ "github.com/lib/pq"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -1882,6 +1884,14 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 				return err
 			}
 			if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
+				return err
+			}
+		case ppsclient.ConnectorType_SQL_DB:
+			db, err := sql.Open("postgres", jobInfo.Output.SqlDb.URL)
+			if err != nil {
+				return err
+			}
+			if err := pfs_sync.PushSQL(pClient, jobInfo.OutputCommit, db); err != nil {
 				return err
 			}
 		default:
