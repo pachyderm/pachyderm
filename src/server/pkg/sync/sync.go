@@ -2,7 +2,10 @@
 package sync
 
 import (
+	"bufio"
 	"context"
+	"database/sql"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -183,6 +186,37 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 				}
 			}()
 			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
+
+func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) error {
+	var eg errgroup.Group
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
+			return nil
+		}
+		eg.Go(func() (retErr error) {
+			r, w := io.Pipe()
+			go func() {
+				if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w); err != nil && retErr == nil {
+					retErr = err
+				}
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			scanner := bufio.NewScanner(r)
+			for scanner.Scan() {
+				if _, err := db.Exec(scanner.Text()); err != nil {
+					return err
+				}
+			}
 			return nil
 		})
 		return nil
