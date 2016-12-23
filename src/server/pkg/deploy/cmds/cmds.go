@@ -161,16 +161,23 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: pkgcobra.Run(func([]string) error {
+			if deployRethinkAsRc && deployRethinkAsStatefulSet {
+				return fmt.Errorf("Error: pachctl deploy received contradictory flags: " +
+					"--deploy-rethink-as-rc and --deploy-rethink-as-stateful-set")
+			}
 			if deployRethinkAsRc {
-				if deployRethinkAsStatefulSet {
-					return fmt.Errorf("Error: pachctl deploy received contradictory flags: " +
-						"--deploy-rethink-as-rc and --deploy-rethink-as-stateful set")
-				}
 				fmt.Fprintf(os.Stderr, "Warning: --deploy-rethink-as-rc is no longer "+
 					"necessary (and is ignored). The default behavior since Pachyderm "+
 					"1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller. "+
 					"This flag will be removed by Pachyderm's 1.4 release, so please remove "+
 					"it from your scripts. Also see --deploy-rethink-as-stateful-set.\n")
+			}
+			if !deployRethinkAsStatefulSet && rethinkShards > 1 {
+				return fmt.Errorf("Error: --deploy-rethink-as-stateful-set was not set, " +
+					"but --rethink-shards was set to value >1. Since 1.3.2, 'pachctl deploy' " +
+					"deploys RethinkDB as a single-node instance by default, unless " +
+					"--deploy-rethink-as-stateful-set is set. Please set that flag if you " +
+					"wish to deploy RethinkDB as a multi-node cluster.")
 			}
 			opts = &assets.AssetOpts{
 				PachdShards:                uint64(pachdShards),
