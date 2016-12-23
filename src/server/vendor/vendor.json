@@ -643,6 +643,12 @@
 			"revisionTime": "2015-11-25T20:19:25Z"
 		},
 		{
+			"checksumSHA1": "e+1BYI9y5LUyfSC+lwQF0AXP5sA=",
+			"path": "github.com/lib/pq",
+			"revision": "5bf161122cd640c2a5a2c1d7fa49ea9befff31dd",
+			"revisionTime": "2016-12-20T09:00:36Z"
+		},
+		{
 			"checksumSHA1": "urY45++NYCue4nh4k8OjUFnIGfU=",
 			"path": "github.com/mailru/easyjson/buffer",
 			"revision": "9dc3521db3580379d6cc493938ef9d2e9782ee7b",
