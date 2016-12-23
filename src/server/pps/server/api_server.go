@@ -1871,16 +1871,21 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			return err
 		}
 		pClient := client.APIClient{PfsAPIClient: pfsAPIClient}
-		objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.URL)
-		if err != nil {
-			return err
-		}
-		url, err := url.Parse(jobInfo.Output.URL)
-		if err != nil {
-			return err
-		}
-		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
-			return err
+		switch jobInfo.Output.Type {
+		case ppsclient.ConnectorType_OBJECT_STORE:
+			objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.ObjectStore.URL)
+			if err != nil {
+				return err
+			}
+			url, err := url.Parse(jobInfo.Output.ObjectStore.URL)
+			if err != nil {
+				return err
+			}
+			if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
+				return err
+			}
+		default:
+			protolion.Errorf("unsupported output type: %s", jobInfo.Output.Type)
 		}
 	}
 
