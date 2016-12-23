@@ -199,6 +199,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if request.Pipeline != nil && request.Transform == nil {
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
+		request.Output = pipelineInfo.Output
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
