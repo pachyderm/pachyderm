@@ -30,6 +30,7 @@ message JobInfo {
   bool gc = 21;
   pps.Service service = 22;
   pps.Connector output = 23;
+  pps.Connector mirror = 24;
 }
 
 message Pod {
@@ -118,6 +119,7 @@ message PipelineInfo {
   bool stopped = 11;
   pps.GCPolicy gc_policy = 14;
   pps.Connector output = 15;
+  pps.Connector mirror = 16;
 }
 
 enum ChangeType {
