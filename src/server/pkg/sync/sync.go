@@ -197,6 +197,61 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 	return eg.Wait()
 }
 
+func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []string, db *sql.DB) error {
+	var eg errgroup.Group
+	for _, table := range tables {
+		table := table
+		eg.Go(func() (retErr error) {
+			rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s;", table))
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := rows.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r, w := io.Pipe()
+			defer func() {
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			go func() {
+				if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, table, r); err != nil && retErr == nil {
+					retErr = err
+				}
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			csvW := csv.NewWriter(w)
+			columns, err := rows.Columns()
+			if err != nil {
+				return err
+			}
+			if err := csvW.Write(columns); err != nil {
+				return err
+			}
+			for rows.Next() {
+				row := make([]string, len(columns))
+				rowPtr := make([]interface{}, len(columns))
+				for i := range row {
+					rowPtr[i] = &row[i]
+				}
+				if err := rows.Scan(rowPtr...); err != nil {
+					return err
+				}
+				if err := csvW.Write(row); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	return nil
+}
+
 func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) error {
 	var eg errgroup.Group
 	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
