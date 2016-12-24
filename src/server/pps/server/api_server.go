@@ -1892,6 +1892,14 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			if err != nil {
 				return err
 			}
+			// If we have a parent job these commands have already been run
+			if jobInfo.ParentJob == nil {
+				for _, query := range jobInfo.Output.SqlDb.Init {
+					if _, err := db.Exec(query); err != nil {
+						return err
+					}
+				}
+			}
 			if err := pfs_sync.PushSQL(pClient, jobInfo.OutputCommit, db); err != nil {
 				return err
 			}
