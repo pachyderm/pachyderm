@@ -235,7 +235,10 @@ func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) er
 				if err != nil {
 					return err
 				}
-				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", fileInfo.File.Path, strings.Join(keys, ","), strings.Join(vals, ","))
+				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);",
+					strings.TrimPrefix(fileInfo.File.Path, "/"),
+					strings.Join(keys, ","),
+					strings.Join(vals, ","))
 				if _, err := db.Exec(query); err != nil {
 					return err
 				}
