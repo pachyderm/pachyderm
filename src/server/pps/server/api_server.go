@@ -200,6 +200,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
 		request.Output = pipelineInfo.Output
+		request.Mirror = pipelineInfo.Mirror
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -360,6 +361,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}),
 		Service: request.Service,
 		Output:  request.Output,
+		Mirror:  request.Mirror,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
@@ -1158,6 +1160,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 		GcPolicy:        request.GcPolicy,
 		Output:          request.Output,
+		Mirror:          request.Mirror,
 	}
 	if persistPipelineInfo.GcPolicy == nil {
 		persistPipelineInfo.GcPolicy = DefaultGCPolicy
@@ -1617,6 +1620,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		JobCounts:       persistPipelineInfo.JobCounts,
 		GcPolicy:        persistPipelineInfo.GcPolicy,
 		Output:          persistPipelineInfo.Output,
+		Mirror:          persistPipelineInfo.Mirror,
 	}
 }
 
@@ -1741,6 +1745,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
 						Output:          pipelineInfo.Output,
+						Mirror:          pipelineInfo.Mirror,
 					},
 				)
 				if err != nil {
@@ -2132,6 +2137,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		State:           persistJobInfo.State,
 		Service:         persistJobInfo.Service,
 		Output:          persistJobInfo.Output,
+		Mirror:          persistJobInfo.Mirror,
 	}, nil
 }
 
