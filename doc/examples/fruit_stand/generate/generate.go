@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
 )
 
 func item() string {
@@ -48,17 +46,19 @@ func main() {
 	var commits int
 	var lines int
 	cmd := &cobra.Command{
-		Use:   os.Args[0],
 		Short: "Generate pfs traffic.",
 		Long:  "Generate pfs traffic.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("invalid argument")
+			}
 			rand.Seed(time.Now().UnixNano())
 			client, err := client.NewFromAddress("0.0.0.0:30650")
 			if err != nil {
 				return err
 			}
 			for i := 0; i < commits; i++ {
-				if _, err := client.StartCommit("data", "", "master"); err != nil {
+				if _, err := client.StartCommit("data", "master"); err != nil {
 					return err
 				}
 				if _, err := client.PutFile("data", "master", "sales", &reader{lines}); err != nil {
@@ -69,7 +69,7 @@ func main() {
 				}
 			}
 			return nil
-		}),
+		},
 	}
 	cmd.Flags().IntVarP(&commits, "commits", "c", 100, "commits to write")
 	cmd.Flags().IntVarP(&lines, "lines", "l", 100, "lines to write for each commit")
