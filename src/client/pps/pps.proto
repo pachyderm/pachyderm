@@ -113,6 +113,7 @@ message ObjectStore {
 message SQLDb {
   string URL = 1;
   repeated string init = 2;
+  repeated string tables = 3;
 }
 
 enum ConnectorType {
