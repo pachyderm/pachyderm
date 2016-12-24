@@ -5,11 +5,13 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"syscall"
 
+	"github.com/Jeffail/gabs"
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -213,7 +215,22 @@ func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) er
 			}()
 			scanner := bufio.NewScanner(r)
 			for scanner.Scan() {
-				if _, err := db.Exec(scanner.Text()); err != nil {
+				row, err := gabs.ParseJSON(scanner.Bytes())
+				if err != nil {
+					return err
+				}
+				children, err := row.ChildrenMap()
+				if err != nil {
+					return err
+				}
+				var keys []string
+				var vals []string
+				for key, val := range children {
+					keys = append(keys, key)
+					vals = append(vals, val.String())
+				}
+				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", fileInfo.File.Path, keys, vals)
+				if _, err := db.Exec(query); err != nil {
 					return err
 				}
 			}
