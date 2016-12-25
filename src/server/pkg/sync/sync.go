@@ -226,6 +226,12 @@ func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []strin
 				}
 			}()
 			csvW := csv.NewWriter(w)
+			defer func() {
+				csvW.Flush()
+				if err := csvW.Error(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			columns, err := rows.Columns()
 			if err != nil {
 				return err
