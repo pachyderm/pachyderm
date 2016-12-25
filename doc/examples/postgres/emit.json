@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "sql"
+    "name": "emit"
   },
   "transform": {
     "cmd": [ "sh" ],
@@ -26,3 +26,4 @@
       }
   }
 }
+
