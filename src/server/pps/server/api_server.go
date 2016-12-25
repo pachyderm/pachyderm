@@ -368,6 +368,32 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		persistJobInfo.PipelineVersion = pipelineInfo.Version
 	}
 
+	if request.Mirror != nil {
+		switch request.Mirror.Type {
+		case ppsclient.ConnectorType_OBJECT_STORE:
+		case ppsclient.ConnectorType_SQL_DB:
+			db, err := sql.Open("postgres", request.Mirror.SqlDb.URL)
+			if err != nil {
+				return nil, err
+			}
+			pclient := client.APIClient{PfsAPIClient: pfsAPIClient}
+			if err := pfs_sync.PullSQL(pclient, outputCommit, request.Mirror.SqlDb.Tables, db); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{Commit: outputCommit}); err != nil {
+			return nil, err
+		}
+		persistJobInfo.State = ppsclient.JobState_JOB_SUCCESS
+		_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+		if err != nil {
+			return nil, err
+		}
+		return &ppsclient.Job{
+			ID: jobID,
+		}, nil
+	}
+
 	// If the job has no input, we respect the specified degree of parallelism
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
