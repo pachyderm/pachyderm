@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  labels:
+    provider: postgresql
+spec:
+  ports:
+  - port: 5432
+  selector:
+    provider: postgresql
