@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	protolion "go.pedge.io/lion/proto"
+	protolion "github.com/Sirupsen/logrus"
 )
 
 // InvalidVersion is defined as -1 since valid versions are non-negative.

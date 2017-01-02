@@ -10,7 +10,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
-	"go.pedge.io/lion/proto"
+	protolion "github.com/Sirupsen/logrus"
 )
 
 var (

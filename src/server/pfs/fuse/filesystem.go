@@ -14,11 +14,11 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	protolion "github.com/Sirupsen/logrus"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
