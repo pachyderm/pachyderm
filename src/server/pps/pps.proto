@@ -1,8 +1,6 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
 import "server/pfs/fuse/fuse.proto";
-import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
 package pps;
