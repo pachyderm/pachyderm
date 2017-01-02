@@ -25,8 +25,8 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -274,7 +274,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 					}
 					_, err := pfsAPIClient.DeleteRepo(ctx, req)
 					if err != nil {
-						protolion.Errorf("could not rollback repo creation %s", err.Error())
+						log.Errorf("could not rollback repo creation %s", err.Error())
 						a.Log(req, nil, err, 0)
 					}
 				}
@@ -456,7 +456,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 				JobID: persistJobInfo.JobID,
 				State: ppsclient.JobState_JOB_FAILURE,
 			}); err != nil {
-				protolion.Errorf("error from CreateJobState %s", err.Error())
+				log.Errorf("error from CreateJobState %s", err.Error())
 			}
 		}
 	}()
@@ -1139,7 +1139,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 				// already errored, if this fails there's nothing we can do but
 				// log it
 				if _, err := pfsAPIClient.DeleteRepo(ctx, &pfsclient.DeleteRepoRequest{Repo: repo}); err != nil {
-					protolion.Errorf("error deleting repo %s: %s", repo, err.Error())
+					log.Errorf("error deleting repo %s: %s", repo, err.Error())
 				}
 			}
 		}()
@@ -1463,11 +1463,11 @@ func (a *apiServer) AddShard(shard uint64) error {
 				switch pipelineChange.Type {
 				case persist.ChangeType_DELETE:
 					if err := a.cancelPipeline(pipelineName); err != nil {
-						protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
+						log.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
 					}
 				case persist.ChangeType_UPDATE:
 					if err := a.cancelPipeline(pipelineName); err != nil {
-						protolion.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
+						log.Errorf("error cancelling pipeline %v: %s", pipelineName, err.Error())
 					}
 					fallthrough
 				case persist.ChangeType_CREATE:
@@ -1499,13 +1499,13 @@ func (a *apiServer) AddShard(shard uint64) error {
 							}
 							return nil
 						}, b, func(err error, d time.Duration) {
-							protolion.Errorf("error running pipeline %v: %v; retrying in %s", pipelineName, err, d)
+							log.Errorf("error running pipeline %v: %v; retrying in %s", pipelineName, err, d)
 							if _, err = persistClient.UpdatePipelineState(pipelineCtx, &persist.UpdatePipelineStateRequest{
 								PipelineName: pipelineName,
 								State:        ppsclient.PipelineState_PIPELINE_RESTARTING,
 								RecentError:  err.Error(),
 							}); err != nil {
-								protolion.Errorf("error updating pipeline state: %v", err)
+								log.Errorf("error updating pipeline state: %v", err)
 							}
 						})
 						// At this point we stop retrying and update the pipeline state
@@ -1516,14 +1516,14 @@ func (a *apiServer) AddShard(shard uint64) error {
 								State:        ppsclient.PipelineState_PIPELINE_FAILURE,
 								RecentError:  err.Error(),
 							}); err != nil {
-								protolion.Errorf("error updating pipeline state: %v", err)
+								log.Errorf("error updating pipeline state: %v", err)
 							}
 						}
 					}()
 				}
 			}
 		}, b, func(err error, d time.Duration) {
-			protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
+			log.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
 		})
 	}()
 
@@ -1567,14 +1567,14 @@ func (a *apiServer) AddShard(shard uint64) error {
 								}
 								return nil
 							}, b, func(err error, d time.Duration) {
-								protolion.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
+								log.Errorf("error running jobManager for job %v: %v; retrying in %s", jobID, err, d)
 							})
 						}()
 					}
 				}
 			}
 		}, b, func(err error, d time.Duration) {
-			protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
+			log.Errorf("error receiving job updates: %v; retrying in %v", err, d)
 		})
 	}()
 
@@ -1716,7 +1716,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
 				if err != nil {
 					if isCommitCancelledErr(err) {
-						protolion.Errorf("could not process raw commit set (%v) due to commit cancellation: %s", rawInputs, err)
+						log.Errorf("could not process raw commit set (%v) due to commit cancellation: %s", rawInputs, err)
 						continue
 					}
 					return err
@@ -2375,7 +2375,7 @@ func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) err
 			// we don't return on failure here because jobs may get deleted
 			// through other means and we don't want that to prevent users from
 			// deleting pipelines.
-			protolion.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
+			log.Errorf("error deleting job %s: %s", jobInfo.JobID, err.Error())
 		}
 		pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 		for _, pod := range pods {
@@ -2383,7 +2383,7 @@ func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) err
 				// we don't return on failure here because pods may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
-				protolion.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
+				log.Errorf("error deleting pod %s: %s", pod.Name, err.Error())
 			}
 		}
 		if jobPodsErr != nil {

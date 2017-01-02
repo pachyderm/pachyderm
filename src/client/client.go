@@ -11,13 +11,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	log "github.com/Sirupsen/logrus"
+	types "github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-
-	types "github.com/gogo/protobuf/types"
-	"go.pedge.io/lion"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -53,7 +53,7 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*API
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
-		lion.Errorf("error loading user config from ~/.pachderm/config: %v\n", err)
+		log.Errorf("error loading user config from ~/.pachderm/config: %v\n", err)
 	} else {
 		c.config = cfg
 	}
@@ -153,7 +153,7 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		if err != nil {
 			// Don't report error if config fails to read
 			// metrics errors are non fatal
-			lion.Errorf("Error loading config: %v\n", err)
+			log.Errorf("Error loading config: %v\n", err)
 			return ctx
 		}
 		c.config = cfg

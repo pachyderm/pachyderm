@@ -10,7 +10,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
-	"go.pedge.io/lion/proto"
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -43,7 +43,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 	for {
 		client, err := a.getPersistClient()
 		if err != nil {
-			protolion.Errorf("error getting persist client: %s", err)
+			log.Errorf("error getting persist client: %s", err)
 			wait()
 			continue
 		}
@@ -52,7 +52,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 			GcPolicy:     pipelineInfo.GcPolicy,
 		})
 		if err != nil {
-			protolion.Errorf("error listing jobs to GC: %s", err)
+			log.Errorf("error listing jobs to GC: %s", err)
 			wait()
 			continue
 		}
@@ -66,11 +66,11 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 				}); err != nil {
 					// TODO: if the error indicates that the job has already been
 					// deleted, just proceed to the next step
-					protolion.Errorf("error deleting kubernetes job %s: %s", jobID, err)
+					log.Errorf("error deleting kubernetes job %s: %s", jobID, err)
 					return
 				}
 				if _, err := client.GCJob(ctx, &ppsclient.Job{jobID}); err != nil {
-					protolion.Errorf("error marking job %s as GC-ed: %s", jobID, err)
+					log.Errorf("error marking job %s as GC-ed: %s", jobID, err)
 				}
 				return
 			}(jobID)

@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -196,7 +196,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -237,7 +237,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,

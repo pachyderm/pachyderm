@@ -19,11 +19,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion"
 	"google.golang.org/grpc"
 )
 
@@ -146,7 +146,7 @@ func initDB(session *gorethink.Session, dbName string) error {
 			_, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session)
 			return err
 		}, config, func(err error, d time.Duration) {
-			lion.Errorf("error creating table %v on database %v; retrying in %s: %v\n", table, dbName, d, err)
+			log.Errorf("error creating table %v on database %v; retrying in %s: %v\n", table, dbName, d, err)
 		})
 	}
 
