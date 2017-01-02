@@ -3,18 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "appengine",
-			"revision": ""
-		},
-		{
-			"path": "appengine_internal",
-			"revision": ""
-		},
-		{
-			"path": "appengine_internal/base",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "xCAVewAtJpNeqReS0fRzarfwfjA=",
 			"path": "bazil.org/fuse",
 			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
@@ -37,10 +25,6 @@
 			"path": "bazil.org/fuse/fuseutil",
 			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
 			"revisionTime": "2016-06-23T20:17:38-07:00"
-		},
-		{
-			"path": "context",
-			"revision": ""
 		},
 		{
 			"checksumSHA1": "T1DpzOaZGsKlUq16elkdwF6ddsU=",
@@ -1974,10 +1958,6 @@
 			"path": "k8s.io/kubernetes/third_party/forked/golang/reflect",
 			"revision": "9c5cb27f5365b9f281c36782c0d856ba1b82a7b2",
 			"revisionTime": "2016-10-12T00:28:03Z"
-		},
-		{
-			"path": "net/http/httptrace",
-			"revision": ""
 		}
 	],
 	"rootPath": "github.com/pachyderm/pachyderm/src/server"
