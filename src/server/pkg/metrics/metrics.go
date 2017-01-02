@@ -9,9 +9,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	db "github.com/pachyderm/pachyderm/src/server/pfs/db"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dancannon/gorethink"
 	"github.com/segmentio/analytics-go"
-	"go.pedge.io/lion"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -33,7 +33,7 @@ func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsD
 
 	dbClient, err := db.DbConnect(address)
 	if err != nil {
-		lion.Errorf("error connected to DB when reporting metrics: %v\n", err)
+		log.Errorf("error connected to DB when reporting metrics: %v\n", err)
 		return nil
 	}
 	reporter := &Reporter{
@@ -84,7 +84,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 		}
 		prefix, err := getKeyFromMD(md, "prefix")
 		if err != nil {
-			lion.Errorln(err)
+			log.Errorln(err)
 			return
 		}
 		reportUserMetricsToSegment(
@@ -96,7 +96,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 			r.clusterID,
 		)
 	} else {
-		lion.Errorf("Error extracting userid metadata from context: %v\n", ctx)
+		log.Errorf("Error extracting userid metadata from context: %v\n", ctx)
 	}
 }
 
@@ -120,7 +120,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	defer client.Close()
 	cfg, err := config.Read()
 	if err != nil {
-		lion.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
+		log.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
 		// metrics errors are non fatal
 		return
 	}
@@ -141,7 +141,7 @@ func (r *Reporter) dbMetrics(metrics *Metrics) {
 		gorethink.DB(r.ppsDbName).Table("PipelineInfos").Count(),
 	).Run(r.dbClient)
 	if err != nil {
-		lion.Errorf("Error Fetching Metrics:%+v", err)
+		log.Errorf("Error Fetching Metrics:%+v", err)
 	}
 	cursor.One(&metrics)
 }
