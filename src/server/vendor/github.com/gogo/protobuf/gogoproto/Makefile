@@ -1,7 +1,7 @@
-# Go support for Protocol Buffers - Google's data interchange format
+# Protocol Buffers for Go with Gadgets
 #
-# Copyright 2010 The Go Authors.  All rights reserved.
-# https://github.com/golang/protobuf
+# Copyright (c) 2013, The GoGo Authors. All rights reserved.
+# http://github.com/gogo/protobuf
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -13,9 +13,6 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the name of Google Inc. nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -29,15 +26,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-install:
-	go install
+regenerate:
+	go install github.com/gogo/protobuf/protoc-gen-gogo
+	protoc --gogo_out=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:. --proto_path=../../../../:../protobuf/:. *.proto
 
-test: install generate-test-pbs
-	go test
+restore:
+	cp gogo.pb.golden gogo.pb.go
 
-
-generate-test-pbs:
-	make install
-	make -C testdata
-	protoc-min-version --version="3.0.0" --proto_path=.:../../../../:../protobuf --gogo_out=Mtestdata/test.proto=github.com/gogo/protobuf/proto/testdata,Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types:. proto3_proto/proto3.proto
-	make
+preserve:
+	cp gogo.pb.go gogo.pb.golden
