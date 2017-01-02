@@ -1,11 +1,12 @@
 syntax = "proto3";
+package pfs;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-package pfs;
+import "gogoproto/gogo.proto";
 
 message Repo {
   string name = 1;
@@ -13,7 +14,7 @@ message Repo {
 
 message Commit {
   Repo repo = 1;
-  string id = 2;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 message Commits {
@@ -349,5 +350,3 @@ service BlockAPI {
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 }
-
-
