@@ -1,6 +1,6 @@
 // Protocol Buffers for Go with Gadgets
 //
-// Copyright (c) 2013, The GoGo Authors. All rights reserved.
+// Copyright (c) 2016, The GoGo Authors. All rights reserved.
 // http://github.com/gogo/protobuf
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,32 +26,69 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package proto
+package types
 
 import (
-	"fmt"
-	"reflect"
+	"time"
 )
 
-func (tm *TextMarshaler) writeEnum(w *textWriter, v reflect.Value, props *Properties) error {
-	m, ok := enumStringMaps[props.Enum]
-	if !ok {
-		if err := tm.writeAny(w, v, props); err != nil {
-			return err
-		}
+func NewPopulatedTimestamp(r interface {
+	Int63() int64
+}, easy bool) *Timestamp {
+	this := &Timestamp{}
+	ns := int64(r.Int63())
+	this.Seconds = ns / 1e9
+	this.Nanos = int32(ns % 1e9)
+	return this
+}
+
+func (ts *Timestamp) String() string {
+	return TimestampString(ts)
+}
+
+func NewPopulatedStdTime(r interface {
+	Int63() int64
+}, easy bool) *time.Time {
+	timestamp := NewPopulatedTimestamp(r, easy)
+	t, err := TimestampFromProto(timestamp)
+	if err != nil {
+		return nil
 	}
-	key := int32(0)
-	if v.Kind() == reflect.Ptr {
-		key = int32(v.Elem().Int())
-	} else {
-		key = int32(v.Int())
+	return &t
+}
+
+func SizeOfStdTime(t time.Time) int {
+	ts, err := TimestampProto(t)
+	if err != nil {
+		return 0
 	}
-	s, ok := m[key]
-	if !ok {
-		if err := tm.writeAny(w, v, props); err != nil {
-			return err
-		}
+	return ts.Size()
+}
+
+func StdTimeMarshal(t time.Time) ([]byte, error) {
+	size := SizeOfStdTime(t)
+	buf := make([]byte, size)
+	_, err := StdTimeMarshalTo(t, buf)
+	return buf, err
+}
+
+func StdTimeMarshalTo(t time.Time, data []byte) (int, error) {
+	ts, err := TimestampProto(t)
+	if err != nil {
+		return 0, err
 	}
-	_, err := fmt.Fprint(w, s)
-	return err
+	return ts.MarshalTo(data)
+}
+
+func StdTimeUnmarshal(t *time.Time, data []byte) error {
+	ts := &Timestamp{}
+	if err := ts.Unmarshal(data); err != nil {
+		return err
+	}
+	tt, err := TimestampFromProto(ts)
+	if err != nil {
+		return err
+	}
+	*t = tt
+	return nil
 }
