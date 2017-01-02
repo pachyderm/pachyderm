@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"go.pedge.io/lion/proto"
+	protolion "github.com/Sirupsen/logrus"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"

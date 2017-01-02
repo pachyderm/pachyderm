@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
+	protolion "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
