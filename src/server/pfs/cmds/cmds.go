@@ -622,7 +622,7 @@ files into your Pachyderm cluster.
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
-					// we use the path and ignore source (in terms of naming the file).
+					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
 					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive) })
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,

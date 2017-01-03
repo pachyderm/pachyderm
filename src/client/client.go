@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
+	types "github.com/gogo/protobuf/types"
 	"go.pedge.io/lion"
-	google_protobuf "go.pedge.io/pb/go/google/protobuf"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -100,7 +100,7 @@ func (c *APIClient) KeepConnected(cancel chan bool) {
 			return
 		case <-time.After(time.Second * 5):
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			if _, err := c.healthClient.Health(ctx, google_protobuf.EmptyInstance); err != nil {
+			if _, err := c.healthClient.Health(ctx, &types.Empty{}); err != nil {
 				c.cancel()
 				c.connect()
 			}
@@ -114,13 +114,13 @@ func (c *APIClient) KeepConnected(cancel chan bool) {
 func (c APIClient) DeleteAll() error {
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.ctx(),
-		google_protobuf.EmptyInstance,
+		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.ctx(),
-		google_protobuf.EmptyInstance,
+		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
 	}
