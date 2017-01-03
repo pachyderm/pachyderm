@@ -265,8 +265,38 @@
 			"revisionTime": "2016-12-22T21:12:38Z"
 		},
 		{
+			"checksumSHA1": "7uspQtEpYuBxaxrBTcxa+ZfiuJo=",
+			"path": "github.com/coreos/etcd/auth/authpb",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
 			"checksumSHA1": "U68fyOCzP9MjSZ/yTcqIm/aSHFw=",
 			"path": "github.com/coreos/etcd/clientv3",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
+			"checksumSHA1": "5yRlK3cXaDLqOQGtE5oGgKW9+zI=",
+			"path": "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
+			"checksumSHA1": "Vu09CLLQRRgKmh4nRXk5dq9uQ3w=",
+			"path": "github.com/coreos/etcd/etcdserver/etcdserverpb",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
+			"checksumSHA1": "PAnQN6F8iZuIfu9HHOORyVFaaOA=",
+			"path": "github.com/coreos/etcd/mvcc/mvccpb",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
+			"checksumSHA1": "rMyIh9PsSvPs6Yd+YgKITQzQJx8=",
+			"path": "github.com/coreos/etcd/pkg/tlsutil",
 			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
 			"revisionTime": "2016-12-22T21:12:38Z"
 		},
@@ -587,6 +617,12 @@
 			"path": "github.com/google/gofuzz",
 			"revision": "fd52762d25a41827db7ef64c43756fd4b9f7e382",
 			"revisionTime": "2016-02-01T17:48:07Z"
+		},
+		{
+			"checksumSHA1": "OJPSJ4GBgH/XOFtYu2VM1g7rtjk=",
+			"path": "github.com/grpc-ecosystem/go-grpc-prometheus",
+			"revision": "6b7015e65d366bf3f19b2b2a000a831940f0f7e0",
+			"revisionTime": "2016-09-10T22:24:44Z"
 		},
 		{
 			"checksumSHA1": "0uWDQrsSzyQHYg5et19xtS+EWmY=",
