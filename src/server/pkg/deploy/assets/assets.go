@@ -21,7 +21,7 @@ var (
 	suite                       = "pachyderm"
 	volumeSuite                 = "pachyderm-pps-storage"
 	pachdImage                  = "pachyderm/pachd"
-	etcdImage                   = "gcr.io/google_containers/etcd:2.0.12"
+	etcdImage                   = "quay.io/coreos/etcd:v3.0.15"
 	rethinkImage                = "rethinkdb:2.3.2"
 	rethinkNonCacheMemFootprint = resource.MustParse("256M") // Amount of memory needed by rethink beyond the cache
 	serviceAccountName          = "pachyderm"
