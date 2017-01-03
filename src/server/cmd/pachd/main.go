@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,7 +89,10 @@ func do(appEnvObj interface{}) error {
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		lion.SetLevel(lion.LevelInfo)
 	}
-	etcdClient := getEtcdClient(appEnv)
+	etcdClient, err := getEtcdClient(appEnv)
+	if err != nil {
+		return err
+	}
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 	if appEnv.Init {
 		if err := setClusterID(etcdClient); err != nil {
@@ -213,18 +217,18 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getEtcdClient(env *appEnv) discovery.Client {
+func getEtcdClient(env *appEnv) (discovery.Client, error) {
 	return discovery.NewEtcdClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
 }
 
 const clusterIDKey = "cluster-id"
 
 func setClusterID(client discovery.Client) error {
-	return client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
+	return client.Set(context.TODO(), clusterIDKey, uuid.NewWithoutDashes(), 0)
 }
 
 func getClusterID(client discovery.Client) (string, error) {
-	id, err := client.Get(clusterIDKey)
+	id, err := client.Get(context.TODO(), clusterIDKey)
 	if err != nil {
 		return "", err
 	}

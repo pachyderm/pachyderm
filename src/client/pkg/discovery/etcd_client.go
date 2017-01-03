@@ -24,7 +24,7 @@ func newEtcdClient(addresses ...string) (*etcdClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &etcdClient{client}
+	return &etcdClient{client}, nil
 }
 
 func (c *etcdClient) Close() error {
@@ -33,7 +33,7 @@ func (c *etcdClient) Close() error {
 }
 
 func (c *etcdClient) Get(ctx context.Context, key string) (string, error) {
-	response, err := c.client.Get(key)
+	response, err := c.client.Get(ctx, key)
 	if err != nil {
 		return "", err
 	}
@@ -46,10 +46,10 @@ func (c *etcdClient) Get(ctx context.Context, key string) (string, error) {
 func (c *etcdClient) GetAll(ctx context.Context, key string) (map[string]string, error) {
 	response, err := c.client.Get(ctx, key, etcd.WithPrefix())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if response.Count < 1 {
-		return "", KeyNotFoundErr
+		return nil, KeyNotFoundErr
 	}
 	result := make(map[string]string, 0)
 	for _, kv := range response.Kvs {
@@ -58,14 +58,14 @@ func (c *etcdClient) GetAll(ctx context.Context, key string) (map[string]string,
 	return result, nil
 }
 
-func (c *etcdClient) Watch(ctx context.Context, key string, cancel chan bool, callBack func(string) error) error {
+func (c *etcdClient) Watch(ctx context.Context, key string, cancel chan bool, callback func(string) error) error {
 	rch := c.client.Watch(ctx, key)
 	for rsp := range rch {
 		if err := rsp.Err(); err != nil {
 			return err
 		}
 		for _, ev := range rsp.Events {
-			if err != callback(string(ev.Kv.Value)); err != nil {
+			if err := callback(string(ev.Kv.Value)); err != nil {
 				return err
 			}
 		}
@@ -73,7 +73,7 @@ func (c *etcdClient) Watch(ctx context.Context, key string, cancel chan bool, ca
 	return errors.New("unreachable")
 }
 
-func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool, callBack func(map[string]string) error) error {
+func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool, callback func(map[string]string) error) error {
 	rch := c.client.Watch(ctx, key)
 	for rsp := range rch {
 		if err := rsp.Err(); err != nil {
@@ -83,7 +83,7 @@ func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool,
 		for _, ev := range rsp.Events {
 			result[string(ev.Kv.Key)] = string(ev.Kv.Value)
 		}
-		if err != callback(result); err != nil {
+		if err := callback(result); err != nil {
 			return err
 		}
 	}
@@ -91,11 +91,11 @@ func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool,
 }
 
 func (c *etcdClient) Set(ctx context.Context, key string, value string, ttl uint64) error {
-	lease, err := c.client.Grant(ctx, ttl)
+	lease, err := c.client.Grant(ctx, int64(ttl))
 	if err != nil {
 		return err
 	}
-	_, err := c.client.Put(ctx, key, value, etcd.WithLease(lease.ID))
+	_, err = c.client.Put(ctx, key, value, etcd.WithLease(lease.ID))
 	return err
 }
 
@@ -105,7 +105,7 @@ func (c *etcdClient) Delete(ctx context.Context, key string) error {
 }
 
 func (c *etcdClient) CheckAndSet(ctx context.Context, key string, value string, ttl uint64, oldValue string) error {
-	lease, err := c.client.Grant(ctx, ttl)
+	lease, err := c.client.Grant(ctx, int64(ttl))
 	if err != nil {
 		return err
 	}
