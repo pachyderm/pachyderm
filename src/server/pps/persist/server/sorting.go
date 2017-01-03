@@ -3,8 +3,6 @@ package server
 import (
 	"sort"
 
-	"go.pedge.io/proto/time"
-
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 )
 
@@ -25,7 +23,7 @@ type jobInfosByTimestampDesc []*persist.JobInfo
 func (s jobInfosByTimestampDesc) Len() int          { return len(s) }
 func (s jobInfosByTimestampDesc) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
 func (s jobInfosByTimestampDesc) Less(i int, j int) bool {
-	return prototime.TimestampLess(s[j].Started, s[i].Started)
+	return s[j].Started.Compare(s[i].Started) < 0
 }
 
 func sortPipelineInfosByTimestampDesc(s []*persist.PipelineInfo) {
@@ -37,5 +35,5 @@ type pipelineInfosByTimestampDesc []*persist.PipelineInfo
 func (s pipelineInfosByTimestampDesc) Len() int          { return len(s) }
 func (s pipelineInfosByTimestampDesc) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
 func (s pipelineInfosByTimestampDesc) Less(i int, j int) bool {
-	return prototime.TimestampLess(s[j].CreatedAt, s[i].CreatedAt)
+	return s[j].CreatedAt.Compare(s[i].CreatedAt) < 0
 }
