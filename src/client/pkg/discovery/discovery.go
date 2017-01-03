@@ -26,12 +26,12 @@ type Client interface {
 	WatchAll(ctx context.Context, key string, cancel chan bool, callBack func(map[string]string) error) error
 	// Set sets the value for a key.
 	// ttl is in seconds.
-	Set(key string, value string, ttl uint64) error
+	Set(ctx context.Context, key string, value string, ttl uint64) error
 	// Delete deletes a key.
-	Delete(key string) error
+	Delete(ctx context.Context, key string) error
 	// CheckAndSet is like Set but only succeeds if the key is already set to oldValue.
 	// ttl is in seconds.
-	CheckAndSet(key string, value string, ttl uint64, oldValue string) error
+	CheckAndSet(ctx context.Context, key string, value string, ttl uint64, oldValue string) error
 }
 
 // NewEtcdClient creates an etcdClient with the given addresses.
