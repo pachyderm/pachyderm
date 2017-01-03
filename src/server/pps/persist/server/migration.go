@@ -6,8 +6,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	"github.com/dancannon/gorethink"
+	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion"
-	"go.pedge.io/pb/go/google/protobuf"
 )
 
 type migrationFunc func(address string, databaseName string) error
@@ -49,10 +49,10 @@ func oneTwoFourToOneThreeZero(address, databaseName string) error {
 	lion.Infof("Adding default GC policy to all pipelines")
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).Update(map[string]interface{}{
 		"GcPolicy": &pps.GCPolicy{
-			Success: &google_protobuf.Duration{
+			Success: &types.Duration{
 				Seconds: 24 * 60 * 60,
 			},
-			Failure: &google_protobuf.Duration{
+			Failure: &types.Duration{
 				Seconds: 7 * 24 * 60 * 60,
 			},
 		},
