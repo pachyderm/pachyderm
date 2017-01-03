@@ -1,6 +1,6 @@
 package protostream
 
-import "go.pedge.io/pb/go/google/protobuf"
+import "github.com/gogo/protobuf/types"
 
 type streamingBytesWriter struct {
 	streamingBytesServer StreamingBytesServer
@@ -19,7 +19,7 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 		return 0, nil
 	}
 	if err := s.streamingBytesServer.Send(
-		&google_protobuf.BytesValue{
+		&types.BytesValue{
 			Value: p,
 		},
 	); err != nil {

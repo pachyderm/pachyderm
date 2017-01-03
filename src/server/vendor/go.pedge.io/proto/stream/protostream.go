@@ -5,12 +5,12 @@ import (
 	"errors"
 	"io"
 
+	"github.com/gogo/protobuf/types"
+
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-
-	"go.pedge.io/pb/go/google/protobuf"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 // StreamingBytesServer represents a server for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {
-	Send(bytesValue *google_protobuf.BytesValue) error
+	Send(bytesValue *types.BytesValue) error
 }
 
 // StreamingBytesServeCloser is a StreamingBytesServer with close.
@@ -33,7 +33,7 @@ type StreamingBytesServeCloser interface {
 // StreamingBytesClient represents a client for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesClient interface {
-	Recv() (*google_protobuf.BytesValue, error)
+	Recv() (*types.BytesValue, error)
 }
 
 // StreamingBytesDuplexer is both a StreamingBytesClient and StreamingBytesServer.
@@ -70,30 +70,30 @@ func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer Streamin
 }
 
 // NewStreamingBytesClientHandler returns a StreamingBytesClientHandler for the given handleFunc.
-func NewStreamingBytesClientHandler(handleFunc func(*google_protobuf.BytesValue) error) StreamingBytesClientHandler {
+func NewStreamingBytesClientHandler(handleFunc func(*types.BytesValue) error) StreamingBytesClientHandler {
 	return newStreamingBytesClientHandler(handleFunc)
 }
 
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.
 func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
 	return NewStreamingBytesClientHandler(
-		func(bytesValue *google_protobuf.BytesValue) error {
+		func(bytesValue *types.BytesValue) error {
 			_, err := writer.Write(bytesValue.Value)
 			return err
 		},
 	).Handle(streamingBytesClient)
 }
 
-// RelayFromStreamingBytesClient relays *google_protobuf.BytesValues from the StreamingBytesClient to the StreamingBytesServer.
+// RelayFromStreamingBytesClient relays *types.BytesValues from the StreamingBytesClient to the StreamingBytesServer.
 func RelayFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, streamingBytesServer StreamingBytesServer) error {
 	return NewStreamingBytesClientHandler(
-		func(bytesValue *google_protobuf.BytesValue) error {
+		func(bytesValue *types.BytesValue) error {
 			return streamingBytesServer.Send(bytesValue)
 		},
 	).Handle(streamingBytesClient)
 }
 
-// StreamingBytesRelayer represents both generated Clients and servers for streams of *google_protobuf.BytesValue.
+// StreamingBytesRelayer represents both generated Clients and servers for streams of *types.BytesValue.
 type StreamingBytesRelayer interface {
 	StreamingBytesDuplexer
 	Header() (metadata.MD, error)
