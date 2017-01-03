@@ -5,11 +5,12 @@ import (
 	"io"
 	"sync"
 
+	"github.com/gogo/protobuf/types"
+
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc/metadata"
 
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/sync"
 )
 
@@ -17,7 +18,7 @@ type streamingBytesRelayer struct {
 	ctx     context.Context
 	header  metadata.MD
 	trailer metadata.MD
-	values  []*google_protobuf.BytesValue
+	values  []*types.BytesValue
 	cv      *sync.Cond
 	closed  pkgsync.VolatileBool
 }
@@ -27,13 +28,13 @@ func newStreamingBytesRelayer(ctx context.Context) *streamingBytesRelayer {
 		ctx,
 		nil,
 		nil,
-		make([]*google_protobuf.BytesValue, 0),
+		make([]*types.BytesValue, 0),
 		sync.NewCond(&sync.Mutex{}),
 		pkgsync.NewVolatileBool(false),
 	}
 }
 
-func (s *streamingBytesRelayer) Send(bytesValue *google_protobuf.BytesValue) error {
+func (s *streamingBytesRelayer) Send(bytesValue *types.BytesValue) error {
 	if bytesValue == nil {
 		return nil
 	}
@@ -44,12 +45,12 @@ func (s *streamingBytesRelayer) Send(bytesValue *google_protobuf.BytesValue) err
 	}
 	value := make([]byte, len(bytesValue.Value))
 	copy(value, bytesValue.Value)
-	s.values = append(s.values, &google_protobuf.BytesValue{Value: value})
+	s.values = append(s.values, &types.BytesValue{Value: value})
 	s.cv.Signal()
 	return nil
 }
 
-func (s *streamingBytesRelayer) Recv() (*google_protobuf.BytesValue, error) {
+func (s *streamingBytesRelayer) Recv() (*types.BytesValue, error) {
 	s.cv.L.Lock()
 	for len(s.values) == 0 {
 		if s.closed.Value() {
