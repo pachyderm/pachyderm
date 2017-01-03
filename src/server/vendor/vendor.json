@@ -259,10 +259,10 @@
 			"revisionTime": "2016-04-29T08:01:25Z"
 		},
 		{
-			"checksumSHA1": "BJXHEdzHxRPmVnt6GFaPpwgns2c=",
-			"path": "github.com/coreos/go-etcd/etcd",
-			"revision": "003851be7bb0694fe3cc457a49529a19388ee7cf",
-			"revisionTime": "2015-10-26T16:03:18Z"
+			"checksumSHA1": "+HIbfuDquc5sSDj/Vgv3q+LMuTk=",
+			"path": "github.com/coreos/etcd",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
 		},
 		{
 			"checksumSHA1": "9/TbRuVS9LYXN69EN1y+6HlTRi4=",
