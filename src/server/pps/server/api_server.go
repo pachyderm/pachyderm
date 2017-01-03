@@ -2359,7 +2359,6 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 }
 
 func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) error {
-
 	if jobInfo.Service != nil {
 		falseVal := false
 		deleteOptions := &api.DeleteOptions{
