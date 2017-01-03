@@ -265,6 +265,12 @@
 			"revisionTime": "2016-12-22T21:12:38Z"
 		},
 		{
+			"checksumSHA1": "U68fyOCzP9MjSZ/yTcqIm/aSHFw=",
+			"path": "github.com/coreos/etcd/clientv3",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
 			"checksumSHA1": "9/TbRuVS9LYXN69EN1y+6HlTRi4=",
 			"path": "github.com/coreos/go-oidc/http",
 			"revision": "e6174c764e906bd60c76fdfc33faf5e0bdc875d6",
