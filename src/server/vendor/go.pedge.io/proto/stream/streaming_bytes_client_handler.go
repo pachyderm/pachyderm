@@ -3,14 +3,14 @@ package protostream
 import (
 	"io"
 
-	"go.pedge.io/pb/go/google/protobuf"
+	"github.com/gogo/protobuf/types"
 )
 
 type streamingBytesClientHandler struct {
-	handleFunc func(*google_protobuf.BytesValue) error
+	handleFunc func(*types.BytesValue) error
 }
 
-func newStreamingBytesClientHandler(handleFunc func(*google_protobuf.BytesValue) error) *streamingBytesClientHandler {
+func newStreamingBytesClientHandler(handleFunc func(*types.BytesValue) error) *streamingBytesClientHandler {
 	return &streamingBytesClientHandler{handleFunc}
 }
 

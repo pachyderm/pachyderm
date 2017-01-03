@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/time"
+	"github.com/gogo/protobuf/types"
 )
 
 // UnescapeHTML returns s with < and > unescaped.
@@ -20,14 +18,17 @@ func UnescapeHTML(s string) string {
 
 // Ago pretty-prints the amount of time that has passed
 // since timestamp as a human-readable string.
-func Ago(timestamp *google_protobuf.Timestamp) string {
-	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(prototime.TimestampToTime(timestamp))))
+func Ago(timestamp *types.Timestamp) string {
+	t, _ := types.TimestampFromProto(timestamp)
+	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(t)))
 }
 
 // Duration pretty-prints the duration of time between from
 // and to as a human-reabable string.
-func Duration(from *google_protobuf.Timestamp, to *google_protobuf.Timestamp) string {
-	return units.HumanDuration(prototime.TimestampToTime(to).Sub(prototime.TimestampToTime(from)))
+func Duration(from *types.Timestamp, to *types.Timestamp) string {
+	tFrom, _ := types.TimestampFromProto(from)
+	tTo, _ := types.TimestampFromProto(to)
+	return units.HumanDuration(tTo.Sub(tFrom))
 }
 
 // Size pretty-prints size amount of bytes as a human readable string.

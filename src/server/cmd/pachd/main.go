@@ -30,10 +30,10 @@ import (
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	protolion "github.com/Sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/env"
 	"go.pedge.io/lion"
-	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"

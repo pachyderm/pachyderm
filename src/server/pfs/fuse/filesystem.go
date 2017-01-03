@@ -14,11 +14,11 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	protolion "github.com/Sirupsen/logrus"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -131,7 +131,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		a.Mode = os.ModeDir | 0555
 	}
 	a.Inode = d.fs.inode(d.File)
-	a.Mtime = prototime.TimestampToTime(d.Modified)
+	a.Mtime, _ = types.TimestampFromProto(d.Modified)
 	return nil
 }
 
@@ -267,7 +267,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	}
 	if fileInfo != nil {
 		a.Size = fileInfo.SizeBytes
-		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
+		a.Mtime, _ = types.TimestampFromProto(fileInfo.Modified)
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)

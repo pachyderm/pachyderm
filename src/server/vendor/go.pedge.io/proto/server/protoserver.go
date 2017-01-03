@@ -183,7 +183,8 @@ func ServeWithHTTP(
 		cancel()
 		return err
 	}
-	var handler http.Handler = mux
+	var handler http.Handler
+	handler = mux
 	if options.HTTPHandlerModifier != nil {
 		handler, err = options.HTTPHandlerModifier(mux)
 		if err != nil {
