@@ -1,17 +1,31 @@
 package discovery
 
 import (
+	"context"
+	"errors"
 	"strings"
+	"time"
 
-	"github.com/coreos/go-etcd/etcd"
+	etcd "github.com/coreos/etcd/clientv3"
+)
+
+var (
+	KeyNotFoundErr = errors.New("key not found")
 )
 
 type etcdClient struct {
 	client *etcd.Client
 }
 
-func newEtcdClient(addresses ...string) *etcdClient {
-	return &etcdClient{etcd.NewClient(addresses)}
+func newEtcdClient(addresses ...string) (*etcdClient, error) {
+	client, err := etcd.New(etcd.Config{
+		Endpoints:   addresses,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &etcdClient{client}
 }
 
 func (c *etcdClient) Close() error {
@@ -19,92 +33,75 @@ func (c *etcdClient) Close() error {
 	return nil
 }
 
-func (c *etcdClient) Get(key string) (string, error) {
-	response, err := c.client.Get(key, false, false)
+func (c *etcdClient) Get(ctx context.Context, key string) (string, error) {
+	response, err := c.client.Get(key)
 	if err != nil {
 		return "", err
 	}
-	return response.Node.Value, nil
+	if response.Count < 1 {
+		return "", KeyNotFoundErr
+	}
+	return string(response.Kvs[0].Value), nil
 }
 
-func (c *etcdClient) GetAll(key string) (map[string]string, error) {
-	response, err := c.client.Get(key, false, true)
-	result := make(map[string]string, 0)
+func (c *etcdClient) GetAll(ctx context.Context, key string) (map[string]string, error) {
+	response, err := c.client.Get(ctx, key, etcd.WithPrefix())
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			return result, nil
-		}
-		return nil, err
+		return "", err
 	}
-	nodeToMap(response.Node, result)
+	if response.Count < 1 {
+		return "", KeyNotFoundErr
+	}
+	result := make(map[string]string, 0)
+	for _, kv := range response.Kvs {
+		result[string(kv.Key)] = string(kv.Value)
+	}
 	return result, nil
 }
 
-func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) error {
-	// This retry is needed for when the etcd cluster gets overloaded.
-	for {
-		if err := c.watchWithoutRetry(key, cancel, callBack); err != nil {
-			etcdErr, ok := err.(*etcd.EtcdError)
-			if ok && etcdErr.ErrorCode == 401 {
-				continue
+func (c *etcdClient) Watch(ctx context.Context, key string, cancel chan bool, callBack func(string) error) error {
+	rch := c.client.Watch(ctx, key)
+	for rsp := range rch {
+		if err := rsp.Err(); err != nil {
+			return err
+		}
+		for _, ev := range rsp.Events {
+			if err != callback(string(ev.Kv.Value)); err != nil {
+				return err
 			}
-			if ok && etcdErr.ErrorCode == 501 {
-				continue
-			}
+		}
+	}
+	return errors.New("unreachable")
+}
+
+func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool, callBack func(map[string]string) error) error {
+	rch := c.client.Watch(ctx, key)
+	for rsp := range rch {
+		if err := rsp.Err(); err != nil {
+			return err
+		}
+		result := make(map[string]string, 0)
+		for _, ev := range rsp.Events {
+			result[string(ev.Kv.Key)] = string(ev.Kv.Value)
+		}
+		if err != callback(result); err != nil {
 			return err
 		}
 	}
+	return errors.New("unreachable")
 }
 
-func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
-	for {
-		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
-			etcdErr, ok := err.(*etcd.EtcdError)
-			if ok && etcdErr.ErrorCode == 401 {
-				continue
-			}
-			if ok && etcdErr.ErrorCode == 501 {
-				continue
-			}
-			return err
-		}
-	}
-}
-
-func (c *etcdClient) Set(key string, value string, ttl uint64) error {
-	_, err := c.client.Set(key, value, ttl)
+func (c *etcdClient) Set(ctx context.Context, key string, value string, ttl uint64) error {
+	lease, err := c.client.Grant(ctx, ttl)
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (c *etcdClient) Create(key string, value string, ttl uint64) error {
-	_, err := c.client.Create(key, value, ttl)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) error {
-	_, err := c.client.CreateInOrder(dir, value, ttl)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := c.client.Put(ctx, key, value, etcd.WithLease(lease.ID))
+	return err
 }
 
 func (c *etcdClient) Delete(key string) error {
 	_, err := c.client.Delete(key, false)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *etcdClient) CheckAndDelete(key string, oldValue string) error {
-	_, err := c.client.CompareAndDelete(key, oldValue, 0)
 	if err != nil {
 		return err
 	}
