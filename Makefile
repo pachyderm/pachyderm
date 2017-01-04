@@ -201,12 +201,6 @@ pachd-profiling-binary: docker-clean-pachd docker-build-compile
 	| tar xf -
 	# Binary emitted to ./pachd
 
-protofix:
-	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
-	protofix fix src
-	git checkout src/server/vendor
-	sudo chown -R `whoami` src/
-
 pretest:
 	go get -v github.com/kisielk/errcheck
 	rm -rf src/server/vendor
@@ -392,7 +386,6 @@ goxc-build:
 	clean-pps-storage \
 	integration-tests \
 	proto \
-	protofix \
 	pretest \
 	test \
 	test-client \
