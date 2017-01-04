@@ -308,7 +308,8 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
-								"--bind-addr=0.0.0.0:2379",
+								"--listen-client-urls=http://0.0.0.0:2379",
+								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 							},
 							Ports: []api.ContainerPort{
