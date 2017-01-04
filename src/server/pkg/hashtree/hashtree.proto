@@ -3,11 +3,17 @@
 
 syntax = "proto3";
 
+import "client/pfs/pfs.proto"
+
 // A node corresponding to a file (which is also a leaf node).
 message FileNode {
   // The hash of the file contents. This can be used to retrieve the file
   // contents from Pachyderm's object storage, which is content-addressed
   bytes hash = 1;
+  // The name of the file
+  string name = 2;
+  // The block refs that the file contains
+  repeated pfs.BlockRef block_refs = 3;
 }
 
 // A node corresponding to a directory.
@@ -17,10 +23,13 @@ message DirectoryNode {
   // concatenation).
   bytes hash = 1;
 
+  // The name of the directory
+  string name = 2;
+
   // The children of this directory. Note that paths are relative, so if
   // "/foo/bar" has a child "baz", that means that there is a file at
   // "/foo/bar/baz"
-  repeated string child = 2;
+  repeated string child = 3;
 }
 
 // A node (either a file or a directory)
