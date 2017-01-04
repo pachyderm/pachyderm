@@ -1,8 +1,13 @@
 #!/bin/bash
 
+if [ -z "$1" ]; then
+  echo "Usage $0 label=value"
+  exit 1
+fi
+
 
 results=`kubectl get pods \
-  -l app=pachd \
+  -l $1 \
   -o jsonpath='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}' \
   2>/dev/null | tr ';' "\n"`
 
