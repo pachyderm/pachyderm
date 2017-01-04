@@ -48,9 +48,6 @@ func (c *etcdClient) GetAll(ctx context.Context, key string) (map[string]string,
 	if err != nil {
 		return nil, err
 	}
-	if response.Count < 1 {
-		return nil, KeyNotFoundErr
-	}
 	result := make(map[string]string, 0)
 	for _, kv := range response.Kvs {
 		result[string(kv.Key)] = string(kv.Value)
@@ -74,7 +71,15 @@ func (c *etcdClient) Watch(ctx context.Context, key string, cancel chan bool, ca
 }
 
 func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool, callback func(map[string]string) error) error {
-	rch := c.client.Watch(ctx, key)
+	// get the initial values
+	vals, err := c.GetAll(ctx, key)
+	if err != nil {
+		return err
+	}
+	if err := callback(vals); err != nil {
+		return err
+	}
+	rch := c.client.Watch(ctx, key, etcd.WithPrefix())
 	for rsp := range rch {
 		if err := rsp.Err(); err != nil {
 			return err
