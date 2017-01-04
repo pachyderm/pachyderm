@@ -3,32 +3,33 @@
 
 syntax = "proto3";
 
-import "client/pfs/pfs.proto"
+import "client/pfs/pfs.proto";
 
 // A node corresponding to a file (which is also a leaf node).
 message FileNode {
-  // The hash of the file contents. This can be used to retrieve the file
-  // contents from Pachyderm's object storage, which is content-addressed
+  // Hash of the file name and contents. This can be used to detect if the file
+  // name or contents have changed
   bytes hash = 1;
-  // The name of the file
+
+  // Name of the file
   string name = 2;
-  // The block refs that the file contains
+
+  // Block refs pointing to the file's contents in block storage
   repeated pfs.BlockRef block_refs = 3;
 }
 
 // A node corresponding to a directory.
 message DirectoryNode {
-  // The hash of the directory contents (i.e.
-  // hash(child[0].hash ++ child[1].hash ++ ...), where ++ is string
-  // concatenation).
+  // Hash of the directory contents (i.e.
+  //   hash(child[0].hash ++ child[1].hash ++ ...)
+  // where ++ is string concatenation).
   bytes hash = 1;
 
-  // The name of the directory
+  // Name of the directory
   string name = 2;
 
-  // The children of this directory. Note that paths are relative, so if
-  // "/foo/bar" has a child "baz", that means that there is a file at
-  // "/foo/bar/baz"
+  // Children of this directory. Note that paths are relative, so if "/foo/bar"
+  // has a child "baz", that means that there is a file at "/foo/bar/baz"
   repeated string child = 3;
 }
 
@@ -43,18 +44,18 @@ message Node {
 // A Tree corresponding to the complete contents of a pachyderm repo at a given
 // commit (based on a Merkle Tree). We store one HashTree for every PFS commit.
 message HashTree {
-  // An arbitrary version number, set by the corresponding library in
-  // hashtree.go. This ensures that if the hash function used to create these
-  // trees is changed, we won't run into errors when deserializing old trees.
-  int version = 1;
+  // Arbitrary version number, set by the corresponding library in hashtree.go.
+  // This ensures that if the hash function used to create these trees is
+  // changed, we won't run into errors when deserializing old trees.
+  int32 version = 1;
 
-  // A map from each node's path to the Node message with that node's details.
+  // Map from each node's path to the Node message with that node's details.
   // See "Potential Optimizations" at the end for a compression scheme that
   // could be useful if this map gets too large.
   //
   // Note that the key must end in "/" if an only if the value has .dir_node set
   // (i.e. iff the path points to a directory).
-  Map<string, Node> fs = 2;
+  map<string, Node> fs = 2;
 }
 
 /// Potential Optimizations
