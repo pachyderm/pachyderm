@@ -111,9 +111,10 @@ message ObjectStore {
 }
 
 message SQLDb {
-  string URL = 1;
-  repeated string init = 2;
-  repeated string tables = 3;
+  string driver = 1;
+  string URL = 2;
+  repeated string init = 3;
+  repeated string tables = 4;
 }
 
 enum ConnectorType {

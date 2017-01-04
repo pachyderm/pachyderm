@@ -372,7 +372,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		switch request.Mirror.Type {
 		case ppsclient.ConnectorType_OBJECT_STORE:
 		case ppsclient.ConnectorType_SQL_DB:
-			db, err := sql.Open("postgres", request.Mirror.SqlDb.URL)
+			db, err := sql.Open(request.Mirror.SqlDb.Driver, request.Mirror.SqlDb.URL)
 			if err != nil {
 				return nil, err
 			}
@@ -1919,7 +1919,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 				return err
 			}
 		case ppsclient.ConnectorType_SQL_DB:
-			db, err := sql.Open("postgres", jobInfo.Output.SqlDb.URL)
+			db, err := sql.Open(jobInfo.Output.SqlDb.Driver, jobInfo.Output.SqlDb.URL)
 			if err != nil {
 				return err
 			}
