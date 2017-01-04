@@ -642,7 +642,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 		diffClockIndexKey(commit.Repo, head.Branch, head.Clock),
 	).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		return left.Merge(map[string]interface{}{
-			"Size": left.Field("Size").Add(right.Field("Size")),
+			"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
 		})
 	}).Default(&persist.Diff{}).Run(d.dbClient)
 	if err != nil {
@@ -702,7 +702,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 	// If this transaction succeeds but the next one (updating Commit) fails,
 	// then the repo size will be wrong.  TODO
 	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
-		"Size": gorethink.Row.Field("Size").Add(rawCommit.SizeBytes),
+		"SizeBytes": gorethink.Row.Field("SizeBytes").Add(rawCommit.SizeBytes),
 	}).RunWrite(d.dbClient)
 	if err != nil {
 		return err
@@ -1212,7 +1212,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 				gorethink.Error(ErrConflictFileTypeMsg),
 				oldDoc.Merge(map[string]interface{}{
 					"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-					"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+					"SizeBytes": oldDoc.Field("SizeBytes").Add(newDoc.Field("SizeBytes")),
 					// Overwrite the file type in case the old file type is NONE
 					"FileType": newDoc.Field("FileType"),
 					// Update modification time
@@ -1734,7 +1734,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 				acc.Merge(diff).Merge(map[string]interface{}{
 					"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-					"Size":      acc.Field("Size").Add(diff.Field("Size")),
+					"SizeBytes": acc.Field("SizeBytes").Add(diff.Field("SizeBytes")),
 				}),
 			),
 		)
@@ -1756,7 +1756,7 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 			acc.Merge(diff).Merge(map[string]interface{}{
 				"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-				"Size":      acc.Field("Size").Add(diff.Field("Size")),
+				"SizeBytes": acc.Field("SizeBytes").Add(diff.Field("SizeBytes")),
 			}),
 		)
 	})
@@ -1778,7 +1778,7 @@ func (d *driver) getChildrenFast(repo string, file *pfs.File, diffMethod *pfs.Di
 			left)
 	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
-	}).Without("BlockRefs", "Size").OrderBy("Path").Run(d.dbClient)
+	}).Without("BlockRefs", "SizeBytes").OrderBy("Path").Run(d.dbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -1839,10 +1839,10 @@ func (d *driver) getChildrenRecursive(repo string, file *pfs.File, diffMethod *p
 		return gorethink.Branch(
 			left.Field("Path").Lt(right.Field("Path")),
 			left.Merge(map[string]interface{}{
-				"Size": left.Field("Size").Add(right.Field("Size")),
+				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
 			}),
 			right.Merge(map[string]interface{}{
-				"Size": left.Field("Size").Add(right.Field("Size")),
+				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
 			}),
 		)
 	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
