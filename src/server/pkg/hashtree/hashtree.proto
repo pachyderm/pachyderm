@@ -1,0 +1,98 @@
+// Data structures for serializing hash trees, which Pachyderm uses to track
+// the files present in each commit and determine when to start jobs.
+
+syntax = "proto3";
+
+// A node corresponding to a file (which is also a leaf node).
+message FileNode {
+  // The hash of the file contents. This can be used to retrieve the file
+  // contents from Pachyderm's object storage, which is content-addressed
+  bytes hash = 1;
+}
+
+// A node corresponding to a directory.
+message DirectoryNode {
+  // The hash of the directory contents (i.e.
+  // hash(child[0].hash ++ child[1].hash ++ ...), where ++ is string
+  // concatenation).
+  bytes hash = 1;
+
+  // The children of this directory. Note that paths are relative, so if
+  // "/foo/bar" has a child "baz", that means that there is a file at
+  // "/foo/bar/baz"
+  repeated string child = 2;
+}
+
+// A node (either a file or a directory)
+message Node {
+  // Exactly one of the following fields must be set. The type of this node will
+  // be determined by which field is set.
+  FileNode file_node = 1;
+  DirectoryNode dir_node = 2;
+}
+
+// A Tree corresponding to the complete contents of a pachyderm repo at a given
+// commit (based on a Merkle Tree). We store one HashTree for every PFS commit.
+message HashTree {
+  // An arbitrary version number, set by the corresponding library in
+  // hashtree.go. This ensures that if the hash function used to create these
+  // trees is changed, we won't run into errors when deserializing old trees.
+  int version = 1;
+
+  // A map from each node's path to the Node message with that node's details.
+  // See "Potential Optimizations" at the end for a compression scheme that
+  // could be useful if this map gets too large.
+  //
+  // Note that the key must end in "/" if an only if the value has .dir_node set
+  // (i.e. iff the path points to a directory).
+  Map<string, Node> fs = 2;
+}
+
+/// Potential Optimizations
+//
+// Currently, we serialize HashTree.fs, i.e. the map from paths to nodes, as a
+// protobuf Map. This keeps our code simple, but may be inefficient for certain
+// repositories. Consider a repository that breaks up a large file with many
+// JSON records into many small files containing one record:
+//
+// /file/r00000
+// /file/r00001
+// ...
+// /file/r99999
+//
+// The current serialization format stores the complete path of each file, which
+// means that in this examples, the string "/file/" is serialized 100,000 times
+// in every commit. An alternative approach would be to make the keys a repeated
+// field, and "delta-encode" the paths. In this example, that would mean
+// encoding a repeated string field with the elements:
+//
+// /
+// file/
+// r00000
+// r00001
+// r00002
+// ...
+// r99999
+//
+// (Note that "file/" followed by "r00000" implies "file/r00000" because
+// "file/" ends in a slash, but "r00000" followed by "r00001" does not imply
+// "r00000r00001" because "r00000" does not end in a slash).
+//
+// If there are many small files with a shared prefix, this might save
+// nontrivial space in the object store:
+//   (common path length) * (#files) * (#commits)
+//
+// This would mean that there is some explicit deserialization code that turns
+// the stored protobuf (which is hard to manipulate) into a separate Go object.
+//
+// One more example: a repo with three top-level directories: "foo/", "bar/"
+// and "baz/". This would be encoded as:
+//
+//    /
+//    foo/
+//    file_in_foo.json
+//    another_file_in_foo.json
+//    ../bar/
+//    file_in_bar.json
+//    ../baz/
+//    file_in_baz.json
