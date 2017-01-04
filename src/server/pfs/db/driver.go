@@ -1840,9 +1840,11 @@ func (d *driver) getChildrenRecursive(repo string, file *pfs.File, diffMethod *p
 			left.Field("Path").Lt(right.Field("Path")),
 			left.Merge(map[string]interface{}{
 				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
+				"BlockRefs": left.Field("BlockRefs").Add(right.Field("BlockRefs")),
 			}),
 			right.Merge(map[string]interface{}{
 				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
+				"BlockRefs": left.Field("BlockRefs").Add(right.Field("BlockRefs")),
 			}),
 		)
 	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
