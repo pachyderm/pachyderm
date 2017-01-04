@@ -91,11 +91,11 @@ func (c *etcdClient) WatchAll(ctx context.Context, key string, cancel chan bool,
 }
 
 func (c *etcdClient) Set(ctx context.Context, key string, value string, ttl uint64) error {
-	lease, err := c.client.Grant(ctx, int64(ttl))
+	options, err := c.ttlOptions(ctx, ttl)
 	if err != nil {
 		return err
 	}
-	_, err = c.client.Put(ctx, key, value, etcd.WithLease(lease.ID))
+	_, err = c.client.Put(ctx, key, value, options...)
 	return err
 }
 
@@ -105,10 +105,22 @@ func (c *etcdClient) Delete(ctx context.Context, key string) error {
 }
 
 func (c *etcdClient) CheckAndSet(ctx context.Context, key string, value string, ttl uint64, oldValue string) error {
-	lease, err := c.client.Grant(ctx, int64(ttl))
+	options, err := c.ttlOptions(ctx, ttl)
 	if err != nil {
 		return err
 	}
-	_, err = c.client.Txn(ctx).If(etcd.Compare(etcd.Value(key), "=", oldValue)).Then(etcd.OpPut(key, value, etcd.WithLease(lease.ID))).Commit()
+	_, err = c.client.Txn(ctx).If(etcd.Compare(etcd.Value(key), "=", oldValue)).Then(etcd.OpPut(key, value, options...)).Commit()
 	return err
+}
+
+func (c *etcdClient) ttlOptions(ctx context.Context, ttl uint64) ([]etcd.OpOption, error) {
+	var options []etcd.OpOption
+	if ttl > 0 {
+		lease, err := c.client.Grant(ctx, int64(ttl))
+		if err != nil {
+			return nil, err
+		}
+		options = append(options, etcd.WithLease(lease.ID))
+	}
+	return options, nil
 }
