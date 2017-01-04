@@ -3161,6 +3161,37 @@ func TestListFileWithFiltering(t *testing.T) {
 	require.Equal(t, numFiles, len(fileInfos1)+len(fileInfos2))
 }
 
+func TestListFileWithFilteringForDirectories(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	numFiles := 100
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, "master", fmt.Sprintf("dir/file%d", i), strings.NewReader(fmt.Sprintf("%v", i)))
+		require.NoError(t, err)
+	}
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	blockShard1 := &pfs.Shard{
+		BlockNumber:  0,
+		BlockModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit.ID, "", "", false, blockShard1, true)
+	require.NoError(t, err)
+	blockShard2 := &pfs.Shard{
+		BlockNumber:  1,
+		BlockModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit.ID, "", "", false, blockShard2, true)
+	require.NoError(t, err)
+	require.Equal(t, len(fileInfos1), 1)
+	require.Equal(t, len(fileInfos2), 1)
+}
+
 func TestMergeProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
