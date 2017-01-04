@@ -32,7 +32,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 		}, "kubectl", "create", "-f", "-")
 }
 
-// DeployCmd returns a cobra command for deploying a pachyderm cluster.
+// DeployCmd returns a cobra.Command to deploy pachyderm.
 func DeployCmd(noMetrics *bool) *cobra.Command {
 	metrics := !*noMetrics
 	var pachdShards int
@@ -155,8 +155,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-
-	cmd := &cobra.Command{
+	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
@@ -191,21 +190,57 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return nil
 		}),
 	}
-	cmd.PersistentFlags().IntVar(&pachdShards, "shards", 1, "Number of Pachd nodes (stateless Pachyderm API servers).")
-	cmd.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
+	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 1, "Number of Pachd nodes (stateless Pachyderm API servers).")
+	deploy.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
 		"--deploy-rethink-as-stateful-set is used.")
-	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	cmd.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
+	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	deploy.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	cmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	cmd.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
+	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
 		"Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.")
-	cmd.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
+	deploy.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
 		"controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both "+
 		"your local kubectl binary and the kubernetes server must be at least version 1.5.")
-	cmd.AddCommand(deployLocal)
-	cmd.AddCommand(deployAmazon)
-	cmd.AddCommand(deployGoogle)
-	cmd.AddCommand(deployMicrosoft)
-	return cmd
+	deploy.AddCommand(deployLocal)
+	deploy.AddCommand(deployAmazon)
+	deploy.AddCommand(deployGoogle)
+	deploy.AddCommand(deployMicrosoft)
+	return deploy
+}
+
+// Cmds returns a cobra commands for deploying Pachyderm clusters.
+func Cmds(noMetrics *bool) []*cobra.Command {
+	deploy := DeployCmd(noMetrics)
+	undeploy := &cobra.Command{
+		Use:   "undeploy",
+		Short: "Tear down a deployed Pachyderm cluster.",
+		Long:  "Tear down a deployed Pachyderm cluster.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
+			io := pkgexec.IO{
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "job", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			if err := pkgexec.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	return []*cobra.Command{deploy, undeploy}
 }
