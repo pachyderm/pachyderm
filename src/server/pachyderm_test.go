@@ -4144,18 +4144,21 @@ func TestSQL(t *testing.T) {
 
 	c := getPachClient(t)
 
-	_, err = c.PpsAPIClient.CreatePipeline(
-		ctx.Background(),
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel() //cleanup resources
+
+	_, err := c.PpsAPIClient.CreatePipeline(
+		ctx,
 		&ppsclient.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(emitPipelineName),
 			Transform: &ppsclient.Transform{
 				Cmd: []string{"sh"},
 				Stdin: []string{
-					"echo \"id,name,score\" >/pfs/out/data",
-					"echo \"0,'foo',100\" >>/pfs/out/data",
-					"echo \"1,'bar',150\" >>/pfs/out/data",
-					"echo \"2,'fizz',200\" >>/pfs/out/data",
-					"echo \"3,'buzz',250\" >>/pfs/out/data",
+					fmt.Sprintf("echo \"id,name,score\" >/pfs/out/%s", tableName),
+					fmt.Sprintf("echo \"0,'foo',100\" >>/pfs/out/%s", tableName),
+					fmt.Sprintf("echo \"1,'bar',150\" >>/pfs/out/%s", tableName),
+					fmt.Sprintf("echo \"2,'fizz',200\" >>/pfs/out/%s", tableName),
+					fmt.Sprintf("echo \"3,'buzz',250\" >>/pfs/out/%s", tableName),
 				},
 			},
 			ParallelismSpec: &ppsclient.ParallelismSpec{
@@ -4167,18 +4170,17 @@ func TestSQL(t *testing.T) {
 				SqlDb: &ppsclient.SQLDb{
 					Driver: "postgres",
 					URL:    "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
-					Init:   []string{fmt.Sprintf("create %s data(id int not null, name text, score int, primary key (id));", tableName)},
+					Init:   []string{fmt.Sprintf("create table %s(id int not null, name text, score int, primary key (id));", tableName)},
 				},
 			},
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
-		ctx.Background(),
+		ctx,
 		&ppsclient.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(dumpPipelineName),
 			Mirror: &ppsclient.Connector{
-				Type:  ppsclient.ConnectorType_SQL_DB,
-				SqlDb: &ppsclient.SQLDb{},
+				Type: ppsclient.ConnectorType_SQL_DB,
 				SqlDb: &ppsclient.SQLDb{
 					Driver: "postgres",
 					URL:    "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
@@ -4187,6 +4189,37 @@ func TestSQL(t *testing.T) {
 			},
 		})
 	require.NoError(t, err)
+	job, err := c.PpsAPIClient.CreateJob(
+		ctx,
+		&ppsclient.CreateJobRequest{
+			Pipeline: &ppsclient.Pipeline{
+				Name: emitPipelineName,
+			},
+			Force: true,
+		},
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+	job, err = c.PpsAPIClient.CreateJob(
+		context.Background(),
+		&ppsclient.CreateJobRequest{
+			Pipeline: &ppsclient.Pipeline{
+				Name: dumpPipelineName,
+			},
+			Force: true,
+		},
+	)
+	require.NoError(t, err)
+	inspectJobRequest.Job = job
+	jobInfo, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
