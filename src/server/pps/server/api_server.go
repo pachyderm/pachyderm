@@ -26,7 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"github.com/cenkalti/backoff"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // for access to postgres dbs
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"

@@ -197,6 +197,7 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 	return eg.Wait()
 }
 
+// PullSQL pulles data from a sql database into a pfs commit.
 func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []string, db *sql.DB) error {
 	var eg errgroup.Group
 	for _, table := range tables {
@@ -258,6 +259,7 @@ func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []strin
 	return nil
 }
 
+// PushSQL pushes data from a pfs commit into a sql database.
 func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) error {
 	var eg errgroup.Group
 	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
