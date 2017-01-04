@@ -21,6 +21,7 @@ import (
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 
+	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -376,10 +377,13 @@ func TestInspectCommit(t *testing.T) {
 	commitInfo, err := client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err := types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, started.Before(tStarted))
 	require.Nil(t, commitInfo.Finished)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -388,11 +392,17 @@ func TestInspectCommit(t *testing.T) {
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err = types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	tFinished, err := types.TimestampFromProto(commitInfo.Finished)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
-	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+	require.True(t, started.Before(tStarted))
+	require.True(t, finished.After(tFinished))
 }
 
 func TestDeleteCommitFuture(t *testing.T) {
@@ -2190,10 +2200,13 @@ func TestInspectCommitBasic(t *testing.T) {
 	commitInfo, err := client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err := types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, 0, int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, started.Before(tStarted))
 	require.Nil(t, commitInfo.Finished)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -2202,11 +2215,17 @@ func TestInspectCommitBasic(t *testing.T) {
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err = types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	tFinished, err := types.TimestampFromProto(commitInfo.Finished)
+	require.NoError(t, err)
+
 	require.Equal(t, commit.ID, commitInfo.Commit.ID)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, 0, int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
-	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+	require.True(t, started.Before(tStarted))
+	require.True(t, finished.After(tFinished))
 }
 
 func TestStartCommitFromParentID(t *testing.T) {
