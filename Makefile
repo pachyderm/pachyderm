@@ -142,15 +142,15 @@ launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
