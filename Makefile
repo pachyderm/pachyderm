@@ -178,6 +178,14 @@ clean-launch-test-rethinkdb:
 	docker stop pachyderm-test-rethinkdb || true
 	docker rm pachyderm-test-rethinkdb || true
 
+launch-postgres: check-kubectl
+	kubectl $(KUBECTLFLAGS) create -f doc/examples/postgres/rc.yaml
+	kubectl $(KUBECTLFLAGS) create -f doc/examples/postgres/svc.yaml
+	until timeout 1s ./etc/kube/check_ready.sh provider=postgresql; do sleep 1; done
+
+clean-launch-postgres:
+	kubectl delete all -l provider=postgresql
+
 clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim
 	kubectl $(KUBECTLFLAGS) delete pv rethink-volume
