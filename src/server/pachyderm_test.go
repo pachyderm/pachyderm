@@ -4132,6 +4132,63 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestSQL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	tableName := uniqueString("TestSQL_table")
+	emitPipelineName := uniqueString("TestSQL_emit")
+	dumpPipelineName := uniqueString("TestSQL_dump")
+
+	c := getPachClient(t)
+
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(emitPipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"echo \"id,name,score\" >/pfs/out/data",
+					"echo \"0,'foo',100\" >>/pfs/out/data",
+					"echo \"1,'bar',150\" >>/pfs/out/data",
+					"echo \"2,'fizz',200\" >>/pfs/out/data",
+					"echo \"3,'buzz',250\" >>/pfs/out/data",
+				},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Output: &ppsclient.Connector{
+				Type: ppsclient.ConnectorType_SQL_DB,
+				SqlDb: &ppsclient.SQLDb{
+					Driver: "postgres",
+					URL:    "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
+					Init:   []string{fmt.Sprintf("create %s data(id int not null, name text, score int, primary key (id));", tableName)},
+				},
+			},
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(dumpPipelineName),
+			Mirror: &ppsclient.Connector{
+				Type:  ppsclient.ConnectorType_SQL_DB,
+				SqlDb: &ppsclient.SQLDb{},
+				SqlDb: &ppsclient.SQLDb{
+					Driver: "postgres",
+					URL:    "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
+					Tables: []string{tableName},
+				},
+			},
+		})
+	require.NoError(t, err)
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
