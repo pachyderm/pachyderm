@@ -16,7 +16,7 @@ var (
 	PathConflictErr = errors.New("path conflict")
 )
 
-type HashTree interface {
+type Interface interface {
 	GetFile(path string) (*FileNode, error)
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
 	ListFile(path string) ([]*FileNode, error)
