@@ -19,7 +19,6 @@ import (
 
 var (
 	suite                       = "pachyderm"
-	volumeSuite                 = "pachyderm-pps-storage"
 	pachdImage                  = "pachyderm/pachd"
 	etcdImage                   = "quay.io/coreos/etcd:v3.0.15"
 	rethinkImage                = "rethinkdb:2.3.2"
@@ -744,7 +743,7 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 			},
 			ObjectMeta: api.ObjectMeta{
 				Name:   fmt.Sprintf("%s-%d", rethinkVolumeName, i),
-				Labels: volumeLabels(rethinkVolumeName),
+				Labels: labels(rethinkVolumeName),
 			},
 			Spec: api.PersistentVolumeSpec{
 				Capacity: map[api.ResourceName]resource.Quantity{
@@ -810,7 +809,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   rethinkVolumeClaimName,
-			Labels: volumeLabels(rethinkVolumeClaimName),
+			Labels: labels(rethinkVolumeClaimName),
 		},
 		Spec: api.PersistentVolumeClaimSpec{
 			Resources: api.ResourceRequirements{
@@ -927,12 +926,5 @@ func labels(name string) map[string]string {
 	return map[string]string{
 		"app":   name,
 		"suite": suite,
-	}
-}
-
-func volumeLabels(name string) map[string]string {
-	return map[string]string{
-		"app":   name,
-		"suite": volumeSuite,
 	}
 }

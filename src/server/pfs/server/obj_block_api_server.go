@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	protolion "github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -51,7 +51,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 					}
 					return nil
 				}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-					protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+					log.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
 						Err:               err.Error(),
 						TimeTillNextRetry: d.String(),
 					})
@@ -148,7 +148,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				}
 				return nil
 			}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-				protolion.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
+				log.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
 					Err:               err.Error(),
 					TimeTillNextRetry: d.String(),
 				})
@@ -192,7 +192,7 @@ func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.
 		}
 		return nil
 	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-		protolion.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
+		log.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 		})

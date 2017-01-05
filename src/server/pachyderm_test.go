@@ -15,16 +15,17 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm"
-	pfspretty "github.com/pachyderm/pachyderm/cmd/pachctl/pfs/pretty"
-	ppspretty "github.com/pachyderm/pachyderm/cmd/pachctl/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
@@ -91,8 +92,8 @@ func testJob(t *testing.T, shards int) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-	tFin, _ := types.TimestampProto(jobInfo.Finished)
-	tStart, _ := types.TimestampProto(jobInfo.Started)
+	tFin, _ := types.TimestampFromProto(jobInfo.Finished)
+	tStart, _ := types.TimestampFromProto(jobInfo.Started)
 
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
@@ -543,8 +544,8 @@ func TestPipelineOverwrite(t *testing.T) {
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 			GcPolicy: &ppsclient.GCPolicy{
-				Success: types.DurationToProto(time.Duration(10 * time.Second)),
-				Failure: types.DurationToProto(time.Duration(10 * time.Second)),
+				Success: types.DurationProto(time.Duration(10 * time.Second)),
+				Failure: types.DurationProto(time.Duration(10 * time.Second)),
 			},
 		})
 	require.NoError(t, err)
