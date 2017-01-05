@@ -8,22 +8,22 @@ import (
 
 func TestGlobFile1(t *testing.T) {
 	h := &HashTree{}
-	fooNode = &Node{
+	fooNode := &Node{
 		FileNode: &FileNode{
 			Name: "foo",
 		},
 	}
-	dirNode = &Node{
-		DirNode: &DirNode{
+	dirNode := &Node{
+		DirNode: &DirectoryNode{
 			Name: "dir",
 		},
 	}
-	dirBarNode = &Node{
+	dirBarNode := &Node{
 		FileNode: &FileNode{
 			Name: "bar",
 		},
 	}
-	dirBuzzNode = &Node{
+	dirBuzzNode := &Node{
 		FileNode: &FileNode{
 			Name: "buzz",
 		},
@@ -35,20 +35,20 @@ func TestGlobFile1(t *testing.T) {
 	h.Fs["/dir/buzz"] = dirBuzzNode
 
 	for _, pattern := range []string{"*", "/*"} {
-		nodes, err := h.GlobFile("*")
+		nodes, err := h.GlobFile(pattern)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(nodes))
 		for _, node := range nodes {
-			require.EqualOneOf(t, []*Node{fooNode, dirNode}, node)
+			require.EqualOneOf(t, []interface{}{fooNode, dirNode}, node)
 		}
 	}
 
 	for _, pattern := range []string{"*/*", "/*/*"} {
-		nodes, err := h.GlobFile("*")
+		nodes, err := h.GlobFile(pattern)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(nodes))
 		for _, node := range nodes {
-			require.EqualOneOf(t, []*Node{dirBarNode, dirBuzzNode}, node)
+			require.EqualOneOf(t, []interface{}{dirBarNode, dirBuzzNode}, node)
 		}
 	}
 }
