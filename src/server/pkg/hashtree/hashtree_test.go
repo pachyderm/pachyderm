@@ -1,8 +1,10 @@
 package hashtree
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
@@ -51,4 +53,14 @@ func TestGlobFile1(t *testing.T) {
 			require.EqualOneOf(t, []interface{}{dirBarNode, dirBuzzNode}, node)
 		}
 	}
+}
+
+func TestListDir(t *testing.T) {
+	t := HashTree{}
+	t.PutFile("/dir/a", nil)
+	t.PutFile("/dir/b", nil)
+	t.PutFile("/dir/c", nil)
+
+	fmt.Println(proto.MarshalTextString(t))
+	t.Fail()
 }
