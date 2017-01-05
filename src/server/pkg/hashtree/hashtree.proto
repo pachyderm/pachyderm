@@ -15,7 +15,7 @@ message FileNode {
 message DirectoryNode {
   // Children of this directory. Note that paths are relative, so if "/foo/bar"
   // has a child "baz", that means that there is a file at "/foo/bar/baz"
-  repeated string child = 3;
+  repeated string children = 3;
 }
 
 // A node (either a file or a directory)
