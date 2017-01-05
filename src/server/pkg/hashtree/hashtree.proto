@@ -7,27 +7,12 @@ import "client/pfs/pfs.proto";
 
 // A node corresponding to a file (which is also a leaf node).
 message FileNode {
-  // Hash of the file name and contents. This can be used to detect if the file
-  // name or contents have changed
-  bytes hash = 1;
-
-  // Name of the file
-  string name = 2;
-
   // Block refs pointing to the file's contents in block storage
   repeated pfs.BlockRef block_refs = 3;
 }
 
 // A node corresponding to a directory.
 message DirectoryNode {
-  // Hash of the directory contents (i.e.
-  //   hash(child[0].hash ++ child[1].hash ++ ...)
-  // where ++ is string concatenation).
-  bytes hash = 1;
-
-  // Name of the directory
-  string name = 2;
-
   // Children of this directory. Note that paths are relative, so if "/foo/bar"
   // has a child "baz", that means that there is a file at "/foo/bar/baz"
   repeated string child = 3;
@@ -35,10 +20,17 @@ message DirectoryNode {
 
 // A node (either a file or a directory)
 message Node {
+  // Name of the file/directory.
+  string name = 1;
+
+  // Hash of the name and contents. This can be used to detect if the name
+  // or contents have changed between versions.
+  bytes hash = 2;
+
   // Exactly one of the following fields must be set. The type of this node will
   // be determined by which field is set.
-  FileNode file_node = 1;
-  DirectoryNode dir_node = 2;
+  FileNode file_node = 3;
+  DirectoryNode dir_node = 4;
 }
 
 // A Tree corresponding to the complete contents of a pachyderm repo at a given
