@@ -33,12 +33,35 @@ func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 	return res, nil
 }
 
-func (h *HashTree) ListDir(pattern string) ([]*Node, error) {
-	d := n.DirNode
+// Returns the Nodes corresponding to the files and directories under 'path'
+func (h *HashTree) ListFile(path string) ([]*Node, error) {
+	d := h.Fs[path].DirNode
 	if d == nil {
-		return nil, fmt.Errorf("The file at %s is not a directory", dir)
+		return nil, fmt.Errorf("The file at %s is not a directory", path)
 	}
-	return d.Child, nil
+	result := make([]*Node, len(d.Child))
+	for i, child := range d.Child {
+		result[i] = h.Fs[pathlib.Join(path, child)]
+	}
+	return result, nil
+}
+
+// Custom wrapper type to sort the list of children returned by ListFile
+// lexicographically
+type NodeList []*Node
+
+func (l NodeList) Len() int {
+	return len(l)
+}
+
+func (l NodeList) Less(i, j int) bool {
+	return l[i].Name < l[j].Name
+}
+
+func (l NodeList) Swap(i, j int) {
+	tmp := l[i]
+	l[i] = l[j]
+	l[j] = tmp
 }
 
 // Updates the hash of every node that is at a prefix of 'path'. This is called
@@ -52,19 +75,21 @@ func (h *HashTree) updateHashes(path string) {
 		if path[i] != '/' {
 			continue
 		}
-		children, err := h.ListDir(path[:i+1])
+		children, err := h.ListFile(path[:i+1])
 		if err != nil {
 			// This method should only be called internally--any errors are our fault
 			panic(fmt.Sprintf(
 				"Error while attempting to update the hash of %s: \"%s\"", path, err))
 		}
-		sort.Strings(children)
+		// children = NodeList(childrenTmp)
+		sort.Sort(children)
 		var buf bytes.Buffer
 		for _, child := range children {
-			buf.WriteString(child)
+			buf.WriteString(child.Name)
+			buf.WriteString(child.Hash)
 		}
 		cksum := sha256.Sum256(buf.Bytes())
-		h.Fs[path].DirNode.Hash = cksum[:]
+		h.Fs[path].Hash = cksum[:]
 	}
 }
 
@@ -83,10 +108,13 @@ func (h *HashTree) PutFile(path string, hash []byte) error {
 	curPath := ""
 	for i := 0; i < len(path); i++ {
 		if path[i] == '/' {
+			name := path[len(curPath) : i+1]
 			curPath = path[:i+1]
 			if h.Fs[curPath] == nil {
 				// Create new directory if none exists
 				newDir := &Node{
+					Name:    name,
+					Hash:    []byte{}, // update later
 					DirNode: &DirectoryNode{},
 				}
 				if curDir != nil {
