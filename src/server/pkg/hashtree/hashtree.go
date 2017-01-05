@@ -4,24 +4,30 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"path"
 	pathlib "path"
 	"sort"
 	"strings"
 )
 
+// cleanPath converts a path into a form that we use internally
+// Basically we make sure that it has a leading slash and no trailing slash.
+func cleanPath(path string) string {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return pathlib.Clean(path)
+}
+
 func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
-	if !strings.HasPrefix(pattern, "/") {
-		pattern = "/" + pattern
-	}
+	pattern = cleanPath(pattern)
 
 	var res []*Node
 	for p, node := range h.Fs {
-		matched, err := path.Match(pattern, p)
+		matched, err := pathlib.Match(pattern, p)
 		if err != nil {
-			if err == path.ErrBadPattern {
+			if err == pathlib.ErrBadPattern {
 				return nil, MalformedGlobErr
 			}
 			return nil, err
@@ -33,15 +39,21 @@ func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 	return res, nil
 }
 
-// Returns the Nodes corresponding to the files and directories under 'path'
+// ListFile returns the Nodes corresponding to the files and directories under 'path'
 func (h *HashTree) ListFile(path string) ([]*Node, error) {
+	path = cleanPath(path)
 	d := h.Fs[path].DirNode
 	if d == nil {
-		return nil, fmt.Errorf("The file at %s is not a directory", path)
+		return nil, fmt.Errorf("the file at %s is not a directory", path)
 	}
-	result := make([]*Node, len(d.Child))
-	for i, child := range d.Child {
-		result[i] = h.Fs[pathlib.Join(path, child)]
+	var result []*Node
+	for _, childName := range d.Child {
+		childPath := pathlib.Join(path, childName)
+		child, ok := h.Fs[pathlib.Join(path, childPath)]
+		if !ok {
+			return nil, fmt.Errorf("malformed hash tree; the node %s is expected to exist but is not found; this is likely a bug", childPath)
+		}
+		result = append(result, child)
 	}
 	return result, nil
 }
@@ -68,7 +80,7 @@ func (l NodeList) Swap(i, j int) {
 // e.g. at the end of PutFile, when the hash of the directory receiving the new
 // file must be updated, as well as the parent of that directory, and the parent
 // of the parent, etc. up to the root.
-func (h *HashTree) updateHashes(path string) {
+func (h *HashTree) updateHashes(path string) error {
 	// Must update tree from leaf to root, otherwise intermediate directory hashes
 	// will be wrong, as child directory hashes are updated
 	for i := len(path) - 1; i >= 0; i-- {
@@ -78,33 +90,33 @@ func (h *HashTree) updateHashes(path string) {
 		children, err := h.ListFile(path[:i+1])
 		if err != nil {
 			// This method should only be called internally--any errors are our fault
-			panic(fmt.Sprintf(
-				"Error while attempting to update the hash of %s: \"%s\"", path, err))
+			return fmt.Errorf(
+				"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
 		}
-		// children = NodeList(childrenTmp)
-		sort.Sort(children)
+		sort.Sort(NodeList(children))
 		var buf bytes.Buffer
 		for _, child := range children {
-			buf.WriteString(child.Name)
-			buf.WriteString(child.Hash)
+			if _, err := buf.WriteString(child.Name); err != nil {
+				return fmt.Errorf(
+					"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
+			}
+			if _, err := buf.Write(child.Hash); err != nil {
+				return fmt.Errorf(
+					"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
+			}
 		}
 		cksum := sha256.Sum256(buf.Bytes())
 		h.Fs[path].Hash = cksum[:]
 	}
+	return nil
 }
 
-// Inserts a file into the hierarchy. If 'path' ends in "/", it is created as
-// a directory and 'hash' is ignored.
+// PutFile inserts a file into the hierarchy
 func (h *HashTree) PutFile(path string, hash []byte) error {
-	// Clean up 'path'
-	isDir := path[len(path)-1] == '/'
-	path = pathlib.Clean(path)
-	if isDir {
-		path += "/"
-	}
+	path = cleanPath(path)
 
 	// Create all directories in 'path'
-	var curDir *DirectoryNode = nil
+	var curDir *DirectoryNode
 	curPath := ""
 	for i := 0; i < len(path); i++ {
 		if path[i] == '/' {
@@ -118,7 +130,7 @@ func (h *HashTree) PutFile(path string, hash []byte) error {
 					DirNode: &DirectoryNode{},
 				}
 				if curDir != nil {
-					curDir.Child = append(curDir.Child, newDir)
+					curDir.Children = append(curDir.Children, name)
 				}
 				h.Fs[curPath] = newDir
 			}
