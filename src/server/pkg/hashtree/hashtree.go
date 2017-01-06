@@ -123,18 +123,25 @@ func (h *HashTree) Get(path string) (*Node, error) {
 func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = cleanPath(path)
 
+	var size uint64
+	for _, blockRef := range blockRefs {
+		size += blockRef.Range.Upper - blockRef.Range.Lower
+	}
+
 	// Update/create the file node
 	node, ok := h.Fs[path]
 	if !ok {
 		name := pathlib.Base(path)
 		node = &Node{
 			Name: name,
+			Size: size,
 			FileNode: &FileNode{
 				BlockRefs: blockRefs,
 			},
 		}
 		h.Fs[path] = node
 	} else {
+		node.Size += size
 		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
 	}
 	if err := node.UpdateHash(); err != nil {
@@ -150,12 +157,14 @@ func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 		if !ok {
 			node = &Node{
 				Name: pathlib.Base(dir),
+				Size: size,
 				DirNode: &DirectoryNode{
 					Children: []string{child},
 				},
 			}
 			h.Fs[dir] = node
 		} else {
+			node.Size += size
 			node.DirNode.Children = append(node.DirNode.Children, child)
 		}
 		if err := node.UpdateHash(); err != nil {
