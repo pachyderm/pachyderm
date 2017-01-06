@@ -64,8 +64,8 @@ func (n *Node) UpdateHash() error {
 	return nil
 }
 
-// GlobFile returns a list of nodes that match the given glob pattern
-func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
+// Glob returns a list of nodes that match the given glob pattern
+func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
 	pattern = cleanPath(pattern)
@@ -86,8 +86,8 @@ func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 	return res, nil
 }
 
-// ListFile returns the Nodes corresponding to the files and directories under 'path'
-func (h *HashTree) ListFile(path string) ([]*Node, error) {
+// List returns the Nodes corresponding to the files and directories under 'path'
+func (h *HashTree) List(path string) ([]*Node, error) {
 	path = cleanPath(path)
 	node, ok := h.Fs[path]
 	if !ok {
@@ -107,6 +107,16 @@ func (h *HashTree) ListFile(path string) ([]*Node, error) {
 		result = append(result, child)
 	}
 	return result, nil
+}
+
+// Get returns the node associated with the path
+func (h *HashTree) Get(path string) (*Node, error) {
+	path = cleanPath(path)
+	node, ok := h.Fs[path]
+	if !ok {
+		return nil, PathNotFoundErr
+	}
+	return node, nil
 }
 
 // PutFile inserts a file into the hierarchy

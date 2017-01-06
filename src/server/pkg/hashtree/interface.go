@@ -18,8 +18,9 @@ var (
 )
 
 type Interface interface {
-	GetFile(path string) (*FileNode, error)
+	Get(path string) (*Node, error)
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
-	ListFile(path string) ([]*FileNode, error)
-	GlobFile(pattern string) ([]*Node, error)
+	PutDir(path string) error
+	List(path string) ([]*FileNode, error)
+	Glob(pattern string) ([]*Node, error)
 }
