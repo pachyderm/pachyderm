@@ -125,7 +125,7 @@ func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 		}
 		h.Fs[path] = node
 	} else {
-		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs)
+		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
 	}
 	if err := node.UpdateHash(); err != nil {
 		return err
@@ -134,6 +134,8 @@ func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	// Update/create parent directory nodes
 	for path != "/" {
 		dir, child := pathlib.Split(path)
+		// by default, Split() includes the trailing slash
+		dir = cleanPath(dir)
 		node, ok := h.Fs[dir]
 		if !ok {
 			node = &Node{
@@ -149,7 +151,7 @@ func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 		if err := node.UpdateHash(); err != nil {
 			return err
 		}
-		path = cleanPath(dir)
+		path = dir
 	}
 	return nil
 }
