@@ -7,7 +7,37 @@ import (
 	pathlib "path"
 	"sort"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
+
+// UpdateHash uses the node's internal state to update the hash
+// of the node
+func (n *Node) UpdateHash() error {
+	if n.DirNode != nil {
+		sort.Sort(Names(n.DirNode.Children))
+		var buf bytes.Buffer
+		for _, child := range n.DirNode.Children {
+			if _, err := buf.WriteString(child); err != nil {
+				return fmt.Errorf(
+					"error updating the hash of %s: \"%s\"; this is likely a bug", n.Name, err)
+			}
+		}
+		cksum := sha256.Sum256(buf.Bytes())
+		n.Hash = cksum[:]
+	} else if n.FileNode != nil {
+		var buf bytes.Buffer
+		for _, blockRef := range n.FileNode.BlockRefs {
+			if _, err := buf.WriteString(fmt.Sprintf("%s:%d:%d", blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper)); err != nil {
+				return fmt.Errorf(
+					"error updating the hash of %s: \"%s\"; this is likely a bug", n.Name, err)
+			}
+		}
+	} else {
+		return fmt.Errorf("malformed node %s: it's neither a file nor a directory", n.Name)
+	}
+	return nil
+}
 
 // cleanPath converts a path into a form that we use internally
 // Basically we make sure that it has a leading slash and no trailing slash.
@@ -47,7 +77,7 @@ func (h *HashTree) ListFile(path string) ([]*Node, error) {
 		return nil, fmt.Errorf("the file at %s is not a directory", path)
 	}
 	var result []*Node
-	for _, childName := range d.Child {
+	for _, childName := range d.Children {
 		childPath := pathlib.Join(path, childName)
 		child, ok := h.Fs[pathlib.Join(path, childPath)]
 		if !ok {
@@ -58,95 +88,63 @@ func (h *HashTree) ListFile(path string) ([]*Node, error) {
 	return result, nil
 }
 
-// Custom wrapper type to sort the list of children returned by ListFile
-// lexicographically
-type NodeList []*Node
+type Names []string
 
-func (l NodeList) Len() int {
-	return len(l)
+func (n Names) Len() int {
+	return len(n)
 }
 
-func (l NodeList) Less(i, j int) bool {
-	return l[i].Name < l[j].Name
+func (n Names) Less(i, j int) bool {
+	return n[i] < n[j]
 }
 
-func (l NodeList) Swap(i, j int) {
-	tmp := l[i]
-	l[i] = l[j]
-	l[j] = tmp
-}
-
-// Updates the hash of every node that is at a prefix of 'path'. This is called
-// e.g. at the end of PutFile, when the hash of the directory receiving the new
-// file must be updated, as well as the parent of that directory, and the parent
-// of the parent, etc. up to the root.
-func (h *HashTree) updateHashes(path string) error {
-	// Must update tree from leaf to root, otherwise intermediate directory hashes
-	// will be wrong, as child directory hashes are updated
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] != '/' {
-			continue
-		}
-		children, err := h.ListFile(path[:i+1])
-		if err != nil {
-			// This method should only be called internally--any errors are our fault
-			return fmt.Errorf(
-				"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
-		}
-		sort.Sort(NodeList(children))
-		var buf bytes.Buffer
-		for _, child := range children {
-			if _, err := buf.WriteString(child.Name); err != nil {
-				return fmt.Errorf(
-					"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
-			}
-			if _, err := buf.Write(child.Hash); err != nil {
-				return fmt.Errorf(
-					"error updating the hash of %s: \"%s\"; this is likely a bug", path, err)
-			}
-		}
-		cksum := sha256.Sum256(buf.Bytes())
-		h.Fs[path].Hash = cksum[:]
-	}
-	return nil
+func (n Names) Swap(i, j int) {
+	tmp := n[i]
+	n[i] = n[j]
+	n[j] = tmp
 }
 
 // PutFile inserts a file into the hierarchy
-func (h *HashTree) PutFile(path string, hash []byte) error {
+func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = cleanPath(path)
 
-	// Create all directories in 'path'
-	var curDir *DirectoryNode
-	curPath := ""
-	for i := 0; i < len(path); i++ {
-		if path[i] == '/' {
-			name := path[len(curPath) : i+1]
-			curPath = path[:i+1]
-			if h.Fs[curPath] == nil {
-				// Create new directory if none exists
-				newDir := &Node{
-					Name:    name,
-					Hash:    []byte{}, // update later
-					DirNode: &DirectoryNode{},
-				}
-				if curDir != nil {
-					curDir.Children = append(curDir.Children, name)
-				}
-				h.Fs[curPath] = newDir
-			}
-			curDir = h.Fs[curPath].DirNode
+	// Update/create the file node
+	node, ok := h.Fs[path]
+	if !ok {
+		name := pathlib.Base(path)
+		node = &Node{
+			Name: name,
+			FileNode: &FileNode{
+				BlockRefs: blockRefs,
+			},
 		}
+		h.Fs[path] = node
+	} else {
+		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs)
+	}
+	if err := node.UpdateHash(); err != nil {
+		return err
 	}
 
-	// Create the file at the end of the path (if the path doesn't end in a
-	// directory)
-	newFileName := path[len(curPath):]
-	if len(newFileName) != 0 {
-		curDir.Child = append(curDir.Child, &Node{
-			FileNode: &FileNode{hash: hash},
-		})
+	// Update/create parent directory nodes
+	for path != "/" {
+		dir, child := pathlib.Split(path)
+		node, ok := h.Fs[dir]
+		if !ok {
+			node = &Node{
+				Name: pathlib.Base(dir),
+				DirNode: &DirectoryNode{
+					Children: []string{child},
+				},
+			}
+			h.Fs[dir] = node
+		} else {
+			node.DirNode.Children = append(node.DirNode.Children, child)
+		}
+		if err := node.UpdateHash(); err != nil {
+			return err
+		}
+		path = cleanPath(dir)
 	}
-
-	// Update the hash values of all directories in 'path'
-	h.updateHashes(path)
+	return nil
 }
