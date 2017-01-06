@@ -11,6 +11,31 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+type Names []string
+
+func (n Names) Len() int {
+	return len(n)
+}
+
+func (n Names) Less(i, j int) bool {
+	return n[i] < n[j]
+}
+
+func (n Names) Swap(i, j int) {
+	tmp := n[i]
+	n[i] = n[j]
+	n[j] = tmp
+}
+
+// cleanPath converts a path into a form that we use internally
+// Basically we make sure that it has a leading slash and no trailing slash.
+func cleanPath(path string) string {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return pathlib.Clean(path)
+}
+
 // UpdateHash uses the node's internal state to update the hash
 // of the node
 func (n *Node) UpdateHash() error {
@@ -39,15 +64,7 @@ func (n *Node) UpdateHash() error {
 	return nil
 }
 
-// cleanPath converts a path into a form that we use internally
-// Basically we make sure that it has a leading slash and no trailing slash.
-func cleanPath(path string) string {
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-	return pathlib.Clean(path)
-}
-
+// GlobFile returns a list of nodes that match the given glob pattern
 func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
@@ -72,7 +89,11 @@ func (h *HashTree) GlobFile(pattern string) ([]*Node, error) {
 // ListFile returns the Nodes corresponding to the files and directories under 'path'
 func (h *HashTree) ListFile(path string) ([]*Node, error) {
 	path = cleanPath(path)
-	d := h.Fs[path].DirNode
+	node, ok := h.Fs[path]
+	if !ok {
+		return nil, PathNotFoundErr
+	}
+	d := node.DirNode
 	if d == nil {
 		return nil, fmt.Errorf("the file at %s is not a directory", path)
 	}
@@ -86,22 +107,6 @@ func (h *HashTree) ListFile(path string) ([]*Node, error) {
 		result = append(result, child)
 	}
 	return result, nil
-}
-
-type Names []string
-
-func (n Names) Len() int {
-	return len(n)
-}
-
-func (n Names) Less(i, j int) bool {
-	return n[i] < n[j]
-}
-
-func (n Names) Swap(i, j int) {
-	tmp := n[i]
-	n[i] = n[j]
-	n[j] = tmp
 }
 
 // PutFile inserts a file into the hierarchy
