@@ -27,10 +27,13 @@ message Node {
   // or contents have changed between versions.
   bytes hash = 2;
 
+  // Size of the node; if this is a directory, the size includes all children
+  uint64 size = 3;
+
   // Exactly one of the following fields must be set. The type of this node will
   // be determined by which field is set.
-  FileNode file_node = 3;
-  DirectoryNode dir_node = 4;
+  FileNode file_node = 4;
+  DirectoryNode dir_node = 5;
 }
 
 // A Tree corresponding to the complete contents of a pachyderm repo at a given
