@@ -35,29 +35,26 @@ type Driver interface {
 	DeleteRepo(repo *pfs.Repo, force bool) error
 
 	StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
-	ForkCommit(parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(commit *pfs.Commit, cancel bool) error
-	// Squash merges the content of fromCommits into toCommit, which should be an // open commit.
-	SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) error
-	// Replay replays fromCommits onto toBranch
-	ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pfs.Commit, error)
-	ArchiveCommit(commit []*pfs.Commit) error
+	// Squash merges the content of fromCommits into a single commit with
+	// the given parent.
+	SquashCommit(fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error)
 	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
-	ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error)
+	ListCommit(from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error)
 	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
-	ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]string, error)
 	DeleteCommit(commit *pfs.Commit) error
+
+	ListBranch(repo *pfs.Repo) ([]string, error)
+	MakeBranch(repo *pfs.Repo, commit *pfs.Commit, name string) error
+	RenameBranch(repo *pfs.Repo, from string, to string)
 
 	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
 	MakeDirectory(file *pfs.File) error
-	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
-		size int64, diffMethod *pfs.DiffMethod) (io.ReadCloser, error)
-	InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode ListFileMode) ([]*pfs.FileInfo, error)
+	GetFile(file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
+	InspectFile(file *pfs.File) (*pfs.FileInfo, error)
+	ListFile(file *pfs.File) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File) error
 
 	DeleteAll() error
-	ArchiveAll() error
-
 	Dump()
 }
