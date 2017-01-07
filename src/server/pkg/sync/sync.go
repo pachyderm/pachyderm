@@ -218,14 +218,12 @@ func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []strin
 					retErr = err
 				}
 			}()
-			go func() {
-				if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, table, r); err != nil && retErr == nil {
-					retErr = err
+			eg.Go(func() error {
+				if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, table, r); err != nil {
+					return err
 				}
-				if err := r.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
+				return r.Close()
+			})
 			csvW := csv.NewWriter(w)
 			defer func() {
 				csvW.Flush()
@@ -256,7 +254,7 @@ func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []strin
 			return nil
 		})
 	}
-	return nil
+	return eg.Wait()
 }
 
 // PushSQL pushes data from a pfs commit into a sql database.
