@@ -4,14 +4,12 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-
+	"github.com/gogo/protobuf/types"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/time"
+	log "github.com/Sirupsen/logrus"
+	"k8s.io/kubernetes/pkg/api"
 )
 
 var (
@@ -19,19 +17,21 @@ var (
 	// specified.
 	DefaultGCPolicy = &ppsclient.GCPolicy{
 		// a day
-		Success: &google_protobuf.Duration{
+		Success: &types.Duration{
 			Seconds: 24 * 60 * 60,
 		},
 		// a week
-		Failure: &google_protobuf.Duration{
+		Failure: &types.Duration{
 			Seconds: 7 * 24 * 60 * 60,
 		},
 	}
 )
 
 func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
-	successTick := time.Tick(prototime.DurationFromProto(pipelineInfo.GcPolicy.Success))
-	failureTick := time.Tick(prototime.DurationFromProto(pipelineInfo.GcPolicy.Failure))
+	dSuccess, _ := types.DurationFromProto(pipelineInfo.GcPolicy.Success)
+	dFailure, _ := types.DurationFromProto(pipelineInfo.GcPolicy.Failure)
+	successTick := time.Tick(dSuccess)
+	failureTick := time.Tick(dFailure)
 	// wait blocks until it's time to run GC again
 	wait := func() {
 		select {
@@ -42,7 +42,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 	for {
 		client, err := a.getPersistClient()
 		if err != nil {
-			protolion.Errorf("error getting persist client: %s", err)
+			log.Errorf("error getting persist client: %s", err)
 			wait()
 			continue
 		}
@@ -51,7 +51,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 			GcPolicy:     pipelineInfo.GcPolicy,
 		})
 		if err != nil {
-			protolion.Errorf("error listing jobs to GC: %s", err)
+			log.Errorf("error listing jobs to GC: %s", err)
 			wait()
 			continue
 		}
@@ -63,11 +63,11 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 				}); err != nil {
 					// TODO: if the error indicates that the job has already been
 					// deleted, just proceed to the next step
-					protolion.Errorf("error deleting kubernetes job %s: %s", jobID, err)
+					log.Errorf("error deleting kubernetes job %s: %s", jobID, err)
 					return
 				}
 				if _, err := client.GCJob(ctx, &ppsclient.Job{jobID}); err != nil {
-					protolion.Errorf("error marking job %s as GC-ed: %s", jobID, err)
+					log.Errorf("error marking job %s as GC-ed: %s", jobID, err)
 				}
 				return
 			}(jobID)

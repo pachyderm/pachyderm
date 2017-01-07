@@ -11,7 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	"go.pedge.io/lion"
+	log "github.com/Sirupsen/logrus"
 	protostream "go.pedge.io/proto/stream"
 	"golang.org/x/sync/errgroup"
 )
@@ -73,21 +73,21 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 					go func() {
 						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 						if err != nil {
-							lion.Printf("error opening %s: %s", path, err)
+							log.Printf("error opening %s: %s", path, err)
 							return
 						}
 						defer func() {
 							if err := f.Close(); err != nil {
-								lion.Printf("error closing %s: %s", path, err)
+								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
 						getFileClient, err := client.GetFile(ctx, request)
 						if err != nil {
-							lion.Printf("error from GetFile: %s", err)
+							log.Printf("error from GetFile: %s", err)
 							return
 						}
 						if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-							lion.Printf("error streaming data: %s", err)
+							log.Printf("error streaming data: %s", err)
 							return
 						}
 					}()

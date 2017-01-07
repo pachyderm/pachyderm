@@ -58,7 +58,7 @@ func main() {
 				return err
 			}
 			for i := 0; i < commits; i++ {
-				if _, err := client.StartCommit("data", "", "master"); err != nil {
+				if _, err := client.StartCommit("data", "master"); err != nil {
 					return err
 				}
 				if _, err := client.PutFile("data", "master", "sales", &reader{lines}); err != nil {

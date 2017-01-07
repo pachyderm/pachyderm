@@ -17,7 +17,7 @@ import (
 
 	"github.com/Jeffail/gabs"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"

@@ -6,15 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -22,8 +17,12 @@ import (
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
+
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/pkg/exec"
@@ -46,9 +45,9 @@ Environment variables:
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
 				// Silence any grpc logs
-				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
-				// Silence our FUSE logs
-				lion.SetLevel(lion.LevelNone)
+				l := log.New()
+				l.Level = log.FatalLevel
+				grpclog.SetLogger(l)
 			}
 		},
 	}
@@ -66,7 +65,10 @@ Environment variables:
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	rootCmd.AddCommand(deploycmds.DeployCmd(&noMetrics))
+	deployCmds := deploycmds.Cmds(&noMetrics)
+	for _, cmd := range deployCmds {
+		rootCmd.AddCommand(cmd)
+	}
 
 	version := &cobra.Command{
 		Use:   "version",

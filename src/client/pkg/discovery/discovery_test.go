@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +11,6 @@ import (
 )
 
 func TestEtcdClient(t *testing.T) {
-
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
 	}
@@ -22,7 +22,6 @@ func TestEtcdClient(t *testing.T) {
 }
 
 func TestEtcdWatch(t *testing.T) {
-
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
 	}
@@ -34,17 +33,18 @@ func TestEtcdWatch(t *testing.T) {
 }
 
 func runTest(t *testing.T, client Client) {
-	err := client.Set("foo", "one", 0)
+	ctx := context.TODO()
+	err := client.Set(ctx, "foo", "one", 0)
 	require.NoError(t, err)
-	value, err := client.Get("foo")
+	value, err := client.Get(ctx, "foo")
 	require.NoError(t, err)
 	require.Equal(t, "one", value)
 
-	err = client.Set("a/b/foo", "one", 0)
+	err = client.Set(ctx, "a/b/foo", "one", 0)
 	require.NoError(t, err)
-	err = client.Set("a/b/bar", "two", 0)
+	err = client.Set(ctx, "a/b/bar", "two", 0)
 	require.NoError(t, err)
-	values, err := client.GetAll("a/b")
+	values, err := client.GetAll(ctx, "a/b")
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"a/b/foo": "one", "a/b/bar": "two"}, values)
 
@@ -53,12 +53,14 @@ func runTest(t *testing.T, client Client) {
 
 func runWatchTest(t *testing.T, client Client) {
 	cancel := make(chan bool)
+	ctx := context.TODO()
 	err := client.Watch(
+		ctx,
 		"watch/foo",
 		cancel,
 		func(value string) error {
 			if value == "" {
-				return client.Set("watch/foo", "bar", 0)
+				return client.Set(ctx, "watch/foo", "bar", 0)
 			}
 			require.Equal(t, "bar", value)
 			close(cancel)
@@ -69,11 +71,12 @@ func runWatchTest(t *testing.T, client Client) {
 
 	cancel = make(chan bool)
 	err = client.WatchAll(
+		ctx,
 		"watchAll/foo",
 		cancel,
 		func(value map[string]string) error {
 			if value == nil {
-				return client.Set("watchAll/foo/bar", "quux", 0)
+				return client.Set(ctx, "watchAll/foo/bar", "quux", 0)
 			}
 			require.Equal(t, map[string]string{"watchAll/foo/bar": "quux"}, value)
 			close(cancel)
@@ -88,7 +91,7 @@ func getEtcdClient() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEtcdClient(etcdAddress), nil
+	return NewEtcdClient(etcdAddress)
 }
 
 func getEtcdAddress() (string, error) {

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
-message Config {
-    string user_id = 1;
-}
+import "gogoproto/gogo.proto";
 
+message Config {
+    string user_id = 1 [(gogoproto.customname) = "UserID"];
+}

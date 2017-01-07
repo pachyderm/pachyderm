@@ -5,7 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 
-	google_protobuf "go.pedge.io/pb/go/google/protobuf"
+	"github.com/gogo/protobuf/types"
 	protostream "go.pedge.io/proto/stream"
 )
 
@@ -705,7 +705,7 @@ func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([
 func (c APIClient) ArchiveAll() error {
 	_, err := c.PfsAPIClient.ArchiveAll(
 		c.ctx(),
-		google_protobuf.EmptyInstance,
+		&types.Empty{},
 	)
 	return sanitizeErr(err)
 }
