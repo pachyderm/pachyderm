@@ -3,6 +3,8 @@ package drive
 import (
 	"context"
 	"fmt"
+	"io"
+	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -17,6 +19,10 @@ type driver struct {
 	blockClient pfs.BlockAPIClient
 	etcdClient  *etcd.Client
 	prefix      string
+}
+
+func (d *driver) repos(repo string) string {
+	return path.Join(d.prefix, reposPrefix, repo)
 }
 
 const (
@@ -85,11 +91,12 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
-	resp, err := d.etcdClient.Txn(ctx).If(absent(d.repos(repo.Name))).Then(etcd.OpPut(repo.Name, &pfs.RepoInfo{
+	repoInfo := &pfs.RepoInfo{
 		Repo:       repo,
 		Created:    now(),
 		Provenance: provenance,
-	}.String())).Commit()
+	}
+	resp, err := d.etcdClient.Txn(ctx).If(absent(d.repos(repo.Name))).Then(etcd.OpPut(repo.Name, repoInfo.String())).Commit()
 	if err != nil {
 		return err
 	}
@@ -105,7 +112,7 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 		return nil, err
 	}
 	if resp.Count == 0 {
-		return fmt.Errorf("repo %s not found", repo.Name)
+		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
 	repoInfo := &pfs.RepoInfo{}
 	if err := proto.Unmarshal(resp.Kvs[0].Value, repoInfo); err != nil {
@@ -115,7 +122,69 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 }
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
+	return nil, nil
 }
 
-func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo) error {
+func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
+	return nil
+}
+
+func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	return nil, nil
+}
+
+func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit, cancel bool) error {
+	return nil
+}
+
+// Squash merges the content of fromCommits into a single commit with
+// the given parent.
+func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error) {
+	return nil, nil
+}
+func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	return nil, nil
+}
+func (d *driver) ListCommit(ctx context.Context, from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error) {
+	return nil, nil
+}
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	return nil, nil
+}
+func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
+	return nil
+}
+func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error) {
+	return nil, nil
+}
+func (d *driver) MakeBranch(ctx context.Context, repo *pfs.Repo, commit *pfs.Commit, name string) error {
+	return nil
+}
+func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error {
+	return nil
+}
+
+func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error {
+	return nil
+}
+func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
+	return nil
+}
+func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
+	return nil, nil
+}
+func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
+	return nil, nil
+}
+func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+	return nil, nil
+}
+func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
+	return nil
+}
+
+func (d *driver) DeleteAll(ctx context.Context) error {
+	return nil
+}
+func (d *driver) Dump(ctx context.Context) {
 }
