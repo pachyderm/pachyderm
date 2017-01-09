@@ -1,4 +1,4 @@
-package cmd
+package cmdutil
 
 import (
 	"fmt"
@@ -35,6 +35,15 @@ func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Comm
 			if err := run(args); err != nil {
 				ErrorAndExit("%v", err)
 			}
+		}
+	}
+}
+
+// Run makes a new cobra run function that wraps the given function.
+func Run(run func(args []string) error) func(*cobra.Command, []string) {
+	return func(_ *cobra.Command, args []string) {
+		if err := run(args); err != nil {
+			ErrorAndExit(err.Error())
 		}
 	}
 }
