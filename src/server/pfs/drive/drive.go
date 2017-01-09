@@ -4,6 +4,7 @@ Package drive provides the definitions for the low-level pfs storage drivers.
 package drive
 
 import (
+	"context"
 	"io"
 	"strings"
 
@@ -29,32 +30,32 @@ func IsPermissionError(err error) bool {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	CreateRepo(repo *pfs.Repo, provenance []*pfs.Repo) error
-	InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error)
-	ListRepo(provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
-	DeleteRepo(repo *pfs.Repo, force bool) error
+	CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error
+	InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error)
+	ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error)
+	DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error
 
-	StartCommit(parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
-	FinishCommit(commit *pfs.Commit, cancel bool) error
+	StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
+	FinishCommit(ctx context.Context, commit *pfs.Commit, cancel bool) error
 	// Squash merges the content of fromCommits into a single commit with
 	// the given parent.
-	SquashCommit(fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error)
-	InspectCommit(commit *pfs.Commit) (*pfs.CommitInfo, error)
-	ListCommit(from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error)
-	FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
-	DeleteCommit(commit *pfs.Commit) error
+	SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error)
+	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
+	ListCommit(ctx context.Context, from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error)
+	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
+	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
-	ListBranch(repo *pfs.Repo) ([]string, error)
-	MakeBranch(repo *pfs.Repo, commit *pfs.Commit, name string) error
-	RenameBranch(repo *pfs.Repo, from string, to string)
+	ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error)
+	MakeBranch(ctx context.Context, repo *pfs.Repo, commit *pfs.Commit, name string) error
+	RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string)
 
-	PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
-	MakeDirectory(file *pfs.File) error
-	GetFile(file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
-	InspectFile(file *pfs.File) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File) ([]*pfs.FileInfo, error)
-	DeleteFile(file *pfs.File) error
+	PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
+	MakeDirectory(ctx context.Context, file *pfs.File) error
+	GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
+	InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error)
+	ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error)
+	DeleteFile(ctx context.Context, file *pfs.File) error
 
-	DeleteAll() error
-	Dump()
+	DeleteAll(ctx context.Context) error
+	Dump(ctx context.Context)
 }
