@@ -11,23 +11,23 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/pkg/exec"
-	"go.pedge.io/proto/version"
-	"golang.org/x/net/context"
 )
 
 // PachctlCmd takes a pachd host-address and creates a cobra.Command
@@ -89,7 +89,7 @@ Environment variables:
 				return sanitizeErr(err)
 			}
 			ctx, _ := context.WithTimeout(context.Background(), time.Second)
-			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
+			version, err := versionClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
@@ -149,19 +149,19 @@ kubectl port-forward "$pod" %d:650
 	return rootCmd, nil
 }
 
-func getVersionAPIClient(address string) (protoversion.APIClient, error) {
+func getVersionAPIClient(address string) (versionpb.APIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return protoversion.NewAPIClient(clientConn), nil
+	return versionpb.NewAPIClient(clientConn), nil
 }
 
 func printVersionHeader(w io.Writer) {
 	fmt.Fprintf(w, "COMPONENT\tVERSION\t\n")
 }
 
-func printVersion(w io.Writer, component string, v *protoversion.Version) {
+func printVersion(w io.Writer, component string, v *versionpb.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
 }
 
