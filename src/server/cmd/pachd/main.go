@@ -32,7 +32,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/env"
-	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -193,7 +192,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	return protoserver.Serve(
+	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
@@ -203,10 +202,10 @@ func do(appEnvObj interface{}) error {
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
-		protoserver.ServeOptions{
+		grpcutil.ServeOptions{
 			Version: version.Version,
 		},
-		protoserver.ServeEnv{
+		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,
 		},
 	)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
@@ -23,7 +22,6 @@ import (
 )
 
 type objBlockAPIServer struct {
-	protorpclog.Logger
 	dir         string
 	localServer *localBlockAPIServer
 	objClient   obj.Client
@@ -36,7 +34,6 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		return nil, err
 	}
 	return &objBlockAPIServer{
-		Logger:      protorpclog.NewLogger("pfs.BlockAPI.Obj"),
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
@@ -99,8 +96,6 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
 	if err != nil {
@@ -166,8 +161,6 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 }
 
 func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
 	if err := s.cache.Get(getBlockServer.Context(), request.Block.Hash, sink); err != nil {
@@ -184,8 +177,6 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 }
 
 func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	backoff.RetryNotify(func() error {
 		if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
 			return err
@@ -201,12 +192,9 @@ func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
