@@ -14,13 +14,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.pedge.io/env"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
@@ -40,7 +39,7 @@ type appEnv struct {
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
@@ -68,7 +67,7 @@ func do(appEnvObj interface{}) error {
 		Use:   os.Args[0] + " job-id",
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
-		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			defer func() {
 				// We always clear the output directory, this prevents filling
 				// up disk with completed container images.

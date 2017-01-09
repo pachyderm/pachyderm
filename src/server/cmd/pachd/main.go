@@ -22,6 +22,7 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -31,7 +32,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"go.pedge.io/env"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -67,7 +67,7 @@ type appEnv struct {
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {

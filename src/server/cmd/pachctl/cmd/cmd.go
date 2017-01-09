@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
@@ -25,9 +26,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
-
-	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/pkg/exec"
 )
 
 // PachctlCmd takes a pachd host-address and creates a cobra.Command
@@ -74,7 +72,7 @@ Environment variables:
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !noMetrics {
 				metricsFn := metrics.ReportAndFlushUserAction("Version")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -108,7 +106,7 @@ Environment variables:
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "")
 			if err != nil {
 				return sanitizeErr(err)
@@ -130,13 +128,13 @@ This resets the cluster to its initial state.`,
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl port-forward "$pod" %d:650
 `, port))
 			fmt.Println("Port forwarded, CTRL-C to exit.")
-			return pkgexec.RunIO(pkgexec.IO{
+			return cmdutil.RunIO(cmdutil.IO{
 				Stdin:  stdin,
 				Stderr: os.Stderr,
 			}, "sh")

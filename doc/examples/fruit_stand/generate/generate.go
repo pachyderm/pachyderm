@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
 )
 
 func item() string {
@@ -51,7 +51,7 @@ func main() {
 		Use:   os.Args[0],
 		Short: "Generate pfs traffic.",
 		Long:  "Generate pfs traffic.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			rand.Seed(time.Now().UnixNano())
 			client, err := client.NewFromAddress("0.0.0.0:30650")
 			if err != nil {

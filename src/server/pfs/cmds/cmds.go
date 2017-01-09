@@ -21,11 +21,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/pkg/exec"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -57,7 +55,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
 Repos are created with create-repo.`,
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -66,7 +64,7 @@ Repos are created with create-repo.`,
 		Use:   "create-repo repo-name",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -79,7 +77,7 @@ Repos are created with create-repo.`,
 		Use:   "inspect-repo repo-name",
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -95,12 +93,12 @@ Repos are created with create-repo.`,
 		}),
 	}
 
-	var listRepoProvenance cmd.RepeatedStringArg
+	var listRepoProvenance cmdutil.RepeatedStringArg
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -124,7 +122,7 @@ Repos are created with create-repo.`,
 		Use:   "delete-repo repo-name",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -149,7 +147,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.`,
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -167,7 +165,7 @@ Examples:
 	# Start a commit with master/3 as the parent in repo foo
 	$ pachctl start-commit foo master/3
 `,
-		Run: cmd.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -191,7 +189,7 @@ Examples:
     # Start a commit in repo "test" on a new branch "bar" with foo/2 as the parent
 	$ pachctl fork-commit test foo/2 bar
 `,
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -210,7 +208,7 @@ Examples:
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
-		Run: cmd.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -227,7 +225,7 @@ Examples:
 		Use:   "inspect-commit repo-name commit-id",
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
-		Run: cmd.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -247,7 +245,7 @@ Examples:
 		Use:   "delete-commit repo-name commit-id",
 		Short: "Delete a commit.",
 		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
-		Run: cmd.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -269,8 +267,8 @@ Examples:
 
 	var all bool
 	var block bool
-	var listCommitExclude cmd.RepeatedStringArg
-	var listCommitProvenance cmd.RepeatedStringArg
+	var listCommitExclude cmdutil.RepeatedStringArg
+	var listCommitProvenance cmdutil.RepeatedStringArg
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
 		Short: "Return all commits on a set of repos.",
@@ -292,18 +290,18 @@ Examples:
 	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
 
 `,
-		Run: pkgcobra.Run(func(args []string) error {
-			include, err := cmd.ParseCommits(args)
+		Run: cmdutil.Run(func(args []string) error {
+			include, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
 			}
 
-			exclude, err := cmd.ParseCommits(listCommitExclude)
+			exclude, err := cmdutil.ParseCommits(listCommitExclude)
 			if err != nil {
 				return err
 			}
 
-			provenance, err := cmd.ParseCommits(listCommitProvenance)
+			provenance, err := cmdutil.ParseCommits(listCommitProvenance)
 			if err != nil {
 				return err
 			}
@@ -348,7 +346,7 @@ Examples:
 	# note that bar/1 needs to be an open commit
 	$ pachctl squash-commit test foo/2 foo/3 bar/1
 `,
-		Run: pkgcobra.Run(func(args []string) error {
+		Run: cmdutil.Run(func(args []string) error {
 			if len(args) < 3 {
 				fmt.Println("invalid arguments")
 				return nil
@@ -374,7 +372,7 @@ Examples:
 	# these branches won't be replayed.
 	$ pachctl replay-commit test foo bar
 `,
-		Run: pkgcobra.Run(func(args []string) error {
+		Run: cmdutil.Run(func(args []string) error {
 			if len(args) < 3 {
 				fmt.Println("invalid arguments")
 				return nil
@@ -397,7 +395,7 @@ Examples:
 		}),
 	}
 
-	var repos cmd.RepeatedStringArg
+	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
 		Use:   "flush-commit commit [commit ...]",
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
@@ -412,8 +410,8 @@ Examples:
 	$ pachctl flush-commit foo/master/1 -r bar -r baz
 
 `,
-		Run: pkgcobra.Run(func(args []string) error {
-			commits, err := cmd.ParseCommits(args)
+		Run: cmdutil.Run(func(args []string) error {
+			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
 			}
@@ -447,7 +445,7 @@ Examples:
 		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -475,7 +473,7 @@ Examples:
 
 Files can be written to started (but not finished) commits with put-file.
 Files can be read from finished commits with get-file.`,
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -522,7 +520,7 @@ NOTE this URL can reference local files, so it could cause you to put sensitive
 files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
-		Run: cmd.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -650,7 +648,7 @@ files into your Pachyderm cluster.
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -665,7 +663,7 @@ files into your Pachyderm cluster.
 		Use:   "inspect-file repo-name commit-id path/to/file",
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -689,7 +687,7 @@ files into your Pachyderm cluster.
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
-		Run: cmd.RunBoundedArgs(2, 3, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
 			if fast && recurse {
 				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
@@ -728,7 +726,7 @@ files into your Pachyderm cluster.
 		Use:   "delete-file repo-name commit-id path/to/file",
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
-		Run: cmd.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -743,7 +741,7 @@ files into your Pachyderm cluster.
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
 			if err != nil {
 				return err
@@ -771,7 +769,7 @@ files into your Pachyderm cluster.
 		Use:   "unmount path/to/mount/point",
 		Short: "Unmount pfs.",
 		Long:  "Unmount pfs.",
-		Run: cmd.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			if len(args) == 1 {
 				return syscall.Unmount(args[0], 0)
 			}
@@ -781,7 +779,7 @@ files into your Pachyderm cluster.
 mount | grep pfs:// | cut -f 3 -d " "
 `)
 				var stdout bytes.Buffer
-				if err := pkgexec.RunIO(pkgexec.IO{
+				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stdout: &stdout,
 					Stderr: os.Stderr,
@@ -823,7 +821,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Use:   "archive-all",
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
-		Run: cmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
