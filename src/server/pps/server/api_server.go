@@ -2359,11 +2359,11 @@ func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
 }
 
 func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) error {
+	falseVal := false
+	deleteOptions := &api.DeleteOptions{
+		OrphanDependents: &falseVal,
+	}
 	if jobInfo.Service != nil {
-		falseVal := false
-		deleteOptions := &api.DeleteOptions{
-			OrphanDependents: &falseVal,
-		}
 		if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(jobInfo.JobID, deleteOptions); err != nil {
 			return err
 		}
@@ -2379,7 +2379,7 @@ func (a *apiServer) deleteJob(ctx context.Context, jobInfo *persist.JobInfo) err
 		}
 		pods, jobPodsErr := a.jobPods(client.NewJob(jobInfo.JobID))
 		for _, pod := range pods {
-			if err := a.kubeClient.Pods(a.namespace).Delete(pod.Name, nil); err != nil {
+			if err := a.kubeClient.Pods(a.namespace).Delete(pod.Name, deleteOptions); err != nil {
 				// we don't return on failure here because pods may get deleted
 				// through other means and we don't want that to prevent users from
 				// deleting pipelines.
