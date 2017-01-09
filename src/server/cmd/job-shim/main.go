@@ -69,6 +69,13 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
+			defer func() {
+				// We always clear the output directory, this prevents filling
+				// up disk with completed container images.
+				if err := os.RemoveAll(PFSInputPrefix); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			ppsClient, err := ppsserver.NewInternalPodAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				return err
