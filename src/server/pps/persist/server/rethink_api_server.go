@@ -189,7 +189,6 @@ type rethinkAPIServer struct {
 	protorpclog.Logger
 	session      *gorethink.Session
 	databaseName string
-	timer        pkgtime.Timer
 }
 
 func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer, error) {
@@ -201,7 +200,6 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		protorpclog.NewLogger("pps.persist.API"),
 		session,
 		databaseName,
-		pkgtime.NewSystemTimer(),
 	}, nil
 }
 
@@ -389,7 +387,11 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	request.CreatedAt = a.now()
+	t, err := types.TimestampProto(time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	request.CreatedAt = t
 	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
@@ -915,11 +917,6 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 
 func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
 	return gorethink.DB(a.databaseName).Table(table)
-}
-
-func (a *rethinkAPIServer) now() *types.Timestamp {
-	t, _ := types.TimestampProto(a.timer.Now())
-	return t
 }
 
 func connect(address string) (*gorethink.Session, error) {
