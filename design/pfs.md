@@ -13,7 +13,7 @@ See Github issue [#411](https://github.com/pachyderm/pachyderm/issues/411).
 
 ## Schema
 
-See [persist.proto](db/persist/persist.proto).
+See [persist.proto](../src/server/pps/persist/persist.proto).
 
 ## The Clock System
 
