@@ -18,12 +18,12 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 
 	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -3443,13 +3443,13 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	require.NoError(t, err)
 	ready := make(chan bool)
 	go func() {
-		err := protoserver.Serve(
+		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
-			protoserver.ServeOptions{Version: version.Version},
-			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+			grpcutil.ServeOptions{Version: version.Version},
+			grpcutil.ServeEnv{GRPCPort: uint16(localPort)},
 		)
 		require.NoError(t, err)
 	}()
@@ -3462,14 +3462,14 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	blockAPIServer pfs.BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
-		err := protoserver.Serve(
+		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
-			protoserver.ServeOptions{Version: version.Version},
-			protoserver.ServeEnv{GRPCPort: uint16(port)},
+			grpcutil.ServeOptions{Version: version.Version},
+			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
 		require.NoError(t, err)
 	}()

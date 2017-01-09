@@ -4,9 +4,9 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
 	"github.com/gogo/protobuf/types"
-	protostream "go.pedge.io/proto/stream"
 )
 
 // NewRepo creates a pfs.Repo.
@@ -396,7 +396,7 @@ func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader,
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
+	return grpcutil.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
 // DeleteBlock deletes a block from the block store.
@@ -518,7 +518,7 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 	if err != nil {
 		return sanitizeErr(err)
 	}
-	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+	if err := grpcutil.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
 		return sanitizeErr(err)
 	}
 	return nil

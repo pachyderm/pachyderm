@@ -7,8 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-
-	protostream "go.pedge.io/proto/stream"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // NewJob creates a pps.Job.
@@ -205,7 +204,7 @@ func (c APIClient) GetLogs(
 	if err != nil {
 		return sanitizeErr(err)
 	}
-	return sanitizeErr(protostream.WriteFromStreamingBytesClient(getLogsClient, writer))
+	return sanitizeErr(grpcutil.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

@@ -9,10 +9,10 @@ import (
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	log "github.com/Sirupsen/logrus"
-	protostream "go.pedge.io/proto/stream"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -86,7 +86,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 							log.Printf("error from GetFile: %s", err)
 							return
 						}
-						if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
+						if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
 							log.Printf("error streaming data: %s", err)
 							return
 						}
@@ -105,7 +105,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 					if err != nil {
 						return err
 					}
-					return protostream.WriteFromStreamingBytesClient(getFileClient, f)
+					return grpcutil.WriteFromStreamingBytesClient(getFileClient, f)
 				}
 			case pfs.FileType_FILE_TYPE_DIR:
 				return pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)

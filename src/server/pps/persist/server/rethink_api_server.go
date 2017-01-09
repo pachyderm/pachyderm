@@ -10,12 +10,9 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/dancannon/gorethink"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
-	"go.pedge.io/pkg/time"
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 )
 
@@ -186,7 +183,6 @@ func CheckDBs(address string, databaseName string) error {
 }
 
 type rethinkAPIServer struct {
-	protorpclog.Logger
 	session      *gorethink.Session
 	databaseName string
 }
@@ -197,7 +193,6 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		return nil, err
 	}
 	return &rethinkAPIServer{
-		protorpclog.NewLogger("pps.persist.API"),
 		session,
 		databaseName,
 	}, nil
