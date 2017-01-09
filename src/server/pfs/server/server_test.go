@@ -3,12 +3,10 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,16 +25,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
 const (
 	servers = 2
 
-	ALPHABET       = "abcdefghijklmnopqrstuvwxyz"
-	RethinkAddress = "localhost:28015"
-	RethinkTestDB  = "pachyderm_test"
+	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 )
 
 var (
@@ -44,20 +40,6 @@ var (
 )
 
 var testDBs []string
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	code := m.Run()
-	/*
-		if code == 0 {
-			for _, name := range testDBs {
-				if err := persist.RemoveDB(RethinkAddress, name); err != nil {
-					panic(err)
-				}
-			}
-		}*/
-	os.Exit(code)
-}
 
 func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
@@ -3480,10 +3462,6 @@ func getClient(t *testing.T) pclient.APIClient {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
-	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
-		panic(err)
-	}
-
 	root := uniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
 	var ports []int32
@@ -3496,7 +3474,7 @@ func getClient(t *testing.T) pclient.APIClient {
 	}
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := persist.NewDriver(address, RethinkAddress, dbName)
+		driver, err := drive.NewLocalDriver(address)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
