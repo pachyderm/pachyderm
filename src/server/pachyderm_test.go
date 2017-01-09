@@ -4220,6 +4220,15 @@ func TestSQL(t *testing.T) {
 	jobInfo, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, tableName, 0, 0, "", false, nil, &buffer))
+	require.Equal(t,
+		`id,name,score
+0,foo,100
+1,bar,150
+2,fizz,200
+3,buzz,250
+`, buffer.String())
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
