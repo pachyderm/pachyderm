@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	db "github.com/pachyderm/pachyderm/src/server/pfs/db"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dancannon/gorethink"
@@ -30,8 +29,12 @@ type Reporter struct {
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
 func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) *Reporter {
-
-	dbClient, err := db.DbConnect(address)
+	dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: address,
+		Timeout: 5 * time.Second,
+		MaxIdle: 5,
+		MaxOpen: 100,
+	})
 	if err != nil {
 		log.Errorf("error connected to DB when reporting metrics: %v\n", err)
 		return nil
