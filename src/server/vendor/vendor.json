@@ -261,6 +261,12 @@
 			"revisionTime": "2016-12-22T21:12:38Z"
 		},
 		{
+			"checksumSHA1": "77qmlZb2Us0Qlu/OHKMdZ8RajEo=",
+			"path": "github.com/coreos/etcd/clientv3/concurrency",
+			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",
+			"revisionTime": "2016-12-22T21:12:38Z"
+		},
+		{
 			"checksumSHA1": "5yRlK3cXaDLqOQGtE5oGgKW9+zI=",
 			"path": "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
 			"revision": "1a8e3cad9aba4aa0f3e16e02f2d6d69001110776",

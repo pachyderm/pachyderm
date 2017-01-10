@@ -65,7 +65,7 @@ func TestCreateRepoNonexistantProvenance(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestInspectRepo(t *testing.T) {
+func TestCreateAndInspectRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -77,6 +77,10 @@ func TestInspectRepo(t *testing.T) {
 	require.Equal(t, repo, repoInfo.Repo.Name)
 	require.NotNil(t, repoInfo.Created)
 	require.Equal(t, 0, int(repoInfo.SizeBytes))
+
+	require.YesError(t, client.CreateRepo(repo))
+	_, err = client.InspectRepo("nonexistent")
+	require.YesError(t, err)
 }
 
 func TestListRepo(t *testing.T) {
