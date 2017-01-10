@@ -23,4 +23,6 @@ type Interface interface {
 	PutDir(path string) error
 	List(path string) ([]*FileNode, error)
 	Glob(pattern string) ([]*Node, error)
+	// Merges another hash tree into this tree
+	Merge(tree Interface) error
 }
