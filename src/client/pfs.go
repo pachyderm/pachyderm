@@ -5,7 +5,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 
-	"github.com/gogo/protobuf/types"
 	protostream "go.pedge.io/proto/stream"
 )
 
@@ -149,27 +148,6 @@ func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commi
 	return commit, nil
 }
 
-// ForkCommit is the same as StartCommit except that the commit is created
-// on a new branch.
-func (c APIClient) ForkCommit(repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
-	commit, err := c.PfsAPIClient.ForkCommit(
-		c.ctx(),
-		&pfs.ForkCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
-				},
-				ID: parentCommit,
-			},
-			Branch: branch,
-		},
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return commit, nil
-}
-
 // FinishCommit ends the process of committing data to a Repo and persists the
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
@@ -224,20 +202,30 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 //
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(from *pfs.Commit, repo *pfs.Repo, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repoName string, from string, to string, number uint64) ([]*pfs.CommitInfo, error) {
+	req := &pfs.ListCommitRequest{
+		Repo:   NewRepo(repoName),
+		Number: number,
+	}
+	if from != "" {
+		req.From = NewCommit(repoName, from)
+	}
+	if to != "" {
+		req.To = NewCommit(repoName, to)
+	}
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
-		&pfs.ListCommitRequest{
-			Repo:   repo,
-			From:   from,
-			To:     to,
-			Number: number,
-		},
+		req,
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 	return commitInfos.CommitInfo, nil
+}
+
+// ListCommitByRepo lists all commits in a repo.
+func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) {
+	return c.ListCommit(repoName, "", "", 0)
 }
 
 // ListBranch lists the active branches on a Repo.
@@ -615,36 +603,6 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, parent string
 		return sanitizeErr(err)
 	}
 	return nil
-}
-
-// ReplayCommit replays a series of commits on top of commit "to".  The replayed commits
-// are the ancestors of the commits in "fromCommits", with no duplicates in case of
-// common ancestors.
-func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
-	var realFromCommits []*pfs.Commit
-	for _, commitID := range fromCommits {
-		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
-	}
-	commits, err := c.PfsAPIClient.ReplayCommit(
-		c.ctx(),
-		&pfs.ReplayCommitRequest{
-			FromCommits: realFromCommits,
-			ToBranch:    to,
-		},
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return commits.Commit, nil
-}
-
-// ArchiveAll archives all commits in all repos.
-func (c APIClient) ArchiveAll() error {
-	_, err := c.PfsAPIClient.ArchiveAll(
-		c.ctx(),
-		&types.Empty{},
-	)
-	return sanitizeErr(err)
 }
 
 type putFileWriteCloser struct {
