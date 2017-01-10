@@ -157,7 +157,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	branches, err := a.driver.ListBranch(ctx, request.Repo, request.Status)
+	branches, err := a.driver.ListBranch(ctx, request.Repo)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +192,7 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+	ctx := putFileServer.Context()
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
@@ -264,7 +265,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 				if err != nil {
 					return err
 				}
-				return a.putFileObj(objClient, request, url)
+				return a.putFileObj(ctx, objClient, request, url)
 			}
 		} else {
 			reader := putFileReader{
@@ -284,7 +285,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return nil
 }
 
-func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) error {
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
@@ -313,12 +314,13 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+	ctx := apiGetFileServer.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(apiGetFileServer.Context(), a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	file, err := a.driver.GetFile(ctx, request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.DiffMethod)
+	file, err := a.driver.GetFile(ctx, request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}
@@ -336,7 +338,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return a.driver.InspectFile(ctx, request.File, request.Shard, request.DiffMethod)
+	return a.driver.InspectFile(ctx, request.File)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -345,17 +347,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	var mode drive.ListFileMode
-	switch request.Mode {
-	case pfs.ListFileMode_ListFile_NORMAL:
-		mode = drive.ListFileNORMAL
-	case pfs.ListFileMode_ListFile_FAST:
-		mode = drive.ListFileFAST
-	case pfs.ListFileMode_ListFile_RECURSE:
-		mode = drive.ListFileRECURSE
-	}
-	fileInfos, err := a.driver.ListFile(ctx, request.File, request.Shard,
-		request.DiffMethod, mode)
+	fileInfos, err := a.driver.ListFile(ctx, request.File)
 	if err != nil {
 		return nil, err
 	}
@@ -384,18 +376,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.driver.DeleteAll(ctx); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
-func (a *apiServer) ArchiveAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ArchiveAll")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	if err := a.driver.ArchiveAll(ctx); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
