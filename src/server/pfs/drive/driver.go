@@ -15,6 +15,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	reposPrefix = "/repos"
+)
+
 type driver struct {
 	blockClient pfs.BlockAPIClient
 	etcdClient  *etcd.Client
@@ -22,12 +26,9 @@ type driver struct {
 }
 
 func (d *driver) repos(repo string) string {
+	fmt.Printf("%s %s %s, %s\n", d.prefix, reposPrefix, repo, path.Join(d.prefix, reposPrefix, repo))
 	return path.Join(d.prefix, reposPrefix, repo)
 }
-
-const (
-	reposPrefix = "/repos"
-)
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
@@ -53,7 +54,7 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
-func NewLocalDriver(blockAddress string) (Driver, error) {
+func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
 	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -70,7 +71,7 @@ func NewLocalDriver(blockAddress string) (Driver, error) {
 	return &driver{
 		blockClient: pfs.NewBlockAPIClient(clientConn),
 		etcdClient:  etcdClient,
-		prefix:      "",
+		prefix:      etcdPrefix,
 	}, nil
 }
 
@@ -96,7 +97,8 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		Created:    now(),
 		Provenance: provenance,
 	}
-	resp, err := d.etcdClient.Txn(ctx).If(absent(d.repos(repo.Name))).Then(etcd.OpPut(repo.Name, repoInfo.String())).Commit()
+	repoKey := d.repos(repo.Name)
+	resp, err := d.etcdClient.Txn(ctx).If(absent(repoKey)).Then(etcd.OpPut(repoKey, repoInfo.String())).Commit()
 	if err != nil {
 		return err
 	}
@@ -115,9 +117,11 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := proto.Unmarshal(resp.Kvs[0].Value, repoInfo); err != nil {
+	fmt.Println("BP1")
+	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), repoInfo); err != nil {
 		return nil, err
 	}
+	fmt.Println("BP2")
 	return repoInfo, nil
 }
 
