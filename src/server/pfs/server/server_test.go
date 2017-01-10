@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -62,6 +63,20 @@ func TestCreateRepoNonexistantProvenance(t *testing.T) {
 		},
 	)
 	require.YesError(t, err)
+}
+
+func TestInspectRepo(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	repoInfo, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, repo, repoInfo.Repo.Name)
+	require.NotNil(t, repoInfo.Created)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
 }
 
 func TestListRepo(t *testing.T) {
@@ -164,6 +179,7 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 }
 
 func generateRandomString(n int) string {
+	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = ALPHABET[rand.Intn(len(ALPHABET))]
@@ -230,9 +246,10 @@ func getClient(t *testing.T) pclient.APIClient {
 	for _, port := range ports {
 		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
 	}
+	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := drive.NewLocalDriver(address)
+		driver, err := drive.NewLocalDriver(address, prefix)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
