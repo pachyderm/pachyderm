@@ -18,9 +18,16 @@ var (
 )
 
 type Interface interface {
-	Get(path string) (*Node, error)
+	// Read, Update, and Delete files
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
+	DeleteFile(path string) error
+	Get(path string) (*Node, error)
+
+	// Read, Update, and Delete directories
 	PutDir(path string) error
+	DeleteDir(path string) error
 	List(path string) ([]*FileNode, error)
+
+	// Returns a list of files and directories that match 'pattern'
 	Glob(pattern string) ([]*Node, error)
 }
