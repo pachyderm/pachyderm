@@ -11,9 +11,6 @@
 ifndef TESTPKGS
 	TESTPKGS = ./src/...
 endif
-ifndef VENDOR_IGNORE_DIRS
-	VENDOR_IGNORE_DIRS = go.pedge.io
-endif
 ifdef VENDOR_ALL
 	VENDOR_IGNORE_DIRS =
 endif
@@ -42,7 +39,6 @@ echo-timeout:
 all: build
 
 version:
-	go get go.pedge.io/proto/version
 	@echo 'package main; import "github.com/pachyderm/pachyderm/src/client/version"; func main() { println(version.PrettyPrintVersion(version.Version)) }' > /tmp/pachyderm_version.go
 	go run /tmp/pachyderm_version.go
 
@@ -154,7 +150,7 @@ launch-dev: check-kubectl check-kubectl-connection install
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -171,7 +167,7 @@ full-clean-launch: check-kubectl
 launch-test-rethinkdb:
 	@# Expose port 8081 so you can connect to the rethink dashboard
 	@# (You may need to forward port 8081 if you're running docker machine)
-	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3 
+	docker run --name pachyderm-test-rethinkdb -d -p 28015:28015 -p 8081:8080 rethinkdb:2.3.3
 	sleep 20  # wait for rethinkdb to start up
 
 clean-launch-test-rethinkdb:
@@ -295,14 +291,14 @@ amazon-clean-launch: clean-launch
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumes rethink-volume
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found persistentvolumeclaims rethink-volume-claim
 
-amazon-clean: 
+amazon-clean:
 	@while :; \
         do if echo "The following script will delete your AWS bucket and volume. The action cannot be undone. Do you want to proceed? (Y/n)";read REPLY; then \
         case $$REPLY in Y|y) make amazon-clean-launch;make amazon-clean-cluster;break;; \
-	N|n) echo "The amazon clean process has been cancelled by user!";break;; \ 
+	N|n) echo "The amazon clean process has been cancelled by user!";break;; \
 	*) echo "input parameter error, please input again ";continue;;esac; \
         fi;done;
-		
+
 microsoft-cluster-manifest:
 	@pachctl deploy --dry-run microsoft $(CONTAINER_NAME) $(AZURE_STORAGE_NAME) $(AZURE_STORAGE_KEY) $(VHD_URI) $(STORAGE_SIZE)
 
@@ -314,7 +310,7 @@ microsoft-cluster:
 
 clean-microsoft-cluster:
 	azure group delete $(AZURE_RESOURCE_GROUP) -q
-	
+
 install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
