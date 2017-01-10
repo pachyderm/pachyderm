@@ -177,12 +177,10 @@ enum CommitStatus {
 }
 
 message ListCommitRequest {
-  repeated Commit exclude = 1;
-  repeated Commit include = 6;
-  repeated Commit provenance = 2;
-  CommitType commit_type = 3;
-  CommitStatus status = 4;
-  bool block = 5;
+  Repo repo = 1;
+  Commit from = 2;
+  Commit to = 3;
+  uint64 number = 4;
 }
 
 message ListBranchRequest {
@@ -259,7 +257,7 @@ message DeleteFileRequest {
 
 message SquashCommitRequest {
   repeated Commit from_commits = 1;
-  Commit to_commit = 2;
+  Commit parent = 2;
 }
 
 message ReplayCommitRequest {

@@ -183,19 +183,6 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
-// ArchiveCommit marks a commit as archived. Archived commits are not listed in
-// ListCommit unless commit status is set to Archived or All. Archived commits
-// are not considered by FlushCommit either.
-func (c APIClient) ArchiveCommit(repoName string, commitID string) error {
-	_, err := c.PfsAPIClient.ArchiveCommit(
-		c.ctx(),
-		&pfs.ArchiveCommitRequest{
-			Commits: []*pfs.Commit{NewCommit(repoName, commitID)},
-		},
-	)
-	return sanitizeErr(err)
-}
-
 // CancelCommit ends the process of committing data to a repo. It differs from
 // FinishCommit in that the Commit will not be used as a source for downstream
 // pipelines. CancelCommit is used primarily by PPS for the output commits of
@@ -225,75 +212,26 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 	return commitInfo, nil
 }
 
-// ListCommitByRepo lists commits in the given repos.
-//
-// repoNames defines a set of Repos to consider commits from, if repoNames is left
-// nil or empty then the result will be empty.
-//
-// provenance specifies a set of provenance commits, only commits which have
-// ALL of the specified commits as provenance will be returned unless
-// provenance is nil in which case it is ignored.
-//
-// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
-//
-// status specifies the status of commit you want returned.  By default, cancelled
-// or archived commits are not returned.
-//
-// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
-// Using repoNames and block you can get subscription semantics from ListCommit.
-// commitStatus, controls the statuses of the returned commits. The default
-// value `Normal` will filter out archived and cancelled commits.
-func (c APIClient) ListCommitByRepo(repoNames []string, provenance []*pfs.Commit,
-	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
-	var include []*pfs.Commit
-	for _, repoName := range repoNames {
-		include = append(include, &pfs.Commit{
-			Repo: NewRepo(repoName),
-		})
-	}
-	return c.ListCommit(include, nil, provenance, commitType, status, block)
-}
-
 // ListCommit lists commits.
 //
-// exclude and include are filters that either include or exclude the ancestors of the
-// given commits.  A commit is considered the ancestor of itself.
-// For instance, ListCommit(include("foo/2")) returns commits foo/0, foo/1, and foo/2,
-// if they exist.  In contrast, ListCommit(exclude("foo/2")) returns commits that are
-// *not* foo/0, foo/1, or foo/2.
+// If only `repo` is given, all commits in the repo are returned.
 //
-// To get all commits on a given branch, simply include a commit whose ID is the branch
-// name: ListCommit(include("foo"))
+// If `from` is given, only the descendents of `from`, including `from`
+// itself, are considered.
 //
-// To get all commits in a repo, use ListCommitByRepo.
+// If `to` is given, only the ancestors of `to`, including `to` itself,
+// are considered.
 //
-// To get all commits, simply don't provide include or exclude.
-//
-// provenance specifies a set of provenance commits, only commits which have
-// ALL of the specified commits as provenance will be returned unless
-// provenance is nil in which case it is ignored.
-//
-// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
-//
-// status specifies the status of commit you want returned.  By default, cancelled
-// or archived commits are not returned.
-//
-// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
-// Using fromCommits and block you can get subscription semantics from ListCommit.
-// commitStatus, controls the statuses of the returned commits. The default
-// value `Normal` will filter out archived and cancelled commits.
-func (c APIClient) ListCommit(exclude []*pfs.Commit, include []*pfs.Commit,
-	provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus,
-	block bool) ([]*pfs.CommitInfo, error) {
+// `number` determines how many commits are returned.  If `number` is 0,
+// all commits that match the aforementioned criteria are returned.
+func (c APIClient) ListCommit(from *pfs.Commit, repo *pfs.Repo, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
 		&pfs.ListCommitRequest{
-			Exclude:    exclude,
-			Include:    include,
-			Provenance: provenance,
-			CommitType: commitType,
-			Status:     status,
-			Block:      block,
+			Repo:   repo,
+			From:   from,
+			To:     to,
+			Number: number,
 		},
 	)
 	if err != nil {
@@ -660,8 +598,7 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 
 // SquashCommit copies the content of `fromCommits` to `to`, which needs to be an
 // open commit.
-func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) error {
-
+func (c APIClient) SquashCommit(repo string, fromCommits []string, parent string) error {
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
 		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
@@ -671,7 +608,7 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) er
 		c.ctx(),
 		&pfs.SquashCommitRequest{
 			FromCommits: realFromCommits,
-			ToCommit:    NewCommit(repo, to),
+			Parent:      NewCommit(repo, parent),
 		},
 	)
 	if err != nil {

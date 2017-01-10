@@ -41,12 +41,12 @@ type Driver interface {
 	// the given parent.
 	SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error)
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
-	ListCommit(ctx context.Context, from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error)
+	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
 	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
 	ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error)
-	MakeBranch(ctx context.Context, repo *pfs.Repo, commit *pfs.Commit, name string) error
+	SetBranch(ctx context.Context, commit *pfs.Commit, name string) error
 	RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error
 
 	PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
