@@ -8,74 +8,65 @@ import (
 
 // ErrFileNotFound represents a file-not-found error.
 type ErrFileNotFound struct {
-	error
+	File *pfs.File
 }
 
 // ErrRepoNotFound represents a repo-not-found error.
 type ErrRepoNotFound struct {
-	error
+	Repo *pfs.Repo
+}
+
+// ErrRepoNotFound represents a repo-not-found error.
+type ErrRepoExists struct {
+	Repo *pfs.Repo
 }
 
 // ErrCommitNotFound represents a commit-not-found error.
 type ErrCommitNotFound struct {
-	error
+	Commit *pfs.Commit
 }
 
 // ErrCommitExists represents an error where the commit already exists.
 type ErrCommitExists struct {
-	error
+	Commit *pfs.Commit
 }
 
 // ErrCommitFinished represents an error where the commit has been finished.
 type ErrCommitFinished struct {
-	error
+	Commit *pfs.Commit
 }
 
 // ErrParentCommitNotFound represents a parent-commit-not-found error.
 type ErrParentCommitNotFound struct {
-	error
+	Commit *pfs.Commit
 }
 
-// NewErrFileNotFound creates a new ErrFileNotFound.
-func NewErrFileNotFound(file string, repo string, commitID string) *ErrFileNotFound {
-	return &ErrFileNotFound{
-		error: fmt.Errorf("file %v not found in repo %v at commit %v", file, repo, commitID),
-	}
+func (e ErrFileNotFound) Error() string {
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo.Name, e.File.Commit.ID)
 }
 
-// NewErrRepoNotFound creates a new ErrRepoNotFound.
-func NewErrRepoNotFound(repo string) *ErrRepoNotFound {
-	return &ErrRepoNotFound{
-		error: fmt.Errorf("repo %v not found", repo),
-	}
+func (e ErrRepoNotFound) Error() string {
+	return fmt.Sprintf("repo %v not found", e.Repo.Name)
 }
 
-// NewErrCommitNotFound creates a new ErrCommitNotFound.
-func NewErrCommitNotFound(repo string, commitID string) *ErrCommitNotFound {
-	return &ErrCommitNotFound{
-		error: fmt.Errorf("commit %v not found in repo %v", commitID, repo),
-	}
+func (e ErrRepoExists) Error() string {
+	return fmt.Sprintf("repo %v already exists", e.Repo.Name)
 }
 
-// NewErrCommitExists creates a new ErrCommitExists.
-func NewErrCommitExists(repo string, commitID string) *ErrCommitExists {
-	return &ErrCommitExists{
-		error: fmt.Errorf("commit %v already exists in repo %v", commitID, repo),
-	}
+func (e ErrCommitNotFound) Error() string {
+	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
 }
 
-// NewErrCommitFinished creates a new ErrCommitExists.
-func NewErrCommitFinished(repo string, commitID string) *ErrCommitFinished {
-	return &ErrCommitFinished{
-		error: fmt.Errorf("commit %v in repo %v has already finished", commitID, repo),
-	}
+func (e ErrCommitExists) Error() string {
+	return fmt.Sprintf("commit %v already exists in repo %v", e.Commit.ID, e.Commit.Repo.Name)
 }
 
-// NewErrParentCommitNotFound creates a new ErrParentCommitNotFound.
-func NewErrParentCommitNotFound(repo string, commitID string) *ErrParentCommitNotFound {
-	return &ErrParentCommitNotFound{
-		error: fmt.Errorf("parent commit %v not found in repo %v", commitID, repo),
-	}
+func (e ErrCommitFinished) Error() string {
+	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Repo.Name)
+}
+
+func (e ErrParentCommitNotFound) Error() string {
+	return fmt.Sprintf("parent commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
 }
 
 // ByteRangeSize returns byteRange.Upper - byteRange.Lower.
