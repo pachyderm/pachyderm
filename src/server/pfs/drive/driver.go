@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -92,20 +94,27 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
-	repoInfo := &pfs.RepoInfo{
-		Repo:       repo,
-		Created:    now(),
-		Provenance: provenance,
-	}
-	repoKey := d.repos(repo.Name)
-	resp, err := d.etcdClient.Txn(ctx).If(absent(repoKey)).Then(etcd.OpPut(repoKey, repoInfo.String())).Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("repo %s already exists", repo.Name)
-	}
-	return nil
+	_, err := concurrency.NewSTMRepeatable(ctx, d.etcdClient, func(stm concurrency.STM) error {
+		for _, prov := range provenance {
+			repoVal := stm.Get(prov.Name)
+			if repoVal == "" {
+				return pfsserver.ErrRepoNotFound{prov}
+			}
+		}
+		repoInfo := &pfs.RepoInfo{
+			Repo:       repo,
+			Created:    now(),
+			Provenance: provenance,
+		}
+		repoKey := d.repos(repo.Name)
+		repoVal := stm.Get(repoKey)
+		if repoVal != "" {
+			return pfsserver.ErrRepoExists{repo}
+		}
+		stm.Put(repoKey, repoInfo.String())
+		return nil
+	})
+	return err
 }
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
@@ -117,19 +126,52 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
 	repoInfo := &pfs.RepoInfo{}
-	fmt.Println("BP1")
 	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), repoInfo); err != nil {
 		return nil, err
 	}
-	fmt.Println("BP2")
 	return repoInfo, nil
 }
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
+	//resp, err := d.etcdClient.Get(ctx, d.repos(""), etcd.WithPrefix())
+	//if err != nil {
+	//return nil, err
+	//}
+	//var result []*pfs.RepoInfo
+	//nextRepo:
+	//for _, kv := range resp.Kvs {
+	//repoInfo := &pfs.RepoInfo{}
+	//if err := proto.UnmarshalText(string(kv.Value), repoInfo); err != nil {
+	//return nil, err
+	//}
+	//for _, reqProv := range provenance {
+	//matched := false
+	//for _, prov := range repoInfo.Provenance {
+	//if prov.Name == reqProv.Name {
+	//matched = true
+	//}
+	//}
+	//if !match {
+	//continue nextRepo
+	//}
+	//}
+	//result = append(result, repoInfo)
+	//}
+	//return result, nil
 	return nil, nil
 }
 
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
+	//resp, err := d.etcdClient.Txn(ctx).If(present(repoKey)).Then(
+	//etcd.OpDelete(repoKey, repoInfo.String()),
+	//etcd.OpDelete(d.commits(repo.Name), etcd.WithPrefix()),
+	//etcd.OpDelete(d.refs(repo.Name), etcd.WithPrefix())).Commit()
+	//if err != nil {
+	//return err
+	//}
+	//if !resp.Succeeded {
+	//return fmt.Errorf("repo %s doesn't exist", repo.Name)
+	//}
 	return nil
 }
 
