@@ -93,19 +93,6 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ForkCommit(ctx context.Context, request *pfs.ForkCommitRequest) (response *pfs.Commit, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ForkCommit")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	commit, err := a.driver.ForkCommit(ctx, request.Parent, request.Branch, request.Provenance)
-	if err != nil {
-		return nil, err
-	}
-	return commit, nil
-}
-
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -131,18 +118,6 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ArchiveCommit(ctx context.Context, request *pfs.ArchiveCommitRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ArchiveCommit")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	if err := a.driver.ArchiveCommit(ctx, request.Commits); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -158,7 +133,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitInfos, err := a.driver.ListCommit(ctx, request.Include, request.Exclude, request.Provenance, request.CommitType, request.Status, request.Block)
+	commitInfos, err := a.driver.ListCommit(ctx, request.Repo, request.From, request.To, request.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -167,26 +142,13 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "SquashCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return &types.Empty{}, a.driver.SquashCommit(ctx, request.FromCommits, request.ToCommit)
-}
-
-func (a *apiServer) ReplayCommit(ctx context.Context, request *pfs.ReplayCommitRequest) (response *pfs.Commits, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ReplayCommit")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	commits, err := a.driver.ReplayCommit(ctx, request.FromCommits, request.ToBranch)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.Commits{Commit: commits}, nil
+	return a.driver.SquashCommit(ctx, request.FromCommits, request.Parent)
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {

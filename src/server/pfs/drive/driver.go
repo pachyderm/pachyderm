@@ -145,7 +145,7 @@ func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, pa
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	return nil, nil
 }
-func (d *driver) ListCommit(ctx context.Context, from *pfs.Commit, to *pfs.Commit) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	return nil, nil
 }
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
@@ -157,7 +157,7 @@ func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
 func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error) {
 	return nil, nil
 }
-func (d *driver) MakeBranch(ctx context.Context, repo *pfs.Repo, commit *pfs.Commit, name string) error {
+func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
 	return nil
 }
 func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error {
