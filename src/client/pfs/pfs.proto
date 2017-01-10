@@ -280,12 +280,8 @@ service API {
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
-  // Fork creates a commit on a new branch.
-  rpc ForkCommit(ForkCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
-  // ArchiveCommit marks commits as archived, it will be excluded from ListCommit.
-  rpc ArchiveCommit(ArchiveCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
   // ListCommit returns info about all commits.
@@ -297,9 +293,7 @@ service API {
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}
   // Squash returns the head of the commit of the merge
-  rpc SquashCommit(SquashCommitRequest) returns (google.protobuf.Empty) {}
-  // Replay returns the head of the commit of the merge
-  rpc ReplayCommit(ReplayCommitRequest) returns (Commits) {}
+  rpc SquashCommit(SquashCommitRequest) returns (Commit) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -315,8 +309,6 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // ArchiveAll archives everything
-  rpc ArchiveAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutBlockRequest {
