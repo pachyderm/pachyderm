@@ -26,7 +26,7 @@ const (
 	// amount of time in order to keep owning a chunk.  In reality, pods send
 	// ContinueJob more often than that because they need to account for network
 	// latency.
-	PPSLeasePeriod = 20 * time.Second
+	PPSLeasePeriod = 30 * time.Second
 )
 
 var (

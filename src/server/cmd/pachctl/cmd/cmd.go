@@ -66,7 +66,10 @@ Environment variables:
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	rootCmd.AddCommand(deploycmds.DeployCmd(&noMetrics))
+	deployCmds := deploycmds.Cmds(&noMetrics)
+	for _, cmd := range deployCmds {
+		rootCmd.AddCommand(cmd)
+	}
 
 	version := &cobra.Command{
 		Use:   "version",

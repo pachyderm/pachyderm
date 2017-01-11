@@ -657,6 +657,9 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 			break
 		}
 	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
 	return chunk, nil
 }
 
