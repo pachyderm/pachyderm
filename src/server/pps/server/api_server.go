@@ -368,15 +368,26 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		persistJobInfo.PipelineVersion = pipelineInfo.Version
 	}
 
+	pclient := client.APIClient{PfsAPIClient: pfsAPIClient}
 	if request.Mirror != nil {
 		switch request.Mirror.Type {
 		case ppsclient.ConnectorType_OBJECT_STORE:
+			objClient, err := obj.NewClientFromURLAndSecret(context.Background(), request.Mirror.ObjectStore.URL)
+			if err != nil {
+				return nil, err
+			}
+			url, err := url.Parse(request.Mirror.ObjectStore.URL)
+			if err != nil {
+				return nil, err
+			}
+			if err := pfs_sync.PullObj(pclient, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
+				return nil, err
+			}
 		case ppsclient.ConnectorType_SQL_DB:
 			db, err := sql.Open(request.Mirror.SqlDb.Driver, request.Mirror.SqlDb.URL)
 			if err != nil {
 				return nil, err
 			}
-			pclient := client.APIClient{PfsAPIClient: pfsAPIClient}
 			if err := pfs_sync.PullSQL(pclient, outputCommit, request.Mirror.SqlDb.Tables, db); err != nil {
 				return nil, err
 			}

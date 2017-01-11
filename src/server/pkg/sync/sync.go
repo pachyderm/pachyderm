@@ -21,6 +21,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	semCap = 50
+)
+
 // Pull clones an entire repo at a certain commit
 //
 // root is the local path you want to clone to
@@ -173,11 +177,14 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
 	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
 			return nil
 		}
+		sem <- struct{}{}
 		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			w, err := objClient.Writer(filepath.Join(root, fileInfo.File.Path))
 			if err != nil {
 				return err
@@ -197,12 +204,44 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 	return eg.Wait()
 }
 
-// PullSQL pulles data from a sql database into a pfs commit.
+// PullObj pulls data from an object store into a pfs commit.
+func PullObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
+	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
+	if err := objClient.Walk(root, func(name string) error {
+		sem <- struct{}{}
+		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
+			r, err := objClient.Reader(name, 0, 0)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, strings.TrimPrefix(name, root), r); err != nil {
+				return err
+			}
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
+
+// PullSQL pulls data from a sql database into a pfs commit.
 func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []string, db *sql.DB) error {
 	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
 	for _, table := range tables {
 		table := table
+		sem <- struct{}{}
 		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s;", table))
 			if err != nil {
 				return err
