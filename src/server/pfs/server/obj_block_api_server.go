@@ -9,13 +9,13 @@ import (
 	"io/ioutil"
 	"time"
 
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
+	log "github.com/Sirupsen/logrus"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -51,7 +51,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 					}
 					return nil
 				}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-					protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+					log.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
 						Err:               err.Error(),
 						TimeTillNextRetry: d.String(),
 					})
@@ -148,7 +148,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				}
 				return nil
 			}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-				protolion.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
+				log.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
 					Err:               err.Error(),
 					TimeTillNextRetry: d.String(),
 				})
@@ -180,10 +180,10 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 	} else {
 		data = nil
 	}
-	return getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
+	return getBlockServer.Send(&types.BytesValue{Value: data})
 }
 
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	backoff.RetryNotify(func() error {
@@ -192,12 +192,12 @@ func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.
 		}
 		return nil
 	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-		protolion.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
+		log.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 		})
 	})
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
