@@ -1,3 +1,0 @@
-# An example multi-language pipeline
-
-more coming soon...
