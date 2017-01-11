@@ -1,15 +1,14 @@
-## ./pachctl delete-all
+## ./pachctl undeploy
 
-Delete everything.
+Tear down a deployed Pachyderm cluster.
 
 ### Synopsis
 
 
-Delete all repos, commits, files, pipelines and jobs.
-This resets the cluster to its initial state.
+Tear down a deployed Pachyderm cluster.
 
 ```
-./pachctl delete-all
+./pachctl undeploy
 ```
 
 ### Options inherited from parent commands

@@ -57,9 +57,11 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 		}
 		for _, jobID := range jobIDs.Jobs {
 			zero := int64(0)
+			falseVal := false
 			go func(jobID string) {
 				if err := a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobID, &api.DeleteOptions{
 					GracePeriodSeconds: &zero,
+					OrphanDependents:   &falseVal,
 				}); err != nil {
 					// TODO: if the error indicates that the job has already been
 					// deleted, just proceed to the next step
