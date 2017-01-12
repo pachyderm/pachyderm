@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -18,7 +17,10 @@ import (
 )
 
 const (
-	reposPrefix = "/repos"
+	locksPrefix   = "/locks"
+	reposPrefix   = "/repos"
+	commitsPrefix = "/commits"
+	refsPrefix    = "/refs"
 )
 
 type driver struct {
@@ -35,11 +37,24 @@ type collectionInterface interface {
 	Delete(key string) error
 }
 
+// collection implements helper functions that makes common operations
+// on top of etcd more pleasant to work with.  It's called collection
+// because most of our data is modelled as collections, such as repos,
+// commits, refs, etc.
 type collection struct {
 	ctx        context.Context
 	etcdClient *etcd.Client
 	prefix     string
+	// a prefix for locks
+	locksPrefix string
+	session     *concurrency.Session
+	mutex       *concurrency.Mutex
 }
+
+// collectionFactory generates collections.  It's mainly used for
+// namespaced collections, such as /commits/foo, i.e. commits in
+// repo foo.
+type collectionFactory func(string) *collection
 
 func (c *collection) path(key string) string {
 	return path.Join(c.prefix, key)
@@ -66,11 +81,8 @@ func (c *collection) Put(key string, val proto.Message) error {
 }
 
 func (c *collection) Create(key string, val proto.Message) error {
-	valBytes, err := proto.Marshal(val)
-	if err != nil {
-		return err
-	}
-	resp, err := c.etcdClient.Txn(c.ctx).If(present(key)).Then(etcd.OpPut(c.path(key), string(valBytes))).Commit()
+	fullKey := c.path(key)
+	resp, err := c.etcdClient.Txn(c.ctx).If(absent(fullKey)).Then(etcd.OpPut(fullKey, proto.MarshalTextString(val))).Commit()
 	if err != nil {
 		return err
 	}
@@ -88,7 +100,7 @@ func (c *collection) List(key *string, val proto.Message, iterate func() error) 
 
 	for _, kv := range resp.Kvs {
 		*key = string(kv.Key)
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
+		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
 			return err
 		}
 		if err := iterate(); err != nil {
@@ -103,11 +115,73 @@ func (c *collection) Delete(key string) error {
 	return err
 }
 
+func (c *collection) Lock() error {
+	var err error
+	c.session, err = concurrency.NewSession(c.etcdClient)
+	if err != nil {
+		return err
+	}
+	c.mutex = concurrency.NewMutex(c.session, c.locksPrefix)
+	return c.mutex.Lock(c.ctx)
+}
+
+func (c *collection) Unlock() error {
+	defer c.session.Close()
+	return c.mutex.Unlock(c.ctx)
+}
+
+// repos returns a collection of repos
+// Example etcd structure, assuming we have two repos "foo" and "bar":
+//   /repos
+//     /foo
+//     /bar
 func (d *driver) repos(ctx context.Context) *collection {
 	return &collection{
-		ctx:        ctx,
-		prefix:     path.Join(d.prefix, reposPrefix),
-		etcdClient: d.etcdClient,
+		ctx:         ctx,
+		prefix:      path.Join(d.prefix, reposPrefix),
+		locksPrefix: path.Join(d.prefix, locksPrefix, reposPrefix),
+		etcdClient:  d.etcdClient,
+	}
+}
+
+// commits returns a collection of commits
+// Example etcd structure, assuming we have two repos "foo" and "bar":
+//   /commits
+//     /foo
+//       /UUID1
+//       /UUID2
+//     /bar
+//       /UUID3
+//       /UUID4
+func (d *driver) commits(ctx context.Context) collectionFactory {
+	return func(repo string) *collection {
+		return &collection{
+			ctx:         ctx,
+			prefix:      path.Join(d.prefix, commitsPrefix, repo),
+			locksPrefix: path.Join(d.prefix, locksPrefix, commitsPrefix, repo),
+			etcdClient:  d.etcdClient,
+		}
+	}
+}
+
+// commits returns a collection of commits
+// Example etcd structure, assuming we have two repos "foo" and "bar",
+// each of which has two refs:
+//   /refs
+//     /foo
+//       /master
+//       /test
+//     /bar
+//       /master
+//       /test
+func (d *driver) refs(ctx context.Context) collectionFactory {
+	return func(repo string) *collection {
+		return &collection{
+			ctx:         ctx,
+			prefix:      path.Join(d.prefix, refsPrefix, repo),
+			locksPrefix: path.Join(d.prefix, locksPrefix, refsPrefix, repo),
+			etcdClient:  d.etcdClient,
+		}
 	}
 }
 
@@ -173,27 +247,37 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
-	_, err := concurrency.NewSTMRepeatable(ctx, d.etcdClient, func(stm concurrency.STM) error {
-		for _, prov := range provenance {
-			repoVal := stm.Get(d.repos(ctx).path(prov.Name))
-			if repoVal == "" {
-				return pfsserver.ErrRepoNotFound{prov}
-			}
+	repos := d.repos(ctx)
+
+	if err := repos.Lock(); err != nil {
+		return err
+	}
+	defer repos.Unlock()
+
+	fullProv := make(map[string]bool)
+	for _, prov := range provenance {
+		fullProv[prov.Name] = true
+		provRepo := &pfs.RepoInfo{}
+		if err := repos.Get(prov.Name, provRepo); err != nil {
+			return err
 		}
-		repoInfo := &pfs.RepoInfo{
-			Repo:       repo,
-			Created:    now(),
-			Provenance: provenance,
+		// the provenance of my provenance is my provenance
+		for _, prov := range provRepo.Provenance {
+			fullProv[prov.Name] = true
 		}
-		repoKey := d.repos(ctx).path(repo.Name)
-		repoVal := stm.Get(repoKey)
-		if repoVal != "" {
-			return pfsserver.ErrRepoExists{repo}
-		}
-		stm.Put(repoKey, repoInfo.String())
-		return nil
-	})
-	return err
+	}
+
+	var fullProvRepos []*pfs.Repo
+	for prov := range fullProv {
+		fullProvRepos = append(fullProvRepos, &pfs.Repo{prov})
+	}
+
+	repoInfo := &pfs.RepoInfo{
+		Repo:       repo,
+		Created:    now(),
+		Provenance: fullProvRepos,
+	}
+	return repos.Create(repo.Name, repoInfo)
 }
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
@@ -205,14 +289,23 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 }
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
+	repos := d.repos(ctx)
+	// Ensure that all provenance repos exist
+	for _, prov := range provenance {
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Get(prov.Name, repoInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	var result []*pfs.RepoInfo
 	var key string
 	repoInfo := &pfs.RepoInfo{}
-	var result []*pfs.RepoInfo
 	if err := d.repos(ctx).List(&key, repoInfo, func() error {
 		for _, reqProv := range provenance {
-			matched := false
+			var matched bool
 			for _, prov := range repoInfo.Provenance {
-				if prov.Name == reqProv.Name {
+				if reqProv.Name == prov.Name {
 					matched = true
 				}
 			}
@@ -231,16 +324,41 @@ func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 }
 
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
-	//resp, err := d.etcdClient.Txn(ctx).If(present(repoKey)).Then(
-	//etcd.OpDelete(repoKey, repoInfo.String()),
-	//etcd.OpDelete(d.commits(repo.Name), etcd.WithPrefix()),
-	//etcd.OpDelete(d.refs(repo.Name), etcd.WithPrefix())).Commit()
-	//if err != nil {
-	//return err
-	//}
-	//if !resp.Succeeded {
-	//return fmt.Errorf("repo %s doesn't exist", repo.Name)
-	//}
+	repos := d.repos(ctx)
+
+	if err := repos.Lock(); err != nil {
+		return err
+	}
+	defer repos.Unlock()
+
+	// Check if this repo is the provenance of some other repos
+	if !force {
+		var key string
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.List(&key, repoInfo, func() error {
+			for _, prov := range repoInfo.Provenance {
+				if prov.Name == repo.Name {
+					return fmt.Errorf("repo %s is the provenance of repo %s", repo.Name, prov.Name)
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	repoKey := repos.path(repo.Name)
+	resp, err := d.etcdClient.Txn(ctx).If(present(repoKey)).Then(
+		etcd.OpDelete(repoKey),
+		etcd.OpDelete(d.commits(ctx)(repo.Name).path(""), etcd.WithPrefix()),
+		etcd.OpDelete(d.refs(ctx)(repo.Name).path(""), etcd.WithPrefix())).Commit()
+	if err != nil {
+		return err
+	}
+	if !resp.Succeeded {
+		return fmt.Errorf("repo %s doesn't exist", repo.Name)
+	}
+
 	return nil
 }
 
