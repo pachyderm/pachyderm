@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
@@ -56,23 +54,24 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 			continue
 		}
 		for _, jobID := range jobIDs.Jobs {
-			zero := int64(0)
-			falseVal := false
-			go func(jobID string) {
-				if err := a.kubeClient.Extensions().Jobs(a.namespace).Delete(jobID, &api.DeleteOptions{
-					GracePeriodSeconds: &zero,
-					OrphanDependents:   &falseVal,
-				}); err != nil {
-					// TODO: if the error indicates that the job has already been
-					// deleted, just proceed to the next step
-					protolion.Errorf("error deleting kubernetes job %s: %s", jobID, err)
+			jobID := jobID
+			go func() {
+				jobInfo, err := client.InspectJob(ctx, &ppsclient.InspectJobRequest{
+					Job: &ppsclient.Job{ID: jobID},
+				})
+				if err != nil {
+					protolion.Errorf("error deleting job: %s", err)
+					return
+				}
+				if err := a.deleteJob(ctx, jobInfo); err != nil {
+					protolion.Errorf("error deleting job: %s", err)
 					return
 				}
 				if _, err := client.GCJob(ctx, &ppsclient.Job{jobID}); err != nil {
 					protolion.Errorf("error marking job %s as GC-ed: %s", jobID, err)
 				}
 				return
-			}(jobID)
+			}()
 		}
 		wait()
 	}
