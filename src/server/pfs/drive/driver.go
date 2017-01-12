@@ -27,9 +27,88 @@ type driver struct {
 	prefix      string
 }
 
-func (d *driver) repos(repo string) string {
-	fmt.Printf("%s %s %s, %s\n", d.prefix, reposPrefix, repo, path.Join(d.prefix, reposPrefix, repo))
-	return path.Join(d.prefix, reposPrefix, repo)
+type collectionInterface interface {
+	Get(key string, val proto.Message) error
+	Put(key string, val proto.Message) error
+	Create(key string, val proto.Message) error
+	List(key *string, val proto.Message, iterate func() error) error
+	Delete(key string) error
+}
+
+type collection struct {
+	ctx        context.Context
+	etcdClient *etcd.Client
+	prefix     string
+}
+
+func (c *collection) path(key string) string {
+	return path.Join(c.prefix, key)
+}
+
+func (c *collection) Get(key string, val proto.Message) error {
+	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
+	if err != nil {
+		return err
+	}
+	if resp.Count == 0 {
+		return fmt.Errorf("%s %s not found", c.prefix, key)
+	}
+	return proto.UnmarshalText(string(resp.Kvs[0].Value), val)
+}
+
+func (c *collection) Put(key string, val proto.Message) error {
+	valBytes, err := proto.Marshal(val)
+	if err != nil {
+		return err
+	}
+	_, err = c.etcdClient.Put(c.ctx, c.path(key), string(valBytes))
+	return err
+}
+
+func (c *collection) Create(key string, val proto.Message) error {
+	valBytes, err := proto.Marshal(val)
+	if err != nil {
+		return err
+	}
+	resp, err := c.etcdClient.Txn(c.ctx).If(present(key)).Then(etcd.OpPut(c.path(key), string(valBytes))).Commit()
+	if err != nil {
+		return err
+	}
+	if !resp.Succeeded {
+		return fmt.Errorf("%s %s already exists", c.prefix, key)
+	}
+	return nil
+}
+
+func (c *collection) List(key *string, val proto.Message, iterate func() error) error {
+	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix())
+	if err != nil {
+		return err
+	}
+
+	for _, kv := range resp.Kvs {
+		*key = string(kv.Key)
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		if err := iterate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *collection) Delete(key string) error {
+	_, err := c.etcdClient.Delete(c.ctx, key)
+	return err
+}
+
+func (d *driver) repos(ctx context.Context) *collection {
+	return &collection{
+		ctx:        ctx,
+		prefix:     path.Join(d.prefix, reposPrefix),
+		etcdClient: d.etcdClient,
+	}
 }
 
 // NewDriver is used to create a new Driver instance
@@ -96,7 +175,7 @@ func absent(key string) etcd.Cmp {
 func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
 	_, err := concurrency.NewSTMRepeatable(ctx, d.etcdClient, func(stm concurrency.STM) error {
 		for _, prov := range provenance {
-			repoVal := stm.Get(prov.Name)
+			repoVal := stm.Get(d.repos(ctx).path(prov.Name))
 			if repoVal == "" {
 				return pfsserver.ErrRepoNotFound{prov}
 			}
@@ -106,7 +185,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			Created:    now(),
 			Provenance: provenance,
 		}
-		repoKey := d.repos(repo.Name)
+		repoKey := d.repos(ctx).path(repo.Name)
 		repoVal := stm.Get(repoKey)
 		if repoVal != "" {
 			return pfsserver.ErrRepoExists{repo}
@@ -118,47 +197,37 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 }
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	resp, err := d.etcdClient.Get(ctx, d.repos(repo.Name))
-	if err != nil {
-		return nil, err
-	}
-	if resp.Count == 0 {
-		return nil, fmt.Errorf("repo %s not found", repo.Name)
-	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), repoInfo); err != nil {
+	if err := d.repos(ctx).Get(repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 	return repoInfo, nil
 }
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
-	//resp, err := d.etcdClient.Get(ctx, d.repos(""), etcd.WithPrefix())
-	//if err != nil {
-	//return nil, err
-	//}
-	//var result []*pfs.RepoInfo
-	//nextRepo:
-	//for _, kv := range resp.Kvs {
-	//repoInfo := &pfs.RepoInfo{}
-	//if err := proto.UnmarshalText(string(kv.Value), repoInfo); err != nil {
-	//return nil, err
-	//}
-	//for _, reqProv := range provenance {
-	//matched := false
-	//for _, prov := range repoInfo.Provenance {
-	//if prov.Name == reqProv.Name {
-	//matched = true
-	//}
-	//}
-	//if !match {
-	//continue nextRepo
-	//}
-	//}
-	//result = append(result, repoInfo)
-	//}
-	//return result, nil
-	return nil, nil
+	var key string
+	repoInfo := &pfs.RepoInfo{}
+	var result []*pfs.RepoInfo
+	if err := d.repos(ctx).List(&key, repoInfo, func() error {
+		for _, reqProv := range provenance {
+			matched := false
+			for _, prov := range repoInfo.Provenance {
+				if prov.Name == reqProv.Name {
+					matched = true
+				}
+			}
+			if !matched {
+				return nil
+			}
+		}
+		copy := &pfs.RepoInfo{}
+		*copy = *repoInfo
+		result = append(result, copy)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
