@@ -28,7 +28,7 @@ before_script:
 - docker version
 script:
 - make lint
-- travis_wait 30 make pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests
+- travis_wait 30 make pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev launch-postgres integration-tests
 - travis_wait 30 make example-tests
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

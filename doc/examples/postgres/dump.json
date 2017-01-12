@@ -1,0 +1,13 @@
+{
+  "pipeline": {
+    "name": "dump"
+  },
+  "mirror" : {
+      "type": "SQL_DB",
+      "sql_db": {
+          "URL": "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
+          "tables": [ "data" ]
+      }
+  }
+}
+

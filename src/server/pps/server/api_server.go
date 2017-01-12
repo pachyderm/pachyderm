@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"math"
 	"net/url"
@@ -25,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"github.com/cenkalti/backoff"
+	_ "github.com/lib/pq" // for access to postgres dbs
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -197,6 +199,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if request.Pipeline != nil && request.Transform == nil {
 		request.Transform = pipelineInfo.Transform
 		request.ParallelismSpec = pipelineInfo.ParallelismSpec
+		request.Output = pipelineInfo.Output
+		request.Mirror = pipelineInfo.Mirror
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -357,10 +361,48 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}),
 		Service: request.Service,
 		Output:  request.Output,
+		Mirror:  request.Mirror,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
 		persistJobInfo.PipelineVersion = pipelineInfo.Version
+	}
+
+	pclient := client.APIClient{PfsAPIClient: pfsAPIClient}
+	if request.Mirror != nil {
+		switch request.Mirror.Type {
+		case ppsclient.ConnectorType_OBJECT_STORE:
+			objClient, err := obj.NewClientFromURLAndSecret(context.Background(), request.Mirror.ObjectStore.URL)
+			if err != nil {
+				return nil, err
+			}
+			url, err := url.Parse(request.Mirror.ObjectStore.URL)
+			if err != nil {
+				return nil, err
+			}
+			if err := pfs_sync.PullObj(pclient, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
+				return nil, err
+			}
+		case ppsclient.ConnectorType_SQL_DB:
+			db, err := sql.Open(request.Mirror.SqlDb.Driver, request.Mirror.SqlDb.URL)
+			if err != nil {
+				return nil, err
+			}
+			if err := pfs_sync.PullSQL(pclient, outputCommit, request.Mirror.SqlDb.Tables, db); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{Commit: outputCommit}); err != nil {
+			return nil, err
+		}
+		persistJobInfo.State = ppsclient.JobState_JOB_SUCCESS
+		_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+		if err != nil {
+			return nil, err
+		}
+		return &ppsclient.Job{
+			ID: jobID,
+		}, nil
 	}
 
 	// If the job has no input, we respect the specified degree of parallelism
@@ -1155,6 +1197,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 		GcPolicy:        request.GcPolicy,
 		Output:          request.Output,
+		Mirror:          request.Mirror,
 	}
 	if persistPipelineInfo.GcPolicy == nil {
 		persistPipelineInfo.GcPolicy = DefaultGCPolicy
@@ -1614,6 +1657,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		JobCounts:       persistPipelineInfo.JobCounts,
 		GcPolicy:        persistPipelineInfo.GcPolicy,
 		Output:          persistPipelineInfo.Output,
+		Mirror:          persistPipelineInfo.Mirror,
 	}
 }
 
@@ -1738,6 +1782,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
 						Output:          pipelineInfo.Output,
+						Mirror:          pipelineInfo.Mirror,
 					},
 				)
 				if err != nil {
@@ -1871,16 +1916,37 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			return err
 		}
 		pClient := client.APIClient{PfsAPIClient: pfsAPIClient}
-		objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.URL)
-		if err != nil {
-			return err
-		}
-		url, err := url.Parse(jobInfo.Output.URL)
-		if err != nil {
-			return err
-		}
-		if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
-			return err
+		switch jobInfo.Output.Type {
+		case ppsclient.ConnectorType_OBJECT_STORE:
+			objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.ObjectStore.URL)
+			if err != nil {
+				return err
+			}
+			url, err := url.Parse(jobInfo.Output.ObjectStore.URL)
+			if err != nil {
+				return err
+			}
+			if err := pfs_sync.PushObj(pClient, jobInfo.OutputCommit, objClient, url.Path); err != nil {
+				return err
+			}
+		case ppsclient.ConnectorType_SQL_DB:
+			db, err := sql.Open(jobInfo.Output.SqlDb.Driver, jobInfo.Output.SqlDb.URL)
+			if err != nil {
+				return err
+			}
+			// If we have a parent job these commands have already been run
+			if jobInfo.ParentJob == nil {
+				for _, query := range jobInfo.Output.SqlDb.Init {
+					if _, err := db.Exec(query); err != nil {
+						return err
+					}
+				}
+			}
+			if err := pfs_sync.PushSQL(pClient, jobInfo.OutputCommit, db); err != nil {
+				return err
+			}
+		default:
+			protolion.Errorf("unsupported output type: %s", jobInfo.Output.Type)
 		}
 	}
 
@@ -2108,6 +2174,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		State:           persistJobInfo.State,
 		Service:         persistJobInfo.Service,
 		Output:          persistJobInfo.Output,
+		Mirror:          persistJobInfo.Mirror,
 	}, nil
 }
 

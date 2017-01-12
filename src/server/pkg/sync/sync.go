@@ -3,8 +3,13 @@ package sync
 
 import (
 	"context"
+	"database/sql"
+	"encoding/csv"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -14,6 +19,10 @@ import (
 	"go.pedge.io/lion"
 	protostream "go.pedge.io/proto/stream"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	semCap = 50
 )
 
 // Pull clones an entire repo at a certain commit
@@ -168,11 +177,14 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
 	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
 			return nil
 		}
+		sem <- struct{}{}
 		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			w, err := objClient.Writer(filepath.Join(root, fileInfo.File.Path))
 			if err != nil {
 				return err
@@ -183,6 +195,154 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 				}
 			}()
 			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
+
+// PullObj pulls data from an object store into a pfs commit.
+func PullObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
+	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
+	if err := objClient.Walk(root, func(name string) error {
+		sem <- struct{}{}
+		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
+			r, err := objClient.Reader(name, 0, 0)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, strings.TrimPrefix(name, root), r); err != nil {
+				return err
+			}
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
+
+// PullSQL pulls data from a sql database into a pfs commit.
+func PullSQL(pachClient pachclient.APIClient, commit *pfs.Commit, tables []string, db *sql.DB) error {
+	var eg errgroup.Group
+	sem := make(chan struct{}, semCap)
+	for _, table := range tables {
+		table := table
+		sem <- struct{}{}
+		eg.Go(func() (retErr error) {
+			defer func() { <-sem }()
+			rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s;", table))
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := rows.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r, w := io.Pipe()
+			defer func() {
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			eg.Go(func() error {
+				if _, err := pachClient.PutFile(commit.Repo.Name, commit.ID, table, r); err != nil {
+					return err
+				}
+				return r.Close()
+			})
+			csvW := csv.NewWriter(w)
+			defer func() {
+				csvW.Flush()
+				if err := csvW.Error(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			columns, err := rows.Columns()
+			if err != nil {
+				return err
+			}
+			if err := csvW.Write(columns); err != nil {
+				return err
+			}
+			for rows.Next() {
+				row := make([]string, len(columns))
+				rowPtr := make([]interface{}, len(columns))
+				for i := range row {
+					rowPtr[i] = &row[i]
+				}
+				if err := rows.Scan(rowPtr...); err != nil {
+					return err
+				}
+				if err := csvW.Write(row); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
+}
+
+// PushSQL pushes data from a pfs commit into a sql database.
+func PushSQL(pachClient pachclient.APIClient, commit *pfs.Commit, db *sql.DB) error {
+	var eg errgroup.Group
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
+			return nil
+		}
+		eg.Go(func() (retErr error) {
+			r, w := io.Pipe()
+			defer func() {
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			go func() {
+				if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w); err != nil && retErr == nil {
+					retErr = err
+				}
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			csvR := csv.NewReader(r)
+			keys, err := csvR.Read()
+			if err == io.EOF {
+				// tolerate empty files
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			for {
+				vals, err := csvR.Read()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return err
+				}
+				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);",
+					strings.TrimPrefix(fileInfo.File.Path, "/"),
+					strings.Join(keys, ","),
+					strings.Join(vals, ","))
+				if _, err := db.Exec(query); err != nil {
+					return err
+				}
+			}
 			return nil
 		})
 		return nil

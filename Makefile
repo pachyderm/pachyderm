@@ -146,14 +146,14 @@ launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
@@ -177,6 +177,14 @@ launch-test-rethinkdb:
 clean-launch-test-rethinkdb:
 	docker stop pachyderm-test-rethinkdb || true
 	docker rm pachyderm-test-rethinkdb || true
+
+launch-postgres: check-kubectl
+	kubectl $(KUBECTLFLAGS) create -f doc/examples/postgres/rc.yaml
+	kubectl $(KUBECTLFLAGS) create -f doc/examples/postgres/svc.yaml
+	until timeout 1s ./etc/kube/check_ready.sh provider=postgresql; do sleep 1; done
+
+clean-launch-postgres:
+	kubectl delete all -l provider=postgresql
 
 clean-pps-storage: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete pvc rethink-volume-claim

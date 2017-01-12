@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: postgresql
+  labels:
+    provider: postgresql
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        provider: postgresql
+    spec:
+      containers:
+      - name: postgres
+        image: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          value: mypassword
+        ports:
+        - containerPort: 5432

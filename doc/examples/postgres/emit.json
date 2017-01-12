@@ -1,0 +1,29 @@
+{
+  "pipeline": {
+    "name": "emit"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "echo \"id,name,score\" >/pfs/out/data",
+        "echo \"0,'foo',100\" >>/pfs/out/data",
+        "echo \"1,'bar',150\" >>/pfs/out/data",
+        "echo \"2,'fizz',200\" >>/pfs/out/data",
+        "echo \"3,'buzz',250\" >>/pfs/out/data"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "output" : {
+      "type": "SQL_DB",
+      "sql_db": {
+          "URL": "postgres://postgres:mypassword@postgresql.default.svc.cluster.local?sslmode=disable",
+          "init": [
+              "create table data(id int not null, name text, score int, primary key (id));"
+          ]
+      }
+  }
+}
+
