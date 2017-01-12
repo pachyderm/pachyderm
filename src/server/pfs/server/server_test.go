@@ -65,6 +65,31 @@ func TestCreateRepoNonexistantProvenance(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestCreateRepoInParallel(t *testing.T) {
+	client := getClient(t)
+
+	numGoros := 1000
+	errCh := make(chan error)
+	for i := 0; i < numGoros; i++ {
+		go func() {
+			errCh <- client.CreateRepo("repo")
+		}()
+	}
+	successCount := 0
+	totalCount := 0
+	for err := range errCh {
+		totalCount += 1
+		if err == nil {
+			successCount += 1
+		}
+		if totalCount == numGoros {
+			break
+		}
+	}
+	// When creating repos in parallel, precisiely one attempt should succeed
+	require.Equal(t, 1, successCount)
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -80,6 +105,22 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 	require.YesError(t, client.CreateRepo(repo))
 	_, err = client.InspectRepo("nonexistent")
+	require.YesError(t, err)
+
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo("somerepo1"),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(repo),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo("somerepo2"),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo("nonexistent"),
+		},
+	})
 	require.YesError(t, err)
 }
 
@@ -103,6 +144,41 @@ func TestListRepo(t *testing.T) {
 	}
 
 	require.Equal(t, len(repoInfos), numRepos)
+}
+
+func TestListRepoWithProvenance(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	require.NoError(t, client.CreateRepo("prov1"))
+	require.NoError(t, client.CreateRepo("prov2"))
+	require.NoError(t, client.CreateRepo("prov3"))
+
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo("repo"),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo("prov1"),
+			pclient.NewRepo("prov2"),
+		},
+	})
+	require.NoError(t, err)
+
+	repoInfos, err := client.ListRepo([]string{"prov1"})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfos))
+	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+
+	repoInfos, err = client.ListRepo([]string{"prov1", "prov2"})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(repoInfos))
+	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+
+	repoInfos, err = client.ListRepo([]string{"prov3"})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+
+	_, err = client.ListRepo([]string{"nonexistent"})
+	require.YesError(t, err)
 }
 
 func TestDeleteRepo(t *testing.T) {
