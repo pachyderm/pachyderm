@@ -5,11 +5,23 @@ package drive
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
+
+func ValidateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+
+	if !match {
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
+	}
+
+	return nil
+}
 
 // ListFileMode specifies how ListFile executes.
 type ListFileMode int
