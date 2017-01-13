@@ -29,12 +29,6 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 		Logger: protorpclog.NewLogger("pfs.BlockAPIServer.Local"),
 		dir:    dir,
 	}
-	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(server.diffDir(), 0777); err != nil {
-		return nil, err
-	}
 	if err := os.MkdirAll(server.blockDir(), 0777); err != nil {
 		return nil, err
 	}
@@ -133,8 +127,30 @@ func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localBlockAPIServer) tmpDir() string {
-	return filepath.Join(s.dir, "tmp")
+func (s *localBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	object := pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
+	objectPath := s.objectPath(object)
+	if err := ioutil.WriteFile(objectPath, request.Value, 0666); err != nil {
+		return nil, err
+	}
+	for _, tag := range request.Tags {
+		if err := os.Symlink(objectPath, s.objectPath(tag)); err != nil {
+			return nil, err
+		}
+	}
+	return object, nil
+}
+
+func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *google_protobuf.BytesValue, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	value, err := ioutil.ReadFile(objectPath(request))
+	if err != nil {
+		return nil, err
+	}
+	return &google_protobuf.BytesValue{Value: value}, nil
 }
 
 func (s *localBlockAPIServer) blockDir() string {
@@ -145,8 +161,12 @@ func (s *localBlockAPIServer) blockPath(block *pfsclient.Block) string {
 	return filepath.Join(s.blockDir(), block.Hash)
 }
 
-func (s *localBlockAPIServer) diffDir() string {
-	return filepath.Join(s.dir, "diff")
+func (s *localBlockAPIServer) objectDir() string {
+	return filepath.Join(s.dir, "object")
+}
+
+func (s *localBlockAPIServer) objectPath(object *pfsclient.Object) string {
+	return filepath.Join(objectDir(), object.Hash)
 }
 
 func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
