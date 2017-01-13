@@ -17,6 +17,24 @@ const (
 	refsPrefix    = "/refs"
 )
 
+type ErrNotFound struct {
+	Type string
+	Name string
+}
+
+func (e ErrNotFound) Error() string {
+	return fmt.Sprintf("%s %s not found", e.Type, e.Name)
+}
+
+type ErrExists struct {
+	Type string
+	Name string
+}
+
+func (e ErrExists) Error() string {
+	return fmt.Sprintf("%s %s already exists", e.Type, e.Name)
+}
+
 // repos returns a collection of repos
 // Example etcd structure, assuming we have two repos "foo" and "bar":
 //   /repos
@@ -86,6 +104,14 @@ type collection struct {
 	mutex       *concurrency.Mutex
 }
 
+// stm converts the collection into a STM collection instead
+func (c *collection) stm(_stm concurrency.STM) *stmCollection {
+	return &stmCollection{
+		collection: c,
+		stm:        _stm,
+	}
+}
+
 // collectionFactory generates collections.  It's mainly used for
 // namespaced collections, such as /commits/foo, i.e. commits in
 // repo foo.
@@ -101,7 +127,7 @@ func (c *collection) Get(key string, val proto.Message) error {
 		return err
 	}
 	if resp.Count == 0 {
-		return fmt.Errorf("%s %s not found", c.prefix, key)
+		return ErrNotFound{c.prefix, key}
 	}
 	return proto.UnmarshalText(string(resp.Kvs[0].Value), val)
 }
@@ -122,7 +148,7 @@ func (c *collection) Create(key string, val proto.Message) error {
 		return err
 	}
 	if !resp.Succeeded {
-		return fmt.Errorf("%s %s already exists", c.prefix, key)
+		return ErrExists{c.prefix, key}
 	}
 	return nil
 }
@@ -163,4 +189,43 @@ func (c *collection) Lock() error {
 func (c *collection) Unlock() error {
 	defer c.session.Close()
 	return c.mutex.Unlock(c.ctx)
+}
+
+// stmCollection is similar to collection, except that it's implemented
+// with an STM (software transactional memory) abstraction
+type stmCollection struct {
+	*collection
+	stm concurrency.STM
+}
+
+func (s *stmCollection) path(key string) string {
+	return path.Join(s.prefix, key)
+}
+
+func (s *stmCollection) Get(key string, val proto.Message) error {
+	valStr := s.stm.Get(s.path(key))
+	if valStr == "" {
+		return ErrNotFound{s.prefix, key}
+	}
+	return proto.UnmarshalText(valStr, val)
+}
+
+func (s *stmCollection) Put(key string, val proto.Message) error {
+	s.stm.Put(s.path(key), val.String())
+	return nil
+}
+
+func (s *stmCollection) Create(key string, val proto.Message) error {
+	fullKey := s.path(key)
+	valStr := s.stm.Get(fullKey)
+	if valStr != "" {
+		return ErrExists{s.prefix, key}
+	}
+	s.stm.Put(fullKey, val.String())
+	return nil
+}
+
+func (s *stmCollection) Delete(key string) error {
+	s.stm.Del(s.path(key))
+	return nil
 }

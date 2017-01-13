@@ -160,21 +160,6 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
-// CancelCommit ends the process of committing data to a repo. It differs from
-// FinishCommit in that the Commit will not be used as a source for downstream
-// pipelines. CancelCommit is used primarily by PPS for the output commits of
-// errant jobs.
-func (c APIClient) CancelCommit(repoName string, commitID string) error {
-	_, err := c.PfsAPIClient.FinishCommit(
-		c.ctx(),
-		&pfs.FinishCommitRequest{
-			Commit: NewCommit(repoName, commitID),
-			Cancel: true,
-		},
-	)
-	return sanitizeErr(err)
-}
-
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
