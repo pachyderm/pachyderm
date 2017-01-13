@@ -35,6 +35,10 @@ message Block {
   string hash = 1;
 }
 
+message Object {
+  string hash = 1;
+}
+
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -352,4 +356,17 @@ service BlockAPI {
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 }
 
+message Object {
+  string hash = 1;
+}
+
+message PutObjectRequest {
+  bytes value = 1;
+  repeated string tags = 2;
+}
+
+service ObjectAPI {
+  rpc PutObject(PutObjectRequest) returns (Object) {}
+  rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
+}
 
