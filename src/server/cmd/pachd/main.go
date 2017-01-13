@@ -6,6 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
@@ -91,9 +92,6 @@ func do(appEnvObj interface{}) error {
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 	if appEnv.Init {
-		if err := setClusterID(etcdClient); err != nil {
-			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
-		}
 		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
 			return err
 		}
@@ -219,19 +217,19 @@ func getEtcdClient(env *appEnv) discovery.Client {
 
 const clusterIDKey = "cluster-id"
 
-func setClusterID(client discovery.Client) error {
-	return client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
-}
-
 func getClusterID(client discovery.Client) (string, error) {
 	id, err := client.Get(clusterIDKey)
-	if err != nil {
+	// if it's a key not found error then we create the key
+	if err != nil && strings.HasPrefix(err.Error(), "100:") {
+		// This might error if it races with another pachd trying to set the
+		// cluster id so we ignore the error.
+		client.Create(clusterIDKey, uuid.NewWithoutDashes(), 0)
+	} else if err != nil {
 		return "", err
+	} else {
+		return id, nil
 	}
-	if id == "" {
-		return "", fmt.Errorf("clusterID not yet set")
-	}
-	return id, nil
+	return client.Get(clusterIDKey)
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {
