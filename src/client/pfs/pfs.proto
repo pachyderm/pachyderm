@@ -17,6 +17,11 @@ message Commit {
   string id = 2 [(gogoproto.customname) = "ID"];
 }
 
+message Ref {
+  string name = 1;
+  Commit commit = 2;
+}
+
 message Commits {
   repeated Commit commit = 1;
 }
@@ -54,15 +59,11 @@ enum CommitType {
 
 message CommitInfo {
   Commit commit = 1;
-  string branch = 2;
-  CommitType commit_type = 3;
-  Commit parent_commit = 4;
-  google.protobuf.Timestamp started = 5;
-  google.protobuf.Timestamp finished = 6;
-  uint64 size_bytes = 7;
-  bool cancelled = 8;
-  bool archived = 9;
-  repeated Commit provenance = 10;
+  Commit parent_commit = 2;
+  google.protobuf.Timestamp started = 3;
+  google.protobuf.Timestamp finished = 4;
+  uint64 size_bytes = 5;
+  repeated Commit provenance = 6;
 }
 
 message CommitInfos {
@@ -158,7 +159,6 @@ message ForkCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
-  bool cancel = 2;
 }
 
 message ArchiveCommitRequest {
