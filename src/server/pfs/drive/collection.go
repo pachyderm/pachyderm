@@ -117,6 +117,7 @@ func (c *collection) stm(_stm concurrency.STM) *stmCollection {
 // repo foo.
 type collectionFactory func(string) *collection
 
+// path returns the full path of a key in the etcd namespace
 func (c *collection) path(key string) string {
 	return path.Join(c.prefix, key)
 }
@@ -141,6 +142,7 @@ func (c *collection) Put(key string, val proto.Message) error {
 	return err
 }
 
+// Create creates an object if it doesn't already exist
 func (c *collection) Create(key string, val proto.Message) error {
 	fullKey := c.path(key)
 	resp, err := c.etcdClient.Txn(c.ctx).If(absent(fullKey)).Then(etcd.OpPut(fullKey, proto.MarshalTextString(val))).Commit()
@@ -153,8 +155,14 @@ func (c *collection) Create(key string, val proto.Message) error {
 	return nil
 }
 
+// iterate is a function that, when called, serializes the key and value
+// of the next object in a collection.
+// ok is true if the serialization was successful.  It's false if the
+// collection has been exhausted.
 type iterate func(key *string, val proto.Message) (ok bool, retErr error)
 
+// List returns an iterate function that can be used to iterate over the
+// collection.
 func (c *collection) List() (iterate, error) {
 	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix())
 	if err != nil {
@@ -183,6 +191,9 @@ func (c *collection) Delete(key string) error {
 	return err
 }
 
+// Lock acquires a lock for the entire collection.  The lock is guarded
+// by an etcd lease so if the lock holder dies, the lock is automatically
+// revoked.
 func (c *collection) Lock() error {
 	var err error
 	c.session, err = concurrency.NewSession(c.etcdClient)
@@ -199,7 +210,16 @@ func (c *collection) Unlock() error {
 }
 
 // stmCollection is similar to collection, except that it's implemented
-// with an STM (software transactional memory) abstraction
+// with an STM (software transactional memory) abstraction.
+//
+// All operations issued on a STM collection are executed transactionally;
+// that is, the transaction will be automatically re-executed if any values
+// that were read during the transaction were modified by some other process.
+//
+// See this post of etcd's STM for details: https://coreos.com/blog/transactional-memory-with-etcd3.html
+//
+// stmCollection does not support List(), because etcd does not support
+// listing a prefix transactionally.
 type stmCollection struct {
 	*collection
 	stm concurrency.STM

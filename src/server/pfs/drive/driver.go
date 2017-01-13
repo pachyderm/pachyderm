@@ -172,6 +172,17 @@ nextRepo:
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
 	repos := d.repos(ctx)
 
+	// To understand why a lock is necessary here, consider the following
+	// order of execution:
+	//
+	// 1. DeleteRepo(foo) begins.  It scans all repos and concludes that
+	// foo is not the provenance of any repo, therefore it's safe to delete
+	// this foo
+	// 2. CreateRepo(bar, provenance=foo) executes.  It creates bar with
+	// foo as the provenance.
+	// 3. DeleteRepo(foo) finishes by deleting foo.
+	//
+	// Now we end up with a repo bar with a nonexistent provenance foo.
 	if err := repos.Lock(); err != nil {
 		return err
 	}
