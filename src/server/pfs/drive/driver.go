@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 )
@@ -201,10 +203,55 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
-	return nil, nil
+	commit := &pfs.Commit{
+		Repo: parent.Repo,
+		ID:   uuid.NewWithoutDashes(),
+	}
+	_, err := concurrency.NewSTMRepeatable(ctx, d.etcdClient, func(stm concurrency.STM) error {
+		repoInfo := &pfs.RepoInfo{}
+		if err := d.repos(ctx).stm(stm).Get(parent.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		commitInfo := &pfs.CommitInfo{
+			Commit:     commit,
+			Started:    now(),
+			Provenance: provenance,
+		}
+		commits := d.commits(ctx)(parent.Repo.Name).stm(stm)
+		refs := d.refs(ctx)(parent.Repo.Name).stm(stm)
+		ref := &pfs.Ref{}
+		// See if the ref exists
+		if err := refs.Get(parent.ID, ref); err != nil {
+			if _, ok := err.(ErrNotFound); !ok {
+				return err
+			}
+			// If parent is not a ref, it needs to be a commit
+			// Check that the parent commit exists
+			parentCommitInfo := &pfs.CommitInfo{}
+			if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
+				return err
+			}
+			commitInfo.ParentCommit = parent
+		} else {
+			commitInfo.ParentCommit = &pfs.Commit{
+				Repo: parent.Repo,
+				ID:   ref.Commit.ID,
+			}
+			ref.Commit = commit
+			if err := refs.Put(ref.Name, ref); err != nil {
+				return err
+			}
+		}
+		return commits.Create(commit.ID, commitInfo)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return commit, nil
 }
 
-func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit, cancel bool) error {
+func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return nil
 }
 

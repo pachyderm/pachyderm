@@ -106,7 +106,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FinishCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.FinishCommit(ctx, request.Commit, request.Cancel); err != nil {
+	if err := a.driver.FinishCommit(ctx, request.Commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

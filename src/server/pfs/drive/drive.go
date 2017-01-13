@@ -48,7 +48,7 @@ type Driver interface {
 	DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error
 
 	StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
-	FinishCommit(ctx context.Context, commit *pfs.Commit, cancel bool) error
+	FinishCommit(ctx context.Context, commit *pfs.Commit) error
 	// Squash merges the content of fromCommits into a single commit with
 	// the given parent.
 	SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error)
