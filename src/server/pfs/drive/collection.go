@@ -153,22 +153,29 @@ func (c *collection) Create(key string, val proto.Message) error {
 	return nil
 }
 
-func (c *collection) List(key *string, val proto.Message, iterate func() error) error {
+type iterate func(key *string, val proto.Message) (ok bool, retErr error)
+
+func (c *collection) List() (iterate, error) {
 	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, kv := range resp.Kvs {
-		*key = string(kv.Key)
-		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
-			return err
+	var i int
+	return func(key *string, val proto.Message) (bool, error) {
+		if i < len(resp.Kvs) {
+			kv := resp.Kvs[i]
+			i += 1
+
+			*key = string(kv.Key)
+			if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
+				return false, err
+			}
+
+			return true, nil
 		}
-		if err := iterate(); err != nil {
-			return err
-		}
-	}
-	return nil
+		return false, nil
+	}, nil
 }
 
 func (c *collection) Delete(key string) error {
