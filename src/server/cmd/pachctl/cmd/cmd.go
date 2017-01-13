@@ -151,7 +151,7 @@ kubectl port-forward "$pod" %d:650
 }
 
 func getVersionAPIClient(address string) (protoversion.APIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}

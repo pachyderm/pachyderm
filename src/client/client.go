@@ -128,7 +128,7 @@ func (c APIClient) DeleteAll() error {
 }
 
 func (c *APIClient) connect() error {
-	clientConn, err := grpc.Dial(c.addr, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(c.addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return err
 	}

@@ -3435,7 +3435,7 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 		require.NoError(t, err)
 	}()
 	<-ready
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	return pfs.NewBlockAPIClient(clientConn)
 }
 
@@ -3484,7 +3484,7 @@ func getClient(t *testing.T) pclient.APIClient {
 		apiServer := newAPIServer(driver, nil)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
-	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
+	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure(), grpc.WithBlock())
 	require.NoError(t, err)
 	return pclient.APIClient{PfsAPIClient: pfs.NewAPIClient(clientConn)}
 }
