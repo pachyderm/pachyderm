@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -209,4 +211,59 @@ func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.Li
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	var eg errgroup.Group
+	eg.Go(func() (retErr error) {
+		object := pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
+		objectPath := s.localServer.objectPath(object)
+		w, err := s.objClient.Writer(objectPath)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		if _, err := w.Write(request.Value); err != nil {
+			return nil, err
+		}
+	})
+	for _, tag := range request.Tags {
+		tag := tag
+		eg.Go(func() (retErr error) {
+			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag: object}}
+			tagPath := s.localServer.tagPath(tag)
+			w, err := s.objClient.Writer(tagPath)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			data, err := proto.Marshal(index)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := w.Write(data); err != nil {
+				return nil, err
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return object, nil
+}
+
+func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return nil, nil
 }

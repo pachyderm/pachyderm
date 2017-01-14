@@ -169,6 +169,22 @@ func (s *localBlockAPIServer) objectPath(object *pfsclient.Object) string {
 	return filepath.Join(objectDir(), object.Hash)
 }
 
+func (s *localBlockAPIServer) tagDir() string {
+	return filepath.Join(s.dir, "tag")
+}
+
+func (s *localBlockAPIServer) tagPath(tag string) string {
+	return filepath.Join(s.tagDir(), tag)
+}
+
+func (s *localBlockAPIServer) indexDir() string {
+	return filepath.Join(s.dir, "index")
+}
+
+func (s *localBlockAPIServer) index(prefix string) string {
+	return filepath.Join(s.indexDir(), prefix)
+}
+
 func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, []byte, error) {
 	var buffer bytes.Buffer
 	var bytesWritten int

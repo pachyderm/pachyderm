@@ -356,10 +356,6 @@ service BlockAPI {
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 }
 
-message Object {
-  string hash = 1;
-}
-
 message PutObjectRequest {
   bytes value = 1;
   repeated string tags = 2;
@@ -370,3 +366,7 @@ service ObjectAPI {
   rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
 }
 
+message ObjectIndex {
+  map<string, BlockRef> object = 1;
+  map<string, Object> tags = 2;
+}
