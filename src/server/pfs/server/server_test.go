@@ -65,7 +65,7 @@ func TestCreateRepoNonexistantProvenance(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestCreateRepoInParallel(t *testing.T) {
+func TestCreateSameRepoInParallel(t *testing.T) {
 	client := getClient(t)
 
 	numGoros := 1000
@@ -86,8 +86,33 @@ func TestCreateRepoInParallel(t *testing.T) {
 			break
 		}
 	}
-	// When creating repos in parallel, precisiely one attempt should succeed
+	// When creating the same repo, precisiely one attempt should succeed
 	require.Equal(t, 1, successCount)
+}
+
+func TestCreateDifferentRepoInParallel(t *testing.T) {
+	client := getClient(t)
+
+	numGoros := 1000
+	errCh := make(chan error)
+	for i := 0; i < numGoros; i++ {
+		i := i
+		go func() {
+			errCh <- client.CreateRepo(fmt.Sprintf("repo%d", i))
+		}()
+	}
+	successCount := 0
+	totalCount := 0
+	for err := range errCh {
+		totalCount += 1
+		if err == nil {
+			successCount += 1
+		}
+		if totalCount == numGoros {
+			break
+		}
+	}
+	require.Equal(t, numGoros, successCount)
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
