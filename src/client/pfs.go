@@ -569,27 +569,6 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// SquashCommit copies the content of `fromCommits` to `to`, which needs to be an
-// open commit.
-func (c APIClient) SquashCommit(repo string, fromCommits []string, parent string) error {
-	var realFromCommits []*pfs.Commit
-	for _, commitID := range fromCommits {
-		realFromCommits = append(realFromCommits, NewCommit(repo, commitID))
-	}
-
-	_, err := c.PfsAPIClient.SquashCommit(
-		c.ctx(),
-		&pfs.SquashCommitRequest{
-			FromCommits: realFromCommits,
-			Parent:      NewCommit(repo, parent),
-		},
-	)
-	if err != nil {
-		return sanitizeErr(err)
-	}
-	return nil
-}
-
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient

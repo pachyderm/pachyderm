@@ -134,14 +134,6 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (response *pfs.Commit, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "SquashCommit")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	return a.driver.SquashCommit(ctx, request.FromCommits, request.Parent)
-}
-
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
