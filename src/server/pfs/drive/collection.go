@@ -120,7 +120,6 @@ func (c *collection) Put(key string, val proto.Message) {
 }
 
 func (c *collection) Create(key string, val proto.Message) error {
-	c.incrementVersion()
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
@@ -131,11 +130,11 @@ func (c *collection) Create(key string, val proto.Message) error {
 }
 
 func (c *collection) Delete(key string) error {
-	c.incrementVersion()
 	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
+	c.incrementVersion()
 	c.stm.Del(fullKey)
 	return nil
 }
