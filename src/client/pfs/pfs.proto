@@ -255,11 +255,6 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-message SquashCommitRequest {
-  repeated Commit from_commits = 1;
-  Commit parent = 2;
-}
-
 message ReplayCommitRequest {
   repeated Commit from_commits = 1;
   string to_branch = 2;
@@ -292,8 +287,6 @@ service API {
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}
-  // Squash returns the head of the commit of the merge
-  rpc SquashCommit(SquashCommitRequest) returns (Commit) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
