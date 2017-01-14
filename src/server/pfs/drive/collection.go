@@ -3,7 +3,6 @@ package drive
 import (
 	"fmt"
 	"path"
-	"strconv"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -115,7 +114,6 @@ func (c *collection) Get(key string, val proto.Message) error {
 }
 
 func (c *collection) Put(key string, val proto.Message) {
-	c.incrementVersion()
 	c.stm.Put(c.path(key), val.String())
 }
 
@@ -129,12 +127,19 @@ func (c *collection) Create(key string, val proto.Message) error {
 	return nil
 }
 
+// Touch increments the version of an object.  It's useful for creating
+// a point of contention so concurrent operations can be serialized.  For
+// instance, if two processes Touch() the same object, they will be
+// serialized with respect to one another.
+func (c *collection) Touch(key string) {
+	c.stm.Put(key, c.stm.Get(key))
+}
+
 func (c *collection) Delete(key string) error {
 	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
-	c.incrementVersion()
 	c.stm.Del(fullKey)
 	return nil
 }
@@ -152,7 +157,6 @@ type iterate func(key *string, val proto.Message) (ok bool, retErr error)
 // List returns an iterate function that can be used to iterate over the
 // collection.
 func (c *collection) List() (iterate, error) {
-	c.checkVersion()
 	resp, err := c.etcdClient.Get(c.stm.Context(), c.path(""), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
@@ -183,21 +187,3 @@ func (c *collection) List() (iterate, error) {
 const (
 	versionKey = "__version"
 )
-
-func (c *collection) incrementVersion() {
-	fullVersionKey := c.path(versionKey)
-	versionStr := c.stm.Get(fullVersionKey)
-	if versionStr == "" {
-		c.stm.Put(fullVersionKey, "0")
-	} else {
-		version, err := strconv.Atoi(versionStr)
-		if err != nil {
-			panic(err)
-		}
-		c.stm.Put(fullVersionKey, strconv.Itoa(version+1))
-	}
-}
-
-func (c *collection) checkVersion() {
-	c.stm.Get(c.path(versionKey))
-}
