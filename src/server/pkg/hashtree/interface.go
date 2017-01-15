@@ -30,4 +30,6 @@ type Interface interface {
 
 	// Returns a list of files and directories that match 'pattern'
 	Glob(pattern string) ([]*Node, error)
+	// Merges another hash tree into this tree
+	Merge(tree Interface) error
 }
