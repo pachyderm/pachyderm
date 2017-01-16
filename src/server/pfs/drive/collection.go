@@ -131,8 +131,14 @@ func (c *collection) Create(key string, val proto.Message) error {
 // a point of contention so concurrent operations can be serialized.  For
 // instance, if two processes Touch() the same object, they will be
 // serialized with respect to one another.
-func (c *collection) Touch(key string) {
-	c.stm.Put(key, c.stm.Get(key))
+func (c *collection) Touch(key string) error {
+	fullKey := c.path(key)
+	valStr := c.stm.Get(fullKey)
+	if valStr == "" {
+		return ErrNotFound{c.prefix, key}
+	}
+	c.stm.Put(fullKey, valStr)
+	return nil
 }
 
 func (c *collection) Delete(key string) error {
