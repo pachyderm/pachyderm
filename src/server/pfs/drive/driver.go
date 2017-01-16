@@ -92,7 +92,9 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		// compute the full provenance of this repo
 		fullProv := make(map[string]bool)
 		for _, prov := range provenance {
-			repos.Touch(prov.Name)
+			if err := repos.Touch(prov.Name); err != nil {
+				return err
+			}
 
 			fullProv[prov.Name] = true
 			provRepo := &pfs.RepoInfo{}
@@ -186,6 +188,10 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		repos := d.repos(stm)
 		commits := d.commits(stm)(repo.Name)
 		refs := d.refs(stm)(repo.Name)
+
+		if err := repos.Touch(repo.Name); err != nil {
+			return err
+		}
 
 		// Check if this repo is the provenance of some other repos
 		if !force {
