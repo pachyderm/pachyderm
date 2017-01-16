@@ -49,9 +49,6 @@ func TestInvalidRepo(t *testing.T) {
 }
 
 func TestCreateRepoNonexistantProvenance(t *testing.T) {
-	// This method of calling CreateRepo
-	// is used within pps CreateJob()
-
 	client := getClient(t)
 	var provenance []*pfs.Repo
 	provenance = append(provenance, pclient.NewRepo("bogusABC"))
@@ -113,6 +110,36 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 		}
 	}
 	require.Equal(t, numGoros, successCount)
+}
+
+func TestCreateRepoDeleteRepoRace(t *testing.T) {
+	client := getClient(t)
+
+	for i := 0; i < 1000; i++ {
+		require.NoError(t, client.CreateRepo("foo"))
+		errCh := make(chan error)
+		go func() {
+			errCh <- client.DeleteRepo("foo", false)
+		}()
+		go func() {
+			_, err := client.PfsAPIClient.CreateRepo(
+				context.Background(),
+				&pfs.CreateRepoRequest{
+					Repo:       pclient.NewRepo("bar"),
+					Provenance: []*pfs.Repo{pclient.NewRepo("foo")},
+				},
+			)
+			errCh <- err
+		}()
+		err1 := <-errCh
+		err2 := <-errCh
+		// these two operations should never race in such a way that they
+		// both succeed, leaving us with a repo bar that has a nonexistent
+		// provenance foo
+		require.True(t, err1 != nil || err2 != nil)
+		require.NoError(t, client.DeleteRepo("bar", false))
+		require.NoError(t, client.DeleteRepo("foo", false))
+	}
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
