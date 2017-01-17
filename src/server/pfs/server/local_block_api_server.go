@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -130,23 +131,33 @@ func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.
 func (s *localBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	object := pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
+	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
 	objectPath := s.objectPath(object)
 	if err := ioutil.WriteFile(objectPath, request.Value, 0666); err != nil {
 		return nil, err
 	}
 	for _, tag := range request.Tags {
-		if err := os.Symlink(objectPath, s.objectPath(tag)); err != nil {
+		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
 			return nil, err
 		}
 	}
 	return object, nil
 }
 
-func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *google_protobuf.BytesValue, retErr error) {
+func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	value, err := ioutil.ReadFile(objectPath(request))
+	value, err := ioutil.ReadFile(s.objectPath(request))
+	if err != nil {
+		return nil, err
+	}
+	return &google_protobuf.BytesValue{Value: value}, nil
+}
+
+func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	value, err := ioutil.ReadFile(s.tagPath(request))
 	if err != nil {
 		return nil, err
 	}
@@ -166,15 +177,15 @@ func (s *localBlockAPIServer) objectDir() string {
 }
 
 func (s *localBlockAPIServer) objectPath(object *pfsclient.Object) string {
-	return filepath.Join(objectDir(), object.Hash)
+	return filepath.Join(s.objectDir(), object.Hash)
 }
 
 func (s *localBlockAPIServer) tagDir() string {
 	return filepath.Join(s.dir, "tag")
 }
 
-func (s *localBlockAPIServer) tagPath(tag string) string {
-	return filepath.Join(s.tagDir(), tag)
+func (s *localBlockAPIServer) tagPath(tag *pfsclient.Tag) string {
+	return filepath.Join(s.tagDir(), tag.Name)
 }
 
 func (s *localBlockAPIServer) indexDir() string {

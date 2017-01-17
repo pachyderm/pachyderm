@@ -216,13 +216,13 @@ func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.Li
 func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
 	var eg errgroup.Group
 	eg.Go(func() (retErr error) {
-		object := pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
 		objectPath := s.localServer.objectPath(object)
 		w, err := s.objClient.Writer(objectPath)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		defer func() {
 			if err := w.Close(); err != nil && retErr == nil {
@@ -230,17 +230,18 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 			}
 		}()
 		if _, err := w.Write(request.Value); err != nil {
-			return nil, err
+			return err
 		}
+		return nil
 	})
 	for _, tag := range request.Tags {
 		tag := tag
 		eg.Go(func() (retErr error) {
-			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag: object}}
+			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			tagPath := s.localServer.tagPath(tag)
 			w, err := s.objClient.Writer(tagPath)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			defer func() {
 				if err := w.Close(); err != nil && retErr == nil {
@@ -249,11 +250,12 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 			}()
 			data, err := proto.Marshal(index)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if _, err := w.Write(data); err != nil {
-				return nil, err
+				return err
 			}
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -265,5 +267,43 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return nil, nil
+	objectPath := s.localServer.objectPath(request)
+	r, err := s.objClient.Reader(objectPath, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	value, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	return &google_protobuf.BytesValue{Value: value}, nil
+}
+
+func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	tagPath := s.localServer.tagPath(request)
+	r, err := s.objClient.Reader(tagPath, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	var objectIndex pfsclient.ObjectIndex
+	if err := proto.Unmarshal(data, &objectIndex); err != nil {
+		return nil, err
+	}
+	return s.GetObject(ctx, objectIndex.Tags[request.Name])
 }
