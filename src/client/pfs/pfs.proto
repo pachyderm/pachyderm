@@ -39,6 +39,10 @@ message Object {
   string hash = 1;
 }
 
+message Tag {
+  string name = 1;
+}
+
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -358,12 +362,13 @@ service BlockAPI {
 
 message PutObjectRequest {
   bytes value = 1;
-  repeated string tags = 2;
+  repeated Tag tags = 2;
 }
 
 service ObjectAPI {
   rpc PutObject(PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
+  rpc GetTag(Tag) returns (google.protobuf.BytesValue) {}
 }
 
 message ObjectIndex {
