@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"go.pedge.io/lion/proto"
@@ -21,6 +23,7 @@ import (
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
@@ -238,24 +241,7 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 		tag := tag
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
-			tagPath := s.localServer.tagPath(tag)
-			w, err := s.objClient.Writer(tagPath)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := w.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			data, err := proto.Marshal(index)
-			if err != nil {
-				return err
-			}
-			if _, err := w.Write(data); err != nil {
-				return err
-			}
-			return nil
+			return s.writeProto(s.localServer.tagPath(tag), index)
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -287,10 +273,96 @@ func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Ob
 func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	tagPath := s.localServer.tagPath(request)
-	r, err := s.objClient.Reader(tagPath, 0, 0)
-	if err != nil {
+	objectIndex := &pfsclient.ObjectIndex{}
+	if err := s.readProto(s.localServer.tagPath(request), objectIndex); err != nil {
 		return nil, err
+	}
+	return s.GetObject(ctx, objectIndex.Tags[request.Name])
+}
+
+func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (retErr error) {
+	var mu sync.Mutex
+	var eg errgroup.Group
+	objectIndex := &pfsclient.ObjectIndex{}
+	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil {
+		return err
+	}
+	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
+	blockW, err := s.objClient.Writer(s.localServer.blockPath(block))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := blockW.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	var written uint64
+	eg.Go(func() error {
+		objectPrefix := s.localServer.objectPath(&pfsclient.Object{Hash: prefix})
+		s.objClient.Walk(objectPrefix, func(name string) error {
+			eg.Go(func() (retErr error) {
+				r, err := s.objClient.Reader(name, 0, 0)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := r.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				object, err := ioutil.ReadAll(r)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				if _, err := blockW.Write(object); err != nil {
+					return err
+				}
+				objectIndex.Objects[filepath.Base(name)] = &pfsclient.BlockRef{
+					Block: block,
+					Range: &pfsclient.ByteRange{
+						Lower: written,
+						Upper: written + uint64(len(object)),
+					},
+				}
+				written += uint64(len(object))
+				return nil
+			})
+			return nil
+		})
+		return nil
+	})
+	eg.Go(func() error {
+		tagPrefix := s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
+		s.objClient.Walk(tagPrefix, func(name string) error {
+			eg.Go(func() error {
+				tagObjectIndex := &pfsclient.ObjectIndex{}
+				if err := s.readProto(name, tagObjectIndex); err != nil {
+					return err
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				for tag, object := range tagObjectIndex.Tags {
+					objectIndex.Tags[tag] = object
+				}
+				return nil
+			})
+			return nil
+		})
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return s.writeProto(s.localServer.indexPath(prefix), objectIndex)
+}
+
+func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr error) {
+	r, err := s.objClient.Reader(path, 0, 0)
+	if err != nil {
+		return err
 	}
 	defer func() {
 		if err := r.Close(); err != nil && retErr == nil {
@@ -299,11 +371,25 @@ func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) 
 	}()
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var objectIndex pfsclient.ObjectIndex
-	if err := proto.Unmarshal(data, &objectIndex); err != nil {
-		return nil, err
+	return proto.Unmarshal(data, pb)
+}
+
+func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr error) {
+	w, err := s.objClient.Writer(path)
+	if err != nil {
+		return err
 	}
-	return s.GetObject(ctx, objectIndex.Tags[request.Name])
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	data, err := proto.Marshal(pb)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
 }

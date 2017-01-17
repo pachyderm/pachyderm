@@ -192,7 +192,7 @@ func (s *localBlockAPIServer) indexDir() string {
 	return filepath.Join(s.dir, "index")
 }
 
-func (s *localBlockAPIServer) index(prefix string) string {
+func (s *localBlockAPIServer) indexPath(prefix string) string {
 	return filepath.Join(s.indexDir(), prefix)
 }
 
