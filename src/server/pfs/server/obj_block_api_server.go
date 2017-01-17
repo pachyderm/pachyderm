@@ -280,6 +280,14 @@ func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) 
 	return s.GetObject(ctx, objectIndex.Tags[request.Name])
 }
 
+func (s *objBlockAPIServer) objectPrefix(prefix string) string {
+	return s.localServer.objectPath(&pfsclient.Object{Hash: prefix})
+}
+
+func (s *objBlockAPIServer) tagPrefix(prefix string) string {
+	return s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
+}
+
 func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
@@ -299,8 +307,7 @@ func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (r
 	}()
 	var written uint64
 	eg.Go(func() error {
-		objectPrefix := s.localServer.objectPath(&pfsclient.Object{Hash: prefix})
-		s.objClient.Walk(objectPrefix, func(name string) error {
+		s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
 			eg.Go(func() (retErr error) {
 				r, err := s.objClient.Reader(name, 0, 0)
 				if err != nil {
@@ -335,8 +342,7 @@ func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (r
 		return nil
 	})
 	eg.Go(func() error {
-		tagPrefix := s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
-		s.objClient.Walk(tagPrefix, func(name string) error {
+		s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
 			eg.Go(func() error {
 				tagObjectIndex := &pfsclient.ObjectIndex{}
 				if err := s.readProto(name, tagObjectIndex); err != nil {
