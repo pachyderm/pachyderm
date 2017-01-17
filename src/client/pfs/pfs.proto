@@ -372,6 +372,6 @@ service ObjectAPI {
 }
 
 message ObjectIndex {
-  map<string, BlockRef> object = 1;
+  map<string, BlockRef> objects = 1;
   map<string, Object> tags = 2;
 }
