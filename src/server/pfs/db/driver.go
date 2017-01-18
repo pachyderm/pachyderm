@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -75,28 +76,44 @@ var (
 )
 
 type driver struct {
-	blockClient pfs.BlockAPIClient
-	dbName      string
-	dbClient    *gorethink.Session
+	blockAddress    string
+	blockClientOnce sync.Once
+	blockClient     pfs.BlockAPIClient
+	dbName          string
+	dbClient        *gorethink.Session
 }
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
-	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
 	dbClient, err := DbConnect(dbAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	return &driver{
-		blockClient: pfs.NewBlockAPIClient(clientConn),
-		dbName:      dbName,
-		dbClient:    dbClient,
+		blockAddress:    blockAddress,
+		blockClientOnce: sync.Once{},
+		blockClient:     nil,
+		dbName:          dbName,
+		dbClient:        dbClient,
 	}, nil
+}
+
+func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
+	if d.blockClient == nil {
+		var onceErr error
+		d.blockClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(d.blockAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			d.blockClient = pfs.NewBlockAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return d.blockClient, nil
 }
 
 // isDBCreated is used to tell when we are trying to initialize a database,
@@ -1148,7 +1165,11 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	if commit.Finished != nil {
 		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
-	_client := client.APIClient{BlockAPIClient: d.blockClient}
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+	_client := client.APIClient{BlockAPIClient: blockClient}
 	blockrefs, err := _client.PutBlock(delimiter, reader)
 	if err != nil {
 		return err
@@ -1303,7 +1324,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	if diff.FileType == persist.FileType_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	}
-	return d.newFileReader(diff.BlockRefs, file, offset, size), nil
+	return d.newFileReader(diff.BlockRefs, file, offset, size)
 }
 
 type fileReader struct {
@@ -1316,14 +1337,18 @@ type fileReader struct {
 	file        *pfs.File
 }
 
-func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) *fileReader {
+func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
 	return &fileReader{
-		blockClient: d.blockClient,
+		blockClient: blockClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
 		file:        file,
-	}
+	}, nil
 }
 
 // filterBlocks filters out blockrefs for a given diff, or return a FileNotFound
