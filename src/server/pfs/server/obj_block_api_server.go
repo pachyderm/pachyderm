@@ -40,42 +40,15 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 	if err != nil {
 		return nil, err
 	}
-	return &objBlockAPIServer{
+	server := &objBlockAPIServer{
 		Logger:      protorpclog.NewLogger("pfs.BlockAPI.Obj"),
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
-		cache: groupcache.NewGroup("block", 1024*1024*1024*10,
-			groupcache.GetterFunc(func(ctx groupcache.Context, key string, dest groupcache.Sink) (retErr error) {
-				var reader io.ReadCloser
-				var err error
-				backoff.RetryNotify(func() error {
-					reader, err = objClient.Reader(localServer.blockPath(client.NewBlock(key)), 0, 0)
-					if err != nil && objClient.IsRetryable(err) {
-						return err
-					}
-					return nil
-				}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-					protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
-						Err:               err.Error(),
-						TimeTillNextRetry: d.String(),
-					})
-				})
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := reader.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				block, err := ioutil.ReadAll(reader)
-				if err != nil {
-					return err
-				}
-				return dest.SetBytes(block)
-			})),
-	}, nil
+	}
+	server.cache = groupcache.NewGroup("block", 1024*1024*1024*10,
+		groupcache.GetterFunc(server.blockGetter))
+	return server, nil
 }
 
 func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
@@ -398,4 +371,34 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr er
 	}
 	_, err = w.Write(data)
 	return err
+}
+
+func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest groupcache.Sink) (retErr error) {
+	var reader io.ReadCloser
+	var err error
+	backoff.RetryNotify(func() error {
+		reader, err = s.objClient.Reader(s.localServer.blockPath(client.NewBlock(key)), 0, 0)
+		if err != nil && s.objClient.IsRetryable(err) {
+			return err
+		}
+		return nil
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+			Err:               err.Error(),
+			TimeTillNextRetry: d.String(),
+		})
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := reader.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	block, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	return dest.SetBytes(block)
 }
