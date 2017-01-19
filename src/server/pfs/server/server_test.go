@@ -3497,7 +3497,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: 2 * BlockSize,
+				MaxMsgSize: MaxMsgSize,
 			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)

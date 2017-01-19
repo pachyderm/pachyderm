@@ -204,7 +204,7 @@ func do(appEnvObj interface{}) error {
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
-			MaxMsgSize: 2 * pfs_server.BlockSize,
+			MaxMsgSize: pfs_server.MaxMsgSize,
 		},
 		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,

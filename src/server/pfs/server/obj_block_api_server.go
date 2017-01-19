@@ -150,7 +150,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 			})
 			return
 		})
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(BlockSize) {
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
 		}
 	}
