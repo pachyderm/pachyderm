@@ -26,7 +26,7 @@ type Interface interface {
 	// Read, Update, and Delete directories
 	PutDir(path string) error
 	DeleteDir(path string) error
-	List(path string) ([]*FileNode, error)
+	List(path string) ([]*Node, error)
 
 	// Returns a list of files and directories that match 'pattern'
 	Glob(pattern string) ([]*Node, error)
