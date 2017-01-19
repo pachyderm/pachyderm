@@ -1751,6 +1751,30 @@ func TestPutFileWithJSONDelimiter(t *testing.T) {
 	}
 }
 
+func TestPutFilePathological(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	// Construct a block bigger than the max message size allowed by grpc
+	for !(len(expectedOutputA) > MaxMsgSize) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	fmt.Printf("goign to put file\n")
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfs.Delimiter_NONE, bytes.NewReader(expectedOutputA))
+	require.YesError(t, err)
+	require.Matches(t, "block size (.*?) exceeds grpc max message size", err.Error())
+}
+
 func TestPutFileWithNoDelimiter(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)

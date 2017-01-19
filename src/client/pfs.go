@@ -1,12 +1,14 @@
 package client
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc"
 )
 
 // NewRepo creates a pfs.Repo.
@@ -362,6 +364,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRefs *pfs.BlockRefs, retErr error) {
 	writer, err := c.newPutBlockWriteCloser(delimiter)
 	if err != nil {
+		fmt.Printf("in high level client put block err: %v\n", err)
 		return nil, sanitizeErr(err)
 	}
 	defer func() {
@@ -372,6 +375,7 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 		if retErr == nil {
 			blockRefs = writer.blockRefs
 		}
+		fmt.Printf("in client PutBlock ... err: %v\n", retErr)
 	}()
 	_, retErr = io.Copy(writer, reader)
 	return blockRefs, retErr
@@ -453,16 +457,22 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 //PutFileWithDelimiter writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path string, delimiter pfs.Delimiter, reader io.Reader) (_ int, retErr error) {
+	fmt.Printf("going to create put file writer\n")
 	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter)
 	if err != nil {
+		fmt.Printf("1 in PFWdelim err %v\n", err)
 		return 0, sanitizeErr(err)
 	}
 	defer func() {
+		fmt.Printf("retErr: %v\n", retErr)
 		if err := writer.Close(); err != nil && retErr == nil {
+			fmt.Printf("writer.Close() err: %v\n", err)
 			retErr = err
 		}
+		fmt.Printf("2 in PFWdelim err %v\n", retErr)
 	}()
 	written, err := io.Copy(writer, reader)
+	fmt.Printf("putfilewdelim last line: %v\n", err)
 	return int(written), err
 }
 
@@ -734,6 +744,12 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
 	if err := w.putFileClient.Send(w.request); err != nil {
+		fmt.Printf("write send error: %v\n", err)
+		fmt.Printf("is it a grpc code? %v\n", grpc.Code(err))
+		if err == io.EOF {
+			fmt.Printf("and its an io EOF\n")
+			return 0, fmt.Errorf("block size TOO BIG RAGNAR HUNGRY")
+		}
 		return 0, sanitizeErr(err)
 	}
 	w.sent = true
@@ -748,10 +764,19 @@ func (w *putFileWriteCloser) Close() error {
 	// an empty file
 	if !w.sent {
 		if err := w.putFileClient.Send(w.request); err != nil {
+			fmt.Printf("1 not send ... in pfwcloser close() err: %v\n", err)
+			if err == io.EOF {
+				fmt.Printf("I spy an EOF error\n")
+				//				return fmt.Errorf("block size (%v) exceeds grpc max message size: try writing your data in smaller chunks", len(w.request.Value))
+				//		return errors.New("jabberwocky")
+				return fmt.Errorf("blah")
+			}
+			fmt.Printf("rats!!!\n")
 			return err
 		}
 	}
 	_, err := w.putFileClient.CloseAndRecv()
+	fmt.Printf("2 in pfwcloser close() err: %v\n", err)
 	return sanitizeErr(err)
 }
 
@@ -778,6 +803,11 @@ func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWri
 func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
 	if err := w.putBlockClient.Send(w.request); err != nil {
+		fmt.Printf("putblockwritecloser err: %v\n", err)
+		if err == io.EOF {
+			fmt.Printf("Errror with block size! %v\n", err)
+			return 0, fmt.Errorf("block size (%v) exceeds grpc max message size: try writing your data in smaller chunks", len(w.request.Value))
+		}
 		return 0, sanitizeErr(err)
 	}
 	return len(p), nil

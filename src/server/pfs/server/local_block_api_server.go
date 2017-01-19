@@ -180,8 +180,10 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 }
 
 func (s *localBlockAPIServer) putOneBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *json.Decoder) (*pfsclient.BlockRef, error) {
+	fmt.Printf("OBS putOneBlock!\n")
 	blockRef, data, err := readBlock(delimiter, reader, decoder)
 	if err != nil {
+		fmt.Printf("OBS ruh roh error: %v\n", err)
 		return nil, err
 	}
 	if _, err := os.Stat(s.blockPath(blockRef.Block)); os.IsNotExist(err) {

@@ -1170,8 +1170,11 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		return err
 	}
 	_client := client.APIClient{BlockAPIClient: blockClient}
+	fmt.Printf("Driver: gonna put a block\n")
 	blockrefs, err := _client.PutBlock(delimiter, reader)
+	fmt.Printf("Driver: never gets here\n")
 	if err != nil {
+		fmt.Printf("in driver putfile ... err %v\n", err)
 		return err
 	}
 

@@ -15,14 +15,15 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -197,12 +198,20 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+	fmt.Printf("In API putfile\n")
 	var request *pfs.PutFileRequest
 	defer drainFileServer(putFileServer)
 	defer func() {
+		fmt.Printf("API PutFile defer reterr: %v\n", retErr)
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
+			fmt.Printf("ruh roh ... AS PutFile err on sendandclose: %v\n", err)
 			retErr = err
 		}
+		// for now assume its a grpc maxmsg size error and see if we can piggy back it
+		retErr = fmt.Errorf("oh no: %v", retErr.Error())
+		retErr = fmt.Errorf("zoinks")
+		retErr = grpc.Errorf(codes.InvalidArgument, "block written is too big: %v", retErr)
+		fmt.Printf("new err: %v\n", retErr)
 	}()
 	request, err := putFileServer.Recv()
 	if err != nil && err != io.EOF {
