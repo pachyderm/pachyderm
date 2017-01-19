@@ -55,16 +55,17 @@ func (h *HashTree) updateHash(path string) error {
 	return nil
 }
 
-// Visit every ancestor of 'path', leaf to root (i.e. end of 'path' to
-// beginning), and create or modify nodes there.
+// Visits every ancestor of 'path' (excluding 'path' itself, leaf to root (i.e.
+// end of 'path' to beginning), and modifying each node along the way. This is
+// useful for propagating changes to size and hash upwards.
 //
 // - If 'createDirs' is true, and there is any prefix along 'path' with no node,
 //   a new empty directory will be created at that path (it will be up to the
 //   user to add children to that node and recompute its hash, in update())
 //
 // - The *Node argument to update is guaranteed to be the node corresponding to
-//   the first argument to 'update' (i.e. the parent path) in 'h', and also a
-//   Directory Node
+//   the first string argument to 'update' (i.e. the parent path), and is always
+//   a Directory Node
 func (h *HashTree) visit(path string, createDirs bool,
 	update func(*Node, string, string) error) error {
 	for path != "" {
@@ -94,14 +95,14 @@ func (h *HashTree) visit(path string, createDirs bool,
 	return nil
 }
 
-// Remove the node at 'path' from h.Fs if it's present, along with all of its
+// Removes the node at 'path' from h.Fs if it's present, along with all of its
 // children, recursively.
 //
-// This will not update the hash of any parent of 'path'. This is lower-level
-// than PutFile, and helps us avoid updating the hash of path's parents
-// unnecessarily; if 'path' is a directory with e.g. 10k children, updating the
-// parents' hashes after all files have been removed from h.Fs (instead of
-// after removing each file) may save substantial time.
+// This will not update the hash of any parent of 'path'. This helps us avoid
+// updating the hash of path's parents unnecessarily; if 'path' is a directory
+// with e.g. 10k children, updating the parents' hashes after all files have
+// been removed from h.Fs (instead of updating all parents' hashesafter
+// removing each file) may save substantial time.
 func (h *HashTree) removeFromMap(path string) error {
 	n, ok := h.Fs[path]
 	if !ok {
@@ -121,7 +122,7 @@ func (h *HashTree) removeFromMap(path string) error {
 	return nil
 }
 
-// Remove the node at 'path' from 'h', updating the hash of its ancestors
+// Removes the node at 'path' from 'h', updating the hash of its ancestors
 func (h *HashTree) deleteNode(path string) error {
 	// Remove 'path' from h.Fs
 	node, ok := h.Fs[path]
@@ -224,6 +225,7 @@ func (h *HashTree) PutDir(path string) error {
 	})
 }
 
+// Deletes the file at 'path'.
 func (h *HashTree) DeleteFile(path string) error {
 	node, ok := h.Fs[path]
 	if !ok {
@@ -249,7 +251,7 @@ func (h *HashTree) DeleteDir(path string) error {
 	return h.deleteNode(path)
 }
 
-// Get returns the node associated with the path
+// Returns the node associated with the path
 func (h *HashTree) Get(path string) (*Node, error) {
 	path = clean(path)
 	node, ok := h.Fs[path]
@@ -259,7 +261,7 @@ func (h *HashTree) Get(path string) (*Node, error) {
 	return node, nil
 }
 
-// List returns the Nodes corresponding to the files and directories under 'path'
+// Returns the Nodes corresponding to the files and directories under 'path'
 func (h *HashTree) List(path string) ([]*Node, error) {
 	path = clean(path)
 	node, ok := h.Fs[path]
@@ -281,7 +283,7 @@ func (h *HashTree) List(path string) ([]*Node, error) {
 	return result, nil
 }
 
-// Glob returns a list of nodes that match the given glob pattern
+// Returns a list of nodes that match the given glob pattern
 func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
@@ -302,6 +304,7 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 	return res, nil
 }
 
+// Merges the node at 'path' from 'from' into 'h'.
 func (h *HashTree) mergeNode(path string, from Interface) error {
 	// Fetch the nodes, and return error if one can't be fetched
 	fromNode, err := from.Get(path)
@@ -336,6 +339,9 @@ func (h *HashTree) mergeNode(path string, from Interface) error {
 	return nil
 }
 
+// Merges 'from' into 'h'. Any files/directories in both 'from' and 'h' are
+// merged (the content in 'from' is appended) and any files/directories that are
+// only in 'from' are simply added to 'h'.
 func (h *HashTree) Merge(from Interface) error {
 	if _, err := from.Get("/"); err == PathNotFoundErr {
 		return nil // No work necessary to merge blank tree
