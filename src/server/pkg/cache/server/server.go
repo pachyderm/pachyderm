@@ -2,6 +2,7 @@ package server
 
 import (
 	"hash/adler32"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,7 +57,11 @@ func (s *groupCacheServer) Get(
 }
 
 func (s *groupCacheServer) PickPeer(key string) (groupcache.ProtoGetter, bool) {
-	shard := uint64(adler32.Checksum([]byte(key))) % s.shards
+	// We split the key on `-` characters and only consider the first result,
+	// this allows users of the cache to have different keys hash to the same
+	// server which can be very useful, checkout objBlockAPIServer for an
+	// example of how.
+	shard := uint64(adler32.Checksum([]byte(strings.Split(key, "-")[0]))) % s.shards
 	if s.localShards[shard] {
 		return nil, false
 	}
