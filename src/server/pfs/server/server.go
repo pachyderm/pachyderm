@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	blockSize  = 8 * 1024 * 1024 // 8 Megabytes
-	MaxMsgSize = 3 * blockSize   // Used for GRPC frame size ... we need this to be greater than a block
+	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+	// MaxMsgSize is used to define the GRPC frame size, which we need to be greater than a block
+	MaxMsgSize = 3 * blockSize
 )
 
 // Valid backends
