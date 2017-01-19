@@ -456,6 +456,33 @@ func TestDeleteCommit(t *testing.T) {
 	require.YesError(t, client.DeleteCommit(repo, commit.ID))
 }
 
+func TestPutFileBig(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > 5*1024*1024) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := strings.NewReader(string(expectedOutputA))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", r)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
+}
+
 func TestPutFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -3468,7 +3495,10 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
-			grpcutil.ServeOptions{Version: version.Version},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: 2 * BlockSize,
+			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
 		require.NoError(t, err)

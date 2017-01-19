@@ -203,7 +203,8 @@ func do(appEnvObj interface{}) error {
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
 		grpcutil.ServeOptions{
-			Version: version.Version,
+			Version:    version.Version,
+			MaxMsgSize: 2 * pfs_server.BlockSize,
 		},
 		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,

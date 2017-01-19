@@ -63,7 +63,7 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(BlockSize) {
 			break
 		}
 	}
