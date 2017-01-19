@@ -28,7 +28,7 @@ func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 	return pullDir(ctx, client, root, commit, diffMethod, shard, "/", pipes)
 }
 
-func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
+func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) (retErr error) {
 	if err := os.MkdirAll(filepath.Join(root, dir), 0777); err != nil {
 		return err
 	}
@@ -46,74 +46,73 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 		return err
 	}
 
-	var g errgroup.Group
 	for _, fileInfo := range fileInfos.FileInfo {
-		fileInfo := fileInfo
-		g.Go(func() (retErr error) {
-			switch fileInfo.FileType {
-			case pfs.FileType_FILE_TYPE_REGULAR:
-				path := filepath.Join(root, fileInfo.File.Path)
-				request := &pfs.GetFileRequest{
-					File: &pfs.File{
-						Commit: commit,
-						Path:   fileInfo.File.Path,
-					},
-					Shard:      shard,
-					DiffMethod: diffMethod,
+		switch fileInfo.FileType {
+		case pfs.FileType_FILE_TYPE_REGULAR:
+			path := filepath.Join(root, fileInfo.File.Path)
+			request := &pfs.GetFileRequest{
+				File: &pfs.File{
+					Commit: commit,
+					Path:   fileInfo.File.Path,
+				},
+				Shard:      shard,
+				DiffMethod: diffMethod,
+			}
+			if pipes {
+				if err := syscall.Mkfifo(path, 0666); err != nil {
+					return err
 				}
-				if pipes {
-					if err := syscall.Mkfifo(path, 0666); err != nil {
-						return err
-					}
-					// This goro will block until the user's code opens the
-					// fifo.  That means we need to "abandon" this goro so that
-					// the function can return and the caller can execute the
-					// user's code. Waiting for this goro to return would
-					// produce a deadlock.
-					go func() {
-						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-						if err != nil {
-							lion.Printf("error opening %s: %s", path, err)
-							return
-						}
-						defer func() {
-							if err := f.Close(); err != nil {
-								lion.Printf("error closing %s: %s", path, err)
-							}
-						}()
-						getFileClient, err := client.GetFile(ctx, request)
-						if err != nil {
-							lion.Printf("error from GetFile: %s", err)
-							return
-						}
-						if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-							lion.Printf("error streaming data: %s", err)
-							return
-						}
-					}()
-				} else {
-					f, err := os.Create(path)
+				// This goro will block until the user's code opens the
+				// fifo.  That means we need to "abandon" this goro so that
+				// the function can return and the caller can execute the
+				// user's code. Waiting for this goro to return would
+				// produce a deadlock.
+				go func() {
+					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 					if err != nil {
-						return err
+						lion.Printf("error opening %s: %s", path, err)
+						return
 					}
 					defer func() {
-						if err := f.Close(); err != nil && retErr == nil {
-							retErr = err
+						if err := f.Close(); err != nil {
+							lion.Printf("error closing %s: %s", path, err)
 						}
 					}()
 					getFileClient, err := client.GetFile(ctx, request)
 					if err != nil {
-						return err
+						lion.Printf("error from GetFile: %s", err)
+						return
 					}
-					return protostream.WriteFromStreamingBytesClient(getFileClient, f)
+					if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
+						lion.Printf("error streaming data: %s", err)
+						return
+					}
+				}()
+			} else {
+				f, err := os.Create(path)
+				if err != nil {
+					return err
 				}
-			case pfs.FileType_FILE_TYPE_DIR:
-				return pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				getFileClient, err := client.GetFile(ctx, request)
+				if err != nil {
+					return err
+				}
+				if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
+					return err
+				}
 			}
-			return nil
-		})
+		case pfs.FileType_FILE_TYPE_DIR:
+			if err := pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes); err != nil {
+				return err
+			}
+		}
 	}
-	return g.Wait()
+	return nil
 }
 
 // Push puts files under root into an open commit.
