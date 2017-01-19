@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+	BlockSize = 8 * 1024 * 1024 // 8 Megabytes
 )
 
 // Valid backends

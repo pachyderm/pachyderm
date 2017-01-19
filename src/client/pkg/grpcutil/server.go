@@ -19,7 +19,8 @@ var (
 
 // ServeOptions represent optional fields for serving.
 type ServeOptions struct {
-	Version *versionpb.Version
+	Version    *versionpb.Version
+	MaxMsgSize int
 }
 
 // ServeEnv are environment variables for serving.
@@ -43,6 +44,7 @@ func Serve(
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.UnaryInterceptor(UnaryServerInterceptor),
+		grpc.MaxMsgSize(options.MaxMsgSize),
 	)
 	registerFunc(grpcServer)
 	if options.Version != nil {
