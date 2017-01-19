@@ -48,11 +48,6 @@ func base(p string) string {
 	return internalDefault(path.Base(p))
 }
 
-// // Like path.Dir, but uses this library's defaults for canonical paths
-// func dir(p string) string {
-// 	return clean(path.Dir(p))
-// }
-
 // Like path.Split, but uses this library's defaults for canonical paths
 func split(p string) (string, string) {
 	return clean(path.Dir(p)), base(p)

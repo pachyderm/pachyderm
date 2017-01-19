@@ -303,32 +303,42 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 }
 
 func (h *HashTree) mergeNode(path string, from Interface) error {
+	// Fetch the nodes, and return error if one can't be fetched
 	fromNode, err := from.Get(path)
-	if err != nil {
-		return err // we need a way to separate "Missing" from "broken"
+	if err != nil && err != PathNotFoundErr {
+		return err
 	}
 	toNode, err := h.Get(path)
-	if err != nil {
+	if err != nil && err != PathNotFoundErr {
 		return err
 	}
 
 	if fromNode.DirNode != nil {
-		if toNode.DirNode == nil {
+		if toNode != nil && toNode.DirNode == nil {
 			return fmt.Errorf("node at \"%s\" is a directory in the target "+
-				"HashTree, but not in the tree being merged.", path)
+				"HashTree, but not in the tree being merged", path)
+		}
+		h.PutDir(path)
+		for _, child := range fromNode.DirNode.Children {
+			h.mergeNode(join(path, child), from)
 		}
 	} else if fromNode.FileNode != nil {
-		if toNode.FileNode == nil {
+		if toNode != nil && toNode.FileNode == nil {
 			return fmt.Errorf("node at \"%s\" is a regular file in the target "+
-				"HashTree, but not in the tree being merged.", path)
+				"HashTree, but not in the tree being merged", path)
 		}
-		h.Pu
+		h.PutFile(path, fromNode.FileNode.GetBlockRefs())
 	} else {
 		return fmt.Errorf("node at \"%s\" has unrecognized type: neither file "+
 			"nor dir", path)
 	}
+	h.updateHash(path)
+	return nil
 }
 
 func (h *HashTree) Merge(from Interface) error {
-
+	if _, err := from.Get("/"); err == PathNotFoundErr {
+		return nil // No work necessary to merge blank tree
+	}
+	return h.mergeNode("/", from)
 }
