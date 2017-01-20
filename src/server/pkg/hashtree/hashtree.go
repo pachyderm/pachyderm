@@ -392,7 +392,7 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 
 	// Merge 'fromNode' into 'toNode' ('fromNode' will always be defined, because
 	// mergeNode() traverses the 'from' tree)
-	var sizeDelta int64 = 0
+	var sizeDelta int64
 	if fromNode.DirNode != nil {
 		if toNode != nil && toNode.DirNode == nil {
 			return 0, errorf(PathConflict, "node at \"%s\" is a directory in the "+
@@ -410,10 +410,9 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 		for _, child := range fromNode.DirNode.Children {
 			if s, err := h.mergeNode(join(path, child), from); err != nil {
 				return 0, err
-			} else {
-				insertStr(&toNode.DirNode.Children, child)
-				sizeDelta += s
 			}
+			insertStr(&toNode.DirNode.Children, child)
+			sizeDelta += s
 		}
 	} else if fromNode.FileNode != nil {
 		if toNode != nil && toNode.FileNode == nil {

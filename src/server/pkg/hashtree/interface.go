@@ -4,8 +4,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-// Errors returned by the methods in Interface below have an ErrCode attached
-// to them, which can be accessed by calling Code() on the error result.
+// ErrCode identifies different kinds of errors returned by methods in
+// Interface below. The ErrCode of any such error can be retrieved with Code().
 type ErrCode uint8
 
 const (
