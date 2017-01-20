@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.pedge.io/lion/proto"
@@ -268,6 +269,27 @@ func (s *objBlockAPIServer) tagPrefix(prefix string) string {
 	return s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
 }
 
+func (s *objBlockAPIServer) countPrefix(ctx context.Context, prefix string) (int64, error) {
+	var count int64
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
+			atomic.AddInt64(&count, 1)
+			return nil
+		})
+	})
+	eg.Go(func() error {
+		return s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
+			atomic.AddInt64(&count, 1)
+			return nil
+		})
+	})
+	if err := eg.Wait(); err != nil {
+		return 0, nil
+	}
+	return count, nil
+}
+
 func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
@@ -287,7 +309,7 @@ func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (r
 	}()
 	var written uint64
 	eg.Go(func() error {
-		s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
+		return s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
 			eg.Go(func() (retErr error) {
 				r, err := s.objClient.Reader(name, 0, 0)
 				if err != nil {
@@ -319,10 +341,9 @@ func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (r
 			})
 			return nil
 		})
-		return nil
 	})
 	eg.Go(func() error {
-		s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
+		return s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
 			eg.Go(func() error {
 				tagObjectIndex := &pfsclient.ObjectIndex{}
 				if err := s.readProto(name, tagObjectIndex); err != nil {
@@ -337,7 +358,6 @@ func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (r
 			})
 			return nil
 		})
-		return nil
 	})
 	if err := eg.Wait(); err != nil {
 		return err
