@@ -156,7 +156,7 @@ func TestPutError(t *testing.T) {
 		require.YesError(t, err)
 		node, err := h.Get("/foo/bar")
 		require.YesError(t, err)
-		require.Equal(t, ErrPathNotFound, err)
+		require.Equal(t, PathNotFound, Code(err))
 		require.Nil(t, node)
 	})
 
@@ -167,7 +167,7 @@ func TestPutError(t *testing.T) {
 		require.YesError(t, err)
 		node, err := h.Get("/foo/bar")
 		require.YesError(t, err)
-		require.Equal(t, ErrPathNotFound, err)
+		require.Equal(t, PathNotFound, Code(err))
 		require.Nil(t, node)
 	})
 }
@@ -439,4 +439,20 @@ func TestMergeEmpty(t *testing.T) {
 	// Merge full tree into empty tree
 	r.Merge(&l)
 	expected.requireSame(t, &r)
+}
+
+func TestCode(t *testing.T) {
+	require.Equal(t, OK, Code(nil))
+	require.Equal(t, Unknown, Code(fmt.Errorf("external error")))
+
+	h := HashTree{}
+	_, err := h.Get("/path")
+	require.Equal(t, PathNotFound, Code(err))
+
+	h.PutFile("/foo", br(`block{hash:"20c27"}`))
+	err = h.PutFile("/foo/bar", br(`block{hash:"9d432"}`))
+	require.Equal(t, PathConflict, Code(err))
+
+	_, err = h.Glob("/*\\")
+	require.Equal(t, MalformedGlob, Code(err))
 }
