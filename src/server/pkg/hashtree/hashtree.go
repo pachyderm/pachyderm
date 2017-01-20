@@ -133,7 +133,7 @@ func (h *HashTree) removeFromMap(path string) error {
 
 // deleteNode removes the node at 'path' from 'h', updating the hash of its
 // ancestors
-func (h *HashTree) deleteNode(path string) (resErr error) {
+func (h *HashTree) deleteNode(path string) error {
 	// Remove 'path' from h.Fs
 	node, ok := h.Fs[path]
 	if !ok {
@@ -154,7 +154,7 @@ func (h *HashTree) deleteNode(path string) (resErr error) {
 			"under it")
 	}
 	if !removeStr(&node.DirNode.Children, child) {
-		resErr = errorf(Internal, "parent of \"%s\" does not contain it", path)
+		return errorf(Internal, "parent of \"%s\" does not contain it", path)
 	}
 	// Update hashes back to root
 	return h.visit(path, func(node *Node, parent, child string) error {
@@ -165,9 +165,7 @@ func (h *HashTree) deleteNode(path string) (resErr error) {
 		}
 		node.Size -= size
 		h.updateHash(parent)
-		if resErr == nil {
-			return nil
-		}
+		return nil
 	})
 }
 
