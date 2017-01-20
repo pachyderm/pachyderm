@@ -12,7 +12,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"go.pedge.io/proto/stream"
 
 	"golang.org/x/net/context"
 )
@@ -94,7 +94,7 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 	} else {
 		reader = io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
 	}
-	return grpcutil.WriteToStreamingBytesServer(reader, getBlockServer)
+	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
 func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
