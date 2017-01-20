@@ -10,9 +10,10 @@ func max(i, j int) int {
 	return j
 }
 
-// Assuming that 'ss' is sorted, inserts 's' into 'ss', preserving sorting. If
-// a copy is necessary (because cap(ss) is too small), only does one copy (as
-// DirectoryNode.Children might get quite large, e.g. 10k entries)
+// insertStr inserts 's' into 'ss', preserving sorting (it assumes that 'ss' is
+// sorted). If a copy is necessary (because cap(ss) is too small), only does
+// one copy (unlike `append(append(ss[:idx], newS), ss[idx:]...)`). This is
+// because directory nodes may include a large number of children.
 //
 // This is used to preserve the order in DirectoryNode.Children, which must
 // be maintained so that equivalent directories have the same hash.
@@ -48,8 +49,8 @@ func insertStr(ss *[]string, newS string) bool {
 	return false
 }
 
-// Removes 's' from 'ss', preserving the sorted order of 'ss' (for removing
-// child strings from DirectoryNodes.
+// removeStr removes 's' from 'ss', preserving the sorted order of 'ss' (for
+// removing child strings from DirectoryNodes.
 func removeStr(ss *[]string, s string) bool {
 	idx := sort.SearchStrings(*ss, s)
 	if idx == len(*ss) {

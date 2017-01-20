@@ -23,10 +23,11 @@ import (
 	"strings"
 )
 
-// Overrides the internal defaults of many functions in the "path" library.
-// Specifically, the top-level dir "/" and the special string "." (which is what
-// most "path" functions return for the empty string) both map to the empty
-// string here, so that we get the globbing behavior we want (see top).
+// internalDefault overrides the internal defaults of many functions in the
+// "path" library.  Specifically, the top-level dir "/" and the special string
+// "." (which is what most "path" functions return for the empty string) both
+// map to the empty string here, so that we get the globbing behavior we want
+// (see top).
 func internalDefault(s string) string {
 	if s == "/" || s == "." {
 		return ""
@@ -34,8 +35,8 @@ func internalDefault(s string) string {
 	return s
 }
 
-// Canonicalizes 'path' for internal use: leading slash and no trailing slash.
-// Also,clean the result with internalDefault.
+// clean canonicalizes 'path' for internal use: leading slash and no trailing
+// slash. Also, clean the result with internalDefault.
 func clean(p string) string {
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
@@ -43,17 +44,18 @@ func clean(p string) string {
 	return internalDefault(path.Clean(p))
 }
 
-// Like path.Base, but uses this library's defaults for canonical paths
+// base is like path.Base, but uses this library's defaults for canonical paths
 func base(p string) string {
 	return internalDefault(path.Base(p))
 }
 
-// Like path.Split, but uses this library's defaults for canonical paths
+// split is like path.Split, but uses this library's defaults for canonical
+// paths
 func split(p string) (string, string) {
 	return clean(path.Dir(p)), base(p)
 }
 
-// Joints the path components 'ps', using our version of 'clean()' instead of
+// join is like path.Join, but uses our version of 'clean()' instead of
 // path.Clean()
 func join(ps ...string) string {
 	return clean(path.Join(ps...))

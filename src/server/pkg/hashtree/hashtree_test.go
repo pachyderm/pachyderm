@@ -11,7 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
-// Parse a string as a BlockRef
+// br parses a string as a BlockRef
 func br(s ...string) []*pfs.BlockRef {
 	result := make([]*pfs.BlockRef, len(s))
 	for i, ss := range s {
@@ -27,11 +27,6 @@ func br(s ...string) []*pfs.BlockRef {
 	return result
 }
 
-// Render s as a hex string -- pure convenience/abbreviation function
-func hex(s []byte) string {
-	return fmt.Sprintf("%x", s)
-}
-
 // Convenience function to convert a list of strings to []interface{} for
 // EqualOneOf
 func i(ss ...string) []interface{} {
@@ -42,6 +37,8 @@ func i(ss ...string) []interface{} {
 	return result
 }
 
+// requireSame compares 'h' to another hash tree (e.g. to make sure that it
+// hasn't changed)
 func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
 	// Make sure 'h' is still the same
 	_, file, line, _ := runtime.Caller(1)
@@ -52,8 +49,11 @@ func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
 			"but got:", proto.MarshalTextString(other)))
 }
 
-// Make sure that h isn't affected by the calling 'op' on it. Good for checking
-// that adding and deleting a file does nothing persistent, etc.
+// requireOperationInvariant makes sure that h isn't affected by calling 'op'.
+// Good for checking that adding and deleting a file does nothing persistent,
+// etc. This is separate from 'requireSame()' because often we want to test that
+// an operation is invariant on several slightly different trees, and with this
+// we only have to define 'op' once.
 func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
 	preop := proto.Clone(h)
 
@@ -70,11 +70,13 @@ func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
 }
 
 func TestPutFileBasic(t *testing.T) {
+	// Put a file
 	h := HashTree{}
 	h.PutFile("/foo", br(`block{hash:"20c27"}`))
 	require.Equal(t, int64(1), h.Fs["/foo"].Size)
 	require.Equal(t, int64(1), h.Fs[""].Size)
 
+	// Put a file under a directory and make sure changes are propagated upwards
 	h.PutFile("/dir/bar", br(`block{hash:"ebc57"}`))
 	require.Equal(t, int64(1), h.Fs["/dir/bar"].Size)
 	require.Equal(t, int64(1), h.Fs["/dir"].Size)
@@ -84,6 +86,7 @@ func TestPutFileBasic(t *testing.T) {
 	require.Equal(t, int64(2), h.Fs["/dir"].Size)
 	require.Equal(t, int64(3), h.Fs[""].Size)
 
+	// inspect h
 	nodes, err := h.List("/")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(nodes))
@@ -111,11 +114,14 @@ func TestPutFileBasic(t *testing.T) {
 func TestPutDirBasic(t *testing.T) {
 	h := HashTree{}
 	emptySha := sha256.Sum256([]byte{})
+
+	// put a directory
 	h.PutDir("/dir")
 	require.Equal(t, emptySha[:], h.Fs["/dir"].Hash)
 	require.Equal(t, []string(nil), h.Fs["/dir"].DirNode.Children)
 	require.Equal(t, len(h.Fs), 2)
 
+	// put a directory under another directory
 	h.PutDir("/dir/foo")
 	nodes, err := h.List("/dir")
 	require.NoError(t, err)
@@ -123,6 +129,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.NotEqual(t, emptySha[:], h.Fs["/dir"].Hash)
 	require.NotEqual(t, []string{}, h.Fs["/dir"].DirNode.Children)
 
+	// delete the directory
 	h.DeleteDir("/dir/foo")
 	nodes, err = h.List("/dir")
 	require.NoError(t, err)
@@ -146,8 +153,7 @@ func TestPutError(t *testing.T) {
 	err := h.PutFile("/foo", br(`block{hash:"20c27"}`))
 	require.NoError(t, err)
 
-	// Make sure that PutFile fails if the parent is a file, and also that h is
-	// unchanged
+	// PutFile fails if the parent is a file, and h is unchanged
 	h.requireOperationInvariant(t, func() {
 		err := h.PutFile("/foo/bar", br(`block{hash:"8e02c"}`))
 		require.YesError(t, err)
@@ -157,8 +163,7 @@ func TestPutError(t *testing.T) {
 		require.Nil(t, node)
 	})
 
-	// Make sure that PutDir fails if the parent is a file, and also that h is
-	// unchanged
+	// PutDir fails if the parent is a file, and h is unchanged
 	h.requireOperationInvariant(t, func() {
 		err := h.PutDir("/foo/bar")
 		require.YesError(t, err)
