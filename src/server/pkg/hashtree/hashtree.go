@@ -9,9 +9,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-// Updates the hash of the node N at 'path'. If this changes N's hash, that will
-// render the hash of N's parent (if any) invalid, and this must be called for
-// all parents of 'path' back to the root.
+// updateHash updates the hash of the node N at 'path'. If this changes N's
+// hash, that will render the hash of N's parent (if any) invalid, and this
+// must be called for all parents of 'path' back to the root.
 func (h *HashTree) updateHash(path string) error {
 	n, ok := h.Fs[path]
 	if !ok {
@@ -55,37 +55,35 @@ func (h *HashTree) updateHash(path string) error {
 	return nil
 }
 
-// Visits every ancestor of 'path' (excluding 'path' itself, leaf to root (i.e.
-// end of 'path' to beginning), and modifying each node along the way. This is
-// useful for propagating changes to size and hash upwards.
+// updateFn is used by 'visit'. The first parameter is the node being visited,
+// the second parameter is the path of that node, and the third parameter is the
+// child of that node from the 'path' argument to 'visit'.
 //
-// - If 'createDirs' is true, and there is any prefix along 'path' with no node,
-//   a new empty directory will be created at that path (it will be up to the
-//   user to add children to that node and recompute its hash, in update())
+// The *Node argument is guaranteed to have DirNode set (if it's not nil)--visit
+// returns 'ErrPathConflict' otherwise.
+type updateFn func(*Node, string, string) error
+
+// This can be passed to visit() to detect PathConflict errors early
+func nop(*Node, string, string) error {
+	return nil
+}
+
+// visit visits every ancestor of 'path' (excluding 'path' itself), leaf to
+// root (i.e.  end of 'path' to beginning), and calls 'update' on each node
+// along the way. For example, if 'visit' is called with 'path'="/path/to/file",
+// then updateFn is called as follows:
 //
-// - The *Node argument to update is guaranteed to be the node corresponding to
-//   the first string argument to 'update' (i.e. the parent path), and is always
-//   a Directory Node
-func (h *HashTree) visit(path string, createDirs bool,
-	update func(*Node, string, string) error) error {
+// 1. update(node at "/path/to" or nil, "/path/to", "file")
+// 2. update(node at "/path"    or nil, "/path",    "to")
+// 3. update(node at "/"        or nil, "",         "path")
+//
+// This is useful for propagating changes to size and hash upwards.
+func (h *HashTree) visit(path string, update updateFn) error {
 	for path != "" {
 		parent, child := split(path)
 		pnode, ok := h.Fs[parent]
-		if !ok {
-			if createDirs {
-				pnode = &Node{
-					Name:    base(parent),
-					Size:    0,
-					DirNode: &DirectoryNode{},
-				}
-				h.Fs[parent] = pnode
-			} else {
-				return fmt.Errorf("attempted to visit or delete orphaned file \"%s\" "+
-					"(this is a bug; try recreating the file and deleting)", path)
-			}
-		} else if pnode.DirNode == nil {
-			return fmt.Errorf("parent of the Node \"%s\" is a FileNode (this is a "+
-				"bug; try deleting the parent) ", path)
+		if ok && pnode.DirNode == nil {
+			return ErrPathConflict
 		}
 		if err := update(pnode, parent, child); err != nil {
 			return err
@@ -95,8 +93,8 @@ func (h *HashTree) visit(path string, createDirs bool,
 	return nil
 }
 
-// Removes the node at 'path' from h.Fs if it's present, along with all of its
-// children, recursively.
+// removeFromMap removes the node at 'path' from h.Fs if it's present, along
+// with all of its children, recursively.
 //
 // This will not update the hash of any parent of 'path'. This helps us avoid
 // updating the hash of path's parents unnecessarily; if 'path' is a directory
@@ -122,7 +120,8 @@ func (h *HashTree) removeFromMap(path string) error {
 	return nil
 }
 
-// Removes the node at 'path' from 'h', updating the hash of its ancestors
+// deleteNode removes the node at 'path' from 'h', updating the hash of its
+// ancestors
 func (h *HashTree) deleteNode(path string) error {
 	// Remove 'path' from h.Fs
 	node, ok := h.Fs[path]
@@ -135,74 +134,97 @@ func (h *HashTree) deleteNode(path string) error {
 
 	// Remove 'path' from its parent directory
 	parent, child := split(path)
-	pnode, ok := h.Fs[parent]
+	node, ok = h.Fs[parent]
 	if !ok {
 		return fmt.Errorf("attempted to delete orphaned file \"%s\" (this is "+
 			"a bug; try recreating the file and deleting)", path)
 	}
-	if pnode.DirNode == nil {
-		return fmt.Errorf("parent of the Node \"%s\" is not a directory (this "+
-			"is a bug; try deleting the parent) ", path)
+	if node.DirNode == nil {
+		return ErrPathConflict
 	}
-	if !removeStr(&pnode.DirNode.Children, child) {
+	if !removeStr(&node.DirNode.Children, child) {
 		return fmt.Errorf("parent of the node \"%s\" does not contain it (this "+
 			"is a bug; try deleting the parent", path)
 	}
 	// Update hashes back to root
-	return h.visit(path, false, func(pnode *Node, parent, child string) error {
-		pnode.Size -= size
+	return h.visit(path, func(node *Node, parent, child string) error {
+		if node == nil {
+			return fmt.Errorf("Encountered orphaned file at \"%s\" while deleting "+
+				"\"%s\" (this is a bug)", path, join(parent, child))
+		}
+		node.Size -= size
 		h.updateHash(parent)
 		return nil
 	})
 }
 
-// Inserts a file into the hierarchy
+// PutFile inserts a file into the hierarchy
 func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = clean(path)
 	if h.Fs == nil {
 		h.Fs = map[string]*Node{}
 	}
 
+	// Detect any path conflicts before modifying 'h'
+	if err := h.visit(path, nop); err != nil {
+		return err
+	}
+
+	// Get/Create file node to which we'll append 'blockRefs'
 	node, ok := h.Fs[path]
 	if ok {
 		if node.FileNode == nil {
-			return fmt.Errorf("could not create regular file at \"%s\", as a non-"+
-				"regular file (e.g. directory) is already there", path)
+			return ErrPathConflict
 		}
 	} else {
-		// Create empty file at 'path' (new blocks will be appended below)
 		node = &Node{
 			Name:     base(path),
 			FileNode: &FileNode{},
 		}
 		h.Fs[path] = node
 	}
-	// Append new block
-	node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
 
-	// Compute size growth of ode
+	// Append new blocks
+	node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
+	h.updateHash(path)
+
+	// Compute size growth of node (i.e. amount of data we're appending)
 	var sizeGrowth int64
 	for _, blockRef := range blockRefs {
 		sizeGrowth += int64(blockRef.Range.Upper - blockRef.Range.Lower)
 	}
 	node.Size += sizeGrowth
-	h.updateHash(path)
 
 	// Add 'path' to parent & update hashes back to root
-	return h.visit(path, true, func(pnode *Node, parent, child string) error {
-		insertStr(&pnode.DirNode.Children, child)
-		pnode.Size += sizeGrowth
+	return h.visit(path, func(node *Node, parent, child string) error {
+		if node == nil {
+			node = &Node{
+				Name:    base(parent),
+				Size:    0,
+				DirNode: &DirectoryNode{},
+			}
+			h.Fs[parent] = node
+		}
+		insertStr(&node.DirNode.Children, child)
+		node.Size += sizeGrowth
 		h.updateHash(parent)
 		return nil
 	})
 }
 
-// Inserts an empty directory into the hierarchy
+// PutDir inserts an empty directory into the hierarchy
 func (h *HashTree) PutDir(path string) error {
 	path = clean(path)
 	if h.Fs == nil {
 		h.Fs = map[string]*Node{}
 	}
+
+	// Detect any path conflicts before modifying 'h'
+	if err := h.visit(path, nop); err != nil {
+		return err
+	}
+
+	// Create orphaned directory at 'path' (or end early if a directory is there)
 	if node, ok := h.Fs[path]; ok {
 		if node.DirNode == nil {
 			return fmt.Errorf("could not create directory at \"%s\", as a non-"+
@@ -210,7 +232,6 @@ func (h *HashTree) PutDir(path string) error {
 		}
 		return nil
 	}
-	// Create orphaned directory at 'path'
 	h.Fs[path] = &Node{
 		Name:    base(path),
 		DirNode: &DirectoryNode{},
@@ -218,14 +239,21 @@ func (h *HashTree) PutDir(path string) error {
 	h.updateHash(path)
 
 	// Add 'path' to parent & update hashes back to root
-	return h.visit(path, true, func(pnode *Node, parent, child string) error {
-		insertStr(&(pnode.DirNode.Children), child)
+	return h.visit(path, func(node *Node, parent, child string) error {
+		if node == nil {
+			node = &Node{
+				Name:    base(parent),
+				DirNode: &DirectoryNode{},
+			}
+			h.Fs[parent] = node
+		}
+		insertStr(&node.DirNode.Children, child)
 		h.updateHash(parent)
 		return nil
 	})
 }
 
-// Deletes the file at 'path'.
+// DeleteFile deletes the file at 'path'.
 func (h *HashTree) DeleteFile(path string) error {
 	node, ok := h.Fs[path]
 	if !ok {
@@ -234,10 +262,13 @@ func (h *HashTree) DeleteFile(path string) error {
 	if node.FileNode == nil {
 		return fmt.Errorf("node at \"%s\" is not a FileNode (try DeleteDir)", path)
 	}
+
 	// Remove file from map (h.Fs) and from the parent's Children list
 	return h.deleteNode(path)
 }
 
+// DeleteDir deletes the directory at 'path' along with its entire subtree (i.e.
+// rm -rf)
 func (h *HashTree) DeleteDir(path string) error {
 	node, ok := h.Fs[path]
 	if !ok {
@@ -247,21 +278,23 @@ func (h *HashTree) DeleteDir(path string) error {
 		return fmt.Errorf("node at \"%s\" is not a DirectoryNode (try DeleteFile)",
 			path)
 	}
+
 	// Remove file from map (h.Fs) and from the parent's Children list
 	return h.deleteNode(path)
 }
 
-// Returns the node associated with the path
+// Get returns the node associated with the path
 func (h *HashTree) Get(path string) (*Node, error) {
 	path = clean(path)
 	node, ok := h.Fs[path]
 	if !ok {
-		return nil, PathNotFoundErr
+		return nil, ErrPathNotFound
 	}
 	return node, nil
 }
 
-// Returns the Nodes corresponding to the files and directories under 'path'
+// List returns the Nodes corresponding to the files and directories under
+// 'path'
 func (h *HashTree) List(path string) ([]*Node, error) {
 	path = clean(path)
 	node, ok := h.Fs[path]
@@ -283,7 +316,7 @@ func (h *HashTree) List(path string) ([]*Node, error) {
 	return result, nil
 }
 
-// Returns a list of nodes that match the given glob pattern
+// Glob beturns a list of nodes that match 'pattern'.
 func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
@@ -293,7 +326,7 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 		matched, err := pathlib.Match(pattern, p)
 		if err != nil {
 			if err == pathlib.ErrBadPattern {
-				return nil, MalformedGlobErr
+				return nil, ErrMalformedGlob
 			}
 			return nil, err
 		}
@@ -304,47 +337,85 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 	return res, nil
 }
 
-// Merges the node at 'path' from 'from' into 'h'.
-func (h *HashTree) mergeNode(path string, from Interface) error {
-	// Fetch the nodes, and return error if one can't be fetched
-	fromNode, err := from.Get(path)
-	if err != nil && err != PathNotFoundErr {
-		return err
-	}
-	toNode, err := h.Get(path)
-	if err != nil && err != PathNotFoundErr {
-		return err
+// mergeNode merges the node at 'path' from 'from' into 'h'. The return value
+// 's' is the number of bytes added to the node at 'path' (the size increase).
+func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
+	if h.Fs == nil {
+		h.Fs = map[string]*Node{}
 	}
 
+	// Fetch the nodes, and return error if one can't be fetched
+	fromNode, err := from.Get(path)
+	if err != nil && err != ErrPathNotFound {
+		return 0, err
+	}
+	toNode, err := h.Get(path)
+	if err != nil && err != ErrPathNotFound {
+		return 0, err
+	}
+
+	// Merge 'fromNode' into 'toNode' ('fromNode' will always be defined, because
+	// mergeNode() traverses the 'from' tree)
+	var sizeDelta int64 = 0
 	if fromNode.DirNode != nil {
 		if toNode != nil && toNode.DirNode == nil {
-			return fmt.Errorf("node at \"%s\" is a directory in the target "+
+			return 0, fmt.Errorf("node at \"%s\" is a directory in the target "+
 				"HashTree, but not in the tree being merged", path)
 		}
-		h.PutDir(path)
+		// Create empty directory in 'to' if none exists
+		if toNode == nil {
+			toNode = &Node{
+				Name:    base(path),
+				Size:    0,
+				DirNode: &DirectoryNode{},
+			}
+			h.Fs[path] = toNode
+		}
 		for _, child := range fromNode.DirNode.Children {
-			h.mergeNode(join(path, child), from)
+			if s, err := h.mergeNode(join(path, child), from); err != nil {
+				return 0, err
+			} else {
+				insertStr(&toNode.DirNode.Children, child)
+				sizeDelta += s
+			}
 		}
 	} else if fromNode.FileNode != nil {
 		if toNode != nil && toNode.FileNode == nil {
-			return fmt.Errorf("node at \"%s\" is a regular file in the target "+
-				"HashTree, but not in the tree being merged", path)
+			return 0, ErrPathConflict
 		}
-		h.PutFile(path, fromNode.FileNode.GetBlockRefs())
+		// Create empty file in 'to' if none exists
+		if toNode == nil {
+			toNode = &Node{
+				Name:     base(path),
+				FileNode: &FileNode{},
+			}
+			h.Fs[path] = toNode
+		}
+
+		// Append new blocks
+		toNode.FileNode.BlockRefs = append(
+			toNode.FileNode.BlockRefs, fromNode.FileNode.BlockRefs...)
+
+		// Compute size growth of node
+		for _, br := range fromNode.FileNode.BlockRefs {
+			sizeDelta += int64(br.Range.Upper - br.Range.Lower)
+		}
 	} else {
-		return fmt.Errorf("node at \"%s\" has unrecognized type: neither file "+
+		return 0, fmt.Errorf("node at \"%s\" has unrecognized type: neither file "+
 			"nor dir", path)
 	}
+	toNode.Size += sizeDelta
 	h.updateHash(path)
-	return nil
+	return sizeDelta, nil
 }
 
-// Merges 'from' into 'h'. Any files/directories in both 'from' and 'h' are
-// merged (the content in 'from' is appended) and any files/directories that are
-// only in 'from' are simply added to 'h'.
+// Merge merges the HashTree 'from' into 'h'. Any files/directories in both
+// 'from' and 'h' are merged (the content in 'from' is appended) and any
+// files/directories that are only in 'from' are simply added to 'h'.
 func (h *HashTree) Merge(from Interface) error {
-	if _, err := from.Get("/"); err == PathNotFoundErr {
+	if _, err := from.Get("/"); err == ErrPathNotFound {
 		return nil // No work necessary to merge blank tree
 	}
-	return h.mergeNode("/", from)
+	_, err := h.mergeNode("", from) // Empty string is internal repr of "/"
+	return err
 }

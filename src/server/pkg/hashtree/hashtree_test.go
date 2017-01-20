@@ -54,14 +54,14 @@ func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
 
 // Make sure that h isn't affected by the calling 'op' on it. Good for checking
 // that adding and deleting a file does nothing persistent, etc.
-func (h *HashTree) requireOperationInvariant(t *testing.T, op func(*HashTree)) {
+func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
 	b, err := proto.Marshal(h)
 	require.NoError(t, err)
 	preop := HashTree{}
 	proto.Unmarshal(b, &preop)
 
 	// perform operation on 'h'
-	op(h)
+	op()
 
 	// Make sure 'h' is still the same
 	_, file, line, _ := runtime.Caller(1)
@@ -144,7 +144,35 @@ func TestPutDirBasic(t *testing.T) {
 	require.Equal(t, len(h.Fs), 2)
 }
 
-func TestPutDirError(t *testing.T) {
+func TestPutError(t *testing.T) {
+	h := &HashTree{}
+	err := h.PutFile("/foo", br(`block{hash:"20c27"}`))
+	require.NoError(t, err)
+
+	// Make sure that PutFile fails if the parent is a file, and also that h is
+	// unchanged
+	h.requireOperationInvariant(t, func() {
+		err := h.PutFile("/foo/bar", br(`block{hash:"8e02c"}`))
+		require.YesError(t, err)
+		node, err := h.Get("/foo/bar")
+		require.YesError(t, err)
+		require.Equal(t, ErrPathNotFound, err)
+		require.Nil(t, node)
+	})
+
+	// Make sure that PutDir fails if the parent is a file, and also that h is
+	// unchanged
+	h.requireOperationInvariant(t, func() {
+		err := h.PutDir("/foo/bar")
+		require.YesError(t, err)
+		node, err := h.Get("/foo/bar")
+		require.YesError(t, err)
+		require.Equal(t, ErrPathNotFound, err)
+		require.Nil(t, node)
+	})
+}
+
+func TestDeleteDirError(t *testing.T) {
 	// Put root dir
 	h := &HashTree{}
 	h.PutDir("/")
@@ -158,20 +186,20 @@ func TestPutDirError(t *testing.T) {
 // Given a directory D, test that adding and then deleting a file/directory to
 // D does not change D.
 func TestAddDeleteReverts(t *testing.T) {
-	addDeleteFile := func(h *HashTree) {
+	h := HashTree{}
+	addDeleteFile := func() {
 		h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 		h.DeleteFile("/dir/__NEW_FILE__")
 	}
-	addDeleteDir := func(h *HashTree) {
+	addDeleteDir := func() {
 		h.PutDir("/dir/__NEW_DIR__")
 		h.DeleteDir("/dir/__NEW_DIR__")
 	}
-	addDeleteSubFile := func(h *HashTree) {
+	addDeleteSubFile := func() {
 		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 		h.DeleteDir("/dir/__NEW_DIR__")
 	}
 
-	h := HashTree{}
 	h.PutDir("/dir")
 	h.requireOperationInvariant(t, addDeleteFile)
 	h.requireOperationInvariant(t, addDeleteDir)
@@ -188,20 +216,20 @@ func TestAddDeleteReverts(t *testing.T) {
 // Given a directory D, test that deleting and then adding a file/directory to
 // D does not change D.
 func TestDeleteAddReverts(t *testing.T) {
-	deleteAddFile := func(h *HashTree) {
+	h := HashTree{}
+	deleteAddFile := func() {
 		h.DeleteFile("/dir/__NEW_FILE__")
 		h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	}
-	deleteAddSubFile := func(h *HashTree) {
+	deleteAddSubFile := func() {
 		h.DeleteDir("/dir/__NEW_DIR__")
 		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	}
-	deleteAddDir := func(h *HashTree) {
+	deleteAddDir := func() {
 		h.DeleteDir("/dir/__NEW_DIR__")
 		h.PutDir("/dir/__NEW_DIR__")
 	}
 
-	h := HashTree{}
 	h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	h.requireOperationInvariant(t, deleteAddFile)
 	h.PutDir("/dir/__NEW_DIR__")
@@ -318,7 +346,7 @@ func TestRewriteChangesHash(t *testing.T) {
 	require.NoError(t, err)
 	rootPtr, err := h.Get("/")
 	require.NoError(t, err)
-	dirPre, rootPre := *dirPtr, *rootPtr
+	dirPre, rootPre := proto.Clone(dirPtr).(*Node), proto.Clone(rootPtr).(*Node)
 
 	h.DeleteFile("/dir/foo")
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
@@ -330,12 +358,8 @@ func TestRewriteChangesHash(t *testing.T) {
 
 	require.NotEqual(t, dirPre.Hash, (*dirPtr).Hash)
 	require.NotEqual(t, rootPre.Hash, (*rootPtr).Hash)
-
-	// Reset Hash values and make sure everything else is preserved (e.g. size)
-	dirPre.Hash, rootPre.Hash = []byte{}, []byte{}
-	(*dirPtr).Hash, (*rootPtr).Hash = []byte{}, []byte{}
-	require.Equal(t, dirPre, *dirPtr)
-	require.Equal(t, rootPre, *rootPtr)
+	require.Equal(t, (*dirPre).Size, (*dirPtr).Size)
+	require.Equal(t, (*rootPre).Size, (*rootPtr).Size)
 }
 
 func TestGlobFile(t *testing.T) {
