@@ -9,40 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-// Custom error type, returned by HashTree's methods
-type hashTreeError struct {
-	code ErrCode
-	s    string
-}
-
-func (e *hashTreeError) Error() string {
-	return e.s
-}
-
-// Code returns the "error code"  of 'err' if it was returned by one of the
-// HashTree methods, or "Unknown" if 'err' was emitted by some other function
-// (error codes are defined in interface.go)
-func Code(err error) ErrCode {
-	if err == nil {
-		return OK
-	}
-
-	hte, ok := err.(*hashTreeError)
-	if !ok {
-		return Unknown
-	}
-	return hte.code
-}
-
-// errorf is analogous to fmt.Errorf, but generates hashTreeErrors instead of
-// errorStrings.
-func errorf(c ErrCode, fmtStr string, args ...interface{}) error {
-	return &hashTreeError{
-		code: c,
-		s:    fmt.Sprintf(fmtStr, args...),
-	}
-}
-
 // updateHash updates the hash of the node N at 'path'. If this changes N's
 // hash, that will render the hash of N's parent (if any) invalid, and this
 // must be called for all parents of 'path' back to the root.
@@ -408,11 +374,12 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 			h.Fs[path] = toNode
 		}
 		for _, child := range fromNode.DirNode.Children {
-			if s, err := h.mergeNode(join(path, child), from); err != nil {
+			if s, err := h.mergeNode(join(path, child), from); err == nil {
+				insertStr(&toNode.DirNode.Children, child)
+				sizeDelta += s
+			} else {
 				return 0, err
 			}
-			insertStr(&toNode.DirNode.Children, child)
-			sizeDelta += s
 		}
 	} else if fromNode.FileNode != nil {
 		if toNode != nil && toNode.FileNode == nil {
