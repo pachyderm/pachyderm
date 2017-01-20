@@ -442,9 +442,9 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 func (c APIClient) PutObject(value []byte, tags ...string) (*pfs.Object, error) {
 	request := &pfs.PutObjectRequest{Value: value}
 	for _, tag := range tags {
-		request.Tags = append(request.Tags, &pfsclient.Tag{Name: tag})
+		request.Tags = append(request.Tags, &pfs.Tag{Name: tag})
 	}
-	object, err := c.PutObject(c.ctx(), request)
+	object, err := c.ObjectAPIClient.PutObject(c.ctx(), request)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
@@ -453,7 +453,7 @@ func (c APIClient) PutObject(value []byte, tags ...string) (*pfs.Object, error) 
 
 // GetObject gets an object out of the object store by hash.
 func (c APIClient) GetObject(hash string) ([]byte, error) {
-	value, err := c.GetObject(
+	value, err := c.ObjectAPIClient.GetObject(
 		c.ctx(),
 		&pfs.Object{Hash: hash},
 	)
@@ -465,7 +465,7 @@ func (c APIClient) GetObject(hash string) ([]byte, error) {
 
 // GetTag gets an object out of the object store by tag.
 func (c APIClient) GetTag(tag string) ([]byte, error) {
-	value, err := c.GetTag(
+	value, err := c.ObjectAPIClient.GetTag(
 		c.ctx(),
 		&pfs.Tag{Name: tag},
 	)
