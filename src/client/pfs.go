@@ -438,6 +438,43 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
+// PutObject puts a value into the object store and tags it with 0 or more tags.
+func (c APIClient) PutObject(value []byte, tags ...string) (*pfs.Object, error) {
+	request := &pfs.PutObjectRequest{Value: value}
+	for _, tag := range tags {
+		request.Tags = append(request.Tags, &pfsclient.Tag{Name: tag})
+	}
+	object, err := c.PutObject(c.ctx(), request)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return object, nil
+}
+
+// GetObject gets an object out of the object store by hash.
+func (c APIClient) GetObject(hash string) ([]byte, error) {
+	value, err := c.GetObject(
+		c.ctx(),
+		&pfs.Object{Hash: hash},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return value.Value, nil
+}
+
+// GetTag gets an object out of the object store by tag.
+func (c APIClient) GetTag(tag string) ([]byte, error) {
+	value, err := c.GetTag(
+		c.ctx(),
+		&pfs.Tag{Name: tag},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return value.Value, nil
+}
+
 // PutFileWriter writes a file to PFS.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
