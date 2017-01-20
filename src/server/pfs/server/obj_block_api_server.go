@@ -30,8 +30,10 @@ import (
 )
 
 const (
-	prefixLength = 3
-	cacheSize    = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
+	prefixLength        = 2
+	compactionThreshold = 100
+	cacheSize           = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
+	base64Alphabet      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 )
 
 type objBlockAPIServer struct {
@@ -269,7 +271,27 @@ func (s *objBlockAPIServer) tagPrefix(prefix string) string {
 	return s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
 }
 
-func (s *objBlockAPIServer) countPrefix(ctx context.Context, prefix string) (int64, error) {
+func (s *objBlockAPIServer) compact() error {
+	var eg errgroup.Group
+	for i := 0; i < len(base64Alphabet); i++ {
+		for j := 0; j < len(base64Alphabet); j++ {
+			prefix := fmt.Sprintf("%c%c", base64Alphabet[i], base64Alphabet[j])
+			eg.Go(func() error {
+				count, err := s.countPrefix(prefix)
+				if err != nil {
+					return err
+				}
+				if count < compactionThreshold {
+					return nil
+				}
+				return s.compactPrefix(prefix)
+			})
+		}
+	}
+	return nil
+}
+
+func (s *objBlockAPIServer) countPrefix(prefix string) (int64, error) {
 	var count int64
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -290,7 +312,7 @@ func (s *objBlockAPIServer) countPrefix(ctx context.Context, prefix string) (int
 	return count, nil
 }
 
-func (s *objBlockAPIServer) compactPrefix(ctx context.Context, prefix string) (retErr error) {
+func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
 	objectIndex := &pfsclient.ObjectIndex{}
