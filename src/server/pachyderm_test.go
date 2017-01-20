@@ -4159,8 +4159,8 @@ func TestJobGC(t *testing.T) {
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 			GcPolicy: &ppsclient.GCPolicy{
-				Success: prototime.DurationToProto(time.Second),
-				Failure: prototime.DurationToProto(time.Second),
+				Success: types.DurationProto(time.Second),
+				Failure: types.DurationProto(time.Second),
 			},
 		})
 	require.NoError(t, err)
