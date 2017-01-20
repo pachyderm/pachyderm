@@ -75,7 +75,7 @@ work.  To get that behavior, you can set `cmd` to be a shell of your choice
 `transform.stdin` is an array of lines that are sent to your command on stdin.
 Lines need not end in newline characters.
 
-`transform.env is a map from key to value of environment variables that will be
+`transform.env` is a map from key to value of environment variables that will be
 injected into the container
 
 `transform.secrets` is an array of secrets, secrets reference Kubernetes
