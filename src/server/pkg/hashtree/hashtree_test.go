@@ -55,20 +55,17 @@ func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
 // Make sure that h isn't affected by the calling 'op' on it. Good for checking
 // that adding and deleting a file does nothing persistent, etc.
 func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
-	b, err := proto.Marshal(h)
-	require.NoError(t, err)
-	preop := HashTree{}
-	proto.Unmarshal(b, &preop)
+	preop := proto.Clone(h)
 
 	// perform operation on 'h'
 	op()
 
 	// Make sure 'h' is still the same
 	_, file, line, _ := runtime.Caller(1)
-	require.True(t, proto.Equal(&preop, h),
+	require.True(t, proto.Equal(preop, h),
 		fmt.Sprintf("%s %s:%d\n%s  %s\n%s %s\n",
 			"requireOperationInvariant called at", file, line,
-			"pre-op HashTree:", proto.MarshalTextString(&preop),
+			"pre-op HashTree:", proto.MarshalTextString(preop),
 			"post-op HashTree:", proto.MarshalTextString(h)))
 }
 
@@ -424,6 +421,7 @@ func TestMerge(t *testing.T) {
 	expected.requireSame(t, &l)
 }
 
+// Test that Merge() works with empty hash trees
 func TestMergeEmpty(t *testing.T) {
 	expected, l, r := HashTree{}, HashTree{}, HashTree{}
 	expected.PutFile("/foo", br(`block{hash:"20c27"}`))
@@ -441,6 +439,7 @@ func TestMergeEmpty(t *testing.T) {
 	expected.requireSame(t, &r)
 }
 
+// Test that HashTree methods return the right error codes
 func TestCode(t *testing.T) {
 	require.Equal(t, OK, Code(nil))
 	require.Equal(t, Unknown, Code(fmt.Errorf("external error")))
