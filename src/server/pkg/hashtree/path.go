@@ -6,7 +6,7 @@
 // general. The difference is:
 //
 // - In this library, the canonical version of "/" is "" (i.e. preserve "no
-//   trailing slash" invariant, at the cost of the "no leading slash"
+//   trailing slash" invariant, at the cost of the "always have a leading slash"
 //   invariant), whereas
 //
 // - in go's "path" library, the canonical version of "/" is "/" and "" becomes
