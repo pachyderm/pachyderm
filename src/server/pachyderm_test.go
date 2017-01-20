@@ -922,7 +922,7 @@ func TestPipelineThatCrashes(t *testing.T) {
 		Job:        jobInfos[0].Job,
 		BlockState: true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
@@ -2352,7 +2352,7 @@ func TestFailedJobReadData(t *testing.T) {
 		BlockState: true,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
