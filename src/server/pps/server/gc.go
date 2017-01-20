@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-
 	"github.com/gogo/protobuf/types"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
