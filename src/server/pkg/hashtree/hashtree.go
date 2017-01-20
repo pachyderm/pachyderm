@@ -31,7 +31,7 @@ func (h *HashTree) updateHash(path string) error {
 			// Write Name and Hash
 			_, err := b.WriteString(fmt.Sprintf("%s:%s:", n.Name, n.Hash))
 			if err != nil {
-				return errorf(Internal, "error updating hash of file at \"%s\": \"%s\"",
+				return errorf(Internal, "error updating hash of file at \"%s\": %s",
 					path, err)
 			}
 		}
@@ -40,7 +40,7 @@ func (h *HashTree) updateHash(path string) error {
 			_, err := b.WriteString(fmt.Sprintf("%s:%d:%d:",
 				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper))
 			if err != nil {
-				return errorf(Internal, "error updating hash of dir at \"%s\": \"%s\"",
+				return errorf(Internal, "error updating hash of dir at \"%s\": %s",
 					path, err)
 			}
 		}
@@ -373,6 +373,8 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 			}
 			h.Fs[path] = toNode
 		}
+
+		// Merge files in 'from' into 'to' (including adding them if they're new)
 		for _, child := range fromNode.DirNode.Children {
 			if s, err := h.mergeNode(join(path, child), from); err == nil {
 				insertStr(&toNode.DirNode.Children, child)
