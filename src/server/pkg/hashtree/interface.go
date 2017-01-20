@@ -1,26 +1,40 @@
 package hashtree
 
 import (
-	"errors"
-
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-var (
-	// ErrPathNotFound is returned when Get() is called with a path that doesn't
+// Errors returned by the methods in Interface below have an ErrCode attached
+// to them, which can be accessed by calling Code() on the error result.
+type ErrCode uint8
+
+const (
+	// OK is returned on success
+	OK ErrCode = iota
+
+	// Unknown is returned by Code() when an error wasn't emitted by the HashTree
+	// implementation.
+	Unknown
+
+	// Internal is returned when a HashTree encounters a bug (usually due to the
+	// violation of an internal invariant).
+	Internal
+
+	// PathNotFound is returned when Get() is called with a path that doesn't
 	// lead to a node.
-	ErrPathNotFound = errors.New("path not found")
+	PathNotFound
 
-	// ErrMalformedGlob is returned when Glob() is called with an invalid glob
+	// MalformedGlob is returned when Glob() is called with an invalid glob
 	// pattern.
-	ErrMalformedGlob = errors.New("glob pattern malformed")
+	MalformedGlob
 
-	// ErrPathConflict is returned when of the following occurs:
+	// PathConflict is returned when a path that is expected to point to a
+	// directory in fact points to a file, or the reverse. For example:
 	// 1. PutFile is called with a path that points to a directory.
 	// 2. PutFile is called with a path that contains a prefix that
 	//    points to a file.
-	// 3. Merge is forced to merge a directory and a file
-	ErrPathConflict = errors.New("path conflict")
+	// 3. Merge is forced to merge a directory into a file
+	PathConflict
 )
 
 // Interface is the signature of a HashTree provided by this library
