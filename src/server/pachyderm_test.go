@@ -4135,6 +4135,56 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestJobGC(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestJobGC")
+	pipelineName := uniqueString("TestJobGC_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: prototime.DurationToProto(time.Second),
+				Failure: prototime.DurationToProto(time.Second),
+			},
+		})
+	require.NoError(t, err)
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	// Jobs should get gced after 0 seconds, we sleep for 10 just to be extra sure
+	time.Sleep(10 * time.Second)
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	kubeClient := getKubeClient(t)
+	jobList, err := kubeClient.Extensions().Jobs(api.NamespaceDefault).List(api.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{"app": jobInfos[0].Job.ID})})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobList.Items))
+	podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{"app": jobInfos[0].Job.ID})})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(podList.Items))
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
