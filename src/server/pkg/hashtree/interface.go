@@ -7,16 +7,23 @@ import (
 )
 
 var (
-	PathNotFoundErr  = errors.New("path not found")
-	MalformedGlobErr = errors.New("glob pattern malformed")
+	// ErrPathNotFound is returned when Get() is called with a path that doesn't
+	// lead to a node.
+	ErrPathNotFound = errors.New("path not found")
 
-	// this error is returned when of the following occurs:
+	// ErrMalformedGlob is returned when Glob() is called with an invalid glob
+	// pattern.
+	ErrMalformedGlob = errors.New("glob pattern malformed")
+
+	// ErrPathConflict is returned when of the following occurs:
 	// 1. PutFile is called with a path that points to a directory.
 	// 2. PutFile is called with a path that contains a prefix that
-	// points to a file.
-	PathConflictErr = errors.New("path conflict")
+	//    points to a file.
+	// 3. Merge is forced to merge a directory and a file
+	ErrPathConflict = errors.New("path conflict")
 )
 
+// Interface is the signature of a HashTree provided by this library
 type Interface interface {
 	// Read, Update, and Delete files
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
