@@ -8,7 +8,9 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
-	log "github.com/Sirupsen/logrus"
+	"go.pedge.io/lion/proto"
+	"go.pedge.io/pb/go/google/protobuf"
+	"go.pedge.io/proto/time"
 )
 
 var (
@@ -41,7 +43,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 	for {
 		client, err := a.getPersistClient()
 		if err != nil {
-			log.Errorf("error getting persist client: %s", err)
+			protolion.Errorf("error getting persist client: %s", err)
 			wait()
 			continue
 		}
@@ -50,7 +52,7 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 			GcPolicy:     pipelineInfo.GcPolicy,
 		})
 		if err != nil {
-			log.Errorf("error listing jobs to GC: %s", err)
+			protolion.Errorf("error listing jobs to GC: %s", err)
 			wait()
 			continue
 		}
@@ -61,15 +63,15 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 					Job: &ppsclient.Job{ID: jobID},
 				})
 				if err != nil {
-					log.Errorf("error deleting job: %s", err)
+					protolion.Errorf("error deleting job: %s", err)
 					return
 				}
 				if err := a.deleteJob(ctx, jobInfo); err != nil {
-					log.Errorf("error deleting job: %s", err)
+					protolion.Errorf("error deleting job: %s", err)
 					return
 				}
 				if _, err := client.GCJob(ctx, &ppsclient.Job{jobID}); err != nil {
-					log.Errorf("error marking job %s as GC-ed: %s", jobID, err)
+					protolion.Errorf("error marking job %s as GC-ed: %s", jobID, err)
 				}
 				return
 			}()

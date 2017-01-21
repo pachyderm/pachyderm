@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
+	"go.pedge.io/proto/rpclog"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -30,6 +31,7 @@ func NewAPIServer(
 	reporter *metrics.Reporter,
 ) APIServer {
 	return &apiServer{
+		Logger:                  protorpclog.NewLogger("pps.API"),
 		hasher:                  hasher,
 		address:                 address,
 		pfsAPIClient:            nil,
