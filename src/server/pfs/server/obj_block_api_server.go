@@ -543,9 +543,13 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil {
+	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	}
+	// Note that we only return the error above if it's something other than a
+	// NonExist error, in the case of a NonExist error we'll put a blank index
+	// in the map. This prevents us from having requesting an index that
+	// doesn't exist everytime a request tries to access it.
 	s.objectIndexesLock.Lock()
 	defer s.objectIndexesLock.Unlock()
 	s.objectIndexes[prefix] = objectIndex
