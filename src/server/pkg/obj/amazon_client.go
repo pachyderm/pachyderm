@@ -120,7 +120,7 @@ func (c *amazonClient) IsNotExist(err error) bool {
 	if !ok {
 		return false
 	}
-	if awsErr.Code() == storagegateway.ErrorCodeTargetNotFound {
+	if awsErr.Code() == "NoSuchKey" {
 		return true
 	}
 	return false
