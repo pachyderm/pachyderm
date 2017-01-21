@@ -496,6 +496,11 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	objectIndex := &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
+	} else if err == nil {
+		if object, ok := objectIndex.Tags[tag.Name]; ok {
+			dest.SetProto(object)
+			return nil
+		}
 	}
 	// The last chance to find this object is to update the index since the
 	// object may have been recently incorporated into it.
