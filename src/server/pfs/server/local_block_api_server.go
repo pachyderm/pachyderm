@@ -14,16 +14,21 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
+	"go.pedge.io/pb/go/google/protobuf"
+	"go.pedge.io/proto/rpclog"
+	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
 type localBlockAPIServer struct {
+	protorpclog.Logger
 	dir string
 }
 
 func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	server := &localBlockAPIServer{
-		dir: dir,
+		Logger: protorpclog.NewLogger("pfs.BlockAPIServer.Local"),
+		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
 		return nil, err
@@ -38,6 +43,8 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 }
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	result := &pfsclient.BlockRefs{}
 	defer drainBlockServer(putBlockServer)
 
@@ -75,6 +82,8 @@ func (s *localBlockAPIServer) blockFile(block *pfsclient.Block) (*os.File, error
 }
 
 func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := s.blockFile(request.Block)
 	if err != nil {
 		return err
@@ -98,10 +107,14 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 }
 
 func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return &types.Empty{}, s.deleteBlock(request.Block)
 }
 
 func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
 		return nil, err
@@ -115,6 +128,8 @@ func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclie
 }
 
 func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
