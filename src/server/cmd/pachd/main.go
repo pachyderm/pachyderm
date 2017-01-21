@@ -33,6 +33,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"go.pedge.io/env"
+	"go.pedge.io/lion"
+	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -73,19 +76,19 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	go func() {
-		log.Println(http.ListenAndServe(":651", nil))
+		lion.Println(http.ListenAndServe(":651", nil))
 	}()
 	appEnv := appEnvObj.(*appEnv)
 	switch appEnv.LogLevel {
 	case "debug":
-		log.SetLevel(log.DebugLevel)
+		lion.SetLevel(lion.DebugLevel)
 	case "info":
-		log.SetLevel(log.InfoLevel)
+		lion.SetLevel(lion.InfoLevel)
 	case "error":
-		log.SetLevel(log.ErrorLevel)
+		lion.SetLevel(lion.ErrorLevel)
 	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
-		log.SetLevel(log.InfoLevel)
+		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		lion.SetLevel(lion.InfoLevel)
 	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
@@ -149,7 +152,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.AssignRoles(address, nil); err != nil {
-			log.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
+			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
 	driver, err := getPFSDriver(address, appEnv)
@@ -167,7 +170,7 @@ func do(appEnvObj interface{}) error {
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
 	go func() {
 		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-			log.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
+			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
 	apiServer := pfs_server.NewAPIServer(driver, reporter)
@@ -182,7 +185,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
-			log.Printf("error from sharder.Register %s", sanitizeErr(err))
+			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
 	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.BlockCacheBytes, appEnv.StorageBackend)
@@ -234,7 +237,7 @@ func getClusterID(client discovery.Client) (string, error) {
 func getKubeClient(env *appEnv) (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", sanitizeErr(err))
+		protolion.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", sanitizeErr(err))
 	} else {
 		return kubeClient, err
 	}
