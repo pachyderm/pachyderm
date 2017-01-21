@@ -9,8 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/time"
 )
 
 var (

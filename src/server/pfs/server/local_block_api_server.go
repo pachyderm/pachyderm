@@ -9,14 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -44,8 +43,8 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	result := &pfsclient.BlockRefs{}
+	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 
 	putBlockRequest, err := putBlockServer.Recv()
