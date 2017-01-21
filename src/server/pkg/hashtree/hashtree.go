@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
@@ -119,7 +120,7 @@ func (h *HashTree) removeFromMap(path string) error {
 		delete(h.Fs, path)
 	} else if n.DirNode != nil {
 		for _, child := range n.DirNode.Children {
-			if err := h.removeFromMap(pathlib.Join(path, child)); err != nil {
+			if err := h.removeFromMap(join(path, child)); err != nil {
 				return err
 			}
 		}
@@ -129,44 +130,6 @@ func (h *HashTree) removeFromMap(path string) error {
 			"malformed node at \"%s\": it's neither a file nor a directory", path)
 	}
 	return nil
-}
-
-// deleteNode removes the node at 'path' from 'h', updating the hash of its
-// ancestors
-func (h *HashTree) deleteNode(path string) error {
-	// Remove 'path' from h.Fs
-	node, ok := h.Fs[path]
-	if !ok {
-		return errorf(PathNotFound,
-			"cannot remove node at \"%s\", there is no such node in the tree", path)
-	}
-	size := node.Size
-	h.removeFromMap(path)
-
-	// Remove 'path' from its parent directory
-	parent, child := split(path)
-	node, ok = h.Fs[parent]
-	if !ok {
-		return errorf(Internal, "attempted to delete orphaned file \"%s\"", path)
-	}
-	if node.DirNode == nil {
-		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
-			"under it")
-	}
-	if !removeStr(&node.DirNode.Children, child) {
-		return errorf(Internal, "parent of \"%s\" does not contain it", path)
-	}
-	// Update hashes back to root
-	return h.visit(path, func(node *Node, parent, child string) error {
-		if node == nil {
-			return errorf(Internal,
-				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
-				join(parent, child))
-		}
-		node.Size -= size
-		h.updateHash(parent)
-		return nil
-	})
 }
 
 // PutFile inserts a file into the hierarchy
@@ -265,36 +228,38 @@ func (h *HashTree) DeleteFile(path string) error {
 	h.init()
 	path = clean(path)
 
+	// Remove 'path' from h.Fs
 	node, ok := h.Fs[path]
 	if !ok {
 		return errorf(PathNotFound, "no file at \"%s\"", path)
 	}
-	if node.FileNode == nil {
-		return errorf(PathConflict,
-			"DeleteFile called on \"%s\", which is not a FileNode", path)
-	}
+	size := node.Size
+	h.removeFromMap(path)
 
-	// Remove file from map (h.Fs) and from the parent's Children list
-	return h.deleteNode(path)
-}
-
-// DeleteDir deletes the directory at 'path' along with its entire subtree (i.e.
-// rm -rf)
-func (h *HashTree) DeleteDir(path string) error {
-	h.init()
-	path = clean(path)
-
-	node, ok := h.Fs[path]
+	// Remove 'path' from its parent directory
+	parent, child := split(path)
+	node, ok = h.Fs[parent]
 	if !ok {
-		return errorf(PathNotFound, "no directory at \"%s\"", path)
+		return errorf(Internal, "attempted to delete orphaned file \"%s\"", path)
 	}
 	if node.DirNode == nil {
-		return errorf(PathConflict,
-			"DeleteDir called on \"%s\", which is not a DirectoryNode", path)
+		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
+			"under it")
 	}
-
-	// Remove file from map (h.Fs) and from the parent's Children list
-	return h.deleteNode(path)
+	if !removeStr(&node.DirNode.Children, child) {
+		return errorf(Internal, "parent of \"%s\" does not contain it", path)
+	}
+	// Update hashes back to root
+	return h.visit(path, func(node *Node, parent, child string) error {
+		if node == nil {
+			return errorf(Internal,
+				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
+				join(parent, child))
+		}
+		node.Size -= size
+		h.updateHash(parent)
+		return nil
+	})
 }
 
 // Get returns the node associated with the path
@@ -433,15 +398,30 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 	return sizeDelta, nil
 }
 
-// Merge merges the HashTree 'from' into 'h'. Any files/directories in both
-// 'from' and 'h' are merged (the content in 'from' is appended) and any
-// files/directories that are only in 'from' are simply added to 'h'.
-func (h *HashTree) Merge(from Interface) error {
+// Merge merges the HashTrees in 'trees' into 'h'. The result is nil if no
+// errors are encountered while merging any tree, or else a new error e, where:
+// - Code(e) is the error code of the first error encountered
+// - e.Error() contains the error messages of all errors encountered
+func (h *HashTree) Merge(trees []Interface) error {
 	h.init()
 
-	if _, err := from.Get("/"); Code(err) == PathNotFound {
-		return nil // No work necessary to merge blank tree
+	errors := []error{}
+	for _, tree := range trees {
+		if _, err := tree.Get("/"); Code(err) == PathNotFound {
+			continue // No work necessary to merge blank tree
+		}
+		_, err := h.mergeNode("", tree) // Empty string is internal repr of "/"
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
-	_, err := h.mergeNode("", from) // Empty string is internal repr of "/"
-	return err
+	if len(errors) > 0 {
+		msgs := make([]string, len(errors))
+		for i := 0; i < len(errors); i++ {
+			msgs[i] = errors[i].Error()
+		}
+		return errorf(Code(errors[0]),
+			"encountered in merge: "+strings.Join(msgs, "; "))
+	}
+	return nil
 }
