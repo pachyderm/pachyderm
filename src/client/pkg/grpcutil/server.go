@@ -43,7 +43,6 @@ func Serve(
 	}
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(math.MaxUint32),
-		grpc.UnaryInterceptor(UnaryServerInterceptor),
 		grpc.MaxMsgSize(options.MaxMsgSize),
 	)
 	registerFunc(grpcServer)
