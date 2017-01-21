@@ -3978,7 +3978,7 @@ func TestSimpleService(t *testing.T) {
 		runningJobInfo = jobInfo
 		return nil
 	}, b, func(err error, d time.Duration) {
-		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
+		fmt.Printf("error waiting on job state: %v; retrying in %v\n", err, d)
 	})
 	require.NotNil(t, runningJobInfo)
 	require.NotNil(t, runningJobInfo.Started)
@@ -4014,7 +4014,7 @@ func TestSimpleService(t *testing.T) {
 		}
 		return nil
 	}, b, func(err error, d time.Duration) {
-		fmt.Errorf("error running netcat command: %v; retrying in %v", err, d)
+		fmt.Printf("error running netcat command: %v; retrying in %v\n", err, d)
 	})
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", result)
