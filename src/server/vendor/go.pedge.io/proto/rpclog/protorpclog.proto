@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package protorpclog;
+
+message Call {
+  string service = 1;
+  string method = 2;
+  string request = 3;
+  string response = 4;
+  string error = 5;
+  google.protobuf.Duration duration = 6;
+}
