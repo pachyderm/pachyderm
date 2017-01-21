@@ -20,8 +20,8 @@ const (
 	// violation of an internal invariant).
 	Internal
 
-	// PathNotFound is returned when Get() is called with a path that doesn't
-	// lead to a node.
+	// PathNotFound is returned when Get() or DeleteFile() is called with a path
+	// that doesn't lead to a node.
 	PathNotFound
 
 	// MalformedGlob is returned when Glob() is called with an invalid glob
@@ -39,18 +39,28 @@ const (
 
 // Interface is the signature of a HashTree provided by this library
 type Interface interface {
-	// Read, Update, and Delete files
+	// PutFile appends data to a file (and creates the file if it doesn't exist)
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
+
+	// PutDir creates a directory (or does nothing if one exists)
+	PutDir(path string) error
+
+	// DeleteFile deletes a regular file or directory (along with its children).
 	DeleteFile(path string) error
+
+	// Get retrieves the contents of a regular file
 	Get(path string) (*Node, error)
 
-	// Read, Update, and Delete directories
-	PutDir(path string) error
-	DeleteDir(path string) error
+	// List retrieves the list of files and subdirectories of the directory at
+	// 'path'.
 	List(path string) ([]*Node, error)
 
-	// Returns a list of files and directories that match 'pattern'
+	// Glob returns a list of files and directories that match 'pattern'
 	Glob(pattern string) ([]*Node, error)
-	// Merges another hash tree into this tree
-	Merge(tree Interface) error
+
+	// Merge adds all of the files and directories in each tree in 'trees' into
+	// this tree. The effect is equivalent to calling this.PutFile with every
+	// file in every tree in 'tree', though the performance may be slightly
+	// better.
+	Merge(trees []Interface) error
 }

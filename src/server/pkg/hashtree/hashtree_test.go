@@ -130,7 +130,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.NotEqual(t, []string{}, h.Fs["/dir"].DirNode.Children)
 
 	// delete the directory
-	h.DeleteDir("/dir/foo")
+	h.DeleteFile("/dir/foo")
 	nodes, err = h.List("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
@@ -139,7 +139,7 @@ func TestPutDirBasic(t *testing.T) {
 
 	// Make sure that deleting a dir also deletes files under the dir
 	h.PutFile("/dir/foo/bar", br(`block{hash:"20c27"}`))
-	h.DeleteDir("/dir/foo")
+	h.DeleteFile("/dir/foo")
 	nodes, err = h.List("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
@@ -180,8 +180,9 @@ func TestDeleteDirError(t *testing.T) {
 	h.PutDir("/")
 	require.Equal(t, 1, len(h.Fs))
 
-	err := h.DeleteDir("/does/not/exist")
+	err := h.DeleteFile("/does/not/exist")
 	require.YesError(t, err)
+	require.Equal(t, PathNotFound, Code(err))
 	require.Equal(t, 1, len(h.Fs))
 }
 
@@ -195,11 +196,11 @@ func TestAddDeleteReverts(t *testing.T) {
 	}
 	addDeleteDir := func() {
 		h.PutDir("/dir/__NEW_DIR__")
-		h.DeleteDir("/dir/__NEW_DIR__")
+		h.DeleteFile("/dir/__NEW_DIR__")
 	}
 	addDeleteSubFile := func() {
 		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
-		h.DeleteDir("/dir/__NEW_DIR__")
+		h.DeleteFile("/dir/__NEW_DIR__")
 	}
 
 	h.PutDir("/dir")
@@ -223,13 +224,13 @@ func TestDeleteAddReverts(t *testing.T) {
 		h.DeleteFile("/dir/__NEW_FILE__")
 		h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	}
-	deleteAddSubFile := func() {
-		h.DeleteDir("/dir/__NEW_DIR__")
-		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
-	}
 	deleteAddDir := func() {
-		h.DeleteDir("/dir/__NEW_DIR__")
+		h.DeleteFile("/dir/__NEW_DIR__")
 		h.PutDir("/dir/__NEW_DIR__")
+	}
+	deleteAddSubFile := func() {
+		h.DeleteFile("/dir/__NEW_DIR__")
+		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	}
 
 	h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
@@ -286,11 +287,10 @@ func TestPutFileCommutative(t *testing.T) {
 	comparePutFiles()
 	// Add some files to make sure the test still passes when D already has files
 	// in it.
-	h = HashTree{}
+	h, h2 = HashTree{}, HashTree{}
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
-	h.PutFile("/dir/bar", br(`block{hash:"9d432"}`))
-	h2 = HashTree{}
 	h2.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
+	h.PutFile("/dir/bar", br(`block{hash:"9d432"}`))
 	h2.PutFile("/dir/bar", br(`block{hash:"9d432"}`))
 	comparePutFiles()
 }
@@ -323,7 +323,7 @@ func TestRenameChangesHash(t *testing.T) {
 	require.Equal(t, (*rootPre).Size, (*rootPtr).Size)
 
 	// rename /dir to /dir2
-	h.DeleteDir("/dir")
+	h.DeleteFile("/dir")
 	h.PutFile("/dir2/foo", br(`block{hash:"ebc57"}`))
 
 	dirPtr, err = h.Get("/dir2")
@@ -402,7 +402,7 @@ func TestGlobFile(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	l, r := HashTree{}, HashTree{}
+	l, r := &HashTree{}, &HashTree{}
 	l.PutFile("/foo-left", br(`block{hash:"20c27"}`))
 	l.PutFile("/dir-left/bar-left", br(`block{hash:"ebc57"}`))
 	l.PutFile("/dir-shared/buzz-left", br(`block{hash:"8e02c"}`))
@@ -412,7 +412,7 @@ func TestMerge(t *testing.T) {
 	r.PutFile("/dir-shared/buzz-right", br(`block{hash:"8e02c"}`))
 	r.PutFile("/dir-shared/file-shared", br(`block{hash:"9d432"}`))
 
-	expected := HashTree{}
+	expected := &HashTree{}
 	expected.PutFile("/foo-left", br(`block{hash:"20c27"}`))
 	expected.PutFile("/dir-left/bar-left", br(`block{hash:"ebc57"}`))
 	expected.PutFile("/dir-shared/buzz-left", br(`block{hash:"8e02c"}`))
@@ -422,8 +422,13 @@ func TestMerge(t *testing.T) {
 	expected.PutFile("/dir-shared/buzz-right", br(`block{hash:"8e02c"}`))
 	expected.PutFile("/dir-shared/file-shared", br(`block{hash:"9d432"}`))
 
-	l.Merge(&r)
-	expected.requireSame(t, &l)
+	h := proto.Clone(l).(*HashTree)
+	h.Merge([]Interface{r})
+	expected.requireSame(t, h)
+
+	h = &HashTree{}
+	h.Merge([]Interface{l, r})
+	expected.requireSame(t, h)
 }
 
 // Test that Merge() works with empty hash trees
@@ -436,11 +441,11 @@ func TestMergeEmpty(t *testing.T) {
 
 	// Merge empty tree into full tree
 	proto.Unmarshal(b, &l)
-	l.Merge(&r)
+	l.Merge([]Interface{&r})
 	expected.requireSame(t, &l)
 
 	// Merge full tree into empty tree
-	r.Merge(&l)
+	r.Merge([]Interface{&l})
 	expected.requireSame(t, &r)
 }
 
