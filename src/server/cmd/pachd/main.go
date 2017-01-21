@@ -31,9 +31,7 @@ import (
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
-	log "github.com/Sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"go.pedge.io/env"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
@@ -81,14 +79,14 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	switch appEnv.LogLevel {
 	case "debug":
-		lion.SetLevel(lion.DebugLevel)
+		lion.SetLevel(lion.LevelDebug)
 	case "info":
-		lion.SetLevel(lion.InfoLevel)
+		lion.SetLevel(lion.LevelInfo)
 	case "error":
-		lion.SetLevel(lion.ErrorLevel)
+		lion.SetLevel(lion.LevelError)
 	default:
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
-		lion.SetLevel(lion.InfoLevel)
+		lion.SetLevel(lion.LevelInfo)
 	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -100,8 +99,8 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	result := &pfsclient.BlockRefs{}
+	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
 	if err != nil {

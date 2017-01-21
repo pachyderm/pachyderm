@@ -27,7 +27,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -1375,7 +1374,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 func (a *apiServer) Version(version int64) error {
-	func() { a.Log(request, nil, nil, 0) }()
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()
 	a.version = version

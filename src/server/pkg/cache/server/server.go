@@ -3,6 +3,7 @@ package server
 import (
 	"hash/adler32"
 	"sync"
+	"time"
 
 	pb "github.com/golang/groupcache/groupcachepb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
