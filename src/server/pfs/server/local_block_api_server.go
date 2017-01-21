@@ -139,8 +139,10 @@ func (s *localBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
 	objectPath := s.objectPath(object)
-	if err := ioutil.WriteFile(objectPath, request.Value, 0666); err != nil {
-		return nil, err
+	if _, err := os.Stat(objectPath); os.IsNotExist(err) {
+		if err := ioutil.WriteFile(objectPath, request.Value, 0666); err != nil {
+			return nil, err
+		}
 	}
 	for _, tag := range request.Tags {
 		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
