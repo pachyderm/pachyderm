@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
@@ -216,7 +215,6 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
 	var request *pfs.PutFileRequest
 	defer drainFileServer(putFileServer)
 	defer func() {
