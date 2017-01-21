@@ -33,6 +33,12 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	if err := os.MkdirAll(server.blockDir(), 0777); err != nil {
 		return nil, err
 	}
+	if err := os.MkdirAll(server.objectDir(), 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(server.tagDir(), 0777); err != nil {
+		return nil, err
+	}
 	return server, nil
 }
 
