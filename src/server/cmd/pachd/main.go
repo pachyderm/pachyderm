@@ -23,6 +23,7 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -31,10 +32,8 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	flag "github.com/spf13/pflag"
-	"go.pedge.io/env"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -70,7 +69,7 @@ type appEnv struct {
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
@@ -192,7 +191,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	return protoserver.Serve(
+	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
@@ -202,10 +201,11 @@ func do(appEnvObj interface{}) error {
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
-		protoserver.ServeOptions{
-			Version: version.Version,
+		grpcutil.ServeOptions{
+			Version:    version.Version,
+			MaxMsgSize: pfs_server.MaxMsgSize,
 		},
-		protoserver.ServeEnv{
+		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,
 		},
 	)

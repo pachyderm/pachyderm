@@ -1,12 +1,14 @@
 syntax = "proto3";
+package pps;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
-import "client/pfs/pfs.proto";
 
-package pps;
+import "gogoproto/gogo.proto";
+
+import "client/pfs/pfs.proto";
 
 option go_package = "pps";
 
@@ -35,7 +37,7 @@ message Output {
 }
 
 message Job {
-  string id = 1;
+  string id = 1 [(gogoproto.customname) = "ID"];
 }
 
 enum JobState {
@@ -136,7 +138,7 @@ enum ChunkState {
 }
 
 message Chunk {
-  string id = 1;
+  string id = 1 [(gogoproto.customname) = "ID"];
   // A series of pods, in chronological order, that have processed this shard
   repeated Pod pods = 2;
   ChunkState state = 3;

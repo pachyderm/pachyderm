@@ -5,10 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/groupcache"
 	pb "github.com/golang/groupcache/groupcachepb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
+
+	"github.com/golang/groupcache"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 )

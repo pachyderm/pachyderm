@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/pkg/exec"
 )
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
@@ -24,8 +24,8 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 		_, err := os.Stdout.Write(manifest.Bytes())
 		return err
 	}
-	return pkgexec.RunIO(
-		pkgexec.IO{
+	return cmdutil.RunIO(
+		cmdutil.IO{
 			Stdin:  manifest,
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
@@ -50,7 +50,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -76,7 +76,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per rethink shard (see --rethink-shards).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 3, Max: 3}, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(3, 3, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -103,7 +103,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <EBS volume names>: A comma-separated list of EBS volumes, one per rethink shard (see --rethink-shards).\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 7, Max: 7}, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(7, 7, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -128,7 +128,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
 			"  <volume URIs>: A comma-separated list of persistent volumes, one per rethink shard (see --rethink-shards).\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 5, Max: 5}, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(5, 5, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -159,7 +159,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
-		PersistentPreRun: pkgcobra.Run(func([]string) error {
+		PersistentPreRun: cmdutil.Run(func([]string) error {
 			if deployRethinkAsRc && deployRethinkAsStatefulSet {
 				return fmt.Errorf("Error: pachctl deploy received contradictory flags: " +
 					"--deploy-rethink-as-rc and --deploy-rethink-as-stateful-set")
@@ -216,27 +216,27 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 0}, func(args []string) error {
-			io := pkgexec.IO{
+		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			io := cmdutil.IO{
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "job", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "job", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := pkgexec.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
+			if err := cmdutil.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
 			return nil

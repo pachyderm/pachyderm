@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	protoversion "go.pedge.io/proto/version"
+	pb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
 const (
@@ -21,7 +21,7 @@ var (
 	// DO NOT set the value of this variable here
 	AdditionalVersion string
 	// Version is the current version for pachyderm.
-	Version = &protoversion.Version{
+	Version = &pb.Version{
 		Major:      MajorVersion,
 		Minor:      MinorVersion,
 		Micro:      MicroVersion,
@@ -31,7 +31,7 @@ var (
 
 // PrettyPrintVersion returns a version string optionally tagged with metadata.
 // For example: "1.2.3", or "1.2.3-rc1" if version.Additional is "rc1".
-func PrettyPrintVersion(version *protoversion.Version) string {
+func PrettyPrintVersion(version *pb.Version) string {
 	result := fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
 	if version.Additional != "" {
 		result += fmt.Sprintf("-%s", version.Additional)

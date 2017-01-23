@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/time"
 )
 
 var (
@@ -17,19 +16,21 @@ var (
 	// specified.
 	DefaultGCPolicy = &ppsclient.GCPolicy{
 		// a day
-		Success: &google_protobuf.Duration{
+		Success: &types.Duration{
 			Seconds: 24 * 60 * 60,
 		},
 		// a week
-		Failure: &google_protobuf.Duration{
+		Failure: &types.Duration{
 			Seconds: 7 * 24 * 60 * 60,
 		},
 	}
 )
 
 func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
-	successTick := time.Tick(prototime.DurationFromProto(pipelineInfo.GcPolicy.Success))
-	failureTick := time.Tick(prototime.DurationFromProto(pipelineInfo.GcPolicy.Failure))
+	dSuccess, _ := types.DurationFromProto(pipelineInfo.GcPolicy.Success)
+	dFailure, _ := types.DurationFromProto(pipelineInfo.GcPolicy.Failure)
+	successTick := time.Tick(dSuccess)
+	failureTick := time.Tick(dFailure)
 	// wait blocks until it's time to run GC again
 	wait := func() {
 		select {
