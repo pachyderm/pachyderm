@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -98,8 +98,8 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 }
 
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
-	result := &pfsclient.BlockRefs{}
 	func() { s.Log(nil, nil, nil, 0) }()
+	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
@@ -180,10 +180,10 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 	} else {
 		data = nil
 	}
-	return getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
+	return getBlockServer.Send(&types.BytesValue{Value: data})
 }
 
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	backoff.RetryNotify(func() error {
@@ -197,16 +197,13 @@ func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.
 			TimeTillNextRetry: d.String(),
 		})
 	})
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }

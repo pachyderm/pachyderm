@@ -1,11 +1,10 @@
 syntax = "proto3";
-
-import "google/protobuf/empty.proto";
-import "server/pfs/fuse/fuse.proto";
-import "client/pfs/pfs.proto";
-import "client/pps/pps.proto";
-
 package pps;
+
+import "gogoproto/gogo.proto";
+
+import "server/pfs/fuse/fuse.proto";
+import "client/pps/pps.proto";
 
 option go_package = "pps";
 
@@ -15,13 +14,13 @@ message StartPodRequest {
 }
 
 message StartPodResponse {
-  string chunk_id = 1;
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
   Transform transform = 2;
   repeated fuse.CommitMount commit_mounts = 3;
 }
 
 message FinishPodRequest {
-  string chunk_id = 1;
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
   string pod_name = 2;
   bool success = 3;
 }
@@ -33,7 +32,7 @@ message FinishPodResponse {
 }
 
 message ContinuePodRequest {
-  string chunk_id = 1;
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
   string pod_name = 2;
 }
 
@@ -50,4 +49,3 @@ service InternalPodAPI {
     rpc ContinuePod(ContinuePodRequest) returns (ContinuePodResponse) {}
     rpc FinishPod(FinishPodRequest) returns (FinishPodResponse) {}
 }
-

@@ -1,8 +1,8 @@
 package health
 
 import (
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/health"
-	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 )
 
@@ -13,6 +13,6 @@ func NewHealthServer() health.HealthServer {
 
 type healthServer struct{}
 
-func (*healthServer) Health(context.Context, *google_protobuf.Empty) (*google_protobuf.Empty, error) {
-	return google_protobuf.EmptyInstance, nil
+func (*healthServer) Health(context.Context, *types.Empty) (*types.Empty, error) {
+	return &types.Empty{}, nil
 }

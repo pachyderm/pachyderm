@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -275,7 +275,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 					_, err := pfsAPIClient.DeleteRepo(ctx, req)
 					if err != nil {
 						protolion.Errorf("could not rollback repo creation %s", err.Error())
-						a.Log(req, nil, err, 0)
+						func() { a.Log(req, nil, err, 0) }()
 					}
 				}
 			}()
@@ -748,7 +748,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	}, nil
 }
 
-func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *google_protobuf.Empty, err error) {
+func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *types.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -779,7 +779,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 	if _, err := persistClient.DeleteJobInfo(ctx, request.Job); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
@@ -818,7 +818,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		return err
 	}
 	for _, log := range logs {
-		if err := apiGetLogsServer.Send(&google_protobuf.BytesValue{Value: log}); err != nil {
+		if err := apiGetLogsServer.Send(&types.BytesValue{Value: log}); err != nil {
 			return err
 		}
 	}
@@ -1080,7 +1080,7 @@ func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodR
 	return response, nil
 }
 
-func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -1231,7 +1231,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 			}
 		}
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 // setDefaultPipelineInputMethod sets method to the default for the inputs
@@ -1294,7 +1294,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	}, nil
 }
 
-func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -1302,10 +1302,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *google_protobuf.Empty, err error) {
+func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *types.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -1327,7 +1327,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	})
 }
 
-func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *google_protobuf.Empty, err error) {
+func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *types.Empty, err error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -1349,7 +1349,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	})
 }
 
-func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PPSDeleteAll")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -1370,7 +1370,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *google_protobuf.Empt
 	if _, err := persistClient.DeleteAll(ctx, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) Version(version int64) error {
