@@ -69,6 +69,11 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
+install-autocomplete:
+	pachctl completion > /tmp/pachctl.sh
+	sudo mv /tmp/pachctl.sh /etc/bash_completion.d/pachctl.sh
+	@echo "restart your shell to active auto-completion for pachctl"
+
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
