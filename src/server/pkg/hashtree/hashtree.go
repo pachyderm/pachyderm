@@ -401,7 +401,7 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 // Merge merges the HashTrees in 'trees' into 'h'. The result is nil if no
 // errors are encountered while merging any tree, or else a new error e, where:
 // - Code(e) is the error code of the first error encountered
-// - e.Error() contains the error messages of all errors encountered
+// - e.Error() contains the error messages of the first 10 errors encountered
 func (h *HashTree) Merge(trees []Interface) error {
 	h.init()
 
@@ -411,7 +411,7 @@ func (h *HashTree) Merge(trees []Interface) error {
 			continue // No work necessary to merge blank tree
 		}
 		_, err := h.mergeNode("", tree) // Empty string is internal repr of "/"
-		if err != nil {
+		if err != nil && len(errors) < 10 {
 			errors = append(errors, err)
 		}
 	}
