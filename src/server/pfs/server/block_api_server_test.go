@@ -28,6 +28,21 @@ func TestTags(t *testing.T) {
 	require.Equal(t, []byte("foo"), value)
 }
 
+func TestManyObjects(t *testing.T) {
+	c := getPachClient(t)
+	var objects []string
+	for i := 0; i < 200; i++ {
+		object, err := c.PutObject([]byte(string(i)))
+		require.NoError(t, err)
+		objects = append(objects, object.Hash)
+	}
+	for i, hash := range objects {
+		value, err := c.GetObject(hash)
+		require.NoError(t, err)
+		require.Equal(t, []byte(string(i)), value)
+	}
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
