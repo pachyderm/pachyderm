@@ -61,7 +61,7 @@ func (s *groupCacheServer) PickPeer(key string) (groupcache.ProtoGetter, bool) {
 	// this allows users of the cache to have different keys hash to the same
 	// server which can be very useful, checkout objBlockAPIServer for an
 	// example of how.
-	shard := uint64(adler32.Checksum([]byte(strings.Split(key, "-")[0]))) % s.shards
+	shard := uint64(adler32.Checksum([]byte(strings.Split(key, ".")[0]))) % s.shards
 	if s.localShards[shard] {
 		return nil, false
 	}

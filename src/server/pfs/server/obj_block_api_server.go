@@ -427,7 +427,7 @@ func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest
 }
 
 func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
-	splitKey := strings.Split(key, "-")
+	splitKey := strings.Split(key, ".")
 	if len(splitKey) != 2 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
@@ -453,6 +453,9 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 	// been incorporated into an index and thus deleted.
 	if err := s.readObj(s.localServer.objectPath(object), 0, 0, dest); err != nil && !s.objClient.IsNotExist(err) {
 		return err
+	} else if err == nil {
+		// We found the file so we can return.
+		return nil
 	}
 	// The last chance to find this object is to update the index since the
 	// object may have been recently incorporated into it.
@@ -468,7 +471,7 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 }
 
 func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
-	splitKey := strings.Split(key, "-")
+	splitKey := strings.Split(key, ".")
 	if len(splitKey) != 2 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
@@ -563,7 +566,7 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 
 func splitKey(key string) string {
 	if len(key) < prefixLength {
-		return fmt.Sprintf("%s-", key)
+		return fmt.Sprintf("%s.", key)
 	}
-	return fmt.Sprintf("%s-%s", key[:prefixLength], key[prefixLength:])
+	return fmt.Sprintf("%s.%s", key[:prefixLength], key[prefixLength:])
 }
