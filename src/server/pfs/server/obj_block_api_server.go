@@ -66,6 +66,15 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		groupcache.GetterFunc(server.objectGetter))
 	server.tagCache = groupcache.NewGroup("tag", cacheSize,
 		groupcache.GetterFunc(server.tagGetter))
+	go func() {
+		ticker := time.NewTicker(time.Second * 15)
+		for {
+			<-ticker.C
+			if err := server.compact(); err != nil {
+				protolion.Errorf("error compacting: %s", err.Error())
+			}
+		}
+	}()
 	return server, nil
 }
 
@@ -210,7 +219,11 @@ func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.Li
 func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
+	hash := newHash()
+	if _, err := hash.Write(request.Value); err != nil {
+		return nil, err
+	}
+	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(hash.Sum(nil))}
 	var eg errgroup.Group
 	eg.Go(func() (retErr error) {
 		objectPath := s.localServer.objectPath(object)
