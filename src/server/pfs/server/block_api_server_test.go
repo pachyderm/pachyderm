@@ -36,6 +36,7 @@ func TestManyObjects(t *testing.T) {
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}
+	require.NoError(t, c.Compact())
 	for i, hash := range objects {
 		value, err := c.GetObject(hash)
 		require.NoError(t, err)
