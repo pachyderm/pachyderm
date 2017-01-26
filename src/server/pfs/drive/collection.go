@@ -3,34 +3,45 @@ package drive
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 )
 
 const (
-	locksPrefix   = "/locks"
-	reposPrefix   = "/repos"
-	commitsPrefix = "/commits"
-	refsPrefix    = "/refs"
+	reposPrefix         = "/repos"
+	repoRefCountsPrefix = "/repoRefCounts"
+	commitsPrefix       = "/commits"
+	refsPrefix          = "/refs"
 )
 
 type ErrNotFound struct {
 	Type string
-	Name string
+	Key  string
 }
 
 func (e ErrNotFound) Error() string {
-	return fmt.Sprintf("%s %s not found", e.Type, e.Name)
+	return fmt.Sprintf("%s %s not found", e.Type, e.Key)
 }
 
 type ErrExists struct {
 	Type string
-	Name string
+	Key  string
 }
 
 func (e ErrExists) Error() string {
-	return fmt.Sprintf("%s %s already exists", e.Type, e.Name)
+	return fmt.Sprintf("%s %s already exists", e.Type, e.Key)
+}
+
+type ErrMalformedValue struct {
+	Type string
+	Key  string
+	Val  string
+}
+
+func (e ErrMalformedValue) Error() string {
+	return fmt.Sprintf("malformed value at %s/%s: %s", e.Type, e.Key, e.Val)
 }
 
 // collection implements helper functions that makes common operations
@@ -38,6 +49,12 @@ func (e ErrExists) Error() string {
 // because most of our data is modelled as collections, such as repos,
 // commits, refs, etc.
 type collection struct {
+	etcdClient *etcd.Client
+	prefix     string
+	stm        STM
+}
+
+type intCollection struct {
 	etcdClient *etcd.Client
 	prefix     string
 	stm        STM
@@ -56,6 +73,19 @@ type collectionFactory func(string) *collection
 func (d *driver) repos(stm STM) *collection {
 	return &collection{
 		prefix:     path.Join(d.prefix, reposPrefix),
+		etcdClient: d.etcdClient,
+		stm:        stm,
+	}
+}
+
+// repoRefCounts returns a collection of repo reference counters
+// Example etcd structure, assuming we have two repos "foo" and "bar":
+//   /repoRefCounts
+//     /foo
+//     /bar
+func (d *driver) repoRefCounts(stm STM) *intCollection {
+	return &intCollection{
+		prefix:     path.Join(d.prefix, repoRefCountsPrefix),
 		etcdClient: d.etcdClient,
 		stm:        stm,
 	}
@@ -127,20 +157,6 @@ func (c *collection) Create(key string, val proto.Message) error {
 	return nil
 }
 
-// Touch increments the version of an object.  It's useful for creating
-// a point of contention so concurrent operations can be serialized.  For
-// instance, if two processes Touch() the same object, they will be
-// serialized with respect to one another.
-func (c *collection) Touch(key string) error {
-	fullKey := c.path(key)
-	valStr := c.stm.Get(fullKey)
-	if valStr == "" {
-		return ErrNotFound{c.prefix, key}
-	}
-	c.stm.Put(fullKey, valStr)
-	return nil
-}
-
 func (c *collection) Delete(key string) error {
 	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
@@ -170,14 +186,9 @@ func (c *collection) List() (iterate, error) {
 
 	var i int
 	return func(key *string, val proto.Message) (bool, error) {
-	again:
 		if i < len(resp.Kvs) {
 			kv := resp.Kvs[i]
 			i += 1
-
-			if string(kv.Key) == c.path(versionKey) {
-				goto again
-			}
 
 			*key = string(kv.Key)
 			if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
@@ -190,6 +201,72 @@ func (c *collection) List() (iterate, error) {
 	}, nil
 }
 
-const (
-	versionKey = "__version"
-)
+// itoa converts an integer to a string
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+// path returns the full path of a key in the etcd namespace
+func (c *intCollection) path(key string) string {
+	return path.Join(c.prefix, key)
+}
+
+// Create creates an object if it doesn't already exist
+func (c *intCollection) Create(key string, val int) error {
+	fullKey := c.path(key)
+	valStr := c.stm.Get(fullKey)
+	if valStr != "" {
+		return ErrExists{c.prefix, key}
+	}
+	c.stm.Put(fullKey, itoa(val))
+	return nil
+}
+
+// Get gets the value of a key
+func (c *intCollection) Get(key string) (int, error) {
+	valStr := c.stm.Get(c.path(key))
+	if valStr == "" {
+		return 0, ErrNotFound{c.prefix, key}
+	}
+	return strconv.Atoi(valStr)
+}
+
+// Increment atomically increments the value of a key.
+func (c *intCollection) Increment(key string) error {
+	fullKey := c.path(key)
+	valStr := c.stm.Get(fullKey)
+	if valStr == "" {
+		return ErrNotFound{c.prefix, key}
+	}
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return ErrMalformedValue{c.prefix, key, valStr}
+	}
+	c.stm.Put(fullKey, itoa(val+1))
+	return nil
+}
+
+// Decrement atomically decrements the value of a key.
+func (c *intCollection) Decrement(key string) error {
+	fullKey := c.path(key)
+	valStr := c.stm.Get(fullKey)
+	if valStr == "" {
+		return ErrNotFound{c.prefix, key}
+	}
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return ErrMalformedValue{c.prefix, key, valStr}
+	}
+	c.stm.Put(fullKey, itoa(val-1))
+	return nil
+}
+
+// Delete deletes an object
+func (c *intCollection) Delete(key string) error {
+	fullKey := c.path(key)
+	if c.stm.Get(fullKey) == "" {
+		return ErrNotFound{c.prefix, key}
+	}
+	c.stm.Del(fullKey)
+	return nil
+}
