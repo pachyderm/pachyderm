@@ -602,3 +602,47 @@ func splitKey(key string) string {
 	}
 	return fmt.Sprintf("%s.%s", key[:prefixLength], key[prefixLength:])
 }
+
+type blockWriter struct {
+	w       io.WriteCloser
+	block   *pfsclient.Block
+	written uint64
+	mu      sync.Mutex
+}
+
+func newBlockWriter(id string) (*blockWriter, error) {
+	block := &pfsclient.Block{Hash: id}
+	w, err := s.objClient.Writer(s.localServer.blockPath(block))
+	if err != nil {
+		return nil, err
+	}
+	return &blockWriter{
+		w:     w,
+		block: block,
+	}
+	defer func() {
+		if err := blockW.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+}
+
+func (w *blockWriter) Write(p []byte) (*pfsclient.BlockRef, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	if _, err := w.w.Write(p); err != nil {
+		return nil, err
+	}
+	lower := w.written
+	w.written += uint64(len(p))
+	return &pfsclient.BlockRef{
+		Block: block,
+		Range: &pfsclient.ByteRange{
+			Lower: lower,
+			Upper: w.written,
+		}}, nil
+}
+
+func (w *blockWriter) Close() error {
+	return w.w.Close()
+}
