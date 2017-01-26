@@ -475,6 +475,15 @@ func (c APIClient) GetTag(tag string) ([]byte, error) {
 	return value.Value, nil
 }
 
+// Compact forces compaction of objects.
+func (c APIClient) Compact() error {
+	_, err := c.ObjectAPIClient.Compact(
+		c.ctx(),
+		google_protobuf.EmptyInstance,
+	)
+	return err
+}
+
 // PutFileWriter writes a file to PFS.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
