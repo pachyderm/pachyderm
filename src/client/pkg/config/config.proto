@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+import "gogoproto/gogo.proto";
+
+message Config {
+    string user_id = 1 [(gogoproto.customname) = "UserID"];
+}

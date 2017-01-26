@@ -132,7 +132,7 @@ func ClockToArray(clock gorethink.Term) []interface{} {
 
 // CommitID returns the CommitID of the clock associated with the diff
 func (d *Diff) CommitID() string {
-	return NewCommitID(d.Repo, d.Clock)
+	return NewCommitID(d.Repo, FullClockHead(d.Clock))
 }
 
 // ClockRangeList is an ordered list of ClockRanges
@@ -216,6 +216,20 @@ func DBClockDescendent(child, parent gorethink.Term) gorethink.Term {
 		gorethink.Branch(
 			child.Count().Eq(parent.Count()),
 			gorethink.And(child.Slice(0, -1).Eq(parent.Slice(0, -1)), gorethink.And(child.Nth(-1).Field("Branch").Eq(parent.Nth(-1).Field("Branch")), child.Nth(-1).Gt(parent.Nth(-1)))),
+			child.Slice(0, parent.Count()).Eq(parent),
+		),
+	)
+}
+
+// DBClockAncestor returns whether one FullClock is the ancestor of the other,
+// assuming both are rethinkdb terms.  A FullClock is the ancestor of itself.
+func DBClockAncestor(parent, child gorethink.Term) gorethink.Term {
+	return gorethink.Branch(
+		gorethink.Or(child.Count().Lt(parent.Count()), parent.Count().Eq(0)),
+		gorethink.Expr(false),
+		gorethink.Branch(
+			child.Count().Eq(parent.Count()),
+			gorethink.And(child.Slice(0, -1).Eq(parent.Slice(0, -1)), gorethink.And(child.Nth(-1).Field("Branch").Eq(parent.Nth(-1).Field("Branch")), child.Nth(-1).Ge(parent.Nth(-1)))),
 			child.Slice(0, parent.Count()).Eq(parent),
 		),
 	)

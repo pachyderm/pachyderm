@@ -4,7 +4,6 @@ import (
 	"bytes"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -49,11 +48,9 @@ func Example_pps() {
 		return // handle error
 	}
 
-	commits, err := c.ListCommit( // List commits that are...
-		[]*pfs.Commit{{
-			Repo: client.NewRepo("reduce"),
-		}}, // from the "reduce" repo (which the "reduce" pipeline outputs)
-		nil, // no provenance
+	commits, err := c.ListCommitByRepo( // List commits that are...
+		[]string{"reduce"}, // from the "reduce" repo (which the "reduce" pipeline outputs)
+		nil,                // no provenance
 		client.CommitTypeRead,     // are readable
 		client.CommitStatusNormal, // ignore cancelled commits
 		true, // block until commits are available

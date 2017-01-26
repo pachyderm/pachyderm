@@ -4,9 +4,9 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
-	google_protobuf "go.pedge.io/pb/go/google/protobuf"
-	protostream "go.pedge.io/proto/stream"
+	"github.com/gogo/protobuf/types"
 )
 
 // NewRepo creates a pfs.Repo.
@@ -34,14 +34,6 @@ func NewFile(repoName string, commitID string, path string) *pfs.File {
 func NewBlock(hash string) *pfs.Block {
 	return &pfs.Block{
 		Hash: hash,
-	}
-}
-
-// NewDiff creates a pfs.Diff.
-func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
-	return &pfs.Diff{
-		Commit: NewCommit(repoName, commitID),
-		Shard:  shard,
 	}
 }
 
@@ -233,29 +225,75 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 	return commitInfo, nil
 }
 
-// ListCommit returns info about multiple commits.
+// ListCommitByRepo lists commits in the given repos.
+//
 // repoNames defines a set of Repos to consider commits from, if repoNames is left
 // nil or empty then the result will be empty.
-// fromCommitIDs lets you get info about Commits that occurred after this
-// set of commits.
-// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
-// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
-// Using fromCommitIDs and block you can get subscription semantics from ListCommit.
-// commitStatus, controls the statuses of the returned commits. The default
-// value `Normal` will filter out archived and cancelled commits.
+//
 // provenance specifies a set of provenance commits, only commits which have
 // ALL of the specified commits as provenance will be returned unless
 // provenance is nil in which case it is ignored.
-func (c APIClient) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
+//
+// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
+//
+// status specifies the status of commit you want returned.  By default, cancelled
+// or archived commits are not returned.
+//
+// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
+// Using repoNames and block you can get subscription semantics from ListCommit.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
+func (c APIClient) ListCommitByRepo(repoNames []string, provenance []*pfs.Commit,
 	commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+	var include []*pfs.Commit
+	for _, repoName := range repoNames {
+		include = append(include, &pfs.Commit{
+			Repo: NewRepo(repoName),
+		})
+	}
+	return c.ListCommit(include, nil, provenance, commitType, status, block)
+}
+
+// ListCommit lists commits.
+//
+// exclude and include are filters that either include or exclude the ancestors of the
+// given commits.  A commit is considered the ancestor of itself.
+// For instance, ListCommit(include("foo/2")) returns commits foo/0, foo/1, and foo/2,
+// if they exist.  In contrast, ListCommit(exclude("foo/2")) returns commits that are
+// *not* foo/0, foo/1, or foo/2.
+//
+// To get all commits on a given branch, simply include a commit whose ID is the branch
+// name: ListCommit(include("foo"))
+//
+// To get all commits in a repo, use ListCommitByRepo.
+//
+// To get all commits, simply don't provide include or exclude.
+//
+// provenance specifies a set of provenance commits, only commits which have
+// ALL of the specified commits as provenance will be returned unless
+// provenance is nil in which case it is ignored.
+//
+// commitType specifies the type of commit you want returned, normally CommitTypeRead is the most useful option
+//
+// status specifies the status of commit you want returned.  By default, cancelled
+// or archived commits are not returned.
+//
+// block, when set to true, will cause ListCommit to block until at least 1 new CommitInfo is available.
+// Using fromCommits and block you can get subscription semantics from ListCommit.
+// commitStatus, controls the statuses of the returned commits. The default
+// value `Normal` will filter out archived and cancelled commits.
+func (c APIClient) ListCommit(exclude []*pfs.Commit, include []*pfs.Commit,
+	provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus,
+	block bool) ([]*pfs.CommitInfo, error) {
 	commitInfos, err := c.PfsAPIClient.ListCommit(
 		c.ctx(),
 		&pfs.ListCommitRequest{
-			FromCommits: fromCommits,
-			Provenance:  provenance,
-			CommitType:  commitType,
-			Status:      status,
-			Block:       block,
+			Exclude:    exclude,
+			Include:    include,
+			Provenance: provenance,
+			CommitType: commitType,
+			Status:     status,
+			Block:      block,
 		},
 	)
 	if err != nil {
@@ -358,7 +396,7 @@ func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader,
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
+	return grpcutil.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
 // DeleteBlock deletes a block from the block store.
@@ -430,7 +468,8 @@ func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path s
 
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
-func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string) (retErr error) {
+// recursive allow for recursive scraping of some types URLs for example on s3:// urls.
+func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return sanitizeErr(err)
@@ -441,9 +480,10 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 		}
 	}()
 	if err := putFileClient.Send(&pfs.PutFileRequest{
-		File:     NewFile(repoName, commitID, path),
-		FileType: pfs.FileType_FILE_TYPE_REGULAR,
-		Url:      url,
+		File:      NewFile(repoName, commitID, path),
+		FileType:  pfs.FileType_FILE_TYPE_REGULAR,
+		Url:       url,
+		Recursive: recursive,
 	}); err != nil {
 		return sanitizeErr(err)
 	}
@@ -478,7 +518,7 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 	if err != nil {
 		return sanitizeErr(err)
 	}
-	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+	if err := grpcutil.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
 		return sanitizeErr(err)
 	}
 	return nil
@@ -517,26 +557,69 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string,
 // in which case info about all the files and all the blocks in those files
 // will be returned.
 // recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
-func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	return c.listFile(repoName, commitID, path, fromCommitID, fullFile, shard, recurse)
-}
-
-func (c APIClient) listFile(repoName string, commitID string, path string, fromCommitID string,
-	fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
+func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
+	req := &pfs.ListFileRequest{
+		File:       NewFile(repoName, commitID, path),
+		Shard:      shard,
+		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
+	}
+	if recurse {
+		req.Mode = pfs.ListFileMode_ListFile_RECURSE
+	} else {
+		req.Mode = pfs.ListFileMode_ListFile_NORMAL
+	}
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		c.ctx(),
-		&pfs.ListFileRequest{
-			File:       NewFile(repoName, commitID, path),
-			Shard:      shard,
-			DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
-			Recurse:    recurse,
-		},
+		req,
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 	return fileInfos.FileInfo, nil
+}
+
+// ListFileFast is the same as ListFile except that it doesn't compute the sizes
+// of the files.  As a result it's faster than ListFile.
+func (c APIClient) ListFileFast(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard) ([]*pfs.FileInfo, error) {
+	req := &pfs.ListFileRequest{
+		File:       NewFile(repoName, commitID, path),
+		Shard:      shard,
+		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
+		Mode:       pfs.ListFileMode_ListFile_FAST,
+	}
+	fileInfos, err := c.PfsAPIClient.ListFile(
+		c.ctx(),
+		req,
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return fileInfos.FileInfo, nil
+}
+
+// WalkFn is the type of the function called for each file in Walk.
+// Returning a non-nil error from WalkFn will result in Walk aborting and
+// returning said error.
+type WalkFn func(*pfs.FileInfo) error
+
+// Walk walks the pfs filesystem rooted at path. walkFn will be called for each
+// file found under path, this includes both regular files and directories.
+func (c APIClient) Walk(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, walkFn WalkFn) error {
+	fileInfos, err := c.ListFileFast(repoName, commitID, path, fromCommitID, fullFile, shard)
+	if err != nil {
+		return err
+	}
+	for _, fileInfo := range fileInfos {
+		if err := walkFn(fileInfo); err != nil {
+			return err
+		}
+		if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+			if err := c.Walk(repoName, commitID, fileInfo.File.Path, fromCommitID, fullFile, shard, walkFn); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // DeleteFile deletes a file from a Commit.
@@ -575,9 +658,8 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	))
 }
 
-// SquashCommit creates a single commit that contains all diffs in `fromCommits`
-// * Replay: create a series of commits, each of which corresponds to a single
-// commit in `fromCommits`.
+// SquashCommit copies the content of `fromCommits` to `to`, which needs to be an
+// open commit.
 func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) error {
 
 	var realFromCommits []*pfs.Commit
@@ -598,8 +680,9 @@ func (c APIClient) SquashCommit(repo string, fromCommits []string, to string) er
 	return nil
 }
 
-// ReplayCommit creates a series of commits, each of which corresponds to a single
-// commit in `fromCommits`.
+// ReplayCommit replays a series of commits on top of commit "to".  The replayed commits
+// are the ancestors of the commits in "fromCommits", with no duplicates in case of
+// common ancestors.
 func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([]*pfs.Commit, error) {
 	var realFromCommits []*pfs.Commit
 	for _, commitID := range fromCommits {
@@ -622,7 +705,7 @@ func (c APIClient) ReplayCommit(repo string, fromCommits []string, to string) ([
 func (c APIClient) ArchiveAll() error {
 	_, err := c.PfsAPIClient.ArchiveAll(
 		c.ctx(),
-		google_protobuf.EmptyInstance,
+		&types.Empty{},
 	)
 	return sanitizeErr(err)
 }

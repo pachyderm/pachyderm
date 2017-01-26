@@ -2,37 +2,37 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
-
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.pedge.io/lion"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/pkg/exec"
-	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 )
 
 // PachctlCmd takes a pachd host-address and creates a cobra.Command
 // which may interact with the host.
 func PachctlCmd(address string) (*cobra.Command, error) {
 	var verbose bool
+	var noMetrics bool
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -43,32 +43,40 @@ Environment variables:
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
 				// Silence any grpc logs
-				grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
-				// Silence our FUSE logs
-				lion.SetLevel(lion.LevelNone)
+				l := log.New()
+				l.Level = log.FatalLevel
+				grpclog.SetLogger(l)
 			}
 		},
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address)
+	pfsCmds := pfscmds.Cmds(address, &noMetrics)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(address)
+	ppsCmds, err := ppscmds.Cmds(address, &noMetrics)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	rootCmd.AddCommand(deploycmds.DeployCmd())
+	deployCmds := deploycmds.Cmds(&noMetrics)
+	for _, cmd := range deployCmds {
+		rootCmd.AddCommand(cmd)
+	}
 
 	version := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if !noMetrics {
+				metricsFn := metrics.ReportAndFlushUserAction("Version")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVersionHeader(writer)
 			printVersion(writer, "pachctl", version.Version)
@@ -79,11 +87,14 @@ Environment variables:
 				return sanitizeErr(err)
 			}
 			ctx, _ := context.WithTimeout(context.Background(), time.Second)
-			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
+			version, err := versionClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {
-				fmt.Fprintf(writer, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
-				return writer.Flush()
+				buf := bytes.NewBufferString("")
+				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
+				errWriter.Flush()
+				return errors.New(buf.String())
 			}
 
 			printVersion(writer, "pachd", version)
@@ -95,8 +106,8 @@ Environment variables:
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewFromAddress(address)
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -117,13 +128,13 @@ This resets the cluster to its initial state.`,
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl port-forward "$pod" %d:650
 `, port))
 			fmt.Println("Port forwarded, CTRL-C to exit.")
-			return pkgexec.RunIO(pkgexec.IO{
+			return cmdutil.RunIO(cmdutil.IO{
 				Stdin:  stdin,
 				Stderr: os.Stderr,
 			}, "sh")
@@ -136,19 +147,19 @@ kubectl port-forward "$pod" %d:650
 	return rootCmd, nil
 }
 
-func getVersionAPIClient(address string) (protoversion.APIClient, error) {
+func getVersionAPIClient(address string) (versionpb.APIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return protoversion.NewAPIClient(clientConn), nil
+	return versionpb.NewAPIClient(clientConn), nil
 }
 
 func printVersionHeader(w io.Writer) {
 	fmt.Fprintf(w, "COMPONENT\tVERSION\t\n")
 }
 
-func printVersion(w io.Writer, component string, v *protoversion.Version) {
+func printVersion(w io.Writer, component string, v *versionpb.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
 }
 

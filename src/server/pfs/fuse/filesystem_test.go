@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"go.pedge.io/pkg/exec"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"google.golang.org/grpc"
 )
 
@@ -305,7 +305,7 @@ func TestBigWrite(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file1")
 		stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
@@ -365,15 +365,15 @@ func Test296Appends(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >>%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
@@ -393,15 +393,15 @@ func Test296(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, repo, commitIDToPath(commit.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo 1 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		commit2, err := c.StartCommit(repo, commit.ID)
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit2.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
@@ -555,7 +555,7 @@ func TestOverwriteFile(t *testing.T) {
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, "repo", commitIDToPath(commit2.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit("repo", commit2.ID))
 		result, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
@@ -686,7 +686,7 @@ func TestNoDelimiter(t *testing.T) {
 		}
 		require.NoError(t, ioutil.WriteFile("/tmp/b", expectedOutputB, 0644))
 		stdin := strings.NewReader(fmt.Sprintf("cat /tmp/b >>%s", filePath))
-		require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 
 		// Finish the commit so I can read the data
 		require.NoError(t, c.FinishCommit(repo, commit1.ID))
@@ -737,7 +737,7 @@ func TestWriteToReadOnlyPath(t *testing.T) {
 
 		filePath := filepath.Join(mountpoint, repo, commitIDToPath(commit1.ID), name)
 		stdin := strings.NewReader(fmt.Sprintf("echo 'oh hai' > %s", filePath))
-		err = pkgexec.RunStdin(stdin, "sh")
+		err = cmdutil.RunStdin(stdin, "sh")
 		require.YesError(t, err)
 		require.Matches(t, "Operation not permitted", err.Error())
 	}, false)
@@ -874,7 +874,7 @@ func testFuse(
 	driver, err := persist.NewDriver(localAddress, RethinkAddress, dbName)
 	require.NoError(t, err)
 
-	apiServer := server.NewAPIServer(driver)
+	apiServer := server.NewAPIServer(driver, nil)
 	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	wg.Add(1)
@@ -900,7 +900,7 @@ func testFuse(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits))
+		require.NoError(t, mounter.MountAndCreate(mountpoint, nil, nil, ready, false, allCommits, false))
 	}()
 
 	<-ready

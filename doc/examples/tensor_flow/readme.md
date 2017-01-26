@@ -8,7 +8,7 @@ In this example, you'll generate a new Game of Thrones script based on a bunch o
 
 To do so, we'll be adapting [this LSTM Neural Net example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks) from Tensor Flow. We won't cover any LSTM or Neural Net theory in this example. For background we recommend reading that example and the resources they link to.
 
-This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/latest/development/deploying_on_the_cloud.html).
+This guide assumes you already have a [working pachyderm setup](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html), and you have a basic grasp of Pachyderm repos and pipelines. If you don't, you may want to start with the [fruit stand](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html) example or our [cloud deployment guide](http://pachyderm.readthedocs.io/en/stable/deployment/deploying_on_the_cloud.html).
 
 ## How
 
@@ -90,8 +90,7 @@ To construct the image, we need to:
 
 1. Make sure we use an image with the Tensor Flow library installed
 2. Make sure the image includes our code
-3. Update the image to include Pachyderm's job shim
-4. Actually compile the image
+3. Build the image
 
 If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll notice a couple things.
 
@@ -101,20 +100,13 @@ If you take a look at the [Dockerfile](./Dockerfile) in this directory, you'll n
 FROM tensorflow/tensorflow
 ```
 
-2) On line 25 we're including the [code found locally](./code) in the Docker image:
+2) On line 5 we're including the [code found locally](./code) in the Docker image:
 
 ```
 ADD code /code
 ```
 
-3) The rest of the Dockerfile installs the dependencies that Pachyderm needs to run the transformation.
-
-This boils down to:
-
-- installing FUSE so that PFS can expose the data to the container
-- installing `job-shim` which is the binary that actually runs the transformation
-
-4) Generate the image
+3) Build the image
 
 Again, we have a helper. If you run:
 

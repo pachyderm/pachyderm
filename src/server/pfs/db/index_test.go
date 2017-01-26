@@ -21,10 +21,10 @@ func TestDiffPathIndex(t *testing.T) {
 	cursor, err := gorethink.Expr(DiffPathIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
 		Path: path,
-		Clock: &persist.Clock{
+		Clock: []*persist.Clock{{
 			Branch: "branch",
 			Clock:  1,
-		},
+		}},
 	}))).Run(dbClient)
 	require.NoError(t, err)
 	var key []interface{}
@@ -37,10 +37,10 @@ func TestDiffPrefixIndex(t *testing.T) {
 	cursor, err := gorethink.Expr(DiffPrefixIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
 		Path: "/foo/bar/fizz/buzz",
-		Clock: &persist.Clock{
+		Clock: []*persist.Clock{{
 			Branch: "branch",
 			Clock:  1,
-		},
+		}},
 	}))).Run(dbClient)
 	require.NoError(t, err)
 	keys := []interface{}{}
@@ -67,10 +67,10 @@ func TestDiffParentIndex(t *testing.T) {
 	cursor, err := gorethink.Expr(DiffParentIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
 		Path: path,
-		Clock: &persist.Clock{
+		Clock: []*persist.Clock{{
 			Branch: "branch",
 			Clock:  1,
-		},
+		}},
 	}))).Run(dbClient)
 	require.NoError(t, err)
 	var key []interface{}
@@ -84,10 +84,10 @@ func TestDiffClockIndex(t *testing.T) {
 	cursor, err := gorethink.Expr(DiffClockIndex.CreateFunction(gorethink.Expr(&persist.Diff{
 		Repo: "repo",
 		Path: path,
-		Clock: &persist.Clock{
+		Clock: []*persist.Clock{{
 			Branch: "branch",
 			Clock:  1,
-		},
+		}},
 	}))).Run(dbClient)
 	require.NoError(t, err)
 	var key []interface{}

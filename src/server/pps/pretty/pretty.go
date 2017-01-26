@@ -17,7 +17,7 @@ import (
 
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tOUTPUT\tSTARTED\tDURATION\tSTATE\t\n")
+	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tSTATE\t\n")
 }
 
 // PrintJobInfo pretty-prints job info.
@@ -39,7 +39,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 
 // PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT REPO\tSTATE\t\n")
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
@@ -67,7 +67,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 
 // PrintJobInputHeader pretty prints a job input header.
 func PrintJobInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\t\n")
+	fmt.Fprint(w, "NAME\tCOMMIT\tPARTITION\tINCREMENTAL\tLAZY\t\n")
 }
 
 // PrintJobInput pretty-prints a job input.
@@ -75,24 +75,26 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
 	fmt.Fprintf(w, "%s\t", jobInput.Method.Partition)
-	fmt.Fprintf(w, "%s\t\n", jobInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t", jobInput.Method.Incremental)
+	fmt.Fprintf(w, "%t\t\n", jobInput.Lazy)
 }
 
 // PrintPipelineInputHeader prints a pipeline input header.
 func PrintPipelineInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\t\n")
+	fmt.Fprint(w, "NAME\tPARTITION\tINCREMENTAL\tLAZY\t\n")
 }
 
 // PrintPipelineInput pretty-prints a pipeline input.
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Partition)
-	fmt.Fprintf(w, "%s\t\n", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%s\t", pipelineInput.Method.Incremental)
+	fmt.Fprintf(w, "%t\t\n", pipelineInput.Lazy)
 }
 
 // PrintJobCountsHeader prints a job counts header.
 func PrintJobCountsHeader(w io.Writer) {
-	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_PULLING))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_CREATING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_FAILURE))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
@@ -107,9 +109,16 @@ Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
 ParallelismSpec: {{.ParallelismSpec}}
+{{ if .Service }}Service:
+	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
+	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
+Output Commit: {{.OutputCommit.ID}}
+{{ if .Output }}Output: {{.Output.URL}} {{end}}
+Chunks:
+{{prettyChunks .Chunks}}
 `)
 	if err != nil {
 		return err
@@ -131,6 +140,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
+{{ if .Output }}Output: {{.Output.URL}} {{end}}
 {{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
 Job Counts:
 {{jobCounts .JobCounts}}
@@ -145,9 +155,35 @@ Job Counts:
 	return nil
 }
 
+func podState(podState ppsclient.PodState) string {
+	switch podState {
+	case ppsclient.PodState_POD_RUNNING:
+		return color.New(color.FgYellow).SprintFunc()("running")
+	case ppsclient.PodState_POD_SUCCESS:
+		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.PodState_POD_FAILED:
+		return color.New(color.FgRed).SprintFunc()("failure")
+	}
+	return "-"
+}
+
+func chunkState(chunkState ppsclient.ChunkState) string {
+	switch chunkState {
+	case ppsclient.ChunkState_CHUNK_UNASSIGNED:
+		return color.New(color.FgYellow).SprintFunc()("unassigned")
+	case ppsclient.ChunkState_CHUNK_ASSIGNED:
+		return color.New(color.FgYellow).SprintFunc()("assigned")
+	case ppsclient.ChunkState_CHUNK_SUCCESS:
+		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.ChunkState_CHUNK_FAILURE:
+		return color.New(color.FgRed).SprintFunc()("failure")
+	}
+	return "-"
+}
+
 func jobState(jobState ppsclient.JobState) string {
 	switch jobState {
-	case ppsclient.JobState_JOB_PULLING:
+	case ppsclient.JobState_JOB_CREATING:
 		return color.New(color.FgYellow).SprintFunc()("pulling")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
@@ -203,7 +239,7 @@ func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
 
 func jobCounts(counts map[int32]int32) string {
 	var buffer bytes.Buffer
-	for i := int32(ppsclient.JobState_JOB_PULLING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
+	for i := int32(ppsclient.JobState_JOB_CREATING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
 		fmt.Fprintf(&buffer, "%s: %d\t", jobState(ppsclient.JobState(i)), counts[i])
 	}
 	return buffer.String()
@@ -217,6 +253,23 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	return pretty.UnescapeHTML(string(result)), nil
 }
 
+func prettyChunks(chunks []*ppsclient.Chunk) (string, error) {
+	var buffer bytes.Buffer
+	for i, chunk := range chunks {
+		fmt.Fprintf(&buffer, "\nChunk %d: %s\n", i+1, chunkState(chunk.State))
+		writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+		fmt.Fprintf(writer, "Pod Name\tOutput Commit\tState\t\n")
+		for _, pod := range chunk.Pods {
+			fmt.Fprintf(writer, "%s\t%s\t%s\t\n", pod.Name, pod.OutputCommit.ID, podState(pod.State))
+		}
+		if err := writer.Flush(); err != nil {
+			return "", err
+		}
+	}
+	fmt.Fprintln(&buffer)
+	return buffer.String(), nil
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":   pipelineState,
 	"jobState":        jobState,
@@ -226,4 +279,5 @@ var funcMap = template.FuncMap{
 	"prettyDuration":  pretty.Duration,
 	"jobCounts":       jobCounts,
 	"prettyTransform": prettyTransform,
+	"prettyChunks":    prettyChunks,
 }

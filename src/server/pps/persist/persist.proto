@@ -1,19 +1,22 @@
 syntax = "proto3";
+package pps.persist;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+
+import "gogoproto/gogo.proto";
+
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
-
-package pachyderm.pps.persist;
 
 option go_package = "persist";
 
 message JobInfo {
-  reserved 4;
-  string job_id = 1;
+  reserved 4, 12, 13, 14, 16;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
   pps.Transform transform = 2;
   string pipeline_name = 3;
+  uint64 pipeline_version = 20;
   ParallelismSpec parallelism_spec = 18;
   repeated pps.JobInput inputs = 5;
   pps.Job parent_job = 6;
@@ -23,36 +26,80 @@ message JobInfo {
   string branch = 17;
   pps.JobState state = 10;
   string commit_index = 11;
-  uint64 pods_started = 12;
-  uint64 pods_succeeded = 13;
-  uint64 pods_failed = 14;
-  repeated uint64 shard_moduli = 15;
-  map<string, pfs.Commit> pod_commits = 16;
+  repeated uint64 default_shard_moduli = 15;
+  uint64 shard = 19;
+  // if true, the underlying Kubernetes job has been deleted
+  bool gc = 21;
+  pps.Service service = 22;
+  pps.Output output = 23;
+}
+
+message Pod {
+  string name = 1;
+  pfs.Commit output_commit = 2;
+}
+
+enum ChunkState {
+  // the chunk is available for a pod to work on
+  UNASSIGNED = 0;
+  // the chunk has been assigned to a pod
+  ASSIGNED = 1;
+  // the chunk has been processed successfully
+  SUCCESS = 2;
+  // the chunk could not be processed
+  FAILED = 3;
+  // the chunk has been splitted into smaller chunks, so this chunk no longer
+  // needs to be processed.
+  SPLITTED = 4;
+}
+
+// Chunk is a unit of work that can be assigned to a pod
+message Chunk {
+  string id = 1 [(gogoproto.customname) = "ID"];
+  // the ID of the job that the Chunk belongs to
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  // moduli and index together specify the portion of inputs that the shard represents
+  // For instance, if moduli is (2, 3, 4) and index is 15, then we have:
+  // 15 = 1 * (3 * 4) + 0 * 4 + 3 * 1
+  // So the shard represents the second half of input 1, the first third of input 2,
+  // and the fourth quarter of input 3.
+  repeated uint64 moduli = 3;
+  uint64 index = 4;
+  // the pod that currently owns this shard
+  string owner = 5;
+  // A series of pods, in chronological order, that have processed this shard
+  repeated Pod pods = 6;
+  ChunkState state = 7;
+  // a unix timestamp representing the last time we received a ContinueJob
+  // for this chunk
+  uint64 lease_time = 8;
+}
+
+message Chunks {
+  repeated Chunk chunks = 1;
 }
 
 message JobInfos {
   repeated JobInfo job_info = 1;
 }
 
+message JobIDs {
+  repeated string jobs = 1;
+}
+
 message JobOutput {
-  string job_id = 1;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
   pfs.Commit output_commit = 2;
 }
 
 message JobState {
-  string job_id = 1;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
   pps.JobState state = 2;
   google.protobuf.Timestamp finished = 3; // set when state == FINISHED
 }
 
-message AddPodCommitRequest {
-  string job_id = 1;
-  uint64 pod_index = 2;
-  pfs.Commit commit = 3;
-}
-
 message AddOutputCommitRequest {
-  string job_id = 1;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
   pfs.Commit commit = 2;
   string branch = 3;
 }
@@ -60,7 +107,8 @@ message AddOutputCommitRequest {
 message PipelineInfo {
   reserved 3;
   string pipeline_name = 1;
-  pachyderm.pps.Transform transform = 2;
+  uint64 version = 13;
+  pps.Transform transform = 2;
   ParallelismSpec parallelism_spec = 12;
   repeated pps.PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
@@ -70,6 +118,8 @@ message PipelineInfo {
   string recent_error = 9;
   map<int32, int32> job_counts = 10;
   bool stopped = 11;
+  pps.GCPolicy gc_policy = 14;
+  pps.Output output = 15;
 }
 
 enum ChangeType {
@@ -92,8 +142,24 @@ message SubscribePipelineInfosRequest {
   Shard shard = 2;
 }
 
+message SubscribeJobInfosRequest {
+  bool include_initial = 1;
+  bool include_changes = 2;
+  Shard shard = 3;
+  repeated pps.JobState state = 4;
+}
+
+message JobInfoChange {
+  JobInfo jobInfo = 1;
+  ChangeType type = 2;
+}
+
 message ListPipelineInfosRequest {
   Shard shard = 1;
+}
+
+message Shard {
+  uint64 number = 1;
 }
 
 message UpdatePipelineStateRequest {
@@ -112,9 +178,54 @@ message BlockPipelineStateRequest {
   pps.PipelineState state = 2;
 }
 
-// As in, sharding
-message Shard {
-  uint64 number = 1;
+message AddChunkRequest {
+  repeated Chunk chunks = 1;
+}
+
+message ClaimChunkRequest {
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  Pod pod = 2;
+}
+
+message RenewChunkRequest {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  string pod_name = 2;
+}
+
+message FinishChunkRequest {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  string pod_name = 2;
+}
+
+message RevokeChunkRequest {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  string pod_name = 2;
+  // if the number of pods that have processed this chunk exceeds maxPods,
+  // then we switch the state of the chunk to FAILED instead of UNASSIGNED
+  uint64 maxPods = 3;
+}
+
+message WaitJobResponse {
+  pps.JobState state = 1;
+}
+
+message ChunkChange {
+  Chunk chunk = 1;
+  ChangeType type = 2;
+  // If ready is set to true, then all initial documents have been sent
+  // See docs on `includeState` for rethinkdb's changefeed:
+  // https://www.rethinkdb.com/api/javascript/changes/
+  bool ready = 3;
+}
+
+message SubscribeChunksRequest {
+  pps.Job job = 1;
+  bool include_initial = 2;
+}
+
+message ListGCJobsRequest {
+  string pipeline_name = 1;
+  pps.GCPolicy gc_policy = 2;
 }
 
 service API {
@@ -122,12 +233,13 @@ service API {
   // job_id cannot be set
   // timestamp cannot be set
   rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
-  rpc InspectJob(pachyderm.pps.InspectJobRequest) returns (JobInfo) {}
+  rpc InspectJob(pps.InspectJobRequest) returns (JobInfo) {}
   // ordered by time, latest to earliest
-  rpc ListJobInfos(pachyderm.pps.ListJobRequest) returns (JobInfos) {}
+  rpc ListJobInfos(pps.ListJobRequest) returns (JobInfos) {}
   // should only be called when rolling back if a Job does not start!
-  rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
-  rpc DeleteJobInfosForPipeline(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc DeleteJobInfo(pps.Job) returns (google.protobuf.Empty) {}
+  rpc DeleteJobInfosForPipeline(pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc SubscribeJobInfos(SubscribeJobInfosRequest) returns (stream JobInfoChange) {}
 
   // JobOutput rpcs
   rpc CreateJobOutput(JobOutput) returns (google.protobuf.Empty) {}
@@ -137,18 +249,22 @@ service API {
   // StartJob sets the state of the job to "running" if the state
   // is currently "pulling".
   // This API updates the job state in a transactional manner.
-  rpc StartJob(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
+  rpc StartJob(pps.Job) returns (JobInfo) {}
 
-  // Job commit rpcs
-  rpc AddPodCommit(AddPodCommitRequest) returns (google.protobuf.Empty) {}
+  // GC rpcs
+  // List the IDs of jobs that should be GC-ed
+  rpc ListGCJobs(ListGCJobsRequest) returns (JobIDs) {}
+  // Mark a job has having been GC-ed
+  rpc GCJob(pps.Job) returns (google.protobuf.Empty) {}
+
 
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
-  rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
+  rpc GetPipelineInfo(pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
-  rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc DeletePipelineInfo(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
   rpc UpdatePipelineState(UpdatePipelineStateRequest) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineStopped(UpdatePipelineStoppedRequest) returns (google.protobuf.Empty) {}
@@ -157,9 +273,13 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-  // Shard rpcs
-  // Returns the new job info
-  rpc StartPod(pps.Job) returns (JobInfo) {}
-  rpc SucceedPod(pps.Job) returns (JobInfo) {}
-  rpc FailPod(pps.Job) returns (JobInfo) {}
+  // Chunk rpcs
+  rpc AddChunk(AddChunkRequest) returns (google.protobuf.Empty) {}
+  rpc ClaimChunk(ClaimChunkRequest) returns (Chunk) {}
+  rpc RenewChunk(RenewChunkRequest) returns (Chunk) {}
+  rpc FinishChunk(FinishChunkRequest) returns (Chunk) {}
+  rpc RevokeChunk(RevokeChunkRequest) returns (Chunk) {}
+  rpc SubscribeChunks(SubscribeChunksRequest) returns (stream ChunkChange) {}
+  rpc GetChunksForJob(pps.Job) returns (Chunks) {}
+  rpc DeleteChunksForJob(pps.Job) returns (google.protobuf.Empty) {}
 }

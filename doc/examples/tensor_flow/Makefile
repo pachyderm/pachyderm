@@ -46,7 +46,11 @@ verify-pachctl:
 input-data: verify-pachctl gather-input-data load-input-data
 
 docker-build:
+	# have to use rsync instead of cp so that we can skip the "doc"
+	# directory which contains this path itself
+	rsync -av ../../../ pachyderm --exclude doc
 	docker build -t tensor_flow_rnn_got .
+	rm -rf pachyderm
 
 setup: docker-build input-data
 
