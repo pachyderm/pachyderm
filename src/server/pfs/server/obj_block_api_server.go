@@ -3,7 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,7 +33,7 @@ const (
 	prefixLength        = 2
 	compactionThreshold = 100
 	cacheSize           = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
-	base64Alphabet      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	alphabet            = "0123456789abcdef"
 )
 
 type objBlockAPIServer struct {
@@ -223,7 +223,7 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 	if _, err := hash.Write(request.Value); err != nil {
 		return nil, err
 	}
-	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(hash.Sum(nil))}
+	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
 	var eg errgroup.Group
 	eg.Go(func() (retErr error) {
 		objectPath := s.localServer.objectPath(object)
@@ -285,12 +285,14 @@ func (s *objBlockAPIServer) tagPrefix(prefix string) string {
 }
 
 func (s *objBlockAPIServer) compact() error {
+	lion.Printf("compact\n")
 	var eg errgroup.Group
-	for i := 0; i < len(base64Alphabet); i++ {
-		for j := 0; j < len(base64Alphabet); j++ {
-			prefix := fmt.Sprintf("%c%c", base64Alphabet[i], base64Alphabet[j])
+	for i := 0; i < len(alphabet); i++ {
+		for j := 0; j < len(alphabet); j++ {
+			prefix := fmt.Sprintf("%c%c", alphabet[i], alphabet[j])
 			eg.Go(func() error {
 				count, err := s.countPrefix(prefix)
+				lion.Printf("prefix %s: %d", prefix, count)
 				if err != nil {
 					return err
 				}
@@ -301,7 +303,7 @@ func (s *objBlockAPIServer) compact() error {
 			})
 		}
 	}
-	return nil
+	return eg.Wait()
 }
 
 func (s *objBlockAPIServer) countPrefix(prefix string) (int64, error) {
@@ -328,8 +330,12 @@ func (s *objBlockAPIServer) countPrefix(prefix string) (int64, error) {
 func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
-	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil {
+	objectIndex := &pfsclient.ObjectIndex{
+		Objects: make(map[string]*pfsclient.BlockRef),
+		Tags:    make(map[string]*pfsclient.Object),
+	}
+	var toDelete []string
+	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	}
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
@@ -372,6 +378,7 @@ func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 					},
 				}
 				written += uint64(len(object))
+				toDelete = append(toDelete, name)
 				return nil
 			})
 			return nil
@@ -389,6 +396,7 @@ func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 				for tag, object := range tagObjectIndex.Tags {
 					objectIndex.Tags[tag] = object
 				}
+				toDelete = append(toDelete, name)
 				return nil
 			})
 			return nil
@@ -397,7 +405,18 @@ func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	return s.writeProto(s.localServer.indexPath(prefix), objectIndex)
+	if err := s.writeProto(s.localServer.indexPath(prefix), objectIndex); err != nil {
+		return err
+	}
+	eg = errgroup.Group{}
+	for _, file := range toDelete {
+		file := file
+		eg.Go(func() error {
+			lion.Printf("deleting: %s\n", file)
+			return s.objClient.Delete(file)
+		})
+	}
+	return eg.Wait()
 }
 
 func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr error) {
