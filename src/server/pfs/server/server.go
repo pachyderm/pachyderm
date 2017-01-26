@@ -3,11 +3,14 @@ package server
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 var (
 	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+	// MaxMsgSize is used to define the GRPC frame size, which we need to be greater than a block
+	MaxMsgSize = 3 * blockSize
 )
 
 // Valid backends
@@ -23,8 +26,8 @@ type APIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(driver drive.Driver) APIServer {
-	return newAPIServer(driver)
+func NewAPIServer(driver drive.Driver, reporter *metrics.Reporter) APIServer {
+	return newAPIServer(driver, reporter)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.
@@ -43,7 +46,7 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.
 	switch backend {
 	case AmazonBackendEnvVar:
 		// amazon doesn't like leading slashes
-		if dir[0] == '/' {
+		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
 		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes)

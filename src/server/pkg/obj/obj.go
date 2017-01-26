@@ -1,11 +1,14 @@
 package obj
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
+	"net/url"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -41,12 +44,48 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
 }
 
+// NewGoogleClientFromSecret creates a google client by reading credentials
+// from a mounted GoogleSecret. You may pass "" for bucket in which case it
+// will read the bucket from the secret.
+func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, error) {
+	if bucket == "" {
+		_bucket, err := ioutil.ReadFile("/google-secret/bucket")
+		if err != nil {
+			return nil, err
+		}
+		bucket = string(_bucket)
+	}
+	return NewGoogleClient(ctx, bucket)
+}
+
 // NewMicrosoftClient creates a microsoft client:
 //	container   - Azure Blob Container name
 //	accountName - Azure Storage Account name
 // 	accountKey  - Azure Storage Account key
 func NewMicrosoftClient(container string, accountName string, accountKey string) (Client, error) {
 	return newMicrosoftClient(container, accountName, accountKey)
+}
+
+// NewMicrosoftClientFromSecret creates a microsoft client by reading
+// credentials from a mounted MicrosoftSecret. You may pass "" for container in
+// which case it will read the container from the secret.
+func NewMicrosoftClientFromSecret(container string) (Client, error) {
+	if container == "" {
+		_container, err := ioutil.ReadFile("/microsoft-secret/container")
+		if err != nil {
+			return nil, err
+		}
+		container = string(_container)
+	}
+	id, err := ioutil.ReadFile("/microsoft-secret/id")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
+	if err != nil {
+		return nil, err
+	}
+	return NewMicrosoftClient(container, string(id), string(secret))
 }
 
 // NewAmazonClient creates an amazon client with the following credentials:
@@ -58,6 +97,58 @@ func NewMicrosoftClient(container string, accountName string, accountKey string)
 func NewAmazonClient(bucket string, id string, secret string, token string,
 	region string) (Client, error) {
 	return newAmazonClient(bucket, id, secret, token, region)
+}
+
+// NewAmazonClientFromSecret constructs an amazon client by reading credentials
+// from a mounted AmazonSecret. You may pass "" for bucket in which case it
+// will read the bucket from the secret.
+func NewAmazonClientFromSecret(bucket string) (Client, error) {
+	if bucket == "" {
+		_bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
+		if err != nil {
+			return nil, err
+		}
+		bucket = string(_bucket)
+	}
+	id, err := ioutil.ReadFile("/amazon-secret/id")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := ioutil.ReadFile("/amazon-secret/secret")
+	if err != nil {
+		return nil, err
+	}
+	token, err := ioutil.ReadFile("/amazon-secret/token")
+	if err != nil {
+		return nil, err
+	}
+	region, err := ioutil.ReadFile("/amazon-secret/region")
+	if err != nil {
+		return nil, err
+	}
+	return NewAmazonClient(bucket, string(id), string(secret), string(token), string(region))
+}
+
+// NewClientFromURLAndSecret constructs a client by parsing `URL` and then
+// constructing the correct client for that URL using secrets.
+func NewClientFromURLAndSecret(ctx context.Context, URL string) (Client, error) {
+	_URL, err := url.Parse(URL)
+	if err != nil {
+		return nil, err
+	}
+	switch _URL.Scheme {
+	case "s3":
+		return NewAmazonClientFromSecret(_URL.Host)
+	case "gcs":
+		fallthrough
+	case "gs":
+		return NewGoogleClientFromSecret(ctx, _URL.Host)
+	case "as":
+		fallthrough
+	case "wasb":
+		return NewMicrosoftClientFromSecret(_URL.Host)
+	}
+	return nil, fmt.Errorf("unrecognized object store: %s", _URL.Scheme)
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
@@ -105,7 +196,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -146,7 +237,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,

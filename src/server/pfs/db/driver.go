@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -19,10 +20,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/cenkalti/backoff"
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/time"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 )
 
@@ -38,6 +40,8 @@ const (
 	commitTable Table = "Commits"
 
 	connectTimeoutSeconds = 5
+	maxIdle               = 5
+	maxOpen               = 100
 )
 
 const (
@@ -72,28 +76,44 @@ var (
 )
 
 type driver struct {
-	blockClient pfs.BlockAPIClient
-	dbName      string
-	dbClient    *gorethink.Session
+	blockAddress    string
+	blockClientOnce sync.Once
+	blockClient     pfs.BlockAPIClient
+	dbName          string
+	dbClient        *gorethink.Session
 }
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, dbAddress string, dbName string) (drive.Driver, error) {
-	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
 	dbClient, err := DbConnect(dbAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	return &driver{
-		blockClient: pfs.NewBlockAPIClient(clientConn),
-		dbName:      dbName,
-		dbClient:    dbClient,
+		blockAddress:    blockAddress,
+		blockClientOnce: sync.Once{},
+		blockClient:     nil,
+		dbName:          dbName,
+		dbClient:        dbClient,
 	}, nil
+}
+
+func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
+	if d.blockClient == nil {
+		var onceErr error
+		d.blockClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(d.blockAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			d.blockClient = pfs.NewBlockAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return d.blockClient, nil
 }
 
 // isDBCreated is used to tell when we are trying to initialize a database,
@@ -123,12 +143,28 @@ func initDB(session *gorethink.Session, dbName string) error {
 		return nil
 	}
 
+	// There is a race here
+	//
+	// When rethink is under load, we consistently fail on the table creation
+	// w a 'db not found' error right after we created it a few lines above.
+	//
+	// However, the db shows up fine in the dashboard, so it does in fact get
+	// created. This is only relevant for tests, because thats the only time
+	// we create a bunch of databases while R/W from rethink as well
+	config := backoff.NewExponentialBackOff()
+	// We want to backoff more aggressively (i.e. wait longer) than the default
+	config.InitialInterval = 1 * time.Second
+	config.Multiplier = 2
+	config.MaxElapsedTime = 5 * time.Minute
 	// Create tables
 	for _, table := range tables {
-		tableCreateOpts := tableToTableCreateOpts[table]
-		if _, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
+		backoff.RetryNotify(func() error {
+			tableCreateOpts := tableToTableCreateOpts[table]
+			_, err := gorethink.DB(dbName).TableCreate(table, tableCreateOpts...).RunWrite(session)
 			return err
-		}
+		}, config, func(err error, d time.Duration) {
+			log.Errorf("error creating table %v on database %v; retrying in %s: %v\n", table, dbName, d, err)
+		})
 	}
 
 	// Create indexes
@@ -171,6 +207,8 @@ func DbConnect(address string) (*gorethink.Session, error) {
 	return gorethink.Connect(gorethink.ConnectOpts{
 		Address: address,
 		Timeout: connectTimeoutSeconds * time.Second,
+		MaxIdle: maxIdle,
+		MaxOpen: maxOpen,
 	})
 }
 
@@ -289,7 +327,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo) (*pfs.RepoInfo, error) {
 			Name: rawRepo.Name,
 		},
 		Created:    rawRepo.Created,
-		SizeBytes:  rawRepo.Size,
+		SizeBytes:  rawRepo.SizeBytes,
 		Provenance: provenance,
 	}, nil
 }
@@ -330,7 +368,7 @@ nextRepo:
 				Name: repo.Name,
 			},
 			Created:   repo.Created,
-			SizeBytes: repo.Size,
+			SizeBytes: repo.SizeBytes,
 		})
 	}
 
@@ -409,7 +447,7 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 		}
 
 		for _, p := range commitInfo.Provenance {
-			provenanceSet[p.ID] = p
+			provenanceSet[fmt.Sprintf("%s:%s", p.Repo.Name, p.ID)] = p
 		}
 	}
 
@@ -621,7 +659,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 		diffClockIndexKey(commit.Repo, head.Branch, head.Clock),
 	).Reduce(func(left, right gorethink.Term) gorethink.Term {
 		return left.Merge(map[string]interface{}{
-			"Size": left.Field("Size").Add(right.Field("Size")),
+			"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
 		})
 	}).Default(&persist.Diff{}).Run(d.dbClient)
 	if err != nil {
@@ -633,7 +671,7 @@ func (d *driver) computeCommitSize(commit *persist.Commit) (uint64, error) {
 		return 0, err
 	}
 
-	return diff.Size, nil
+	return diff.SizeBytes, nil
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
@@ -648,7 +686,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 		return err
 	}
 
-	rawCommit.Size, err = d.computeCommitSize(rawCommit)
+	rawCommit.SizeBytes, err = d.computeCommitSize(rawCommit)
 	if err != nil {
 		return err
 	}
@@ -681,7 +719,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, cancel bool) error {
 	// If this transaction succeeds but the next one (updating Commit) fails,
 	// then the repo size will be wrong.  TODO
 	_, err = d.getTerm(repoTable).Get(rawCommit.Repo).Update(map[string]interface{}{
-		"Size": gorethink.Row.Field("Size").Add(rawCommit.Size),
+		"SizeBytes": gorethink.Row.Field("SizeBytes").Add(rawCommit.SizeBytes),
 	}).RunWrite(d.dbClient)
 	if err != nil {
 		return err
@@ -788,47 +826,52 @@ func (d *driver) rawCommitToCommitInfo(rawCommit *persist.Commit) *pfs.CommitInf
 		Cancelled:    rawCommit.Cancelled,
 		Archived:     rawCommit.Archived,
 		CommitType:   commitType,
-		SizeBytes:    rawCommit.Size,
+		SizeBytes:    rawCommit.SizeBytes,
 		ParentCommit: parentCommit,
 		Provenance:   provenance,
 	}
 }
 
-func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
-	repoToFromCommit := make(map[string]string)
-	for _, commit := range fromCommits {
+func (d *driver) ListCommit(include []*pfs.Commit, exclude []*pfs.Commit, provenance []*pfs.Commit, commitType pfs.CommitType, status pfs.CommitStatus, block bool) ([]*pfs.CommitInfo, error) {
+	repoToQuery := make(map[string]gorethink.Term)
+
+	for i, commit := range append(include, exclude...) {
 		// make sure that the repos exist
 		_, err := d.inspectRepo(commit.Repo)
 		if err != nil {
 			return nil, err
 		}
-		repoToFromCommit[commit.Repo.Name] = commit.ID
-	}
-	var queries []interface{}
-	for repo, commit := range repoToFromCommit {
-		if commit == "" {
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
+		query, ok := repoToQuery[commit.Repo.Name]
+		if !ok {
+			query = d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
 				Index: CommitFullClockIndex.Name,
 			}).Filter(map[string]interface{}{
-				"Repo": repo,
-			}))
-		} else {
-			fullClock, err := d.getFullClock(&pfs.Commit{
-				Repo: &pfs.Repo{Name: repo},
-				ID:   commit,
+				"Repo": commit.Repo.Name,
 			})
-			if err != nil {
-				return nil, err
-			}
-			queries = append(queries, d.getTerm(commitTable).OrderBy(gorethink.OrderByOpts{
-				Index: CommitFullClockIndex.Name,
-			}).Filter(func(r gorethink.Term) gorethink.Term {
-				return gorethink.And(
-					r.Field("Repo").Eq(repo),
-					persist.DBClockDescendent(r.Field("FullClock"), gorethink.Expr(fullClock)),
-				)
-			}))
+			repoToQuery[commit.Repo.Name] = query
 		}
+		if commit.ID == "" {
+			continue
+		}
+		fullClock, err := d.getFullClock(commit)
+		if err != nil {
+			return nil, err
+		}
+		if i < len(include) {
+			query = query.Filter(func(r gorethink.Term) gorethink.Term {
+				return persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock))
+			})
+		} else {
+			query = query.Filter(func(r gorethink.Term) gorethink.Term {
+				return gorethink.Not(persist.DBClockAncestor(r.Field("FullClock"), gorethink.Expr(fullClock)))
+			})
+		}
+		repoToQuery[commit.Repo.Name] = query
+	}
+
+	var queries []interface{}
+	for _, query := range repoToQuery {
+		queries = append(queries, query)
 	}
 
 	var query gorethink.Term
@@ -909,14 +952,29 @@ func (d *driver) ListCommit(fromCommits []*pfs.Commit, provenance []*pfs.Commit,
 }
 
 func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
 	repoSet1 := make(map[string]bool)
+	repoToProvenance := make(map[string][]*persist.ProvenanceCommit)
 	for _, commit := range fromCommits {
+		rawCommit, err := d.getRawCommit(commit)
+		if err != nil {
+			return nil, err
+		}
+		// always include fromCommits themselves in the result
+		result = append(result, d.rawCommitToCommitInfo(rawCommit))
+
 		repoInfos, err := d.ListRepo([]*pfs.Repo{commit.Repo})
 		if err != nil {
 			return nil, err
 		}
 		for _, repoInfo := range repoInfos {
 			repoSet1[repoInfo.Repo.Name] = true
+			repoToProvenance[repoInfo.Repo.Name] = append(repoToProvenance[repoInfo.Repo.Name], &persist.ProvenanceCommit{
+				Repo: commit.Repo.Name,
+				// We can't just use commit.ID directly because it might be a
+				// branch name instead of a commitID
+				ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
+			})
 		}
 	}
 
@@ -940,38 +998,26 @@ func (d *driver) FlushCommit(fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]
 		}
 	}
 
-	var result []*pfs.CommitInfo
-	// The commit IDs of the provenance commits
-	var provenanceIDs []interface{}
-	for _, commit := range fromCommits {
-		rawCommit, err := d.getRawCommit(commit)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, d.rawCommitToCommitInfo(rawCommit))
-		provenanceIDs = append(provenanceIDs, &persist.ProvenanceCommit{
-			Repo: commit.Repo.Name,
-			// We can't just use commit.ID directly because it might be a
-			// branch name instead of a commitID
-			ID: persist.FullClockHead(rawCommit.FullClock).ReadableCommitID(),
-		})
+	if len(repos) == 0 {
+		return result, nil
 	}
 
-	if len(provenanceIDs) == 0 {
-		return nil, nil
+	var queries []interface{}
+	for _, repo := range repos {
+		queries = append(queries, d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
+			provenance := repoToProvenance[repo]
+			return gorethink.And(
+				commit.Field("Archived").Eq(false),
+				commit.Field("Finished").Ne(nil),
+				commit.Field("Provenance").SetIntersection(provenance).Count().Eq(len(provenance)),
+				commit.Field("Repo").Eq(repo),
+			)
+		}))
 	}
 
-	query := d.getTerm(commitTable).Filter(func(commit gorethink.Term) gorethink.Term {
-		return gorethink.And(
-			commit.Field("Archived").Eq(false),
-			commit.Field("Finished").Ne(nil),
-			commit.Field("Provenance").SetIntersection(provenanceIDs).Count().Ne(0),
-			gorethink.Expr(repos).Contains(commit.Field("Repo")),
-		)
-	}).Changes(gorethink.ChangesOpts{
+	query := gorethink.Union(queries...).Changes(gorethink.ChangesOpts{
 		IncludeInitial: true,
 	}).Field("new_val")
-
 	cursor, err := query.Run(d.dbClient)
 	if err != nil {
 		return nil, err
@@ -1035,8 +1081,39 @@ func (d *driver) ListBranch(repo *pfs.Repo, status pfs.CommitStatus) ([]string, 
 	return res, nil
 }
 
+// DeleteCommit deletes a commit.  Currently it only works if the commit is 1) the
+// head of a branch (i.e. it doesnt' have any descendents), and 2) it's not finished.
+// Note that currently DeleteCommit is not atomic/transactional.  You should only
+// use DeleteCommit if you are sure that no other client is operating on the same
+// branch.
 func (d *driver) DeleteCommit(commit *pfs.Commit) error {
-	return errors.New("DeleteCommit is not implemented")
+	rawCommit, err := d.getRawCommit(commit)
+	if err != nil {
+		return err
+	}
+	if rawCommit.Finished != nil {
+		return fmt.Errorf("commit %s is closed; only open commits can be deleted", commit.ID)
+	}
+
+	// if the commit ID is of the full form (e.g. master/2), we make sure that
+	// it's the head of a branch
+	if _, err = parseClock(commit.ID); err == nil {
+		head := &persist.Commit{}
+		branch := persist.FullClockBranch(rawCommit.FullClock)
+		if err := d.getHeadOfBranch(rawCommit.Repo, branch, head); err != nil {
+			return err
+		}
+		if head.ID != rawCommit.ID {
+			return fmt.Errorf("commit %s is not the head of branch %s; only the head of a branch can be deleted", commit.ID, branch)
+		}
+	}
+
+	clock := persist.FullClockHead(rawCommit.FullClock)
+	if _, err := d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(rawCommit.Repo, clock.Branch, clock.Clock)).Delete().RunWrite(d.dbClient); err != nil {
+		return err
+	}
+
+	return d.deleteMessageByPrimaryKey(commitTable, rawCommit.ID)
 }
 
 // checkFileType returns an error if the given type conflicts with the preexisting
@@ -1088,7 +1165,11 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	if commit.Finished != nil {
 		return pfsserver.NewErrCommitFinished(commit.Repo, commit.ID)
 	}
-	_client := client.APIClient{BlockAPIClient: d.blockClient}
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+	_client := client.APIClient{BlockAPIClient: blockClient}
 	blockrefs, err := _client.PutBlock(delimiter, reader)
 	if err != nil {
 		return err
@@ -1114,7 +1195,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 			Repo:     commit.Repo,
 			Delete:   false,
 			Path:     prefix,
-			Clock:    persist.FullClockHead(commit.FullClock),
+			Clock:    commit.FullClock,
 			FileType: persist.FileType_DIR,
 			Modified: now(),
 		})
@@ -1127,8 +1208,8 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 		Delete:    false,
 		Path:      file.Path,
 		BlockRefs: refs,
-		Size:      size,
-		Clock:     persist.FullClockHead(commit.FullClock),
+		SizeBytes: size,
+		Clock:     commit.FullClock,
 		FileType:  persist.FileType_FILE,
 		Modified:  now(),
 	})
@@ -1152,7 +1233,7 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 				gorethink.Error(ErrConflictFileTypeMsg),
 				oldDoc.Merge(map[string]interface{}{
 					"BlockRefs": oldDoc.Field("BlockRefs").Add(newDoc.Field("BlockRefs")),
-					"Size":      oldDoc.Field("Size").Add(newDoc.Field("Size")),
+					"SizeBytes": oldDoc.Field("SizeBytes").Add(newDoc.Field("SizeBytes")),
 					// Overwrite the file type in case the old file type is NONE
 					"FileType": newDoc.Field("FileType"),
 					// Update modification time
@@ -1164,8 +1245,9 @@ func (d *driver) PutFile(file *pfs.File, delimiter pfs.Delimiter, reader io.Read
 	return err
 }
 
-func now() *google_protobuf.Timestamp {
-	return prototime.TimeToTimestamp(time.Now())
+func now() *types.Timestamp {
+	t, _ := types.TimestampProto(time.Now())
+	return t
 }
 
 func getPrefixes(path string) []string {
@@ -1207,7 +1289,7 @@ func (d *driver) MakeDirectory(file *pfs.File) (retErr error) {
 		Repo:     commit.Repo,
 		Delete:   false,
 		Path:     file.Path,
-		Clock:    persist.FullClockHead(commit.FullClock),
+		Clock:    commit.FullClock,
 		FileType: persist.FileType_DIR,
 		Modified: now(),
 	}
@@ -1242,7 +1324,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64,
 	if diff.FileType == persist.FileType_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	}
-	return d.newFileReader(diff.BlockRefs, file, offset, size), nil
+	return d.newFileReader(diff.BlockRefs, file, offset, size)
 }
 
 type fileReader struct {
@@ -1255,14 +1337,18 @@ type fileReader struct {
 	file        *pfs.File
 }
 
-func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) *fileReader {
+func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
 	return &fileReader{
-		blockClient: d.blockClient,
+		blockClient: blockClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
 		file:        file,
-	}
+	}, nil
 }
 
 // filterBlocks filters out blockrefs for a given diff, or return a FileNotFound
@@ -1293,7 +1379,7 @@ func filterBlocks(diff *persist.Diff, filterShard *pfs.Shard, file *pfs.File) (*
 		for _, blockref := range diff.BlockRefs {
 			size += blockref.Size()
 		}
-		diff.Size = size
+		diff.SizeBytes = size
 	}
 	return diff, nil
 }
@@ -1366,13 +1452,13 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 
 		res.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.Clock.ReadableCommitID(),
+			ID:   persist.FullClockHead(diff.Clock).ReadableCommitID(),
 		}
-		res.SizeBytes = diff.Size
+		res.SizeBytes = diff.SizeBytes
 	case persist.FileType_DIR:
 		res.FileType = pfs.FileType_FILE_TYPE_DIR
 		res.Modified = diff.Modified
-		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+		childrenDiffs, err := d.getChildren(file.Commit.Repo.Name, file, diffMethod)
 		if err != nil {
 			return nil, err
 		}
@@ -1551,7 +1637,6 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 	if err := cursor.One(&newPersistCommit); err != nil {
 		return err
 	}
-	newClock := persist.FullClockHead(newPersistCommit.FullClock)
 
 	diffs, err := d.getDiffsToMerge(fromCommits, toCommit)
 	if err != nil {
@@ -1566,7 +1651,7 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 			// Diff.  But in Squash and Replay, the Diffs are not supposed to
 			// be mutated anymore.
 			"ID":    gorethink.UUID(),
-			"Clock": newClock,
+			"Clock": newPersistCommit.FullClock,
 		}
 	})).RunWrite(d.dbClient)
 	if err != nil {
@@ -1630,14 +1715,13 @@ func (d *driver) ReplayCommit(fromCommits []*pfs.Commit, toBranch string) ([]*pf
 		if err := cursor.One(&newPersistCommit); err != nil {
 			return nil, err
 		}
-		newClock := persist.FullClockHead(newPersistCommit.FullClock)
 		oldClock := persist.FullClockHead(rawCommit.FullClock)
 
 		// TODO: conflict detection
 		_, err = d.getTerm(diffTable).Insert(d.getTerm(diffTable).GetAllByIndex(DiffClockIndex.Name, diffClockIndexKey(repo, oldClock.Branch, oldClock.Clock)).Merge(func(diff gorethink.Term) map[string]interface{} {
 			return map[string]interface{}{
 				"ID":    gorethink.UUID(),
-				"Clock": newClock,
+				"Clock": newPersistCommit.FullClock,
 			}
 		})).RunWrite(d.dbClient)
 		if err != nil {
@@ -1675,7 +1759,7 @@ func foldDiffs(diffs gorethink.Term) gorethink.Term {
 				acc.Merge(diff).Merge(map[string]interface{}{
 					"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 					"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-					"Size":      acc.Field("Size").Add(diff.Field("Size")),
+					"SizeBytes": acc.Field("SizeBytes").Add(diff.Field("SizeBytes")),
 				}),
 			),
 		)
@@ -1697,15 +1781,43 @@ func foldDiffsWithoutDelete(diffs gorethink.Term) gorethink.Term {
 			acc.Merge(diff).Merge(map[string]interface{}{
 				"Delete":    acc.Field("Delete").Or(diff.Field("Delete")),
 				"BlockRefs": acc.Field("BlockRefs").Add(diff.Field("BlockRefs")),
-				"Size":      acc.Field("Size").Add(diff.Field("Size")),
+				"SizeBytes": acc.Field("SizeBytes").Add(diff.Field("SizeBytes")),
 			}),
 		)
 	})
 }
 
-func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
-		return diffParentIndexKey(repo, parent, clock)
+// getChildrenFast is the same as getChildren except that it only computes the
+// presence of children, but not their sizes, blockrefs, etc.
+func (d *driver) getChildrenFast(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, file.Path, clock)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cursor, err := query.Group("Path").Reduce(func(left, right gorethink.Term) gorethink.Term {
+		return gorethink.Branch(persist.DBClockDescendent(left.Field("Clock"), right.Field("Clock")),
+			right,
+			left)
+	}).Ungroup().Field("reduction").Filter(func(diff gorethink.Term) gorethink.Term {
+		return diff.Field("FileType").Ne(persist.FileType_NONE)
+	}).Without("BlockRefs", "SizeBytes").OrderBy("Path").Run(d.dbClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var diffs []*persist.Diff
+	if err := cursor.All(&diffs); err != nil {
+		return nil, err
+	}
+	return diffs, nil
+}
+
+func (d *driver) getChildren(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffParentIndex.Name, func(clock interface{}) interface{} {
+		return diffParentIndexKey(repo, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
@@ -1725,14 +1837,15 @@ func (d *driver) getChildren(repo string, parent string, diffMethod *pfs.DiffMet
 	return diffs, nil
 }
 
-func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pfs.DiffMethod, toCommit *pfs.Commit) ([]*persist.Diff, error) {
-	query, err := d.getDiffsInCommitRange(diffMethod, toCommit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
-		return diffPrefixIndexKey(repo, parent, clock)
+func (d *driver) getChildrenRecursive(repo string, file *pfs.File, diffMethod *pfs.DiffMethod) ([]*persist.Diff, error) {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+		return diffPrefixIndexKey(repo, file.Path, clock)
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	parent := file.Path
 	cursor, err := query.Group("Path").Ungroup().Field("reduction").Map(foldDiffs).Filter(func(diff gorethink.Term) gorethink.Term {
 		return diff.Field("FileType").Ne(persist.FileType_NONE)
 	}).Group(func(diff gorethink.Term) gorethink.Term {
@@ -1751,10 +1864,12 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 		return gorethink.Branch(
 			left.Field("Path").Lt(right.Field("Path")),
 			left.Merge(map[string]interface{}{
-				"Size": left.Field("Size").Add(right.Field("Size")),
+				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
+				"BlockRefs": left.Field("BlockRefs").Add(right.Field("BlockRefs")),
 			}),
 			right.Merge(map[string]interface{}{
-				"Size": left.Field("Size").Add(right.Field("Size")),
+				"SizeBytes": left.Field("SizeBytes").Add(right.Field("SizeBytes")),
+				"BlockRefs": left.Field("BlockRefs").Add(right.Field("BlockRefs")),
 			}),
 		)
 	}).Ungroup().Field("reduction").OrderBy("Path").Run(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
@@ -1772,30 +1887,47 @@ func (d *driver) getChildrenRecursive(repo string, parent string, diffMethod *pf
 
 type clockToIndexKeyFunc func(interface{}) interface{}
 
-func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, toCommit *pfs.Commit, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
+func (d *driver) getDiffsInCommitRange(diffMethod *pfs.DiffMethod, file *pfs.File, reverse bool, indexName string, keyFunc clockToIndexKeyFunc) (nilTerm gorethink.Term, retErr error) {
 	var from *pfs.Commit
 	if diffMethod != nil {
 		from = diffMethod.FromCommit
 	}
-	query, err := d._getDiffsInCommitRange(from, toCommit, reverse, indexName, keyFunc)
+	query, err := d._getDiffsInCommitRange(from, file.Commit, reverse, indexName, keyFunc)
 	if err != nil {
 		return nilTerm, err
 	}
 	if diffMethod != nil && diffMethod.FullFile {
 		// If FullFile is set to true, we first figure out if anything
 		// has changed since FromCommit.  If so, we set FromCommit to nil
-		cursor, err := query.Count().Gt(0).Run(d.dbClient)
+		var somethingChanged bool
+		var somethingChangedQuery gorethink.Term
+		// If the file is under a top-level directory, then FullFile applies
+		// if *any* file under the directory changed.
+		parts := strings.Split(file.Path, "/")
+		// note that the first element of parts is going to be an empty string,
+		// since our path starts with a slash
+		// So len(parts)>2 is checking for paths that have 2 components or more,
+		// such as /foo/bar
+		if len(parts) > 2 {
+			somethingChangedQuery, err = d._getDiffsInCommitRange(from, file.Commit, reverse, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+				return diffPrefixIndexKey(file.Commit.Repo.Name, fmt.Sprintf("/%s", parts[1]), clock)
+			})
+			if err != nil {
+				return nilTerm, err
+			}
+		} else {
+			somethingChangedQuery = query
+		}
+		cursor, err := somethingChangedQuery.Count().Gt(0).Run(d.dbClient)
 		if err != nil {
 			return nilTerm, err
 		}
-		var hasDiff bool
-		if err := cursor.One(&hasDiff); err != nil {
+		if err := cursor.One(&somethingChanged); err != nil {
 			return nilTerm, err
 		}
 
-		if hasDiff {
-			from = nil
-			query, err = d._getDiffsInCommitRange(from, toCommit, reverse, indexName, keyFunc)
+		if somethingChanged {
+			query, err = d._getDiffsInCommitRange(nil, file.Commit, reverse, indexName, keyFunc)
 			if err != nil {
 				return nilTerm, err
 			}
@@ -1866,7 +1998,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 		return nil, pfsserver.NewErrFileNotFound(file.Path, file.Commit.Repo.Name, file.Commit.ID)
 	}
 
-	query, err := d.getDiffsInCommitRange(diffMethod, file.Commit, false, DiffPathIndex.Name, func(clock interface{}) interface{} {
+	query, err := d.getDiffsInCommitRange(diffMethod, file, false, DiffPathIndex.Name, func(clock interface{}) interface{} {
 		return diffPathIndexKey(file.Commit.Repo.Name, file.Path, clock)
 	})
 	if err != nil {
@@ -1889,8 +2021,12 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, diffMethod 
 	return filterBlocks(diff, filterShard, file)
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, recurse bool) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pfs.DiffMethod, mode drive.ListFileMode) ([]*pfs.FileInfo, error) {
 	fixPath(file)
+	if mode == drive.ListFileFAST && filterShard != nil && filterShard.BlockModulus > 1 {
+		return nil, fmt.Errorf("the FAST mode of ListFile does not support block shards")
+	}
+
 	// We treat the root directory specially: we know that it's a directory
 	if file.Path != "/" {
 		fileInfo, err := d.InspectFile(file, filterShard, diffMethod)
@@ -1907,12 +2043,21 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 	}
 
+	// there's always going to be changes in the root directory,
+	// but we don't want to always return everything under the root directory
+	if file.Path == "/" && diffMethod != nil {
+		diffMethod.FullFile = false
+	}
+
 	var diffs []*persist.Diff
 	var err error
-	if recurse {
-		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
-	} else {
-		diffs, err = d.getChildren(file.Commit.Repo.Name, file.Path, diffMethod, file.Commit)
+	switch mode {
+	case drive.ListFileNORMAL:
+		diffs, err = d.getChildren(file.Commit.Repo.Name, file, diffMethod)
+	case drive.ListFileFAST:
+		diffs, err = d.getChildrenFast(file.Commit.Repo.Name, file, diffMethod)
+	case drive.ListFileRECURSE:
+		diffs, err = d.getChildrenRecursive(file.Commit.Repo.Name, file, diffMethod)
 	}
 	if err != nil {
 		return nil, err
@@ -1935,7 +2080,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 			}
 			return nil, err
 		}
-		fileInfo.SizeBytes = diff.Size
+		fileInfo.SizeBytes = diff.SizeBytes
 		fileInfo.Modified = diff.Modified
 		switch diff.FileType {
 		case persist.FileType_FILE:
@@ -1947,7 +2092,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, diffMethod *pf
 		}
 		fileInfo.CommitModified = &pfs.Commit{
 			Repo: file.Commit.Repo,
-			ID:   diff.Clock.ReadableCommitID(),
+			ID:   persist.FullClockHead(diff.Clock).ReadableCommitID(),
 		}
 		fileInfos = append(fileInfos, fileInfo)
 	}
@@ -1967,7 +2112,7 @@ func (d *driver) DeleteFile(file *pfs.File) error {
 	commitID := commit.ID
 	prefix := file.Path
 
-	query, err := d.getDiffsInCommitRange(nil, file.Commit, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
+	query, err := d.getDiffsInCommitRange(nil, file, false, DiffPrefixIndex.Name, func(clock interface{}) interface{} {
 		return diffPrefixIndexKey(repo, prefix, clock)
 	})
 	if err != nil {
@@ -1996,8 +2141,8 @@ func (d *driver) DeleteFile(file *pfs.File) error {
 			Path:      path,
 			BlockRefs: nil,
 			Delete:    true,
-			Size:      0,
-			Clock:     persist.FullClockHead(commit.FullClock),
+			SizeBytes: 0,
+			Clock:     commit.FullClock,
 			FileType:  persist.FileType_NONE,
 		})
 	}

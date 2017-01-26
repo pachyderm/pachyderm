@@ -1,7 +1,8 @@
-FROM pachyderm/job-shim:latest
+FROM ubuntu:14.04
 
 # Install Go
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
 		g++ \
 		gcc \
 		libc6-dev \

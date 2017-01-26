@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0
+
+Features:
+
+- Embedded Applications - Our “service” enhancement allows you to embed applications, like Jupyter, dashboards, etc., within Pachyderm, access versioned data from within the applications, and expose the applications externally.
+- Pre-Fetched Input Data - End-to-end performance of typical Pachyderm pipelines will see a many-fold speed up thanks to a prefetch of input data.
+- Put Files via Object Store URLs - You can now use “put-file” with s3://, gcs://, and as:// URLS.
+- Update your Pipeline code easily - You can now call “create-pipeline” or “update-pipeline” with the “--push-images” flag to re-run your pipeline on the same data with new images.
+- Support for all Docker images - It is no longer necessary to include anything Pachyderm specific in your custom Docker images, so use any Docker image you like (with a couple very small caveats discussed below).
+- Cloud Deployment with a single command for Amazon / Google / Microsoft / a local cluster - via `pachctl deploy ...` 
+- Migration support for all Pachyderm data from version `1.2.2` through latest `1.3.0`
+- High Availability upgrade to rethink, which is now deployed as a petset
+- Upgraded fault tolerance via a new PPS job subscription model
+- Removed redundancy in log messages, making logs substantially smaller 
+- Garbage collect completed jobs
+- Support for deleting a commit
+- Added user metrics (and an opt out mechanism) to anonymously track usage, so we can discover new bottlenecks
+- Upgrade to k8s 1.4.6
+
 ## 1.2.0
 
 Features:

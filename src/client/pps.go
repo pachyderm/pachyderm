@@ -1,18 +1,32 @@
 package client
 
 import (
+	"fmt"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-
-	protostream "go.pedge.io/proto/stream"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // NewJob creates a pps.Job.
 func NewJob(jobID string) *pps.Job {
 	return &pps.Job{ID: jobID}
 }
+
+const (
+	// PPSPodNameEnv is the environment variable that a pod can use to
+	// see its own name.  The pod name is made available through the Kubernetes
+	// downward API.
+	PPSPodNameEnv = "PPS_POD_NAME"
+	// PPSLeasePeriod is the amount of time for a lease on a chunk to expire.
+	// That is, a pod needs to send ContinueJob to PPS at lease once every this
+	// amount of time in order to keep owning a chunk.  In reality, pods send
+	// ContinueJob more often than that because they need to account for network
+	// latency.
+	PPSLeasePeriod = 30 * time.Second
+)
 
 var (
 	// MapMethod defines a pps.Method for mapper pipelines.
@@ -95,8 +109,22 @@ func (c APIClient) CreateJob(
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
 	parentJobID string,
+	internalPort int32,
+	externalPort int32,
 ) (*pps.Job, error) {
 	var parentJob *pps.Job
+	var service *pps.Service
+	if internalPort != 0 {
+		service = &pps.Service{
+			InternalPort: internalPort,
+		}
+	}
+	if externalPort != 0 {
+		if internalPort == 0 {
+			return nil, fmt.Errorf("external port specified without internal port")
+		}
+		service.ExternalPort = externalPort
+	}
 	if parentJobID != "" {
 		parentJob = NewJob(parentJobID)
 	}
@@ -111,6 +139,7 @@ func (c APIClient) CreateJob(
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
 			ParentJob:       parentJob,
+			Service:         service,
 		},
 	)
 	return job, sanitizeErr(err)
@@ -150,6 +179,17 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 	return jobInfos.JobInfo, nil
 }
 
+// DeleteJob deletes a job along with its output Repo
+func (c APIClient) DeleteJob(jobID string) error {
+	_, err := c.PpsAPIClient.DeleteJob(
+		c.ctx(),
+		&pps.DeleteJobRequest{
+			Job: NewJob(jobID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // GetLogs gets logs from a job (logs includes stdout and stderr).
 func (c APIClient) GetLogs(
 	jobID string,
@@ -164,7 +204,7 @@ func (c APIClient) GetLogs(
 	if err != nil {
 		return sanitizeErr(err)
 	}
-	return sanitizeErr(protostream.WriteFromStreamingBytesClient(getLogsClient, writer))
+	return sanitizeErr(grpcutil.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

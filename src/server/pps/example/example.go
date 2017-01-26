@@ -18,6 +18,7 @@ var (
 		AcceptReturnCode: []int64{1},
 		Env:              map[string]string{"foo": "bar"},
 		Secrets:          []*ppsclient.Secret{Secret},
+		ImagePullSecrets: []string{"my-secret"},
 	}
 	// CreateJobRequest example
 	CreateJobRequest = &ppsclient.CreateJobRequest{
@@ -33,6 +34,7 @@ var (
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
 				Method: client.MapMethod,
+				Lazy:   true,
 			},
 		},
 		ParentJob: &ppsclient.Job{

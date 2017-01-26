@@ -1,32 +1,51 @@
 syntax = "proto3";
+package pps;
 
-import "google/protobuf/empty.proto";
+import "gogoproto/gogo.proto";
+
 import "server/pfs/fuse/fuse.proto";
-import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
-
-package pachyderm.pps;
 
 option go_package = "pps";
 
-message StartJobRequest {
+message StartPodRequest {
   Job job = 1;
+  string pod_name = 2;
 }
 
-message StartJobResponse {
-    Transform transform = 1;
-    repeated fuse.CommitMount commit_mounts = 2;
-    uint64 pod_index = 3;
+message StartPodResponse {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  Transform transform = 2;
+  repeated fuse.CommitMount commit_mounts = 3;
 }
 
-message FinishJobRequest {
-    Job job = 1;
-    bool success = 2;
-    uint64 pod_index = 3;
+message FinishPodRequest {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  string pod_name = 2;
+  bool success = 3;
 }
 
-service InternalJobAPI {
-    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+message FinishPodResponse {
+  // If restart is true, the pod is expected to exit with a non-zero code
+  // so that k8s knows to reschedule the pod.
+  bool restart = 1;
 }
 
+message ContinuePodRequest {
+  string chunk_id = 1 [(gogoproto.customname) = "ChunkID"];
+  string pod_name = 2;
+}
+
+message ContinuePodResponse {
+  // If restart is true, the pod is expected to abandon its work and exit
+  // with a non-zero code, so k8s knows to reschedule the pod.
+  // This happens if the chunk that the pod is working on has been assigned
+  // to another pod, or if the lease on this chunk has expired.
+  bool restart = 1;
+}
+
+service InternalPodAPI {
+    rpc StartPod(StartPodRequest) returns (StartPodResponse) {}
+    rpc ContinuePod(ContinuePodRequest) returns (ContinuePodResponse) {}
+    rpc FinishPod(FinishPodRequest) returns (FinishPodResponse) {}
+}

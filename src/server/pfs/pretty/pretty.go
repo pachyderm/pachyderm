@@ -47,7 +47,7 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "BRANCH\tREPO/ID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
+	fmt.Fprint(w, "BRANCH\tREPO/ID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")
 }
 
 // PrintCommitInfo pretty-prints commit info.
@@ -64,11 +64,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 		"%s\t",
 		pretty.Ago(commitInfo.Started),
 	)
-	finished := "\t"
+	duration := "-\t"
 	if commitInfo.Finished != nil {
-		finished = fmt.Sprintf("%s\t", pretty.Ago(commitInfo.Finished))
+		duration = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Started, commitInfo.Finished))
 	}
-	fmt.Fprintf(w, finished)
+	fmt.Fprintf(w, duration)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
@@ -100,7 +100,9 @@ func PrintFileInfoHeader(w io.Writer) {
 }
 
 // PrintFileInfo pretty-prints file info.
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
+// If recurse is false and directory size is 0, display "-" instead
+// If fast is true and file size is 0, display "-" instead
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool, fast bool) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		fmt.Fprint(w, "file\t")
@@ -112,14 +114,27 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 		"%s\t",
 		pretty.Ago(fileInfo.Modified),
 	)
-	fmt.Fprint(w, "-\t")
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", fileInfo.CommitModified.ID)
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		if !recurse && int(fileInfo.SizeBytes) == 0 {
+			fmt.Fprintf(w, "-\t\n")
+		} else {
+			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+		}
+	}
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+		if fast && fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && int(fileInfo.SizeBytes) == 0 {
+			fmt.Fprintf(w, "-\t\n")
+		} else {
+			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
+		}
+	}
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.
 func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
-		`Path: {{.File.Commit.Repo.Name}}/{{.File.Commit.ID}}/{{.File.Path}}
+		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
 Modifed: {{prettyAgo .Modified}}
 Size: {{prettySize .SizeBytes}}

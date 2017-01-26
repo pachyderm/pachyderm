@@ -49,7 +49,7 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 .. code-block:: shell
 
-	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set1.txt
+	$ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/set1.txt
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag we used above specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner.
 
@@ -82,7 +82,7 @@ Now that we've got some data in our repo, it's time to do something with it.
 ``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. For this example, we've already created the pipeline for you and it can be found at `examples/fruit_stand/pipeline.json on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/fruit_stand/pipeline.json>`_. Please open a new tab to view the pipeline while we talk through it.
 
-When you want to create your own pipelines later, you can refer to the full :doc:`../development/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
+When you want to create your own pipelines later, you can refer to the full :doc:`../deployment/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
 
 For now, we're going to create a pipeline with 2 transformations in it. The first transformation filters the sales logs into separate records for apples,
 oranges and bananas. The second step sums these sales numbers into a final sales count.
@@ -101,7 +101,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
- $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/pipeline.json
+ $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/pipeline.json
 
 
 What Happens When You Create a Pipeline
@@ -156,7 +156,7 @@ Let's create a new commit with our previous commit as the parent and add more sa
 
 .. code-block:: shell
 
-  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set2.txt
+  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.3.2/doc/examples/fruit_stand/set2.txt
 
 Adding a new commit of data will automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
@@ -167,7 +167,7 @@ the new data we've added. We'll see a corresponding commit to the output
  $ pachctl get-file sum 4092f4675650476ab0a3fde5b7780316/0 apple
  324
 
-One thing that's interesting to note is that our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the "sum" pipeline, you'll notice the ``method`` and that our code uses ``/prev`` to compute the sum incrementally based upon our previous commit. You can learn more about incrementally in our advanced :doc:`../advanced/incrementality` docs.
+One thing that's interesting to note is that our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the "sum" pipeline, you'll notice the ``method`` and that our code uses ``/pfs/prev`` to compute the sum incrementally based upon our previous commit. You can learn more about incrementally in our advanced :doc:`../advanced/incrementality` docs.
 
 We can view the parental structure of the commits we just created.
 
@@ -222,14 +222,14 @@ Next Steps
 ^^^^^^^^^^
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.1/doc/examples/fruit_stand/generate>`_ if you want to use it.
+- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.3.2/doc/examples/fruit_stand/generate>`_ if you want to use it.
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
 - Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count.
 
 You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
-- :doc:`../development/deploying_on_the_cloud`
-- :doc:`../development/inputing_your_data` from other sources
-- :doc:`../development/custom_pipelines` using your own code
+- :doc:`../deployment/deploying_on_the_cloud`
+- :doc:`../deployment/inputing_your_data` from other sources
+- :doc:`../deployment/custom_pipelines` using your own code
 
 We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
