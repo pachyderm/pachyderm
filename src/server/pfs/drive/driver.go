@@ -88,14 +88,11 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		repos := d.repos(stm)
+		repoRefCounts := d.repoRefCounts(stm)
 
 		// compute the full provenance of this repo
 		fullProv := make(map[string]bool)
 		for _, prov := range provenance {
-			if err := repos.Touch(prov.Name); err != nil {
-				return err
-			}
-
 			fullProv[prov.Name] = true
 			provRepo := &pfs.RepoInfo{}
 			if err := repos.Get(prov.Name, provRepo); err != nil {
@@ -110,6 +107,13 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		var fullProvRepos []*pfs.Repo
 		for prov := range fullProv {
 			fullProvRepos = append(fullProvRepos, &pfs.Repo{prov})
+			if err := repoRefCounts.Increment(prov); err != nil {
+				return err
+			}
+		}
+
+		if err := repoRefCounts.Create(repo.Name, 0); err != nil {
+			return err
 		}
 
 		repoInfo := &pfs.RepoInfo{
@@ -186,37 +190,35 @@ func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		repos := d.repos(stm)
+		repoRefCounts := d.repoRefCounts(stm)
 		commits := d.commits(stm)(repo.Name)
 		refs := d.refs(stm)(repo.Name)
 
-		if err := repos.Touch(repo.Name); err != nil {
-			return err
-		}
-
 		// Check if this repo is the provenance of some other repos
 		if !force {
-			iterate, err := repos.List()
+			refCount, err := repoRefCounts.Get(repo.Name)
 			if err != nil {
 				return err
 			}
-			for {
-				key, repoInfo := "", pfs.RepoInfo{}
-				ok, err := iterate(&key, &repoInfo)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					break
-				}
-				for _, prov := range repoInfo.Provenance {
-					if prov.Name == repo.Name {
-						return fmt.Errorf("cannot delete repo %s because it's the provenance of repo %s", repo.Name, prov.Name)
-					}
-				}
+			if refCount != 0 {
+				return fmt.Errorf("cannot delete the provenance of other repos")
+			}
+		}
+
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Get(repo.Name, repoInfo); err != nil {
+			return err
+		}
+		for _, prov := range repoInfo.Provenance {
+			if err := repoRefCounts.Decrement(prov.Name); err != nil {
+				return err
 			}
 		}
 
 		if err := repos.Delete(repo.Name); err != nil {
+			return err
+		}
+		if err := repoRefCounts.Delete(repo.Name); err != nil {
 			return err
 		}
 		commits.DeleteAll()
