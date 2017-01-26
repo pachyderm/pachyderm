@@ -276,6 +276,15 @@ func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) 
 	return s.GetObject(ctx, object)
 }
 
+func (s *objBlockAPIServer) Compact(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := s.compact(); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (s *objBlockAPIServer) objectPrefix(prefix string) string {
 	return s.localServer.objectPath(&pfsclient.Object{Hash: prefix})
 }

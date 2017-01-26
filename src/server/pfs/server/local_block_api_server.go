@@ -172,6 +172,10 @@ func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag
 	return &google_protobuf.BytesValue{Value: value}, nil
 }
 
+func (s *localBlockAPIServer) Compact(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+	return google_protobuf.EmptyInstance, nil
+}
+
 func (s *localBlockAPIServer) blockDir() string {
 	return filepath.Join(s.dir, "block")
 }
