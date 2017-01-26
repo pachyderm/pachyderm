@@ -284,9 +284,19 @@ func (s *objBlockAPIServer) tagPrefix(prefix string) string {
 	return s.localServer.tagPath(&pfsclient.Tag{Name: prefix})
 }
 
-func (s *objBlockAPIServer) compact() error {
+func (s *objBlockAPIServer) compact() (retErr error) {
 	lion.Printf("compact\n")
 	var eg errgroup.Group
+	var w *blockWriter
+	var wErr error
+	defer func() {
+		if w != nil {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
+	var wOnce sync.Once
 	for i := 0; i < len(alphabet); i++ {
 		for j := 0; j < len(alphabet); j++ {
 			prefix := fmt.Sprintf("%c%c", alphabet[i], alphabet[j])
@@ -299,7 +309,13 @@ func (s *objBlockAPIServer) compact() error {
 				if count < compactionThreshold {
 					return nil
 				}
-				return s.compactPrefix(prefix)
+				wOnce.Do(func() {
+					w, wErr = s.newBlockWriter(&pfsclient.Block{Hash: uuid.NewWithoutDashes()})
+				})
+				if wErr != nil {
+					return wErr
+				}
+				return s.compactPrefix(prefix, w)
 			})
 		}
 	}
@@ -327,7 +343,7 @@ func (s *objBlockAPIServer) countPrefix(prefix string) (int64, error) {
 	return count, nil
 }
 
-func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
+func (s *objBlockAPIServer) compactPrefix(prefix string, w *blockWriter) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
 	objectIndex := &pfsclient.ObjectIndex{
@@ -338,17 +354,6 @@ func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	}
-	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
-	blockW, err := s.objClient.Writer(s.localServer.blockPath(block))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := blockW.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	var written uint64
 	eg.Go(func() error {
 		return s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
 			eg.Go(func() (retErr error) {
@@ -365,19 +370,13 @@ func (s *objBlockAPIServer) compactPrefix(prefix string) (retErr error) {
 				if err != nil {
 					return err
 				}
-				mu.Lock()
-				defer mu.Unlock()
-				if _, err := blockW.Write(object); err != nil {
+				blockRef, err := w.Write(object)
+				if err != nil {
 					return err
 				}
-				objectIndex.Objects[filepath.Base(name)] = &pfsclient.BlockRef{
-					Block: block,
-					Range: &pfsclient.ByteRange{
-						Lower: written,
-						Upper: written + uint64(len(object)),
-					},
-				}
-				written += uint64(len(object))
+				mu.Lock()
+				defer mu.Unlock()
+				objectIndex.Objects[filepath.Base(name)] = blockRef
 				toDelete = append(toDelete, name)
 				return nil
 			})
@@ -610,8 +609,7 @@ type blockWriter struct {
 	mu      sync.Mutex
 }
 
-func newBlockWriter(id string) (*blockWriter, error) {
-	block := &pfsclient.Block{Hash: id}
+func (s *objBlockAPIServer) newBlockWriter(block *pfsclient.Block) (*blockWriter, error) {
 	w, err := s.objClient.Writer(s.localServer.blockPath(block))
 	if err != nil {
 		return nil, err
@@ -619,24 +617,19 @@ func newBlockWriter(id string) (*blockWriter, error) {
 	return &blockWriter{
 		w:     w,
 		block: block,
-	}
-	defer func() {
-		if err := blockW.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+	}, nil
 }
 
 func (w *blockWriter) Write(p []byte) (*pfsclient.BlockRef, error) {
-	mu.Lock()
-	defer mu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if _, err := w.w.Write(p); err != nil {
 		return nil, err
 	}
 	lower := w.written
 	w.written += uint64(len(p))
 	return &pfsclient.BlockRef{
-		Block: block,
+		Block: w.block,
 		Range: &pfsclient.ByteRange{
 			Lower: lower,
 			Upper: w.written,
