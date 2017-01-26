@@ -4,7 +4,7 @@
     "external_port": 30888
   },
   "transform": {
-    "image": "pachyderm_jupyter",
+    "image": "dwhitena/pachyderm_jupyter",
     "cmd": [ "sh" ],
     "stdin": [
 		"/opt/conda/bin/jupyter notebook"
