@@ -17,6 +17,7 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"github.com/spf13/cobra"
+	"go.pedge.io/pkg/cobra"
 )
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
@@ -40,6 +41,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var hostPath string
 	var dev bool
 	var dryRun bool
+	var secure bool
 	var deployRethinkAsRc bool
 	var deployRethinkAsStatefulSet bool
 	var rethinkdbCacheSize string
@@ -93,6 +95,28 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
+
+	deployMinio := &cobra.Command{
+		Use:   "minio [-s] <S3 bucket> <id> <secret> <endpoint>",
+		Short: "Deploy a Pachyderm cluster running locally.",
+		Long: "Deploy a Pachyderm cluster running locally. Arguments are:\n" +
+			"  <Minio bucket>: A Minio bucket where Pachyderm will store PFS data.\n" +
+			"  <id>, <secret>, <endpoint>: Access credentials.\n" +
+			"  <secure>: Secure connection.\n",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 4}, func(args []string) (retErr error) {
+			if metrics && !dev {
+				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
+				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+			}
+			manifest := &bytes.Buffer{}
+			err := assets.WriteMinioAssets(manifest, opts, hostPath, args[0], args[1], args[2], args[3], secure)
+			if err != nil {
+				return err
+			}
+			return maybeKcCreate(dryRun, manifest)
+		}),
+	}
+	deployMinio.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to Minio server.")
 
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
@@ -206,6 +230,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
+	deploy.AddCommand(deployMinio)
 	return deploy
 }
 
