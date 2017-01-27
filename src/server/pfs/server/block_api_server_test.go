@@ -32,13 +32,16 @@ func TestManyObjects(t *testing.T) {
 	c := getPachClient(t)
 	var objects []string
 	for i := 0; i < 200; i++ {
-		object, err := c.PutObject([]byte(string(i)))
+		object, err := c.PutObject([]byte(string(i)), string(i))
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}
 	require.NoError(t, c.Compact())
 	for i, hash := range objects {
 		value, err := c.GetObject(hash)
+		require.NoError(t, err)
+		require.Equal(t, []byte(string(i)), value)
+		value, err = c.GetTag(string(i))
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
 	}
