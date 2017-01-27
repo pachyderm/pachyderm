@@ -9,8 +9,8 @@ import (
 	"io/ioutil"
 	"time"
 
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	protolion "go.pedge.io/lion"
+	protorpclog "go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
@@ -71,6 +71,14 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 				return dest.SetBytes(block)
 			})),
 	}, nil
+}
+
+func newMinioBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+	objClient, err := obj.NewMinioClientFromSecret("")
+	if err != nil {
+		return nil, err
+	}
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
 func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
