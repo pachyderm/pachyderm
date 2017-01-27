@@ -215,8 +215,8 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
 	var eg errgroup.Group
 	eg.Go(func() (retErr error) {
-		objectPath := s.localServer.objectPath(object)
-		w, err := s.objClient.Writer(objectPath)
+		block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
+		w, err := s.newBlockWriter(block)
 		if err != nil {
 			return err
 		}
@@ -225,10 +225,12 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 				retErr = err
 			}
 		}()
-		if _, err := w.Write(request.Value); err != nil {
+		blockRef, err := w.Write(request.Value)
+		if err != nil {
 			return err
 		}
-		return nil
+		index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
+		return s.writeProto(s.localServer.objectPath(object), index)
 	})
 	for _, tag := range request.Tags {
 		tag := hashTag(tag)
@@ -302,7 +304,16 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 	eg.Go(func() error {
 		return s.objClient.Walk(s.localServer.objectDir(), func(name string) error {
 			eg.Go(func() (retErr error) {
-				r, err := s.objClient.Reader(name, 0, 0)
+				localObjectIndex := &pfsclient.ObjectIndex{}
+				if err := s.readProto(name, localObjectIndex); err != nil {
+					return err
+				}
+				blockRef, ok := localObjectIndex.Objects[filepath.Base(name)]
+				if !ok {
+					return fmt.Errorf("localObjectIndex should contain hash: %s (this is likely a bug)", filepath.Base(name))
+				}
+				blockPath := s.localServer.blockPath(blockRef.Block)
+				r, err := s.objClient.Reader(blockPath, blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower)
 				if err != nil {
 					return err
 				}
@@ -315,14 +326,14 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 				if err != nil {
 					return err
 				}
-				blockRef, err := w.Write(object)
+				blockRef, err = w.Write(object)
 				if err != nil {
 					return err
 				}
 				mu.Lock()
 				defer mu.Unlock()
 				objectIndex.Objects[filepath.Base(name)] = blockRef
-				toDelete = append(toDelete, name)
+				toDelete = append(toDelete, name, blockPath)
 				return nil
 			})
 			return nil
@@ -451,17 +462,25 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 	// Check if the index contains a the object we're looking for, if so read
 	// it into the cache and return
 	if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
-		return s.readObj(s.localServer.blockPath(blockRef.Block), blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower, dest)
+		return s.readBlockRef(blockRef, dest)
 	}
 	// Try reading the object from its object path, this happens for recently
 	// written objects that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	if err := s.readObj(s.localServer.objectPath(object), 0, 0, dest); err != nil && !s.objClient.IsNotExist(err) {
+	objectIndex := &pfsclient.ObjectIndex{}
+	if err := s.readProto(s.localServer.objectPath(object), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	} else if err == nil {
-		// We found the file so we can return.
-		return nil
+		blockRef, ok := objectIndex.Objects[object.Hash]
+		if !ok {
+			return fmt.Errorf("objectIndex should contain hash: %s (this is likely a bug)", object.Hash)
+		}
+		if err := s.readBlockRef(blockRef, dest); err != nil && !s.objClient.IsNotExist(err) {
+			return err
+		} else if err == nil {
+			return nil
+		}
 	}
 	// The last chance to find this object is to update the index since the
 	// object may have been recently incorporated into it.
@@ -470,7 +489,7 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 			return err
 		}
 		if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
-			return s.readObj(s.localServer.blockPath(blockRef.Block), blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower, dest)
+			return s.readBlockRef(blockRef, dest)
 		}
 	}
 	return fmt.Errorf("objectGetter: object %s not found", object.Hash)
@@ -553,6 +572,10 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 		return err
 	}
 	return dest.SetBytes(data)
+}
+
+func (s *objBlockAPIServer) readBlockRef(blockRef *pfsclient.BlockRef, dest groupcache.Sink) error {
+	return s.readObj(s.localServer.blockPath(blockRef.Block), blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower, dest)
 }
 
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
