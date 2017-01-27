@@ -28,6 +28,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     deployment/analyze_your_data
     deployment/deploying_on_the_cloud
+    deployment/deploying_on_premises
     deployment/inputing_your_data
     deployment/custom_pipelines
     deployment/pipeline_spec
