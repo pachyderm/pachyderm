@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.pedge.io/lion/proto"
@@ -30,10 +29,9 @@ import (
 )
 
 const (
-	prefixLength        = 2
-	compactionThreshold = 100
-	cacheSize           = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
-	alphabet            = "0123456789abcdef"
+	prefixLength = 2
+	cacheSize    = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
+	alphabet     = "0123456789abcdef"
 )
 
 type objBlockAPIServer struct {
@@ -66,15 +64,6 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		groupcache.GetterFunc(server.objectGetter))
 	server.tagCache = groupcache.NewGroup("tag", cacheSize,
 		groupcache.GetterFunc(server.tagGetter))
-	go func() {
-		ticker := time.NewTicker(time.Second * 15)
-		for {
-			<-ticker.C
-			if err := server.compact(); err != nil {
-				protolion.Errorf("error compacting: %s", err.Error())
-			}
-		}
-	}()
 	return server, nil
 }
 
@@ -242,7 +231,7 @@ func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.Pu
 		return nil
 	})
 	for _, tag := range request.Tags {
-		tag := tag
+		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -270,7 +259,7 @@ func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) 
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(request.Name), sink); err != nil {
+	if err := s.tagCache.Get(ctx, splitKey(hashTag(request).Name), sink); err != nil {
 		return nil, err
 	}
 	return s.GetObject(ctx, object)
@@ -294,65 +283,15 @@ func (s *objBlockAPIServer) tagPrefix(prefix string) string {
 }
 
 func (s *objBlockAPIServer) compact() (retErr error) {
-	lion.Printf("compact\n")
-	var eg errgroup.Group
-	var w *blockWriter
-	var wErr error
+	w, err := s.newBlockWriter(&pfsclient.Block{Hash: uuid.NewWithoutDashes()})
+	if err != nil {
+		return err
+	}
 	defer func() {
-		if w != nil {
-			if err := w.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
 		}
 	}()
-	var wOnce sync.Once
-	for i := 0; i < len(alphabet); i++ {
-		for j := 0; j < len(alphabet); j++ {
-			prefix := fmt.Sprintf("%c%c", alphabet[i], alphabet[j])
-			eg.Go(func() error {
-				count, err := s.countPrefix(prefix)
-				lion.Printf("prefix %s: %d", prefix, count)
-				if err != nil {
-					return err
-				}
-				if count < compactionThreshold {
-					return nil
-				}
-				wOnce.Do(func() {
-					w, wErr = s.newBlockWriter(&pfsclient.Block{Hash: uuid.NewWithoutDashes()})
-				})
-				if wErr != nil {
-					return wErr
-				}
-				return s.compactPrefix(prefix, w)
-			})
-		}
-	}
-	return eg.Wait()
-}
-
-func (s *objBlockAPIServer) countPrefix(prefix string) (int64, error) {
-	var count int64
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
-			atomic.AddInt64(&count, 1)
-			return nil
-		})
-	})
-	eg.Go(func() error {
-		return s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
-			atomic.AddInt64(&count, 1)
-			return nil
-		})
-	})
-	if err := eg.Wait(); err != nil {
-		return 0, nil
-	}
-	return count, nil
-}
-
-func (s *objBlockAPIServer) compactPrefix(prefix string, w *blockWriter) (retErr error) {
 	var mu sync.Mutex
 	var eg errgroup.Group
 	objectIndex := &pfsclient.ObjectIndex{
@@ -360,11 +299,8 @@ func (s *objBlockAPIServer) compactPrefix(prefix string, w *blockWriter) (retErr
 		Tags:    make(map[string]*pfsclient.Object),
 	}
 	var toDelete []string
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
-		return err
-	}
 	eg.Go(func() error {
-		return s.objClient.Walk(s.objectPrefix(prefix), func(name string) error {
+		return s.objClient.Walk(s.localServer.objectDir(), func(name string) error {
 			eg.Go(func() (retErr error) {
 				r, err := s.objClient.Reader(name, 0, 0)
 				if err != nil {
@@ -393,7 +329,7 @@ func (s *objBlockAPIServer) compactPrefix(prefix string, w *blockWriter) (retErr
 		})
 	})
 	eg.Go(func() error {
-		return s.objClient.Walk(s.tagPrefix(prefix), func(name string) error {
+		return s.objClient.Walk(s.localServer.tagDir(), func(name string) error {
 			eg.Go(func() error {
 				tagObjectIndex := &pfsclient.ObjectIndex{}
 				if err := s.readProto(name, tagObjectIndex); err != nil {
@@ -413,14 +349,44 @@ func (s *objBlockAPIServer) compactPrefix(prefix string, w *blockWriter) (retErr
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	if err := s.writeProto(s.localServer.indexPath(prefix), objectIndex); err != nil {
+	prefixes := make(map[string]bool)
+	for hash := range objectIndex.Objects {
+		prefixes[hash[:2]] = true
+	}
+	for tag := range objectIndex.Tags {
+		prefixes[tag[:2]] = true
+	}
+	eg = errgroup.Group{}
+	for prefix := range prefixes {
+		prefix := prefix
+		eg.Go(func() error {
+			prefixObjectIndex := &pfsclient.ObjectIndex{
+				Objects: make(map[string]*pfsclient.BlockRef),
+				Tags:    make(map[string]*pfsclient.Object),
+			}
+			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.objClient.IsNotExist(err) {
+				return err
+			}
+			for hash, blockRef := range objectIndex.Objects {
+				if strings.HasPrefix(hash, prefix) {
+					prefixObjectIndex.Objects[hash] = blockRef
+				}
+			}
+			for tag, object := range objectIndex.Tags {
+				if strings.HasPrefix(tag, prefix) {
+					prefixObjectIndex.Tags[tag] = object
+				}
+			}
+			return s.writeProto(s.localServer.indexPath(prefix), prefixObjectIndex)
+		})
+	}
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 	eg = errgroup.Group{}
 	for _, file := range toDelete {
 		file := file
 		eg.Go(func() error {
-			lion.Printf("deleting: %s\n", file)
 			return s.objClient.Delete(file)
 		})
 	}
@@ -647,4 +613,11 @@ func (w *blockWriter) Write(p []byte) (*pfsclient.BlockRef, error) {
 
 func (w *blockWriter) Close() error {
 	return w.w.Close()
+}
+
+func hashTag(tag *pfsclient.Tag) *pfsclient.Tag {
+	hash := newHash()
+	// writing to a hasher can't fail
+	hash.Write([]byte(tag.Name))
+	return &pfsclient.Tag{Name: hex.EncodeToString(hash.Sum(nil))}
 }
