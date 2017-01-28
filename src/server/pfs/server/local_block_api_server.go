@@ -3,7 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -134,22 +135,47 @@ func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
+func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	object := &pfsclient.Object{Hash: base64.URLEncoding.EncodeToString(newHash().Sum(request.Value))}
+	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer drainObjectServer(server)
+	hash := newHash()
+	tmpPath := filepath.Join(s.objectDir(), uuid.NewWithoutDashes())
+	putObjectReader := &putObjectReader{
+		server: server,
+	}
+	r := io.TeeReader(putObjectReader, hash)
+	if err := func() error {
+		w, err := os.Create(tmpPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		if _, err := io.Copy(w, r); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
+	if err := server.SendAndClose(object); err != nil {
+		return err
+	}
 	objectPath := s.objectPath(object)
-	if _, err := os.Stat(objectPath); os.IsNotExist(err) {
-		if err := ioutil.WriteFile(objectPath, request.Value, 0666); err != nil {
-			return nil, err
-		}
+	if err := os.Rename(tmpPath, objectPath); err != nil && retErr == nil {
+		retErr = err
 	}
-	for _, tag := range request.Tags {
+	for _, tag := range putObjectReader.tags {
 		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return object, nil
+	return nil
 }
 
 func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {
@@ -285,9 +311,36 @@ func (r *putBlockReader) Read(p []byte) (int, error) {
 	return r.buffer.Read(p)
 }
 
+type putObjectReader struct {
+	server pfsclient.ObjectAPI_PutObjectServer
+	buffer bytes.Buffer
+	tags   []*pfsclient.Tag
+}
+
+func (r *putObjectReader) Read(p []byte) (int, error) {
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		// buffer.Write cannot error
+		r.buffer.Write(request.Value)
+		r.tags = append(r.tags, request.Tags...)
+	}
+	return r.buffer.Read(p)
+}
+
 func drainBlockServer(putBlockServer pfsclient.BlockAPI_PutBlockServer) {
 	for {
 		if _, err := putBlockServer.Recv(); err != nil {
+			break
+		}
+	}
+}
+
+func drainObjectServer(putObjectServer pfsclient.ObjectAPI_PutObjectServer) {
+	for {
+		if _, err := putObjectServer.Recv(); err != nil {
 			break
 		}
 	}

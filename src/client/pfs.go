@@ -373,8 +373,11 @@ func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRef
 			blockRefs = writer.blockRefs
 		}
 	}()
-	_, retErr = io.Copy(writer, reader)
-	return blockRefs, retErr
+	if _, err := io.Copy(writer, reader); err != nil {
+		return nil, sanitizeErr(err)
+	}
+	// Return value gets set in deferred function
+	return nil, nil
 }
 
 // GetBlock returns the content of a block using it's hash.
@@ -439,16 +442,24 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(value []byte, tags ...string) (*pfs.Object, error) {
-	request := &pfs.PutObjectRequest{Value: value}
-	for _, tag := range tags {
-		request.Tags = append(request.Tags, &pfs.Tag{Name: tag})
-	}
-	object, err := c.ObjectAPIClient.PutObject(c.ctx(), request)
+func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, retErr error) {
+	w, err := c.newPutObjectWriteCloser(tags...)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return object, nil
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = sanitizeErr(err)
+		}
+		if retErr == nil {
+			object = w.object
+		}
+	}()
+	if _, err := io.Copy(w, r); err != nil {
+		return nil, sanitizeErr(err)
+	}
+	// return value set by deferred function
+	return nil, nil
 }
 
 // GetObject gets an object out of the object store by hash.
@@ -810,7 +821,7 @@ type putBlockWriteCloser struct {
 func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWriteCloser, error) {
 	putBlockClient, err := c.BlockAPIClient.PutBlock(c.ctx())
 	if err != nil {
-		return nil, err
+		return nil, sanitizeErr(err)
 	}
 	return &putBlockWriteCloser{
 		request: &pfs.PutBlockRequest{
@@ -832,6 +843,44 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 func (w *putBlockWriteCloser) Close() error {
 	var err error
 	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
+	return sanitizeErr(err)
+}
+
+type putObjectWriteCloser struct {
+	request         *pfs.PutObjectRequest
+	putObjectClient pfs.ObjectAPI_PutObjectClient
+	object          *pfs.Object
+}
+
+func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteCloser, error) {
+	putObjectClient, err := c.ObjectAPIClient.PutObject(c.ctx())
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	var _tags []*pfs.Tag
+	for _, tag := range tags {
+		_tags = append(_tags, &pfs.Tag{Name: tag})
+	}
+	return &putObjectWriteCloser{
+		request: &pfs.PutObjectRequest{
+			Tags: _tags,
+		},
+		putObjectClient: putObjectClient,
+	}, nil
+}
+
+func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.putObjectClient.Send(w.request); err != nil {
+		return 0, sanitizeErr(err)
+	}
+	w.request.Tags = nil
+	return len(p), nil
+}
+
+func (w *putObjectWriteCloser) Close() error {
+	var err error
+	w.object, err = w.putObjectClient.CloseAndRecv()
 	return sanitizeErr(err)
 }
 
