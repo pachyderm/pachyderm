@@ -205,44 +205,53 @@ func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.Li
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *objBlockAPIServer) PutObject(ctx context.Context, request *pfsclient.PutObjectRequest) (response *pfsclient.Object, retErr error) {
+func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer drainObjectServer(server)
 	hash := newHash()
-	if _, err := hash.Write(request.Value); err != nil {
-		return nil, err
+	putObjectReader := &putObjectReader{
+		server: server,
+	}
+	r := io.TeeReader(putObjectReader, hash)
+	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
+	w, err := s.objClient.Writer(s.localServer.blockPath(block))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	size, err := io.Copy(w, r)
+	if err != nil {
+		return err
 	}
 	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
+	if err := server.SendAndClose(object); err != nil {
+		return err
+	}
+	blockRef := &pfsclient.BlockRef{
+		Block: block,
+		Range: &pfsclient.ByteRange{
+			Lower: 0,
+			Upper: uint64(size),
+		},
+	}
+	index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
 	var eg errgroup.Group
-	eg.Go(func() (retErr error) {
-		block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
-		w, err := s.newBlockWriter(block)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := w.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		blockRef, err := w.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
+	eg.Go(func() error {
 		return s.writeProto(s.localServer.objectPath(object), index)
 	})
-	for _, tag := range request.Tags {
+	for _, tag := range putObjectReader.tags {
 		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
 		})
 	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	return object, nil
+	return eg.Wait()
 }
 
 func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {

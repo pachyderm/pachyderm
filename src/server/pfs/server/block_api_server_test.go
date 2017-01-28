@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -9,7 +10,7 @@ import (
 
 func TestPutGet(t *testing.T) {
 	c := getPachClient(t)
-	object, err := c.PutObject([]byte("foo"))
+	object, err := c.PutObject(strings.NewReader("foo"))
 	require.NoError(t, err)
 	value, err := c.GetObject(object.Hash)
 	require.NoError(t, err)
@@ -18,7 +19,7 @@ func TestPutGet(t *testing.T) {
 
 func TestTags(t *testing.T) {
 	c := getPachClient(t)
-	_, err := c.PutObject([]byte("foo"), "bar", "buzz")
+	_, err := c.PutObject(strings.NewReader("foo"), "bar", "buzz")
 	require.NoError(t, err)
 	value, err := c.GetTag("bar")
 	require.NoError(t, err)
@@ -32,7 +33,7 @@ func TestManyObjects(t *testing.T) {
 	c := getPachClient(t)
 	var objects []string
 	for i := 0; i < 100; i++ {
-		object, err := c.PutObject([]byte(string(i)), string(i))
+		object, err := c.PutObject(strings.NewReader(string(i)), string(i))
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}

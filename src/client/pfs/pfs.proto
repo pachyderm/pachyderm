@@ -366,7 +366,7 @@ message PutObjectRequest {
 }
 
 service ObjectAPI {
-  rpc PutObject(PutObjectRequest) returns (Object) {}
+  rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
   rpc GetTag(Tag) returns (google.protobuf.BytesValue) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
