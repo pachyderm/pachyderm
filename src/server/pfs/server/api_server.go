@@ -201,7 +201,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	} else {
 		var r io.Reader
-		var delimiter pfs.Delimiter
 		if request.Url != "" {
 			url, err := url.Parse(request.Url)
 			if err != nil {
@@ -221,14 +220,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 					}
 				}()
 				r = resp.Body
-				switch resp.Header.Get("Content-Type") {
-				case "application/json":
-					delimiter = pfs.Delimiter_JSON
-				case "application/text":
-					delimiter = pfs.Delimiter_LINE
-				default:
-					delimiter = pfs.Delimiter_NONE
-				}
 			default:
 				objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
 				if err != nil {
@@ -245,9 +236,8 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 				return err
 			}
 			r = &reader
-			delimiter = request.Delimiter
 		}
-		if err := a.driver.PutFile(ctx, request.File, delimiter, r); err != nil {
+		if err := a.driver.PutFile(ctx, request.File, r); err != nil {
 			return err
 		}
 	}
@@ -265,7 +255,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 				retErr = err
 			}
 		}()
-		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), request.Delimiter, r)
+		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), r)
 	}
 	if request.Recursive {
 		var eg errgroup.Group
