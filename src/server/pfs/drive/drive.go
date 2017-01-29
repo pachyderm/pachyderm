@@ -58,7 +58,7 @@ type Driver interface {
 	SetBranch(ctx context.Context, commit *pfs.Commit, name string) error
 	RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error
 
-	PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error
+	PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error
 	MakeDirectory(ctx context.Context, file *pfs.File) error
 	GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
 	InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error)

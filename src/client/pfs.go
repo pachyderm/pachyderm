@@ -264,6 +264,11 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 	return commitInfos.CommitInfo, nil
 }
 
+// TODO: to be implemented
+func (c APIClient) Put(reader io.Reader) (*pfs.BlockRef, error) {
+	return &pfs.BlockRef{}, nil
+}
+
 // PutBlock takes a reader and splits the data in it into blocks.
 // Blocks are guaranteed to be new line delimited.
 // Blocks are content addressed and are thus identified by hashes of the content.

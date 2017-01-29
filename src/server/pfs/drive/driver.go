@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 
@@ -15,7 +17,7 @@ import (
 )
 
 type driver struct {
-	blockClient pfs.BlockAPIClient
+	blockClient client.APIClient
 	etcdClient  *etcd.Client
 	prefix      string
 }
@@ -36,7 +38,7 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 	}
 
 	return &driver{
-		blockClient: pfs.NewBlockAPIClient(clientConn),
+		blockClient: client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)},
 		etcdClient:  etcdClient,
 		prefix:      etcdPrefix,
 	}, nil
@@ -59,7 +61,7 @@ func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
 	}
 
 	return &driver{
-		blockClient: pfs.NewBlockAPIClient(clientConn),
+		blockClient: client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)},
 		etcdClient:  etcdClient,
 		prefix:      etcdPrefix,
 	}, nil
@@ -233,7 +235,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
 	}
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		repos := d.repos(stm)
 		commits := d.commits(stm)(parent.Repo.Name)
 		refs := d.refs(stm)(parent.Repo.Name)
@@ -271,8 +273,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 			refs.Put(ref.Name, ref)
 		}
 		return commits.Create(commit.ID, commitInfo)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -288,30 +289,80 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error) {
 	return nil, nil
 }
+
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	return nil, nil
 }
+
 func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	return nil, nil
 }
+
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
 	return nil, nil
 }
+
 func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return nil
 }
+
 func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error) {
 	return nil, nil
 }
+
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
 	return nil
 }
+
 func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error {
 	return nil
 }
 
-func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter, reader io.Reader) error {
-	return nil
+// resolveRef replaces a reference with a real commit ID, e.g. "master" ->
+// UUID.
+// If the given commit already contains a real commit ID, then this
+// function does nothing.
+func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
+	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		refs := d.refs(stm)(commit.Repo.Name)
+
+		ref := &pfs.Ref{}
+		// See if we are given a ref
+		if err := refs.Get(commit.ID, ref); err != nil {
+			if _, ok := err.(ErrNotFound); !ok {
+				return err
+			}
+			return nil
+		}
+		commit.ID = ref.Commit.ID
+		return nil
+	})
+	return err
+}
+
+// scratchPrefix returns an etcd prefix that's used to temporarily store
+// the state of a file in an open commit.  Once the commit is finished,
+// the scratch space is removed.
+func (d *driver) scratchPrefix(ctx context.Context, file *pfs.File) (string, error) {
+	if err := d.resolveRef(ctx, file.Commit); err != nil {
+		return "", err
+	}
+	return path.Join(d.prefix, "scratch", file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
+}
+
+func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
+	obj, err := d.blockClient.Put(reader)
+	if err != nil {
+		return err
+	}
+
+	prefix, err := d.scratchPrefix(ctx, file)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.newSequentialKV(ctx, prefix, obj.Block.Hash)
+	return err
 }
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil
