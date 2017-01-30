@@ -7,14 +7,19 @@ import "client/pfs/pfs.proto";
 
 // A node corresponding to a file (which is also a leaf node).
 message FileNode {
-  // Block refs pointing to the file's contents in block storage
+  // Block refs pointing to the file's contents in block storage. Naturally, the
+  // blocks are ordered by their position in the file (block with initial
+  // content is first)
   repeated pfs.BlockRef block_refs = 3;
 }
 
 // A node corresponding to a directory.
 message DirectoryNode {
   // Children of this directory. Note that paths are relative, so if "/foo/bar"
-  // has a child "baz", that means that there is a file at "/foo/bar/baz"
+  // has a child "baz", that means that there is a file at "/foo/bar/baz".
+  //
+  // 'Children' is ordered alphabetically, to quickly check if a new file is
+  // overwriting an existing one.
   repeated string children = 3;
 }
 
@@ -28,7 +33,7 @@ message Node {
   bytes hash = 2;
 
   // Size of the node; if this is a directory, the size includes all children
-  uint64 size = 3;
+  int64 size = 3;
 
   // Exactly one of the following fields must be set. The type of this node will
   // be determined by which field is set.
