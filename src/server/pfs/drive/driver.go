@@ -1,17 +1,21 @@
 package drive
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 )
@@ -281,6 +285,64 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 }
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
+	if err := d.resolveRef(ctx, commit); err != nil {
+		return err
+	}
+
+	prefix, err := d.scratchCommitPrefix(ctx, commit)
+	if err != nil {
+		return err
+	}
+
+	// Read everything under the scratch space for this commit
+	// TODO: lock the scratch space to prevent concurrent PutFile
+	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
+	if err != nil {
+		return err
+	}
+
+	// Construct the tree
+	// TODO: h should be the tree that the commit's parent refers to
+	h := hashtree.HashTree{}
+	for _, kv := range resp.Kvs {
+		// fileStr is going to look like "some/path/0"
+		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
+		// the last element of `parts` is going to be 0
+		parts := strings.Split(fileStr, "/")
+		// filePath should look like "some/path"
+		filePath := strings.Join(parts[:len(parts)-1], "/")
+
+		if err := h.PutFile(filePath, []*pfs.BlockRef{{
+			Block: &pfs.Block{string(kv.Value)},
+		}}); err != nil {
+			return err
+		}
+	}
+
+	// Serialize the tree
+	data, err := proto.Marshal(h)
+	if err != nil {
+		return err
+	}
+
+	// Put the tree into the blob store
+	obj, err := d.blockClient.Put(bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
+	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		commits := d.commits(stm)(commit.Repo.Name)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
+			return err
+		}
+		commitInfo.Tree = obj
+		return commits.Put(commit.ID, commitInfo)
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -340,13 +402,20 @@ func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-// scratchPrefix returns an etcd prefix that's used to temporarily store
-// the state of a file in an open commit.  Once the commit is finished,
+// scratchCommitPrefix returns an etcd prefix that's used to temporarily
+// store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
-func (d *driver) scratchPrefix(ctx context.Context, file *pfs.File) (string, error) {
+func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
 	if err := d.resolveRef(ctx, file.Commit); err != nil {
 		return "", err
 	}
+	return path.Join(d.prefix, "scratch", commit.Repo.Name, commit.ID), nil
+}
+
+// scratchFilePrefix returns an etcd prefix that's used to temporarily
+// store the state of a file in an open commit.  Once the commit is finished,
+// the scratch space is removed.
+func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
 	return path.Join(d.prefix, "scratch", file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
 }
 
@@ -356,7 +425,11 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		return err
 	}
 
-	prefix, err := d.scratchPrefix(ctx, file)
+	if err := d.resolveRef(ctx, file.Commit); err != nil {
+		return err
+	}
+
+	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return err
 	}
