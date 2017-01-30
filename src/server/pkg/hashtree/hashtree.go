@@ -223,7 +223,8 @@ func (h *HashTree) PutDir(path string) error {
 	})
 }
 
-// DeleteFile deletes the file at 'path'.
+// DeleteFile deletes the file at 'path', and all children recursively if 'path'
+// is a subdirectory
 func (h *HashTree) DeleteFile(path string) error {
 	h.init()
 	path = clean(path)
@@ -234,7 +235,7 @@ func (h *HashTree) DeleteFile(path string) error {
 		return errorf(PathNotFound, "no file at \"%s\"", path)
 	}
 	size := node.Size
-	h.removeFromMap(path)
+	h.removeFromMap(path) // Deletes children recursively
 
 	// Remove 'path' from its parent directory
 	parent, child := split(path)
