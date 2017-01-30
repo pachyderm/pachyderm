@@ -228,9 +228,7 @@ func (c APIClient) GetLogs(
 // update indicates that you want to update an existing pipeline
 func (c APIClient) CreatePipeline(
 	name string,
-	image string,
-	cmd []string,
-	stdin []string,
+	transform *pps.Transform,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
 	update bool,
@@ -239,11 +237,7 @@ func (c APIClient) CreatePipeline(
 		c.ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
-			Transform: &pps.Transform{
-				Image: image,
-				Cmd:   cmd,
-				Stdin: stdin,
-			},
+			Transform: transform,
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
 			Update:          update,

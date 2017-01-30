@@ -20,9 +20,17 @@ func Example_pps() {
 	// Create a map pipeline
 	if err := c.CreatePipeline(
 		"map", // the name of the pipeline
-		"pachyderm/test_image", // your docker image
-		[]string{"map"},        // the command run in your docker image
-		nil,                    // no stdin
+		&pps.Transform{
+			"pachyderm/test_image", // your docker image
+			[]string{"map"},        // the command run in your docker image
+			nil,                    // no env vars
+			nil,                    // no secrets
+			nil,                    // no imagePullSecrets
+			nil,                    // no stdin
+			nil,                    // no acceptReturnCode
+			false,                  // no debug
+			false,                  // overwrite false
+		},
 		nil,                    // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// map over "repo"
@@ -35,9 +43,17 @@ func Example_pps() {
 
 	if err := c.CreatePipeline(
 		"reduce",               // the name of the pipeline
-		"pachyderm/test_image", // your docker image
-		[]string{"reduce"},     // the command run in your docker image
-		nil,                    // no stdin
+		&pps.Transform{
+			"pachyderm/test_image", // your docker image
+			[]string{"reduce"},     // the command run in your docker image
+			nil,                    // no env vars
+			nil,                    // no secrets
+			nil,                    // no imagePullSecrets
+			nil,                    // no stdin
+			nil,                    // no acceptReturnCode
+			false,                  // no debug
+			false,                  // overwrite false
+		},
 		nil,                    // let pachyderm decide the parallelism
 		[]*pps.PipelineInput{
 			// reduce over "map"
