@@ -474,6 +474,18 @@ func (c APIClient) GetObject(hash string) ([]byte, error) {
 	return value.Value, nil
 }
 
+// InspectObject returns info about an Object.
+func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
+	value, err := c.ObjectAPIClient.InspectObject(
+		c.ctx(),
+		&pfs.Object{Hash: hash},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return value, nil
+}
+
 // GetTag gets an object out of the object store by tag.
 func (c APIClient) GetTag(tag string) ([]byte, error) {
 	value, err := c.ObjectAPIClient.GetTag(
