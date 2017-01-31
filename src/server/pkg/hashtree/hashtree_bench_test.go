@@ -43,7 +43,7 @@ func BenchmarkPutFile(b *testing.B) {
 	}
 }
 
-// BenchmarkMerge times how long it takes to merge 'cnt' trees, each of which
+// BenchmarkMerge measures how long it takes to merge 'cnt' trees, each of which
 // has a single small file, into one central hash tree. This is similar to what
 // happens at the completion of a job. Because all re-hashing is saved until the
 // end, this is O(n) with respect to 'cnt', making it much faster than calling
@@ -105,7 +105,7 @@ func BenchmarkClone(b *testing.B) {
 	}
 }
 
-// BenchmarkDelete times how long it takes to delete a directory with 'cnt'
+// BenchmarkDelete measures how long it takes to delete a directory with 'cnt'
 // children from a HashTree. If implemented poorly, this can be a quadratic
 // operation (have to re-hash /foo after deleting each /foo/shard-xxxxx) and
 // will take >1h to delete /foo containing 100k files
