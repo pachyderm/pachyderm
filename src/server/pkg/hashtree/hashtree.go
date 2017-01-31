@@ -5,10 +5,45 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
-	"strings"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
+
+type nodetype uint8
+
+const (
+	none         nodetype = iota // No file is present at this point in the tree
+	directory                    // The file at this point in the tree is a directory
+	file                         // ... is a regular file
+	unrecognized                 // ... is an an unknown type
+)
+
+func (n *Node) nodetype() nodetype {
+	switch {
+	case n == nil:
+		return none
+	case n.DirNode != nil:
+		return directory
+	case n.FileNode != nil:
+		return file
+	default:
+		return unrecognized
+	}
+}
+
+func (n nodetype) tostring() string {
+	switch n {
+	case none:
+		return "none"
+	case directory:
+		return "directory"
+	case file:
+		return "file"
+	default:
+		return "unknown"
+	}
+}
 
 // updateHash updates the hash of the node N at 'path'. If this changes N's
 // hash, that will render the hash of N's parent (if any) invalid, and this
@@ -92,9 +127,9 @@ func (h *HashTree) visit(path string, update updateFn) error {
 	for path != "" {
 		parent, child := split(path)
 		pnode, ok := h.Fs[parent]
-		if ok && pnode.DirNode == nil {
-			return errorf(PathConflict, "attempted to visit \"%s\", but that is a "+
-				"file", path)
+		if ok && pnode.nodetype() != directory {
+			return errorf(PathConflict, "attempted to visit \"%s\", but it's not a "+
+				"directory", path)
 		}
 		if err := update(pnode, parent, child); err != nil {
 			return err
@@ -145,8 +180,9 @@ func (h *HashTree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	// Get/Create file node to which we'll append 'blockRefs'
 	node, ok := h.Fs[path]
 	if ok {
-		if node.FileNode == nil {
-			return errorf(PathConflict, "node at \"%s\" is not a regular file ", path)
+		if node.nodetype() != file {
+			return errorf(PathConflict, "could not put file at \"%s\"; a node of "+
+				"type %s is already there", path, node.nodetype().tostring())
 		}
 	} else {
 		node = &Node{
@@ -196,11 +232,12 @@ func (h *HashTree) PutDir(path string) error {
 
 	// Create orphaned directory at 'path' (or end early if a directory is there)
 	if node, ok := h.Fs[path]; ok {
-		if node.DirNode == nil {
+		if node.nodetype() == directory {
+			return nil
+		} else if node.nodetype() != none {
 			return errorf(PathConflict, "could not create directory at \"%s\"; a "+
-				"non-directory file is already there", path)
+				"file of type %s is already there", path, node.nodetype().tostring())
 		}
-		return nil
 	}
 	h.Fs[path] = &Node{
 		Name:    base(path),
@@ -326,76 +363,100 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 
 // mergeNode merges the node at 'path' from 'from' into 'h'. The return value
 // 's' is the number of bytes added to the node at 'path' (the size increase).
-func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
-	if h.Fs == nil {
-		h.Fs = map[string]*Node{}
-	}
-
-	// Fetch the nodes, and return error if one can't be fetched
-	fromNode, err := from.Get(path)
+func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err error) {
+	// Get the node at path in 'dest' and determine its type (i.e. file, dir)
+	destNode, err := dest.Get(path)
 	if err != nil && Code(err) != PathNotFound {
 		return 0, err
 	}
-	toNode, err := h.Get(path)
-	if err != nil && Code(err) != PathNotFound {
-		return 0, err
+	if destNode.nodetype() == unrecognized {
+		return 0, errorf(Internal, "malformed node at \"%s\" in destination "+
+			"hashtree is neither a file nor a directory", path)
 	}
 
-	// Merge 'fromNode' into 'toNode' ('fromNode' will always be defined, because
-	// mergeNode() traverses the 'from' tree)
-	var sizeDelta int64
-	if fromNode.DirNode != nil {
-		if toNode != nil && toNode.DirNode == nil {
-			return 0, errorf(PathConflict, "node at \"%s\" is a directory in the "+
-				"target HashTree, but not in the source", path)
+	// Get node at 'path' in all 'srcs'. All such nodes must have the same type as
+	// each other and the same type as 'destNode'
+	pathtype := destNode.nodetype() // All nodes in 'srcs' must have same type
+	// childrenToTrees is a reverse index from [child of 'path'] to [trees that
+	// contain it].
+	// - childrenToTrees will only be used if 'path' is a directory in all
+	//   'srcs' (but it's convenient to build it here, before we've checked them
+	//   all)
+	// - We need to group trees by common children, so that children present in
+	//   multiple 'srcNodes' are only merged once, and we only recompute the hash
+	//   for that child once
+	// - if every srcNode has a unique file /foo/shard-xxxxx (00000 to 99999)
+	//   then we'd call mergeNode("/foo") 100k times, once for each tree in
+	//   'srcs', while running mergeNode("/").
+	// - We also can't pass all of 'srcs' to mergeNode("/foo"), as otherwise
+	//   mergeNode("/foo/shard-xxxxx") will have to filter through all 100k trees
+	//   for each shard-xxxxx (only one of which contains the file being merged),
+	//   and we'd have an O(n^2) algorithm; too slow when merging 100k trees)
+	childrenToTrees := make(map[string][]Interface)
+	// Amount of data being added to node at 'path' in 'dest'
+	sizeDelta := int64(0)
+	for _, src := range srcs {
+		n, err := src.Get(path)
+		if err != nil && Code(err) != PathNotFound {
+			return 0, err
 		}
-		// Create empty directory in 'to' if none exists
-		if toNode == nil {
-			toNode = &Node{
-				Name:    base(path),
-				Size:    0,
-				DirNode: &DirectoryNode{},
+		if n.nodetype() == unrecognized {
+			return 0, errorf(Internal, "malformed node at \"%s\" in source "+
+				"hashtree is neither a file nor a directory", path)
+		}
+		if n.nodetype() != none {
+			if pathtype == none {
+				pathtype = n.nodetype()
+			} else if pathtype != n.nodetype() {
+				return 0, errorf(PathConflict, "could not merge path \"%s\" which is "+
+					"not consistently a file/directory in the hashtrees being merged")
 			}
-			h.Fs[path] = toNode
+			if n.nodetype() == directory {
+				// Create destination directory if none exists
+				if destNode == nil {
+					destNode = &Node{
+						Name:    base(path),
+						Size:    0,
+						DirNode: &DirectoryNode{},
+					}
+					dest.Fs[path] = destNode
+				}
+				// Instead of merging here, we build a reverse-index and merge below
+				for _, c := range n.DirNode.Children {
+					childrenToTrees[c] = append(childrenToTrees[c], src)
+				}
+			} else if n.nodetype() == file {
+				// Create destination file if none exists
+				if destNode == nil {
+					destNode = &Node{
+						Name:     base(path),
+						Size:     0,
+						FileNode: &FileNode{},
+					}
+					dest.Fs[path] = destNode
+				}
+				// Append new blocks
+				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
+					n.FileNode.BlockRefs...)
+				sizeDelta += n.Size
+			}
 		}
+	}
 
-		// Merge files in 'from' into 'to' (including adding them if they're new)
-		for _, child := range fromNode.DirNode.Children {
-			if s, err := h.mergeNode(join(path, child), from); err == nil {
-				insertStr(&toNode.DirNode.Children, child)
-				sizeDelta += s
-			} else {
+	// If this is a directory, go back and merge all children encountered above
+	if pathtype == directory {
+		// Merge all children (collected in childrenToTrees)
+		for c, cSrcs := range childrenToTrees {
+			sz, err := dest.mergeNode(join(path, c), cSrcs)
+			if err != nil {
 				return 0, err
 			}
+			insertStr(&destNode.DirNode.Children, c)
+			sizeDelta += sz
 		}
-	} else if fromNode.FileNode != nil {
-		if toNode != nil && toNode.FileNode == nil {
-			return 0, errorf(PathConflict, "node at \"%s\" is a regular file in the "+
-				"source HashTree.Interface, but not in the target", path)
-		}
-		// Create empty file in 'to' if none exists
-		if toNode == nil {
-			toNode = &Node{
-				Name:     base(path),
-				FileNode: &FileNode{},
-			}
-			h.Fs[path] = toNode
-		}
-
-		// Append new blocks
-		toNode.FileNode.BlockRefs = append(
-			toNode.FileNode.BlockRefs, fromNode.FileNode.BlockRefs...)
-
-		// Compute size growth of node
-		for _, br := range fromNode.FileNode.BlockRefs {
-			sizeDelta += int64(br.Range.Upper - br.Range.Lower)
-		}
-	} else {
-		return 0, errorf(Internal,
-			"malformed node at \"%s\": it's neither a file nor a directory", path)
 	}
-	toNode.Size += sizeDelta
-	h.updateHash(path)
+	dest.updateHash(path)
+	destNode.Size += sizeDelta
 	return sizeDelta, nil
 }
 
@@ -405,24 +466,12 @@ func (h *HashTree) mergeNode(path string, from Interface) (s int64, err error) {
 // - e.Error() contains the error messages of the first 10 errors encountered
 func (h *HashTree) Merge(trees []Interface) error {
 	h.init()
-
-	errors := []error{}
-	for _, tree := range trees {
-		if _, err := tree.Get("/"); Code(err) == PathNotFound {
-			continue // No work necessary to merge blank tree
-		}
-		_, err := h.mergeNode("", tree) // Empty string is internal repr of "/"
-		if err != nil && len(errors) < 10 {
-			errors = append(errors, err)
-		}
-	}
-	if len(errors) > 0 {
-		msgs := make([]string, len(errors))
-		for i := 0; i < len(errors); i++ {
-			msgs[i] = errors[i].Error()
-		}
-		return errorf(Code(errors[0]),
-			"encountered in merge: "+strings.Join(msgs, "; "))
+	backup := proto.Clone(h)
+	_, err := h.mergeNode("", trees) // Empty string is internal repr of "/"
+	if err != nil {
+		h.Reset()
+		proto.Merge(h, backup)
+		return err
 	}
 	return nil
 }

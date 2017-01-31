@@ -172,6 +172,17 @@ func TestPutError(t *testing.T) {
 		require.Equal(t, PathNotFound, Code(err))
 		require.Nil(t, node)
 	})
+
+	// Merge fails if src and dest disagree about whether a node is a file or
+	// directory, and h is unchanged
+	src := &HashTree{}
+	src.PutFile("/buzz", br(`block{hash:"9d432"}`))
+	src.PutFile("/foo/bar", br(`block{hash:"ebc57"}`))
+	h.requireOperationInvariant(t, func() {
+		err := h.Merge([]Interface{src})
+		require.NotNil(t, err)
+		require.Equal(t, PathConflict, Code(err))
+	})
 }
 
 func TestDeleteDirError(t *testing.T) {
@@ -424,6 +435,10 @@ func TestMerge(t *testing.T) {
 
 	h := proto.Clone(l).(*HashTree)
 	h.Merge([]Interface{r})
+	expected.requireSame(t, h)
+
+	h = proto.Clone(r).(*HashTree)
+	h.Merge([]Interface{l})
 	expected.requireSame(t, h)
 
 	h = &HashTree{}
