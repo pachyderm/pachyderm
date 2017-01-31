@@ -93,7 +93,7 @@ func (h *HashTree) updateHash(path string) error {
 
 func (h *HashTree) init() {
 	if h.Fs == nil {
-		h.Fs = map[string]*Node{}
+		h.Fs = make(map[string]*Node)
 	}
 	if h.Version == 0 {
 		h.Version = 1
