@@ -24,16 +24,17 @@ import (
 // amount of time it takes to do the rehashing is proportional to the number of
 // files already in 'h', this is an O(n^2) operation with respect to 'cnt'.
 // Because of this, BenchmarkPutFile can be very slow for large 'cnt', often
-// larger then BenchmarkMerge for the same 'cnt'. Be sure to set -timeout 3h for
-// 'cnt' == 100k
+// much slower than BenchmarkMerge. Be sure to set -timeout 3h for 'cnt' == 100k
+//
+// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
 //  cnt |  time (s)
 // -----+-------------
-// 1k   |  0.000 s/op
-// 10k  | 39.134 s/op
-// 100k | - (probably >1h)
+// 1k   |    0.000 s/op
+// 10k  |  145.139 s/op
+// 100k | 5101.328 s/op (1.4h)
 func BenchmarkPutFile(b *testing.B) {
 	// Add 'cnt' files
-	cnt := int(1e4)
+	cnt := int(1e5)
 	r := rand.New(rand.NewSource(0))
 	h := &HashTree{}
 	for i := 0; i < cnt; i++ {
@@ -47,7 +48,8 @@ func BenchmarkPutFile(b *testing.B) {
 // happens at the completion of a job. Because all re-hashing is saved until the
 // end, this is O(n) with respect to 'cnt', making it much faster than calling
 // PutFile 'cnt' times.
-// Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
+//
+// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
 //  cnt |  time (s)
 // -----+-------------
 // 1k   | 0.004 s/op
@@ -78,15 +80,15 @@ func BenchmarkMerge(b *testing.B) {
 // subtracted from BenchmarkDelete (since that operation is necessarily part of
 // the benchmark)
 //
-// Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
+// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
 //  cnt |  time (s)
 // -----+-------------
 // 1k   | 0.003 s/op
-// 10k  | 0.042 s/op
-// 100k | 0.484 s/op
+// 10k  | 0.040 s/op
+// 100k | 0.464 s/op
 func BenchmarkClone(b *testing.B) {
 	// Create a tree with 'cnt' files
-	cnt := int(1e5)
+	cnt := int(1e4)
 	r := rand.New(rand.NewSource(0))
 	srcTs := make([]Interface, cnt)
 	for i := 0; i < cnt; i++ {
@@ -103,12 +105,17 @@ func BenchmarkClone(b *testing.B) {
 	}
 }
 
-// Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
+// BenchmarkDelete times how long it takes to delete a directory with 'cnt'
+// children from a HashTree. If implemented poorly, this can be a quadratic
+// operation (have to re-hash /foo after deleting each /foo/shard-xxxxx) and
+// will take >1h to delete /foo containing 100k files
+//
+// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
 //  cnt |  time (s)
 // -----+-------------
 // 1k   | 0.004 s/op
-// 10k  | 0.039 s/op
-// 100k | 0.476 s/op
+// 10k  | 0.044 s/op
+// 100k | 0.531 s/op
 func BenchmarkDelete(b *testing.B) {
 	// Create a tree with 'cnt' files
 	cnt := int(1e5)
