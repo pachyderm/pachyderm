@@ -42,6 +42,7 @@ type objBlockAPIServer struct {
 	blockCache        *groupcache.Group
 	objectCache       *groupcache.Group
 	tagCache          *groupcache.Group
+	objectInfoCache   *groupcache.Group
 	objectIndexes     map[string]*pfsclient.ObjectIndex
 	objectIndexesLock sync.RWMutex
 }
@@ -64,6 +65,8 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		groupcache.GetterFunc(server.objectGetter))
 	server.tagCache = groupcache.NewGroup("tag", cacheSize,
 		groupcache.GetterFunc(server.tagGetter))
+	server.objectInfoCache = groupcache.NewGroup("objectInfo", cacheSize,
+		groupcache.GetterFunc(server.objectInfoGetter))
 	return server, nil
 }
 
@@ -265,6 +268,17 @@ func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Ob
 	return &google_protobuf.BytesValue{Value: data}, nil
 }
 
+func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	objectInfo := &pfsclient.ObjectInfo{}
+	sink := groupcache.ProtoSink(objectInfo)
+	if err := s.objectInfoCache.Get(ctx, splitKey(request.Hash), sink); err != nil {
+		return nil, err
+	}
+	return objectInfo, nil
+}
+
 func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -453,55 +467,12 @@ func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest
 }
 
 func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
-	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 2 {
-		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
-	}
-	prefix := splitKey[0]
-	object := &pfsclient.Object{Hash: strings.Join(splitKey, "")}
-	updated := false
-	// First check if we already have the index for this Object in memory, if
-	// not read it for the first time.
-	if _, ok := s.objectIndexes[prefix]; !ok {
-		updated = true
-		if err := s.readObjectIndex(prefix); err != nil {
-			return err
-		}
-	}
-	// Check if the index contains a the object we're looking for, if so read
-	// it into the cache and return
-	if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
-		return s.readBlockRef(blockRef, dest)
-	}
-	// Try reading the object from its object path, this happens for recently
-	// written objects that haven't been incorporated into an index yet.
-	// Note that we tolerate NotExist errors here because the object may have
-	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.objectPath(object), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	objectInfo := &pfsclient.ObjectInfo{}
+	sink := groupcache.ProtoSink(objectInfo)
+	if err := s.objectInfoCache.Get(ctx, key, sink); err != nil {
 		return err
-	} else if err == nil {
-		blockRef, ok := objectIndex.Objects[object.Hash]
-		if !ok {
-			return fmt.Errorf("objectIndex should contain hash: %s (this is likely a bug)", object.Hash)
-		}
-		if err := s.readBlockRef(blockRef, dest); err != nil && !s.objClient.IsNotExist(err) {
-			return err
-		} else if err == nil {
-			return nil
-		}
 	}
-	// The last chance to find this object is to update the index since the
-	// object may have been recently incorporated into it.
-	if !updated {
-		if err := s.readObjectIndex(prefix); err != nil {
-			return err
-		}
-		if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
-			return s.readBlockRef(blockRef, dest)
-		}
-	}
-	return fmt.Errorf("objectGetter: object %s not found", object.Hash)
+	return s.readBlockRef(objectInfo.BlockRef, dest)
 }
 
 func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
@@ -551,6 +522,63 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 		}
 	}
 	return fmt.Errorf("tagGetter: tag %s not found", tag.Name)
+}
+
+func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
+	splitKey := strings.Split(key, ".")
+	if len(splitKey) != 2 {
+		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
+	}
+	prefix := splitKey[0]
+	object := &pfsclient.Object{Hash: strings.Join(splitKey, "")}
+	result := &pfsclient.ObjectInfo{Object: object}
+	updated := false
+	// First check if we already have the index for this Object in memory, if
+	// not read it for the first time.
+	if _, ok := s.objectIndexes[prefix]; !ok {
+		updated = true
+		if err := s.readObjectIndex(prefix); err != nil {
+			return err
+		}
+	}
+	// Check if the index contains a the object we're looking for, if so read
+	// it into the cache and return
+	if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+		result.BlockRef = blockRef
+		dest.SetProto(result)
+		return nil
+	}
+	// Try reading the object from its object path, this happens for recently
+	// written objects that haven't been incorporated into an index yet.
+	// Note that we tolerate NotExist errors here because the object may have
+	// been incorporated into an index and thus deleted.
+	objectIndex := &pfsclient.ObjectIndex{}
+	if err := s.readProto(s.localServer.objectPath(object), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+		return err
+	} else if err == nil {
+		blockRef, ok := objectIndex.Objects[object.Hash]
+		if !ok {
+			// The objectIndex should always contain the Hash we're after
+			// because it's an index written specifically for this object.
+			return fmt.Errorf("objectIndex should contain hash: %s (this is likely a bug)", object.Hash)
+		}
+		result.BlockRef = blockRef
+		dest.SetProto(result)
+		return nil
+	}
+	// The last chance to find this object is to update the index since the
+	// object may have been recently incorporated into it.
+	if !updated {
+		if err := s.readObjectIndex(prefix); err != nil {
+			return err
+		}
+		if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+			result.BlockRef = blockRef
+			dest.SetProto(result)
+			return nil
+		}
+	}
+	return fmt.Errorf("objectInfoGetter: object %s not found", object.Hash)
 }
 
 func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, dest groupcache.Sink) (retErr error) {

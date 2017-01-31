@@ -129,6 +129,11 @@ message BlockInfos {
   repeated BlockInfo block_info = 1;
 }
 
+message ObjectInfo {
+  Object object = 1;
+  BlockRef block_ref = 2;
+}
+
 message Shard {
   uint64 file_number = 1;
   uint64 file_modulus = 2;
@@ -368,6 +373,7 @@ message PutObjectRequest {
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
+  rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc GetTag(Tag) returns (google.protobuf.BytesValue) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }

@@ -188,6 +188,26 @@ func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.
 	return &google_protobuf.BytesValue{Value: value}, nil
 }
 
+func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	fileInfo, err := os.Stat(s.objectPath(request))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("object: %s not found", request.Hash)
+		}
+		return nil, err
+	}
+	return &pfsclient.ObjectInfo{
+		Object: request,
+		BlockRef: &pfsclient.BlockRef{
+			Range: &pfsclient.ByteRange{
+				Upper: uint64(fileInfo.Size()),
+			},
+		},
+	}, nil
+}
+
 func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())

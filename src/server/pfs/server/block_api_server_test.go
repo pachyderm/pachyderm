@@ -15,6 +15,9 @@ func TestPutGet(t *testing.T) {
 	value, err := c.GetObject(object.Hash)
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
+	objectInfo, err := c.InspectObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), objectInfo.BlockRef.Range.Upper-objectInfo.BlockRef.Range.Lower)
 }
 
 func TestTags(t *testing.T) {
