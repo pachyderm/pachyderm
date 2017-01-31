@@ -26,6 +26,8 @@ import (
 // Because of this, BenchmarkPutFile can be very slow for large 'cnt', often
 // larger then BenchmarkMerge for the same 'cnt'. Be sure to set -timeout 3h for
 // 'cnt' == 100k
+//
+// Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
 //  cnt |  time (s)
 // -----+-------------
 // 1k   |  0.000 s/op
@@ -42,11 +44,12 @@ func BenchmarkPutFile(b *testing.B) {
 	}
 }
 
-// BenchmarkMerge times how long it takes to merge 'cnt' trees, each of which
+// BenchmarkMerge measures how long it takes to merge 'cnt' trees, each of which
 // has a single small file, into one central hash tree. This is similar to what
 // happens at the completion of a job. Because all re-hashing is saved until the
 // end, this is O(n) with respect to 'cnt', making it much faster than calling
 // PutFile 'cnt' times.
+//
 // Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
 //  cnt |  time (s)
 // -----+-------------
@@ -103,6 +106,10 @@ func BenchmarkClone(b *testing.B) {
 	}
 }
 
+// BenchmarkDelete measures how long it takes to delete a directory with
+// 'cnt' children. If implemented naively, DeleteFile can exhibit quadratic
+// performance, so this benchmark guards against that.
+//
 // Benchmarked times at rev. 3ecd3d7520b75b0650f69b3cf4d4ea44908255f8
 //  cnt |  time (s)
 // -----+-------------
