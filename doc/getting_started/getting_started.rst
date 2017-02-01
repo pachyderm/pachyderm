@@ -30,4 +30,4 @@ If you've already got a Kubernetes cluster running or would rather use AWS, GCE 
 Looking for in-depth development docs?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Learn how to :doc:`../deployment/analyze_your_data` check out more advanced Pachyderm examples such as `image processing with OpenCV <https://github.com/pachyderm/pachyderm/tree/master/examples/opencv>`_ or `machine learning with TensorFlow <https://github.com/pachyderm/pachyderm/tree/master/examples/tensor_flow>`_. 
+Learn how to :doc:`../deployment/analyze_your_data` check out more advanced Pachyderm examples such as `image processing with OpenCV <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/opencv>`_ or `machine learning with TensorFlow <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/tensor_flow>`_.
