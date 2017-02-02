@@ -4,8 +4,9 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+
 	"github.com/spf13/pflag"
-	"go.pedge.io/env"
 )
 
 type appEnv struct {
@@ -13,7 +14,7 @@ type appEnv struct {
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {

@@ -25,7 +25,7 @@ make prep
 2) Determine the output commit we are going to access with Jupyter:
 
 ```
-pachctl flush-commit -f trips/master/30
+pachctl flush-commit trips/master/30
 ```
 
 and replace the `<output-commitid>` in `jupyter.json` with the sales repo commitid shown. 

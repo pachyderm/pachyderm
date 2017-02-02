@@ -8,7 +8,7 @@ There are three steps to writing analysis in Pachyderm.
 
 ## Writing your analysis code
 
-Analysis code in Pachyderm can be written using any languages or libraries you want. At the end of the day, all the dependencies and code will be built into a container so it can run anywhere. We've got demonstrative [examples on GitHub](https://github.com/pachyderm/pachyderm/tree/master/examples) using bash, Python, TensorFlow, and OpenCV and we're constantly adding more.
+Analysis code in Pachyderm can be written using any languages or libraries you want. At the end of the day, all the dependencies and code will be built into a container so it can run anywhere. We've got demonstrative [examples on GitHub](https://github.com/pachyderm/pachyderm/tree/master/doc/examples) using bash, Python, TensorFlow, and OpenCV and we're constantly adding more.
 
 As we touch on briefly in the [beginner tutorial](../getting_started/beginner_tutorial), your code itself only needs to read and write data from the local file system. 
 

@@ -14,13 +14,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.pedge.io/env"
-	"go.pedge.io/lion"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
@@ -40,7 +39,7 @@ type appEnv struct {
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
@@ -68,7 +67,14 @@ func do(appEnvObj interface{}) error {
 		Use:   os.Args[0] + " job-id",
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
-		Run: cmd.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			defer func() {
+				// We always clear the output directory, this prevents filling
+				// up disk with completed container images.
+				if err := os.RemoveAll(PFSInputPrefix); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			ppsClient, err := ppsserver.NewInternalPodAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				return err
@@ -82,7 +88,7 @@ func do(appEnvObj interface{}) error {
 					PodName: appEnv.PodName,
 				})
 			if err != nil {
-				lion.Errorf("error from StartPod: %s", err.Error())
+				log.Errorf("error from StartPod: %s", err.Error())
 				return err
 			}
 
@@ -100,10 +106,10 @@ func do(appEnvObj interface{}) error {
 						},
 					)
 					if err != nil {
-						lion.Errorf("error from ContinuePod: %s; restarting...", err.Error())
+						log.Errorf("error from ContinuePod: %s; restarting...", err.Error())
 					}
 					if res != nil && res.Restart {
-						lion.Errorf("chunk was revoked. restarting...")
+						log.Errorf("chunk was revoked. restarting...")
 					}
 					if err != nil || res != nil && res.Restart {
 						select {
@@ -111,13 +117,13 @@ func do(appEnvObj interface{}) error {
 							// If someone received this signal, then they are
 							// responsible to exiting the program and release
 							// all resources.
-							lion.Errorf("releasing resources...")
+							log.Errorf("releasing resources...")
 							return
 						default:
 							// Otherwise, we just terminate the program.
 							// We use a non-zero exit code so k8s knows to create
 							// a new pod.
-							lion.Errorf("terminating...")
+							log.Errorf("terminating...")
 							os.Exit(1)
 						}
 					}
@@ -125,7 +131,7 @@ func do(appEnvObj interface{}) error {
 			}()
 
 			if response.Transform.Debug {
-				lion.SetLevel(lion.LevelDebug)
+				log.SetLevel(log.DebugLevel)
 			}
 			// We want to make sure that we only send FinishPod once.
 			// The most bulletproof way would be to check that on server side,
@@ -134,7 +140,7 @@ func do(appEnvObj interface{}) error {
 			// Make sure that we call FinishPod even if something caused a panic
 			defer func() {
 				if r := recover(); r != nil && !finished {
-					lion.Errorf("job shim crashed; this is like a bug in pachyderm")
+					log.Errorf("job shim crashed; this is like a bug in pachyderm")
 					if _, err := ppsClient.FinishPod(
 						context.Background(),
 						&ppsserver.FinishPodRequest{
@@ -202,7 +208,7 @@ func do(appEnvObj interface{}) error {
 							retErr = err
 						}
 					case <-time.After(time.Duration(10 * time.Second)):
-						lion.Errorf("unable to unmount FUSE")
+						log.Errorf("unable to unmount FUSE")
 					}
 				}()
 
@@ -212,7 +218,7 @@ func do(appEnvObj interface{}) error {
 				readers = append(readers, strings.NewReader(line+"\n"))
 			}
 			if len(response.Transform.Cmd) == 0 {
-				lion.Errorf("unable to run; a cmd needs to be provided")
+				log.Errorf("unable to run; a cmd needs to be provided")
 				if _, err := ppsClient.FinishPod(
 					context.Background(),
 					&ppsserver.FinishPodRequest{
@@ -267,7 +273,7 @@ func do(appEnvObj interface{}) error {
 				}
 			}
 			if err := uploadOutput(c, outputMount, response.Transform.Overwrite); err != nil {
-				lion.Errorf("err from uploading output: %s\n", err)
+				log.Errorf("err from uploading output: %s\n", err)
 				success = false
 			}
 

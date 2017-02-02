@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"go.pedge.io/pb/go/google/protobuf"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/stream"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -43,6 +43,7 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
@@ -102,13 +103,13 @@ func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBl
 	} else {
 		reader = io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
 	}
-	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
+	return grpcutil.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
-func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return google_protobuf.EmptyInstance, s.deleteBlock(request.Block)
+	return &types.Empty{}, s.deleteBlock(request.Block)
 }
 
 func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
@@ -118,11 +119,10 @@ func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclie
 	if err != nil {
 		return nil, err
 	}
+	t, _ := types.TimestampProto(stat.ModTime())
 	return &pfsclient.BlockInfo{
-		Block: request.Block,
-		Created: prototime.TimeToTimestamp(
-			stat.ModTime(),
-		),
+		Block:     request.Block,
+		Created:   t,
 		SizeBytes: uint64(stat.Size()),
 	}, nil
 }

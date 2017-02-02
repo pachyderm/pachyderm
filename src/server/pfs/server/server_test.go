@@ -18,11 +18,12 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 
+	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -376,10 +377,13 @@ func TestInspectCommit(t *testing.T) {
 	commitInfo, err := client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err := types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, started.Before(tStarted))
 	require.Nil(t, commitInfo.Finished)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -388,11 +392,17 @@ func TestInspectCommit(t *testing.T) {
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err = types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	tFinished, err := types.TimestampFromProto(commitInfo.Finished)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
-	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+	require.True(t, started.Before(tStarted))
+	require.True(t, finished.After(tFinished))
 }
 
 func TestDeleteCommitFuture(t *testing.T) {
@@ -444,6 +454,33 @@ func TestDeleteCommit(t *testing.T) {
 
 	// Because DeleteCommit is not supported
 	require.YesError(t, client.DeleteCommit(repo, commit.ID))
+}
+
+func TestPutFileBig(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > 5*1024*1024) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := strings.NewReader(string(expectedOutputA))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", r)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
 }
 
 func TestPutFile(t *testing.T) {
@@ -2190,10 +2227,13 @@ func TestInspectCommitBasic(t *testing.T) {
 	commitInfo, err := client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err := types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
 	require.Equal(t, commit, commitInfo.Commit)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, 0, int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
+	require.True(t, started.Before(tStarted))
 	require.Nil(t, commitInfo.Finished)
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -2202,11 +2242,17 @@ func TestInspectCommitBasic(t *testing.T) {
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
 	require.NoError(t, err)
 
+	tStarted, err = types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	tFinished, err := types.TimestampFromProto(commitInfo.Finished)
+	require.NoError(t, err)
+
 	require.Equal(t, commit.ID, commitInfo.Commit.ID)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, 0, int(commitInfo.SizeBytes))
-	require.True(t, started.Before(commitInfo.Started.GoTime()))
-	require.True(t, finished.After(commitInfo.Finished.GoTime()))
+	require.True(t, started.Before(tStarted))
+	require.True(t, finished.After(tFinished))
 }
 
 func TestStartCommitFromParentID(t *testing.T) {
@@ -3161,6 +3207,37 @@ func TestListFileWithFiltering(t *testing.T) {
 	require.Equal(t, numFiles, len(fileInfos1)+len(fileInfos2))
 }
 
+func TestListFileWithFilteringForDirectories(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	numFiles := 100
+	for i := 0; i < numFiles; i++ {
+		_, err = client.PutFile(repo, "master", fmt.Sprintf("dir/file%d", i), strings.NewReader(fmt.Sprintf("%v", i)))
+		require.NoError(t, err)
+	}
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	blockShard1 := &pfs.Shard{
+		BlockNumber:  0,
+		BlockModulus: 2,
+	}
+	fileInfos1, err := client.ListFile(repo, commit.ID, "", "", false, blockShard1, true)
+	require.NoError(t, err)
+	blockShard2 := &pfs.Shard{
+		BlockNumber:  1,
+		BlockModulus: 2,
+	}
+	fileInfos2, err := client.ListFile(repo, commit.ID, "", "", false, blockShard2, true)
+	require.NoError(t, err)
+	require.Equal(t, len(fileInfos1), 1)
+	require.Equal(t, len(fileInfos2), 1)
+}
+
 func TestMergeProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -3393,13 +3470,13 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	require.NoError(t, err)
 	ready := make(chan bool)
 	go func() {
-		err := protoserver.Serve(
+		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
-			protoserver.ServeOptions{Version: version.Version},
-			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+			grpcutil.ServeOptions{Version: version.Version},
+			grpcutil.ServeEnv{GRPCPort: uint16(localPort)},
 		)
 		require.NoError(t, err)
 	}()
@@ -3412,14 +3489,17 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	blockAPIServer pfs.BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
-		err := protoserver.Serve(
+		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				close(ready)
 			},
-			protoserver.ServeOptions{Version: version.Version},
-			protoserver.ServeEnv{GRPCPort: uint16(port)},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: MaxMsgSize,
+			},
+			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
 		require.NoError(t, err)
 	}()

@@ -19,7 +19,6 @@ import (
 
 var (
 	suite                       = "pachyderm"
-	volumeSuite                 = "pachyderm-pps-storage"
 	pachdImage                  = "pachyderm/pachd"
 	etcdImage                   = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage                = "rethinkdb:2.3.2"
@@ -32,6 +31,7 @@ var (
 	rethinkHeadlessName         = "rethink-headless" // headless service; give Rethink pods consistent DNS addresses
 	rethinkVolumeName           = "rethink-volume"
 	rethinkVolumeClaimName      = "rethink-volume-claim"
+	minioSecretName             = "minio-secret"
 	amazonSecretName            = "amazon-secret"
 	googleSecretName            = "google-secret"
 	microsoftSecretName         = "microsoft-secret"
@@ -52,6 +52,7 @@ const (
 	amazonBackend
 	googleBackend
 	microsoftBackend
+	minioBackend
 )
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -108,6 +109,23 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "pachd"),
 		}
+	case minioBackend:
+		backendEnvVar = server.MinioBackendEnvVar
+		volumes[0].HostPath = &api.HostPathVolumeSource{
+			Path: filepath.Join(hostPath, "pachd"),
+		}
+		volumes = append(volumes, api.Volume{
+			Name: minioSecretName,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: minioSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      minioSecretName,
+			MountPath: "/" + minioSecretName,
+		})
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
 		volumes = append(volumes, api.Volume{
@@ -663,6 +681,36 @@ func InitJob(version string) *extensions.Job {
 	}
 }
 
+// MinioSecret creates an amazon secret with the following parameters:
+//   bucket - S3 bucket name
+//   id     - S3 access key id
+//   secret - S3 secret access key
+//   endpoint  - S3 compatible endpoint
+//   secure - set to true for a secure connection.
+func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) *api.Secret {
+	secureV := "0"
+	if secure {
+		secureV = "1"
+	}
+	return &api.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   minioSecretName,
+			Labels: labels(minioSecretName),
+		},
+		Data: map[string][]byte{
+			"bucket":   []byte(bucket),
+			"id":       []byte(id),
+			"secret":   []byte(secret),
+			"endpoint": []byte(endpoint),
+			"secure":   []byte(secureV),
+		},
+	}
+}
+
 // AmazonSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
@@ -731,7 +779,7 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 // WriteRethinkVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
 func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
-	if backend != localBackend && len(names) < shards {
+	if backend != localBackend && backend != minioBackend && len(names) < shards {
 		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -743,7 +791,7 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 			},
 			ObjectMeta: api.ObjectMeta{
 				Name:   fmt.Sprintf("%s-%d", rethinkVolumeName, i),
-				Labels: volumeLabels(rethinkVolumeName),
+				Labels: labels(rethinkVolumeName),
 			},
 			Spec: api.PersistentVolumeSpec{
 				Capacity: map[api.ResourceName]resource.Quantity{
@@ -780,6 +828,8 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 					DataDiskURI: dataDiskURI,
 				},
 			}
+		case minioBackend:
+			fallthrough
 		case localBackend:
 			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
 				HostPath: &api.HostPathVolumeSource{
@@ -809,7 +859,7 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   rethinkVolumeClaimName,
-			Labels: volumeLabels(rethinkVolumeClaimName),
+			Labels: labels(rethinkVolumeClaimName),
 		},
 		Spec: api.PersistentVolumeClaimSpec{
 			Resources: api.ResourceRequirements{
@@ -861,12 +911,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 		fmt.Fprintf(w, "\n")
 		RethinkHeadlessService().CodecEncodeSelf(encoder)
 	} else {
-		if backend != localBackend && len(volumeNames) != 1 {
+		if backend != localBackend && backend != minioBackend && len(volumeNames) != 1 {
 			return fmt.Errorf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames))
 		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		volumeName := ""
-		if backend != localBackend {
+		if backend != localBackend && backend != minioBackend {
 			volumeName = volumeNames[0]
 		}
 		RethinkRc(volumeName, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
@@ -886,6 +936,18 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 	return WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
+}
+
+// WriteMinioAssets writes assets to an s3 backend.
+func WriteMinioAssets(w io.Writer, opts *AssetOpts, hostPath string, bucket string, id string,
+	secret string, endpoint string, secure bool) error {
+	if err := WriteAssets(w, opts, minioBackend, nil, 1 /* = volume size (gb) */, hostPath); err != nil {
+		return err
+	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	MinioSecret(bucket, id, secret, endpoint, secure).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
@@ -926,12 +988,5 @@ func labels(name string) map[string]string {
 	return map[string]string{
 		"app":   name,
 		"suite": suite,
-	}
-}
-
-func volumeLabels(name string) map[string]string {
-	return map[string]string{
-		"app":   name,
-		"suite": volumeSuite,
 	}
 }
