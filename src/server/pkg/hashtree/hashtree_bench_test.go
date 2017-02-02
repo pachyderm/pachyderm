@@ -36,7 +36,7 @@ func BenchmarkPutFile(b *testing.B) {
 	// Add 'cnt' files
 	cnt := int(1e5)
 	r := rand.New(rand.NewSource(0))
-	h := &HashTree{}
+	h := &HashTreeProto{}
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
@@ -58,19 +58,19 @@ func BenchmarkPutFile(b *testing.B) {
 func BenchmarkMerge(b *testing.B) {
 	// Merge 'cnt' trees, each with 1 file (simulating a job)
 	cnt := int(1e5)
-	trees := make([]Interface, cnt)
+	trees := make([]HashTree, cnt)
 	r := rand.New(rand.NewSource(0))
 	for i := 0; i < cnt; i++ {
-		trees[i] = new(HashTree)
+		trees[i] = new(HashTreeProto)
 		trees[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
 
-	h := HashTree{}
+	h := HashTreeProto{}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Merge(trees)
-		h = HashTree{}
+		h = HashTreeProto{}
 	}
 }
 
@@ -90,13 +90,13 @@ func BenchmarkClone(b *testing.B) {
 	// Create a tree with 'cnt' files
 	cnt := int(1e4)
 	r := rand.New(rand.NewSource(0))
-	srcTs := make([]Interface, cnt)
+	srcTs := make([]HashTree, cnt)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = &HashTree{}
+		srcTs[i] = &HashTreeProto{}
 		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.Merge(srcTs)
 
 	b.ResetTimer()
@@ -120,18 +120,18 @@ func BenchmarkDelete(b *testing.B) {
 	// Create a tree with 'cnt' files
 	cnt := int(1e5)
 	r := rand.New(rand.NewSource(0))
-	srcTs := make([]Interface, cnt)
+	srcTs := make([]HashTree, cnt)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = &HashTree{}
+		srcTs[i] = &HashTreeProto{}
 		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.Merge(srcTs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2 := proto.Clone(&h).(*HashTree)
+		h2 := proto.Clone(&h).(*HashTreeProto)
 		h2.DeleteFile("/foo")
 	}
 }
