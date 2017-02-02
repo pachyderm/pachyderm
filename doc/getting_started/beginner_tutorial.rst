@@ -164,7 +164,7 @@ the new data we've added. We'll see a corresponding commit to the output
 
 .. code-block:: shell
 
- $ pachctl get-file sum 4092f4675650476ab0a3fde5b7780316/0 apple
+ $ pachctl get-file sum e4060e15948c4b7b89947a02eace5dca/1 apple
  324
 
 One thing that's interesting to note is that our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the "sum" pipeline, you'll notice the ``method`` and that our code uses ``/pfs/prev`` to compute the sum incrementally based upon our previous commit. You can learn more about incrementally in our advanced :doc:`../advanced/incrementality` docs.
@@ -212,7 +212,7 @@ other local filesystem such as using ``ls`` or pointing your browser at it.
 
  # And commits
  $ ls ~/pfs/sum
- 4092f4675650476ab0a3fde5b7780316/1	4092f4675650476ab0a3fde5b7780316/0
+ e4060e15948c4b7b89947a02eace5dca/1	e4060e15948c4b7b89947a02eace5dca/0
 
 .. note::
 
