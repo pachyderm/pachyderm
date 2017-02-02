@@ -341,7 +341,22 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
-			return nil, err
+			if strings.Contains(err.Error(), "already exists") {
+				if _, err := pfsAPIClient.DeleteCommit(
+					ctx,
+					&pfsclient.DeleteCommitRequest{
+						Commit: client.NewCommit(parent.Repo.Name, strings.Split(parent.ID, "/")[0]),
+					},
+				); err != nil {
+					return nil, err
+				}
+				outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 	}
 
