@@ -363,9 +363,9 @@ func (h *HashTree) Glob(pattern string) ([]*Node, error) {
 
 // mergeNode merges the node at 'path' from 'from' into 'h'. The return value
 // 's' is the number of bytes added to the node at 'path' (the size increase).
-func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err error) {
-	// Get the node at path in 'dest' and determine its type (i.e. file, dir)
-	destNode, err := dest.Get(path)
+func (h *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err error) {
+	// Get the node at path in 'h' and determine its type (i.e. file, dir)
+	destNode, err := h.Get(path)
 	if err != nil && Code(err) != PathNotFound {
 		return 0, err
 	}
@@ -393,7 +393,7 @@ func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err er
 	//   for each shard-xxxxx (only one of which contains the file being merged),
 	//   and we'd have an O(n^2) algorithm; too slow when merging 100k trees)
 	childrenToTrees := make(map[string][]Interface)
-	// Amount of data being added to node at 'path' in 'dest'
+	// Amount of data being added to node at 'path' in 'h'
 	sizeDelta := int64(0)
 	for _, src := range srcs {
 		n, err := src.Get(path)
@@ -419,7 +419,7 @@ func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err er
 						Size:    0,
 						DirNode: &DirectoryNode{},
 					}
-					dest.Fs[path] = destNode
+					h.Fs[path] = destNode
 				}
 				// Instead of merging here, we build a reverse-index and merge below
 				for _, c := range n.DirNode.Children {
@@ -433,7 +433,7 @@ func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err er
 						Size:     0,
 						FileNode: &FileNode{},
 					}
-					dest.Fs[path] = destNode
+					h.Fs[path] = destNode
 				}
 				// Append new blocks
 				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
@@ -447,7 +447,7 @@ func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err er
 	if pathtype == directory {
 		// Merge all children (collected in childrenToTrees)
 		for c, cSrcs := range childrenToTrees {
-			sz, err := dest.mergeNode(join(path, c), cSrcs)
+			sz, err := h.mergeNode(join(path, c), cSrcs)
 			if err != nil {
 				return 0, err
 			}
@@ -455,7 +455,7 @@ func (dest *HashTree) mergeNode(path string, srcs []Interface) (sz int64, err er
 			sizeDelta += sz
 		}
 	}
-	dest.updateHash(path)
+	h.updateHash(path)
 	destNode.Size += sizeDelta
 	return sizeDelta, nil
 }
