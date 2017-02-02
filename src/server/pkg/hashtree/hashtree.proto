@@ -5,16 +5,16 @@ syntax = "proto3";
 
 import "client/pfs/pfs.proto";
 
-// FileNOde is node corresponding to a file (which is also a leaf node).
-message FileNode {
+// FileNodeProto is a node corresponding to a file (which is also a leaf node).
+message FileNodeProto {
   // BlockRefs are references to the file's contents in block storage.
   // Naturally, the blocks are ordered with respect to their position in the
   // file (block with initial content is first)
   repeated pfs.BlockRef block_refs = 3;
 }
 
-// DirectoryNode is a node corresponding to a directory.
-message DirectoryNode {
+// DirectoryNodeProto is a node corresponding to a directory.
+message DirectoryNodeProto {
   // Children of this directory. Note that paths are relative, so if "/foo/bar"
   // has a child "baz", that means that there is a file at "/foo/bar/baz".
   //
@@ -23,8 +23,8 @@ message DirectoryNode {
   repeated string children = 3;
 }
 
-// Node is a node in the file tree (either a file or a directory)
-message Node {
+// NodeProto is a node in the file tree (either a file or a directory)
+message NodeProto {
   // Name is the name (not path) of the file/directory (e.g. /lib).
   string name = 1;
 
@@ -33,33 +33,33 @@ message Node {
   // detect if the name or contents have changed between versions.
   bytes hash = 2;
 
-  // Size is the of the subtree under node; i.e. if this is a directory, the
-  // size includes all children
-  int64 size = 3;
+  // subtree_size is the of the subtree under node; i.e. if this is a directory,
+  // subtree_size includes all children.
+  int64 subtree_size = 3;
 
   // Exactly one of the following fields must be set. The type of this node will
   // be determined by which field is set.
-  FileNode file_node = 4;
-  DirectoryNode dir_node = 5;
+  FileNodeProto file_node = 4;
+  DirectoryNodeProto dir_node = 5;
 }
 
-// HashTree is a tree corresponding to the complete file contents of a pachyderm
-// repo at a given commit (based on a Merkle Tree). We store one HashTree for
-// every PFS commit.
-message HashTree {
+// HashTreeProto is a tree corresponding to the complete file contents of a
+// pachyderm repo at a given commit (based on a Merkle Tree). We store one
+// HashTree for every PFS commit.
+message HashTreeProto {
   // Version is an arbitrary version number, set by the corresponding library
   // in hashtree.go.  This ensures that if the hash function used to create
   // these trees is changed, we won't run into errors when deserializing old
-  // trees. The current version is 1; 0 will always mean an empty tree.
+  // trees. The current version is 1.
   int32 version = 1;
 
-  // Map from each node's path to the Node message with that node's details.
+  // Fs maps each node's path to the NodeProto with that node's details.
   // See "Potential Optimizations" at the end for a compression scheme that
   // could be useful if this map gets too large.
   //
   // Note that the key must end in "/" if an only if the value has .dir_node set
   // (i.e. iff the path points to a directory).
-  map<string, Node> fs = 2;
+  map<string, NodeProto> fs = 2;
 }
 
 /// Potential Optimizations

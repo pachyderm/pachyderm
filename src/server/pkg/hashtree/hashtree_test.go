@@ -39,7 +39,7 @@ func i(ss ...string) []interface{} {
 
 // requireSame compares 'h' to another hash tree (e.g. to make sure that it
 // hasn't changed)
-func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
+func (h *HashTreeProto) requireSame(t *testing.T, other *HashTreeProto) {
 	// Make sure 'h' is still the same
 	_, file, line, _ := runtime.Caller(1)
 	require.True(t, proto.Equal(h, other),
@@ -54,7 +54,7 @@ func (h *HashTree) requireSame(t *testing.T, other *HashTree) {
 // etc. This is separate from 'requireSame()' because often we want to test that
 // an operation is invariant on several slightly different trees, and with this
 // we only have to define 'op' once.
-func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
+func (h *HashTreeProto) requireOperationInvariant(t *testing.T, op func()) {
 	preop := proto.Clone(h)
 
 	// perform operation on 'h'
@@ -71,20 +71,20 @@ func (h *HashTree) requireOperationInvariant(t *testing.T, op func()) {
 
 func TestPutFileBasic(t *testing.T) {
 	// Put a file
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.PutFile("/foo", br(`block{hash:"20c27"}`))
-	require.Equal(t, int64(1), h.Fs["/foo"].Size)
-	require.Equal(t, int64(1), h.Fs[""].Size)
+	require.Equal(t, int64(1), h.Fs["/foo"].SubtreeSize)
+	require.Equal(t, int64(1), h.Fs[""].SubtreeSize)
 
 	// Put a file under a directory and make sure changes are propagated upwards
 	h.PutFile("/dir/bar", br(`block{hash:"ebc57"}`))
-	require.Equal(t, int64(1), h.Fs["/dir/bar"].Size)
-	require.Equal(t, int64(1), h.Fs["/dir"].Size)
-	require.Equal(t, int64(2), h.Fs[""].Size)
+	require.Equal(t, int64(1), h.Fs["/dir/bar"].SubtreeSize)
+	require.Equal(t, int64(1), h.Fs["/dir"].SubtreeSize)
+	require.Equal(t, int64(2), h.Fs[""].SubtreeSize)
 	h.PutFile("/dir/buzz", br(`block{hash:"8e02c"}`))
-	require.Equal(t, int64(1), h.Fs["/dir/buzz"].Size)
-	require.Equal(t, int64(2), h.Fs["/dir"].Size)
-	require.Equal(t, int64(3), h.Fs[""].Size)
+	require.Equal(t, int64(1), h.Fs["/dir/buzz"].SubtreeSize)
+	require.Equal(t, int64(2), h.Fs["/dir"].SubtreeSize)
+	require.Equal(t, int64(3), h.Fs[""].SubtreeSize)
 
 	// inspect h
 	nodes, err := h.List("/")
@@ -104,15 +104,15 @@ func TestPutFileBasic(t *testing.T) {
 	// Make sure subsequent PutFile calls append
 	oldSha := make([]byte, len(h.Fs["/foo"].Hash))
 	copy(oldSha, h.Fs["/foo"].Hash)
-	require.Equal(t, int64(1), h.Fs["/foo"].Size)
+	require.Equal(t, int64(1), h.Fs["/foo"].SubtreeSize)
 
 	h.PutFile("/foo", br(`block{hash:"413e7"}`))
 	require.NotEqual(t, oldSha, h.Fs["/foo"].Hash)
-	require.Equal(t, int64(2), h.Fs["/foo"].Size)
+	require.Equal(t, int64(2), h.Fs["/foo"].SubtreeSize)
 }
 
 func TestPutDirBasic(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	emptySha := sha256.Sum256([]byte{})
 
 	// put a directory
@@ -149,7 +149,7 @@ func TestPutDirBasic(t *testing.T) {
 }
 
 func TestPutError(t *testing.T) {
-	h := &HashTree{}
+	h := &HashTreeProto{}
 	err := h.PutFile("/foo", br(`block{hash:"20c27"}`))
 	require.NoError(t, err)
 
@@ -175,11 +175,11 @@ func TestPutError(t *testing.T) {
 
 	// Merge fails if src and dest disagree about whether a node is a file or
 	// directory, and h is unchanged
-	src := &HashTree{}
+	src := &HashTreeProto{}
 	src.PutFile("/buzz", br(`block{hash:"9d432"}`))
 	src.PutFile("/foo/bar", br(`block{hash:"ebc57"}`))
 	h.requireOperationInvariant(t, func() {
-		err := h.Merge([]Interface{src})
+		err := h.Merge([]HashTree{src})
 		require.NotNil(t, err)
 		require.Equal(t, PathConflict, Code(err))
 	})
@@ -187,7 +187,7 @@ func TestPutError(t *testing.T) {
 
 func TestDeleteDirError(t *testing.T) {
 	// Put root dir
-	h := &HashTree{}
+	h := &HashTreeProto{}
 	h.PutDir("/")
 	require.Equal(t, 1, len(h.Fs))
 
@@ -200,7 +200,7 @@ func TestDeleteDirError(t *testing.T) {
 // Given a directory D, test that adding and then deleting a file/directory to
 // D does not change D.
 func TestAddDeleteReverts(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	addDeleteFile := func() {
 		h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 		h.DeleteFile("/dir/__NEW_FILE__")
@@ -230,7 +230,7 @@ func TestAddDeleteReverts(t *testing.T) {
 // Given a directory D, test that deleting and then adding a file/directory to
 // D does not change D.
 func TestDeleteAddReverts(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	deleteAddFile := func() {
 		h.DeleteFile("/dir/__NEW_FILE__")
 		h.PutFile("/dir/__NEW_FILE__", br(`block{hash:"8e02c"}`))
@@ -253,7 +253,7 @@ func TestDeleteAddReverts(t *testing.T) {
 
 	// Add some files to make sure the test still passes when D already has files
 	// in it.
-	h = HashTree{}
+	h = HashTreeProto{}
 	h.PutFile("/dir/foo", br(`block{hash:"ebc57"}`))
 	h.PutFile("/dir/bar", br(`block{hash:"20c27"}`))
 
@@ -268,8 +268,8 @@ func TestDeleteAddReverts(t *testing.T) {
 // The hash of a directory doesn't change no matter what order files are added
 // to it.
 func TestPutFileCommutative(t *testing.T) {
-	h := HashTree{}
-	h2 := HashTree{}
+	h := HashTreeProto{}
+	h2 := HashTreeProto{}
 	comparePutFiles := func() {
 		h.PutFile("/dir/__NEW_FILE_A__", br(`block{hash:"ebc57"}`))
 		h.PutFile("/dir/__NEW_FILE_B__", br(`block{hash:"20c27"}`))
@@ -298,7 +298,7 @@ func TestPutFileCommutative(t *testing.T) {
 	comparePutFiles()
 	// Add some files to make sure the test still passes when D already has files
 	// in it.
-	h, h2 = HashTree{}, HashTree{}
+	h, h2 = HashTreeProto{}, HashTreeProto{}
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
 	h2.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
 	h.PutFile("/dir/bar", br(`block{hash:"9d432"}`))
@@ -310,14 +310,14 @@ func TestPutFileCommutative(t *testing.T) {
 // a file or directory under D changes the hash of D, even if the contents are
 // identical.
 func TestRenameChangesHash(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.PutFile("/dir/foo", br(`block{hash:"ebc57"}`))
 
 	dirPtr, err := h.Get("/dir")
 	require.NoError(t, err)
 	rootPtr, err := h.Get("/")
 	require.NoError(t, err)
-	dirPre, rootPre := proto.Clone(dirPtr).(*Node), proto.Clone(rootPtr).(*Node)
+	dirPre, rootPre := proto.Clone(dirPtr).(*NodeProto), proto.Clone(rootPtr).(*NodeProto)
 
 	// rename /dir/foo to /dir/bar
 	h.DeleteFile("/dir/foo")
@@ -330,8 +330,8 @@ func TestRenameChangesHash(t *testing.T) {
 
 	require.NotEqual(t, (*dirPre).Hash, (*dirPtr).Hash)
 	require.NotEqual(t, (*rootPre).Hash, (*rootPtr).Hash)
-	require.Equal(t, (*dirPre).Size, (*dirPtr).Size)
-	require.Equal(t, (*rootPre).Size, (*rootPtr).Size)
+	require.Equal(t, (*dirPre).SubtreeSize, (*dirPtr).SubtreeSize)
+	require.Equal(t, (*rootPre).SubtreeSize, (*rootPtr).SubtreeSize)
 
 	// rename /dir to /dir2
 	h.DeleteFile("/dir")
@@ -344,22 +344,22 @@ func TestRenameChangesHash(t *testing.T) {
 
 	require.Equal(t, dirPre.Hash, (*dirPtr).Hash) // dir == dir2
 	require.NotEqual(t, rootPre.Hash, (*rootPtr).Hash)
-	require.Equal(t, (*dirPre).Size, (*dirPtr).Size)
-	require.Equal(t, (*rootPre).Size, (*rootPtr).Size)
+	require.Equal(t, (*dirPre).SubtreeSize, (*dirPtr).SubtreeSize)
+	require.Equal(t, (*rootPre).SubtreeSize, (*rootPtr).SubtreeSize)
 }
 
 // Given a directory D, rewriting (removing and re-adding a different file
 // under the same name) a file or directory under D changes the hash of D, even
 // if the contents are identical.
 func TestRewriteChangesHash(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.PutFile("/dir/foo", br(`block{hash:"ebc57"}`))
 
 	dirPtr, err := h.Get("/dir")
 	require.NoError(t, err)
 	rootPtr, err := h.Get("/")
 	require.NoError(t, err)
-	dirPre, rootPre := proto.Clone(dirPtr).(*Node), proto.Clone(rootPtr).(*Node)
+	dirPre, rootPre := proto.Clone(dirPtr).(*NodeProto), proto.Clone(rootPtr).(*NodeProto)
 
 	h.DeleteFile("/dir/foo")
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
@@ -371,12 +371,12 @@ func TestRewriteChangesHash(t *testing.T) {
 
 	require.NotEqual(t, dirPre.Hash, (*dirPtr).Hash)
 	require.NotEqual(t, rootPre.Hash, (*rootPtr).Hash)
-	require.Equal(t, (*dirPre).Size, (*dirPtr).Size)
-	require.Equal(t, (*rootPre).Size, (*rootPtr).Size)
+	require.Equal(t, (*dirPre).SubtreeSize, (*dirPtr).SubtreeSize)
+	require.Equal(t, (*rootPre).SubtreeSize, (*rootPtr).SubtreeSize)
 }
 
 func TestGlobFile(t *testing.T) {
-	h := HashTree{}
+	h := HashTreeProto{}
 	h.PutFile("/foo", br(`block{hash:"20c27"}`))
 	h.PutFile("/dir/bar", br(`block{hash:"ebc57"}`))
 	h.PutFile("/dir/buzz", br(`block{hash:"8e02c"}`))
@@ -413,7 +413,7 @@ func TestGlobFile(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	l, r := &HashTree{}, &HashTree{}
+	l, r := &HashTreeProto{}, &HashTreeProto{}
 	l.PutFile("/foo-left", br(`block{hash:"20c27"}`))
 	l.PutFile("/dir-left/bar-left", br(`block{hash:"ebc57"}`))
 	l.PutFile("/dir-shared/buzz-left", br(`block{hash:"8e02c"}`))
@@ -423,7 +423,7 @@ func TestMerge(t *testing.T) {
 	r.PutFile("/dir-shared/buzz-right", br(`block{hash:"8e02c"}`))
 	r.PutFile("/dir-shared/file-shared", br(`block{hash:"9d432"}`))
 
-	expected := &HashTree{}
+	expected := &HashTreeProto{}
 	expected.PutFile("/foo-left", br(`block{hash:"20c27"}`))
 	expected.PutFile("/dir-left/bar-left", br(`block{hash:"ebc57"}`))
 	expected.PutFile("/dir-shared/buzz-left", br(`block{hash:"8e02c"}`))
@@ -433,22 +433,22 @@ func TestMerge(t *testing.T) {
 	expected.PutFile("/dir-shared/buzz-right", br(`block{hash:"8e02c"}`))
 	expected.PutFile("/dir-shared/file-shared", br(`block{hash:"9d432"}`))
 
-	h := proto.Clone(l).(*HashTree)
-	h.Merge([]Interface{r})
+	h := proto.Clone(l).(*HashTreeProto)
+	h.Merge([]HashTree{r})
 	expected.requireSame(t, h)
 
-	h = proto.Clone(r).(*HashTree)
-	h.Merge([]Interface{l})
+	h = proto.Clone(r).(*HashTreeProto)
+	h.Merge([]HashTree{l})
 	expected.requireSame(t, h)
 
-	h = &HashTree{}
-	h.Merge([]Interface{l, r})
+	h = &HashTreeProto{}
+	h.Merge([]HashTree{l, r})
 	expected.requireSame(t, h)
 }
 
 // Test that Merge() works with empty hash trees
 func TestMergeEmpty(t *testing.T) {
-	expected, l, r := HashTree{}, HashTree{}, HashTree{}
+	expected, l, r := HashTreeProto{}, HashTreeProto{}, HashTreeProto{}
 	expected.PutFile("/foo", br(`block{hash:"20c27"}`))
 	expected.PutFile("/dir/bar", br(`block{hash:"ebc57"}`))
 
@@ -456,11 +456,11 @@ func TestMergeEmpty(t *testing.T) {
 
 	// Merge empty tree into full tree
 	proto.Unmarshal(b, &l)
-	l.Merge([]Interface{&r})
+	l.Merge([]HashTree{&r})
 	expected.requireSame(t, &l)
 
 	// Merge full tree into empty tree
-	r.Merge([]Interface{&l})
+	r.Merge([]HashTree{&l})
 	expected.requireSame(t, &r)
 }
 
@@ -469,7 +469,7 @@ func TestCode(t *testing.T) {
 	require.Equal(t, OK, Code(nil))
 	require.Equal(t, Unknown, Code(fmt.Errorf("external error")))
 
-	h := HashTree{}
+	h := HashTreeProto{}
 	_, err := h.Get("/path")
 	require.Equal(t, PathNotFound, Code(err))
 
