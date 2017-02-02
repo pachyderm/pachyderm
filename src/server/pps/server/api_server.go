@@ -168,6 +168,7 @@ func onTheSameBranch(a, b *pfsclient.Commit) bool {
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -660,6 +661,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -723,6 +725,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -748,10 +751,11 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	}, nil
 }
 
-func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *types.Empty, err error) {
+func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -784,6 +788,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 
 func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pods, err := a.jobPods(request.Job)
 	if err != nil {
 		return err
@@ -827,6 +832,7 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 
 func (a *apiServer) StartPod(ctx context.Context, request *ppsserver.StartPodRequest) (response *ppsserver.StartPodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -1007,6 +1013,7 @@ func filterNumber(n uint64, moduli []uint64) []uint64 {
 
 func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.ContinuePodRequest) (response *ppsserver.ContinuePodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistClient, err := a.getPersistClient()
 	if err != nil {
 		return nil, err
@@ -1033,6 +1040,7 @@ func (a *apiServer) ContinuePod(ctx context.Context, request *ppsserver.Continue
 
 func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodRequest) (response *ppsserver.FinishPodResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FinishJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -1082,6 +1090,7 @@ func (a *apiServer) FinishPod(ctx context.Context, request *ppsserver.FinishPodR
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -1254,10 +1263,11 @@ func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 	}
 }
 
-func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
+func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectPipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1271,10 +1281,11 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	return newPipelineInfo(persistPipelineInfo), nil
 }
 
-func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
+func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1294,10 +1305,11 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	}, nil
 }
 
-func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, err error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.deletePipeline(ctx, request.Pipeline); err != nil {
 		return nil, err
@@ -1305,10 +1317,11 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *types.Empty, err error) {
+func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartPipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1327,10 +1340,11 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	})
 }
 
-func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *types.Empty, err error) {
+func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopPipeline")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1351,6 +1365,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PPSDeleteAll")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
