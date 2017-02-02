@@ -47,9 +47,12 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 	}
 
 	var g errgroup.Group
+	sem := make(chan struct{}, 100)
 	for _, fileInfo := range fileInfos.FileInfo {
 		fileInfo := fileInfo
+		sem <- struct{}{}
 		g.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			switch fileInfo.FileType {
 			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
