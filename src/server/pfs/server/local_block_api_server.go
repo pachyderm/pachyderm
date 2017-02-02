@@ -43,6 +43,7 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
