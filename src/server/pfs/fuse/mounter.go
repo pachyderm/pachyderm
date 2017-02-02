@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"go.pedge.io/lion"
 )
 
 const (
@@ -93,7 +93,7 @@ func (m *mounter) Mount(
 	})
 	config := &fs.Config{}
 	if debug {
-		config.Debug = func(msg interface{}) { lion.Printf("%+v", msg) }
+		config.Debug = func(msg interface{}) { log.Printf("%+v", msg) }
 	}
 	var filesystem fs.FS
 	if oneMount {

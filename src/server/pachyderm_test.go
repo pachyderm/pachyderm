@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -26,7 +27,6 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -92,6 +92,9 @@ func testJob(t *testing.T, shards int) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	tFin, _ := types.TimestampFromProto(jobInfo.Finished)
+	tStart, _ := types.TimestampFromProto(jobInfo.Started)
+
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
@@ -102,7 +105,7 @@ func testJob(t *testing.T, shards int) {
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.NotNil(t, jobInfo.Started)
 	require.NotNil(t, jobInfo.Finished)
-	require.True(t, prototime.TimestampToTime(jobInfo.Finished).After(prototime.TimestampToTime(jobInfo.Started)))
+	require.True(t, tFin.After(tStart))
 	for i := 0; i < numFiles; i++ {
 		var buffer bytes.Buffer
 		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", false, nil, &buffer))
@@ -541,8 +544,8 @@ func TestPipelineOverwrite(t *testing.T) {
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 			GcPolicy: &ppsclient.GCPolicy{
-				Success: prototime.DurationToProto(time.Duration(10 * time.Second)),
-				Failure: prototime.DurationToProto(time.Duration(10 * time.Second)),
+				Success: types.DurationProto(time.Duration(10 * time.Second)),
+				Failure: types.DurationProto(time.Duration(10 * time.Second)),
 			},
 		})
 	require.NoError(t, err)
@@ -922,7 +925,7 @@ func TestPipelineThatCrashes(t *testing.T) {
 		Job:        jobInfos[0].Job,
 		BlockState: true,
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
@@ -2352,7 +2355,7 @@ func TestFailedJobReadData(t *testing.T) {
 		BlockState: true,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
@@ -3975,7 +3978,7 @@ func TestSimpleService(t *testing.T) {
 		runningJobInfo = jobInfo
 		return nil
 	}, b, func(err error, d time.Duration) {
-		fmt.Errorf("error waiting on job state: %v; retrying in %v", err, d)
+		fmt.Printf("error waiting on job state: %v; retrying in %v\n", err, d)
 	})
 	require.NotNil(t, runningJobInfo)
 	require.NotNil(t, runningJobInfo.Started)
@@ -4011,7 +4014,7 @@ func TestSimpleService(t *testing.T) {
 		}
 		return nil
 	}, b, func(err error, d time.Duration) {
-		fmt.Errorf("error running netcat command: %v; retrying in %v", err, d)
+		fmt.Printf("error running netcat command: %v; retrying in %v\n", err, d)
 	})
 	require.NoError(t, err)
 	require.Equal(t, "hai\n", result)
@@ -4130,6 +4133,56 @@ func TestLazyPipeline(t *testing.T) {
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[1].Commit.Repo.Name, commitInfos[1].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
+}
+
+func TestJobGC(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestJobGC")
+	pipelineName := uniqueString("TestJobGC_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: types.DurationProto(time.Second),
+				Failure: types.DurationProto(time.Second),
+			},
+		})
+	require.NoError(t, err)
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+	// Jobs should get gced after 0 seconds, we sleep for 10 just to be extra sure
+	time.Sleep(10 * time.Second)
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	kubeClient := getKubeClient(t)
+	jobList, err := kubeClient.Extensions().Jobs(api.NamespaceDefault).List(api.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{"app": jobInfos[0].Job.ID})})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobList.Items))
+	podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{"app": jobInfos[0].Job.ID})})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(podList.Items))
 }
 
 func getPachClient(t testing.TB) *client.APIClient {

@@ -11,11 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
 	"github.com/dancannon/gorethink"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/pkg/time"
-	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -186,10 +183,8 @@ func CheckDBs(address string, databaseName string) error {
 }
 
 type rethinkAPIServer struct {
-	protorpclog.Logger
 	session      *gorethink.Session
 	databaseName string
-	timer        pkgtime.Timer
 }
 
 func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer, error) {
@@ -198,10 +193,8 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		return nil, err
 	}
 	return &rethinkAPIServer{
-		protorpclog.NewLogger("pps.persist.API"),
 		session,
 		databaseName,
-		pkgtime.NewSystemTimer(),
 	}, nil
 }
 
@@ -220,7 +213,9 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if request.CommitIndex != "" {
 		return nil, fmt.Errorf("request.CommitIndex should be unset")
 	}
-	request.Started = prototime.TimeToTimestamp(time.Now())
+	if request.Started, err = types.TimestampProto(time.Now()); err != nil {
+		return nil, err
+	}
 	var commits []*pfs.Commit
 	for _, input := range request.Inputs {
 		commits = append(commits, input.Commit)
@@ -309,57 +304,59 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *ppsclient.
 	return result, nil
 }
 
-func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *ppsclient.Job) (response *types.Empty, err error) {
 	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.ID); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) DeleteJobInfosForPipeline(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeleteJobInfosForPipeline(ctx context.Context, request *ppsclient.Pipeline) (response *types.Empty, err error) {
 	_, err = a.getTerm(jobInfosTable).GetAllByIndex(
 		pipelineNameIndex,
 		request.Name,
 	).Delete().RunWrite(a.session)
-	return google_protobuf.EmptyInstance, err
+	return &types.Empty{}, err
 }
 
-func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *types.Empty, err error) {
 	if err := a.updateMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) CreateJobState(ctx context.Context, request *persist.JobState) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) CreateJobState(ctx context.Context, request *persist.JobState) (response *types.Empty, err error) {
 	if request.Finished != nil {
 		return nil, fmt.Errorf("request.Finished should be unset")
 	}
 	if request.State == ppsclient.JobState_JOB_SUCCESS ||
 		request.State == ppsclient.JobState_JOB_FAILURE {
-		request.Finished = prototime.TimeToTimestamp(time.Now())
+		if request.Finished, err = types.TimestampProto(time.Now()); err != nil {
+			return nil, err
+		}
 	}
 	if err := a.updateMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *persist.UpdatePipelineStateRequest) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) UpdatePipelineState(ctx context.Context, request *persist.UpdatePipelineStateRequest) (response *types.Empty, err error) {
 	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) UpdatePipelineStopped(ctx context.Context, request *persist.UpdatePipelineStoppedRequest) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) UpdatePipelineStopped(ctx context.Context, request *persist.UpdatePipelineStoppedRequest) (response *types.Empty, err error) {
 	if err := a.updateMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *persist.BlockPipelineStateRequest) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *persist.BlockPipelineStateRequest) (response *types.Empty, err error) {
 	pipelineInfo := &persist.PipelineInfo{}
 	if err := a.waitMessageByPrimaryKey(pipelineInfosTable, request.PipelineName, pipelineInfo,
 		func(pipelineInfo gorethink.Term) gorethink.Term {
@@ -367,32 +364,36 @@ func (a *rethinkAPIServer) BlockPipelineState(ctx context.Context, request *pers
 		}); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
+func (a *rethinkAPIServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	if _, err := a.getTerm(jobInfosTable).Delete().Run(a.session); err != nil {
 		return nil, err
 	}
 	if _, err := a.getTerm(pipelineInfosTable).Delete().Run(a.session); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *types.Empty, err error) {
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	request.CreatedAt = a.now()
+	t, err := types.TimestampProto(time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	request.CreatedAt = t
 	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
-func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *types.Empty, err error) {
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
@@ -404,7 +405,7 @@ func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *pers
 	}).RunWrite(a.session); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {
@@ -461,11 +462,11 @@ func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *persi
 	return result, nil
 }
 
-func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *types.Empty, err error) {
 	if err := a.deleteMessageByPrimaryKey(pipelineInfosTable, request.Name); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 type pipelineChangeFeed struct {
@@ -576,13 +577,17 @@ func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.List
 			gorethink.Expr([]interface{}{request.PipelineName, state, false}),
 		)
 		var duration time.Duration
+		var err error
 		switch state {
 		case ppsclient.JobState_JOB_SUCCESS:
-			duration = prototime.DurationFromProto(request.GcPolicy.Success)
+			duration, err = types.DurationFromProto(request.GcPolicy.Success)
 		case ppsclient.JobState_JOB_FAILURE:
-			duration = prototime.DurationFromProto(request.GcPolicy.Failure)
+			duration, err = types.DurationFromProto(request.GcPolicy.Failure)
 		}
-		timestamp := prototime.TimeToTimestamp(time.Now().Add(-duration))
+		if err != nil {
+			return nil, err
+		}
+		timestamp, _ := types.TimestampProto(time.Now().Add(-duration))
 		query = query.Filter(gorethink.Row.Field("Finished").Field("Seconds").Lt(timestamp.Seconds)).Field("JobID")
 		queries = append(queries, query)
 	}
@@ -597,19 +602,19 @@ func (a *rethinkAPIServer) ListGCJobs(ctx context.Context, request *persist.List
 	return jobIDs, nil
 }
 
-func (a *rethinkAPIServer) GCJob(ctx context.Context, request *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) GCJob(ctx context.Context, request *ppsclient.Job) (response *types.Empty, err error) {
 	if _, err := a.getTerm(jobInfosTable).Get(request.ID).Update(map[string]interface{}{
 		"Gc": true,
 	}).RunWrite(a.session); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 // AddChunk inserts an array of chunks into the database
-func (a *rethinkAPIServer) AddChunk(ctx context.Context, request *persist.AddChunkRequest) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) AddChunk(ctx context.Context, request *persist.AddChunkRequest) (response *types.Empty, err error) {
 	_, err = a.getTerm(chunksTable).Insert(request.Chunks).RunWrite(a.session)
-	return google_protobuf.EmptyInstance, err
+	return &types.Empty{}, err
 }
 
 // ClaimChunk atomically switches the state of a chunk from UNASSIGNED to ASSIGNED
@@ -656,6 +661,9 @@ func (a *rethinkAPIServer) ClaimChunk(ctx context.Context, request *persist.Clai
 			chunk = changedChunks[0]
 			break
 		}
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
 	}
 	return chunk, nil
 }
@@ -823,15 +831,15 @@ func (a *rethinkAPIServer) GetChunksForJob(ctx context.Context, job *ppsclient.J
 	return response, nil
 }
 
-func (a *rethinkAPIServer) DeleteChunksForJob(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeleteChunksForJob(ctx context.Context, job *ppsclient.Job) (response *types.Empty, err error) {
 	_, err = a.getTerm(chunksTable).GetAllByIndex(
 		jobIndex,
 		job.ID,
 	).Delete().RunWrite(a.session)
-	return google_protobuf.EmptyInstance, err
+	return &types.Empty{}, err
 }
 
-func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job) (response *types.Empty, err error) {
 	cursor, err := a.getTerm(chunksTable).Filter(gorethink.Or(gorethink.Row.Field("State").Eq(persist.ChunkState_UNASSIGNED), gorethink.Row.Field("State").Eq(persist.ChunkState_ASSIGNED))).Count().Changes().Filter(gorethink.Row.Eq(0)).Run(a.session)
 	if err != nil {
 		return nil, err
@@ -840,7 +848,7 @@ func (a *rethinkAPIServer) SetJobStatus(ctx context.Context, job *ppsclient.Job)
 	if err := cursor.One(&_i); err != nil {
 		return nil, err
 	}
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
@@ -904,10 +912,6 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 
 func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
 	return gorethink.DB(a.databaseName).Table(table)
-}
-
-func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
-	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
 func connect(address string) (*gorethink.Session, error) {

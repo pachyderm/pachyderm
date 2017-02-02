@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/segmentio/analytics-go"
-	"go.pedge.io/lion"
 )
 
 const reportingInterval time.Duration = 15 * time.Second
@@ -38,7 +38,7 @@ func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 		},
 	})
 	if err != nil {
-		lion.Errorf("error reporting cluster metrics to Segment: %s", err.Error())
+		log.Errorf("error reporting cluster metrics to Segment: %s", err.Error())
 	}
 }
 
@@ -52,7 +52,7 @@ func identifyUser(client *analytics.Client, userID string) {
 		UserId: userID,
 	})
 	if err != nil {
-		lion.Errorf("error reporting user identity to Segment: %s", err.Error())
+		log.Errorf("error reporting user identity to Segment: %s", err.Error())
 	}
 }
 
@@ -68,6 +68,6 @@ func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix 
 		Properties: properties,
 	})
 	if err != nil {
-		lion.Errorf("error reporting user action to Segment: %s", err.Error())
+		log.Errorf("error reporting user action to Segment: %s", err.Error())
 	}
 }

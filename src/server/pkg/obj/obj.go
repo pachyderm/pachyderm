@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -88,6 +88,16 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 	return NewMicrosoftClient(container, string(id), string(secret))
 }
 
+// NewMinioClient creates an s3 compatible client with the following credentials:
+//   endpoint - S3 compatible endpoint
+//   bucket - S3 bucket name
+//   id     - AWS access key id
+//   secret - AWS secret access key
+//   secure - Set to true if connection is secure.
+func NewMinioClient(endpoint, bucket, id, secret string, secure bool) (Client, error) {
+	return newMinioClient(endpoint, bucket, id, secret, secure)
+}
+
 // NewAmazonClient creates an amazon client with the following credentials:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
@@ -97,6 +107,36 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 func NewAmazonClient(bucket string, id string, secret string, token string,
 	region string) (Client, error) {
 	return newAmazonClient(bucket, id, secret, token, region)
+}
+
+// NewMinioClientFromSecret constructs an s3 compatible client by reading
+// credentials from a mounted AmazonSecret. You may pass "" for bucket in which case it
+// will read the bucket from the secret.
+func NewMinioClientFromSecret(bucket string) (Client, error) {
+	if bucket == "" {
+		_bucket, err := ioutil.ReadFile("/minio-secret/bucket")
+		if err != nil {
+			return nil, err
+		}
+		bucket = string(_bucket)
+	}
+	endpoint, err := ioutil.ReadFile("/minio-secret/endpoint")
+	if err != nil {
+		return nil, err
+	}
+	id, err := ioutil.ReadFile("/minio-secret/id")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := ioutil.ReadFile("/minio-secret/secret")
+	if err != nil {
+		return nil, err
+	}
+	secure, err := ioutil.ReadFile("/minio-secret/secure")
+	if err != nil {
+		return nil, err
+	}
+	return NewMinioClient(string(endpoint), bucket, string(id), string(secret), string(secure) == "1")
 }
 
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
@@ -196,7 +236,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -237,7 +277,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		protolion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,

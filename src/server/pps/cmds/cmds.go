@@ -17,12 +17,12 @@ import (
 
 	"github.com/Jeffail/gabs"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	pkgcmd "github.com/pachyderm/pachyderm/src/server/pkg/cmd"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pps/example"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
@@ -126,7 +126,7 @@ parent.
 If the job fails the commit it creates will not be finished.
 The increase the throughput of a job increase the Shard paremeter.
 `,
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -152,7 +152,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -223,17 +223,17 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from InspectJob: %s", err.Error())
+				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
 			}
 			if jobInfo == nil {
-				pkgcmd.ErrorAndExit("job %s not found.", args[0])
+				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
 			return pretty.PrintDetailedJobInfo(jobInfo)
 		}),
@@ -264,18 +264,18 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
-			commits, err := pkgcmd.ParseCommits(args)
+			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				cmd.Usage()
-				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
 			jobInfos, err := client.ListJob(pipelineName, commits)
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 
 			// Display newest jobs first
@@ -288,7 +288,7 @@ Examples:
 			}
 
 			if err := writer.Flush(); err != nil {
-				pkgcmd.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
 		},
 	}
@@ -298,13 +298,13 @@ Examples:
 		Use:   "delete-job job-id",
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			if err := client.DeleteJob(args[0]); err != nil {
-				pkgcmd.ErrorAndExit("error from DeleteJob: %s", err.Error())
+				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
 			}
 			return nil
 		}),
@@ -314,7 +314,7 @@ Examples:
 		Use:   "get-logs job-id",
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -334,7 +334,7 @@ to process each incoming commit.
 Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
 	}
@@ -344,7 +344,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
@@ -388,7 +388,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new spec\n\n%s", pipelineSpec),
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
@@ -434,17 +434,17 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "inspect-pipeline pipeline-name",
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from InspectPipeline: %s", err.Error())
+				cmdutil.ErrorAndExit("error from InspectPipeline: %s", err.Error())
 			}
 			if pipelineInfo == nil {
-				pkgcmd.ErrorAndExit("pipeline %s not found.", args[0])
+				cmdutil.ErrorAndExit("pipeline %s not found.", args[0])
 			}
 			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
 		}),
@@ -454,14 +454,14 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "list-pipeline",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: pkgcmd.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				pkgcmd.ErrorAndExit("error from ListPipeline: %s", err.Error())
+				cmdutil.ErrorAndExit("error from ListPipeline: %s", err.Error())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
@@ -476,13 +476,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			if err := client.DeletePipeline(args[0]); err != nil {
-				pkgcmd.ErrorAndExit("error from DeletePipeline: %s", err.Error())
+				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
@@ -492,13 +492,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "start-pipeline pipeline-name",
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			if err := client.StartPipeline(args[0]); err != nil {
-				pkgcmd.ErrorAndExit("error from StartPipeline: %s", err.Error())
+				cmdutil.ErrorAndExit("error from StartPipeline: %s", err.Error())
 			}
 			return nil
 		}),
@@ -508,13 +508,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "stop-pipeline pipeline-name",
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 			if err := client.StopPipeline(args[0]); err != nil {
-				pkgcmd.ErrorAndExit("error from StopPipeline: %s", err.Error())
+				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
 			}
 			return nil
 		}),
@@ -525,7 +525,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
-		Run: pkgcmd.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
