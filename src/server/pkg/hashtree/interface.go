@@ -38,7 +38,7 @@ const (
 )
 
 // Interface is the signature of a HashTree provided by this library
-type Interface interface {
+type HashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist)
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
 
@@ -49,18 +49,18 @@ type Interface interface {
 	DeleteFile(path string) error
 
 	// Get retrieves the contents of a regular file
-	Get(path string) (*Node, error)
+	Get(path string) (*NodeProto, error)
 
 	// List retrieves the list of files and subdirectories of the directory at
 	// 'path'.
-	List(path string) ([]*Node, error)
+	List(path string) ([]*NodeProto, error)
 
 	// Glob returns a list of files and directories that match 'pattern'
-	Glob(pattern string) ([]*Node, error)
+	Glob(pattern string) ([]*NodeProto, error)
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
 	// this tree. The effect is equivalent to calling this.PutFile with every
 	// file in every tree in 'tree', though the performance may be slightly
 	// better.
-	Merge(trees []Interface) error
+	Merge(trees []HashTree) error
 }
