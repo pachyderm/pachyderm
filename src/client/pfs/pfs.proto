@@ -124,13 +124,6 @@ message BlockInfos {
   repeated BlockInfo block_info = 1;
 }
 
-message Shard {
-  uint64 file_number = 1;
-  uint64 file_modulus = 2;
-  uint64 block_number = 3;
-  uint64 block_modulus = 4;
-}
-
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
@@ -200,23 +193,10 @@ message FlushCommitRequest {
   repeated Repo to_repo = 2;
 }
 
-// DiffMethod specifies how file operations represent changes to files.
-// If FromCommit is nil then the whole file will be returned.
-// If FromCommit is not nil and FullFile is false then only the changes since
-// FromCommit will be returned.
-// If FromCommit is not nil and FullFile is true then the whole file will be
-// returned if there have been changes since FromCommit.
-message DiffMethod {
-    Commit from_commit = 1;
-    bool full_file = 2;
-}
-
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
-  Shard shard = 4;
-  DiffMethod diff_method = 5;
 }
 
 enum Delimiter {
@@ -236,8 +216,6 @@ message PutFileRequest {
 
 message InspectFileRequest {
   File file = 1;
-  Shard shard = 2;
-  DiffMethod diff_method = 3;
 }
 
 enum ListFileMode {
@@ -248,8 +226,6 @@ enum ListFileMode {
 
 message ListFileRequest {
   File file = 1;
-  Shard shard = 2;
-  DiffMethod diff_method = 3;
   ListFileMode mode = 4;
 }
 

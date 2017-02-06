@@ -410,24 +410,17 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
-// fromCommitID lets you get only the data which was added after this Commit.
-// shard allows you to downsample the data, returning only a subset of the
-// blocks in the file. shard may be left nil in which case the entire file will be returned
-func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64,
-	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
-	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, writer)
+func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
+	return c.getFile(repoName, commitID, path, offset, size, writer)
 }
 
-func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
-	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
+func (c APIClient) getFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
 	apiGetFileClient, err := c.PfsAPIClient.GetFile(
 		c.ctx(),
 		&pfs.GetFileRequest{
 			File:        NewFile(repoName, commitID, path),
-			Shard:       shard,
 			OffsetBytes: offset,
 			SizeBytes:   size,
-			DiffMethod:  newDiffMethod(repoName, fromCommitID, fullFile),
 		},
 	)
 	if err != nil {
