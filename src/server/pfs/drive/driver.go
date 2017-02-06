@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"path"
 	"strings"
 	"time"
@@ -255,26 +256,29 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 			Started:    now(),
 			Provenance: provenance,
 		}
-		ref := &pfs.Ref{}
-		// See if we are given a ref
-		if err := refs.Get(parent.ID, ref); err != nil {
-			if _, ok := err.(ErrNotFound); !ok {
-				return err
+
+		if parent != nil {
+			ref := &pfs.Ref{}
+			// See if we are given a ref
+			if err := refs.Get(parent.ID, ref); err != nil {
+				if _, ok := err.(ErrNotFound); !ok {
+					return err
+				}
+				// If parent is not a ref, it needs to be a commit
+				// Check that the parent commit exists
+				parentCommitInfo := &pfs.CommitInfo{}
+				if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
+					return err
+				}
+				commitInfo.ParentCommit = parent
+			} else {
+				commitInfo.ParentCommit = &pfs.Commit{
+					Repo: parent.Repo,
+					ID:   ref.Commit.ID,
+				}
+				ref.Commit = commit
+				refs.Put(ref.Name, ref)
 			}
-			// If parent is not a ref, it needs to be a commit
-			// Check that the parent commit exists
-			parentCommitInfo := &pfs.CommitInfo{}
-			if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
-				return err
-			}
-			commitInfo.ParentCommit = parent
-		} else {
-			commitInfo.ParentCommit = &pfs.Commit{
-				Repo: parent.Repo,
-				ID:   ref.Commit.ID,
-			}
-			ref.Commit = commit
-			refs.Put(ref.Name, ref)
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
@@ -331,6 +335,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 
+	// Update the commit to contain a reference to the tree
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
 		commitInfo := &pfs.CommitInfo{}
@@ -338,6 +343,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return err
 		}
 		commitInfo.Tree = obj
+		commitInfo.Finished = now()
 		return commits.Put(commit.ID, commitInfo)
 	}); err != nil {
 		return err
@@ -394,6 +400,7 @@ func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
 			if _, ok := err.(ErrNotFound); !ok {
 				return err
 			}
+			// If it's not a ref, use it as it is
 			return nil
 		}
 		commit.ID = ref.Commit.ID
@@ -441,8 +448,116 @@ func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil
 }
 func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
-	return nil, nil
+	// Get the reference to the tree
+	// TODO: get the tree from a cache
+	var treeRef *pfs.BlockRef
+	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		commits := d.commits(stm)(file.Commit.Repo.Name)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.Get(file.Commit.ID, commitInfo); err != nil {
+			return err
+		}
+		if commitInfo.Finished == nil {
+			return fmt.Errorf("cannot read from an open commit")
+		}
+		treeRef = commitInfo.Tree
+	}); err != nil {
+		return err
+	}
+	// read the tree from the block store
+	obj, err := d.blockClient.GetBlock(treeRef.Block.Hash, 0, 0)
+	if err != nil {
+		return err
+	}
+
+	bytes, err := ioutil.ReadAll(obj)
+	if err != nil {
+		return err
+	}
+
+	h := hashtree.HashTree{}
+	if err := proto.Unmarshal(bytes, &h); err != nil {
+		return err
+	}
+
+	node, err := h.Get(file.Path)
+	if err != nil {
+		return err
+	}
+
+	return d.newFileReader(node.FileNode.BlockRefs, file, offset, size)
 }
+
+type fileReader struct {
+	blockClient pfs.BlockAPIClient
+	reader      io.Reader
+	offset      int64
+	size        int64 // how much data to read
+	sizeRead    int64 // how much data has been read
+	blockRefs   []*persist.BlockRef
+	file        *pfs.File
+}
+
+func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+	return &fileReader{
+		blockClient: blockClient,
+		blockRefs:   blockRefs,
+		offset:      offset,
+		size:        size,
+		file:        file,
+	}, nil
+}
+
+func (r *fileReader) Read(data []byte) (int, error) {
+	var err error
+	if r.reader == nil {
+		var blockRef *persist.BlockRef
+		for {
+			if len(r.blockRefs) == 0 {
+				return 0, io.EOF
+			}
+			blockRef = r.blockRefs[0]
+			r.blockRefs = r.blockRefs[1:]
+			blockSize := int64(blockRef.Size())
+			if r.offset >= blockSize {
+				r.offset -= blockSize
+				continue
+			}
+			break
+		}
+		client := client.APIClient{BlockAPIClient: r.blockClient}
+		sizeLeft := r.size
+		// e.g. sometimes a reader is constructed of size 0
+		if sizeLeft != 0 {
+			sizeLeft -= r.sizeRead
+		}
+		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
+		if err != nil {
+			return 0, err
+		}
+		r.offset = 0
+	}
+	size, err := r.reader.Read(data)
+	if err != nil && err != io.EOF {
+		return size, err
+	}
+	if err == io.EOF {
+		r.reader = nil
+	}
+	r.sizeRead += int64(size)
+	if r.sizeRead == r.size {
+		return size, io.EOF
+	}
+	if r.size > 0 && r.sizeRead > r.size {
+		return 0, fmt.Errorf("read more than we need; this is likely a bug")
+	}
+	return size, nil
+}
+
 func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
 	return nil, nil
 }
