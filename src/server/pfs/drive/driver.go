@@ -307,7 +307,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 	// Construct the tree
 	// TODO: h should be the tree that the commit's parent refers to
-	h := hashtree.HashTree{}
+	h := hashtree.HashTreeProto{}
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/0"
 		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
@@ -324,7 +324,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	}
 
 	// Serialize the tree
-	data, err := proto.Marshal(h)
+	data, err := proto.Marshal(&h)
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,8 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 		commitInfo.Tree = obj
 		commitInfo.Finished = now()
-		return commits.Put(commit.ID, commitInfo)
+		commits.Put(commit.ID, commitInfo)
+		return nil
 	}); err != nil {
 		return err
 	}
@@ -413,7 +414,7 @@ func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
-	if err := d.resolveRef(ctx, file.Commit); err != nil {
+	if err := d.resolveRef(ctx, commit); err != nil {
 		return "", err
 	}
 	return path.Join(d.prefix, "scratch", commit.Repo.Name, commit.ID), nil
@@ -461,50 +462,47 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 			return fmt.Errorf("cannot read from an open commit")
 		}
 		treeRef = commitInfo.Tree
+		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	// read the tree from the block store
 	obj, err := d.blockClient.GetBlock(treeRef.Block.Hash, 0, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	bytes, err := ioutil.ReadAll(obj)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	h := hashtree.HashTree{}
+	h := hashtree.HashTreeProto{}
 	if err := proto.Unmarshal(bytes, &h); err != nil {
-		return err
+		return nil, err
 	}
 
 	node, err := h.Get(file.Path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	return d.newFileReader(node.FileNode.BlockRefs, file, offset, size)
 }
 
 type fileReader struct {
-	blockClient pfs.BlockAPIClient
+	blockClient client.APIClient
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
 	sizeRead    int64 // how much data has been read
-	blockRefs   []*persist.BlockRef
+	blockRefs   []*pfs.BlockRef
 	file        *pfs.File
 }
 
-func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
-	blockClient, err := d.getBlockClient()
-	if err != nil {
-		return nil, err
-	}
+func (d *driver) newFileReader(blockRefs []*pfs.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
 	return &fileReader{
-		blockClient: blockClient,
+		blockClient: d.blockClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
@@ -515,27 +513,26 @@ func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, of
 func (r *fileReader) Read(data []byte) (int, error) {
 	var err error
 	if r.reader == nil {
-		var blockRef *persist.BlockRef
+		var blockRef *pfs.BlockRef
 		for {
 			if len(r.blockRefs) == 0 {
 				return 0, io.EOF
 			}
 			blockRef = r.blockRefs[0]
 			r.blockRefs = r.blockRefs[1:]
-			blockSize := int64(blockRef.Size())
+			blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
 			if r.offset >= blockSize {
 				r.offset -= blockSize
 				continue
 			}
 			break
 		}
-		client := client.APIClient{BlockAPIClient: r.blockClient}
 		sizeLeft := r.size
 		// e.g. sometimes a reader is constructed of size 0
 		if sizeLeft != 0 {
 			sizeLeft -= r.sizeRead
 		}
-		r.reader, err = client.GetBlock(blockRef.Hash, uint64(r.offset), uint64(sizeLeft))
+		r.reader, err = r.blockClient.GetBlock(blockRef.Block.Hash, uint64(r.offset), uint64(sizeLeft))
 		if err != nil {
 			return 0, err
 		}
@@ -556,6 +553,10 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		return 0, fmt.Errorf("read more than we need; this is likely a bug")
 	}
 	return size, nil
+}
+
+func (r *fileReader) Close() error {
+	return nil
 }
 
 func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
