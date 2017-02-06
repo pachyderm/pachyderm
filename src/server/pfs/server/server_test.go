@@ -320,16 +320,15 @@ func TestBasicFile(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 
 	commit, err := client.StartCommit(repo, "")
-	require.NoError(err)
+	require.NoError(t, err)
 
 	file := "file"
 	data := "data"
-	if _, err := client.PutFile(repo, commit.ID, file, strings.NewReader(data)); err != nil {
-		return err
-	}
+	_, err = client.PutFile(repo, commit.ID, file, strings.NewReader(data))
+	require.NoError(t, err)
 
 	var b bytes.Buffer
-	require.NoError(client.GetFile(repo, commit.ID, "file", 0, 0, &b))
+	require.NoError(t, client.GetFile(repo, commit.ID, "file", 0, 0, &b))
 
 	require.Equal(t, data, b.String())
 }

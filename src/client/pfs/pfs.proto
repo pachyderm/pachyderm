@@ -226,16 +226,10 @@ enum ListFileMode {
 
 message ListFileRequest {
   File file = 1;
-  ListFileMode mode = 4;
 }
 
 message DeleteFileRequest {
   File file = 1;
-}
-
-message ReplayCommitRequest {
-  repeated Commit from_commits = 1;
-  string to_branch = 2;
 }
 
 service API {

@@ -432,24 +432,16 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 	return nil
 }
 
-// InspectFile returns info about a specific file.  fromCommitID lets you get
-// only info which was added after this Commit.  shard allows you to downsample
-// the data, returning info about only a subset of the blocks in the file.
-// shard may be left nil in which case info about the entire file will be
-// returned
-func (c APIClient) InspectFile(repoName string, commitID string, path string,
-	fromCommitID string, fullFile bool, shard *pfs.Shard) (*pfs.FileInfo, error) {
-	return c.inspectFile(repoName, commitID, path, fromCommitID, fullFile, shard)
+// InspectFile returns info about a specific file.
+func (c APIClient) InspectFile(repoName string, commitID string, path string) (*pfs.FileInfo, error) {
+	return c.inspectFile(repoName, commitID, path)
 }
 
-func (c APIClient) inspectFile(repoName string, commitID string, path string,
-	fromCommitID string, fullFile bool, shard *pfs.Shard) (*pfs.FileInfo, error) {
+func (c APIClient) inspectFile(repoName string, commitID string, path string) (*pfs.FileInfo, error) {
 	fileInfo, err := c.PfsAPIClient.InspectFile(
 		c.ctx(),
 		&pfs.InspectFileRequest{
-			File:       NewFile(repoName, commitID, path),
-			Shard:      shard,
-			DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
+			File: NewFile(repoName, commitID, path),
 		},
 	)
 	if err != nil {
@@ -459,45 +451,12 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string,
 }
 
 // ListFile returns info about all files in a Commit.
-// fromCommitID lets you get only info which was added after this Commit.
-// shard allows you to downsample the data, returning info about only a subset
-// of the blocks in the files or only a subset of files. shard may be left nil
-// in which case info about all the files and all the blocks in those files
-// will be returned.
-// recurse causes ListFile to accurately report the size of data stored in directories, it makes the call more expensive
-func (c APIClient) ListFile(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, recurse bool) ([]*pfs.FileInfo, error) {
-	req := &pfs.ListFileRequest{
-		File:       NewFile(repoName, commitID, path),
-		Shard:      shard,
-		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
-	}
-	if recurse {
-		req.Mode = pfs.ListFileMode_ListFile_RECURSE
-	} else {
-		req.Mode = pfs.ListFileMode_ListFile_NORMAL
-	}
+func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
 	fileInfos, err := c.PfsAPIClient.ListFile(
 		c.ctx(),
-		req,
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return fileInfos.FileInfo, nil
-}
-
-// ListFileFast is the same as ListFile except that it doesn't compute the sizes
-// of the files.  As a result it's faster than ListFile.
-func (c APIClient) ListFileFast(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard) ([]*pfs.FileInfo, error) {
-	req := &pfs.ListFileRequest{
-		File:       NewFile(repoName, commitID, path),
-		Shard:      shard,
-		DiffMethod: newDiffMethod(repoName, fromCommitID, fullFile),
-		Mode:       pfs.ListFileMode_ListFile_FAST,
-	}
-	fileInfos, err := c.PfsAPIClient.ListFile(
-		c.ctx(),
-		req,
+		&pfs.ListFileRequest{
+			File: NewFile(repoName, commitID, path),
+		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
@@ -512,8 +471,8 @@ type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
 // file found under path, this includes both regular files and directories.
-func (c APIClient) Walk(repoName string, commitID string, path string, fromCommitID string, fullFile bool, shard *pfs.Shard, walkFn WalkFn) error {
-	fileInfos, err := c.ListFileFast(repoName, commitID, path, fromCommitID, fullFile, shard)
+func (c APIClient) Walk(repoName string, commitID string, path string, walkFn WalkFn) error {
+	fileInfos, err := c.ListFile(repoName, commitID, path)
 	if err != nil {
 		return err
 	}
@@ -522,7 +481,7 @@ func (c APIClient) Walk(repoName string, commitID string, path string, fromCommi
 			return err
 		}
 		if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-			if err := c.Walk(repoName, commitID, fileInfo.File.Path, fromCommitID, fullFile, shard, walkFn); err != nil {
+			if err := c.Walk(repoName, commitID, fileInfo.File.Path, walkFn); err != nil {
 				return err
 			}
 		}
@@ -579,9 +538,8 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
-			File:      NewFile(repoName, commitID, path),
-			FileType:  pfs.FileType_FILE_TYPE_REGULAR,
-			Delimiter: delimiter,
+			File:     NewFile(repoName, commitID, path),
+			FileType: pfs.FileType_FILE_TYPE_REGULAR,
 		},
 		putFileClient: putFileClient,
 	}, nil
@@ -643,14 +601,4 @@ func (w *putBlockWriteCloser) Close() error {
 	var err error
 	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
 	return sanitizeErr(err)
-}
-
-func newDiffMethod(repoName string, fromCommitID string, fullFile bool) *pfs.DiffMethod {
-	if fromCommitID != "" {
-		return &pfs.DiffMethod{
-			FromCommit: NewCommit(repoName, fromCommitID),
-			FullFile:   fullFile,
-		}
-	}
-	return nil
 }
