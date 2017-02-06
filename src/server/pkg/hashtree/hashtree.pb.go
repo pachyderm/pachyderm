@@ -74,13 +74,6 @@ func (m *DirectoryNode) GetChildren() []string {
 	return nil
 }
 
-func (m *DirectoryNode) GetChildren() []string {
-	if m != nil {
-		return m.Children
-	}
-	return nil
-}
-
 // A node (either a file or a directory)
 type Node struct {
 	// Name of the file/directory.
@@ -89,7 +82,7 @@ type Node struct {
 	// or contents have changed between versions.
 	Hash []byte `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
 	// Size of the node; if this is a directory, the size includes all children
-	Size int64 `protobuf:"varint,3,opt,name=size" json:"size,omitempty"`
+	Size_ int64 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
 	// Exactly one of the following fields must be set. The type of this node will
 	// be determined by which field is set.
 	FileNode *FileNode      `protobuf:"bytes,4,opt,name=file_node,json=fileNode" json:"file_node,omitempty"`
@@ -115,30 +108,9 @@ func (m *Node) GetHash() []byte {
 	return nil
 }
 
-func (m *Node) GetSize_() uint64 {
+func (m *Node) GetSize_() int64 {
 	if m != nil {
 		return m.Size_
-	}
-	return 0
-}
-
-func (m *Node) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *Node) GetHash() []byte {
-	if m != nil {
-		return m.Hash
-	}
-	return nil
-}
-
-func (m *Node) GetSize() int64 {
-	if m != nil {
-		return m.Size
 	}
 	return 0
 }
@@ -185,13 +157,6 @@ func (m *HashTree) GetVersion() int32 {
 	return 0
 }
 
-func (m *HashTree) GetVersion() int32 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
 func (m *HashTree) GetFs() map[string]*Node {
 	if m != nil {
 		return m.Fs
@@ -208,7 +173,7 @@ func init() {
 
 func init() { proto.RegisterFile("server/pkg/hashtree/hashtree.proto", fileDescriptorHashtree) }
 
-var fileDescriptor0 = []byte{
+var fileDescriptorHashtree = []byte{
 	// 326 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x54, 0x91, 0xc1, 0x4b, 0xfb, 0x30,
 	0x1c, 0xc5, 0x49, 0xbb, 0xfe, 0xd6, 0x7e, 0xf7, 0x9b, 0x68, 0xf0, 0x10, 0xe6, 0xa5, 0xf6, 0x20,

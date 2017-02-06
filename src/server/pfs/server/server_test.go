@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -308,6 +310,28 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	repoInfos, err = client.ListRepo(nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfos))
+}
+
+func TestBasicFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(err)
+
+	file := "file"
+	data := "data"
+	if _, err := client.PutFile(repo, commit.ID, file, strings.NewReader(data)); err != nil {
+		return err
+	}
+
+	var b bytes.Buffer
+	require.NoError(client.GetFile(repo, commit.ID, "file", 0, 0, &b))
+
+	require.Equal(t, data, b.String())
 }
 
 func generateRandomString(n int) string {
