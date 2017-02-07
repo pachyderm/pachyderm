@@ -24,12 +24,12 @@ import (
 // Because of this, BenchmarkPutFile can be very slow for large 'cnt', often
 // much slower than BenchmarkMerge. Be sure to set -timeout 3h for 'cnt' == 100k
 //
-// Benchmarked times at rev. b4745319f27f336d9963987d5ed075617753c261
+// Benchmarked times at rev. 6b8e9df38e42f624d2da0aaa785753e9e1d68c0d
 //  cnt |  time (s)
 // -----+-------------
-// 1k   | 0.423 s/op
-// 10k  | slow
-// 100k | slow
+// 1k   | 0.007 s/op
+// 10k  | 0.088 s/op
+// 100k | 1.006 s/op
 func BenchmarkPutFile(b *testing.B) {
 	// Add 'cnt' files
 	cnt := int(1e3)
@@ -40,6 +40,7 @@ func BenchmarkPutFile(b *testing.B) {
 			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 				br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 		}
+		h.Finish()
 	}
 }
 
@@ -49,28 +50,33 @@ func BenchmarkPutFile(b *testing.B) {
 // end, this is O(n) with respect to 'cnt', making it much faster than calling
 // PutFile 'cnt' times.
 //
-// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
+// Benchmarked times at rev. 6b8e9df38e42f624d2da0aaa785753e9e1d68c0d
 //  cnt |  time (s)
 // -----+-------------
-// 1k   | 0.004 s/op
-// 10k  | 0.078 s/op
-// 100k | 2.732 s/op
+// 1k   | 0.009 s/op
+// 10k  | 0.139 s/op
+// 100k | 3.668 s/op
 func BenchmarkMerge(b *testing.B) {
 	// Merge 'cnt' trees, each with 1 file (simulating a job)
 	cnt := int(1e5)
 	trees := make([]HashTree, cnt)
 	r := rand.New(rand.NewSource(0))
+	var err error
 	for i := 0; i < cnt; i++ {
-		trees[i] = NewHashTree()
-		trees[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+		t := NewHashTree()
+		t.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+		trees[i], err = t.Finish()
+		if err != nil {
+			b.Fatal("could not run benchmark: " + err.Error())
+		}
 	}
 
-	h := NewHashTree()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		h := NewHashTree()
 		h.Merge(trees)
-		h = NewHashTree()
+		h.Finish()
 	}
 }
 
@@ -80,24 +86,21 @@ func BenchmarkMerge(b *testing.B) {
 // subtracted from BenchmarkDelete (since that operation is necessarily part of
 // the benchmark)
 //
-// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
+// Benchmarked times at rev. 6b8e9df38e42f624d2da0aaa785753e9e1d68c0d
 //  cnt |  time (s)
 // -----+-------------
 // 1k   | 0.003 s/op
-// 10k  | 0.040 s/op
-// 100k | 0.464 s/op
+// 10k  | 0.037 s/op
+// 100k | 0.430 s/op
 func BenchmarkClone(b *testing.B) {
 	// Create a tree with 'cnt' files
 	cnt := int(1e4)
 	r := rand.New(rand.NewSource(0))
-	srcTs := make([]HashTree, cnt)
+	h := NewHashTree().(*hashtree)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = NewHashTree()
-		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := NewHashTree().(*hashtree)
-	h.Merge(srcTs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -110,36 +113,28 @@ func BenchmarkClone(b *testing.B) {
 // operation (have to re-hash /foo after deleting each /foo/shard-xxxxx) and
 // will take >1h to delete /foo containing 100k files
 //
-// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
+// Benchmarked times at rev. 6b8e9df38e42f624d2da0aaa785753e9e1d68c0d
 //  cnt |  time (s)
 // -----+-------------
 // 1k   | 0.004 s/op
-// 10k  | 0.044 s/op
-// 100k | 0.531 s/op
+// 10k  | 0.040 s/op
+// 100k | 0.485 s/op
 func BenchmarkDelete(b *testing.B) {
 	// Create a tree with 'cnt' files
 	cnt := int(1e5)
 	r := rand.New(rand.NewSource(0))
-	srcTs := make([]HashTree, cnt)
+	h := NewHashTree().(*hashtree)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = NewHashTree()
-		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
-	}
-	h := NewHashTree()
-	h.Merge(srcTs)
-	srcBytes, err := h.Serialize()
-	if err != nil {
-		b.Fatal("could not serialize hashtree in BenchmarkDelete")
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2, err := Deserialize(srcBytes)
+		h2, err := h.clone()
 		if err != nil {
-			b.Fatal("could not marshal hashtree in BenchmarkDelete")
+			b.Fatal("could not clone hashtree in BenchmarkDelete")
 		}
-
 		h2.DeleteFile("/foo")
 	}
 }
