@@ -376,7 +376,7 @@ environment variables:
 - `$PACH_OUTPUT_COMMIT_ID` contains the output commit of the job itself
 - For each of the job's input repositories, there will be a corresponding
     environment variable w the input commid ID:
-  - e.g. if there are two input repos `foo` and `bar, the following will be
+  - e.g. if there are two input repos `foo` and `bar`, the following will be
       populated:
     - `$PACH_FOO_COMMIT_ID`
     - `$PACH_BAR_COMMIT_ID`
