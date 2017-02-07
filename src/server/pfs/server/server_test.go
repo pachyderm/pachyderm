@@ -9,10 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"google.golang.org/grpc"
-
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -20,6 +16,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -327,6 +326,8 @@ func TestBasicFile(t *testing.T) {
 	_, err = client.PutFile(repo, commit.ID, file, strings.NewReader(data))
 	require.NoError(t, err)
 
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
 	var b bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit.ID, "file", 0, 0, &b))
 
@@ -413,7 +414,10 @@ func getClient(t *testing.T) pclient.APIClient {
 	}
 	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
 	require.NoError(t, err)
-	return pclient.APIClient{PfsAPIClient: pfs.NewAPIClient(clientConn)}
+	return pclient.APIClient{
+		PfsAPIClient:   pfs.NewAPIClient(clientConn),
+		BlockAPIClient: pfs.NewBlockAPIClient(clientConn),
+	}
 }
 
 func uniqueString(prefix string) string {
