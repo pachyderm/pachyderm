@@ -499,6 +499,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 // 3. Repeat step 2, until the product of the moduli hits the given parallelism,
 // or until all inputs have been removed from consideration.
 func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInput, parallelism uint64, repoToFromCommit map[string]*pfsclient.Commit) ([]uint64, error) {
+	// The fast path for when there's only one input and its runEmpty
+	// flag is set; we just use the specified parallelism
+	if len(inputs) == 1 && inputs[0].RunEmpty {
+		return []uint64{parallelism}, nil
+	}
+
 	pfsClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
