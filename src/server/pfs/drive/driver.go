@@ -19,6 +19,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"google.golang.org/grpc"
 )
 
@@ -315,9 +316,21 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		// filePath should look like "some/path"
 		filePath := strings.Join(parts[:len(parts)-1], "/")
 
-		if err := h.PutFile(filePath, []*pfs.BlockRef{{
-			Block: &pfs.Block{string(kv.Value)},
-		}}); err != nil {
+		// The serialized data contains multiple blockrefs; read them all
+		var blockRefs []*pfs.BlockRef
+		data := bytes.NewReader(kv.Value)
+		for {
+			blockRef := &pfs.BlockRef{}
+			if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			blockRefs = append(blockRefs, blockRef)
+		}
+
+		if err := h.PutFile(filePath, blockRefs); err != nil {
 			return err
 		}
 	}
@@ -438,11 +451,21 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		return err
 	}
 
-	blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
+	blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
 	if err != nil {
 		return err
 	}
-	obj := blockrefs.BlockRef[0]
+
+	// Serialize the blockrefs.
+	// Since we are serializing multiple blockrefs, we use WriteDelimited
+	// to write them into the same object, since protobuf messages are not
+	// self-delimiting.
+	var buffer bytes.Buffer
+	for _, blockRef := range blockRefs.BlockRef {
+		if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
+			return err
+		}
+	}
 
 	if err := d.resolveRef(ctx, file.Commit); err != nil {
 		return err
@@ -453,7 +476,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		return err
 	}
 
-	_, err = d.newSequentialKV(ctx, prefix, obj.Block.Hash)
+	_, err = d.newSequentialKV(ctx, prefix, buffer.String())
 	return err
 }
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
