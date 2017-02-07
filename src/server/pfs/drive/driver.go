@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -22,18 +23,15 @@ import (
 )
 
 type driver struct {
-	blockClient client.APIClient
-	etcdClient  *etcd.Client
-	prefix      string
+	blockAddress    string
+	blockClientOnce sync.Once
+	blockClient     *client.APIClient
+	etcdClient      *etcd.Client
+	prefix          string
 }
 
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
-	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialTimeout: 5 * time.Second,
@@ -43,33 +41,34 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 	}
 
 	return &driver{
-		blockClient: client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)},
-		etcdClient:  etcdClient,
-		prefix:      etcdPrefix,
+		blockAddress: blockAddress,
+		etcdClient:   etcdClient,
+		prefix:       etcdPrefix,
 	}, nil
 }
 
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
-	clientConn, err := grpc.Dial(blockAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
+	return NewDriver(blockAddress, []string{"localhost:2379"}, etcdPrefix)
+}
 
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{"localhost:2379"},
-		DialTimeout: 5 * time.Second,
-	})
-	if err != nil {
-		return nil, err
+func (d *driver) getBlockClient() (*client.APIClient, error) {
+	if d.blockClient == nil {
+		var onceErr error
+		// Be thread safe
+		d.blockClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(d.blockAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			d.blockClient = &client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)}
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
 	}
-
-	return &driver{
-		blockClient: client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)},
-		etcdClient:  etcdClient,
-		prefix:      etcdPrefix,
-	}, nil
+	return d.blockClient, nil
 }
 
 func now() *types.Timestamp {
@@ -330,7 +329,12 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	}
 
 	// Put the tree into the blob store
-	obj, err := d.blockClient.Put(bytes.NewReader(data))
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+
+	blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -342,7 +346,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
 		}
-		commitInfo.Tree = obj
+		commitInfo.Tree = blockrefs.BlockRef[0]
 		commitInfo.Finished = now()
 		commits.Put(commit.ID, commitInfo)
 		return nil
@@ -428,24 +432,27 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 }
 
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
-	fmt.Println("BP0")
-	obj, err := d.blockClient.Put(reader)
+	// Put the tree into the blob store
+	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("BP1")
+	blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
+	if err != nil {
+		return err
+	}
+	obj := blockrefs.BlockRef[0]
+
 	if err := d.resolveRef(ctx, file.Commit); err != nil {
 		return err
 	}
 
-	fmt.Println("BP2")
 	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("BP3")
 	_, err = d.newSequentialKV(ctx, prefix, obj.Block.Hash)
 	return err
 }
@@ -470,8 +477,14 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 	}); err != nil {
 		return nil, err
 	}
+
 	// read the tree from the block store
-	obj, err := d.blockClient.GetBlock(treeRef.Block.Hash, 0, 0)
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := blockClient.GetBlock(treeRef.Block.Hash, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +508,7 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 }
 
 type fileReader struct {
-	blockClient client.APIClient
+	blockClient *client.APIClient
 	reader      io.Reader
 	offset      int64
 	size        int64 // how much data to read
@@ -505,8 +518,13 @@ type fileReader struct {
 }
 
 func (d *driver) newFileReader(blockRefs []*pfs.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+
 	return &fileReader{
-		blockClient: d.blockClient,
+		blockClient: blockClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
