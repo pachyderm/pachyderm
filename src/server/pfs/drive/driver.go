@@ -257,7 +257,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 			Provenance: provenance,
 		}
 
-		if parent != nil {
+		if parent.ID != "" {
 			ref := &pfs.Ref{}
 			// See if we are given a ref
 			if err := refs.Get(parent.ID, ref); err != nil {
@@ -428,20 +428,24 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 }
 
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
+	fmt.Println("BP0")
 	obj, err := d.blockClient.Put(reader)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("BP1")
 	if err := d.resolveRef(ctx, file.Commit); err != nil {
 		return err
 	}
 
+	fmt.Println("BP2")
 	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("BP3")
 	_, err = d.newSequentialKV(ctx, prefix, obj.Block.Hash)
 	return err
 }
