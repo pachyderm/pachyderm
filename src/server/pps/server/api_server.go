@@ -520,13 +520,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			return nil, err
 		}
 
-		if commitInfo.SizeBytes == 0 {
-			if input.RunEmpty {
-				// An empty input shouldn't be partitioned
-				limitHit[i] = true
-			} else {
-				return nil, newErrEmptyInput(input.Commit.ID)
-			}
+		if commitInfo.SizeBytes == 0 && !input.RunEmpty {
+			return nil, newErrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -583,6 +578,9 @@ func product(numbers []uint64) uint64 {
 //
 // TODO: it's very inefficient as of now, since it involves many calls to ListFile
 func (a *apiServer) noEmptyShards(ctx context.Context, input *ppsclient.JobInput, modulus uint64, repoToFromCommit map[string]*pfsclient.Commit) (bool, error) {
+	if input.RunEmpty {
+		return true, nil
+	}
 	pfsClient, err := a.getPfsClient()
 	if err != nil {
 		return false, err
