@@ -264,9 +264,13 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 	return commitInfos.CommitInfo, nil
 }
 
-// TODO: to be implemented
+// TODO: this API is temporary being used until the tag store is implemented
 func (c APIClient) Put(reader io.Reader) (*pfs.BlockRef, error) {
-	return &pfs.BlockRef{}, nil
+	blocks, err := c.PutBlock(pfs.Delimiter_NONE, reader)
+	if err != nil {
+		return nil, err
+	}
+	return blocks.BlockRef[0], nil
 }
 
 // PutBlock takes a reader and splits the data in it into blocks.
