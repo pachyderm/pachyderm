@@ -631,7 +631,33 @@ func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nil, nil
 }
 func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
-	return nil, nil
+	tree, err := d.getTreeForCommit(ctx, file.Commit)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes, err := tree.List(file.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	var fileInfos []*pfs.FileInfo
+	for _, node := range nodes {
+		fileInfo := &pfs.FileInfo{
+			File: &pfs.File{
+				Commit: file.Commit,
+				Path:   path.Join(file.Path, node.Name),
+			},
+			SizeBytes: uint64(node.SubtreeSize),
+		}
+		if node.FileNode != nil {
+			fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+		} else if node.DirNode != nil {
+			fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+		}
+		fileInfos = append(fileInfos, fileInfo)
+	}
+	return fileInfos, nil
 }
 func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 	return nil
