@@ -289,76 +289,82 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 }
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
-	if err := d.resolveRef(ctx, commit); err != nil {
-		return err
-	}
-
-	prefix, err := d.scratchCommitPrefix(ctx, commit)
-	if err != nil {
-		return err
-	}
-
-	// Read everything under the scratch space for this commit
-	// TODO: lock the scratch space to prevent concurrent PutFile
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
-	if err != nil {
-		return err
-	}
-
-	// Construct the tree
-	// TODO: h should be the tree that the commit's parent refers to
-	h := hashtree.HashTreeProto{}
-	for _, kv := range resp.Kvs {
-		// fileStr is going to look like "some/path/0"
-		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
-		// the last element of `parts` is going to be 0
-		parts := strings.Split(fileStr, "/")
-		// filePath should look like "some/path"
-		filePath := strings.Join(parts[:len(parts)-1], "/")
-
-		// The serialized data contains multiple blockrefs; read them all
-		var blockRefs []*pfs.BlockRef
-		data := bytes.NewReader(kv.Value)
-		for {
-			blockRef := &pfs.BlockRef{}
-			if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-			blockRefs = append(blockRefs, blockRef)
-		}
-
-		if err := h.PutFile(filePath, blockRefs); err != nil {
+	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		if err := d.resolveRef(ctx, commit); err != nil {
 			return err
 		}
-	}
 
-	// Serialize the tree
-	data, err := proto.Marshal(&h)
-	if err != nil {
-		return err
-	}
+		prefix, err := d.scratchCommitPrefix(ctx, commit)
+		if err != nil {
+			return err
+		}
 
-	// Put the tree into the blob store
-	blockClient, err := d.getBlockClient()
-	if err != nil {
-		return err
-	}
+		// Read everything under the scratch space for this commit
+		// TODO: lock the scratch space to prevent concurrent PutFile
+		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
+		if err != nil {
+			return err
+		}
 
-	blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-
-	// Update the commit to contain a reference to the tree
-	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
 		}
+
+		if commitInfo.Finished != nil {
+			return fmt.Errorf("commit %s has already been finished", commit.FullID())
+		}
+
+		tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+
+		for _, kv := range resp.Kvs {
+			// fileStr is going to look like "some/path/0"
+			fileStr := strings.TrimPrefix(string(kv.Key), prefix)
+			// the last element of `parts` is going to be 0
+			parts := strings.Split(fileStr, "/")
+			// filePath should look like "some/path"
+			filePath := strings.Join(parts[:len(parts)-1], "/")
+
+			// The serialized data contains multiple blockrefs; read them all
+			var blockRefs []*pfs.BlockRef
+			data := bytes.NewReader(kv.Value)
+			for {
+				blockRef := &pfs.BlockRef{}
+				if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				blockRefs = append(blockRefs, blockRef)
+			}
+
+			if err := tree.PutFile(filePath, blockRefs); err != nil {
+				return err
+			}
+		}
+
+		// Serialize the tree
+		data, err := proto.Marshal(tree)
+		if err != nil {
+			return err
+		}
+
+		// Put the tree into the blob store
+		blockClient, err := d.getBlockClient()
+		if err != nil {
+			return err
+		}
+
+		blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+
 		commitInfo.Tree = blockrefs.BlockRef[0]
 		commitInfo.Finished = now()
 		commits.Put(commit.ID, commitInfo)
@@ -482,14 +488,18 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil
 }
-func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
-	// Get the reference to the tree
+
+func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*hashtree.HashTreeProto, error) {
+	if commit == nil {
+		return &hashtree.HashTreeProto{}, nil
+	}
+
 	// TODO: get the tree from a cache
 	var treeRef *pfs.BlockRef
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		commits := d.commits(stm)(file.Commit.Repo.Name)
+		commits := d.commits(stm)(commit.Repo.Name)
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.Get(file.Commit.ID, commitInfo); err != nil {
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
 		}
 		if commitInfo.Finished == nil {
@@ -517,12 +527,21 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
-	h := hashtree.HashTreeProto{}
-	if err := proto.Unmarshal(bytes, &h); err != nil {
+	h := &hashtree.HashTreeProto{}
+	if err := proto.Unmarshal(bytes, h); err != nil {
 		return nil, err
 	}
 
-	node, err := h.Get(file.Path)
+	return h, nil
+}
+
+func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
+	tree, err := d.getTreeForCommit(ctx, file.Commit)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := tree.Get(file.Path)
 	if err != nil {
 		return nil, err
 	}
