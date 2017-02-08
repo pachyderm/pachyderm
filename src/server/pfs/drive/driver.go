@@ -31,6 +31,10 @@ type driver struct {
 	prefix          string
 }
 
+const (
+	TOMBSTONE = "delete"
+)
+
 // NewDriver is used to create a new Driver instance
 func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -329,22 +333,28 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			// filePath should look like "some/path"
 			filePath := strings.Join(parts[:len(parts)-1], "/")
 
-			// The serialized data contains multiple blockrefs; read them all
-			var blockRefs []*pfs.BlockRef
-			data := bytes.NewReader(kv.Value)
-			for {
-				blockRef := &pfs.BlockRef{}
-				if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
-					if err == io.EOF {
-						break
-					}
+			if string(kv.Value) == TOMBSTONE {
+				if err := tree.DeleteFile(filePath); err != nil {
 					return err
 				}
-				blockRefs = append(blockRefs, blockRef)
-			}
+			} else {
+				// The serialized data contains multiple blockrefs; read them all
+				var blockRefs []*pfs.BlockRef
+				data := bytes.NewReader(kv.Value)
+				for {
+					blockRef := &pfs.BlockRef{}
+					if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
+						if err == io.EOF {
+							break
+						}
+						return err
+					}
+					blockRefs = append(blockRefs, blockRef)
+				}
 
-			if err := tree.PutFile(filePath, blockRefs); err != nil {
-				return err
+				if err := tree.PutFile(filePath, blockRefs); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -660,7 +670,17 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 	return fileInfos, nil
 }
 func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
-	return nil
+	if err := d.resolveRef(ctx, file.Commit); err != nil {
+		return err
+	}
+
+	prefix, err := d.scratchFilePrefix(ctx, file)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.newSequentialKV(ctx, prefix, TOMBSTONE)
+	return err
 }
 
 func (d *driver) DeleteAll(ctx context.Context) error {
