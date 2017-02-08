@@ -546,6 +546,10 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
+	if node.FileNode == nil {
+		return nil, fmt.Errorf("%s is a directory", file.Path)
+	}
+
 	return d.newFileReader(node.FileNode.BlockRefs, file, offset, size)
 }
 
