@@ -536,6 +536,37 @@ func TestListFileTwoCommits(t *testing.T) {
 	require.Equal(t, 2*numFiles, len(fileInfos))
 }
 
+func TestListFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	fileContent1 := "foo\n"
+	_, err = client.PutFile(repo, commit.ID, "dir/foo", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	fileContent2 := "bar\n"
+	_, err = client.PutFile(repo, commit.ID, "dir/bar", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	fileInfos, err := client.ListFile(repo, commit.ID, "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	fmt.Printf("fileInfos: %v\n", fileInfos)
+	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
+
+	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo")
+	require.YesError(t, err)
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
