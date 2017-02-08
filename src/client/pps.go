@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 // NewJob creates a pps.Job.
@@ -228,7 +228,15 @@ func (c APIClient) GetLogs(
 // update indicates that you want to update an existing pipeline
 func (c APIClient) CreatePipeline(
 	name string,
-	transform *pps.Transform,
+	image string,
+	cmd []string,
+	env map[string]string,
+	secrets []*pps.Secret,
+	imagePullSecrets []string,
+	stdin []string,
+	acceptReturnCode []int64,
+	debug bool,
+	overwrite bool,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
 	update bool,
@@ -237,7 +245,17 @@ func (c APIClient) CreatePipeline(
 		c.ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
-			Transform: transform,
+			Transform: &pps.Transform{
+				Image:            image,
+				Cmd:              cmd,
+				Env:              env,
+				Secrets:          secrets,
+				ImagePullSecrets: imagePullSecrets,
+				Stdin:            stdin,
+				AcceptReturnCode: acceptReturnCode,
+				Debug:            debug,
+				Overwrite:        overwrite,
+			},
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
 			Update:          update,
