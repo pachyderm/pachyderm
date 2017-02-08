@@ -574,7 +574,7 @@ func TestDeleteFile(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 
 	// Commit 1: Add two files; delete one file within the commit
-	commit1, err := client.StartCommit(repo, "master")
+	commit1, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
@@ -591,11 +591,11 @@ func TestDeleteFile(t *testing.T) {
 
 	// foo should still be here because we can't remove a file that we are adding
 	// in the same commit
-	_, err = client.InspectFile(repo, commit1.ID, "foo", "", false, nil)
+	_, err = client.InspectFile(repo, commit1.ID, "foo")
 	require.YesError(t, err)
 
 	// Should see one file
-	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
+	fileInfos, err := client.ListFile(repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -605,7 +605,7 @@ func TestDeleteFile(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	// Should still see one files
-	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", false, nil, false)
+	fileInfos, err = client.ListFile(repo, commit2.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 
@@ -616,11 +616,11 @@ func TestDeleteFile(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
 	// Should see no file
-	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", false, nil, false)
+	fileInfos, err = client.ListFile(repo, commit3.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
-	_, err = client.InspectFile(repo, commit3.ID, "bar", "", false, nil)
+	_, err = client.InspectFile(repo, commit3.ID, "bar")
 	require.YesError(t, err)
 }
 
