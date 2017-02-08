@@ -559,11 +559,68 @@ func TestListFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit.ID, "dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	fmt.Printf("fileInfos: %v\n", fileInfos)
 	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
 	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo")
+	require.YesError(t, err)
+}
+
+func TestDeleteFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	// Commit 1: Add two files; delete one file within the commit
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	fileContent1 := "foo\n"
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	fileContent2 := "bar\n"
+	_, err = client.PutFile(repo, commit1.ID, "bar", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "foo"))
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	// foo should still be here because we can't remove a file that we are adding
+	// in the same commit
+	_, err = client.InspectFile(repo, commit1.ID, "foo", "", false, nil)
+	require.YesError(t, err)
+
+	// Should see one file
+	fileInfos, err := client.ListFile(repo, commit1.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	// Empty commit
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	// Should still see one files
+	fileInfos, err = client.ListFile(repo, commit2.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	// Delete bar
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar"))
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	// Should see no file
+	fileInfos, err = client.ListFile(repo, commit3.ID, "", "", false, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	_, err = client.InspectFile(repo, commit3.ID, "bar", "", false, nil)
 	require.YesError(t, err)
 }
 
