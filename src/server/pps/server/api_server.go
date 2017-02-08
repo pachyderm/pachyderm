@@ -342,7 +342,22 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
-			return nil, err
+			if strings.Contains(err.Error(), "already exists") {
+				if _, err := pfsAPIClient.DeleteCommit(
+					ctx,
+					&pfsclient.DeleteCommitRequest{
+						Commit: client.NewCommit(parent.Repo.Name, strings.Split(parent.ID, "/")[0]),
+					},
+				); err != nil {
+					return nil, err
+				}
+				outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 	}
 
@@ -446,22 +461,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, err
 	}
 
-	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if retErr != nil {
-			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
-				JobID: persistJobInfo.JobID,
-				State: ppsclient.JobState_JOB_FAILURE,
-			}); err != nil {
-				protolion.Errorf("error from CreateJobState %s", err.Error())
-			}
-		}
-	}()
-
 	if request.Service != nil {
 		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.Service.InternalPort, request.Service.ExternalPort)
 		if err != nil {
@@ -481,6 +480,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		if _, err := a.kubeClient.Extensions().Jobs(a.namespace).Create(job); err != nil {
 			return nil, err
 		}
+	}
+
+	// This should be the last thing the function does
+	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ppsclient.Job{
