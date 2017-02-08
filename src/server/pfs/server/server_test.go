@@ -362,6 +362,96 @@ func TestSimpleFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
+func TestPutFileBig(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > 5*1024*1024) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := strings.NewReader(string(expectedOutputA))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", r)
+	err = client.FinishCommit(repo, commit1.ID)
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
+}
+
+func TestPutFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	// Detect file conflict
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo/bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.YesError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit1, err = client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	// file conflicts with the previous commit
+	_, err = client.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.YesError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit2, err = client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))
+	require.NoError(t, err) // because the directory dir does not exist
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	commit4, err := client.StartCommit(repo, commit3.ID)
+	require.NoError(t, err)
+	require.NoError(t, client.MakeDirectory(repo, commit4.ID, "dir2"))
+	_, err = client.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit4.ID))
+
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, &buffer))
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
