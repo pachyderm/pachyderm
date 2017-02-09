@@ -1374,18 +1374,14 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *ppsclient.RerunP
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	persistClient, err := a.getPersistClient()
-	if err != nil {
-		return nil, err
-	}
-
-	persistPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
-	if err != nil {
-		return nil, err
-	}
 	if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if _, err := a.StartPipeline(ctx, &ppsclient.StartPipelineRequest{Pipeline: request.Pipeline}); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	// archive the commits the user wants to rerun
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -1413,9 +1409,14 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *ppsclient.RerunP
 		return nil, err
 	}
 
-	if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
 		return nil, err
 	}
+	if _, err := persistClient.TouchPipelineInfo(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+
 	return &types.Empty{}, nil
 }
 
