@@ -743,31 +743,21 @@ func TestListCommitOrder(t *testing.T) {
 
 	numCommits := 10
 
+	var commit *pfs.Commit
+	var err error
 	for i := 0; i < numCommits; i++ {
-		commit, err := client.StartCommit(repo, "")
+		commit, err = client.StartCommit(repo, "")
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
 	}
 
-	var lastCommit *pfs.Commit
-	var received int
-	for {
-		var fromCommits []*pfs.Commit
-		if lastCommit != nil {
-			fromCommits = append(fromCommits, pclient.NewCommit(repo, lastCommit.ID))
-		} else {
-			fromCommits = append(fromCommits, pclient.NewCommit(repo, ""))
-		}
-		commitInfos, err := client.ListCommit(fromCommits)
-		require.NoError(t, err)
-		for _, commitInfo := range commitInfos {
-			received++
-			require.Equal(t, lastCommit, commitInfo.ParentCommit)
-			lastCommit = commitInfo.Commit
-		}
-		if received == numCommits {
-			break
-		}
+	commitInfos, err := client.ListCommit(repo, "", commit.ID, 0)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(commitInfos))
+
+	// Test that commits are sorted in newest-first order
+	for i := 0; i <= len(commitInfos)-1; i++ {
+		require.Equal(t, commitInfos[i].Commit, commitInfos[i+1].ParentCommit)
 	}
 }
 
