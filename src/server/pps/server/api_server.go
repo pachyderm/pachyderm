@@ -1368,6 +1368,57 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	})
 }
 
+func (a *apiServer) RerunPipeline(ctx context.Context, request *ppsclient.RerunPipelineRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+		return nil, err
+	}
+	// archive the commits the user wants to rerun
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	commitInfos, err := pfsAPIClient.ListCommit(
+		ctx,
+		&pfsclient.ListCommitRequest{
+			Include: request.Include,
+			Exclude: request.Exclude,
+		})
+	if err != nil {
+		return nil, err
+	}
+	var commits []*pfsclient.Commit
+	for _, commitInfo := range commitInfos.CommitInfo {
+		commits = append(commits, commitInfo.Commit)
+	}
+	if _, err := pfsAPIClient.ArchiveCommit(
+		ctx,
+		&pfsclient.ArchiveCommitRequest{
+			Commits: commits,
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	if _, err := persistClient.UpdatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
