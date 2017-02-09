@@ -624,6 +624,118 @@ func TestDeleteFile(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestDeleteDir(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	// Commit 1: Add two files into the same directory; delete the directory
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit1.ID, "dir/foo", strings.NewReader("foo1"))
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit1.ID, "dir/bar", strings.NewReader("bar1"))
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteFile(repo, commit1.ID, "dir"))
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	fileInfos, err := client.ListFile(repo, commit1.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	// dir should not exist
+	_, err = client.InspectFile(repo, commit1.ID, "dir")
+	require.YesError(t, err)
+
+	// Commit 2: Delete the directory and add the same two files
+	// The two files should reflect the new content
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit2.ID, "dir/bar", strings.NewReader("bar2"))
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	// Should see two files
+	fileInfos, err = client.ListFile(repo, commit2.ID, "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/foo", 0, 0, &buffer))
+	require.Equal(t, "foo2", buffer.String())
+
+	var buffer2 bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit2.ID, "dir/bar", 0, 0, &buffer2))
+	require.Equal(t, "bar2", buffer2.String())
+
+	// Commit 3: delete the directory
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir"))
+
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	// Should see zero files
+	fileInfos, err = client.ListFile(repo, commit3.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	// TODO: test deleting "."
+}
+
+func TestDeleteFile2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, commit2.ID, "file")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	expected := "bar\n"
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, &buffer))
+	require.Equal(t, expected, buffer.String())
+
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, commit3.ID, "file")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	expected = "foo\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit3.ID, "file", 0, 0, &buffer))
+	require.Equal(t, expected, buffer.String())
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
