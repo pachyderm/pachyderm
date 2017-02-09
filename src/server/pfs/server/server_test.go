@@ -736,6 +736,41 @@ func TestDeleteFile2(t *testing.T) {
 	require.Equal(t, expected, buffer.String())
 }
 
+func TestListCommitOrder(t *testing.T) {
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	numCommits := 10
+
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit(repo, "")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+	}
+
+	var lastCommit *pfs.Commit
+	var received int
+	for {
+		var fromCommits []*pfs.Commit
+		if lastCommit != nil {
+			fromCommits = append(fromCommits, pclient.NewCommit(repo, lastCommit.ID))
+		} else {
+			fromCommits = append(fromCommits, pclient.NewCommit(repo, ""))
+		}
+		commitInfos, err := client.ListCommit(fromCommits)
+		require.NoError(t, err)
+		for _, commitInfo := range commitInfos {
+			received++
+			require.Equal(t, lastCommit, commitInfo.ParentCommit)
+			lastCommit = commitInfo.Commit
+		}
+		if received == numCommits {
+			break
+		}
+	}
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)

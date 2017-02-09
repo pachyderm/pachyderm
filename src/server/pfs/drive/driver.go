@@ -421,16 +421,39 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 	var commitInfos []*pfs.CommitInfo
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.refs(stm)(commit.Repo.Name)
-		cursor := from
-		for number > 0 && cursor != nil {
-			var commitInfo *pfs.CommitInfo
-			if err := commits.Get(cursor.ID, commitInfo); err != nil {
+
+		// if neither from and to is given, we list all commits in the repo,
+		// sorted by revision timestamp
+		if from == nil && to == nil {
+			iter, err := commits.List()
+			if err != nil {
 				return err
 			}
-			commitInfos = append(commitInfos, commitInfo)
-			cursor = commitInfo.ParentCommit
-			number -= 1
+			var commitID string
+			var commitInfo pfs.CommitInfo
+			for {
+				ok, err := iter(&commitID, commitInfo)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					break
+				}
+				commitInfos = append(commitInfos, commitInfo)
+			}
+		} else {
+			cursor := to
+			for number > 0 && cursor != nil {
+				var commitInfo pfs.CommitInfo
+				if err := commits.Get(cursor.ID, &commitInfo); err != nil {
+					return err
+				}
+				commitInfos = append(commitInfos, &commitInfo)
+				cursor = commitInfo.ParentCommit
+				number -= 1
+			}
 		}
+
 	})
 	if err != nil {
 		return nil, err
