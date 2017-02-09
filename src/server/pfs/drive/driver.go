@@ -371,12 +371,18 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return err
 		}
 
-		blockrefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
+		blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
 		if err != nil {
 			return err
 		}
 
-		commitInfo.Tree = blockrefs.BlockRef[0]
+		if len(blockRefs.BlockRef) > 0 {
+			// TODO: the block store might break up the tree into multiple
+			// blocks if the tree is big enough, in which case the following
+			// code won't work.  This shouldn't be a problem once we migrate
+			// to use the tag store, which puts everything as one block.
+			commitInfo.Tree = blockRefs.BlockRef[0]
+		}
 		commitInfo.Finished = now()
 		commits.Put(commit.ID, commitInfo)
 		return nil
@@ -413,6 +419,10 @@ func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 }
 
 func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
+		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
+	}
+
 	if err := d.resolveRef(ctx, from); err != nil {
 		return nil, err
 	}
@@ -425,10 +435,10 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 	}
 	var commitInfos []*pfs.CommitInfo
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		commits := d.refs(stm)(commit.Repo.Name)
+		commits := d.commits(stm)(repo.Name)
 
 		if from != nil && to == nil {
-			return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
+			return fmt.Errorf("cannot use `from` commit without `to` commit")
 		} else if from == nil && to == nil {
 			// if neither from and to is given, we list all commits in
 			// the repo, sorted by revision timestamp
@@ -437,16 +447,16 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 				return err
 			}
 			var commitID string
-			var commitInfo pfs.CommitInfo
 			for number != 0 {
-				ok, err := iter(&commitID, commitInfo)
+				var commitInfo pfs.CommitInfo
+				ok, err := iter(&commitID, &commitInfo)
 				if err != nil {
 					return err
 				}
 				if !ok {
 					break
 				}
-				commitInfos = append(commitInfos, commitInfo)
+				commitInfos = append(commitInfos, &commitInfo)
 				number -= 1
 			}
 		} else {
@@ -461,7 +471,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 				number -= 1
 			}
 		}
-
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -469,7 +479,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 	return commitInfos, nil
 }
 
-func SubscribeCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit) (commitInfoIterator, error) {
+func (d *driver) SubscribeCommit(ctx context.Context, from *pfs.Commit) (commitInfoIterator, error) {
 	return nil, nil
 }
 
@@ -595,6 +605,10 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*has
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+
+	if treeRef == nil {
+		return &hashtree.HashTreeProto{}, nil
 	}
 
 	// read the tree from the block store
