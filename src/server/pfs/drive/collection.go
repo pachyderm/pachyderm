@@ -179,7 +179,7 @@ type iterate func(key *string, val proto.Message) (ok bool, retErr error)
 // List returns an iterate function that can be used to iterate over the
 // collection.
 func (c *collection) List() (iterate, error) {
-	resp, err := c.etcdClient.Get(c.stm.Context(), c.path(""), etcd.WithPrefix())
+	resp, err := c.etcdClient.Get(c.stm.Context(), c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
 	}

@@ -40,6 +40,11 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
+type commitInfoIterator interface {
+	Next() (*pfs.CommitInfo, error)
+	Close() error
+}
+
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
 	CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error
@@ -52,7 +57,7 @@ type Driver interface {
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
 
 	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
-	SubscribeCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit) ([]*pfs.CommitInfo, error)
+	SubscribeCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit) (commitInfoIterator, error)
 	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 

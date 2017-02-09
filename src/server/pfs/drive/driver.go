@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"path"
 	"strings"
 	"sync"
@@ -418,20 +419,26 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 	if err := d.resolveRef(ctx, to); err != nil {
 		return nil, err
 	}
+	// if number is 0, we return all commits that match the criteria
+	if number == 0 {
+		number = math.MaxUint64
+	}
 	var commitInfos []*pfs.CommitInfo
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.refs(stm)(commit.Repo.Name)
 
-		// if neither from and to is given, we list all commits in the repo,
-		// sorted by revision timestamp
-		if from == nil && to == nil {
+		if from != nil && to == nil {
+			return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
+		} else if from == nil && to == nil {
+			// if neither from and to is given, we list all commits in
+			// the repo, sorted by revision timestamp
 			iter, err := commits.List()
 			if err != nil {
 				return err
 			}
 			var commitID string
 			var commitInfo pfs.CommitInfo
-			for {
+			for number != 0 {
 				ok, err := iter(&commitID, commitInfo)
 				if err != nil {
 					return err
@@ -440,10 +447,11 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 					break
 				}
 				commitInfos = append(commitInfos, commitInfo)
+				number -= 1
 			}
 		} else {
 			cursor := to
-			for number > 0 && cursor != nil {
+			for number != 0 && cursor != nil {
 				var commitInfo pfs.CommitInfo
 				if err := commits.Get(cursor.ID, &commitInfo); err != nil {
 					return err
@@ -459,6 +467,10 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 		return nil, err
 	}
 	return commitInfos, nil
+}
+
+func SubscribeCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit) (commitInfoIterator, error) {
+	return nil, nil
 }
 
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
