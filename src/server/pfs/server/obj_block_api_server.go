@@ -129,9 +129,10 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		eg.Go(func() (retErr error) {
+		eg.Go(func() error {
+			var outerErr error
+			path := s.localServer.blockPath(blockRef.Block)
 			backoff.RetryNotify(func() error {
-				path := s.localServer.blockPath(blockRef.Block)
 				// We don't want to overwrite blocks that already exist, since:
 				// 1) blocks are content-addressable, so it will be the same block
 				// 2) we risk exceeding the object store's rate limit
@@ -140,18 +141,18 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				}
 				writer, err := s.objClient.Writer(path)
 				if err != nil {
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				if _, err := writer.Write(data); err != nil {
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				if err := writer.Close(); err != nil {
 					if s.objClient.IsRetryable(err) {
 						return err
 					}
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				return nil
@@ -161,7 +162,14 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 					TimeTillNextRetry: d.String(),
 				})
 			})
-			return
+			// Weird effects can happen with clients racing. Ultimately if the
+			// path exists then it doesn't make sense to consider this
+			// operation as having errored because we know that it contains the
+			// data we want thanks to content addressing.
+			if outerErr != nil && !s.objClient.Exists(path) {
+				return outerErr
+			}
+			return nil
 		})
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
