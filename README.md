@@ -55,7 +55,7 @@ a streaming job, the same code will work for both!
 ## Community
 Keep up to date and get Pachyderm support via:
 - [Twitter](http://twitter.com/pachydermio)
-- [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io)  to get help from the Pachyderm team and other users.
+- [![Slack Status](http://slack.pachyderm.io/badge.svg)](https://pachyderm-users.slack.com/shared_invite/MTM2NTY4MzAwNDM2LTE0ODYxMDMwNjEtNDk1YTU3MjMwMg) Join our community [Slack Channel](https://pachyderm-users.slack.com/shared_invite/MTM2NTY4MzAwNDM2LTE0ODYxMDMwNjEtNDk1YTU3MjMwMg)  to get help from the Pachyderm team and other users.
 
 ### Contributing
 
