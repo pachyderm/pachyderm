@@ -393,11 +393,49 @@ func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, pa
 }
 
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	return nil, nil
+	commitInfo := &pfs.CommitInfo{}
+	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		if err := d.resolveRef(ctx, commit); err != nil {
+			return err
+		}
+
+		commits := d.commits(stm)(commit.Repo.Name)
+		if err := commits.Get(commit.ID, commitInfo); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return commitInfo, nil
 }
 
 func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
-	return nil, nil
+	if err := d.resolveRef(ctx, from); err != nil {
+		return nil, err
+	}
+	if err := d.resolveRef(ctx, to); err != nil {
+		return nil, err
+	}
+	var commitInfos []*pfs.CommitInfo
+	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		commits := d.refs(stm)(commit.Repo.Name)
+		cursor := from
+		for number > 0 && cursor != nil {
+			var commitInfo *pfs.CommitInfo
+			if err := commits.Get(cursor.ID, commitInfo); err != nil {
+				return err
+			}
+			commitInfos = append(commitInfos, commitInfo)
+			cursor = commitInfo.ParentCommit
+			number -= 1
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return commitInfos, nil
 }
 
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
@@ -425,6 +463,9 @@ func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, 
 // If the given commit already contains a real commit ID, then this
 // function does nothing.
 func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
+	if commit == nil {
+		return nil
+	}
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		refs := d.refs(stm)(commit.Repo.Name)
 
