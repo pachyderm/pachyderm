@@ -751,13 +751,20 @@ func TestListCommitOrder(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
 		parentID = commit.ID
-		fmt.Printf("parentID: %s\n", parentID)
-		commitInfo, err := client.InspectCommit(repo, commit.ID)
-		require.NoError(t, err)
-		fmt.Printf("created commit: %v\n", commitInfo)
 	}
 
+	// list all commits
 	commitInfos, err := client.ListCommit(repo, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(commitInfos))
+
+	// Test that commits are sorted in newest-first order
+	for i := 0; i < len(commitInfos)-1; i++ {
+		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
+	}
+
+	// Now list all commits up to the last commit
+	commitInfos, err = client.ListCommit(repo, commit.ID, "", 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(commitInfos))
 

@@ -178,15 +178,15 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 //
 // If only `repo` is given, all commits in the repo are returned.
 //
+// If `to` is given, only the ancestors of `to`, including `to` itself,
+// are considered.
+
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
 //
-// If `to` is given, only the ancestors of `to`, including `to` itself,
-// are considered.
-//
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommit(repoName string, from string, to string, number uint64) ([]*pfs.CommitInfo, error) {
+func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
 	req := &pfs.ListCommitRequest{
 		Repo:   NewRepo(repoName),
 		Number: number,
