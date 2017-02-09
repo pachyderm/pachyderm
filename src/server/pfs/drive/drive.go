@@ -50,7 +50,9 @@ type Driver interface {
 	StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
 	FinishCommit(ctx context.Context, commit *pfs.Commit) error
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
+
 	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
+	SubscribeCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit) ([]*pfs.CommitInfo, error)
 	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
