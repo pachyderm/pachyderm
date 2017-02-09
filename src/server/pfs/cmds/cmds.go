@@ -896,7 +896,11 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	}
 	if recursive {
 		var eg errgroup.Group
-		filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+			// file doesn't exist
+			if info == nil {
+				return fmt.Errorf("%s doesn't exist", filePath)
+			}
 			if info.IsDir() {
 				return nil
 			}
@@ -904,9 +908,15 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem)
 			})
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 		return eg.Wait()
 	}
+	// use the semaphore here so that we don't even open the file until
+	// we are ready to upload it.
+	sem <- struct{}{}
+	defer func() { <-sem }()
 	f, err := os.Open(source)
 	if err != nil {
 		return err
@@ -916,8 +926,6 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 			retErr = err
 		}
 	}()
-	sem <- struct{}{}
-	defer func() { <-sem }()
 	_, err = client.PutFile(repo, commit, path, f)
 	return err
 }
