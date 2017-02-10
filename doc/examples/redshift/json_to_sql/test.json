@@ -1,0 +1,25 @@
+{
+  "make": "Toyota",
+  "model": "Corolla",
+  "year": 2005
+}
+{
+  "make": "Honda",
+  "model": "Civic",
+  "year": 1998
+}
+{
+  "make": "Tesla",
+  "model": "Roadster",
+  "year": 2008
+}
+{
+  "make": "Bugatti",
+  "model": "Chiron",
+  "year": 2016
+}
+{
+  "make": "Dodge",
+  "model": "Viper",
+  "year": 2015
+}
