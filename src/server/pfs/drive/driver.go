@@ -537,11 +537,51 @@ func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
 }
 
 func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error) {
-	return nil, nil
+	refs := d.refsReadonly(ctx)(repo.Name)
+	iterator, err := refs.List()
+	if err != nil {
+		return nil, err
+	}
+
+	var res []string
+	for {
+		var refName string
+		var ref pfs.Ref
+		ok, err := iterator.Next(&refName, &ref)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		res = append(res, refName)
+	}
+	return res
 }
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	return nil
+	return newSTM(ctx, d.etcdClient, func(stm STM) error {
+		commits := d.commits(stm)(commit.Repo.Name)
+		refs := d.refs(stm)(commit.Repo.Name)
+
+		// Make sure that the commit exists
+		var commitInfo pfs.CommitInfo
+		if err := commits.Get(commit.ID, &commitInfo); err != nil {
+			return err
+		}
+
+		refs.Put(name, &pfs.Ref{
+			Name: name,
+			Commit, commit,
+		})
+	})
+}
+
+func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
+	return newSTM(ctx, d.etcdClient, func(stm STM) error {
+		refs := d.refs(stm)(commit.Repo.Name)
+		return refs.Delete(name)
+	})
 }
 
 func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error {
