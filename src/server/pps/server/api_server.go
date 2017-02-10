@@ -1387,6 +1387,12 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *ppsclient.RerunP
 	if err != nil {
 		return nil, err
 	}
+	for _, commit := range append(request.Include, request.Exclude...) {
+		if commit.Repo.Name != ppsserver.PipelineRepo(request.Pipeline).Name {
+			return nil, fmt.Errorf("commit %s/%s must be on repo %s",
+				commit.Repo.Name, commit.ID, ppsserver.PipelineRepo(request.Pipeline).Name)
+		}
+	}
 	commitInfos, err := pfsAPIClient.ListCommit(
 		ctx,
 		&pfsclient.ListCommitRequest{
