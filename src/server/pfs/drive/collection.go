@@ -375,6 +375,8 @@ func (i *iterateCloser) Close() error {
 }
 
 // Watch watches new items added to this collection
+// TODO: handle deletion events; right now if an item is deleted from
+// this collection, we treat the event as if it's an addition event.
 func (c *readonlyCollection) Watch() (IterateCloser, error) {
 	watcher := etcd.NewWatcher(c.etcdClient)
 	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(1))
@@ -387,7 +389,7 @@ func (c *readonlyCollection) Watch() (IterateCloser, error) {
 // WatchOne watches for the new values of a certain item
 func (c *readonlyCollection) WatchOne(key string) (IterateCloser, error) {
 	watcher := etcd.NewWatcher(c.etcdClient)
-	rch := watcher.Watch(c.ctx, c.path(key), etcd.WithRev(1))
+	rch := watcher.Watch(c.ctx, c.path(key))
 	return &iterateCloser{
 		watcher: watcher,
 		rch:     rch,

@@ -253,13 +253,13 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		}
 
 		if parent.ID != "" {
-			branch := &pfs.Branch{}
-			// See if we are given a ref
-			if err := branches.Get(parent.ID, branch); err != nil {
+			head := new(pfs.Commit)
+			// See if we are given a branch
+			if err := branches.Get(parent.ID, head); err != nil {
 				if _, ok := err.(ErrNotFound); !ok {
 					return err
 				}
-				// If parent is not a ref, it needs to be a commit
+				// If parent is not a branch, it needs to be a commit
 				// Check that the parent commit exists
 				parentCommitInfo := &pfs.CommitInfo{}
 				if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
@@ -267,12 +267,13 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 				}
 				commitInfo.ParentCommit = parent
 			} else {
+				// if parent.ID is a branch, then we set the parent to the
+				// current head of the branch, then make myself the head
 				commitInfo.ParentCommit = &pfs.Commit{
 					Repo: parent.Repo,
-					ID:   branch.Head.ID,
+					ID:   head.ID,
 				}
-				branch.Head = commit
-				branches.Put(branch.Name, branch)
+				branches.Put(parent.ID, commit)
 			}
 		}
 		return commits.Create(commit.ID, commitInfo)
@@ -284,23 +285,23 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 }
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
+	if err := d.resolveBranch(ctx, commit); err != nil {
+		return err
+	}
+
+	prefix, err := d.scratchCommitPrefix(ctx, commit)
+	if err != nil {
+		return err
+	}
+
+	// Read everything under the scratch space for this commit
+	// TODO: lock the scratch space to prevent concurrent PutFile
+	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+	if err != nil {
+		return err
+	}
+
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		if err := d.resolveBranch(ctx, commit); err != nil {
-			return err
-		}
-
-		prefix, err := d.scratchCommitPrefix(ctx, commit)
-		if err != nil {
-			return err
-		}
-
-		// Read everything under the scratch space for this commit
-		// TODO: lock the scratch space to prevent concurrent PutFile
-		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-		if err != nil {
-			return err
-		}
-
 		commits := d.commits(stm)(commit.Repo.Name)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
@@ -458,34 +459,51 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 }
 
 type commitInfoIterator struct {
-	buffer         []*pfs.CommitInfo
+	ctx    context.Context
+	driver *driver
+	buffer []*pfs.CommitInfo
+	// an iterator that receives new commits
 	newCommitsIter IterateCloser
 	// record whether a commit has been seen
 	seen map[string]bool
-	// filter is a function that determines if an item should be
-	// returned by the iterator
-	filter func(*pfs.CommitInfo) bool
 }
 
 func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 	if len(c.buffer) == 0 {
 		var commitID string
-		var commitInfo *pfs.CommitInfo
+		commit := new(pfs.Commit)
 		for {
-			commitInfo = new(pfs.CommitInfo)
-			ok, err := c.newCommitsIter.Next(&commitID, commitInfo)
+			ok, err := c.newCommitsIter.Next(&commitID, commit)
 			if err != nil {
 				return nil, err
 			}
 			if !ok {
 				return nil, nil
 			}
-			if c.filter(commitInfo) {
+			if !c.seen[commitID] {
 				break
 			}
 		}
-		if !c.seen[commitID] {
-			c.buffer = append(c.buffer, commitInfo)
+		// Now we watch the CommitInfo until the commit has been finished
+		commits := c.driver.commitsReadonly(c.ctx)(commit.Repo.Name)
+		commitInfoIter, err := commits.WatchOne(commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		for {
+			var commitID string
+			commitInfo := new(pfs.CommitInfo)
+			ok, err := commitInfoIter.Next(&commitID, commitInfo)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("unable to wait until commit %s finishes", commit.ID)
+			}
+			if commitInfo.Finished != nil {
+				c.buffer = append(c.buffer, commitInfo)
+				break
+			}
 		}
 	}
 	// We pop the buffer from the end because the buffer is ordered such
@@ -518,12 +536,10 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	}
 
 	iterator := &commitInfoIterator{
+		ctx:            ctx,
+		driver:         d,
 		newCommitsIter: newCommitsIter,
 		seen:           make(map[string]bool),
-		filter: func(commitInfo *pfs.CommitInfo) bool {
-			// we only care about finished commits
-			return commitInfo.Finished != nil
-		},
 	}
 	commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
 		Repo: repo,
@@ -555,15 +571,18 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 	var res []*pfs.Branch
 	for {
 		var branchName string
-		var branch pfs.Branch
-		ok, err := iterator.Next(&branchName, &branch)
+		head := new(pfs.Commit)
+		ok, err := iterator.Next(&branchName, head)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			break
 		}
-		res = append(res, &branch)
+		res = append(res, &pfs.Branch{
+			Name: branchName,
+			Head: head,
+		})
 	}
 	return res, nil
 }
@@ -579,10 +598,7 @@ func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		branches.Put(name, &pfs.Branch{
-			Name: name,
-			Head: commit,
-		})
+		branches.Put(name, commit)
 		return nil
 	})
 	return err
@@ -607,16 +623,16 @@ func (d *driver) resolveBranch(ctx context.Context, commit *pfs.Commit) error {
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		branches := d.branches(stm)(commit.Repo.Name)
 
-		branch := &pfs.Branch{}
+		head := new(pfs.Commit)
 		// See if we are given a branch
-		if err := branches.Get(commit.ID, branch); err != nil {
+		if err := branches.Get(commit.ID, head); err != nil {
 			if _, ok := err.(ErrNotFound); !ok {
 				return err
 			}
 			// If it's not a branch, use it as it is
 			return nil
 		}
-		commit.ID = branch.Head.ID
+		commit.ID = head.ID
 		return nil
 	})
 	return err
