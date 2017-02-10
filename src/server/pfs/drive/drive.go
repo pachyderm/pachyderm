@@ -40,7 +40,7 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
-type commitInfoIterator interface {
+type CommitInfoIterator interface {
 	Next() (*pfs.CommitInfo, error)
 	Close() error
 }
@@ -57,8 +57,8 @@ type Driver interface {
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
 
 	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
-	SubscribeCommit(ctx context.Context, from *pfs.Commit) (commitInfoIterator, error)
-	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error)
+	SubscribeCommit(ctx context.Context, from *pfs.Commit) (CommitInfoIterator, error)
+	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
 	ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error)

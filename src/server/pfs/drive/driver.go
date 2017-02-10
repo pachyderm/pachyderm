@@ -140,10 +140,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	repoInfo := &pfs.RepoInfo{}
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		return d.repos(stm).Get(repo.Name, repoInfo)
-	})
-	if err != nil {
+	if err := d.reposReadonly(ctx).Get(repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 	return repoInfo, nil
@@ -151,50 +148,43 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
 	var result []*pfs.RepoInfo
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		result = nil
-		repos := d.repos(stm)
-		// Ensure that all provenance repos exist
-		for _, prov := range provenance {
-			repoInfo := &pfs.RepoInfo{}
-			if err := repos.Get(prov.Name, repoInfo); err != nil {
-				return err
-			}
+	repos := d.reposReadonly(ctx)
+	// Ensure that all provenance repos exist
+	for _, prov := range provenance {
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Get(prov.Name, repoInfo); err != nil {
+			return nil, err
 		}
+	}
 
-		iterate, err := repos.List()
-		if err != nil {
-			return err
-		}
-	nextRepo:
-		for {
-			repoName, repoInfo := "", pfs.RepoInfo{}
-			ok, err := iterate(&repoName, &repoInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			// A repo needs to have *all* the given repos as provenance
-			// in order to be included in the result.
-			for _, reqProv := range provenance {
-				var matched bool
-				for _, prov := range repoInfo.Provenance {
-					if reqProv.Name == prov.Name {
-						matched = true
-					}
-				}
-				if !matched {
-					continue nextRepo
-				}
-			}
-			result = append(result, &repoInfo)
-		}
-		return nil
-	})
+	iterator, err := repos.List()
 	if err != nil {
 		return nil, err
+	}
+nextRepo:
+	for {
+		repoName, repoInfo := "", pfs.RepoInfo{}
+		ok, err := iterator.Next(&repoName, &repoInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		// A repo needs to have *all* the given repos as provenance
+		// in order to be included in the result.
+		for _, reqProv := range provenance {
+			var matched bool
+			for _, prov := range repoInfo.Provenance {
+				if reqProv.Name == prov.Name {
+					matched = true
+				}
+			}
+			if !matched {
+				continue nextRepo
+			}
+		}
+		result = append(result, &repoInfo)
 	}
 	return result, nil
 }
@@ -400,19 +390,13 @@ func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, pa
 }
 
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	if err := d.resolveRef(ctx, commit); err != nil {
+		return nil, err
+	}
+
+	commits := d.commitsReadonly(ctx)(commit.Repo.Name)
 	commitInfo := &pfs.CommitInfo{}
-	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		if err := d.resolveRef(ctx, commit); err != nil {
-			return err
-		}
-
-		commits := d.commits(stm)(commit.Repo.Name)
-		if err := commits.Get(commit.ID, commitInfo); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
+	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return nil, err
 	}
 	return commitInfo, nil
@@ -434,56 +418,51 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 		number = math.MaxUint64
 	}
 	var commitInfos []*pfs.CommitInfo
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		commits := d.commits(stm)(repo.Name)
+	commits := d.commitsReadonly(ctx)(repo.Name)
 
-		if from != nil && to == nil {
-			return fmt.Errorf("cannot use `from` commit without `to` commit")
-		} else if from == nil && to == nil {
-			// if neither from and to is given, we list all commits in
-			// the repo, sorted by revision timestamp
-			iter, err := commits.List()
-			if err != nil {
-				return err
-			}
-			var commitID string
-			for number != 0 {
-				var commitInfo pfs.CommitInfo
-				ok, err := iter(&commitID, &commitInfo)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					break
-				}
-				commitInfos = append(commitInfos, &commitInfo)
-				number -= 1
-			}
-		} else {
-			cursor := to
-			for number != 0 && cursor != nil {
-				var commitInfo pfs.CommitInfo
-				if err := commits.Get(cursor.ID, &commitInfo); err != nil {
-					return err
-				}
-				commitInfos = append(commitInfos, &commitInfo)
-				cursor = commitInfo.ParentCommit
-				number -= 1
-			}
+	if from != nil && to == nil {
+		return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
+	} else if from == nil && to == nil {
+		// if neither from and to is given, we list all commits in
+		// the repo, sorted by revision timestamp
+		iterator, err := commits.List()
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		var commitID string
+		for number != 0 {
+			var commitInfo pfs.CommitInfo
+			ok, err := iterator.Next(&commitID, &commitInfo)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				break
+			}
+			commitInfos = append(commitInfos, &commitInfo)
+			number -= 1
+		}
+	} else {
+		cursor := to
+		for number != 0 && cursor != nil {
+			var commitInfo pfs.CommitInfo
+			if err := commits.Get(cursor.ID, &commitInfo); err != nil {
+				return nil, err
+			}
+			commitInfos = append(commitInfos, &commitInfo)
+			cursor = commitInfo.ParentCommit
+			number -= 1
+		}
 	}
 	return commitInfos, nil
 }
 
-func (d *driver) SubscribeCommit(ctx context.Context, from *pfs.Commit) (commitInfoIterator, error) {
+func (d *driver) SubscribeCommit(ctx context.Context, from *pfs.Commit) (CommitInfoIterator, error) {
 	return nil, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
+	// watch /prov/repo/commit/commit
 	return nil, nil
 }
 
