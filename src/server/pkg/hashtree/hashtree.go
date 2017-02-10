@@ -438,46 +438,45 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error)
 		if err != nil && Code(err) != PathNotFound {
 			return 0, err
 		}
-		if n.nodetype() == unrecognized {
+		if n.nodetype() == none {
+			continue
+		}
+		if pathtype == none {
+			pathtype = n.nodetype()
+		} else if pathtype != n.nodetype() {
+			return 0, errorf(PathConflict, "could not merge path \"%s\" which is "+
+				"not consistently a file/directory in the hashtrees being merged")
+		}
+		switch n.nodetype() {
+		case directory:
+			// Create destination directory if none exists
+			if destNode == nil {
+				destNode = &NodeProto{
+					Name:    base(path),
+					DirNode: &DirectoryNodeProto{},
+				}
+				h.fs[path] = destNode
+			}
+			// Instead of merging here, we build a reverse-index and merge below
+			for _, c := range n.DirNode.Children {
+				childrenToTrees[c] = append(childrenToTrees[c], src)
+			}
+		case file:
+			// Create destination file if none exists
+			if destNode == nil {
+				destNode = &NodeProto{
+					Name:     base(path),
+					FileNode: &FileNodeProto{},
+				}
+				h.fs[path] = destNode
+			}
+			// Append new blocks
+			destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
+				n.FileNode.BlockRefs...)
+			sizeDelta += n.SubtreeSize
+		default:
 			return 0, errorf(Internal, "malformed node at \"%s\" in source "+
 				"hashtree is neither a file nor a directory", path)
-		}
-		if n.nodetype() != none {
-			if pathtype == none {
-				pathtype = n.nodetype()
-			} else if pathtype != n.nodetype() {
-				return 0, errorf(PathConflict, "could not merge path \"%s\" which is "+
-					"not consistently a file/directory in the hashtrees being merged")
-			}
-			if n.nodetype() == directory {
-				// Create destination directory if none exists
-				if destNode == nil {
-					destNode = &NodeProto{
-						Name:        base(path),
-						SubtreeSize: 0,
-						DirNode:     &DirectoryNodeProto{},
-					}
-					h.fs[path] = destNode
-				}
-				// Instead of merging here, we build a reverse-index and merge below
-				for _, c := range n.DirNode.Children {
-					childrenToTrees[c] = append(childrenToTrees[c], src)
-				}
-			} else if n.nodetype() == file {
-				// Create destination file if none exists
-				if destNode == nil {
-					destNode = &NodeProto{
-						Name:        base(path),
-						SubtreeSize: 0,
-						FileNode:    &FileNodeProto{},
-					}
-					h.fs[path] = destNode
-				}
-				// Append new blocks
-				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
-					n.FileNode.BlockRefs...)
-				sizeDelta += n.SubtreeSize
-			}
 		}
 	}
 
