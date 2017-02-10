@@ -807,7 +807,7 @@ func TestBranch(t *testing.T) {
 
 	// delete the last branch
 	var lastBranch string
-	lastBranch, expectedBranches = expectedBranches[len(expectedBranches)-1], expectedBranches[:len(expectedBranches)-2]
+	lastBranch = expectedBranches[len(expectedBranches)-1]
 	require.NoError(t, client.DeleteBranch(repo, lastBranch))
 	branches, err = client.ListBranch(repo)
 	require.Equal(t, 2, len(branches))
@@ -818,7 +818,49 @@ func TestBranch(t *testing.T) {
 }
 
 func TestSubscribeCommit(t *testing.T) {
-	t.Fatalf("TODO")
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	numCommits := 10
+
+	var commits []*pfs.Commit
+	var parentID string
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit(repo, parentID)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+		parentID = commit.ID
+		commits = append(commits, commit)
+	}
+
+	client.SetBranch(repo, commits[len(commits)-1].ID, "master")
+
+	commitIter, err := client.SubscribeCommit(repo, "master", "")
+	require.NoError(t, err)
+	for i := 0; i < numCommits; i++ {
+		commitInfo, err := commitIter.Next()
+		require.NoError(t, err)
+		require.Equal(t, commits[i], commitInfo.Commit)
+	}
+
+	// Create another batch of commits
+	commits = nil
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, "master"))
+		commits = append(commits, commit)
+	}
+
+	for i := 0; i < numCommits; i++ {
+		commitInfo, err := commitIter.Next()
+		require.NoError(t, err)
+		require.Equal(t, commits[i], commitInfo.Commit)
+	}
+
+	commitIter.Close()
 }
 
 func generateRandomString(n int) string {
