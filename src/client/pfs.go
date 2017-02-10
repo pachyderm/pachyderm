@@ -213,18 +213,43 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 }
 
 // ListBranch lists the active branches on a Repo.
-func (c APIClient) ListBranch(repoName string, status pfs.CommitStatus) ([]string, error) {
+func (c APIClient) ListBranch(repoName string) ([]*pfs.Branch, error) {
 	branches, err := c.PfsAPIClient.ListBranch(
 		c.ctx(),
 		&pfs.ListBranchRequest{
-			Repo:   NewRepo(repoName),
-			Status: status,
+			Repo: NewRepo(repoName),
 		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
 	return branches.Branches, nil
+}
+
+// SetBranch sets a commit and its ancestors as a branch
+func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
+	_, err := c.PfsAPIClient.SetBranch(
+		c.ctx(),
+		&pfs.SetBranchRequest{
+			Commit: NewCommit(repoName, commit),
+			Branch: branch,
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// DeleteBranch deletes a branch, but leaves the commits themselves intact.
+// In other words, those commits can still be accessed via commit IDs and
+// other branches they happen to be on.
+func (c APIClient) DeleteBranch(repoName string, branch string) error {
+	_, err := c.PfsAPIClient.DeleteBranch(
+		c.ctx(),
+		&pfs.DeleteBranchRequest{
+			Repo:   NewRepo(repoName),
+			Branch: branch,
+		},
+	)
+	return sanitizeErr(err)
 }
 
 // DeleteCommit deletes a commit.
