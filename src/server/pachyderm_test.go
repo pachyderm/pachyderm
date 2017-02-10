@@ -4218,14 +4218,33 @@ func TestRerunPipeline(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	commitInfos, err := c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	commitInfos1, err := c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
 	require.NoError(t, err)
-	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos[1].Commit}, nil))
-	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+
+	// Rerun the pipeline on commit1
+	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos1[1].Commit}, nil))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
 	require.NoError(t, err)
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
+
+	// Do second commit to repo
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	commitInfos2, err := c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
+	require.NoError(t, err)
+
+	// Rerun the pipeline on commit2
+	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos2[1].Commit}, []*pfsclient.Commit{commitInfos1[1].Commit}))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
+	require.NoError(t, err)
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(jobInfos))
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
