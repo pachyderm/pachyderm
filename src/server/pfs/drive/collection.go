@@ -15,7 +15,7 @@ const (
 	reposPrefix         = "/repos"
 	repoRefCountsPrefix = "/repoRefCounts"
 	commitsPrefix       = "/commits"
-	refsPrefix          = "/refs"
+	branchesPrefix      = "/branches"
 )
 
 type ErrNotFound struct {
@@ -49,7 +49,7 @@ func (e ErrMalformedValue) Error() string {
 // collection implements helper functions that makes common operations
 // on top of etcd more pleasant to work with.  It's called collection
 // because most of our data is modelled as collections, such as repos,
-// commits, refs, etc.
+// commits, branches, etc.
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
@@ -114,18 +114,18 @@ func (d *driver) commits(stm STM) collectionFactory {
 
 // commits returns a collection of commits
 // Example etcd structure, assuming we have two repos "foo" and "bar",
-// each of which has two refs:
-//   /refs
+// each of which has two branches:
+//   /branches
 //     /foo
 //       /master
 //       /test
 //     /bar
 //       /master
 //       /test
-func (d *driver) refs(stm STM) collectionFactory {
+func (d *driver) branches(stm STM) collectionFactory {
 	return func(repo string) *collection {
 		return &collection{
-			prefix:     path.Join(d.prefix, refsPrefix, repo),
+			prefix:     path.Join(d.prefix, branchesPrefix, repo),
 			etcdClient: d.etcdClient,
 			stm:        stm,
 		}
@@ -269,11 +269,11 @@ func (d *driver) commitsReadonly(ctx context.Context) readonlyCollectionFactory 
 	}
 }
 
-func (d *driver) refsReadonly(ctx context.Context) readonlyCollectionFactory {
+func (d *driver) branchesReadonly(ctx context.Context) readonlyCollectionFactory {
 	return func(repo string) *readonlyCollection {
 		return &readonlyCollection{
 			ctx:        ctx,
-			prefix:     path.Join(d.prefix, refsPrefix, repo),
+			prefix:     path.Join(d.prefix, branchesPrefix, repo),
 			etcdClient: d.etcdClient,
 		}
 	}

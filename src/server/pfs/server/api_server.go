@@ -155,6 +155,30 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	return &pfs.Branches{Branches: branches}, nil
 }
 
+func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.driver.SetBranch(ctx, request.Commit, request.Branch); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := a.driver.DeleteBranch(ctx, request.Repo, request.Branch); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())

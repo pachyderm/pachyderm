@@ -61,9 +61,9 @@ type Driver interface {
 	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
-	ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error)
+	ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error)
 	SetBranch(ctx context.Context, commit *pfs.Commit, name string) error
-	DeleteBranch(ctx context.Context, name string) error
+	DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) error
 
 	PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error
 	MakeDirectory(ctx context.Context, file *pfs.File) error

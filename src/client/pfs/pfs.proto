@@ -17,17 +17,17 @@ message Commit {
   string id = 2 [(gogoproto.customname) = "ID"];
 }
 
-message Ref {
-  string name = 1;
-  Commit commit = 2;
-}
-
 message Commits {
   repeated Commit commit = 1;
 }
 
+message Branch {
+  string name = 1;
+  Commit head = 2;
+}
+
 message Branches {
-  repeated string branches = 1;
+  repeated Branch branches = 1;
 }
 
 message File {
@@ -181,7 +181,16 @@ message ListCommitRequest {
 
 message ListBranchRequest {
   Repo repo = 1;
-  CommitStatus status = 2;
+}
+
+message SetBranchRequest {
+  Commit commit = 1;
+  string branch = 2;
+}
+
+message DeleteBranchRequest {
+  Repo repo = 1;
+  string branch = 2;
 }
 
 message DeleteCommitRequest {
@@ -257,8 +266,13 @@ service API {
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
+
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}
+  // SetBranch assigns a commit and its ancestors to a branch.
+  rpc SetBranch(SetBranchRequest) returns (google.protobuf.Empty) {}
+  // DeleteBranch deletes a branch; note that the commits still exist.
+  rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.

@@ -194,7 +194,7 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		repos := d.repos(stm)
 		repoRefCounts := d.repoRefCounts(stm)
 		commits := d.commits(stm)(repo.Name)
-		refs := d.refs(stm)(repo.Name)
+		branches := d.branches(stm)(repo.Name)
 
 		// Check if this repo is the provenance of some other repos
 		if !force {
@@ -224,7 +224,7 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			return err
 		}
 		commits.DeleteAll()
-		refs.DeleteAll()
+		branches.DeleteAll()
 		return nil
 	})
 	return err
@@ -238,7 +238,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		repos := d.repos(stm)
 		commits := d.commits(stm)(parent.Repo.Name)
-		refs := d.refs(stm)(parent.Repo.Name)
+		branches := d.branches(stm)(parent.Repo.Name)
 
 		// Check if repo exists
 		repoInfo := &pfs.RepoInfo{}
@@ -253,9 +253,9 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		}
 
 		if parent.ID != "" {
-			ref := &pfs.Ref{}
+			branch := &pfs.Branch{}
 			// See if we are given a ref
-			if err := refs.Get(parent.ID, ref); err != nil {
+			if err := branches.Get(parent.ID, branch); err != nil {
 				if _, ok := err.(ErrNotFound); !ok {
 					return err
 				}
@@ -269,10 +269,10 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 			} else {
 				commitInfo.ParentCommit = &pfs.Commit{
 					Repo: parent.Repo,
-					ID:   ref.Commit.ID,
+					ID:   branch.Head.ID,
 				}
-				ref.Commit = commit
-				refs.Put(ref.Name, ref)
+				branch.Head = commit
+				branches.Put(branch.Name, branch)
 			}
 		}
 		return commits.Create(commit.ID, commitInfo)
@@ -285,7 +285,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		if err := d.resolveRef(ctx, commit); err != nil {
+		if err := d.resolveBranch(ctx, commit); err != nil {
 			return err
 		}
 
@@ -390,7 +390,7 @@ func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, pa
 }
 
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	if err := d.resolveRef(ctx, commit); err != nil {
+	if err := d.resolveBranch(ctx, commit); err != nil {
 		return nil, err
 	}
 
@@ -407,10 +407,10 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
-	if err := d.resolveRef(ctx, from); err != nil {
+	if err := d.resolveBranch(ctx, from); err != nil {
 		return nil, err
 	}
-	if err := d.resolveRef(ctx, to); err != nil {
+	if err := d.resolveBranch(ctx, to); err != nil {
 		return nil, err
 	}
 	// if number is 0, we return all commits that match the criteria
@@ -502,8 +502,8 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// We need to watch for new commits before we start listing commits,
 	// because otherwise we might miss some commits in between when we
 	// finish listing and when we start watching.
-	refs := d.refsReadonly(ctx)(repo.Name)
-	newCommitsIter, err := refs.WatchOne(branch)
+	branches := d.branchesReadonly(ctx)(repo.Name)
+	newCommitsIter, err := branches.WatchOne(branch)
 	if err != nil {
 		return nil, err
 	}
@@ -536,33 +536,33 @@ func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return nil
 }
 
-func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]string, error) {
-	refs := d.refsReadonly(ctx)(repo.Name)
-	iterator, err := refs.List()
+func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
+	branches := d.branchesReadonly(ctx)(repo.Name)
+	iterator, err := branches.List()
 	if err != nil {
 		return nil, err
 	}
 
-	var res []string
+	var res []*pfs.Branch
 	for {
-		var refName string
-		var ref pfs.Ref
-		ok, err := iterator.Next(&refName, &ref)
+		var branchName string
+		var branch pfs.Branch
+		ok, err := iterator.Next(&branchName, &branch)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			break
 		}
-		res = append(res, refName)
+		res = append(res, &branch)
 	}
-	return res
+	return res, nil
 }
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	return newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
-		refs := d.refs(stm)(commit.Repo.Name)
+		branches := d.branches(stm)(commit.Repo.Name)
 
 		// Make sure that the commit exists
 		var commitInfo pfs.CommitInfo
@@ -570,45 +570,44 @@ func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		refs.Put(name, &pfs.Ref{
+		branches.Put(name, &pfs.Branch{
 			Name: name,
-			Commit, commit,
+			Head: commit,
 		})
+		return nil
 	})
+	return err
 }
 
-func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	return newSTM(ctx, d.etcdClient, func(stm STM) error {
-		refs := d.refs(stm)(commit.Repo.Name)
-		return refs.Delete(name)
+func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
+	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+		branches := d.branches(stm)(repo.Name)
+		return branches.Delete(name)
 	})
+	return err
 }
 
-func (d *driver) RenameBranch(ctx context.Context, repo *pfs.Repo, from string, to string) error {
-	return nil
-}
-
-// resolveRef replaces a reference with a real commit ID, e.g. "master" ->
+// resolveBranch replaces a branch with a real commit ID, e.g. "master" ->
 // UUID.
 // If the given commit already contains a real commit ID, then this
 // function does nothing.
-func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
+func (d *driver) resolveBranch(ctx context.Context, commit *pfs.Commit) error {
 	if commit == nil {
 		return nil
 	}
 	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
-		refs := d.refs(stm)(commit.Repo.Name)
+		branches := d.branches(stm)(commit.Repo.Name)
 
-		ref := &pfs.Ref{}
-		// See if we are given a ref
-		if err := refs.Get(commit.ID, ref); err != nil {
+		branch := &pfs.Branch{}
+		// See if we are given a branch
+		if err := branches.Get(commit.ID, branch); err != nil {
 			if _, ok := err.(ErrNotFound); !ok {
 				return err
 			}
-			// If it's not a ref, use it as it is
+			// If it's not a branch, use it as it is
 			return nil
 		}
-		commit.ID = ref.Commit.ID
+		commit.ID = branch.Head.ID
 		return nil
 	})
 	return err
@@ -618,7 +617,7 @@ func (d *driver) resolveRef(ctx context.Context, commit *pfs.Commit) error {
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
-	if err := d.resolveRef(ctx, commit); err != nil {
+	if err := d.resolveBranch(ctx, commit); err != nil {
 		return "", err
 	}
 	return path.Join(d.prefix, "scratch", commit.Repo.Name, commit.ID), nil
@@ -654,7 +653,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		}
 	}
 
-	if err := d.resolveRef(ctx, file.Commit); err != nil {
+	if err := d.resolveBranch(ctx, file.Commit); err != nil {
 		return err
 	}
 
@@ -865,7 +864,7 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 }
 
 func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
-	if err := d.resolveRef(ctx, file.Commit); err != nil {
+	if err := d.resolveBranch(ctx, file.Commit); err != nil {
 		return err
 	}
 

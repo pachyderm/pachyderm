@@ -774,6 +774,29 @@ func TestListCommitOrder(t *testing.T) {
 	}
 }
 
+func TestBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	expectedBranches := []string{"branch1", "branch2", "branch3"}
+	for _, branch := range expectedBranches {
+		require.NoError(t, client.SetBranch(repo, commit.ID, branch))
+	}
+
+	branches, err := client.ListBranch(repo)
+	require.Equal(t, len(expectedBranches), len(branches))
+	for i, branch := range branches {
+		// branches should return in newest-first order
+		require.Equal(t, expectedBranches[len(branches)-i-1], branch.Name)
+		require.Equal(t, commit, branch.Head)
+	}
+}
+
 func TestSubscribeCommit(t *testing.T) {
 	t.Fatalf("TODO")
 }
