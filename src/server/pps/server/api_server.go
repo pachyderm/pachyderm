@@ -656,6 +656,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
 		}
+		s += fmt.Sprint(req.PipelineVersion)
 
 		hash := md5.Sum([]byte(s))
 		return fmt.Sprintf("%x", hash)
@@ -1816,6 +1817,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
 						Output:          pipelineInfo.Output,
+						PipelineVersion: pipelineInfo.Version,
 					},
 				)
 				if err != nil {
