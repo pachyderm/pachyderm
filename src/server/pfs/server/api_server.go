@@ -133,7 +133,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitInfos, err := a.driver.ListCommit(ctx, request.Repo, request.From, request.To, request.Number)
+	commitInfos, err := a.driver.ListCommit(ctx, request.Repo, request.To, request.From, request.Number)
 	if err != nil {
 		return nil, err
 	}

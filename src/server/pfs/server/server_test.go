@@ -774,6 +774,10 @@ func TestListCommitOrder(t *testing.T) {
 	}
 }
 
+func TestSubscribeCommit(t *testing.T) {
+	t.Fatalf("TODO")
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)

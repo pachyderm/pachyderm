@@ -402,7 +402,7 @@ func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	return commitInfo, nil
 }
 
-func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
@@ -457,8 +457,74 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commi
 	return commitInfos, nil
 }
 
-func (d *driver) SubscribeCommit(ctx context.Context, from *pfs.Commit) (CommitInfoIterator, error) {
-	return nil, nil
+type commitInfoIterator struct {
+	buffer         []*pfs.CommitInfo
+	newCommitsIter IterateCloser
+	// record whether a commit has been seen
+	seen map[string]bool
+	// filter is a function that determines if an item should be
+	// returned by the iterator
+	filter func(*pfs.CommitInfo) bool
+}
+
+func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
+	if len(c.buffer) == 0 {
+		var commitID string
+		var commitInfo *pfs.CommitInfo
+		for {
+			commitInfo = &pfs.CommitInfo{}
+			ok, err := c.newCommitsIter.Next(&commitID, commitInfo)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, nil
+			}
+			if c.filter(commitInfo) {
+				break
+			}
+		}
+		if !c.seen[commitID] {
+			c.buffer = append(c.buffer, commitInfo)
+		}
+	}
+	commitInfo := c.buffer[0]
+	c.buffer = c.buffer[1:]
+	c.seen[commitInfo.Commit.ID] = true
+	return commitInfo, nil
+}
+
+func (c *commitInfoIterator) Close() error {
+	return c.newCommitsIter.Close()
+}
+
+func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error) {
+	// We need to watch for new commits before we start listing commits,
+	// because otherwise we might miss some commits in between when we
+	// finish listing and when we start watching.
+	refs := d.refsReadonly(ctx)(repo.Name)
+	newCommitsIter, err := refs.WatchOne(branch)
+	if err != nil {
+		return nil, err
+	}
+
+	iterator := &commitInfoIterator{
+		newCommitsIter: newCommitsIter,
+		seen:           make(map[string]bool),
+		filter: func(commitInfo *pfs.CommitInfo) bool {
+			// we only care about finished commits
+			return commitInfo.Finished != nil
+		},
+	}
+	commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
+		Repo: repo,
+		ID:   branch,
+	}, from, 0)
+	if err != nil {
+		return nil, err
+	}
+	iterator.buffer = commitInfos
+	return iterator, nil
 }
 
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {

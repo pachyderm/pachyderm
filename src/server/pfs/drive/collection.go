@@ -374,9 +374,20 @@ func (i *iterateCloser) Close() error {
 	return i.watcher.Close()
 }
 
+// Watch watches new items added to this collection
 func (c *readonlyCollection) Watch() (IterateCloser, error) {
 	watcher := etcd.NewWatcher(c.etcdClient)
-	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithRev(1))
+	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(1))
+	return &iterateCloser{
+		watcher: watcher,
+		rch:     rch,
+	}, nil
+}
+
+// WatchOne watches for the new values of a certain item
+func (c *readonlyCollection) WatchOne(key string) (IterateCloser, error) {
+	watcher := etcd.NewWatcher(c.etcdClient)
+	rch := watcher.Watch(c.ctx, c.path(key), etcd.WithRev(1))
 	return &iterateCloser{
 		watcher: watcher,
 		rch:     rch,
