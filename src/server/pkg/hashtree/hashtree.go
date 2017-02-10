@@ -45,11 +45,62 @@ func (n nodetype) tostring() string {
 	}
 }
 
+// hashtree is an implementation of the HashTree and OpenHashTree interfaces.
+// It's intended to describe the state of a single commit C, in a repo R.
+type hashtree struct {
+	// fs (short for files) maps the path of each file F in the repo R to a
+	// protobuf message describing F. It's equivalent to HashTree.Fs.
+	fs map[string]*NodeProto
+}
+
+// toProto converts 'h' to a HashTree proto message. This is not public; it's
+// a helper function for Marshal() and is also used for testing (to test
+// whether e.g. a failed PutFile call modifies 'h'), so it must not modify 'h'.
+func (h *hashtree) toProto() *HashTreeProto {
+	return &HashTreeProto{
+		Fs:      h.fs,
+		Version: 1,
+	}
+}
+
+// fromProto creates a hashtree struct from a HashTreeProto (used by
+// Unmarshal())
+func fromProto(htproto *HashTreeProto) (*hashtree, error) {
+	if htproto.Version != 1 {
+		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
+			"version %d", htproto.Version)
+	}
+	res := &hashtree{
+		fs: htproto.Fs,
+	}
+	return res, nil
+}
+
+// Marshal serializes a HashTree so that it can be persisted (also see
+// Unmarshal())
+func (h *hashtree) Marshal() ([]byte, error) {
+	return proto.Marshal(h.toProto())
+}
+
+// Unmarshal deserializes a hash tree so that it can be read or modified.
+func Unmarshal(serialized []byte) (HashTree, error) {
+	h := HashTreeProto{}
+	proto.Unmarshal(serialized, &h)
+	return fromProto(&h)
+}
+
+// NewHashTree creates a new hash tree implementing Interface.
+func NewHashTree() HashTree {
+	return &hashtree{
+		fs: make(map[string]*NodeProto),
+	}
+}
+
 // updateHash updates the hash of the node N at 'path'. If this changes N's
 // hash, that will render the hash of N's parent (if any) invalid, and this
 // must be called for all parents of 'path' back to the root.
-func (h *HashTreeProto) updateHash(path string) error {
-	n, ok := h.Fs[path]
+func (h *hashtree) updateHash(path string) error {
+	n, ok := h.fs[path]
 	if !ok {
 		return errorf(Internal, "Could not find node \"%s\" to update hash", path)
 	}
@@ -60,7 +111,7 @@ func (h *HashTreeProto) updateHash(path string) error {
 	case directory:
 		// PutFile keeps n.DirNodeProto.Children sorted, so the order is stable
 		for _, child := range n.DirNode.Children {
-			n, ok := h.Fs[join(path, child)]
+			n, ok := h.fs[join(path, child)]
 			if !ok {
 				return errorf(Internal, "could not find node for \"%s\" while "+
 					"updating hash of \"%s\"", join(path, child), path)
@@ -92,15 +143,6 @@ func (h *HashTreeProto) updateHash(path string) error {
 	return nil
 }
 
-func (h *HashTreeProto) init() {
-	if h.Fs == nil {
-		h.Fs = make(map[string]*NodeProto)
-	}
-	if h.Version == 0 {
-		h.Version = 1
-	}
-}
-
 // updateFn is used by 'visit'. The first parameter is the node being visited,
 // the second parameter is the path of that node, and the third parameter is the
 // child of that node from the 'path' argument to 'visit'.
@@ -124,10 +166,10 @@ func nop(*NodeProto, string, string) error {
 // 3. update(node at "/"        or nil, "",         "path")
 //
 // This is useful for propagating changes to size and hash upwards.
-func (h *HashTreeProto) visit(path string, update updateFn) error {
+func (h *hashtree) visit(path string, update updateFn) error {
 	for path != "" {
 		parent, child := split(path)
-		pnode, ok := h.Fs[parent]
+		pnode, ok := h.fs[parent]
 		if ok && pnode.nodetype() != directory {
 			return errorf(PathConflict, "attempted to visit \"%s\", but it's not a "+
 				"directory", path)
@@ -140,30 +182,30 @@ func (h *HashTreeProto) visit(path string, update updateFn) error {
 	return nil
 }
 
-// removeFromMap removes the node at 'path' from h.Fs if it's present, along
+// removeFromMap removes the node at 'path' from h.fs if it's present, along
 // with all of its children, recursively.
 //
 // This will not update the hash of any parent of 'path'. This helps us avoid
 // updating the hash of path's parents unnecessarily; if 'path' is a directory
 // with e.g. 10k children, updating the parents' hashes after all files have
-// been removed from h.Fs (instead of updating all parents' hashesafter
+// been removed from h.fs (instead of updating all parents' hashesafter
 // removing each file) may save substantial time.
-func (h *HashTreeProto) removeFromMap(path string) error {
-	n, ok := h.Fs[path]
+func (h *hashtree) removeFromMap(path string) error {
+	n, ok := h.fs[path]
 	if !ok {
 		return nil
 	}
 
 	switch n.nodetype() {
 	case file:
-		delete(h.Fs, path)
+		delete(h.fs, path)
 	case directory:
 		for _, child := range n.DirNode.Children {
 			if err := h.removeFromMap(join(path, child)); err != nil {
 				return err
 			}
 		}
-		delete(h.Fs, path)
+		delete(h.fs, path)
 	case unrecognized:
 		return errorf(Internal,
 			"malformed node at \"%s\": it's neither a file nor a directory", path)
@@ -172,8 +214,7 @@ func (h *HashTreeProto) removeFromMap(path string) error {
 }
 
 // PutFile inserts a file into the hierarchy
-func (h *HashTreeProto) PutFile(path string, blockRefs []*pfs.BlockRef) error {
-	h.init()
+func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -182,18 +223,16 @@ func (h *HashTreeProto) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	}
 
 	// Get/Create file node to which we'll append 'blockRefs'
-	node, ok := h.Fs[path]
-	if ok {
-		if node.nodetype() != file {
-			return errorf(PathConflict, "could not put file at \"%s\"; a node of "+
-				"type %s is already there", path, node.nodetype().tostring())
-		}
-	} else {
+	node, ok := h.fs[path]
+	if !ok {
 		node = &NodeProto{
 			Name:     base(path),
 			FileNode: &FileNodeProto{},
 		}
-		h.Fs[path] = node
+		h.fs[path] = node
+	} else if node.nodetype() != file {
+		return errorf(PathConflict, "could not put file at \"%s\"; a node of "+
+			"type %s is already there", path, node.nodetype().tostring())
 	}
 
 	// Append new blocks
@@ -215,7 +254,7 @@ func (h *HashTreeProto) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 				SubtreeSize: 0,
 				DirNode:     &DirectoryNodeProto{},
 			}
-			h.Fs[parent] = node
+			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
 		node.SubtreeSize += sizeGrowth
@@ -225,8 +264,7 @@ func (h *HashTreeProto) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 }
 
 // PutDir inserts an empty directory into the hierarchy
-func (h *HashTreeProto) PutDir(path string) error {
-	h.init()
+func (h *hashtree) PutDir(path string) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -235,7 +273,7 @@ func (h *HashTreeProto) PutDir(path string) error {
 	}
 
 	// Create orphaned directory at 'path' (or end early if a directory is there)
-	if node, ok := h.Fs[path]; ok {
+	if node, ok := h.fs[path]; ok {
 		if node.nodetype() == directory {
 			return nil
 		} else if node.nodetype() != none {
@@ -243,7 +281,7 @@ func (h *HashTreeProto) PutDir(path string) error {
 				"file of type %s is already there", path, node.nodetype().tostring())
 		}
 	}
-	h.Fs[path] = &NodeProto{
+	h.fs[path] = &NodeProto{
 		Name:    base(path),
 		DirNode: &DirectoryNodeProto{},
 	}
@@ -256,7 +294,7 @@ func (h *HashTreeProto) PutDir(path string) error {
 				Name:    base(parent),
 				DirNode: &DirectoryNodeProto{},
 			}
-			h.Fs[parent] = node
+			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
 		h.updateHash(parent)
@@ -266,12 +304,11 @@ func (h *HashTreeProto) PutDir(path string) error {
 
 // DeleteFile deletes the file at 'path', and all children recursively if 'path'
 // is a subdirectory
-func (h *HashTreeProto) DeleteFile(path string) error {
-	h.init()
+func (h *hashtree) DeleteFile(path string) error {
 	path = clean(path)
 
-	// Remove 'path' from h.Fs
-	node, ok := h.Fs[path]
+	// Remove 'path' and all nodes underneath it from h.fs
+	node, ok := h.fs[path]
 	if !ok {
 		return errorf(PathNotFound, "no file at \"%s\"", path)
 	}
@@ -280,13 +317,13 @@ func (h *HashTreeProto) DeleteFile(path string) error {
 
 	// Remove 'path' from its parent directory
 	parent, child := split(path)
-	node, ok = h.Fs[parent]
+	node, ok = h.fs[parent]
 	if !ok {
-		return errorf(Internal, "attempted to delete orphaned file \"%s\"", path)
+		return errorf(Internal, "delete discovered orphaned file \"%s\"", path)
 	}
 	if node.DirNode == nil {
 		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
-			"under it")
+			"under it (likely an uncaught PathConflict in prior PutFile or Merge)")
 	}
 	if !removeStr(&node.DirNode.Children, child) {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)
@@ -305,11 +342,10 @@ func (h *HashTreeProto) DeleteFile(path string) error {
 }
 
 // Get returns the node associated with the path
-func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
-	h.init()
+func (h *hashtree) Get(path string) (*NodeProto, error) {
 	path = clean(path)
 
-	node, ok := h.Fs[path]
+	node, ok := h.fs[path]
 	if !ok {
 		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
 	}
@@ -318,11 +354,10 @@ func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
 
 // List returns the NodeProtos corresponding to the files and directories under
 // 'path'
-func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
-	h.init()
+func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 
-	node, ok := h.Fs[path]
+	node, ok := h.fs[path]
 	if !ok {
 		return nil, nil // return empty list
 	}
@@ -333,7 +368,7 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 	}
 	result := make([]*NodeProto, len(d.Children))
 	for i, child := range d.Children {
-		result[i], ok = h.Fs[join(path, child)]
+		result[i], ok = h.fs[join(path, child)]
 		if !ok {
 			return nil, errorf(Internal, "could not find node for \"%s\" while "+
 				"listing \"%s\"", join(path, child), path)
@@ -343,14 +378,13 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 }
 
 // Glob beturns a list of nodes that match 'pattern'.
-func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
-	h.init()
+func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
 	pattern = clean(pattern)
 
 	var res []*NodeProto
-	for p, node := range h.Fs {
+	for p, node := range h.fs {
 		matched, err := pathlib.Match(pattern, p)
 		if err != nil {
 			if err == pathlib.ErrBadPattern {
@@ -367,7 +401,7 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 
 // mergeNode merges the node at 'path' from 'from' into 'h'. The return value
 // 's' is the number of bytes added to the node at 'path' (the size increase).
-func (h *HashTreeProto) mergeNode(path string, srcs []HashTree) (sz int64, err error) {
+func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error) {
 	// Get the node at path in 'h' and determine its type (i.e. file, dir)
 	destNode, err := h.Get(path)
 	if err != nil && Code(err) != PathNotFound {
@@ -423,7 +457,7 @@ func (h *HashTreeProto) mergeNode(path string, srcs []HashTree) (sz int64, err e
 						SubtreeSize: 0,
 						DirNode:     &DirectoryNodeProto{},
 					}
-					h.Fs[path] = destNode
+					h.fs[path] = destNode
 				}
 				// Instead of merging here, we build a reverse-index and merge below
 				for _, c := range n.DirNode.Children {
@@ -437,7 +471,7 @@ func (h *HashTreeProto) mergeNode(path string, srcs []HashTree) (sz int64, err e
 						SubtreeSize: 0,
 						FileNode:    &FileNodeProto{},
 					}
-					h.Fs[path] = destNode
+					h.fs[path] = destNode
 				}
 				// Append new blocks
 				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
@@ -468,13 +502,24 @@ func (h *HashTreeProto) mergeNode(path string, srcs []HashTree) (sz int64, err e
 // errors are encountered while merging any tree, or else a new error e, where:
 // - Code(e) is the error code of the first error encountered
 // - e.Error() contains the error messages of the first 10 errors encountered
-func (h *HashTreeProto) Merge(trees []HashTree) error {
-	h.init()
-	backup := proto.Clone(h)
-	_, err := h.mergeNode("", trees) // Empty string is internal repr of "/"
+func (h *hashtree) Merge(trees []HashTree) error {
+	b, err := h.Marshal()
 	if err != nil {
-		h.Reset()
-		proto.Merge(h, backup)
+		return errorf(Internal, "Could not Marshal hashtree before merge: %s", err)
+	}
+	_, err = h.mergeNode("", trees) // Empty string is internal repr of "/"
+	if err != nil {
+		htInterfaceTmp, unmarshalErr := Unmarshal(b)
+		if unmarshalErr != nil {
+			return errorf(Internal, "could not unmarshal hashtree (due to \"%s\") "+
+				"after merge error: %s", unmarshalErr, err)
+		}
+		htTmp, ok := htInterfaceTmp.(*hashtree)
+		if !ok {
+			return errorf(Internal, "could not convert unmarshalled hash tree after "+
+				"merge error: %s", err)
+		}
+		*h = *htTmp
 		return err
 	}
 	return nil
