@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-
-	"github.com/golang/protobuf/proto"
 )
 
 // BenchmarkPutFile tests the amount of time it takes to PutFile 'cnt' files
@@ -36,7 +34,7 @@ func BenchmarkPutFile(b *testing.B) {
 	// Add 'cnt' files
 	cnt := int(1e5)
 	r := rand.New(rand.NewSource(0))
-	h := &HashTreeProto{}
+	h := NewHashTree()
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
@@ -61,16 +59,16 @@ func BenchmarkMerge(b *testing.B) {
 	trees := make([]HashTree, cnt)
 	r := rand.New(rand.NewSource(0))
 	for i := 0; i < cnt; i++ {
-		trees[i] = new(HashTreeProto)
+		trees[i] = NewHashTree()
 		trees[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
 
-	h := HashTreeProto{}
+	h := NewHashTree()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Merge(trees)
-		h = HashTreeProto{}
+		h = NewHashTree()
 	}
 }
 
@@ -92,16 +90,16 @@ func BenchmarkClone(b *testing.B) {
 	r := rand.New(rand.NewSource(0))
 	srcTs := make([]HashTree, cnt)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = &HashTreeProto{}
+		srcTs[i] = NewHashTree()
 		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := HashTreeProto{}
+	h := NewHashTree()
 	h.Merge(srcTs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		proto.Clone(&h)
+		clone(h)
 	}
 }
 
@@ -122,16 +120,24 @@ func BenchmarkDelete(b *testing.B) {
 	r := rand.New(rand.NewSource(0))
 	srcTs := make([]HashTree, cnt)
 	for i := 0; i < cnt; i++ {
-		srcTs[i] = &HashTreeProto{}
+		srcTs[i] = NewHashTree()
 		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := HashTreeProto{}
+	h := NewHashTree()
 	h.Merge(srcTs)
+	srcBytes, err := h.Marshal()
+	if err != nil {
+		b.Fatal("could not marshal hashtree in BenchmarkDelete")
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2 := proto.Clone(&h).(*HashTreeProto)
+		h2, err := Unmarshal(srcBytes)
+		if err != nil {
+			b.Fatal("could not marshal hashtree in BenchmarkDelete")
+		}
+
 		h2.DeleteFile("/foo")
 	}
 }
