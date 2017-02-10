@@ -782,6 +782,7 @@ func TestBranch(t *testing.T) {
 
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
 	expectedBranches := []string{"branch1", "branch2", "branch3"}
 	for _, branch := range expectedBranches {
@@ -795,6 +796,25 @@ func TestBranch(t *testing.T) {
 		require.Equal(t, expectedBranches[len(branches)-i-1], branch.Name)
 		require.Equal(t, commit, branch.Head)
 	}
+
+	commit2, err := client.StartCommit(repo, "branch1")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "branch1"))
+
+	commit2Info, err := client.InspectCommit(repo, "branch1")
+	require.NoError(t, err)
+	require.Equal(t, commit, commit2Info.ParentCommit)
+
+	// delete the last branch
+	var lastBranch string
+	lastBranch, expectedBranches = expectedBranches[len(expectedBranches)-1], expectedBranches[:len(expectedBranches)-2]
+	require.NoError(t, client.DeleteBranch(repo, lastBranch))
+	branches, err = client.ListBranch(repo)
+	require.Equal(t, 2, len(branches))
+	require.Equal(t, "branch1", branches[0].Name)
+	require.Equal(t, commit2, branches[0].Head)
+	require.Equal(t, "branch2", branches[1].Name)
+	require.Equal(t, commit, branches[1].Head)
 }
 
 func TestSubscribeCommit(t *testing.T) {
