@@ -1,7 +1,9 @@
 package drive
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"path"
 	"strconv"
 
@@ -170,37 +172,6 @@ func (c *collection) DeleteAll() {
 	c.stm.DelAll(c.prefix)
 }
 
-// iterate is a function that, when called, serializes the key and value
-// of the next object in a collection.
-// ok is true if the serialization was successful.  It's false if the
-// collection has been exhausted.
-type iterate func(key *string, val proto.Message) (ok bool, retErr error)
-
-// List returns an iterate function that can be used to iterate over the
-// collection.
-func (c *collection) List() (iterate, error) {
-	resp, err := c.etcdClient.Get(c.stm.Context(), c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	var i int
-	return func(key *string, val proto.Message) (bool, error) {
-		if i < len(resp.Kvs) {
-			kv := resp.Kvs[i]
-			i += 1
-
-			*key = string(kv.Key)
-			if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
-				return false, err
-			}
-
-			return true, nil
-		}
-		return false, nil
-	}, nil
-}
-
 // itoa converts an integer to a string
 func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
@@ -269,4 +240,145 @@ func (c *intCollection) Delete(key string) error {
 	}
 	c.stm.Del(fullKey)
 	return nil
+}
+
+// Following are read-only collections
+type readonlyCollection struct {
+	ctx        context.Context
+	etcdClient *etcd.Client
+	prefix     string
+}
+
+type readonlyCollectionFactory func(string) *readonlyCollection
+
+func (d *driver) reposReadonly(ctx context.Context) *readonlyCollection {
+	return &readonlyCollection{
+		ctx:        ctx,
+		prefix:     path.Join(d.prefix, reposPrefix),
+		etcdClient: d.etcdClient,
+	}
+}
+
+func (d *driver) commitsReadonly(ctx context.Context) readonlyCollectionFactory {
+	return func(repo string) *readonlyCollection {
+		return &readonlyCollection{
+			ctx:        ctx,
+			prefix:     path.Join(d.prefix, commitsPrefix, repo),
+			etcdClient: d.etcdClient,
+		}
+	}
+}
+
+func (d *driver) refsReadonly(ctx context.Context) readonlyCollectionFactory {
+	return func(repo string) *readonlyCollection {
+		return &readonlyCollection{
+			ctx:        ctx,
+			prefix:     path.Join(d.prefix, refsPrefix, repo),
+			etcdClient: d.etcdClient,
+		}
+	}
+}
+
+// path returns the full path of a key in the etcd namespace
+func (c *readonlyCollection) path(key string) string {
+	return path.Join(c.prefix, key)
+}
+
+func (c *readonlyCollection) Get(key string, val proto.Message) error {
+	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Kvs) == 0 {
+		return ErrNotFound{c.prefix, key}
+	}
+
+	return proto.UnmarshalText(string(resp.Kvs[0].Value), val)
+}
+
+type Iterator interface {
+	// Next is a function that, when called, serializes the key and value
+	// of the next object in a collection.
+	// ok is true if the serialization was successful.  It's false if the
+	// collection has been exhausted.
+	Next(key *string, val proto.Message) (ok bool, retErr error)
+}
+
+type iterator struct {
+	index int
+	resp  *etcd.GetResponse
+}
+
+func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if i.index < len(i.resp.Kvs) {
+		kv := i.resp.Kvs[i.index]
+		i.index += 1
+
+		*key = string(kv.Key)
+		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+	return false, nil
+}
+
+// List returns an iteraor that can be used to iterate over the collection.
+// The objects are sorted by revision time in descending order, i.e. newer
+// objects are returned first.
+func (c *readonlyCollection) List() (Iterator, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+	return &iterator{
+		resp: resp,
+	}, nil
+}
+
+type IterateCloser interface {
+	Iterator
+	io.Closer
+}
+
+type iterateCloser struct {
+	events  []*etcd.Event
+	watcher etcd.Watcher
+	rch     etcd.WatchChan
+}
+
+func (i *iterateCloser) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if len(i.events) == 0 {
+		ev, ok := <-i.rch
+		if !ok {
+			return false, nil
+		}
+
+		i.events = append(i.events, ev.Events...)
+	}
+
+	kv := i.events[0].Kv
+	i.events = i.events[1:]
+
+	*key = string(kv.Key)
+	if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (i *iterateCloser) Close() error {
+	return i.watcher.Close()
+}
+
+func (c *readonlyCollection) Watch() (IterateCloser, error) {
+	watcher := etcd.NewWatcher(c.etcdClient)
+	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithRev(1))
+	return &iterateCloser{
+		watcher: watcher,
+		rch:     rch,
+	}, nil
 }

@@ -173,13 +173,7 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitInfos, err := a.driver.FlushCommit(ctx, request.Commit, request.ToRepo)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.CommitInfos{
-		CommitInfo: commitInfos,
-	}, nil
+	return nil, fmt.Errorf("TODO")
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
