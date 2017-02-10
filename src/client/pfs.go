@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -287,6 +288,48 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*p
 		return nil, sanitizeErr(err)
 	}
 	return commitInfos.CommitInfo, nil
+}
+
+type CommitInfoIterator interface {
+	Next() (*pfs.CommitInfo, error)
+	Close()
+}
+
+type commitInfoIterator struct {
+	stream pfs.API_SubscribeCommitClient
+	cancel context.CancelFunc
+}
+
+func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
+	return c.stream.Recv()
+}
+
+func (c *commitInfoIterator) Close() {
+	c.cancel()
+	// this is completely retarded, but according to this thread it's
+	// necessary for closing a server-side stream from the client side.
+	// https://github.com/grpc/grpc-go/issues/188
+	for {
+		if _, err := c.stream.Recv(); err != nil {
+			break
+		}
+	}
+}
+
+func (c APIClient) SubscribeCommit(repo string, branch string, from string) (CommitInfoIterator, error) {
+	ctx, cancel := context.WithCancel(c.ctx())
+	stream, err := c.PfsAPIClient.SubscribeCommit(
+		ctx,
+		&pfs.SubscribeCommitRequest{
+			Repo:   NewRepo(repo),
+			Branch: branch,
+			From:   NewCommit(repo, from),
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return &commitInfoIterator{stream, cancel}, nil
 }
 
 // TODO: this API is temporary being used until the tag store is implemented

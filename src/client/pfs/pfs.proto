@@ -202,6 +202,13 @@ message FlushCommitRequest {
   repeated Repo to_repo = 2;
 }
 
+message SubscribeCommitRequest {
+  Repo repo = 1;
+  string branch = 2;
+  // only commits created since this commit are returned
+  Commit from = 3;
+}
+
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
@@ -266,6 +273,8 @@ service API {
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
+  // SubscribeCommit subscribes for new commits on a given branch
+  rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
 
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}

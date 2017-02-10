@@ -200,6 +200,33 @@ func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitReq
 	return nil, fmt.Errorf("TODO")
 }
 
+func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
+	ctx := stream.Context()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	commitIter, err := a.driver.SubscribeCommit(ctx, request.Repo, request.Branch, request.From)
+	if err != nil {
+		return err
+	}
+
+	for {
+		commit, err := commitIter.Next()
+		if err != nil {
+			return err
+		}
+		if commit == nil {
+			break
+		}
+		if err := stream.Send(commit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	ctx := putFileServer.Context()
 	defer drainFileServer(putFileServer)

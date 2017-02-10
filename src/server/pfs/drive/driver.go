@@ -472,7 +472,7 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 		var commitID string
 		var commitInfo *pfs.CommitInfo
 		for {
-			commitInfo = &pfs.CommitInfo{}
+			commitInfo = new(pfs.CommitInfo)
 			ok, err := c.newCommitsIter.Next(&commitID, commitInfo)
 			if err != nil {
 				return nil, err
@@ -488,8 +488,13 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 			c.buffer = append(c.buffer, commitInfo)
 		}
 	}
-	commitInfo := c.buffer[0]
-	c.buffer = c.buffer[1:]
+	// We pop the buffer from the end because the buffer is ordered such
+	// that the newer commits come first, but we want to return the older
+	// commits first.  The buffered is ordered this way because that's how
+	// ListCommit() orders the returned commits, and we use ListCommit to
+	// populate the initial buffer.
+	commitInfo := c.buffer[len(c.buffer)-1]
+	c.buffer = c.buffer[:len(c.buffer)-1]
 	c.seen[commitInfo.Commit.ID] = true
 	return commitInfo, nil
 }
@@ -499,6 +504,10 @@ func (c *commitInfoIterator) Close() error {
 }
 
 func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error) {
+	if from != nil && from.Repo.Name != repo.Name {
+		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+	}
+
 	// We need to watch for new commits before we start listing commits,
 	// because otherwise we might miss some commits in between when we
 	// finish listing and when we start watching.
