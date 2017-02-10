@@ -1,7 +1,6 @@
 package hashtree
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
@@ -106,7 +105,7 @@ func (h *hashtree) updateHash(path string) error {
 	}
 
 	// Compute hash of 'n'
-	var b bytes.Buffer
+	hash := sha256.New()
 	switch n.nodetype() {
 	case directory:
 		// PutFile keeps n.DirNodeProto.Children sorted, so the order is stable
@@ -116,8 +115,8 @@ func (h *hashtree) updateHash(path string) error {
 				return errorf(Internal, "could not find node for \"%s\" while "+
 					"updating hash of \"%s\"", join(path, child), path)
 			}
-			// Write Name and Hash
-			_, err := b.WriteString(fmt.Sprintf("%s:%s:", n.Name, n.Hash))
+			// append child.Name and child.Hash to hash
+			_, err := hash.Write([]byte(fmt.Sprintf("%s:%s:", n.Name, n.Hash)))
 			if err != nil {
 				return errorf(Internal, "error updating hash of file at \"%s\": %s",
 					path, err)
@@ -125,21 +124,20 @@ func (h *hashtree) updateHash(path string) error {
 		}
 	case file:
 		for _, blockRef := range n.FileNode.BlockRefs {
-			_, err := b.WriteString(fmt.Sprintf("%s:%d:%d:",
-				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper))
+			_, err := hash.Write([]byte(fmt.Sprintf("%s:%d:%d:",
+				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper)))
 			if err != nil {
 				return errorf(Internal, "error updating hash of dir at \"%s\": %s",
 					path, err)
 			}
 		}
-	case unrecognized:
+	default:
 		return errorf(Internal,
-			"malformed node at \"%s\": it's neither a file nor a directory", path)
+			"malformed node at \"%s\" is neither a file nor a directory", path)
 	}
 
 	// Update hash of 'n'
-	cksum := sha256.Sum256(b.Bytes())
-	n.Hash = cksum[:]
+	n.Hash = hash.Sum(nil)
 	return nil
 }
 
