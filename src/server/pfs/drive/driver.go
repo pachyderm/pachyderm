@@ -296,7 +296,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		// Read everything under the scratch space for this commit
 		// TODO: lock the scratch space to prevent concurrent PutFile
-		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
+		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 		if err != nil {
 			return err
 		}
@@ -662,7 +662,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		return err
 	}
 
-	_, err = d.newSequentialKV(ctx, prefix, buffer.String())
+	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
 	return err
 }
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
@@ -873,7 +873,7 @@ func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 		return err
 	}
 
-	_, err = d.newSequentialKV(ctx, prefix, TOMBSTONE)
+	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), TOMBSTONE)
 	return err
 }
 
