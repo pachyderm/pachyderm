@@ -225,6 +225,7 @@ message CreateJobRequest {
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
+  uint64 pipeline_version = 10;
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
   Output output = 9;
