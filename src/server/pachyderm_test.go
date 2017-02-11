@@ -4223,7 +4223,7 @@ func TestRerunPipeline(t *testing.T) {
 
 	// Rerun the pipeline on commit1
 	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos1[1].Commit}, nil))
-	_, err = c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	commitInfos1, err = c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
 	require.NoError(t, err)
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
@@ -4232,7 +4232,7 @@ func TestRerunPipeline(t *testing.T) {
 	// Do second commit to repo
 	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("bar\n"))
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 	commitInfos2, err := c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
