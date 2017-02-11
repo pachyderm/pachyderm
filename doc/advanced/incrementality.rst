@@ -19,7 +19,7 @@ Partition Unit
 
 Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-1. ``BLOCK``: different blocks of the same file may be parellelized across containers.
+1. ``BLOCK``: different blocks of the same file may be parallelized across containers.
 
 2. ``FILE`` (Top-level Objects): the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
