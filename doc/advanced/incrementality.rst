@@ -39,7 +39,7 @@ then there are only three top-level objects, ``/foo``, ``/bar``, and ``/baz``. `
 Incrementality
 ^^^^^^^^^^^^^^
 
-Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commmit (the "diff"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
+Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commit (the "diff"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
 
 For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/bar`` in commit 2, then:
 
