@@ -343,15 +343,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				if _, err := pfsAPIClient.DeleteCommit(
-					ctx,
-					&pfsclient.DeleteCommitRequest{
-						Commit: client.NewCommit(parent.Repo.Name, strings.Split(parent.ID, "/")[0]),
-					},
-				); err != nil {
-					return nil, err
+				// If the commit already exists we fork to a knew branch, this
+				// happens in the case of some errors and when rerun pipeline is
+				// called.
+				forkCommitRequest := &pfsclient.ForkCommitRequest{
+					Provenance: provenance,
+					Parent:     parent,
+					Branch:     uuid.NewWithoutDashes(),
 				}
-				outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+				forkCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+				outputCommit, err = pfsAPIClient.ForkCommit(ctx, forkCommitRequest)
 				if err != nil {
 					return nil, err
 				}
@@ -2030,7 +2031,10 @@ func (a *apiServer) parentJob(
 			parentJobInfo = jobInfo
 		}
 	}
-	return parentJobInfo.Job, nil
+	if parentJobInfo != nil {
+		return parentJobInfo.Job, nil
+	}
+	return nil, nil
 }
 
 // inputsAreParental returns true if a job run from oldTrueInputs can be used
