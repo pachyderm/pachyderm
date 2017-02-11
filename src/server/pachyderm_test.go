@@ -4245,6 +4245,11 @@ func TestRerunPipeline(t *testing.T) {
 	jobInfos, err = c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(jobInfos))
+	jobInfos, err = c.ListJob(pipelineName, []*pfsclient.Commit{commit2})
+	require.NoError(t, err)
+	for _, jobInfo := range jobInfos {
+		require.NotNil(t, jobInfo.ParentJob)
+	}
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
