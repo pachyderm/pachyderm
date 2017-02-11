@@ -1792,6 +1792,17 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				if len(rawInputs) < len(rawInputRepos) {
 					continue
 				}
+				outCommitInfos, err := pfsAPIClient.ListCommit(ctx, &pfsclient.ListCommitRequest{
+					Include:    []*pfsclient.Commit{client.NewCommit(ppsserver.PipelineRepo(pipelineInfo.Pipeline).Name, "")},
+					Provenance: rawInputs,
+				})
+				if err != nil {
+					return err
+				}
+				if len(outCommitInfos.CommitInfo) > 0 {
+					// we've already processed this commit
+					continue
+				}
 				trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
 				if err != nil {
 					if isCommitCancelledErr(err) {
