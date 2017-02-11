@@ -376,7 +376,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
-		persistJobInfo.PipelineVersion = pipelineInfo.Version
+		persistJobInfo.PipelineVersion = request.PipelineVersion
 	}
 
 	// If the job has no input, we respect the specified degree of parallelism
@@ -2023,12 +2023,14 @@ func (a *apiServer) parentJob(
 	if err != nil {
 		return nil, err
 	}
+	var parentJobInfo *ppsclient.JobInfo
 	for _, jobInfo := range jobInfos.JobInfo {
-		if jobInfo.PipelineVersion == pipelineInfo.Version {
-			return jobInfo.Job, nil
+		if jobInfo.PipelineVersion <= pipelineInfo.Version &&
+			(parentJobInfo == nil || parentJobInfo.PipelineVersion < jobInfo.PipelineVersion) {
+			parentJobInfo = jobInfo
 		}
 	}
-	return nil, nil
+	return parentJobInfo.Job, nil
 }
 
 // inputsAreParental returns true if a job run from oldTrueInputs can be used
