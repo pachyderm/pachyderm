@@ -363,6 +363,80 @@ func TestSimpleFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
+func TestSimple(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	commitInfos, err := client.ListCommit(repo, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit2.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+func TestBranch1(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, "master", "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master2"))
+
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(branches))
+	require.Equal(t, "master2", branches[0].Name)
+	require.Equal(t, "master", branches[1].Name)
+}
+
 func TestPutFileBig(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -774,7 +848,7 @@ func TestListCommitOrder(t *testing.T) {
 	}
 }
 
-func TestBranch(t *testing.T) {
+func TestBranch2(t *testing.T) {
 	client := getClient(t)
 
 	repo := "test"
