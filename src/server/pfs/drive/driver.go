@@ -384,12 +384,6 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return nil
 }
 
-// Squash merges the content of fromCommits into a single commit with
-// the given parent.
-func (d *driver) SquashCommit(ctx context.Context, fromCommits []*pfs.Commit, parent *pfs.Commit) (*pfs.Commit, error) {
-	return nil, nil
-}
-
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if err := d.resolveBranch(ctx, commit); err != nil {
 		return nil, err
@@ -580,7 +574,7 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 			break
 		}
 		res = append(res, &pfs.Branch{
-			Name: branchName,
+			Name: path.Base(branchName),
 			Head: head,
 		})
 	}
@@ -697,6 +691,10 @@ func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*hashtree.HashTreeProto, error) {
 	if commit == nil {
 		return &hashtree.HashTreeProto{}, nil
+	}
+
+	if err := d.resolveBranch(ctx, commit); err != nil {
+		return nil, err
 	}
 
 	// TODO: get the tree from a cache
