@@ -35,7 +35,7 @@ func TestTags(t *testing.T) {
 func TestManyObjects(t *testing.T) {
 	c := getPachClient(t)
 	var objects []string
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 25; i++ {
 		object, err := c.PutObject(strings.NewReader(string(i)), string(i))
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
