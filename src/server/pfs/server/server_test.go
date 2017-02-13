@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -716,6 +717,60 @@ func TestPutFile(t *testing.T) {
 	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, &buffer))
 }
 
+func TestPutFile2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	expected := "foo\nbar\nbuzz\n"
+	buffer := &bytes.Buffer{}
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, buffer))
+	require.Equal(t, expected, buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, buffer))
+	require.Equal(t, expected, buffer.String())
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, buffer))
+	require.Equal(t, expected, buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, buffer))
+	require.Equal(t, expected, buffer.String())
+
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit3.ID, "foo"))
+	_, err = client.PutFile(repo, "foo", "file", strings.NewReader("foo\nbar\nbuzz\n"))
+	require.NoError(t, client.FinishCommit(repo, "foo"))
+
+	expected = "foo\nbar\nbuzz\nfoo\nbar\nbuzz\nfoo\nbar\nbuzz\n"
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, "foo", "file", 0, 0, buffer))
+	require.Equal(t, expected, buffer.String())
+}
+
 func TestPutFileLongName(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -807,6 +862,52 @@ func TestInspectFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit3.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, len(fileInfos), 2)
+}
+
+func TestInspectFile2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent1 := "foo\n"
+	fileContent2 := "buzz\n"
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err := client.InspectFile(repo, "master", "/file")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+	require.Equal(t, "/file", fileInfo.File.Path)
+	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err = client.InspectFile(repo, "master", "file")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1)*2, int(fileInfo.SizeBytes))
+	require.Equal(t, "file", fileInfo.File.Path)
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master", "file")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err = client.InspectFile(repo, "master", "file")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 }
 
 func TestInspectDir(t *testing.T) {
@@ -1049,8 +1150,9 @@ func TestDeleteFile2(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
 
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	err = client.DeleteFile(repo, commit2.ID, "file")
 	require.NoError(t, err)
@@ -1060,7 +1162,7 @@ func TestDeleteFile2(t *testing.T) {
 
 	expected := "bar\n"
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, "master/1", "file", 0, 0, &buffer))
+	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, &buffer))
 	require.Equal(t, expected, buffer.String())
 
 	commit3, err := client.StartCommit(repo, commit2.ID)
@@ -1125,6 +1227,17 @@ func TestListCommit(t *testing.T) {
 	commitInfos, err = client.ListCommit(repo, commit.ID, midCommitID, 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits-numCommits/2-1, len(commitInfos))
+
+	// Test that commits are sorted in newest-first order
+	for i := 0; i < len(commitInfos)-1; i++ {
+		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
+	}
+
+	// list commits by branch
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	commitInfos, err = client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(commitInfos))
 
 	// Test that commits are sorted in newest-first order
 	for i := 0; i < len(commitInfos)-1; i++ {
@@ -1403,6 +1516,101 @@ func TestPutFileNullCharacter(t *testing.T) {
 	// null characters error because when you `ls` files with null characters
 	// they truncate things after the null character leading to strange results
 	require.YesError(t, err)
+}
+
+func TestPutFileURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getClient(t)
+	repo := "TestPutFileURL"
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false))
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfo, err := c.InspectFile(repo, commit.ID, "readme")
+	require.NoError(t, err)
+	require.True(t, fileInfo.SizeBytes > 0)
+}
+
+func TestBigListFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "TestBigListFile"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	var eg errgroup.Group
+	for i := 0; i < 25; i++ {
+		for j := 0; j < 25; j++ {
+			i := i
+			j := j
+			eg.Go(func() error {
+				_, err = client.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+				return err
+			})
+		}
+	}
+	require.NoError(t, eg.Wait())
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	for i := 0; i < 25; i++ {
+		files, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", i))
+		require.NoError(t, err)
+		require.Equal(t, 25, len(files))
+	}
+}
+
+func TestStartCommitLatestOnBranch(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit3, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	commitInfo, err := client.InspectCommit(repo, "master")
+	require.Equal(t, commit3.ID, commitInfo.Commit.ID)
+}
+
+func TestSetBranchTwice(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit2.ID, "master"))
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	require.Equal(t, commit2.ID, branches[0].Head.ID)
 }
 
 func generateRandomString(n int) string {
