@@ -153,7 +153,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Create a new job. Returns the id of the created job.",
 		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -262,7 +262,7 @@ Examples:
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
 			}
@@ -299,7 +299,7 @@ Examples:
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -315,7 +315,7 @@ Examples:
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -349,7 +349,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -393,7 +393,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -435,7 +435,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -455,7 +455,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -477,7 +477,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -493,7 +493,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -509,7 +509,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
@@ -526,7 +526,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user", pach.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}

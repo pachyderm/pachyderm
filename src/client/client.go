@@ -46,10 +46,10 @@ type APIClient struct {
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
-const DefaultMaxConcurrentStreams = 100
+const DefaultMaxConcurrentStreams uint = 100
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxConcurrentStreams int) (*APIClient, error) {
+func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
 	c, err := NewFromAddress(addr, maxConcurrentStreams)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxCo
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, maxConcurrentStreams int) (*APIClient, error) {
+func NewFromAddress(addr string, maxConcurrentStreams uint) (*APIClient, error) {
 	c := &APIClient{
 		addr:             addr,
 		streamSemaphores: make(chan struct{}, maxConcurrentStreams),
