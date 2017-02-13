@@ -468,6 +468,90 @@ func TestSimpleFile(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
+func TestStartCommitWithUnfinishedParent(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.StartCommit(repo, commit1.ID)
+	// fails because the parent commit has not been finished
+	require.YesError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	_, err = client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+}
+
+func TestProvenance2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	require.NoError(t, client.CreateRepo("E"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("B"), pclient.NewRepo("E")},
+	})
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("D"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("C")},
+	})
+
+	ACommit, err := client.StartCommit("A", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	ECommit, err := client.StartCommit("E", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("E", ECommit.ID))
+	BCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit("B", ""),
+			Provenance: []*pfs.Commit{ACommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("B", BCommit.ID))
+	commitInfo, err := client.InspectCommit("B", BCommit.ID)
+	require.NoError(t, err)
+
+	CCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit("C", ""),
+			Provenance: []*pfs.Commit{BCommit, ECommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	commitInfo, err = client.InspectCommit("C", CCommit.ID)
+	require.NoError(t, err)
+
+	DCommit, err := client.PfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit("D", ""),
+			Provenance: []*pfs.Commit{CCommit},
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("D", DCommit.ID))
+
+	commitInfo, err = client.InspectCommit("D", DCommit.ID)
+	require.NoError(t, err)
+	for _, commit := range commitInfo.Provenance {
+		require.EqualOneOf(t, []interface{}{ACommit, ECommit, BCommit, CCommit}, commit)
+	}
+}
+
 func TestSimple(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -1046,6 +1130,24 @@ func TestListCommit(t *testing.T) {
 	for i := 0; i < len(commitInfos)-1; i++ {
 		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
 	}
+}
+
+func TestOffsetRead(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "TestOffsetRead"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	fileData := "foo\n"
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileData))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit.ID, "foo", int64(len(fileData)*2)+1, 0, &buffer))
+	require.Equal(t, "", buffer.String())
 }
 
 func TestBranch2(t *testing.T) {
