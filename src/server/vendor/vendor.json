@@ -243,6 +243,12 @@
 			"revisionTime": "2016-04-29T08:01:25Z"
 		},
 		{
+			"checksumSHA1": "7uspQtEpYuBxaxrBTcxa+ZfiuJo=",
+			"path": "github.com/coreos/etcd/auth/authpb",
+			"revision": "e52a985a3a69412635cc0ce6411af10e0c5af20b",
+			"revisionTime": "2017-02-13T21:30:31Z"
+		},
+		{
 			"checksumSHA1": "d/S4od+8MDo5h9kS1UERyyLlklQ=",
 			"path": "github.com/coreos/etcd/clientv3",
 			"revision": "6fb99a858598cf001f545e1253fea004f1e0510b",
@@ -259,6 +265,12 @@
 			"path": "github.com/coreos/etcd/etcdserver/etcdserverpb",
 			"revision": "6fb99a858598cf001f545e1253fea004f1e0510b",
 			"revisionTime": "2017-02-05T05:28:56Z"
+		},
+		{
+			"checksumSHA1": "PAnQN6F8iZuIfu9HHOORyVFaaOA=",
+			"path": "github.com/coreos/etcd/mvcc/mvccpb",
+			"revision": "e52a985a3a69412635cc0ce6411af10e0c5af20b",
+			"revisionTime": "2017-02-13T21:30:31Z"
 		},
 		{
 			"checksumSHA1": "BJXHEdzHxRPmVnt6GFaPpwgns2c=",
