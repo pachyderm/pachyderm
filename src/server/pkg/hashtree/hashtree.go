@@ -425,8 +425,7 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	return res, nil
 }
 
-// mergeNode merges the node at 'path' from 'from' into 'h'. The return value
-// 's' is the number of bytes added to the node at 'path' (the size increase).
+// mergeNode merges the node at 'path' from the trees in 'srcs' into 'h'.
 func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 	path = clean(path)
 	// Get the node at path in 'h' and determine its type (i.e. file, dir)
