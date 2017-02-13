@@ -106,7 +106,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		fullProv := make(map[string]bool)
 		for _, prov := range provenance {
 			fullProv[prov.Name] = true
-			provRepo := &pfs.RepoInfo{}
+			provRepo := new(pfs.RepoInfo)
 			if err := repos.Get(prov.Name, provRepo); err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 }
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	repoInfo := &pfs.RepoInfo{}
+	repoInfo := new(pfs.RepoInfo)
 	if err := d.reposReadonly(ctx).Get(repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 	repos := d.reposReadonly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
-		repoInfo := &pfs.RepoInfo{}
+		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(prov.Name, repoInfo); err != nil {
 			return nil, err
 		}
@@ -163,8 +163,8 @@ func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 	}
 nextRepo:
 	for {
-		repoName, repoInfo := "", pfs.RepoInfo{}
-		ok, err := iterator.Next(&repoName, &repoInfo)
+		repoName, repoInfo := "", new(pfs.RepoInfo)
+		ok, err := iterator.Next(&repoName, repoInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -184,7 +184,7 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		result = append(result, &repoInfo)
+		result = append(result, repoInfo)
 	}
 	return result, nil
 }
@@ -207,7 +207,7 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			}
 		}
 
-		repoInfo := &pfs.RepoInfo{}
+		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		branches := d.branches(stm)(parent.Repo.Name)
 
 		// Check if repo exists
-		repoInfo := &pfs.RepoInfo{}
+		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
 			return err
 		}
@@ -303,7 +303,9 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
-		commitInfo := &pfs.CommitInfo{}
+		repos := d.repos(stm)
+
+		commitInfo := new(pfs.CommitInfo)
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
 		}
@@ -374,8 +376,25 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			// to use the tag store, which puts everything as one block.
 			commitInfo.Tree = blockRefs.BlockRef[0]
 		}
+
+		// update commit size
+		root, err := tree.Get("/")
+		if err != nil {
+			return err
+		}
+		if root != nil {
+			commitInfo.SizeBytes = uint64(root.SubtreeSize)
+		}
 		commitInfo.Finished = now()
 		commits.Put(commit.ID, commitInfo)
+
+		// update repo size
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		repoInfo.SizeBytes += commitInfo.SizeBytes
+		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	}); err != nil {
 		return err

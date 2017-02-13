@@ -937,6 +937,32 @@ func TestSubscribeCommit(t *testing.T) {
 	commitIter.Close()
 }
 
+func TestInspectRepoSimple(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	file1Content := "foo\n"
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(file1Content))
+	require.NoError(t, err)
+
+	file2Content := "bar\n"
+	_, err = client.PutFile(repo, commit.ID, "bar", strings.NewReader(file2Content))
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	info, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
