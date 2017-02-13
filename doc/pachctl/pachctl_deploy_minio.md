@@ -1,21 +1,24 @@
-## ./pachctl deploy local
+## ./pachctl deploy minio
 
-Deploy a single-node Pachyderm cluster with local metadata storage.
+Deploy a Pachyderm cluster running locally.
 
 ### Synopsis
 
 
-Deploy a single-node Pachyderm cluster with local metadata storage.
+Deploy a Pachyderm cluster running locally. Arguments are:
+  <Minio bucket>: A Minio bucket where Pachyderm will store PFS data.
+  <id>, <secret>, <endpoint>: Access credentials.
+  <secure>: Secure connection.
+
 
 ```
-./pachctl deploy local
+./pachctl deploy minio [-s] <S3 bucket> <id> <secret> <endpoint>
 ```
 
 ### Options
 
 ```
-  -d, --dev                Don't use a specific version of pachyderm/pachd.
-      --host-path string   Location on the host machine where PFS metadata will be stored. (default "/var/pachyderm")
+  -s, --secure   Enable secure access to Minio server.
 ```
 
 ### Options inherited from parent commands
