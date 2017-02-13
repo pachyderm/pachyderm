@@ -247,10 +247,22 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		}
 
 		commitInfo := &pfs.CommitInfo{
-			Commit:     commit,
-			Started:    now(),
-			Provenance: provenance,
+			Commit:  commit,
+			Started: now(),
 		}
+
+		// Build the full provenance; my provenance's provenance is
+		// my provenance
+		for _, prov := range provenance {
+			provCommits := d.commits(stm)(prov.Repo.Name)
+			provCommitInfo := new(pfs.CommitInfo)
+			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
+				return err
+			}
+			commitInfo.Provenance = append(commitInfo.Provenance, provCommitInfo.Provenance...)
+		}
+		// finally include the given provenance
+		commitInfo.Provenance = append(commitInfo.Provenance, provenance...)
 
 		if parent.ID != "" {
 			head := new(pfs.Commit)
@@ -259,22 +271,21 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 				if _, ok := err.(ErrNotFound); !ok {
 					return err
 				}
-				// If parent is not a branch, it needs to be a commit
-				// Check that the parent commit exists
-				parentCommitInfo := &pfs.CommitInfo{}
-				if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
-					return err
-				}
-				commitInfo.ParentCommit = parent
 			} else {
-				// if parent.ID is a branch, then we set the parent to the
-				// current head of the branch, then make myself the head
-				commitInfo.ParentCommit = &pfs.Commit{
-					Repo: parent.Repo,
-					ID:   head.ID,
-				}
+				// if parent.ID is a branch, make myself the head
 				branches.Put(parent.ID, commit)
+				parent.ID = head.ID
 			}
+			// Check that the parent commit exists
+			parentCommitInfo := new(pfs.CommitInfo)
+			if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
+				return err
+			}
+			// fail if the parent commit has not been finished
+			if parentCommitInfo.Finished == nil {
+				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
+			}
+			commitInfo.ParentCommit = parent
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
