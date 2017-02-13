@@ -42,11 +42,15 @@ type APIClient struct {
 	cancel            func()
 	reportUserMetrics bool
 	metricsPrefix     string
+	streamSemaphores  chan struct{}
 }
 
+// DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
+const DefaultMaxConcurrentStreams = 100
+
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
-	c, err := NewFromAddress(addr)
+func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxConcurrentStreams int) (*APIClient, error) {
+	c, err := NewFromAddress(addr, maxConcurrentStreams)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +67,10 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*API
 }
 
 // NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string) (*APIClient, error) {
+func NewFromAddress(addr string, maxConcurrentStreams int) (*APIClient, error) {
 	c := &APIClient{
-		addr: addr,
+		addr:             addr,
+		streamSemaphores: make(chan struct{}, maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -83,7 +88,7 @@ func NewInCluster() (*APIClient, error) {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
 
-	return NewFromAddress(fmt.Sprintf("%v:650", addr))
+	return NewFromAddress(fmt.Sprintf("%v:650", addr), DefaultMaxConcurrentStreams)
 }
 
 // Close the connection to gRPC
