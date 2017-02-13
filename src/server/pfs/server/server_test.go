@@ -942,6 +942,50 @@ func TestInspectDir(t *testing.T) {
 	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 }
 
+func TestInspectDir2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err := client.InspectFile(repo, "master", "/dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfo.Children))
+	require.Equal(t, "/dir", fileInfo.File.Path)
+	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err = client.InspectFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfo.Children))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master", "dir/2")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfo, err = client.InspectFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfo.Children))
+}
+
 func TestListFileTwoCommits(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -1008,6 +1052,144 @@ func TestListFile(t *testing.T) {
 
 	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo")
 	require.YesError(t, err)
+}
+
+func TestListFile2(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err := client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/3", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master", "dir/2")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+}
+
+func TestListFile3(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
+	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err := client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/3/foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "dir/3/bar", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent)*2)
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	err = client.DeleteFile(repo, "master", "dir/3/bar")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "dir")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	require.Equal(t, int(fileInfos[2].SizeBytes), len(fileContent))
+
+	_, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	fileInfos, err = client.ListFile(repo, "master", "/")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+}
+
+func TestPutFileTypeConflict(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "dir/1", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "dir", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.YesError(t, client.FinishCommit(repo, commit2.ID))
+}
+
+func TestRootDirectory(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent := "foo\n"
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	fileInfos, err := client.ListFile(repo, commit.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
 }
 
 func TestDeleteFile(t *testing.T) {
