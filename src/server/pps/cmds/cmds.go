@@ -541,7 +541,7 @@ actually rerunning the pipeline.
 				return err
 			}
 			if len(args) == 0 {
-				return fmt.Errorf("expected at least 1 argument, got 0\n\n")
+				return fmt.Errorf("expected at least 1 argument, got 0")
 			}
 			pipeline := args[0]
 			var include []*pfsclient.Commit
