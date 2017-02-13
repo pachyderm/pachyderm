@@ -862,9 +862,9 @@ func nodeToFileInfo(file *pfs.File, node *hashtree.NodeProto) *pfs.FileInfo {
 		SizeBytes: uint64(node.SubtreeSize),
 	}
 	if node.FileNode != nil {
-		fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+		fileInfo.FileType = pfs.FileType_FILE
 	} else if node.DirNode != nil {
-		fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+		fileInfo.FileType = pfs.FileType_DIR
 		fileInfo.Children = node.DirNode.Children
 	}
 	return fileInfo
@@ -879,10 +879,6 @@ func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	node, err := tree.Get(file.Path)
 	if err != nil {
 		return nil, err
-	}
-
-	if node.FileNode == nil {
-		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
 	return nodeToFileInfo(file, node), nil

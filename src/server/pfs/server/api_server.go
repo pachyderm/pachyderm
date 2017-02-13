@@ -259,7 +259,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	// not cleaning the path can result in weird effects like files called
 	// ./foo which won't display correctly when the filesystem is mounted
 	request.File.Path = path.Clean(request.File.Path)
-	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
+	if request.FileType == pfs.FileType_DIR {
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}

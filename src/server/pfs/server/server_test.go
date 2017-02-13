@@ -693,7 +693,7 @@ func TestInspectFile(t *testing.T) {
 
 	fileInfo, err := client.InspectFile(repo, commit1.ID, "foo")
 	require.NoError(t, err)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 
 	fileContent2 := "barbar\n"
@@ -705,12 +705,12 @@ func TestInspectFile(t *testing.T) {
 
 	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo")
 	require.NoError(t, err)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
 
 	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo")
 	require.NoError(t, err)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.SizeBytes))
 
 	fileContent3 := "bar\n"
@@ -723,6 +723,38 @@ func TestInspectFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit3.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, len(fileInfos), 2)
+}
+
+func TestInspectDir(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = client.PutFile(repo, commit1.ID, "dir/foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	fileInfo, err := client.InspectFile(repo, commit1.ID, "dir/foo")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
+
+	fileInfo, err = client.InspectFile(repo, commit1.ID, "dir")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
+
+	_, err = client.InspectFile(repo, commit1.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent), int(fileInfo.SizeBytes))
+	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 }
 
 func TestListFileTwoCommits(t *testing.T) {
