@@ -453,7 +453,7 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 	}()
 	if err := putFileClient.Send(&pfs.PutFileRequest{
 		File:      NewFile(repoName, commitID, path),
-		FileType:  pfs.FileType_FILE_TYPE_REGULAR,
+		FileType:  pfs.FileType_FILE,
 		Url:       url,
 		Recursive: recursive,
 	}); err != nil {
@@ -537,7 +537,7 @@ func (c APIClient) Walk(repoName string, commitID string, path string, walkFn Wa
 		if err := walkFn(fileInfo); err != nil {
 			return err
 		}
-		if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		if fileInfo.FileType == pfs.FileType_DIR {
 			if err := c.Walk(repoName, commitID, fileInfo.File.Path, walkFn); err != nil {
 				return err
 			}
@@ -577,7 +577,7 @@ func (c APIClient) MakeDirectory(repoName string, commitID string, path string) 
 	return sanitizeErr(putFileClient.Send(
 		&pfs.PutFileRequest{
 			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_FILE_TYPE_DIR,
+			FileType: pfs.FileType_DIR,
 		},
 	))
 }
@@ -596,7 +596,7 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
 			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_FILE_TYPE_REGULAR,
+			FileType: pfs.FileType_FILE,
 		},
 		putFileClient: putFileClient,
 	}, nil

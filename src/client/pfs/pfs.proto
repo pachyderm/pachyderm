@@ -67,9 +67,8 @@ message CommitInfos {
 }
 
 enum FileType {
-  FILE_TYPE_NONE = 0;
-  FILE_TYPE_REGULAR = 1;
-  FILE_TYPE_DIR = 2;
+  FILE = 0;
+  DIR = 1;
 }
 
 message FileInfo {
