@@ -878,11 +878,11 @@ func (r *fileReader) Close() error {
 	return nil
 }
 
-func nodeToFileInfo(file *pfs.File, node *hashtree.NodeProto) *pfs.FileInfo {
+func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *pfs.FileInfo {
 	fileInfo := &pfs.FileInfo{
 		File: &pfs.File{
-			Commit: file.Commit,
-			Path:   path.Join(file.Path, node.Name),
+			Commit: commit,
+			Path:   path,
 		},
 		SizeBytes: uint64(node.SubtreeSize),
 	}
@@ -906,7 +906,7 @@ func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 
-	return nodeToFileInfo(file, node), nil
+	return nodeToFileInfo(file.Commit, file.Path, node), nil
 }
 
 func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
@@ -922,7 +922,7 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file, node))
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node))
 	}
 	return fileInfos, nil
 }
