@@ -525,13 +525,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			return nil, err
 		}
 
-		if commitInfo.SizeBytes == 0 {
-			if input.RunEmpty {
-				// An empty input shouldn't be partitioned
-				limitHit[i] = true
-			} else {
-				return nil, newErrEmptyInput(input.Commit.ID)
-			}
+		if commitInfo.SizeBytes == 0 && !input.RunEmpty {
+			return nil, newErrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -553,7 +548,7 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			}
 		}
 
-		b := true
+		b := false
 
 		if !inputs[modulusIndex].RunEmpty {
 			b, err = a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
