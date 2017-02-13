@@ -20,6 +20,14 @@ const (
 	// violation of an internal invariant).
 	Internal
 
+	// CannotDeserialize is returned when Unmarshal(bytes) fails, perhaps due to
+	// 'bytes' being corrupted.
+	CannotDeserialize
+
+	// Unsupported is returned when Unmarshal(bytes) encounters an unsupported
+	// (likely old) serialized HashTree.
+	Unsupported
+
 	// PathNotFound is returned when Get() or DeleteFile() is called with a path
 	// that doesn't lead to a node.
 	PathNotFound
@@ -37,7 +45,8 @@ const (
 	PathConflict
 )
 
-// HashTree is the signature of a hash tree provided by this library
+// HashTree is the signature of a hash tree provided by this library. To get a
+// new hash tree, see hashtree.NewHashTree().
 type HashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist)
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
@@ -63,4 +72,8 @@ type HashTree interface {
 	// file in every tree in 'tree', though the performance may be slightly
 	// better.
 	Merge(trees []HashTree) error
+
+	// Marshal serializes a HashTree so that it can be persisted (also see
+	// Unmarshal())
+	Marshal() ([]byte, error)
 }
