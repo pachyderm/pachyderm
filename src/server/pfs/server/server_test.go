@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -200,6 +201,32 @@ func TestListRepo(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos)
 }
 
+// Make sure that commits of deleted repos do not resurface
+func TestCreateDeletedRepo(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	commitInfos, err := client.ListCommit(repo, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	require.NoError(t, client.DeleteRepo(repo, false))
+	require.NoError(t, client.CreateRepo(repo))
+
+	commitInfos, err = client.ListCommit(repo, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
+}
+
 func TestListRepoWithProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -310,6 +337,84 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	repoInfos, err = client.ListRepo(nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfos))
+}
+
+func TestInspectCommit(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	started := time.Now()
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	commitInfo, err := client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	tStarted, err := types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	require.Equal(t, commit, commitInfo.Commit)
+	require.Nil(t, commitInfo.Finished)
+	// PutFile does not update commit size; only FinishCommit does
+	require.Equal(t, 0, int(commitInfo.SizeBytes))
+	require.True(t, started.Before(tStarted))
+	require.Nil(t, commitInfo.Finished)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	finished := time.Now()
+
+	commitInfo, err = client.InspectCommit(repo, commit.ID)
+	require.NoError(t, err)
+
+	tStarted, err = types.TimestampFromProto(commitInfo.Started)
+	require.NoError(t, err)
+
+	tFinished, err := types.TimestampFromProto(commitInfo.Finished)
+	require.NoError(t, err)
+
+	require.Equal(t, commit, commitInfo.Commit)
+	require.NotNil(t, commitInfo.Finished)
+	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
+	require.True(t, started.Before(tStarted))
+	require.True(t, finished.After(tFinished))
+}
+
+func TestDeleteCommitFuture(t *testing.T) {
+	// For when DeleteCommit gets implemented
+	t.Skip()
+
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	commitInfo, err := client.InspectCommit(repo, commit.ID)
+	require.NotNil(t, commitInfo)
+
+	require.NoError(t, client.DeleteCommit(repo, commit.ID))
+
+	commitInfo, err = client.InspectCommit(repo, commit.ID)
+	require.Nil(t, commitInfo)
+
+	repoInfo, err := client.InspectRepo(repo)
+	require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
 func TestBasicFile(t *testing.T) {
@@ -570,6 +675,54 @@ func TestPutSameFileInParallel(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+}
+
+func TestInspectFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	fileContent1 := "foo\n"
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	fileInfo, err := client.InspectFile(repo, commit1.ID, "foo")
+	require.NoError(t, err)
+	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+
+	fileContent2 := "barbar\n"
+	commit2, err := client.StartCommit(repo, commit1.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo")
+	require.NoError(t, err)
+	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
+
+	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo")
+	require.NoError(t, err)
+	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.SizeBytes))
+
+	fileContent3 := "bar\n"
+	commit3, err := client.StartCommit(repo, commit2.ID)
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "bar", strings.NewReader(fileContent3))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	fileInfos, err := client.ListFile(repo, commit3.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, len(fileInfos), 2)
 }
 
 func TestListFileTwoCommits(t *testing.T) {
@@ -961,6 +1114,47 @@ func TestInspectRepoSimple(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
+}
+
+func TestInspectRepoComplex(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	numFiles := 100
+	minFileSize := 1000
+	maxFileSize := 2000
+	totalSize := 0
+
+	for i := 0; i < numFiles; i++ {
+		fileContent := generateRandomString(rand.Intn(maxFileSize-minFileSize) + minFileSize)
+		fileContent += "\n"
+		fileName := fmt.Sprintf("file_%d", i)
+		totalSize += len(fileContent)
+
+		_, err = client.PutFile(repo, commit.ID, fileName, strings.NewReader(fileContent))
+		require.NoError(t, err)
+
+	}
+
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	info, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+
+	require.Equal(t, int(info.SizeBytes), totalSize)
+
+	infos, err := client.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	info = infos[0]
+
+	require.Equal(t, int(info.SizeBytes), totalSize)
 }
 
 func generateRandomString(n int) string {

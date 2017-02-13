@@ -865,6 +865,7 @@ func nodeToFileInfo(file *pfs.File, node *hashtree.NodeProto) *pfs.FileInfo {
 		fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
 	} else if node.DirNode != nil {
 		fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+		fileInfo.Children = node.DirNode.Children
 	}
 	return fileInfo
 }
