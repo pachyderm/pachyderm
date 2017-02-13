@@ -20,7 +20,7 @@ import (
 var (
 	suite                       = "pachyderm"
 	pachdImage                  = "pachyderm/pachd"
-	etcdImage                   = "gcr.io/google_containers/etcd:2.0.12"
+	etcdImage                   = "quay.io/coreos/etcd:v3.0.15"
 	rethinkImage                = "rethinkdb:2.3.2"
 	rethinkNonCacheMemFootprint = resource.MustParse("256M") // Amount of memory needed by rethink beyond the cache
 	serviceAccountName          = "pachyderm"
@@ -326,7 +326,8 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
-								"--bind-addr=0.0.0.0:2379",
+								"--listen-client-urls=http://0.0.0.0:2379",
+								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 							},
 							Ports: []api.ContainerPort{
