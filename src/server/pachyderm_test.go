@@ -4265,7 +4265,7 @@ func TestListFileWithSharding(t *testing.T) {
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
+	client, err := client.NewFromAddress("0.0.0.0:30650", client.DefaultMaxConcurrentStreams)
 	require.NoError(t, err)
 	return client
 }

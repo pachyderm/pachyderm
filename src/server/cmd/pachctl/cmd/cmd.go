@@ -107,7 +107,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "")
+			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user", client.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return sanitizeErr(err)
 			}

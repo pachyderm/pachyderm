@@ -8,7 +8,7 @@ import (
 )
 
 func Example_pps() {
-	c, err := client.NewFromAddress("0.0.0.0:30650")
+	c, err := client.NewFromAddress("0.0.0.0:30650", client.DefaultMaxConcurrentStreams)
 	if err != nil {
 		return // handle error
 	}

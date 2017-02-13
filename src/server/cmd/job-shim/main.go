@@ -154,7 +154,7 @@ func do(appEnvObj interface{}) error {
 				}
 			}()
 
-			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
+			c, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress), client.DefaultMaxConcurrentStreams)
 			if err != nil {
 				return err
 			}
