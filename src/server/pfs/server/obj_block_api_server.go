@@ -218,22 +218,34 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	}
 	r := io.TeeReader(putObjectReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
-	w, err := s.objClient.Writer(s.localServer.blockPath(block))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = err
+	var size int64
+	if err := func() error {
+		w, err := s.objClient.Writer(s.localServer.blockPath(block))
+		if err != nil {
+			return err
 		}
-	}()
-	size, err := io.Copy(w, r)
-	if err != nil {
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		size, err = io.Copy(w, r)
+		if err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
 		return err
 	}
 	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
 	if err := server.SendAndClose(object); err != nil {
 		return err
+	}
+	// Now that we have a hash of the object we can check if it already exists.
+	_, err := s.InspectObject(server.Context(), object)
+	if err == nil {
+		// the object already exists so we delete the block we put
+		return s.objClient.Delete(s.localServer.blockPath(block))
 	}
 	blockRef := &pfsclient.BlockRef{
 		Block: block,
