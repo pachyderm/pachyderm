@@ -681,7 +681,19 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 	return path.Join(d.prefix, "scratch", file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
 }
 
+// checkPath checks if a file path is legal
+func checkPath(path string) error {
+	if strings.Contains(path, "\x00") {
+		return fmt.Errorf("filename cannot contain null character: %s", path)
+	}
+	return nil
+}
+
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
+	if err := checkPath(file.Path); err != nil {
+		return err
+	}
+
 	// Put the tree into the blob store
 	blockClient, err := d.getBlockClient()
 	if err != nil {

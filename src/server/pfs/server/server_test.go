@@ -1306,6 +1306,105 @@ func TestInspectRepoComplex(t *testing.T) {
 	require.Equal(t, int(info.SizeBytes), totalSize)
 }
 
+func TestCreate(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	w, err := client.PutFileWriter(repo, commit.ID, "foo", pfs.Delimiter_LINE)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	_, err = client.InspectFile(repo, commit.ID, "foo")
+	require.NoError(t, err)
+}
+
+func TestGetFileInvalidCommit(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, &buffer)
+	require.YesError(t, err)
+}
+
+func TestATonOfPuts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping long tests in short mode")
+	}
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	rawMessage := `{
+		"level":"debug",
+		"message":{
+			"thing":"foo"
+		},
+		"timing":[1,3,34,6,7]
+	}`
+	numObjs := 5000
+	numGoros := 100
+	var expectedOutput []byte
+	var wg sync.WaitGroup
+	for j := 0; j < numGoros; j++ {
+		wg.Add(1)
+		go func() {
+			for i := 0; i < numObjs/numGoros; i++ {
+				_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(rawMessage))
+				if err != nil {
+					panic(err)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	for i := 0; i < numObjs; i++ {
+		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
+	}
+	wg.Wait()
+
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, string(expectedOutput), buffer.String())
+}
+
+func TestPutFileNullCharacter(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	_, err = client.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n"))
+	// null characters error because when you `ls` files with null characters
+	// they truncate things after the null character leading to strange results
+	require.YesError(t, err)
+}
+
 func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
