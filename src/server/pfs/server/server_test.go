@@ -995,7 +995,7 @@ func TestDeleteFile2(t *testing.T) {
 	require.Equal(t, expected, buffer.String())
 }
 
-func TestListCommitOrder(t *testing.T) {
+func TestListCommit(t *testing.T) {
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1005,11 +1005,15 @@ func TestListCommitOrder(t *testing.T) {
 	var commit *pfs.Commit
 	var err error
 	var parentID string
+	var midCommitID string
 	for i := 0; i < numCommits; i++ {
 		commit, err = client.StartCommit(repo, parentID)
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
 		parentID = commit.ID
+		if i == numCommits/2 {
+			midCommitID = commit.ID
+		}
 	}
 
 	// list all commits
@@ -1026,6 +1030,17 @@ func TestListCommitOrder(t *testing.T) {
 	commitInfos, err = client.ListCommit(repo, commit.ID, "", 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(commitInfos))
+
+	// Test that commits are sorted in newest-first order
+	for i := 0; i < len(commitInfos)-1; i++ {
+		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
+	}
+
+	// Now list all commits up to the mid commit, excluding the mid commit
+	// itself
+	commitInfos, err = client.ListCommit(repo, commit.ID, midCommitID, 0)
+	require.NoError(t, err)
+	require.Equal(t, numCommits-numCommits/2-1, len(commitInfos))
 
 	// Test that commits are sorted in newest-first order
 	for i := 0; i < len(commitInfos)-1; i++ {

@@ -379,7 +379,9 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		// update commit size
 		root, err := tree.Get("/")
-		if err != nil {
+		// the tree might be empty (if the commit is empty), in which case
+		// the library returns a PathNotFound error
+		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 			return err
 		}
 		if root != nil {
@@ -458,7 +460,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		}
 	} else {
 		cursor := to
-		for number != 0 && cursor != nil {
+		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
 			if err := commits.Get(cursor.ID, &commitInfo); err != nil {
 				return nil, err
