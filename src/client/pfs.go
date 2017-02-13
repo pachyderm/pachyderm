@@ -36,21 +36,6 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
-// CommitTypes alias pfs.CommitType_*
-const (
-	CommitTypeNone  = pfs.CommitType_COMMIT_TYPE_NONE
-	CommitTypeRead  = pfs.CommitType_COMMIT_TYPE_READ
-	CommitTypeWrite = pfs.CommitType_COMMIT_TYPE_WRITE
-)
-
-// CommitStatus alias pfs.CommitStatus_*
-const (
-	CommitStatusNormal    = pfs.CommitStatus_NORMAL
-	CommitStatusArchived  = pfs.CommitStatus_ARCHIVED
-	CommitStatusCancelled = pfs.CommitStatus_CANCELLED
-	CommitStatusAll       = pfs.CommitStatus_ALL
-)
-
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire

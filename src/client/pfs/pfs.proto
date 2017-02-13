@@ -50,13 +50,6 @@ message RepoInfos {
   repeated RepoInfo repo_info = 1;
 }
 
-enum CommitType {
-  COMMIT_TYPE_NONE = 0;
-  COMMIT_TYPE_READ = 1;
-  COMMIT_TYPE_WRITE = 2;
-}
-
-
 message CommitInfo {
   Commit commit = 1;
   Commit parent_commit = 2;
@@ -83,9 +76,9 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
-  google.protobuf.Timestamp modified = 4;
-  Commit commit_modified = 5;
-  repeated File children = 6;
+  // the base names (i.e. just the filenames, not the full paths) of
+  // the children
+  repeated string children = 6;
 }
 
 message FileInfos {
@@ -104,14 +97,6 @@ message BlockRef {
 
 message BlockRefs {
   repeated BlockRef block_ref = 1;
-}
-
-message Append {
-  repeated BlockRef block_refs = 1;
-  map<string, bool> children = 2;
-  Commit last_ref = 3;
-  bool delete = 4;
-  FileType file_type = 5;
 }
 
 message BlockInfo {
