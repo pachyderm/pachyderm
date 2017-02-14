@@ -292,6 +292,27 @@ func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Ob
 	return &google_protobuf.BytesValue{Value: data}, nil
 }
 
+func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *google_protobuf.BytesValue, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	// First inspect the object to make sure it actually exists
+	if _, err := InspectObject(ctx, request.Object); err != nil {
+		return nil, err
+	}
+	var eg errgroup.Group
+	for _, tag := range request.Tags {
+		tag := hashTag(tag)
+		eg.Go(func() (retErr error) {
+			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
+			return s.writeProto(s.localServer.tagPath(tag), index)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
