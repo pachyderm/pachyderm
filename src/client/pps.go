@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 // NewJob creates a pps.Job.
@@ -28,48 +28,11 @@ const (
 	PPSLeasePeriod = 30 * time.Second
 )
 
-var (
-	// MapMethod defines a pps.Method for mapper pipelines.
-	MapMethod = &pps.Method{
-		Partition:   pps.Partition_BLOCK,
-		Incremental: pps.Incremental_DIFF,
-	}
-	// ReduceMethod defines a pps.Method for non-incremental reducer pipelines.
-	ReduceMethod = &pps.Method{
-		Partition:   pps.Partition_FILE,
-		Incremental: pps.Incremental_NONE,
-	}
-	// IncrementalReduceMethod defines a pps.Method for incremental reducer pipelines.
-	IncrementalReduceMethod = &pps.Method{
-		Partition:   pps.Partition_FILE,
-		Incremental: pps.Incremental_DIFF,
-	}
-	// GlobalMethod defines a pps.Method for non-incremental, non-partitioned pipelines.
-	GlobalMethod = &pps.Method{
-		Partition:   pps.Partition_REPO,
-		Incremental: pps.Incremental_NONE,
-	}
-	// DefaultMethod defines the default pps.Method for a pipeline.
-	DefaultMethod = MapMethod
-	// MethodAliasMap maps a string to a pps.Method for JSON decoding.
-	MethodAliasMap = map[string]*pps.Method{
-		"map":                MapMethod,
-		"reduce":             ReduceMethod,
-		"incremental_reduce": IncrementalReduceMethod,
-		"global":             GlobalMethod,
-	}
-	// ReservedRepoNames defines a set of reserved repo names for internal use.
-	ReservedRepoNames = map[string]bool{
-		"out":  true,
-		"prev": true,
-	}
-)
-
 // NewJobInput creates a pps.JobInput.
-func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
+func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
-		Method: method,
+		Glob:   glob,
 	}
 }
 
@@ -79,10 +42,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 }
 
 // NewPipelineInput creates a new pps.PipelineInput
-func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
+func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 	return &pps.PipelineInput{
-		Repo:   NewRepo(repoName),
-		Method: method,
+		Repo: NewRepo(repoName),
+		Glob: glob,
 	}
 }
 
@@ -108,11 +71,9 @@ func (c APIClient) CreateJob(
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
-	parentJobID string,
 	internalPort int32,
 	externalPort int32,
 ) (*pps.Job, error) {
-	var parentJob *pps.Job
 	var service *pps.Service
 	if internalPort != 0 {
 		service = &pps.Service{
@@ -125,9 +86,6 @@ func (c APIClient) CreateJob(
 		}
 		service.ExternalPort = externalPort
 	}
-	if parentJobID != "" {
-		parentJob = NewJob(parentJobID)
-	}
 	job, err := c.PpsAPIClient.CreateJob(
 		c.ctx(),
 		&pps.CreateJobRequest{
@@ -138,7 +96,6 @@ func (c APIClient) CreateJob(
 			},
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
-			ParentJob:       parentJob,
 			Service:         service,
 		},
 	)

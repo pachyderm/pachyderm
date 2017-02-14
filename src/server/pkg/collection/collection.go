@@ -1,4 +1,4 @@
-package drive
+package collection
 
 import (
 	"context"
@@ -49,10 +49,26 @@ type Collection struct {
 	stm        STM
 }
 
+func NewCollection(etcdClient *etcd.Client, prefix string, stm STM) *Collection {
+	return &Collection{
+		prefix:     prefix,
+		etcdClient: etcdClient,
+		stm:        stm,
+	}
+}
+
 type IntCollection struct {
 	etcdClient *etcd.Client
 	prefix     string
 	stm        STM
+}
+
+func NewIntCollection(etcdClient *etcd.Client, prefix string, stm STM) *IntCollection {
+	return &IntCollection{
+		prefix:     prefix,
+		etcdClient: etcdClient,
+		stm:        stm,
+	}
 }
 
 // CollectionFactory generates collections.  It's mainly used for
@@ -170,6 +186,14 @@ type ReadonlyCollection struct {
 	ctx        context.Context
 	etcdClient *etcd.Client
 	prefix     string
+}
+
+func NewReadonlyCollection(ctx context.Context, etcdClient *etcd.Client, prefix string) *ReadonlyCollection {
+	return &ReadonlyCollection{
+		ctx:        ctx,
+		prefix:     prefix,
+		etcdClient: etcdClient,
+	}
 }
 
 type ReadonlyCollectionFactory func(string) *ReadonlyCollection

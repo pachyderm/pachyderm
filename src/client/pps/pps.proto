@@ -123,6 +123,7 @@ message Pipeline {
 
 message PipelineInput {
   pfs.Repo repo = 1;
+  string glob = 2;
   bool lazy = 3;
 }
 

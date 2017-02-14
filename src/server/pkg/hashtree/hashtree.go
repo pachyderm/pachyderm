@@ -74,7 +74,6 @@ func (h *HashTreeProto) updateHash(path string) error {
 		}
 	case file:
 		for _, blockRef := range n.FileNode.BlockRefs {
-			fmt.Printf("blockRef: %v\n", blockRef)
 			_, err := b.WriteString(fmt.Sprintf("%s:%d:%d:",
 				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper))
 			if err != nil {

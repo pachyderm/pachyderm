@@ -1,4 +1,4 @@
-package drive
+package collection
 
 // Copyright 2016 The etcd Authors
 //
@@ -49,7 +49,7 @@ type STM interface {
 type stmError struct{ err error }
 
 // newSTM is newSTMSerializable
-func newSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
+func NewSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
 	return newSTMSerializable(ctx, c, apply)
 }
 
