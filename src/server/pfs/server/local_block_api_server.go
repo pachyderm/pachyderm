@@ -184,6 +184,9 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 		if bytesWritten > client.BlockSize && delimiter != pfsclient.Delimiter_NONE {
 			break
 		}
+		if bytesWritten > client.MaxBlockSize {
+			break
+		}
 	}
 
 	return &pfsclient.BlockRef{

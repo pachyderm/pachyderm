@@ -47,6 +47,8 @@ type APIClient struct {
 var (
 	//BlockSize is used internally by PFS blockserver
 	BlockSize = 8 * 1024 * 1024 // 8 Megabytes
+	// MaxBlockSize specifies the maximum block size for any data type
+	MaxBlockSize = 100 * 1024 * 1024 // 100 MB
 	// MaxMsgSize is used to define the GRPC frame size, which we need to be greater than a block
 	MaxMsgSize = 3 * BlockSize
 )
