@@ -281,15 +281,15 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	return eg.Wait()
 }
 
-func (s *objBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *types.BytesValue, retErr error) {
+func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.objectCache.Get(ctx, splitKey(request.Hash), sink); err != nil {
-		return nil, err
+	if err := s.objectCache.Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
+		return err
 	}
-	return &types.BytesValue{Value: data}, nil
+	return getObjectServer.Send(&types.BytesValue{Value: data})
 }
 
 func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
@@ -324,15 +324,15 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	return objectInfo, nil
 }
 
-func (s *objBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *types.BytesValue, retErr error) {
+func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(hashTag(request).Name), sink); err != nil {
-		return nil, err
+	if err := s.tagCache.Get(getTagServer.Context(), splitKey(hashTag(request).Name), sink); err != nil {
+		return err
 	}
-	return s.GetObject(ctx, object)
+	return s.GetObject(object, getTagServer)
 }
 
 func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {

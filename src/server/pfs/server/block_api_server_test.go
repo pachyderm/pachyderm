@@ -12,7 +12,7 @@ func TestPutGet(t *testing.T) {
 	c := getPachClient(t)
 	object, err := c.PutObject(strings.NewReader("foo"))
 	require.NoError(t, err)
-	value, err := c.GetObject(object.Hash)
+	value, err := c.ReadObject(object.Hash)
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
 	objectInfo, err := c.InspectObject(object.Hash)
@@ -25,13 +25,13 @@ func TestTags(t *testing.T) {
 	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
 	require.NoError(t, err)
 	require.NoError(t, c.TagObject(object.Hash, "buzz"))
-	value, err := c.GetTag("bar")
+	value, err := c.ReadTag("bar")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
-	value, err = c.GetTag("fizz")
+	value, err = c.ReadTag("fizz")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
-	value, err = c.GetTag("buzz")
+	value, err = c.ReadTag("buzz")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
 }
@@ -46,10 +46,10 @@ func TestManyObjects(t *testing.T) {
 	}
 	require.NoError(t, c.Compact())
 	for i, hash := range objects {
-		value, err := c.GetObject(hash)
+		value, err := c.ReadObject(hash)
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
-		value, err = c.GetTag(string(i))
+		value, err = c.ReadTag(string(i))
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
 	}

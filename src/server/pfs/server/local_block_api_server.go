@@ -179,14 +179,19 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 	return nil
 }
 
-func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *types.BytesValue, retErr error) {
+func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	value, err := ioutil.ReadFile(s.objectPath(request))
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	file, err := os.Open(s.objectPath(request))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &types.BytesValue{Value: value}, nil
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return grpcutil.WriteToStreamingBytesServer(file, getObjectServer)
 }
 
 func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
@@ -221,14 +226,19 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 	}, nil
 }
 
-func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *types.BytesValue, retErr error) {
+func (s *localBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	value, err := ioutil.ReadFile(s.tagPath(request))
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	file, err := os.Open(s.tagPath(request))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &types.BytesValue{Value: value}, nil
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return grpcutil.WriteToStreamingBytesServer(file, getTagServer)
 }
 
 func (s *localBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {

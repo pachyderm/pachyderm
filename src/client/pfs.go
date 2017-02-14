@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -463,17 +464,30 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, r
 }
 
 // GetObject gets an object out of the object store by hash.
-func (c APIClient) GetObject(hash string) ([]byte, error) {
-	value, err := c.ObjectAPIClient.GetObject(
+func (c APIClient) GetObject(hash string, writer io.Writer) error {
+	getObjectClient, err := c.ObjectAPIClient.GetObject(
 		c.ctx(),
 		&pfs.Object{Hash: hash},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return sanitizeErr(err)
 	}
-	return value.Value, nil
+	if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, writer); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
 }
 
+// ReadObject gets an object by hash and returns it directly as []byte.
+func (c APIClient) ReadObject(hash string) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := c.GetObject(hash, &buffer); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// TagObject applies a tag to an existing object.
 func (c APIClient) TagObject(hash string, tags ...string) error {
 	var _tags []*pfs.Tag
 	for _, tag := range tags {
@@ -504,15 +518,27 @@ func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
 }
 
 // GetTag gets an object out of the object store by tag.
-func (c APIClient) GetTag(tag string) ([]byte, error) {
-	value, err := c.ObjectAPIClient.GetTag(
+func (c APIClient) GetTag(tag string, writer io.Writer) error {
+	getTagClient, err := c.ObjectAPIClient.GetTag(
 		c.ctx(),
 		&pfs.Tag{Name: tag},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return sanitizeErr(err)
 	}
-	return value.Value, nil
+	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, writer); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
+// ReadTag gets an object by tag and returns it directly as []byte.
+func (c APIClient) ReadTag(tag string) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := c.GetTag(tag, &buffer); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 // Compact forces compaction of objects.
