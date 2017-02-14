@@ -16,7 +16,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	"go.pedge.io/pb/go/google/protobuf"
 
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
@@ -171,26 +170,26 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 	if err := os.Rename(tmpPath, objectPath); err != nil && retErr == nil {
 		retErr = err
 	}
-	if _, err := s.TagObject(ctx, &pfsclient.TagObjectRequest{
+	if _, err := s.TagObject(server.Context(), &pfsclient.TagObjectRequest{
 		Object: object,
-		Tags:   request.Tags,
+		Tags:   putObjectReader.tags,
 	}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *google_protobuf.BytesValue, retErr error) {
+func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.Object) (response *types.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	value, err := ioutil.ReadFile(s.objectPath(request))
 	if err != nil {
 		return nil, err
 	}
-	return &google_protobuf.BytesValue{Value: value}, nil
+	return &types.BytesValue{Value: value}, nil
 }
 
-func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectPath := s.objectPath(request.Object)
@@ -199,6 +198,7 @@ func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.
 			return nil, err
 		}
 	}
+	return &types.Empty{}, nil
 }
 
 func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
@@ -221,18 +221,18 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 	}, nil
 }
 
-func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *google_protobuf.BytesValue, retErr error) {
+func (s *localBlockAPIServer) GetTag(ctx context.Context, request *pfsclient.Tag) (response *types.BytesValue, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	value, err := ioutil.ReadFile(s.tagPath(request))
 	if err != nil {
 		return nil, err
 	}
-	return &google_protobuf.BytesValue{Value: value}, nil
+	return &types.BytesValue{Value: value}, nil
 }
 
-func (s *localBlockAPIServer) Compact(ctx context.Context, request *google_protobuf.Empty) (response *google_protobuf.Empty, retErr error) {
-	return google_protobuf.EmptyInstance, nil
+func (s *localBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	return &types.Empty{}, nil
 }
 
 func (s *localBlockAPIServer) blockDir() string {

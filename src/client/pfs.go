@@ -474,6 +474,23 @@ func (c APIClient) GetObject(hash string) ([]byte, error) {
 	return value.Value, nil
 }
 
+func (c APIClient) TagObject(hash string, tags ...string) error {
+	var _tags []*pfs.Tag
+	for _, tag := range tags {
+		_tags = append(_tags, &pfs.Tag{Name: tag})
+	}
+	if _, err := c.ObjectAPIClient.TagObject(
+		c.ctx(),
+		&pfs.TagObjectRequest{
+			Object: &pfs.Object{Hash: hash},
+			Tags:   _tags,
+		},
+	); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
 // InspectObject returns info about an Object.
 func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
 	value, err := c.ObjectAPIClient.InspectObject(
@@ -502,7 +519,7 @@ func (c APIClient) GetTag(tag string) ([]byte, error) {
 func (c APIClient) Compact() error {
 	_, err := c.ObjectAPIClient.Compact(
 		c.ctx(),
-		google_protobuf.EmptyInstance,
+		&types.Empty{},
 	)
 	return err
 }
