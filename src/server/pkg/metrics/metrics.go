@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/dancannon/gorethink"
 	"github.com/segmentio/analytics-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -21,31 +20,15 @@ type Reporter struct {
 	segmentClient *analytics.Client
 	clusterID     string
 	kubeClient    *kube.Client
-	dbClient      *gorethink.Session
-	pfsDbName     string
-	ppsDbName     string
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, kubeClient *kube.Client, address string, pfsDbName string, ppsDbName string) *Reporter {
-	dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
-		Address: address,
-		Timeout: 5 * time.Second,
-		MaxIdle: 5,
-		MaxOpen: 100,
-	})
-	if err != nil {
-		log.Errorf("error connected to DB when reporting metrics: %v\n", err)
-		return nil
-	}
+func NewReporter(clusterID string, kubeClient *kube.Client) *Reporter {
 	reporter := &Reporter{
 		segmentClient: newPersistentClient(),
 		clusterID:     clusterID,
 		kubeClient:    kubeClient,
-		dbClient:      dbClient,
-		pfsDbName:     pfsDbName,
-		ppsDbName:     ppsDbName,
 	}
 	go reporter.reportClusterMetrics()
 	return reporter
@@ -130,30 +113,10 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
 }
 
-func (r *Reporter) dbMetrics(metrics *Metrics) {
-	cursor, err := gorethink.Object(
-		"Repos",
-		gorethink.DB(r.pfsDbName).Table("Repos").Count(),
-		"Commits",
-		gorethink.DB(r.pfsDbName).Table("Commits").Count(),
-		"Diffs",
-		gorethink.DB(r.pfsDbName).Table("Diffs").Count(),
-		"Jobs",
-		gorethink.DB(r.ppsDbName).Table("JobInfos").Count(),
-		"Pipelines",
-		gorethink.DB(r.ppsDbName).Table("PipelineInfos").Count(),
-	).Run(r.dbClient)
-	if err != nil {
-		log.Errorf("Error Fetching Metrics:%+v", err)
-	}
-	cursor.One(&metrics)
-}
-
 func (r *Reporter) reportClusterMetrics() {
 	for {
 		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
-		r.dbMetrics(metrics)
 		externalMetrics(r.kubeClient, metrics)
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()

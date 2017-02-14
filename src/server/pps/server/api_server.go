@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -71,6 +72,7 @@ type apiServer struct {
 	protorpclog.Logger
 	hasher                  *ppsserver.Hasher
 	address                 string
+	etcdClient              *etcd.Client
 	pfsAPIClient            pfsclient.APIClient
 	pfsClientOnce           sync.Once
 	kubeClient              *kube.Client
