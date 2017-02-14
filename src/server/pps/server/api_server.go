@@ -2072,6 +2072,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commitInfo.Commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 		}
 	}
