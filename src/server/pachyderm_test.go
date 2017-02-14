@@ -517,6 +517,68 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
+func TestLazyPipelinePropagation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestPipeline_datax")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	require.NoError(t, c.CreatePipeline(
+		"pipelinea",
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+			Lazy:   true,
+		}},
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		"pipelineb",
+		"",
+		[]string{"cp", path.Join("/pfs", "pipelinea", "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: "pipelinea"},
+			Method: client.MapMethod,
+			Lazy:   true,
+		}},
+		false,
+	))
+
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	// Inspect each job
+	_, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+
+	jobInfos, err := c.ListJob("pipelinea", nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	jobInfos, err = c.ListJob("pipelineb", nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+}
+
 func TestPipelineOverwrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
