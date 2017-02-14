@@ -483,6 +483,33 @@ func TestPutFileBig(t *testing.T) {
 	require.Equal(t, string(expectedOutputA), buffer.String())
 }
 
+func TestPutFileOverMaxMsgSize(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	rawMessage := "Some\nreal\ncustom\ncontent."
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > pclient.MaxMsgSize) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := bytes.NewReader(expectedOutputA)
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfs.Delimiter_NONE, r)
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
+}
+
 func TestPutFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -3497,7 +3524,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: MaxMsgSize,
+				MaxMsgSize: pclient.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
