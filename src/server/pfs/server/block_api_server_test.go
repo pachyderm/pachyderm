@@ -22,9 +22,13 @@ func TestPutGet(t *testing.T) {
 
 func TestTags(t *testing.T) {
 	c := getPachClient(t)
-	_, err := c.PutObject(strings.NewReader("foo"), "bar", "buzz")
+	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
 	require.NoError(t, err)
+	require.NoError(t, c.TagObject(object.Hash, "buzz"))
 	value, err := c.GetTag("bar")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	value, err = c.GetTag("fizz")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
 	value, err = c.GetTag("buzz")
