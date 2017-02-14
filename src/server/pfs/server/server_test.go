@@ -1660,6 +1660,7 @@ func TestATonOfPuts(t *testing.T) {
 	numGoros := 100
 	var expectedOutput []byte
 	var wg sync.WaitGroup
+	putFileStarted := time.Now()
 	for j := 0; j < numGoros; j++ {
 		wg.Add(1)
 		go func() {
@@ -1676,8 +1677,13 @@ func TestATonOfPuts(t *testing.T) {
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
 	wg.Wait()
+	putFileFinished := time.Now()
+	fmt.Printf("PutFile took: %s", putFileFinished.Sub(putFileStarted))
 
+	finishCommitStarted := time.Now()
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+	finishCommitFinished := time.Now()
+	fmt.Printf("FinishCommit took: %s", finishCommitFinished.Sub(finishCommitStarted))
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))

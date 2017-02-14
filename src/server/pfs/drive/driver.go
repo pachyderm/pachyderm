@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -98,7 +99,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		return err
 	}
 
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos(stm)
 		repoRefCounts := d.repoRefCounts(stm)
 
@@ -190,7 +191,7 @@ nextRepo:
 }
 
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos(stm)
 		repoRefCounts := d.repoRefCounts(stm)
 		commits := d.commits(stm)(repo.Name)
@@ -235,7 +236,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
 	}
-	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos(stm)
 		commits := d.commits(stm)(parent.Repo.Name)
 		branches := d.branches(stm)(parent.Repo.Name)
@@ -268,7 +269,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 			head := new(pfs.Commit)
 			// See if we are given a branch
 			if err := branches.Get(parent.ID, head); err != nil {
-				if _, ok := err.(ErrNotFound); !ok {
+				if _, ok := err.(col.ErrNotFound); !ok {
 					return err
 				}
 			} else {
@@ -312,7 +313,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 
-	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
 		repos := d.repos(stm)
 
@@ -489,7 +490,7 @@ type commitInfoIterator struct {
 	driver *driver
 	buffer []*pfs.CommitInfo
 	// an iterator that receives new commits
-	newCommitsIter IterateCloser
+	newCommitsIter col.IterateCloser
 	// record whether a commit has been seen
 	seen map[string]bool
 }
@@ -614,7 +615,7 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 }
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
 		branches := d.branches(stm)(commit.Repo.Name)
 
@@ -631,7 +632,7 @@ func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string)
 }
 
 func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(stm)(repo.Name)
 		return branches.Delete(name)
 	})
@@ -646,13 +647,13 @@ func (d *driver) resolveBranch(ctx context.Context, commit *pfs.Commit) error {
 	if commit == nil {
 		return nil
 	}
-	_, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(stm)(commit.Repo.Name)
 
 		head := new(pfs.Commit)
 		// See if we are given a branch
 		if err := branches.Get(commit.ID, head); err != nil {
-			if _, ok := err.(ErrNotFound); !ok {
+			if _, ok := err.(col.ErrNotFound); !ok {
 				return err
 			}
 			// If it's not a branch, use it as it is
@@ -743,7 +744,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*has
 
 	// TODO: get the tree from a cache
 	var treeRef *pfs.BlockRef
-	if _, err := newSTM(ctx, d.etcdClient, func(stm STM) error {
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(stm)(commit.Repo.Name)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
