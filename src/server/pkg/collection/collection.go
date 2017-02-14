@@ -262,27 +262,37 @@ type IterateCloser interface {
 	io.Closer
 }
 
+type kv struct {
+	key   []byte
+	value []byte
+}
+
 type iterateCloser struct {
-	events  []*etcd.Event
+	kvs     []kv
 	watcher etcd.Watcher
 	rch     etcd.WatchChan
 }
 
 func (i *iterateCloser) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if len(i.events) == 0 {
+	if len(i.kvs) == 0 {
 		ev, ok := <-i.rch
 		if !ok {
 			return false, nil
 		}
 
-		i.events = append(i.events, ev.Events...)
+		for _, ev := range ev.Events {
+			i.kvs = append(i.kvs, kv{
+				key:   ev.Kv.Key,
+				value: ev.Kv.Value,
+			})
+		}
 	}
 
-	kv := i.events[0].Kv
-	i.events = i.events[1:]
+	kv := i.kvs[0]
+	i.kvs = i.kvs[1:]
 
-	*key = string(kv.Key)
-	if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
+	*key = string(kv.key)
+	if err := proto.UnmarshalText(string(kv.value), val); err != nil {
 		return false, err
 	}
 
@@ -293,16 +303,35 @@ func (i *iterateCloser) Close() error {
 	return i.watcher.Close()
 }
 
-// Watch watches new items added to this collection
+// Watch a collection, returning the current content of the collection as
+// well as any future additions.
 // TODO: handle deletion events; right now if an item is deleted from
 // this collection, we treat the event as if it's an addition event.
 func (c *ReadonlyCollection) Watch() (IterateCloser, error) {
+	// Firstly we list the collection to get the current items
+	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
 	watcher := etcd.NewWatcher(c.etcdClient)
-	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(1))
-	return &iterateCloser{
+	// Now we issue a watch that uses the revision timestamp returned by the
+	// Get request earlier.  That way even if some items are added between
+	// when we list the collection and when we start watching the collection,
+	// we won't miss any items.
+	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
+	iter := &iterateCloser{
 		watcher: watcher,
 		rch:     rch,
-	}, nil
+	}
+
+	for _, etcdKv := range resp.Kvs {
+		iter.kvs = append(iter.kvs, kv{
+			key:   etcdKv.Key,
+			value: etcdKv.Value,
+		})
+	}
+	return iter, nil
 }
 
 // WatchOne watches for the new values of a certain item

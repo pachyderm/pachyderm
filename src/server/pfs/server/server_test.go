@@ -1678,16 +1678,16 @@ func TestATonOfPuts(t *testing.T) {
 	}
 	wg.Wait()
 	putFileFinished := time.Now()
-	fmt.Printf("PutFile took: %s", putFileFinished.Sub(putFileStarted))
 
 	finishCommitStarted := time.Now()
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	finishCommitFinished := time.Now()
-	fmt.Printf("FinishCommit took: %s", finishCommitFinished.Sub(finishCommitStarted))
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, string(expectedOutput), buffer.String())
+	fmt.Printf("PutFile took: %s\n", putFileFinished.Sub(putFileStarted))
+	fmt.Printf("FinishCommit took: %s\n", finishCommitFinished.Sub(finishCommitStarted))
 }
 
 func TestPutFileNullCharacter(t *testing.T) {
