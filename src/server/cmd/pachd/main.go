@@ -26,8 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
-	"github.com/pachyderm/pachyderm/src/server/pps/persist"
-	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	flag "github.com/spf13/pflag"
@@ -53,9 +51,8 @@ type appEnv struct {
 	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot        string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend     string `env:"STORAGE_BACKEND,default="`
-	DatabaseAddress    string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
-	PPSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pps"`
-	PFSDatabaseName    string `env:"DATABASE_NAME,default=pachyderm_pfs"`
+	PPSEtcdPrefix      string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	PFSEtcdPrefix      string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress        string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress        string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace          string `env:"NAMESPACE,default=default"`
@@ -88,12 +85,6 @@ func do(appEnvObj interface{}) error {
 		lion.SetLevel(lion.LevelInfo)
 	}
 	etcdClient := getEtcdClient(appEnv)
-	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
-	if appEnv.Init {
-		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
-			return err
-		}
-	}
 	if readinessCheck {
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
@@ -116,9 +107,6 @@ func do(appEnvObj interface{}) error {
 
 		return nil
 	}
-	if migrate != "" {
-		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
-	}
 
 	clusterID, err := getClusterID(etcdClient)
 	if err != nil {
@@ -130,11 +118,7 @@ func do(appEnvObj interface{}) error {
 	}
 	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		reporter = metrics.NewReporter(clusterID, kubeClient, rethinkAddress, appEnv.PFSDatabaseName, appEnv.PPSDatabaseName)
-	}
-	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
-	if err != nil {
-		return err
+		reporter = metrics.NewReporter(clusterID, kubeClient)
 	}
 	address, err := netutil.ExternalIP()
 	if err != nil {
@@ -151,7 +135,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := pfs_driver.NewDriver(address, []string(appEnv.EtcdAddress), appEnv.PFSDatabaseName)
+	driver, err := pfs_driver.NewDriver(address, []string(appEnv.EtcdAddress), appEnv.PFSEtcdPrefix)
 	//	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
@@ -171,6 +155,7 @@ func do(appEnvObj interface{}) error {
 	}()
 	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer := pps_server.NewAPIServer(
+		appEnv.EtcdAddress,
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
 		kubeClient,
@@ -195,7 +180,6 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalPodAPIServer(s, ppsAPIServer)
-			persist.RegisterAPIServer(s, rethinkAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
@@ -242,13 +226,6 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 		Insecure: true,
 	}
 	return kube.New(config)
-}
-
-func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
-	if err := persist_server.CheckDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.PPSDatabaseName); err != nil {
-		return nil, err
-	}
-	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.PPSDatabaseName)
 }
 
 // getNamespace returns the kubernetes namespace that this pachd pod runs in
