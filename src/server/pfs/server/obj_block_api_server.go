@@ -30,7 +30,6 @@ import (
 
 const (
 	prefixLength = 2
-	cacheSize    = 1024 * 1024 * 1024 * 10 // 10 Gigabytes
 	alphabet     = "0123456789abcdef"
 )
 
