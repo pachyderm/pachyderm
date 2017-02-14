@@ -15,7 +15,6 @@ import (
 // APIServer represents an api server.
 type APIServer interface {
 	ppsclient.APIServer
-	ppsserver.InternalPodAPIServer
 	shard.Frontend
 	shard.Server
 }
@@ -36,8 +35,6 @@ func NewAPIServer(
 		address:                 address,
 		pfsAPIClient:            nil,
 		pfsClientOnce:           sync.Once{},
-		persistAPIClient:        nil,
-		persistClientOnce:       sync.Once{},
 		kubeClient:              kubeClient,
 		shardCancelFuncs:        make(map[uint64]func()),
 		shardCancelFuncsLock:    sync.Mutex{},
