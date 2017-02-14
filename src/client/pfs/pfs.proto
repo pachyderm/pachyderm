@@ -1,13 +1,12 @@
 syntax = "proto3";
+package pfs;
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-import "client/pkg/shard/shard.proto";
-
-package pfs;
+import "gogoproto/gogo.proto";
 
 message Repo {
   string name = 1;
@@ -15,7 +14,7 @@ message Repo {
 
 message Commit {
   Repo repo = 1;
-  string id = 2;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
 message Commits {
@@ -382,3 +381,4 @@ message ObjectIndex {
   map<string, BlockRef> objects = 1;
   map<string, Object> tags = 2;
 }
+

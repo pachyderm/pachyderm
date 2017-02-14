@@ -5,9 +5,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dancannon/gorethink"
-	"go.pedge.io/lion"
-	"go.pedge.io/pb/go/google/protobuf"
+	"github.com/gogo/protobuf/types"
 )
 
 type migrationFunc func(address string, databaseName string) error
@@ -33,7 +33,7 @@ func oneTwoFourToOneThreeZero(address, databaseName string) error {
 	if err != nil {
 		return err
 	}
-	lion.Infof("Creating %s index", pipelineNameAndStateAndGCIndex)
+	log.Infof("Creating %s index", pipelineNameAndStateAndGCIndex)
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
 		pipelineNameAndStateAndGCIndex,
 		func(row gorethink.Term) interface{} {
@@ -46,13 +46,13 @@ func oneTwoFourToOneThreeZero(address, databaseName string) error {
 		return err
 	}
 
-	lion.Infof("Adding default GC policy to all pipelines")
+	log.Infof("Adding default GC policy to all pipelines")
 	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).Update(map[string]interface{}{
 		"GcPolicy": &pps.GCPolicy{
-			Success: &google_protobuf.Duration{
+			Success: &types.Duration{
 				Seconds: 24 * 60 * 60,
 			},
-			Failure: &google_protobuf.Duration{
+			Failure: &types.Duration{
 				Seconds: 7 * 24 * 60 * 60,
 			},
 		},
@@ -60,13 +60,13 @@ func oneTwoFourToOneThreeZero(address, databaseName string) error {
 		return err
 	}
 
-	lion.Infof("Adding GC flag to all jobs")
+	log.Infof("Adding GC flag to all jobs")
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).Update(map[string]interface{}{
 		"Gc": false,
 	}).Run(session); err != nil {
 		return err
 	}
 
-	lion.Infof("Migration succeeded")
+	log.Infof("Migration succeeded")
 	return nil
 }

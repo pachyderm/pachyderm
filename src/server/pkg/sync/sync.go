@@ -9,10 +9,10 @@ import (
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	"go.pedge.io/lion"
-	protostream "go.pedge.io/proto/stream"
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,9 +47,12 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 	}
 
 	var g errgroup.Group
+	sem := make(chan struct{}, 100)
 	for _, fileInfo := range fileInfos.FileInfo {
 		fileInfo := fileInfo
+		sem <- struct{}{}
 		g.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			switch fileInfo.FileType {
 			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
@@ -73,21 +76,21 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 					go func() {
 						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 						if err != nil {
-							lion.Printf("error opening %s: %s", path, err)
+							log.Printf("error opening %s: %s", path, err)
 							return
 						}
 						defer func() {
 							if err := f.Close(); err != nil {
-								lion.Printf("error closing %s: %s", path, err)
+								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
 						getFileClient, err := client.GetFile(ctx, request)
 						if err != nil {
-							lion.Printf("error from GetFile: %s", err)
+							log.Printf("error from GetFile: %s", err)
 							return
 						}
-						if err := protostream.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-							lion.Printf("error streaming data: %s", err)
+						if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
+							log.Printf("error streaming data: %s", err)
 							return
 						}
 					}()
@@ -105,7 +108,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 					if err != nil {
 						return err
 					}
-					return protostream.WriteFromStreamingBytesClient(getFileClient, f)
+					return grpcutil.WriteFromStreamingBytesClient(getFileClient, f)
 				}
 			case pfs.FileType_FILE_TYPE_DIR:
 				return pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
@@ -22,6 +23,7 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -30,10 +32,8 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	flag "github.com/spf13/pflag"
-	"go.pedge.io/env"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -62,14 +62,14 @@ type appEnv struct {
 	Namespace          string `env:"NAMESPACE,default=default"`
 	Metrics            bool   `env:"METRICS,default=true"`
 	Init               bool   `env:"INIT,default=false"`
-	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
+	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=5368709120"` //default = 5 gigabyte
 	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
 	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
 	LogLevel           string `env:"LOG_LEVEL,default=info"`
 }
 
 func main() {
-	env.Main(do, &appEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
@@ -91,9 +91,6 @@ func do(appEnvObj interface{}) error {
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAddress := fmt.Sprintf("%s:28015", appEnv.DatabaseAddress)
 	if appEnv.Init {
-		if err := setClusterID(etcdClient); err != nil {
-			return fmt.Errorf("error connecting to etcd, if this error persists it likely indicates that kubernetes services are not working correctly. See https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#pachd-or-pachd-init-crash-loop-with-error-connecting-to-etcd for more info")
-		}
 		if err := persist_server.InitDBs(rethinkAddress, appEnv.PPSDatabaseName); err != nil {
 			return err
 		}
@@ -194,7 +191,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	return protoserver.Serve(
+	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
@@ -205,10 +202,11 @@ func do(appEnvObj interface{}) error {
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
-		protoserver.ServeOptions{
-			Version: version.Version,
+		grpcutil.ServeOptions{
+			Version:    version.Version,
+			MaxMsgSize: pfs_server.MaxMsgSize,
 		},
-		protoserver.ServeEnv{
+		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,
 		},
 	)
@@ -220,19 +218,19 @@ func getEtcdClient(env *appEnv) discovery.Client {
 
 const clusterIDKey = "cluster-id"
 
-func setClusterID(client discovery.Client) error {
-	return client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
-}
-
 func getClusterID(client discovery.Client) (string, error) {
 	id, err := client.Get(clusterIDKey)
-	if err != nil {
+	// if it's a key not found error then we create the key
+	if err != nil && strings.HasPrefix(err.Error(), "100:") {
+		// This might error if it races with another pachd trying to set the
+		// cluster id so we ignore the error.
+		client.Create(clusterIDKey, uuid.NewWithoutDashes(), 0)
+	} else if err != nil {
 		return "", err
+	} else {
+		return id, nil
 	}
-	if id == "" {
-		return "", fmt.Errorf("clusterID not yet set")
-	}
-	return id, nil
+	return client.Get(clusterIDKey)
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {

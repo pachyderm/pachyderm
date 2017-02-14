@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/proto/rpclog"
+	protolion "go.pedge.io/lion"
+	protorpclog "go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -59,15 +59,23 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		objClient:     objClient,
 		objectIndexes: make(map[string]*pfsclient.ObjectIndex),
 	}
-	server.blockCache = groupcache.NewGroup("block", cacheSize,
+	server.blockCache = groupcache.NewGroup("block", cacheBytes,
 		groupcache.GetterFunc(server.blockGetter))
-	server.objectCache = groupcache.NewGroup("object", cacheSize,
+	server.objectCache = groupcache.NewGroup("object", cacheBytes,
 		groupcache.GetterFunc(server.objectGetter))
-	server.tagCache = groupcache.NewGroup("tag", cacheSize,
+	server.tagCache = groupcache.NewGroup("tag", cacheBytes,
 		groupcache.GetterFunc(server.tagGetter))
-	server.objectInfoCache = groupcache.NewGroup("objectInfo", cacheSize,
+	server.objectInfoCache = groupcache.NewGroup("objectInfo", cacheBytes,
 		groupcache.GetterFunc(server.objectInfoGetter))
 	return server, nil
+}
+
+func newMinioBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+	objClient, err := obj.NewMinioClientFromSecret("")
+	if err != nil {
+		return nil, err
+	}
+	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
 func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
@@ -95,8 +103,8 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 }
 
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
-	result := &pfsclient.BlockRefs{}
 	func() { s.Log(nil, nil, nil, 0) }()
+	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	defer drainBlockServer(putBlockServer)
 	putBlockRequest, err := putBlockServer.Recv()
@@ -118,9 +126,10 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		eg.Go(func() (retErr error) {
+		eg.Go(func() error {
+			var outerErr error
+			path := s.localServer.blockPath(blockRef.Block)
 			backoff.RetryNotify(func() error {
-				path := s.localServer.blockPath(blockRef.Block)
 				// We don't want to overwrite blocks that already exist, since:
 				// 1) blocks are content-addressable, so it will be the same block
 				// 2) we risk exceeding the object store's rate limit
@@ -129,18 +138,18 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				}
 				writer, err := s.objClient.Writer(path)
 				if err != nil {
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				if _, err := writer.Write(data); err != nil {
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				if err := writer.Close(); err != nil {
 					if s.objClient.IsRetryable(err) {
 						return err
 					}
-					retErr = err
+					outerErr = err
 					return nil
 				}
 				return nil
@@ -150,7 +159,14 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 					TimeTillNextRetry: d.String(),
 				})
 			})
-			return
+			// Weird effects can happen with clients racing. Ultimately if the
+			// path exists then it doesn't make sense to consider this
+			// operation as having errored because we know that it contains the
+			// data we want thanks to content addressing.
+			if outerErr != nil && !s.objClient.Exists(path) {
+				return outerErr
+			}
+			return nil
 		})
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
@@ -177,10 +193,10 @@ func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBloc
 	} else {
 		data = nil
 	}
-	return getBlockServer.Send(&google_protobuf.BytesValue{Value: data})
+	return getBlockServer.Send(&types.BytesValue{Value: data})
 }
 
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	backoff.RetryNotify(func() error {
@@ -194,17 +210,14 @@ func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.
 			TimeTillNextRetry: d.String(),
 		})
 	})
-	return google_protobuf.EmptyInstance, nil
+	return &types.Empty{}, nil
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
