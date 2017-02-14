@@ -376,10 +376,10 @@ message TagObjectRequest {
 
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
-  rpc GetObject(Object) returns (google.protobuf.BytesValue) {}
+  rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
-  rpc GetTag(Tag) returns (google.protobuf.BytesValue) {}
+  rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
