@@ -1,7 +1,3 @@
-ifndef VENDOR_IGNORE_DIRS
-	VENDOR_IGNORE_DIRS = go.pedge.io
-endif
-
 vendor-update:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=1 go get -d -v -t -u -f ./... ./.
 

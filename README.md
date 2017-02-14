@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/badge/license-apache-blue.svg)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://godoc.org/github.com/pachyderm/pachyderm/src/client)
-[![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
+[![Slack Status](http://slack.pachyderm.io/badge.svg)](https://pachyderm-users.slack.com/shared_invite/MTQwMzA4OTU1NzY2LTE0ODY2ODk4NjUtMjNhMGRmM2NmZQ)
 
 # Pachyderm: A Containerized, Version-Controlled Data Lake
 
@@ -55,7 +55,7 @@ a streaming job, the same code will work for both!
 ## Community
 Keep up to date and get Pachyderm support via:
 - [Twitter](http://twitter.com/pachydermio)
-- [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io)  to get help from the Pachyderm team and other users.
+- [![Slack Status](http://slack.pachyderm.io/badge.svg)](https://pachyderm-users.slack.com/shared_invite/MTQwMzA4OTU1NzY2LTE0ODY2ODk4NjUtMjNhMGRmM2NmZQ) Join our community [Slack Channel](https://pachyderm-users.slack.com/shared_invite/MTQwMzA4OTU1NzY2LTE0ODY2ODk4NjUtMjNhMGRmM2NmZQ)  to get help from the Pachyderm team and other users.
 
 ### Contributing
 

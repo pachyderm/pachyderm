@@ -19,7 +19,7 @@ Partition Unit
 
 Partition unit specifies the granularity at which input data is parallelized across containers.  It can be of three values: 
 
-1. ``BLOCK``: different blocks of the same file may be parelleized across containers.
+1. ``BLOCK``: different blocks of the same file may be parallelized across containers.
 
 2. ``FILE`` (Top-level Objects): the files and/or directories residing under the root directory (/) must be grouped together.  For instance, if you have four files in a directory structure like: 
 
@@ -39,9 +39,7 @@ then there are only three top-level objects, ``/foo``, ``/bar``, and ``/baz``. `
 Incrementality
 ^^^^^^^^^^^^^^
 
-#### Incrementality
-
-Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commmit (the "diff"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
+Incrementality ("NONE", "DIFF" or "FILE") describes what data needs to be available when a new commit is made on an input repo. Namely, do you want to process *only the new data* in that commit (the "diff"), only files with any new data ("FILE"), or does all of the data need to be reprocessed ("NONE")?
 
 For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/bar`` in commit 2, then:
 
@@ -51,7 +49,8 @@ For instance, if you have a repo with the file ``/foo`` in commit 1 and file ``/
 
 * "FILE" (Top-level objects) means that if any part in a file (or alternatively any file within a directory) changes, then show all the data in that file (directory). For example, you may have vendor data files in separate directories by state -- the California directory contains a file for each california vendor, etc.  ``Incremental: "FILE"`` would mean that your job will see the entire directory if at least one file in that directory has changed. If only one vendor file in the whole repo was was changed and it was in the Colorado directory, all Colorado vendor files would be present, but that's it. 
 
-#### Combining Partition unit and Incrementality
+Combining Partition unit and Incrementality
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For convenience, we have defined aliases for the three most commonly used (and most familiar) input methods: "map", "reduce", and "global". 
 

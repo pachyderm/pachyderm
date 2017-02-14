@@ -24,16 +24,16 @@ Doing this on big data sets gets interesting, but having a simple underlying int
 
 ## Versioning
 
-PFS is very Git-like. A data set is compromised of many `Files`, which constitutes a `Repo`. 
+Interactions with PFS are very Git-like. Your data, which is made up of one or more `Files`, is versioned in a data repository, or `Repo`. 
 
-In PFS you version your data with `Commits`. By versioning your data, you can:
+With PFS, you version your data by making `Commits` of data into `Repos`. By versioning your data, you can:
 
 - reproduce any input or output for your processing, which in turn enables ...
 - collaborating with your peers on a data set
 
 [Reproducibility and Collaboration](https://pachyderm.io/dsbor.html) are things we care a lot about.
 
-We store each commit only as the data that changed from the prior commit. This is a concept borrowed from Git. Storing your data this way also allows us to enable [Incrementality](https://pachyderm.io/dsbor.html).
+We store each commit as only the data that changed from the prior commit, which is where PFS differs from Git. Storing your data this way allows us to enable [Incrementality](https://pachyderm.io/dsbor.html) and keeps PFS space efficient.
 
 ## Files vs Blocks
 
