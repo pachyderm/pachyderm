@@ -171,10 +171,11 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 	if err := os.Rename(tmpPath, objectPath); err != nil && retErr == nil {
 		retErr = err
 	}
-	for _, tag := range putObjectReader.tags {
-		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
-			return err
-		}
+	if _, err := s.TagObject(ctx, &pfsclient.TagObjectRequest{
+		Object: object,
+		Tags:   request.Tags,
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -187,6 +188,17 @@ func (s *localBlockAPIServer) GetObject(ctx context.Context, request *pfsclient.
 		return nil, err
 	}
 	return &google_protobuf.BytesValue{Value: value}, nil
+}
+
+func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *google_protobuf.Empty, retErr error) {
+	func() { s.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	objectPath := s.objectPath(request.Object)
+	for _, tag := range request.Tags {
+		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
+			return nil, err
+		}
+	}
 }
 
 func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
