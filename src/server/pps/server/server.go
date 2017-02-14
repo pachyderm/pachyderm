@@ -24,6 +24,7 @@ type APIServer interface {
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	etcdAddress string,
+	etcdPrefix string,
 	hasher *ppsserver.Hasher,
 	address string,
 	kubeClient *kube.Client,
@@ -41,24 +42,19 @@ func NewAPIServer(
 	}
 
 	return &apiServer{
-		Logger:                  protorpclog.NewLogger("pps.API"),
-		hasher:                  hasher,
-		address:                 address,
-		etcdClient:              etcdClient,
-		pfsAPIClient:            nil,
-		pfsClientOnce:           sync.Once{},
-		kubeClient:              kubeClient,
-		shardCancelFuncs:        make(map[uint64]func()),
-		shardCancelFuncsLock:    sync.Mutex{},
-		pipelineCancelFuncs:     make(map[string]func()),
-		pipelineCancelFuncsLock: sync.Mutex{},
-		jobCancelFuncs:          make(map[string]func()),
-		jobCancelFuncsLock:      sync.Mutex{},
-		version:                 shard.InvalidVersion,
-		versionLock:             sync.RWMutex{},
-		namespace:               namespace,
-		jobShimImage:            jobShimImage,
-		jobImagePullPolicy:      jobImagePullPolicy,
-		reporter:                reporter,
-	}
+		Logger:             protorpclog.NewLogger("pps.API"),
+		etcdPrefix:         etcdPrefix,
+		hasher:             hasher,
+		address:            address,
+		etcdClient:         etcdClient,
+		pfsAPIClient:       nil,
+		pfsClientOnce:      sync.Once{},
+		kubeClient:         kubeClient,
+		version:            shard.InvalidVersion,
+		versionLock:        sync.RWMutex{},
+		namespace:          namespace,
+		jobShimImage:       jobShimImage,
+		jobImagePullPolicy: jobImagePullPolicy,
+		reporter:           reporter,
+	}, nil
 }

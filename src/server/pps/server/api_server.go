@@ -10,13 +10,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/types"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -68,21 +71,23 @@ func newErrParentInputsMismatch(parent string) error {
 	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
 }
 
+type ctxAndCancel struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
 type apiServer struct {
 	protorpclog.Logger
-	hasher                  *ppsserver.Hasher
-	address                 string
-	etcdClient              *etcd.Client
-	pfsAPIClient            pfsclient.APIClient
-	pfsClientOnce           sync.Once
-	kubeClient              *kube.Client
-	shardCancelFuncs        map[uint64]func()
-	shardCancelFuncsLock    sync.Mutex
-	pipelineCancelFuncs     map[string]func()
-	pipelineCancelFuncsLock sync.Mutex
-	jobCancelFuncs          map[string]func()
-	jobCancelFuncsLock      sync.Mutex
-	version                 int64
+	etcdPrefix    string
+	hasher        *ppsserver.Hasher
+	address       string
+	etcdClient    *etcd.Client
+	pfsAPIClient  pfsclient.APIClient
+	pfsClientOnce sync.Once
+	kubeClient    *kube.Client
+	shardLock     sync.RWMutex
+	shardCtxs     map[uint64]*ctxAndCancel
+	version       int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -233,7 +238,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		pipelineInfo := &ppsclient.PipelineInfo{
+			Pipeline:        request.Pipeline,
+			Transform:       request.Transform,
+			ParallelismSpec: request.ParallelismSpec,
+			Inputs:          request.Inputs,
+			Output:          request.Output,
+			GcPolicy:        request.GcPolicy,
+		}
+		a.pipelines(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		return nil
+	})
+	return &types.Empty{}, err
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, retErr error) {
@@ -297,76 +314,80 @@ func (a *apiServer) Version(version int64) error {
 	return nil
 }
 
-func (a *apiServer) newPipelineCtx(ctx context.Context, pipelineName string) context.Context {
-	ctx, cancel := context.WithCancel(ctx)
-	a.pipelineCancelFuncsLock.Lock()
-	defer a.pipelineCancelFuncsLock.Unlock()
-	if oldCancel, ok := a.pipelineCancelFuncs[pipelineName]; ok {
-		oldCancel()
-	}
-	a.pipelineCancelFuncs[pipelineName] = cancel
-	return ctx
+// pipelineWatcher watches for pipelines and launch pipelineManager
+// when it gets a pipeline that falls into a shard assigned to the
+// API server.
+func (a *apiServer) pipelineWatcher() {
+	b := backoff.NewExponentialBackOff()
+	// never stop retrying
+	b.MaxElapsedTime = 0
+	backoff.RetryNotify(func() error {
+		pipelineIter, err := a.pipelinesReadonly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+
+		for {
+			var pipelineName string
+			pipelineInfo := new(ppsclient.PipelineInfo)
+			ok, err := pipelineIter.Next(&pipelineName, pipelineInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("pipeline stream broken")
+			}
+			shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineInfo.Pipeline))
+			if shardCtx != nil {
+				go a.pipelineManager(shardCtx, pipelineInfo)
+			}
+		}
+	}, b, func(err error, d time.Duration) {
+		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
+	})
+	panic("pipelineWatcher should never exit")
 }
 
-func (a *apiServer) cancelPipeline(pipelineName string) error {
-	a.pipelineCancelFuncsLock.Lock()
-	defer a.pipelineCancelFuncsLock.Unlock()
-	cancel, ok := a.pipelineCancelFuncs[pipelineName]
-	if ok {
-		cancel()
-		delete(a.pipelineCancelFuncs, pipelineName)
-	} else {
-		return fmt.Errorf("trying to cancel a pipeline %s which has not been started; this is likely a bug", pipelineName)
-	}
-	return nil
+func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
 }
 
-func (a *apiServer) newJobCtx(ctx context.Context, jobID string) context.Context {
-	ctx, cancel := context.WithCancel(ctx)
-	a.jobCancelFuncsLock.Lock()
-	defer a.jobCancelFuncsLock.Unlock()
-	if oldCancel, ok := a.jobCancelFuncs[jobID]; ok {
-		oldCancel()
-	}
-	a.jobCancelFuncs[jobID] = cancel
-	return ctx
-}
-
-func (a *apiServer) cancelJob(jobID string) error {
-	a.jobCancelFuncsLock.Lock()
-	defer a.jobCancelFuncsLock.Unlock()
-	cancel, ok := a.jobCancelFuncs[jobID]
-	if ok {
-		cancel()
-		delete(a.jobCancelFuncs, jobID)
-	} else {
-		return fmt.Errorf("trying to cancel a job %s which has not been started; this is likely a bug", jobID)
+// getShardCtx returns the context associated with a shard that this server
+// manages.  It can also be used to determine if a shard is managed by this
+// server
+func (a *apiServer) getShardCtx(shard uint64) context.Context {
+	a.shardLock.RLock()
+	defer a.shardLock.RUnlock()
+	ctxAndCancel := a.shardCtxs[shard]
+	if ctxAndCancel != nil {
+		return ctxAndCancel.ctx
 	}
 	return nil
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
-	_, cancel := context.WithCancel(context.Background())
-	a.shardCancelFuncsLock.Lock()
-	defer a.shardCancelFuncsLock.Unlock()
-	if _, ok := a.shardCancelFuncs[shard]; ok {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.shardLock.Lock()
+	defer a.shardLock.Unlock()
+	if _, ok := a.shardCtxs[shard]; ok {
 		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
 	}
-	a.shardCancelFuncs[shard] = cancel
+	a.shardCtxs[shard] = &ctxAndCancel{
+		ctx:    ctx,
+		cancel: cancel,
+	}
 
 	return fmt.Errorf("TODO")
 }
 
 func (a *apiServer) DeleteShard(shard uint64) error {
-	a.shardCancelFuncsLock.Lock()
-	defer a.shardCancelFuncsLock.Unlock()
-	cancel, ok := a.shardCancelFuncs[shard]
+	a.shardLock.Lock()
+	defer a.shardLock.Unlock()
+	ctxAndCancel, ok := a.shardCtxs[shard]
 	if !ok {
 		return fmt.Errorf("shard %d is being deleted, but it was never added; this is likely a bug", shard)
 	}
-	cancel()
-	delete(a.shardCancelFuncs, shard)
-
+	ctxAndCancel.cancel()
+	delete(a.shardCtxs, shard)
 	return nil
 }
 

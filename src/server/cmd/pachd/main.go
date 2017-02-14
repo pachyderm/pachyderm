@@ -154,8 +154,9 @@ func do(appEnvObj interface{}) error {
 		}
 	}()
 	apiServer := pfs_server.NewAPIServer(driver, reporter)
-	ppsAPIServer := pps_server.NewAPIServer(
+	ppsAPIServer, err := pps_server.NewAPIServer(
 		appEnv.EtcdAddress,
+		appEnv.PPSEtcdPrefix,
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
 		kubeClient,
@@ -164,6 +165,9 @@ func do(appEnvObj interface{}) error {
 		appEnv.JobImagePullPolicy,
 		reporter,
 	)
+	if err != nil {
+		return err
+	}
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
