@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
@@ -70,7 +71,7 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(client.BlockSize) {
 			break
 		}
 	}
@@ -180,7 +181,7 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 		buffer.Write(value)
 		hash.Write(value)
 		bytesWritten += len(value)
-		if bytesWritten > blockSize && delimiter != pfsclient.Delimiter_NONE {
+		if bytesWritten > client.BlockSize && delimiter != pfsclient.Delimiter_NONE {
 			break
 		}
 	}
