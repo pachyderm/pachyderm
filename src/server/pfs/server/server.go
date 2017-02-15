@@ -26,6 +26,7 @@ type APIServer interface {
 	pfsclient.APIServer
 }
 
+// BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
 type BlockAPIServer interface {
 	pfsclient.BlockAPIServer
 	pfsclient.ObjectAPIServer
