@@ -38,18 +38,6 @@ func i(ss ...string) []interface{} {
 	return result
 }
 
-func clone(h HashTree) HashTree {
-	bb, err := h.Serialize()
-	if err != nil {
-		panic("could not clone HashTree: " + err.Error())
-	}
-	h2, err := Deserialize(bb)
-	if err != nil {
-		panic("could not clone HashTree: " + err.Error())
-	}
-	return h2
-}
-
 func tostring(hTmp HashTree) string {
 	h := hTmp.(*hashtree)
 	bufsize := len(h.fs) * 25
@@ -75,9 +63,7 @@ func equals(lTmp, rTmp HashTree) bool {
 
 // requireSame compares 'h' to another hash tree (e.g. to make sure that it
 // hasn't changed)
-func requireSame(t *testing.T, lTmp, rTmp HashTree) {
-	l, r := lTmp.(*hashtree), rTmp.(*hashtree)
-	// Make sure 'h' is still the same
+func requireSame(t *testing.T, l, r HashTree) {
 	_, file, line, _ := runtime.Caller(1)
 	require.True(t, equals(l, r),
 		fmt.Sprintf("%s %s:%d\n%s %s\n%s  %s\n",
@@ -92,7 +78,10 @@ func requireSame(t *testing.T, lTmp, rTmp HashTree) {
 // an operation is invariant on several slightly different trees, and with this
 // we only have to define 'op' once.
 func requireOperationInvariant(t *testing.T, h HashTree, op func()) {
-	preop := clone(h)
+	preop, err := h.(*hashtree).clone()
+	if err != nil {
+		t.Fatalf("could not clone 'h' in requireOperationInvariant: %s", err)
+	}
 	// perform operation on 'h'
 	op()
 	// Make sure 'h' is still the same
@@ -480,11 +469,14 @@ func TestMerge(t *testing.T) {
 	expected.PutFile("/dir-shared/buzz-right", br(`block{hash:"8e02c"}`))
 	expected.PutFile("/dir-shared/file-shared", br(`block{hash:"9d432"}`))
 
-	h := clone(l)
+	var h HashTree
+	h, err := l.(*hashtree).clone()
+	require.NoError(t, err)
 	h.Merge([]HashTree{r})
 	requireSame(t, expected, h)
 
-	h = clone(r)
+	h, err = r.(*hashtree).clone()
+	require.NoError(t, err)
 	h.Merge([]HashTree{l})
 	requireSame(t, expected, h)
 
