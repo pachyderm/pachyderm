@@ -181,7 +181,7 @@ func readBlock(delimiter pfsclient.Delimiter, reader *bufio.Reader, decoder *jso
 		buffer.Write(value)
 		hash.Write(value)
 		bytesWritten += len(value)
-		if bytesWritten > client.BlockSize && delimiter != pfsclient.Delimiter_NONE {
+		if bytesWritten > blockSize && delimiter != pfsclient.Delimiter_NONE {
 			break
 		}
 	}
