@@ -97,7 +97,7 @@ func do(appEnvObj interface{}) error {
 		return pfs_persist.InitDB(rethinkAddress, appEnv.PFSDatabaseName)
 	}
 	if readinessCheck {
-		c, err := client.NewFromAddress("127.0.0.1:650", client.DefaultMaxConcurrentStreams)
+		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
 			return err
 		}

@@ -16,7 +16,7 @@ import (
 )
 
 func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650", client.DefaultMaxConcurrentStreams)
+	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
 }

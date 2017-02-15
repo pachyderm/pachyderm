@@ -3533,7 +3533,7 @@ func getClient(t *testing.T) pclient.APIClient {
 		apiServer := newAPIServer(driver, nil)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
-	c, err := pclient.NewFromAddress(addresses[0], pclient.DefaultMaxConcurrentStreams)
+	c, err := pclient.NewFromAddress(addresses[0])
 	require.NoError(t, err)
 	return *c
 }

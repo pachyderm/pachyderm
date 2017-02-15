@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
