@@ -50,7 +50,7 @@ const DefaultMaxConcurrentStreams uint = 100
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
 func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
-	return NewMetricsClientFromAddress(addr, metrics, prefix,
+	return NewMetricsClientFromAddressWithConcurrency(addr, metrics, prefix,
 		DefaultMaxConcurrentStreams)
 }
 
