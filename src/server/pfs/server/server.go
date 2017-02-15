@@ -15,6 +15,12 @@ const (
 	MicrosoftBackendEnvVar = "MICROSOFT"
 )
 
+var (
+	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+	// maxBlockSize specifies the maximum block size for any data type
+	maxBlockSize = 100 * 1024 * 1024 // 100 MB
+)
+
 // APIServer represents and api server.
 type APIServer interface {
 	pfsclient.APIServer

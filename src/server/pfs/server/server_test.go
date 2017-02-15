@@ -524,7 +524,7 @@ func TestPutFileOverMaxBlockSize(t *testing.T) {
 
 	// Write a big blob that would normally not fit in a block
 	var expectedOutputA []byte
-	for !(len(expectedOutputA) > pclient.MaxBlockSize) {
+	for !(len(expectedOutputA) > maxBlockSize) {
 		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
 	}
 	r := bytes.NewReader(expectedOutputA)
