@@ -15,6 +15,10 @@ const (
 	MicrosoftBackendEnvVar = "MICROSOFT"
 )
 
+var (
+	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+)
+
 // APIServer represents and api server.
 type APIServer interface {
 	pfsclient.APIServer
