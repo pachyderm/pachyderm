@@ -39,11 +39,11 @@ func i(ss ...string) []interface{} {
 }
 
 func clone(h HashTree) HashTree {
-	bb, err := h.Marshal()
+	bb, err := h.Serialize()
 	if err != nil {
 		panic("could not clone HashTree: " + err.Error())
 	}
-	h2, err := Unmarshal(bb)
+	h2, err := Deserialize(bb)
 	if err != nil {
 		panic("could not clone HashTree: " + err.Error())
 	}
@@ -487,10 +487,10 @@ func TestMergeEmpty(t *testing.T) {
 	expected.PutFile("/foo", br(`block{hash:"20c27"}`))
 	expected.PutFile("/dir/bar", br(`block{hash:"ebc57"}`))
 
-	b, _ := expected.Marshal()
+	b, _ := expected.Serialize()
 
 	// Merge empty tree into full tree
-	l, err := Unmarshal(b)
+	l, err := Deserialize(b)
 	require.NoError(t, err)
 	l.Merge([]HashTree{r})
 	requireSame(t, expected, l)
@@ -517,23 +517,23 @@ func TestErrorCode(t *testing.T) {
 	require.Equal(t, MalformedGlob, Code(err))
 }
 
-func TestMarshal(t *testing.T) {
+func TestSerialize(t *testing.T) {
 	h := NewHashTree()
 	require.NoError(t, h.PutFile("/foo", br(`block{hash:"20c27"}`)))
 	require.NoError(t, h.PutFile("/bar/buzz", br(`block{hash:"9d432"}`)))
 
-	// Marshal and Unmarshal 'h'
-	bts, err := h.Marshal()
+	// Serialize and Deserialize 'h'
+	bts, err := h.Serialize()
 	require.NoError(t, err)
-	h2, err := Unmarshal(bts)
+	h2, err := Deserialize(bts)
 	require.NoError(t, err)
 	require.True(t, equals(h, h2))
 
-	// Modify 'h', and Marshal and Unmarshal it again
+	// Modify 'h', and Serialize and Deserialize it again
 	require.NoError(t, h.PutFile("/bar/buzz2", br(`block{hash:"8e02c"}`)))
-	bts, err = h.Marshal()
+	bts, err = h.Serialize()
 	require.NoError(t, err)
-	h3, err := Unmarshal(bts)
+	h3, err := Deserialize(bts)
 	require.NoError(t, err)
 	require.True(t, equals(h, h3))
 
