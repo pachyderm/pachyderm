@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
