@@ -232,7 +232,7 @@ func (h *hashtree) removeFromMap(path string) error {
 	return nil
 }
 
-// PutFile inserts a file into the hierarchy
+// PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = clean(path)
 
@@ -285,7 +285,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	return h.canonicalize("/")
 }
 
-// PutDir inserts an empty directory into the hierarchy
+// PutDir creates a directory (or does nothing if one exists).
 func (h *hashtree) PutDir(path string) error {
 	path = clean(path)
 
@@ -327,8 +327,7 @@ func (h *hashtree) PutDir(path string) error {
 	return h.canonicalize("/")
 }
 
-// DeleteFile deletes the file at 'path', and all children recursively if 'path'
-// is a subdirectory
+// DeleteFile deletes a regular file or directory (along with its children).
 func (h *hashtree) DeleteFile(path string) error {
 	path = clean(path)
 
@@ -367,7 +366,7 @@ func (h *hashtree) DeleteFile(path string) error {
 	return h.canonicalize("/")
 }
 
-// Get returns the node associated with the path
+// Get retrieves the contents of a file.
 func (h *hashtree) Get(path string) (*NodeProto, error) {
 	path = clean(path)
 
@@ -378,14 +377,14 @@ func (h *hashtree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
-// List returns the NodeProtos corresponding to the files and directories under
-// 'path'
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
 func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 
 	node, ok := h.fs[path]
 	if !ok {
-		return nil, nil // return empty list
+		return nil, nil
 	}
 	d := node.DirNode
 	if d == nil {
@@ -396,14 +395,14 @@ func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	for i, child := range d.Children {
 		result[i], ok = h.fs[join(path, child)]
 		if !ok {
-			return nil, errorf(Internal, "could not find node for \"%s\" while "+
-				"listing \"%s\"", join(path, child), path)
+			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
+				"while listing \"%s\"", join(path, child), path)
 		}
 	}
 	return result, nil
 }
 
-// Glob beturns a list of nodes that match 'pattern'.
+// Glob returns a list of files and directories that match 'pattern'.
 func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
