@@ -50,6 +50,10 @@ type hashtree struct {
 	// fs (short for files) maps the path of each file F in the repo R to a
 	// protobuf message describing F. It's equivalent to HashTree.Fs.
 	fs map[string]*NodeProto
+
+	// changed maps a path P to 'true' if P or one of its children has been
+	// modified in 'fs', and its hash needs to be updated.
+	changed map[string]bool
 }
 
 // toProto converts 'h' to a HashTree proto message. This is not public; it's
@@ -70,7 +74,8 @@ func fromProto(htproto *HashTreeProto) (*hashtree, error) {
 			"version %d", htproto.Version)
 	}
 	res := &hashtree{
-		fs: htproto.Fs,
+		fs:      htproto.Fs,
+		changed: make(map[string]bool),
 	}
 	return res, nil
 }
@@ -91,38 +96,51 @@ func Unmarshal(serialized []byte) (HashTree, error) {
 // NewHashTree creates a new hash tree implementing Interface.
 func NewHashTree() HashTree {
 	return &hashtree{
-		fs: make(map[string]*NodeProto),
+		fs:      make(map[string]*NodeProto),
+		changed: make(map[string]bool),
 	}
 }
 
-// updateHash updates the hash of the node N at 'path'. If this changes N's
-// hash, that will render the hash of N's parent (if any) invalid, and this
-// must be called for all parents of 'path' back to the root.
-func (h *hashtree) updateHash(path string) error {
+// canonicalize updates the hash and size of the node N at 'path'. If N is a
+// directory canonicalize will also update the hash of all of N's children
+// recursively. Thus, h.canonicalize("/") will update all hash and subtree_size
+// fields in h, making the whole tree consistent.
+func (h *hashtree) canonicalize(path string) error {
+	path = clean(path)
+	if !h.changed[path] {
+		return nil // Node is already canonical
+	}
 	n, ok := h.fs[path]
 	if !ok {
-		return errorf(Internal, "Could not find node \"%s\" to update hash", path)
+		return errorf(Internal, "no node at \"%s\"; cannot canonicalize", path)
 	}
 
-	// Compute hash of 'n'
+	// Compute hash and size of 'n'
 	hash := sha256.New()
+	size := int64(0)
 	switch n.nodetype() {
 	case directory:
-		// PutFile keeps n.DirNodeProto.Children sorted, so the order is stable
+		// Compute n.Hash by concatenating name + hash of all children of n.DirNode
+		// Note that PutFile keeps n.DirNode.Children sorted, so the order is stable
 		for _, child := range n.DirNode.Children {
-			n, ok := h.fs[join(path, child)]
+			childpath := join(path, child)
+			if err := h.canonicalize(childpath); err != nil {
+				return err
+			}
+			n, ok := h.fs[childpath]
 			if !ok {
 				return errorf(Internal, "could not find node for \"%s\" while "+
 					"updating hash of \"%s\"", join(path, child), path)
 			}
-			// append child.Name and child.Hash to hash
-			_, err := hash.Write([]byte(fmt.Sprintf("%s:%s:", n.Name, n.Hash)))
-			if err != nil {
+			// append child.Name and child.Hash to b
+			if _, err := hash.Write([]byte(fmt.Sprintf("%s:%s:", n.Name, n.Hash))); err != nil {
 				return errorf(Internal, "error updating hash of file at \"%s\": %s",
 					path, err)
 			}
+			size += n.SubtreeSize
 		}
 	case file:
+		// Compute n.Hash by concatenating all BlockRef hashes in n.FileNode
 		for _, blockRef := range n.FileNode.BlockRefs {
 			_, err := hash.Write([]byte(fmt.Sprintf("%s:%d:%d:",
 				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper)))
@@ -130,14 +148,17 @@ func (h *hashtree) updateHash(path string) error {
 				return errorf(Internal, "error updating hash of dir at \"%s\": %s",
 					path, err)
 			}
+			size += int64(blockRef.Range.Upper - blockRef.Range.Lower)
 		}
 	default:
 		return errorf(Internal,
 			"malformed node at \"%s\" is neither a file nor a directory", path)
 	}
 
-	// Update hash of 'n'
+	// Update hash and size of 'n'
 	n.Hash = hash.Sum(nil)
+	n.SubtreeSize = size
+	delete(h.changed, path)
 	return nil
 }
 
@@ -235,7 +256,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 
 	// Append new blocks
 	node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
-	h.updateHash(path)
+	h.changed[path] = true
 
 	// Compute size growth of node (i.e. amount of data we're appending)
 	var sizeGrowth int64
@@ -245,7 +266,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	node.SubtreeSize += sizeGrowth
 
 	// Add 'path' to parent & update hashes back to root
-	return h.visit(path, func(node *NodeProto, parent, child string) error {
+	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:        base(parent),
@@ -256,9 +277,12 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 		}
 		insertStr(&node.DirNode.Children, child)
 		node.SubtreeSize += sizeGrowth
-		h.updateHash(parent)
+		h.changed[parent] = true
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return h.canonicalize("/")
 }
 
 // PutDir inserts an empty directory into the hierarchy
@@ -283,10 +307,10 @@ func (h *hashtree) PutDir(path string) error {
 		Name:    base(path),
 		DirNode: &DirectoryNodeProto{},
 	}
-	h.updateHash(path)
+	h.changed[path] = true
 
 	// Add 'path' to parent & update hashes back to root
-	return h.visit(path, func(node *NodeProto, parent, child string) error {
+	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
@@ -295,9 +319,12 @@ func (h *hashtree) PutDir(path string) error {
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		h.updateHash(parent)
+		h.changed[parent] = true
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return h.canonicalize("/")
 }
 
 // DeleteFile deletes the file at 'path', and all children recursively if 'path'
@@ -310,7 +337,6 @@ func (h *hashtree) DeleteFile(path string) error {
 	if !ok {
 		return errorf(PathNotFound, "no file at \"%s\"", path)
 	}
-	size := node.SubtreeSize
 	h.removeFromMap(path) // Deletes children recursively
 
 	// Remove 'path' from its parent directory
@@ -327,16 +353,18 @@ func (h *hashtree) DeleteFile(path string) error {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)
 	}
 	// Update hashes back to root
-	return h.visit(path, func(node *NodeProto, parent, child string) error {
+	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			return errorf(Internal,
 				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
 				join(parent, child))
 		}
-		node.SubtreeSize -= size
-		h.updateHash(parent)
+		h.changed[parent] = true
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return h.canonicalize("/")
 }
 
 // Get returns the node associated with the path
@@ -397,16 +425,16 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	return res, nil
 }
 
-// mergeNode merges the node at 'path' from 'from' into 'h'. The return value
-// 's' is the number of bytes added to the node at 'path' (the size increase).
-func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error) {
+// mergeNode merges the node at 'path' from the trees in 'srcs' into 'h'.
+func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
+	path = clean(path)
 	// Get the node at path in 'h' and determine its type (i.e. file, dir)
 	destNode, err := h.Get(path)
 	if err != nil && Code(err) != PathNotFound {
-		return 0, err
+		return err
 	}
 	if destNode.nodetype() == unrecognized {
-		return 0, errorf(Internal, "malformed node at \"%s\" in destination "+
+		return errorf(Internal, "malformed node at \"%s\" in destination "+
 			"hashtree is neither a file nor a directory", path)
 	}
 
@@ -434,7 +462,7 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error)
 	for _, src := range srcs {
 		n, err := src.Get(path)
 		if err != nil && Code(err) != PathNotFound {
-			return 0, err
+			return err
 		}
 		if n.nodetype() == none {
 			continue
@@ -442,7 +470,7 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error)
 		if pathtype == none {
 			pathtype = n.nodetype()
 		} else if pathtype != n.nodetype() {
-			return 0, errorf(PathConflict, "could not merge path \"%s\" which is "+
+			return errorf(PathConflict, "could not merge path \"%s\" which is "+
 				"not consistently a file/directory in the hashtrees being merged")
 		}
 		switch n.nodetype() {
@@ -473,7 +501,7 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error)
 				n.FileNode.BlockRefs...)
 			sizeDelta += n.SubtreeSize
 		default:
-			return 0, errorf(Internal, "malformed node at \"%s\" in source "+
+			return errorf(Internal, "malformed node at \"%s\" in source "+
 				"hashtree is neither a file nor a directory", path)
 		}
 	}
@@ -482,17 +510,15 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (sz int64, err error)
 	if pathtype == directory {
 		// Merge all children (collected in childrenToTrees)
 		for c, cSrcs := range childrenToTrees {
-			sz, err := h.mergeNode(join(path, c), cSrcs)
+			err := h.mergeNode(join(path, c), cSrcs)
 			if err != nil {
-				return 0, err
+				return err
 			}
 			insertStr(&destNode.DirNode.Children, c)
-			sizeDelta += sz
 		}
 	}
-	h.updateHash(path)
-	destNode.SubtreeSize += sizeDelta
-	return sizeDelta, nil
+	h.changed[path] = true
+	return nil
 }
 
 // Merge merges the HashTrees in 'trees' into 'h'. The result is nil if no
@@ -504,20 +530,19 @@ func (h *hashtree) Merge(trees []HashTree) error {
 	if err != nil {
 		return errorf(Internal, "Could not Marshal hashtree before merge: %s", err)
 	}
-	_, err = h.mergeNode("", trees) // Empty string is internal repr of "/"
-	if err != nil {
+	if err = h.mergeNode("/", trees); err != nil {
 		htInterfaceTmp, unmarshalErr := Unmarshal(b)
 		if unmarshalErr != nil {
 			return errorf(Internal, "could not unmarshal hashtree (due to \"%s\") "+
 				"after merge error: %s", unmarshalErr, err)
 		}
-		htTmp, ok := htInterfaceTmp.(*hashtree)
-		if !ok {
+		if htTmp, ok := htInterfaceTmp.(*hashtree); ok {
+			*h = *htTmp
+		} else {
 			return errorf(Internal, "could not convert unmarshalled hash tree after "+
 				"merge error: %s", err)
 		}
-		*h = *htTmp
 		return err
 	}
-	return nil
+	return h.canonicalize("/")
 }
