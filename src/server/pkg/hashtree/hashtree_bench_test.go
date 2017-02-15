@@ -126,14 +126,14 @@ func BenchmarkDelete(b *testing.B) {
 	}
 	h := NewHashTree()
 	h.Merge(srcTs)
-	srcBytes, err := h.Marshal()
+	srcBytes, err := h.Serialize()
 	if err != nil {
 		b.Fatal("could not marshal hashtree in BenchmarkDelete")
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2, err := Unmarshal(srcBytes)
+		h2, err := Deserialize(srcBytes)
 		if err != nil {
 			b.Fatal("could not marshal hashtree in BenchmarkDelete")
 		}

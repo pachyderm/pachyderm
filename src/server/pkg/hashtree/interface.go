@@ -20,11 +20,11 @@ const (
 	// violation of an internal invariant).
 	Internal
 
-	// CannotDeserialize is returned when Unmarshal(bytes) fails, perhaps due to
+	// CannotDeserialize is returned when Deserialize(bytes) fails, perhaps due to
 	// 'bytes' being corrupted.
 	CannotDeserialize
 
-	// Unsupported is returned when Unmarshal(bytes) encounters an unsupported
+	// Unsupported is returned when Deserialize(bytes) encounters an unsupported
 	// (likely old) serialized HashTree.
 	Unsupported
 
@@ -58,9 +58,9 @@ type HashTree interface {
 	// Glob returns a list of files and directories that match 'pattern'.
 	Glob(pattern string) ([]*NodeProto, error)
 
-	// Marshal serializes a HashTree so that it can be persisted. Also see
-	// Unmarshal(bytes).
-	Marshal() ([]byte, error)
+	// Serialize serializes a HashTree so that it can be persisted. Also see
+	// Deserialize(bytes).
+	Serialize() ([]byte, error)
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
