@@ -1,11 +1,14 @@
 package server
 
 import (
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
 
 func TestPutGet(t *testing.T) {
@@ -53,6 +56,19 @@ func TestManyObjects(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
 	}
+}
+
+func TestBigObject(t *testing.T) {
+	c := getPachClient(t)
+	r := workload.NewReader(rand.New(rand.NewSource(time.Now().UnixNano())), 50*1024*1024)
+	object, err := c.PutObject(r)
+	require.NoError(t, err)
+	value, err := c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, 50*1024*1024, len(value))
+	value, err = c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, 50*1024*1024, len(value))
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
