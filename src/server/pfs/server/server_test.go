@@ -3410,7 +3410,7 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Pull(context.Background(), client.PfsAPIClient, tmpDir, commit1, nil, nil, false))
+	require.NoError(t, pfssync.Pull(&client, tmpDir, commit1, nil, nil, false))
 
 	repo2 := "repo2"
 	require.NoError(t, client.CreateRepo(repo2))
@@ -3418,7 +3418,7 @@ func TestSyncPullPush(t *testing.T) {
 	commit2, err := client.StartCommit(repo2, "master")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit2, false))
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit2, false))
 	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
 
 	var buffer bytes.Buffer
@@ -3438,7 +3438,7 @@ func TestSyncPullPush(t *testing.T) {
 	// Test the overwrite flag.
 	// After this Push operation, all files should still look the same, since
 	// the old files were overwritten.
-	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit3, true))
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit3, true))
 	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
 
 	buffer.Reset()
