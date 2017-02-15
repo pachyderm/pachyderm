@@ -50,8 +50,8 @@ func clone(h HashTree) HashTree {
 	return h2
 }
 
-func tostring(htmp HashTree) string {
-	h := htmp.(*hashtree)
+func tostring(hTmp HashTree) string {
+	h := hTmp.(*hashtree)
 	bufsize := len(h.fs) * 25
 	buf := bytes.NewBuffer(make([]byte, 0, bufsize))
 	for k, v := range h.fs {
@@ -60,13 +60,13 @@ func tostring(htmp HashTree) string {
 	return buf.String()
 }
 
-func equals(ltmp, rtmp HashTree) bool {
-	l, r := ltmp.(*hashtree), rtmp.(*hashtree)
+func equals(lTmp, rTmp HashTree) bool {
+	l, r := lTmp.(*hashtree), rTmp.(*hashtree)
 	if len(l.fs) != len(r.fs) {
 		return false
 	}
-	for k, v := range l.fs {
-		if ov, ok := r.fs[k]; !ok || !proto.Equal(v, ov) {
+	for path, lv := range l.fs {
+		if rv, ok := r.fs[path]; !ok || !proto.Equal(lv, rv) {
 			return false
 		}
 	}
@@ -75,8 +75,8 @@ func equals(ltmp, rtmp HashTree) bool {
 
 // requireSame compares 'h' to another hash tree (e.g. to make sure that it
 // hasn't changed)
-func requireSame(t *testing.T, ltmp, rtmp HashTree) {
-	l, r := ltmp.(*hashtree), rtmp.(*hashtree)
+func requireSame(t *testing.T, lTmp, rTmp HashTree) {
+	l, r := lTmp.(*hashtree), rTmp.(*hashtree)
 	// Make sure 'h' is still the same
 	_, file, line, _ := runtime.Caller(1)
 	require.True(t, equals(l, r),
@@ -135,11 +135,11 @@ func TestPutFileBasic(t *testing.T) {
 	for _, node := range nodes {
 		require.EqualOneOf(t, i("bar", "buzz"), node.Name)
 	}
+	require.Equal(t, int64(1), h.fs["/foo"].SubtreeSize)
 
 	// Make sure subsequent PutFile calls append
 	oldSha := make([]byte, len(h.fs["/foo"].Hash))
 	copy(oldSha, h.fs["/foo"].Hash)
-	require.Equal(t, int64(1), h.fs["/foo"].SubtreeSize)
 
 	h.PutFile("/foo", br(`block{hash:"413e7"}`))
 	require.NotEqual(t, oldSha, h.fs["/foo"].Hash)
@@ -192,6 +192,7 @@ func TestPutError(t *testing.T) {
 	requireOperationInvariant(t, h, func() {
 		err := h.PutFile("/foo/bar", br(`block{hash:"8e02c"}`))
 		require.YesError(t, err)
+		require.Equal(t, PathConflict, Code(err))
 		node, err := h.Get("/foo/bar")
 		require.YesError(t, err)
 		require.Equal(t, PathNotFound, Code(err))
@@ -202,6 +203,7 @@ func TestPutError(t *testing.T) {
 	requireOperationInvariant(t, h, func() {
 		err := h.PutDir("/foo/bar")
 		require.YesError(t, err)
+		require.Equal(t, PathConflict, Code(err))
 		node, err := h.Get("/foo/bar")
 		require.YesError(t, err)
 		require.Equal(t, PathNotFound, Code(err))
@@ -216,6 +218,17 @@ func TestPutError(t *testing.T) {
 	requireOperationInvariant(t, h, func() {
 		err := h.Merge([]HashTree{src})
 		require.YesError(t, err, tostring(h))
+		require.Equal(t, PathConflict, Code(err))
+	})
+
+	// PutFile fails if a directory already exists (put /foo when /foo/bar exists)
+	err = h.DeleteFile("/foo")
+	require.NoError(t, err)
+	err = h.PutFile("/foo/bar", br(`block{hash:"ebc57"}`))
+	require.NoError(t, err)
+	requireOperationInvariant(t, h, func() {
+		err := h.PutFile("/foo", br(`block{hash:"8e02c"}`))
+		require.YesError(t, err)
 		require.Equal(t, PathConflict, Code(err))
 	})
 }
@@ -325,9 +338,6 @@ func TestPutFileCommutative(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, *dirNodePtr, *dirNodePtr2)
 		require.Equal(t, *rootNodePtr, *rootNodePtr2)
-
-		// Revert 'h' before the next call to deleteAddInspect()
-		h.DeleteFile("/dir/__nEw_FiLe__")
 	}
 
 	// (1) Run the test on empty trees
@@ -517,6 +527,9 @@ func TestErrorCode(t *testing.T) {
 
 	_, err = h.Glob("/*\\")
 	require.Equal(t, MalformedGlob, Code(err))
+
+	_, err = h.List("/does/not/exist")
+	require.Equal(t, PathNotFound, Code(err))
 }
 
 func TestSerialize(t *testing.T) {
