@@ -15,7 +15,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/Jeffail/gabs"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
@@ -94,14 +93,7 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 
 func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	s, err := replaceMethodAliases(r.decoder)
-	if err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, describeSyntaxError(err, r.buf)
-	}
-	if err := jsonpb.UnmarshalString(s, &result); err != nil {
+	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -187,11 +179,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			}
 			var request ppsclient.CreateJobRequest
 			decoder := json.NewDecoder(jobReader)
-			s, err := replaceMethodAliases(decoder)
-			if err != nil {
-				return describeSyntaxError(err, buf)
-			}
-			if err := jsonpb.UnmarshalString(s, &request); err != nil {
+			if err := jsonpb.UnmarshalNext(decoder, &request); err != nil {
 				return sanitizeErr(err)
 			}
 			if pushImages {
@@ -383,7 +371,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
-	var archive bool
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
@@ -405,7 +392,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				request.Update = true
-				request.NoArchive = !archive
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -424,7 +410,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
@@ -535,7 +520,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				Pipeline: &ppsclient.Pipeline{
 					Name: args[0],
 				},
-				Force: true,
 			}
 
 			var buf bytes.Buffer
@@ -557,12 +541,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 
 				specReader = io.TeeReader(specFile, &buf)
 				decoder := json.NewDecoder(specReader)
-				s, err := replaceMethodAliases(decoder)
-				if err != nil {
-					return describeSyntaxError(err, buf)
-				}
-
-				if err := jsonpb.UnmarshalString(s, request); err != nil {
+				if err := jsonpb.UnmarshalNext(decoder, request); err != nil {
 					return err
 				}
 			}
@@ -625,45 +604,6 @@ func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
 	)
 
 	return errors.New(descriptiveErrorString)
-}
-
-func replaceMethodAliases(decoder *json.Decoder) (string, error) {
-	// We want to allow for a syntactic suger where the user
-	// can specify a method with a string such as "map" or "reduce".
-	// To that end, we check for the "method" field and replace
-	// the string with an actual method object before we unmarshal
-	// the json spec into a protobuf message
-	pipeline, err := gabs.ParseJSONDecoder(decoder)
-	if err != nil {
-		return "", err
-	}
-
-	// No need to do anything if the pipeline does not specify inputs
-	if !pipeline.ExistsP("inputs") {
-		return pipeline.String(), nil
-	}
-
-	inputs := pipeline.S("inputs")
-	children, err := inputs.Children()
-	if err != nil {
-		return "", err
-	}
-	for _, input := range children {
-		if !input.ExistsP("method") {
-			continue
-		}
-		methodAlias, ok := input.S("method").Data().(string)
-		if ok {
-			strat, ok := pach.MethodAliasMap[methodAlias]
-			if ok {
-				input.Set(strat, "method")
-			} else {
-				return "", fmt.Errorf("unrecognized input alias: %s", methodAlias)
-			}
-		}
-	}
-
-	return pipeline.String(), nil
 }
 
 func sanitizeErr(err error) error {
