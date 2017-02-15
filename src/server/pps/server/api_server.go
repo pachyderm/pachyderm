@@ -269,7 +269,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	return nil, nil
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
@@ -422,7 +422,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 		ctx:    ctx,
 		cancel: cancel,
 	}
-	return fmt.Errorf("TODO")
+	return nil
 }
 
 func (a *apiServer) DeleteShard(shard uint64) error {

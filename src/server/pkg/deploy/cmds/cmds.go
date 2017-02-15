@@ -37,14 +37,10 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 func DeployCmd(noMetrics *bool) *cobra.Command {
 	metrics := !*noMetrics
 	var pachdShards int
-	var rethinkShards int
 	var hostPath string
 	var dev bool
 	var dryRun bool
 	var secure bool
-	var deployRethinkAsRc bool
-	var deployRethinkAsStatefulSet bool
-	var rethinkdbCacheSize string
 	var logLevel string
 	var opts *assets.AssetOpts
 
@@ -76,7 +72,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long: "Deploy a Pachyderm cluster running on GCP.\n" +
 			"Arguments are:\n" +
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
-			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per rethink shard (see --rethink-shards).\n" +
+			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunBoundedArgs(3, 3, func(args []string) (retErr error) {
 			if metrics && !dev {
@@ -125,7 +121,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.\n" +
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
-			"  <EBS volume names>: A comma-separated list of EBS volumes, one per rethink shard (see --rethink-shards).\n" +
+			"  <EBS volume names>: A comma-separated list of EBS volumes, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunBoundedArgs(7, 7, func(args []string) (retErr error) {
 			if metrics && !dev {
@@ -150,7 +146,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
-			"  <volume URIs>: A comma-separated list of persistent volumes, one per rethink shard (see --rethink-shards).\n" +
+			"  <volume URIs>: A comma-separated list of persistent volumes, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunBoundedArgs(5, 5, func(args []string) (retErr error) {
 			if metrics && !dev {
@@ -184,48 +180,18 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
-			if deployRethinkAsRc && deployRethinkAsStatefulSet {
-				return fmt.Errorf("Error: pachctl deploy received contradictory flags: " +
-					"--deploy-rethink-as-rc and --deploy-rethink-as-stateful-set")
-			}
-			if deployRethinkAsRc {
-				fmt.Fprintf(os.Stderr, "Warning: --deploy-rethink-as-rc is no longer "+
-					"necessary (and is ignored). The default behavior since Pachyderm "+
-					"1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller. "+
-					"This flag will be removed by Pachyderm's 1.4 release, so please remove "+
-					"it from your scripts. Also see --deploy-rethink-as-stateful-set.\n")
-			}
-			if !deployRethinkAsStatefulSet && rethinkShards > 1 {
-				return fmt.Errorf("Error: --deploy-rethink-as-stateful-set was not set, " +
-					"but --rethink-shards was set to value >1. Since 1.3.2, 'pachctl deploy' " +
-					"deploys RethinkDB as a single-node instance by default, unless " +
-					"--deploy-rethink-as-stateful-set is set. Please set that flag if you " +
-					"wish to deploy RethinkDB as a multi-node cluster.")
-			}
 			opts = &assets.AssetOpts{
-				PachdShards:                uint64(pachdShards),
-				RethinkShards:              uint64(rethinkShards),
-				RethinkdbCacheSize:         rethinkdbCacheSize,
-				DeployRethinkAsStatefulSet: deployRethinkAsStatefulSet,
-				Version:                    version.PrettyPrintVersion(version.Version),
-				LogLevel:                   logLevel,
-				Metrics:                    metrics,
+				PachdShards: uint64(pachdShards),
+				Version:     version.PrettyPrintVersion(version.Version),
+				LogLevel:    logLevel,
+				Metrics:     metrics,
 			}
 			return nil
 		}),
 	}
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 1, "Number of Pachd nodes (stateless Pachyderm API servers).")
-	deploy.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
-		"--deploy-rethink-as-stateful-set is used.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	deploy.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
-		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
-		"Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.")
-	deploy.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
-		"controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both "+
-		"your local kubectl binary and the kubernetes server must be at least version 1.5.")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
