@@ -286,8 +286,7 @@ func TestDeleteAddReverts(t *testing.T) {
 	h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", br(`block{hash:"8e02c"}`))
 	requireOperationInvariant(t, h, deleteAddSubFile)
 
-	// Add some files to make sure the test still passes when D already has files
-	// in it.
+	// Make sure test still passes when trees are nonempty
 	h = NewHashTree()
 	h.PutFile("/dir/foo", br(`block{hash:"ebc57"}`))
 	h.PutFile("/dir/bar", br(`block{hash:"20c27"}`))
@@ -305,6 +304,7 @@ func TestDeleteAddReverts(t *testing.T) {
 func TestPutFileCommutative(t *testing.T) {
 	h := NewHashTree()
 	h2 := NewHashTree()
+	// Puts files into h in the order [A, B] and into h2 in the order [B, A]
 	comparePutFiles := func() {
 		h.PutFile("/dir/__NEW_FILE_A__", br(`block{hash:"ebc57"}`))
 		h.PutFile("/dir/__NEW_FILE_B__", br(`block{hash:"20c27"}`))
@@ -330,9 +330,9 @@ func TestPutFileCommutative(t *testing.T) {
 		h.DeleteFile("/dir/__nEw_FiLe__")
 	}
 
+	// (1) Run the test on empty trees
 	comparePutFiles()
-	// Add some files to make sure the test still passes when D already has files
-	// in it.
+	// (2) Add some files & check that test still passes when trees are nonempty
 	h, h2 = NewHashTree(), NewHashTree()
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
 	h2.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
@@ -345,6 +345,7 @@ func TestPutFileCommutative(t *testing.T) {
 // a file or directory under D changes the hash of D, even if the contents are
 // identical.
 func TestRenameChangesHash(t *testing.T) {
+	// Write a file, and then get the hash of every node from the file to the root
 	h := NewHashTree()
 	h.PutFile("/dir/foo", br(`block{hash:"ebc57"}`))
 
@@ -396,6 +397,7 @@ func TestRewriteChangesHash(t *testing.T) {
 	require.NoError(t, err)
 	dirPre, rootPre := proto.Clone(dirPtr).(*NodeProto), proto.Clone(rootPtr).(*NodeProto)
 
+	// Change the contents of /dir/foo without changing the name
 	h.DeleteFile("/dir/foo")
 	h.PutFile("/dir/foo", br(`block{hash:"8e02c"}`))
 
