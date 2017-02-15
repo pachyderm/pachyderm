@@ -24,20 +24,22 @@ import (
 // Because of this, BenchmarkPutFile can be very slow for large 'cnt', often
 // much slower than BenchmarkMerge. Be sure to set -timeout 3h for 'cnt' == 100k
 //
-// Benchmarked times at rev. 27311193faf56f8e0e9a4e267ab6ea7abc1fe64e
+// Benchmarked times at rev. b4745319f27f336d9963987d5ed075617753c261
 //  cnt |  time (s)
 // -----+-------------
-// 1k   |    0.000 s/op
-// 10k  |  145.139 s/op
-// 100k | 5101.328 s/op (1.4h)
+// 1k   | 0.423 s/op
+// 10k  | slow
+// 100k | slow
 func BenchmarkPutFile(b *testing.B) {
 	// Add 'cnt' files
-	cnt := int(1e5)
+	cnt := int(1e3)
 	r := rand.New(rand.NewSource(0))
-	h := NewHashTree()
-	for i := 0; i < cnt; i++ {
-		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+	for n := 0; n < b.N; n++ {
+		h := NewHashTree()
+		for i := 0; i < cnt; i++ {
+			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+				br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+		}
 	}
 }
 
