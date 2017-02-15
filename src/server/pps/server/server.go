@@ -29,8 +29,8 @@ func NewAPIServer(
 	address string,
 	kubeClient *kube.Client,
 	namespace string,
-	jobShimImage string,
-	jobImagePullPolicy string,
+	workerShimImage string,
+	workerImagePullPolicy string,
 	reporter *metrics.Reporter,
 ) (APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -42,19 +42,19 @@ func NewAPIServer(
 	}
 
 	return &apiServer{
-		Logger:             protorpclog.NewLogger("pps.API"),
-		etcdPrefix:         etcdPrefix,
-		hasher:             hasher,
-		address:            address,
-		etcdClient:         etcdClient,
-		pfsAPIClient:       nil,
-		pfsClientOnce:      sync.Once{},
-		kubeClient:         kubeClient,
-		version:            shard.InvalidVersion,
-		versionLock:        sync.RWMutex{},
-		namespace:          namespace,
-		jobShimImage:       jobShimImage,
-		jobImagePullPolicy: jobImagePullPolicy,
-		reporter:           reporter,
+		Logger:                protorpclog.NewLogger("pps.API"),
+		etcdPrefix:            etcdPrefix,
+		hasher:                hasher,
+		address:               address,
+		etcdClient:            etcdClient,
+		pfsAPIClient:          nil,
+		pfsClientOnce:         sync.Once{},
+		kubeClient:            kubeClient,
+		version:               shard.InvalidVersion,
+		versionLock:           sync.RWMutex{},
+		namespace:             namespace,
+		workerShimImage:       workerShimImage,
+		workerImagePullPolicy: workerImagePullPolicy,
+		reporter:              reporter,
 	}, nil
 }
