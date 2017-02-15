@@ -80,17 +80,17 @@ func fromProto(htproto *HashTreeProto) (*hashtree, error) {
 	return res, nil
 }
 
-// Serialize serializes a HashTree so that it can be persisted (also see
-// Deserialize())
+// Serialize serializes a HashTree so that it can be persisted. Also see
+// Deserialize(bytes).
 func (h *hashtree) Serialize() ([]byte, error) {
 	return proto.Marshal(h.toProto())
 }
 
 // Deserialize deserializes a hash tree so that it can be read or modified.
 func Deserialize(serialized []byte) (HashTree, error) {
-	h := HashTreeProto{}
-	proto.Unmarshal(serialized, &h)
-	return fromProto(&h)
+	h := &HashTreeProto{}
+	proto.Unmarshal(serialized, h)
+	return fromProto(h)
 }
 
 // NewHashTree creates a new hash tree implementing Interface.
@@ -382,15 +382,16 @@ func (h *hashtree) Get(path string) (*NodeProto, error) {
 func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 
-	node, ok := h.fs[path]
-	if !ok {
-		return nil, nil
+	node, err := h.Get(path)
+	if err != nil {
+		return nil, err
 	}
 	d := node.DirNode
 	if d == nil {
 		return nil, errorf(PathConflict, "the file at \"%s\" is not a directory",
 			path)
 	}
+	var ok bool
 	result := make([]*NodeProto, len(d.Children))
 	for i, child := range d.Children {
 		result[i], ok = h.fs[join(path, child)]
