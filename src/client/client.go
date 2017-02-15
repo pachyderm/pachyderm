@@ -42,7 +42,7 @@ type APIClient struct {
 	cancel            func()
 	reportUserMetrics bool
 	metricsPrefix     string
-	streamSemaphores  chan struct{}
+	streamSemaphore   chan struct{}
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
@@ -68,9 +68,10 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxCo
 
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string, maxConcurrentStreams uint) (*APIClient, error) {
+	fmt.Printf("creating semaphore chan of size: %v\n", maxConcurrentStreams)
 	c := &APIClient{
-		addr:             addr,
-		streamSemaphores: make(chan struct{}, maxConcurrentStreams),
+		addr:            addr,
+		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
