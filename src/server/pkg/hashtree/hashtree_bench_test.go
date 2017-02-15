@@ -96,12 +96,12 @@ func BenchmarkClone(b *testing.B) {
 		srcTs[i].PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
 	}
-	h := NewHashTree()
+	h := NewHashTree().(*hashtree)
 	h.Merge(srcTs)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		clone(h)
+		h.clone()
 	}
 }
 
@@ -130,7 +130,7 @@ func BenchmarkDelete(b *testing.B) {
 	h.Merge(srcTs)
 	srcBytes, err := h.Serialize()
 	if err != nil {
-		b.Fatal("could not marshal hashtree in BenchmarkDelete")
+		b.Fatal("could not serialize hashtree in BenchmarkDelete")
 	}
 
 	b.ResetTimer()

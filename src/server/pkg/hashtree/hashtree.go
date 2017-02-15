@@ -56,6 +56,23 @@ type hashtree struct {
 	changed map[string]bool
 }
 
+// clone makes a deep copy of 'h' and returns it.
+func (h *hashtree) clone() (*hashtree, error) {
+	bts, err := h.Serialize()
+	if err != nil {
+		return nil, errorf(Internal, "could not clone HashTree: %s", err)
+	}
+	h2, err := Deserialize(bts)
+	if err != nil {
+		return nil, errorf(Internal, "could not clone HashTree: "+err.Error())
+	}
+	h3, ok := h2.(*hashtree)
+	if !ok {
+		return nil, errorf(Internal, "could not assert type of deserialized HashTree")
+	}
+	return h3, nil
+}
+
 // toProto converts 'h' to a HashTree proto message. This is not public; it's
 // a helper function for Serialize() and is also used for testing (to test
 // whether e.g. a failed PutFile call modifies 'h'), so it must not modify 'h'.
@@ -76,6 +93,9 @@ func fromProto(htproto *HashTreeProto) (*hashtree, error) {
 	res := &hashtree{
 		fs:      htproto.Fs,
 		changed: make(map[string]bool),
+	}
+	if res.fs == nil {
+		res.fs = make(map[string]*NodeProto)
 	}
 	return res, nil
 }
@@ -526,23 +546,13 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 // - Code(e) is the error code of the first error encountered
 // - e.Error() contains the error messages of the first 10 errors encountered
 func (h *hashtree) Merge(trees []HashTree) error {
-	b, err := h.Serialize()
+	hmod, err := h.clone()
 	if err != nil {
-		return errorf(Internal, "could not serialize hashtree before merge: %s", err)
+		return errorf(Internal, "could not snapshot hashtree before merge: %s", err)
 	}
-	if err = h.mergeNode("/", trees); err != nil {
-		htInterfaceTmp, deserializeErr := Deserialize(b)
-		if deserializeErr != nil {
-			return errorf(Internal, "could not deserialize hashtree (due to \"%s\") "+
-				"after merge error: %s", deserializeErr, err)
-		}
-		if htTmp, ok := htInterfaceTmp.(*hashtree); ok {
-			*h = *htTmp
-		} else {
-			return errorf(Internal, "could not convert deserialized hash tree after "+
-				"merge error: %s", err)
-		}
+	if err = hmod.mergeNode("/", trees); err != nil {
 		return err
 	}
+	*h = *hmod
 	return h.canonicalize("/")
 }
