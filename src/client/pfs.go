@@ -448,8 +448,8 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string, 
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	c.streamSemaphores <- struct{}{}
-	defer func() { <-c.streamSemaphores }()
+	c.streamSemaphore <- struct{}{}
+	defer func() { <-c.streamSemaphore }()
 	return c.PutFileWithDelimiter(repoName, commitID, path, pfs.Delimiter_LINE, reader)
 }
 
@@ -503,8 +503,8 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // blocks in the file. shard may be left nil in which case the entire file will be returned
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
-	c.streamSemaphores <- struct{}{}
-	defer func() { <-c.streamSemaphores }()
+	c.streamSemaphore <- struct{}{}
+	defer func() { <-c.streamSemaphore }()
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, writer)
 }
 
