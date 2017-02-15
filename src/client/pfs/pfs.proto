@@ -380,6 +380,7 @@ service ObjectAPI {
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectTag(Tag) returns (ObjectInfo) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 

@@ -290,7 +290,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 }
 
 func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	// First we inspect the object to see how big it is.
 	objectInfo, err := s.InspectObject(getObjectServer.Context(), request)
@@ -317,7 +317,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 }
 
 func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	// First inspect the object to make sure it actually exists
 	if _, err := s.InspectObject(ctx, request.Object); err != nil {
@@ -338,7 +338,7 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 }
 
 func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
@@ -349,7 +349,7 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 }
 
 func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
@@ -359,8 +359,19 @@ func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclien
 	return s.GetObject(object, getTagServer)
 }
 
+func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.Tag) (response *pfsclient.ObjectInfo, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	object := &pfsclient.Object{}
+	sink := groupcache.ProtoSink(object)
+	if err := s.tagCache.Get(ctx, splitKey(hashTag(request).Name), sink); err != nil {
+		return nil, err
+	}
+	return s.InspectObject(ctx, object)
+}
+
 func (s *objBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := s.compact(); err != nil {
 		return nil, err

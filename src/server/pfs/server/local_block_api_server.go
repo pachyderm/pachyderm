@@ -180,7 +180,7 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 }
 
 func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := os.Open(s.objectPath(request))
 	if err != nil {
@@ -195,7 +195,7 @@ func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServ
 }
 
 func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectPath := s.objectPath(request.Object)
 	for _, tag := range request.Tags {
@@ -207,7 +207,7 @@ func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.
 }
 
 func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfsclient.Object) (response *pfsclient.ObjectInfo, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	fileInfo, err := os.Stat(s.objectPath(request))
 	if err != nil {
@@ -227,7 +227,7 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 }
 
 func (s *localBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
+	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := os.Open(s.tagPath(request))
 	if err != nil {
@@ -239,6 +239,16 @@ func (s *localBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfscli
 		}
 	}()
 	return grpcutil.WriteToStreamingBytesServer(file, getTagServer)
+}
+
+func (s *localBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.Tag) (response *pfsclient.ObjectInfo, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	objectPath, err := os.Readlink(s.tagPath(request))
+	if err != nil {
+		return nil, err
+	}
+	return s.InspectObject(ctx, &pfsclient.Object{Hash: filepath.Base(objectPath)})
 }
 
 func (s *localBlockAPIServer) Compact(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
