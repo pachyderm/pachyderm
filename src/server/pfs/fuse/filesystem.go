@@ -28,25 +28,20 @@ import (
 type filesystem struct {
 	apiClient *client.APIClient
 	Filesystem
-	inodes     map[string]uint64
-	lock       sync.RWMutex
-	allCommits bool
+	inodes map[string]uint64
+	lock   sync.RWMutex
 }
 
 func newFilesystem(
 	apiClient *client.APIClient,
-	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
-	allCommits bool,
 ) *filesystem {
 	return &filesystem{
 		apiClient: apiClient,
 		Filesystem: Filesystem{
-			shard,
 			commitMounts,
 		},
-		inodes:     make(map[string]uint64),
-		allCommits: allCommits,
+		inodes: make(map[string]uint64),
 	}
 }
 
@@ -58,18 +53,14 @@ type repoFilesystem struct {
 
 func newRepoFilesystem(
 	apiClient *client.APIClient,
-	shard *pfsclient.Shard,
 	commitMount *CommitMount,
-	allCommits bool,
 ) *repoFilesystem {
 	return &repoFilesystem{&filesystem{
 		apiClient: apiClient,
 		Filesystem: Filesystem{
-			shard,
 			[]*CommitMount{commitMount},
 		},
-		inodes:     make(map[string]uint64),
-		allCommits: allCommits,
+		inodes: make(map[string]uint64),
 	}}
 }
 
@@ -172,7 +163,6 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		commitMount := d.fs.getCommitMount(d.getRepoOrAliasName())
 		if commitMount != nil && commitMount.Commit.ID != "" {
 			d.File.Commit.ID = commitMount.Commit.ID
-			d.Shard = commitMount.Shard
 			return d.readFiles(ctx)
 		}
 		return d.readCommits(ctx)
@@ -259,16 +249,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
-		f.fs.getFromCommitID(f.getRepoOrAliasName()),
-		f.fs.getFullFile(f.getRepoOrAliasName()),
-		f.Shard,
 	)
 	if err != nil {
 		return err
 	}
 	if fileInfo != nil {
 		a.Size = fileInfo.SizeBytes
-		a.Mtime, _ = types.TimestampFromProto(fileInfo.Modified)
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
@@ -314,9 +300,6 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
-		f.fs.getFromCommitID(f.getRepoOrAliasName()),
-		f.fs.getFullFile(f.getRepoOrAliasName()),
-		f.Shard,
 	)
 	if err != nil {
 		return nil, err
@@ -418,9 +401,6 @@ func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *
 		h.f.File.Path,
 		request.Offset,
 		int64(request.Size),
-		h.f.fs.getFromCommitID(h.f.getRepoOrAliasName()),
-		h.f.fs.getFullFile(h.f.getRepoOrAliasName()),
-		h.f.Shard,
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
@@ -509,7 +489,6 @@ func (d *directory) copy() *directory {
 				Path: d.File.Path,
 			},
 			Write:     d.Write,
-			Shard:     d.Shard,
 			RepoAlias: d.RepoAlias,
 		},
 	}
@@ -526,7 +505,6 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	if len(f.CommitMounts) == 0 {
 		return &CommitMount{
 			Commit: client.NewCommit(nameOrAlias, ""),
-			Shard:  f.Shard,
 		}
 	}
 
@@ -547,22 +525,6 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	return nil
 }
 
-func (f *filesystem) getFromCommitID(nameOrAlias string) string {
-	commitMount := f.getCommitMount(nameOrAlias)
-	if commitMount == nil || commitMount.DiffMethod == nil || commitMount.DiffMethod.FromCommit == nil {
-		return ""
-	}
-	return commitMount.DiffMethod.FromCommit.ID
-}
-
-func (f *filesystem) getFullFile(nameOrAlias string) bool {
-	commitMount := f.getCommitMount(nameOrAlias)
-	if commitMount == nil || commitMount.DiffMethod == nil {
-		return false
-	}
-	return commitMount.DiffMethod.FullFile
-}
-
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
 	commitMount := d.fs.getCommitMount(name)
 	if commitMount == nil {
@@ -579,7 +541,6 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.File.Commit.Repo.Name = commitMount.Commit.Repo.Name
 	result.File.Commit.ID = commitMount.Commit.ID
 	result.RepoAlias = commitMount.Alias
-	result.Shard = commitMount.Shard
 
 	if commitMount.Commit.ID == "" {
 		// We don't have a commit mount
@@ -594,7 +555,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	if err != nil {
 		return nil, err
 	}
-	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
+	if commitInfo.Finished != nil {
 		result.Write = false
 	} else {
 		result.Write = true
@@ -618,7 +579,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 	}
 	result := d.copy()
 	result.File.Commit.ID = commitID
-	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
+	if commitInfo.Finished != nil {
 		result.Write = false
 	} else {
 		result.Write = true
@@ -635,9 +596,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
-		d.fs.getFromCommitID(d.getRepoOrAliasName()),
-		d.fs.getFullFile(d.getRepoOrAliasName()),
-		d.Shard,
 	)
 	if err != nil {
 		return nil, fuse.ENOENT
@@ -652,12 +610,12 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	directory.File.Path = fileInfo.File.Path
 
 	switch fileInfo.FileType {
-	case pfsclient.FileType_FILE_TYPE_REGULAR:
+	case pfsclient.FileType_FILE:
 		return &file{
 			directory: *directory,
 			size:      int64(fileInfo.SizeBytes),
 		}, nil
-	case pfsclient.FileType_FILE_TYPE_DIR:
+	case pfsclient.FileType_DIR:
 		return directory, nil
 	default:
 		return nil, fmt.Errorf("unrecognized file type")
@@ -687,11 +645,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	status := pfsclient.CommitStatus_NORMAL
-	if d.fs.allCommits {
-		status = pfsclient.CommitStatus_ALL
-	}
-	commitInfos, err := d.fs.apiClient.ListCommitByRepo([]string{d.File.Commit.Repo.Name}, nil, client.CommitTypeNone, status, false)
+	commitInfos, err := d.fs.apiClient.ListCommit(d.File.Commit.Repo.Name, "", "", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -700,12 +654,12 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 		commitPath := commitIDToPath(commitInfo.Commit.ID)
 		result = append(result, fuse.Dirent{Name: commitPath, Type: fuse.DT_Dir})
 	}
-	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name, status)
+	branches, err := d.fs.apiClient.ListBranch(d.File.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
 	for _, branch := range branches {
-		result = append(result, fuse.Dirent{Name: branch, Type: fuse.DT_Dir})
+		result = append(result, fuse.Dirent{Name: branch.Name, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }
@@ -715,12 +669,6 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
 		d.File.Path,
-		d.fs.getFromCommitID(d.getRepoOrAliasName()),
-		d.fs.getFullFile(d.getRepoOrAliasName()),
-		d.Shard,
-		// setting recurse to false for performance reasons
-		// it does however means that we won't know the correct sizes of directories
-		false,
 	)
 	if err != nil {
 		return nil, err
@@ -732,9 +680,9 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 			shortPath = shortPath[1:]
 		}
 		switch fileInfo.FileType {
-		case pfsclient.FileType_FILE_TYPE_REGULAR:
+		case pfsclient.FileType_FILE:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
-		case pfsclient.FileType_FILE_TYPE_DIR:
+		case pfsclient.FileType_DIR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_Dir})
 		default:
 			continue
