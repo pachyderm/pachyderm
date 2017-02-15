@@ -24,6 +24,7 @@ import (
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -34,6 +35,7 @@ const (
 	objectCacheShares     = 8
 	tagCacheShares        = 1
 	objectInfoCacheShares = 1
+	maxCachedObjectDenom  = 4 // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
 )
 
 type objBlockAPIServer struct {
@@ -47,6 +49,7 @@ type objBlockAPIServer struct {
 	objectInfoCache   *groupcache.Group
 	objectIndexes     map[string]*pfsclient.ObjectIndex
 	objectIndexesLock sync.RWMutex
+	objectCacheBytes  int64
 }
 
 func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
@@ -54,14 +57,15 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 	if err != nil {
 		return nil, err
 	}
-	server := &objBlockAPIServer{
-		Logger:        protorpclog.NewLogger("pfs.BlockAPI.Obj"),
-		dir:           dir,
-		localServer:   localServer,
-		objClient:     objClient,
-		objectIndexes: make(map[string]*pfsclient.ObjectIndex),
-	}
 	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
+	server := &objBlockAPIServer{
+		Logger:           protorpclog.NewLogger("pfs.BlockAPI.Obj"),
+		dir:              dir,
+		localServer:      localServer,
+		objClient:        objClient,
+		objectIndexes:    make(map[string]*pfsclient.ObjectIndex),
+		objectCacheBytes: oneCacheShare * objectCacheShares,
+	}
 	server.blockCache = groupcache.NewGroup("block", cacheBytes,
 		groupcache.GetterFunc(server.blockGetter))
 	server.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares,
@@ -288,6 +292,22 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	// First we inspect the object to see how big it is.
+	objectInfo, err := s.InspectObject(getObjectServer.Context(), request)
+	if err != nil {
+		return err
+	}
+	objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
+	if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+		// The object is a substantial portion of the available cache space so
+		// we bypass the cache and stream it directly out of the underlying store.
+		blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+		r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower, objectSize)
+		if err != nil {
+			return err
+		}
+		return grpcutil.WriteToStreamingBytesServer(r, getObjectServer)
+	}
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
 	if err := s.objectCache.Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
