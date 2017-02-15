@@ -49,8 +49,16 @@ type APIClient struct {
 const DefaultMaxConcurrentStreams uint = 100
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
-	c, err := NewFromAddress(addr, maxConcurrentStreams)
+func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
+	return NewMetricsClientFromAddress(addr, metrics, prefix,
+		DefaultMaxConcurrentStreams)
+}
+
+// NewMetricsClientFromAddressWithConcurrency Creates a client that will report
+// a user's Metrics, and sets the max concurrency of streaming requests (GetFile
+// / PutFile)
+func NewMetricsClientFromAddressWithConcurrency(addr string, metrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
+	c, err := NewFromAddress(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +74,9 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string, maxCo
 	return c, err
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string, maxConcurrentStreams uint) (*APIClient, error) {
-	fmt.Printf("creating semaphore chan of size: %v\n", maxConcurrentStreams)
+// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
+// concurrency of streaming requests (GetFile / PutFile)
+func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
 	c := &APIClient{
 		addr:            addr,
 		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
@@ -77,6 +85,11 @@ func NewFromAddress(addr string, maxConcurrentStreams uint) (*APIClient, error) 
 		return nil, err
 	}
 	return c, nil
+}
+
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string) (*APIClient, error) {
+	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
 }
 
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
@@ -89,7 +102,7 @@ func NewInCluster() (*APIClient, error) {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
 
-	return NewFromAddress(fmt.Sprintf("%v:650", addr), DefaultMaxConcurrentStreams)
+	return NewFromAddress(fmt.Sprintf("%v:650", addr))
 }
 
 // Close the connection to gRPC

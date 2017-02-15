@@ -891,7 +891,7 @@ func testFuse(
 		}
 	}()
 
-	apiClient, err := client.NewFromAddress(localAddress, client.DefaultMaxConcurrentStreams)
+	apiClient, err := client.NewFromAddress(localAddress)
 	require.NoError(t, err)
 	mounter := NewMounter(localAddress, apiClient)
 	mountpoint := filepath.Join(tmp, "mnt")

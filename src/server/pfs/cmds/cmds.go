@@ -65,7 +65,7 @@ Repos are created with create-repo.`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ Repos are created with create-repo.`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ Repos are created with create-repo.`,
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ Repos are created with create-repo.`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -166,7 +166,7 @@ Examples:
 	$ pachctl start-commit foo master/3
 `,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -190,7 +190,7 @@ Examples:
 	$ pachctl fork-commit test foo/2 bar
 `,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -209,7 +209,7 @@ Examples:
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -226,7 +226,7 @@ Examples:
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ Examples:
 		Short: "Delete a commit.",
 		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -310,7 +310,7 @@ Examples:
 				status = pfsclient.CommitStatus_ALL
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -352,7 +352,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -378,7 +378,7 @@ Examples:
 				return nil
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -416,7 +416,7 @@ Examples:
 				return err
 			}
 
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -446,7 +446,7 @@ Examples:
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -522,7 +522,7 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", parallelism)
+			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
 				return err
 			}
@@ -532,6 +532,8 @@ files into your Pachyderm cluster.
 			if len(args) == 3 {
 				path = args[2]
 			}
+			// A semaphore used to limit parallelism
+			sem := make(chan struct{}, parallelism)
 			if commitFlag {
 				// We start a commit on a UUID branch and merge the commit
 				// back to the main branch if PutFile was successful.
@@ -617,17 +619,17 @@ files into your Pachyderm cluster.
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
-					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive) })
+					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive, sem) })
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem)
 					})
 				}
 			}
@@ -651,7 +653,7 @@ files into your Pachyderm cluster.
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -666,7 +668,7 @@ files into your Pachyderm cluster.
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -694,7 +696,7 @@ files into your Pachyderm cluster.
 				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
 			}
 
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -729,7 +731,7 @@ files into your Pachyderm cluster.
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -744,7 +746,7 @@ files into your Pachyderm cluster.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
 			if err != nil {
 				return err
 			}
@@ -824,7 +826,7 @@ mount | grep pfs:// | cut -f 3 -d " "
 		Short: "Archives all commits in all repos.",
 		Long:  "Archives all commits in all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user", client.DefaultMaxConcurrentStreams)
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -879,13 +881,17 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}) (retErr error) {
 	if source == "-" {
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		_, err := client.PutFile(repo, commit, path, os.Stdin)
 		return err
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		return client.PutFileURL(repo, commit, path, url.String(), recursive)
 	}
 	if recursive {
@@ -899,7 +905,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem)
 			})
 			return nil
 		}); err != nil {
@@ -907,6 +913,10 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 		}
 		return eg.Wait()
 	}
+	// use the semaphore here so that we don't even open the file until
+	// we are ready to upload it.
+	sem <- struct{}{}
+	defer func() { <-sem }()
 	f, err := os.Open(source)
 	if err != nil {
 		return err

@@ -8,7 +8,7 @@ import (
 )
 
 func Example_pfs() {
-	c, err := client.NewFromAddress("0.0.0.0:30650", client.DefaultMaxConcurrentStreams)
+	c, err := client.NewFromAddress("0.0.0.0:30650")
 	if err != nil {
 		return // handle error
 	}
