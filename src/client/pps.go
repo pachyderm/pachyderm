@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -16,16 +15,10 @@ func NewJob(jobID string) *pps.Job {
 }
 
 const (
-	// PPSPodNameEnv is the environment variable that a pod can use to
-	// see its own name.  The pod name is made available through the Kubernetes
-	// downward API.
-	PPSPodNameEnv = "PPS_POD_NAME"
-	// PPSLeasePeriod is the amount of time for a lease on a chunk to expire.
-	// That is, a pod needs to send ContinueJob to PPS at lease once every this
-	// amount of time in order to keep owning a chunk.  In reality, pods send
-	// ContinueJob more often than that because they need to account for network
-	// latency.
-	PPSLeasePeriod = 30 * time.Second
+	// PPSWorkerIPEnv is the environment variable that a worker can use to
+	// see its own IP.  The IP address is made available through the
+	// Kubernetes downward API.
+	PPSWorkerIPEnv = "PPS_WORKER_IP"
 )
 
 // NewJobInput creates a pps.JobInput.

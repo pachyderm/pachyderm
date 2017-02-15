@@ -47,21 +47,21 @@ func init() {
 }
 
 type appEnv struct {
-	Port               uint16 `env:"PORT,default=650"`
-	NumShards          uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot        string `env:"PACH_ROOT,default=/pach"`
-	StorageBackend     string `env:"STORAGE_BACKEND,default="`
-	PPSEtcdPrefix      string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	PFSEtcdPrefix      string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	KubeAddress        string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	EtcdAddress        string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-	Namespace          string `env:"NAMESPACE,default=default"`
-	Metrics            bool   `env:"METRICS,default=true"`
-	Init               bool   `env:"INIT,default=false"`
-	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
-	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
-	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
-	LogLevel           string `env:"LOG_LEVEL,default=info"`
+	Port                  uint16 `env:"PORT,default=650"`
+	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
+	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
+	StorageBackend        string `env:"STORAGE_BACKEND,default="`
+	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
+	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
+	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+	Namespace             string `env:"NAMESPACE,default=default"`
+	Metrics               bool   `env:"METRICS,default=true"`
+	Init                  bool   `env:"INIT,default=false"`
+	BlockCacheBytes       int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
+	WorkerShimImage       string `env:"WORKER_SHIM_IMAGE,default="`
+	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
+	LogLevel              string `env:"LOG_LEVEL,default=info"`
 }
 
 func main() {
@@ -161,8 +161,8 @@ func do(appEnvObj interface{}) error {
 		address,
 		kubeClient,
 		getNamespace(),
-		appEnv.JobShimImage,
-		appEnv.JobImagePullPolicy,
+		appEnv.WorkerShimImage,
+		appEnv.WorkerImagePullPolicy,
 		reporter,
 	)
 	if err != nil {

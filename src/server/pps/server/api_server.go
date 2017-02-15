@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	client "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -91,11 +92,11 @@ type apiServer struct {
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
-	versionLock        sync.RWMutex
-	namespace          string
-	jobShimImage       string
-	jobImagePullPolicy string
-	reporter           *metrics.Reporter
+	versionLock           sync.RWMutex
+	namespace             string
+	workerShimImage       string
+	workerImagePullPolicy string
+	reporter              *metrics.Reporter
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -349,6 +350,52 @@ func (a *apiServer) pipelineWatcher() {
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
+	b := backoff.NewExponentialBackOff()
+	// never stop retrying
+	b.MaxElapsedTime = 0
+	backoff.RetryNotify(func() error {
+		// Create a k8s replication controller that runs the workers
+		if err := a.createWorkers(pipelineInfo); err != nil {
+			return err
+		}
+		return nil
+	}, b, func(err error, d time.Duration) {
+		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+	})
+	panic("pipelineManager should never exit")
+}
+
+func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
+	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerShimImage, a.workerImagePullPolicy)
+	if err != nil {
+		return err
+	}
+	if options.parallelism != int32(1) {
+		return fmt.Errorf("pachyderm service only supports parallelism of 1, got %v", options.parallelism)
+	}
+	rc := &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   workerRcName(pipelineInfo.Pipeline.Name),
+			Labels: options.labels,
+		},
+		Spec: api.ReplicationControllerSpec{
+			Selector: options.labels,
+			Replicas: options.parallelism,
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   workerRcName(pipelineInfo.Pipeline.Name),
+					Labels: options.labels,
+				},
+				Spec: workerPodSpec(options),
+			},
+		},
+	}
+	_, err = a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
+	return err
 }
 
 // getShardCtx returns the context associated with a shard that this server
@@ -418,27 +465,113 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-type jobOptions struct {
-	labels             map[string]string
-	parallelism        int32
-	userImage          string
-	jobShimImage       string
-	jobImagePullPolicy string
-	jobEnv             []api.EnvVar
-	volumes            []api.Volume
-	volumeMounts       []api.VolumeMount
-	imagePullSecrets   []api.LocalObjectReference
+type workerOptions struct {
+	labels                map[string]string
+	parallelism           int32
+	userImage             string
+	workerShimImage       string
+	workerImagePullPolicy string
+	workerEnv             []api.EnvVar
+	volumes               []api.Volume
+	volumeMounts          []api.VolumeMount
+	imagePullSecrets      []api.LocalObjectReference
 }
 
-func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy) api.PodSpec {
+func workerRcName(pipelineName string) string {
+	return fmt.Sprintf("pipeline_%s", pipelineName)
+}
+
+func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *ppsclient.PipelineInfo, workerShimImage string, workerImagePullPolicy string) (*workerOptions, error) {
+	labels := labels(workerRcName(pipelineInfo.Pipeline.Name))
+	parallelism, err := GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	userImage := pipelineInfo.Transform.Image
+	if userImage == "" {
+		userImage = DefaultUserImage
+	}
+	if workerImagePullPolicy == "" {
+		workerImagePullPolicy = "IfNotPresent"
+	}
+
+	var workerEnv []api.EnvVar
+	for name, value := range pipelineInfo.Transform.Env {
+		workerEnv = append(
+			workerEnv,
+			api.EnvVar{
+				Name:  name,
+				Value: value,
+			},
+		)
+	}
+	// We use Kubernetes' "Downward API" so the workers know their IP
+	// addresses, which they will then post on etcd so the job managers
+	// can discover the workers.
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name: client.PPSWorkerIPEnv,
+		ValueFrom: &api.EnvVarSource{
+			FieldRef: &api.ObjectFieldSelector{
+				APIVersion: "v1",
+				FieldPath:  "status.podIP",
+			},
+		},
+	})
+
+	var volumes []api.Volume
+	var volumeMounts []api.VolumeMount
+	for _, secret := range pipelineInfo.Transform.Secrets {
+		volumes = append(volumes, api.Volume{
+			Name: secret.Name,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: secret.Name,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      secret.Name,
+			MountPath: secret.MountPath,
+		})
+	}
+
+	volumes = append(volumes, api.Volume{
+		Name: "pach-bin",
+		VolumeSource: api.VolumeSource{
+			EmptyDir: &api.EmptyDirVolumeSource{},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      "pach-bin",
+		MountPath: "/pach-bin",
+	})
+	var imagePullSecrets []api.LocalObjectReference
+	for _, secret := range pipelineInfo.Transform.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
+	}
+
+	return &workerOptions{
+		labels:                labels,
+		parallelism:           int32(parallelism),
+		userImage:             userImage,
+		workerShimImage:       workerShimImage,
+		workerImagePullPolicy: workerImagePullPolicy,
+		workerEnv:             workerEnv,
+		volumes:               volumes,
+		volumeMounts:          volumeMounts,
+		imagePullSecrets:      imagePullSecrets,
+	}, nil
+}
+
+func workerPodSpec(options *workerOptions) api.PodSpec {
 	return api.PodSpec{
 		InitContainers: []api.Container{
 			{
 				Name:            "init",
-				Image:           options.jobShimImage,
+				Image:           options.workerShimImage,
 				Command:         []string{"/pach/job-shim.sh"},
-				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-				Env:             options.jobEnv,
+				ImagePullPolicy: api.PullPolicy(options.workerImagePullPolicy),
+				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
@@ -446,16 +579,16 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 			{
 				Name:    "user",
 				Image:   options.userImage,
-				Command: []string{"/pach-bin/guest.sh", jobID},
+				Command: []string{"/pach-bin/guest.sh"},
 				SecurityContext: &api.SecurityContext{
 					Privileged: &trueVal, // god is this dumb
 				},
-				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
-				Env:             options.jobEnv,
+				ImagePullPolicy: api.PullPolicy(options.workerImagePullPolicy),
+				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
-		RestartPolicy:    restartPolicy,
+		RestartPolicy:    "Always",
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
 	}
