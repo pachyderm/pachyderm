@@ -57,7 +57,7 @@ type hashtree struct {
 }
 
 // toProto converts 'h' to a HashTree proto message. This is not public; it's
-// a helper function for Marshal() and is also used for testing (to test
+// a helper function for Serialize() and is also used for testing (to test
 // whether e.g. a failed PutFile call modifies 'h'), so it must not modify 'h'.
 func (h *hashtree) toProto() *HashTreeProto {
 	return &HashTreeProto{
@@ -67,7 +67,7 @@ func (h *hashtree) toProto() *HashTreeProto {
 }
 
 // fromProto creates a hashtree struct from a HashTreeProto (used by
-// Unmarshal())
+// Deserialize())
 func fromProto(htproto *HashTreeProto) (*hashtree, error) {
 	if htproto.Version != 1 {
 		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
@@ -80,14 +80,14 @@ func fromProto(htproto *HashTreeProto) (*hashtree, error) {
 	return res, nil
 }
 
-// Marshal serializes a HashTree so that it can be persisted (also see
-// Unmarshal())
-func (h *hashtree) Marshal() ([]byte, error) {
+// Serialize serializes a HashTree so that it can be persisted (also see
+// Deserialize())
+func (h *hashtree) Serialize() ([]byte, error) {
 	return proto.Marshal(h.toProto())
 }
 
-// Unmarshal deserializes a hash tree so that it can be read or modified.
-func Unmarshal(serialized []byte) (HashTree, error) {
+// Deserialize deserializes a hash tree so that it can be read or modified.
+func Deserialize(serialized []byte) (HashTree, error) {
 	h := HashTreeProto{}
 	proto.Unmarshal(serialized, &h)
 	return fromProto(&h)
@@ -526,20 +526,20 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 // - Code(e) is the error code of the first error encountered
 // - e.Error() contains the error messages of the first 10 errors encountered
 func (h *hashtree) Merge(trees []HashTree) error {
-	b, err := h.Marshal()
+	b, err := h.Serialize()
 	if err != nil {
-		return errorf(Internal, "Could not Marshal hashtree before merge: %s", err)
+		return errorf(Internal, "could not serialize hashtree before merge: %s", err)
 	}
 	if err = h.mergeNode("/", trees); err != nil {
-		htInterfaceTmp, unmarshalErr := Unmarshal(b)
-		if unmarshalErr != nil {
-			return errorf(Internal, "could not unmarshal hashtree (due to \"%s\") "+
-				"after merge error: %s", unmarshalErr, err)
+		htInterfaceTmp, deserializeErr := Deserialize(b)
+		if deserializeErr != nil {
+			return errorf(Internal, "could not deserialize hashtree (due to \"%s\") "+
+				"after merge error: %s", deserializeErr, err)
 		}
 		if htTmp, ok := htInterfaceTmp.(*hashtree); ok {
 			*h = *htTmp
 		} else {
-			return errorf(Internal, "could not convert unmarshalled hash tree after "+
+			return errorf(Internal, "could not convert deserialized hash tree after "+
 				"merge error: %s", err)
 		}
 		return err
