@@ -1,9 +1,6 @@
 package fuse
 
-import (
-	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-)
+import "github.com/pachyderm/pachyderm/src/client"
 
 // A Mounter mounts fuse filesystems.
 type Mounter interface {
@@ -11,22 +8,18 @@ type Mounter interface {
 	// Mount blocks and will return once the volume is unmounted.
 	MountAndCreate(
 		mountPoint string,
-		shard *pfsclient.Shard,
 		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
 		debug bool,
-		allCommits bool,
 		// if oneMount is true, mount only one CommitMount
 		oneMount bool,
 	) error
 
 	Mount(
 		mountPoint string,
-		shard *pfsclient.Shard,
 		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
 		debug bool,
-		allCommits bool,
 		oneMount bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).

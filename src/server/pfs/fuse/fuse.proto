@@ -7,7 +7,6 @@ package fuse;
 
 message CommitMount {
     pfs.Commit commit = 1;
-    bool full_file = 3;
     string alias = 4;
     bool lazy = 6;
 }

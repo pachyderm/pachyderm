@@ -422,7 +422,6 @@ func (a *apiServer) AddShard(shard uint64) error {
 		ctx:    ctx,
 		cancel: cancel,
 	}
-
 	return fmt.Errorf("TODO")
 }
 
