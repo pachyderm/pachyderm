@@ -29,8 +29,11 @@ import (
 )
 
 const (
-	prefixLength = 2
-	alphabet     = "0123456789abcdef"
+	prefixLength          = 2
+	alphabet              = "0123456789abcdef"
+	objectCacheShares     = 8
+	tagCacheShares        = 1
+	objectInfoCacheShares = 1
 )
 
 type objBlockAPIServer struct {
@@ -58,13 +61,14 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		objClient:     objClient,
 		objectIndexes: make(map[string]*pfsclient.ObjectIndex),
 	}
+	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
 	server.blockCache = groupcache.NewGroup("block", cacheBytes,
 		groupcache.GetterFunc(server.blockGetter))
-	server.objectCache = groupcache.NewGroup("object", cacheBytes,
+	server.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares,
 		groupcache.GetterFunc(server.objectGetter))
-	server.tagCache = groupcache.NewGroup("tag", cacheBytes,
+	server.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares,
 		groupcache.GetterFunc(server.tagGetter))
-	server.objectInfoCache = groupcache.NewGroup("objectInfo", cacheBytes,
+	server.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares,
 		groupcache.GetterFunc(server.objectInfoGetter))
 	return server, nil
 }
