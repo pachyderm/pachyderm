@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -84,7 +85,10 @@ func do(appEnvObj interface{}) error {
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		lion.SetLevel(lion.LevelInfo)
 	}
-	etcdClient := getEtcdClient(appEnv)
+	etcdClient, err := getEtcdClient(appEnv)
+	if err != nil {
+		return err
+	}
 	if readinessCheck {
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
@@ -135,7 +139,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := pfs_driver.NewDriver(address, []string(appEnv.EtcdAddress), appEnv.PFSEtcdPrefix)
+	driver, err := pfs_driver.NewDriver(address, []string{appEnv.EtcdAddress}, appEnv.PFSEtcdPrefix)
 	//	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
@@ -183,7 +187,6 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			ppsserver.RegisterInternalPodAPIServer(s, ppsAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
@@ -197,25 +200,26 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getEtcdClient(env *appEnv) discovery.Client {
+func getEtcdClient(env *appEnv) (discovery.Client, error) {
 	return discovery.NewEtcdClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
 }
 
 const clusterIDKey = "cluster-id"
 
 func getClusterID(client discovery.Client) (string, error) {
-	id, err := client.Get(clusterIDKey)
+	ctx := context.Background()
+	id, err := client.Get(ctx, clusterIDKey)
 	// if it's a key not found error then we create the key
 	if err != nil && strings.HasPrefix(err.Error(), "100:") {
 		// This might error if it races with another pachd trying to set the
 		// cluster id so we ignore the error.
-		client.Create(clusterIDKey, uuid.NewWithoutDashes(), 0)
+		client.Set(ctx, clusterIDKey, uuid.NewWithoutDashes(), 0)
 	} else if err != nil {
 		return "", err
 	} else {
 		return id, nil
 	}
-	return client.Get(clusterIDKey)
+	return client.Get(ctx, clusterIDKey)
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {
