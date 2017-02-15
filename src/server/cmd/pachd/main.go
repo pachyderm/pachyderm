@@ -85,7 +85,8 @@ func do(appEnvObj interface{}) error {
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		lion.SetLevel(lion.LevelInfo)
 	}
-	etcdClient, err := getEtcdClient(appEnv)
+	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	etcdClient, err := getEtcdClient(etcdAddress)
 	if err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := pfs_driver.NewDriver(address, []string{appEnv.EtcdAddress}, appEnv.PFSEtcdPrefix)
+	driver, err := pfs_driver.NewDriver(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix)
 	//	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
@@ -159,7 +160,7 @@ func do(appEnvObj interface{}) error {
 	}()
 	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer, err := pps_server.NewAPIServer(
-		appEnv.EtcdAddress,
+		etcdAddress,
 		appEnv.PPSEtcdPrefix,
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
@@ -200,8 +201,8 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getEtcdClient(env *appEnv) (discovery.Client, error) {
-	return discovery.NewEtcdClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
+func getEtcdClient(etcdAddress string) (discovery.Client, error) {
+	return discovery.NewEtcdClient(etcdAddress)
 }
 
 const clusterIDKey = "cluster-id"
@@ -210,7 +211,7 @@ func getClusterID(client discovery.Client) (string, error) {
 	ctx := context.Background()
 	id, err := client.Get(ctx, clusterIDKey)
 	// if it's a key not found error then we create the key
-	if err != nil && strings.HasPrefix(err.Error(), "100:") {
+	if err != nil && strings.Contains(err.Error(), "not found") {
 		// This might error if it races with another pachd trying to set the
 		// cluster id so we ignore the error.
 		client.Set(ctx, clusterIDKey, uuid.NewWithoutDashes(), 0)

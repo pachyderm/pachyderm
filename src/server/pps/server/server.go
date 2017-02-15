@@ -41,7 +41,7 @@ func NewAPIServer(
 		return nil, err
 	}
 
-	return &apiServer{
+	apiServer := &apiServer{
 		Logger:                protorpclog.NewLogger("pps.API"),
 		etcdPrefix:            etcdPrefix,
 		hasher:                hasher,
@@ -52,9 +52,12 @@ func NewAPIServer(
 		kubeClient:            kubeClient,
 		version:               shard.InvalidVersion,
 		versionLock:           sync.RWMutex{},
+		shardCtxs:             make(map[uint64]*ctxAndCancel),
 		namespace:             namespace,
 		workerShimImage:       workerShimImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		reporter:              reporter,
-	}, nil
+	}
+	go apiServer.pipelineWatcher()
+	return apiServer, nil
 }
