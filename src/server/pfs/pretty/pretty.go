@@ -45,6 +45,17 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 	return nil
 }
 
+// PrintBranchHeader prints a branch header.
+func PrintBranchHeader(w io.Writer) {
+	fmt.Fprint(w, "BRANCH\tHEAD\t\n")
+}
+
+// PrintBranch pretty-prints a Branch.
+func PrintBranch(w io.Writer, branch *pfs.Branch) {
+	fmt.Fprintf(w, "%s\t", branch.Name)
+	fmt.Fprintf(w, "%s\t\n", branch.Head.ID)
+}
+
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")

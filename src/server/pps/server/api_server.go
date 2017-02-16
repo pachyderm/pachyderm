@@ -429,7 +429,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient
 			return err
 		}
 		for {
-			time.Sleep(10 * time.Second)
 		}
 		panic("unreachable")
 		return nil
