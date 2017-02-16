@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -86,10 +85,7 @@ func do(appEnvObj interface{}) error {
 		lion.SetLevel(lion.LevelInfo)
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClient, err := getEtcdClient(etcdAddress)
-	if err != nil {
-		return err
-	}
+	etcdClient := getEtcdClient(etcdAddress)
 	if readinessCheck {
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
@@ -153,11 +149,6 @@ func do(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	go func() {
-		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
-		}
-	}()
 	apiServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
@@ -174,6 +165,11 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	go func() {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{ppsAPIServer, cacheServer}); err != nil {
+			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
+		}
+	}()
+	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
@@ -183,6 +179,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
+	fmt.Println("pachd is ready to serve!")
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
@@ -201,26 +198,25 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getEtcdClient(etcdAddress string) (discovery.Client, error) {
+func getEtcdClient(etcdAddress string) discovery.Client {
 	return discovery.NewEtcdClient(etcdAddress)
 }
 
 const clusterIDKey = "cluster-id"
 
 func getClusterID(client discovery.Client) (string, error) {
-	ctx := context.Background()
-	id, err := client.Get(ctx, clusterIDKey)
+	id, err := client.Get(clusterIDKey)
 	// if it's a key not found error then we create the key
 	if err != nil && strings.Contains(err.Error(), "not found") {
 		// This might error if it races with another pachd trying to set the
 		// cluster id so we ignore the error.
-		client.Set(ctx, clusterIDKey, uuid.NewWithoutDashes(), 0)
+		client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
 	} else if err != nil {
 		return "", err
 	} else {
 		return id, nil
 	}
-	return client.Get(ctx, clusterIDKey)
+	return client.Get(clusterIDKey)
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {
