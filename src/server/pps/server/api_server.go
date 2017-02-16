@@ -271,7 +271,11 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	pipelineInfo := new(ppsclient.PipelineInfo)
+	if err := a.pipelinesReadonly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+		return nil, err
+	}
+	return pipelineInfo, nil
 }
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, retErr error) {
@@ -280,7 +284,27 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return new(ppsclient.PipelineInfos), nil
+	pipelineIter, err := a.pipelinesReadonly(ctx).List()
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineInfos := new(ppsclient.PipelineInfos)
+
+	for {
+		var pipelineName string
+		pipelineInfo := new(ppsclient.PipelineInfo)
+		ok, err := pipelineIter.Next(&pipelineName, pipelineInfo)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
+		} else {
+			break
+		}
+	}
+	return
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
@@ -289,7 +313,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.pipelines(stm).Delete(request.Pipeline.Name)
+	})
+	return &types.Empty{}, err
 }
 
 func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *types.Empty, retErr error) {
