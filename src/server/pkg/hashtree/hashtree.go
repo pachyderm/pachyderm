@@ -31,6 +31,19 @@ func (n *NodeProto) nodetype() nodetype {
 	}
 }
 
+func (n *OpenNode) nodetype() nodetype {
+	switch {
+	case n == nil:
+		return none
+	case n.DirNode != nil:
+		return directory
+	case n.FileNode != nil:
+		return file
+	default:
+		return unrecognized
+	}
+}
+
 func (n nodetype) tostring() string {
 	switch n {
 	case none:
@@ -56,65 +69,48 @@ type hashtree struct {
 	changed map[string]bool
 }
 
-// clone makes a deep copy of 'h' and returns it.
+// clone makes a deep copy of 'h' and returns it. This performs one fewer copy
+// than h.Finish().Open()
 func (h *hashtree) clone() (*hashtree, error) {
-	bts, err := h.Serialize()
+	h2, err := h.Finish()
 	if err != nil {
-		return nil, errorf(Internal, "could not clone HashTree: %s", err)
+		return nil, errorf(Internal,
+			"could not Finish() hashtree in clone(): %s", err)
 	}
-	h2, err := Deserialize(bts)
-	if err != nil {
-		return nil, errorf(Internal, "could not clone HashTree: "+err.Error())
-	}
-	h3, ok := h2.(*hashtree)
+	h3, ok := h2.(*HashTreeProto)
 	if !ok {
-		return nil, errorf(Internal, "could not assert type of deserialized HashTree")
+		return nil, errorf(Internal,
+			"could not convert HashTree to *HashTreeProto in clone()")
 	}
-	return h3, nil
-}
-
-// toProto converts 'h' to a HashTree proto message. This is not public; it's
-// a helper function for Serialize() and is also used for testing (to test
-// whether e.g. a failed PutFile call modifies 'h'), so it must not modify 'h'.
-func (h *hashtree) toProto() *HashTreeProto {
-	return &HashTreeProto{
-		Fs:      h.fs,
-		Version: 1,
-	}
-}
-
-// fromProto creates a hashtree struct from a HashTreeProto (used by
-// Deserialize())
-func fromProto(htproto *HashTreeProto) (*hashtree, error) {
-	if htproto.Version != 1 {
-		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
-			"version %d", htproto.Version)
-	}
-	res := &hashtree{
-		fs:      htproto.Fs,
+	result := &hashtree{
+		fs:      h3.Fs,
 		changed: make(map[string]bool),
 	}
-	if res.fs == nil {
-		res.fs = make(map[string]*NodeProto)
+	if result.fs == nil {
+		result.fs = make(map[string]*NodeProto)
 	}
-	return res, nil
+	return result, nil
 }
 
 // Serialize serializes a HashTree so that it can be persisted. Also see
 // Deserialize(bytes).
-func (h *hashtree) Serialize() ([]byte, error) {
-	return proto.Marshal(h.toProto())
+func Serialize(h *HashTreeProto) ([]byte, error) {
+	return proto.Marshal(h)
 }
 
 // Deserialize deserializes a hash tree so that it can be read or modified.
 func Deserialize(serialized []byte) (HashTree, error) {
 	h := &HashTreeProto{}
 	proto.Unmarshal(serialized, h)
-	return fromProto(h)
+	if h.Version != 1 {
+		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
+			"version %d", h.Version)
+	}
+	return h, nil
 }
 
 // NewHashTree creates a new hash tree implementing Interface.
-func NewHashTree() HashTree {
+func NewHashTree() OpenHashTree {
 	return &hashtree{
 		fs:      make(map[string]*NodeProto),
 		changed: make(map[string]bool),
@@ -252,6 +248,36 @@ func (h *hashtree) removeFromMap(path string) error {
 	return nil
 }
 
+// Open makes a deep copy of the HashTree and returns the copy
+func (h *HashTreeProto) Open() OpenHashTree {
+	// create a deep copy of 'h' with proto.Clone
+	h2 := proto.Clone(h).(*HashTreeProto)
+	// make a shallow copy of 'innerh' (effectively) and return that
+	h3 := &hashtree{
+		fs:      h2.Fs,
+		changed: make(map[string]bool),
+	}
+	if h3.fs == nil {
+		h3.fs = make(map[string]*NodeProto)
+	}
+	return h3
+}
+
+// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
+// node size metadata in the copy, and returns the copy
+func (h *hashtree) Finish() (HashTree, error) {
+	if err := h.canonicalize(""); err != nil {
+		return nil, err
+	}
+	// Create a shallow copy of 'h'
+	innerp := &HashTreeProto{
+		Fs:      h.fs,
+		Version: 1,
+	}
+	// convert the shallow copy of 'h' to a deep copy with proto.Clone()
+	return proto.Clone(innerp).(*HashTreeProto), nil
+}
+
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	path = clean(path)
@@ -302,7 +328,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 	}); err != nil {
 		return err
 	}
-	return h.canonicalize("/")
+	return nil
 }
 
 // PutDir creates a directory (or does nothing if one exists).
@@ -344,7 +370,7 @@ func (h *hashtree) PutDir(path string) error {
 	}); err != nil {
 		return err
 	}
-	return h.canonicalize("/")
+	return nil
 }
 
 // DeleteFile deletes a regular file or directory (along with its children).
@@ -383,23 +409,37 @@ func (h *hashtree) DeleteFile(path string) error {
 	}); err != nil {
 		return err
 	}
-	return h.canonicalize("/")
+	return nil
 }
 
 // Get retrieves the contents of a file.
-func (h *hashtree) Get(path string) (*NodeProto, error) {
+func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
 	path = clean(path)
 
-	node, ok := h.fs[path]
+	node, ok := h.Fs[path]
 	if !ok {
 		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
 	}
 	return node, nil
 }
 
+// GetOpen retrieves a file.
+func (h *hashtree) GetOpen(path string) (*OpenNode, error) {
+	path = clean(path)
+	np, ok := h.fs[path]
+	if !ok {
+		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+	}
+	return &OpenNode{
+		Name:     np.Name,
+		FileNode: np.FileNode,
+		DirNode:  np.DirNode,
+	}, nil
+}
+
 // List retrieves the list of files and subdirectories of the directory at
 // 'path'.
-func (h *hashtree) List(path string) ([]*NodeProto, error) {
+func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 
 	node, err := h.Get(path)
@@ -414,7 +454,7 @@ func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	var ok bool
 	result := make([]*NodeProto, len(d.Children))
 	for i, child := range d.Children {
-		result[i], ok = h.fs[join(path, child)]
+		result[i], ok = h.Fs[join(path, child)]
 		if !ok {
 			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
 				"while listing \"%s\"", join(path, child), path)
@@ -424,13 +464,13 @@ func (h *hashtree) List(path string) ([]*NodeProto, error) {
 }
 
 // Glob returns a list of files and directories that match 'pattern'.
-func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
+func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
 	pattern = clean(pattern)
 
 	var res []*NodeProto
-	for p, node := range h.fs {
+	for p, node := range h.Fs {
 		matched, err := pathlib.Match(pattern, p)
 		if err != nil {
 			if err == pathlib.ErrBadPattern {
@@ -449,7 +489,17 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 	path = clean(path)
 	// Get the node at path in 'h' and determine its type (i.e. file, dir)
-	destNode, err := h.Get(path)
+	d, err := h.GetOpen(path)
+	var destNode *NodeProto
+	if d != nil {
+		destNode = &NodeProto{
+			Name:        d.Name,
+			Hash:        nil,
+			SubtreeSize: 0,
+			FileNode:    d.FileNode,
+			DirNode:     d.DirNode,
+		}
+	}
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
@@ -478,14 +528,10 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 	//   and we'd have an O(n^2) algorithm; too slow when merging 100k trees)
 	childrenToTrees := make(map[string][]HashTree)
 	// Amount of data being added to node at 'path' in 'h'
-	sizeDelta := int64(0)
 	for _, src := range srcs {
 		n, err := src.Get(path)
 		if err != nil && Code(err) != PathNotFound {
 			return err
-		}
-		if n.nodetype() == none {
-			continue
 		}
 		if pathtype == none {
 			pathtype = n.nodetype()
@@ -519,7 +565,6 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 			// Append new blocks
 			destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
 				n.FileNode.BlockRefs...)
-			sizeDelta += n.SubtreeSize
 		default:
 			return errorf(Internal, "malformed node at \"%s\" in source "+
 				"hashtree is neither a file nor a directory", path)
@@ -554,5 +599,5 @@ func (h *hashtree) Merge(trees []HashTree) error {
 		return err
 	}
 	*h = *hmod
-	return h.canonicalize("/")
+	return nil
 }

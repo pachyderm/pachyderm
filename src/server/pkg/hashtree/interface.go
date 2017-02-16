@@ -46,8 +46,12 @@ const (
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a
-// new HashTree, create one with NewHashTree().
+// new HashTree, create an OpenHashTree with NewHashTree(), modify it, and then
+// call Finish() on it.
 type HashTree interface {
+	// Open makes a deep copy of the HashTree and returns the copy
+	Open() OpenHashTree
+
 	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
 
@@ -57,10 +61,24 @@ type HashTree interface {
 
 	// Glob returns a list of files and directories that match 'pattern'.
 	Glob(pattern string) ([]*NodeProto, error)
+}
 
-	// Serialize serializes a HashTree so that it can be persisted. Also see
-	// Deserialize(bytes).
-	Serialize() ([]byte, error)
+// OpenNode is similar to NodeProto, except that it doesn't include the Hash or
+// Size fields (which are not generally meaningful in an OpenHashTree)
+type OpenNode struct {
+	Name string
+
+	FileNode *FileNodeProto
+	DirNode  *DirectoryNodeProto
+}
+
+// OpenHashTree is like HashTree, except that it can be modified. Once an
+// OpenHashTree is Finish()ed, the hash and size stored with each node will be
+// updated (until then, the hashes and sizes stored in an OpenHashTree will be
+// stale).
+type OpenHashTree interface {
+	// GetOpen retrieves a file.
+	GetOpen(path string) (*OpenNode, error)
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, blockRefs []*pfs.BlockRef) error
@@ -72,8 +90,10 @@ type HashTree interface {
 	DeleteFile(path string) error
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
-	// this tree. The effect is equivalent to calling this.PutFile with every
-	// file in every tree in 'tree', though the performance may be slightly
-	// better.
+	// this tree.
 	Merge(trees []HashTree) error
+
+	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
+	// node size metadata in the copy, and returns the copy
+	Finish() (HashTree, error)
 }
