@@ -157,6 +157,7 @@ clean-launch: check-kubectl
 
 clean-launch-dev: check-kubectl
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
+	kubectl $(KUBECTLFLAGS) delete rc -l suite=pachyderm
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm

@@ -11,6 +11,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/proto/rpclog"
+	"golang.org/x/net/context"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -51,8 +52,8 @@ func NewAPIServer(
 		pfsClientOnce:         sync.Once{},
 		kubeClient:            kubeClient,
 		version:               shard.InvalidVersion,
-		versionLock:           sync.RWMutex{},
 		shardCtxs:             make(map[uint64]*ctxAndCancel),
+		pipelineCancels:       make(map[string]context.CancelFunc),
 		namespace:             namespace,
 		workerShimImage:       workerShimImage,
 		workerImagePullPolicy: workerImagePullPolicy,
