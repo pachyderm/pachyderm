@@ -30,9 +30,14 @@ func BenchmarkManyObjects(b *testing.B) {
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
 						r := workload.NewReader(rand, objectSize)
-						_, err := c.PutObject(r, fmt.Sprintf("%d%d%d", n, i, j))
-						if err != nil {
-							return err
+						if n == 0 {
+							if _, err := c.PutObject(r, fmt.Sprintf("%d%d", i, j)); err != nil {
+								return err
+							}
+						} else {
+							if _, err := c.PutObject(r); err != nil {
+								return err
+							}
 						}
 					}
 					return nil
@@ -49,7 +54,7 @@ func BenchmarkManyObjects(b *testing.B) {
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
-						err := c.GetTag(fmt.Sprintf("%d%d%d", n, i, j), ioutil.Discard)
+						err := c.GetTag(fmt.Sprintf("%d%d", i, j), ioutil.Discard)
 						if err != nil {
 							return err
 						}
@@ -68,7 +73,7 @@ func BenchmarkManyObjects(b *testing.B) {
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
-						err := c.GetTag(fmt.Sprintf("%d%d%d", n, i, j), ioutil.Discard)
+						err := c.GetTag(fmt.Sprintf("%d%d", i, j), ioutil.Discard)
 						if err != nil {
 							return err
 						}
