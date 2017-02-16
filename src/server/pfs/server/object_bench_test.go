@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	clients          = 6
-	objectsPerClient = 100
+	clients          = 12
+	objectsPerClient = 500
 	objectSize       = 1024 * 1024
 )
 
@@ -31,7 +31,7 @@ func BenchmarkManyObjects(b *testing.B) {
 					for j := 0; j < objectsPerClient; j++ {
 						r := workload.NewReader(rand, objectSize)
 						if n == 0 {
-							if _, err := c.PutObject(r, fmt.Sprintf("%d%d", i, j)); err != nil {
+							if _, err := c.PutObject(r, fmt.Sprintf("%d.%d", i, j)); err != nil {
 								return err
 							}
 						} else {
@@ -54,7 +54,7 @@ func BenchmarkManyObjects(b *testing.B) {
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
-						err := c.GetTag(fmt.Sprintf("%d%d", i, j), ioutil.Discard)
+						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
 						if err != nil {
 							return err
 						}
@@ -73,7 +73,7 @@ func BenchmarkManyObjects(b *testing.B) {
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
-						err := c.GetTag(fmt.Sprintf("%d%d", i, j), ioutil.Discard)
+						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
 						if err != nil {
 							return err
 						}
