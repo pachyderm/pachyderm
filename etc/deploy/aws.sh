@@ -46,9 +46,10 @@ deploy_k8s_on_aws() {
     
     # This will allow us to cleanup the cluster afterwards
     # ... if we don't do it explicitly its annoying to kill the cluster
-    echo "KOPS_STATE_STORE=$KOPS_STATE_STORE" >> $NAME.sh
-    echo $KOPS_STATE_STORE > current-benchmark-state-store.txt
-    echo $NAME > current-benchmark-cluster.txt
+    mkdir tmp
+    echo "KOPS_STATE_STORE=$KOPS_STATE_STORE" >> tmp/$NAME.sh
+    echo $KOPS_STATE_STORE > tmp/current-benchmark-state-store.txt
+    echo $NAME > tmp/current-benchmark-cluster.txt
 
     # Get the IP of the k8s master node and hack /etc/hosts so we can connect
     # Need to retry this in a loop until we see the instance appear
@@ -63,16 +64,46 @@ deploy_k8s_on_aws() {
     masterk8sip=`dig +short $masterk8sdomain`
     sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
 
-    kubectl get nodes --show-labels
+    wait_for_nodes_to_come_online()
 
     # Wait until all nodes show as ready, and we have as many as we expect
+}
+
+wait_for_nodes_to_come_online() {
+    set +euxo pipefail
+    check_all_nodes_ready
+    while [ $? -ne 0 ]; do
+        sleep 1
+        check_all_nodes_ready
+    done
+    set -euxo pipefail
+    rm nodes.txt
+}
+
+check_all_nodes_ready() {
+    echo "Checking k8s nodes are ready"
+    kubectl get nodes > nodes.txt
+    cat nodes.txt
+    if [ $? -ne 0 ]; do
+        return 1
+    fi
+    if [ cat nodes.txt | grep "master" | wc -l -ne 1 ]; do
+        echo "no master nodes found"
+        return 1
+    fi
+    TOTAL_NODES=( NUM_NODES + 1 )
+    if [ cat nodes.txt | grep -v "NotReady" | grep "Ready" | wc -l -eq $TOTAL_NODES ]; do
+        echo "all nodes ready"
+        return 0
+    fi
+    return 1
 }
 
 get_k8s_master_domain() {
     sleep 1
     echo "Retrieving ec2 instance list to get k8s master domain name"
-    aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region $AWS_REGION > $NAME.instances.json
-    export masterk8sdomain=`cat $NAME.instances.json | jq ".Reservations | .[] | .Instances | .[] | select( .Tags | .[]? | select( .Value | contains(\"masters.$NAME\") ) ) | .PublicDnsName" | head -n 1 | cut -f 2 -d "\""`
+    aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region $AWS_REGION > tmp/$NAME.instances.json
+    export masterk8sdomain=`cat tmp/$NAME.instances.json | jq ".Reservations | .[] | .Instances | .[] | select( .Tags | .[]? | select( .Value | contains(\"masters.$NAME\") ) ) | .PublicDnsName" | head -n 1 | cut -f 2 -d "\""`
     if [ -n "$masterk8sdomain" ]; then
         return 0
     fi
