@@ -269,7 +269,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, nil
+	return new(ppsclient.PipelineInfos), nil
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
