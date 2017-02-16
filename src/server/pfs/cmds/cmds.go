@@ -145,12 +145,16 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	# Start a commit with master/3 as the parent in repo foo
 	$ pachctl start-commit foo master/3
 	`,
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			commit, err := client.StartCommit(args[0], args[1])
+			var parent string
+			if len(args) == 2 {
+				parent = args[1]
+			}
+			commit, err := client.StartCommit(args[0], parent)
 			if err != nil {
 				return err
 			}
@@ -240,13 +244,18 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	# return commits in repo "foo" since commit XXX
 	$ pachctl list-commit foo master --from XXX
 	`,
-		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
 			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
 
-			commitInfos, err := c.ListCommit(args[0], args[1], from, uint64(number))
+			var to string
+			if len(args) == 2 {
+				to = args[1]
+			}
+
+			commitInfos, err := c.ListCommit(args[0], to, from, uint64(number))
 			if err != nil {
 				return err
 			}
