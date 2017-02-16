@@ -257,89 +257,138 @@ func (c *ReadonlyCollection) List() (Iterator, error) {
 	}, nil
 }
 
-type IterateCloser interface {
-	Iterator
+type EventType int
+
+const (
+	EventPut EventType = iota
+	EventDelete
+)
+
+type Watcher interface {
 	io.Closer
+	Next() (Event, error)
 }
 
-type kv struct {
+type Event interface {
+	Unmarshal(key *string, value proto.Message) error
+	Type() EventType
+}
+
+type event struct {
 	key   []byte
 	value []byte
+	typ   EventType
 }
 
-type iterateCloser struct {
-	kvs     []kv
+func (e event) Unmarshal(key *string, value proto.Message) error {
+	*key = string(e.key)
+	return proto.UnmarshalText(string(e.value), value)
+}
+
+func (e event) Type() EventType {
+	return e.typ
+}
+
+type watcher struct {
+	events  []event
 	watcher etcd.Watcher
 	rch     etcd.WatchChan
 }
 
-func (i *iterateCloser) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if len(i.kvs) == 0 {
-		ev, ok := <-i.rch
+func (w *watcher) Next() (Event, error) {
+	if len(w.events) == 0 {
+		ev, ok := <-w.rch
 		if !ok {
-			return false, nil
+			return nil, fmt.Errorf("stream has been closed")
 		}
 
-		for _, ev := range ev.Events {
-			i.kvs = append(i.kvs, kv{
-				key:   ev.Kv.Key,
-				value: ev.Kv.Value,
-			})
+		for _, etcdEv := range ev.Events {
+			var ev event
+			switch etcdEv.Type {
+			case etcd.EventTypePut:
+				ev = event{
+					key:   etcdEv.Kv.Key,
+					value: etcdEv.Kv.Value,
+					typ:   EventPut,
+				}
+			case etcd.EventTypeDelete:
+				ev = event{
+					key:   etcdEv.PrevKv.Key,
+					value: etcdEv.PrevKv.Value,
+					typ:   EventDelete,
+				}
+			}
+			w.events = append(w.events, ev)
 		}
 	}
 
-	kv := i.kvs[0]
-	i.kvs = i.kvs[1:]
+	// pop the first element
+	event := w.events[0]
+	w.events = w.events[1:]
 
-	*key = string(kv.key)
-	if err := proto.UnmarshalText(string(kv.value), val); err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return event, nil
 }
 
-func (i *iterateCloser) Close() error {
-	return i.watcher.Close()
+func (w *watcher) Close() error {
+	return w.watcher.Close()
 }
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
 // TODO: handle deletion events; right now if an item is deleted from
 // this collection, we treat the event as if it's an addition event.
-func (c *ReadonlyCollection) Watch() (IterateCloser, error) {
+func (c *ReadonlyCollection) Watch() (Watcher, error) {
 	// Firstly we list the collection to get the current items
-	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	// Sort them by ascending order because that's how the items would have
+	// been returned if we watched them from the beginning.
+	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 	if err != nil {
 		return nil, err
 	}
 
-	watcher := etcd.NewWatcher(c.etcdClient)
+	etcdWatcher := etcd.NewWatcher(c.etcdClient)
 	// Now we issue a watch that uses the revision timestamp returned by the
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
-	rch := watcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
-	iter := &iterateCloser{
-		watcher: watcher,
+	rch := etcdWatcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
+	w := &watcher{
+		watcher: etcdWatcher,
 		rch:     rch,
 	}
 
 	for _, etcdKv := range resp.Kvs {
-		iter.kvs = append(iter.kvs, kv{
+		w.events = append(w.events, event{
 			key:   etcdKv.Key,
 			value: etcdKv.Value,
+			typ:   EventPut,
 		})
 	}
-	return iter, nil
+	return w, nil
 }
 
-// WatchOne watches for the new values of a certain item
-func (c *ReadonlyCollection) WatchOne(key string) (IterateCloser, error) {
-	watcher := etcd.NewWatcher(c.etcdClient)
-	rch := watcher.Watch(c.ctx, c.path(key))
-	return &iterateCloser{
-		watcher: watcher,
+// WatchOne watches a given item.  The first value returned from the watch
+// will be the current value of the item.
+func (c *ReadonlyCollection) WatchOne(key string) (Watcher, error) {
+	// Firstly we list the collection to get the current items
+	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
+	if err != nil {
+		return nil, err
+	}
+
+	etcdWatcher := etcd.NewWatcher(c.etcdClient)
+	rch := etcdWatcher.Watch(c.ctx, c.path(key), etcd.WithRev(resp.Header.Revision))
+	w := &watcher{
+		watcher: etcdWatcher,
 		rch:     rch,
-	}, nil
+	}
+	if resp.Count > 0 {
+		kv := resp.Kvs[0]
+		w.events = append(w.events, event{
+			key:   kv.Key,
+			value: kv.Value,
+			typ:   EventPut,
+		})
+	}
+	return w, nil
 }

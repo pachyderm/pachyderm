@@ -489,25 +489,29 @@ type commitInfoIterator struct {
 	ctx    context.Context
 	driver *driver
 	buffer []*pfs.CommitInfo
-	// an iterator that receives new commits
-	newCommitsIter col.IterateCloser
+	// a watcher that watches for updates to a branch
+	newCommitsIter col.Watcher
 	// record whether a commit has been seen
 	seen map[string]bool
 }
 
 func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 	if len(c.buffer) == 0 {
-		var commitID string
+	receiveNewCommit:
+		var branchName string
 		commit := new(pfs.Commit)
 		for {
-			ok, err := c.newCommitsIter.Next(&commitID, commit)
+			event, err := c.newCommitsIter.Next()
 			if err != nil {
 				return nil, err
 			}
-			if !ok {
-				return nil, nil
+			switch event.Type() {
+			case col.EventPut:
+				event.Unmarshal(&branchName, commit)
+			case col.EventDelete:
+				continue
 			}
-			if !c.seen[commitID] {
+			if !c.seen[commit.ID] {
 				break
 			}
 		}
@@ -520,12 +524,17 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 		for {
 			var commitID string
 			commitInfo := new(pfs.CommitInfo)
-			ok, err := commitInfoIter.Next(&commitID, commitInfo)
+			event, err := commitInfoIter.Next()
 			if err != nil {
 				return nil, err
 			}
-			if !ok {
-				return nil, fmt.Errorf("unable to wait until commit %s finishes", commit.ID)
+			switch event.Type() {
+			case col.EventPut:
+				event.Unmarshal(&commitID, commitInfo)
+			case col.EventDelete:
+				// if this commit that we are waiting for is deleted, then
+				// we go back to watch the branch to get a new commit
+				goto receiveNewCommit
 			}
 			if commitInfo.Finished != nil {
 				c.buffer = append(c.buffer, commitInfo)
