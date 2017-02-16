@@ -82,7 +82,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
-						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, diffMethod.FromCommit.ID, diffMethod.FullFile, shard, f)
+						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 						if err != nil {
 							log.Printf("error from GetFile: %s", err)
 							return
