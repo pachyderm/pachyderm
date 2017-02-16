@@ -1,0 +1,89 @@
+package server
+
+import (
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"testing"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
+)
+
+const (
+	clients          = 6
+	objectsPerClient = 100
+	objectSize       = 1024 * 1024
+)
+
+func BenchmarkManyObjects(b *testing.B) {
+	fmt.Println("running benchmark")
+	b.Run("Put", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			var eg errgroup.Group
+			for i := 0; i < clients; i++ {
+				c := getPachClientInCluster(b)
+				rand := rand.New(rand.NewSource(int64(i)))
+				eg.Go(func() error {
+					for j := 0; j < objectsPerClient; j++ {
+						r := workload.NewReader(rand, objectSize)
+						_, err := c.PutObject(r, fmt.Sprintf("%d%d%d", n, i, j))
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}
+			b.SetBytes(clients * objectsPerClient * objectSize)
+			require.NoError(b, eg.Wait())
+		}
+	})
+	b.Run("Get", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			var eg errgroup.Group
+			for i := 0; i < clients; i++ {
+				c := getPachClientInCluster(b)
+				eg.Go(func() error {
+					for j := 0; j < objectsPerClient; j++ {
+						err := c.GetTag(fmt.Sprintf("%d%d%d", n, i, j), ioutil.Discard)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}
+			b.SetBytes(clients * objectsPerClient * objectSize)
+			require.NoError(b, eg.Wait())
+		}
+	})
+	b.Run("CacheGet", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			var eg errgroup.Group
+			for i := 0; i < clients; i++ {
+				c := getPachClientInCluster(b)
+				eg.Go(func() error {
+					for j := 0; j < objectsPerClient; j++ {
+						err := c.GetTag(fmt.Sprintf("%d%d%d", n, i, j), ioutil.Discard)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+			}
+			b.SetBytes(clients * objectsPerClient * objectSize)
+			require.NoError(b, eg.Wait())
+		}
+	})
+}
+
+func getPachClientInCluster(t testing.TB) *client.APIClient {
+	client, err := client.NewInCluster()
+	require.NoError(t, err)
+	return client
+}
