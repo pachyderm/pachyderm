@@ -136,7 +136,7 @@ launch-bench:
 	etc/deploy/aws.sh
 
 clean-launch-bench:
-	kops delete cluster `cat current-benchmark-cluster.txt` --yes --state `cat current-benchmark-state-store.txt`
+	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`
 
 
 launch-kube: check-kubectl
