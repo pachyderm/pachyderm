@@ -149,7 +149,7 @@ func do(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	apiServer := pfs_server.NewAPIServer(driver, reporter)
+	pfsAPIServer := pfs_server.NewAPIServer(driver, reporter)
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
@@ -165,7 +165,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	go func() {
-		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{ppsAPIServer, cacheServer}); err != nil {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
 			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
 		}
 	}()
@@ -182,7 +182,7 @@ func do(appEnvObj interface{}) error {
 	fmt.Println("pachd is ready to serve!")
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
-			pfsclient.RegisterAPIServer(s, apiServer)
+			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)
