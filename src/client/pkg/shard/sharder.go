@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"path"
@@ -10,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/gogo/protobuf/jsonpb"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -159,7 +158,7 @@ func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
 	// lock since we're the ones who set it last
 	oldValue := ""
 	for {
-		if err := a.discoveryClient.CheckAndSet(context.TODO(), "lock", address, holdTTL, oldValue); err != nil {
+		if err := a.discoveryClient.CheckAndSet("lock", address, holdTTL, oldValue); err != nil {
 			if oldValue != "" {
 				// lock lost
 				oldValue = ""
@@ -199,7 +198,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 	oldShards := make(map[uint64]string)
 	var oldMinVersion int64
 	// Reconstruct state from a previous run
-	serverRoles, err := a.discoveryClient.GetAll(context.TODO(), a.serverRoleDir())
+	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 	if err != nil {
 		return err
 	}
@@ -221,7 +220,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 			oldShards[shard] = oldServerRole.Address
 		}
 	}
-	err = a.discoveryClient.WatchAll(context.TODO(), a.serverStateDir(), cancel,
+	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) error {
 			if len(encodedServerStates) == 0 {
 				return nil
@@ -254,7 +253,6 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 			if minVersion > oldMinVersion {
 				oldMinVersion = minVersion
 				if err := a.discoveryClient.WatchAll(
-					context.TODO(),
 					a.frontendStateDir(),
 					cancel,
 					func(encodedFrontendStates map[string]string) error {
@@ -271,7 +269,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 					}); err != nil && err != errComplete {
 					return err
 				}
-				serverRoles, err := a.discoveryClient.GetAll(context.TODO(), a.serverRoleDir())
+				serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 				if err != nil {
 					return err
 				}
@@ -281,7 +279,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 						return err
 					}
 					if serverRole.Version < minVersion {
-						if err := a.discoveryClient.Delete(context.TODO(), key); err != nil {
+						if err := a.discoveryClient.Delete(key); err != nil {
 							return err
 						}
 						log.Info(&DeleteServerRole{serverRole})
@@ -320,7 +318,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 				if err != nil {
 					return err
 				}
-				if err := a.discoveryClient.Set(context.TODO(), a.serverRoleKeyVersion(address, version), encodedServerRole, 0); err != nil {
+				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(address, version), encodedServerRole, 0); err != nil {
 					return err
 				}
 				log.Info(&SetServerRole{serverRole})
@@ -333,7 +331,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 			if err != nil {
 				return err
 			}
-			if err := a.discoveryClient.Set(context.TODO(), a.addressesKey(version), encodedAddresses, 0); err != nil {
+			if err := a.discoveryClient.Set(a.addressesKey(version), encodedAddresses, 0); err != nil {
 				return err
 			}
 			log.Info(&SetAddresses{&addresses})
@@ -354,7 +352,7 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 
 func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresses []string) error {
 	version := InvalidVersion
-	if err := a.discoveryClient.WatchAll(context.TODO(), a.serverDir(), nil,
+	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
 			serverStates := make(map[string]*ServerState)
 			serverRoles := make(map[string]map[int64]*ServerRole)
@@ -421,7 +419,6 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 	}
 
 	if err := a.discoveryClient.WatchAll(
-		context.TODO(),
 		a.frontendStateDir(),
 		nil,
 		func(encodedFrontendStates map[string]string) error {
@@ -552,7 +549,7 @@ func decodeFrontendState(encodedFrontendState string) (*FrontendState, error) {
 }
 
 func (a *sharder) getServerStates() (map[string]*ServerState, error) {
-	encodedServerStates, err := a.discoveryClient.GetAll(context.TODO(), a.serverStateDir())
+	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +565,7 @@ func (a *sharder) getServerStates() (map[string]*ServerState, error) {
 }
 
 func (a *sharder) getServerState(address string) (*ServerState, error) {
-	encodedServerState, err := a.discoveryClient.Get(context.TODO(), a.serverStateKey(address))
+	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(address))
 	if err != nil {
 		return nil, err
 	}
@@ -584,7 +581,7 @@ func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
 }
 
 func (a *sharder) getServerRoles() (map[string]map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(context.TODO(), a.serverRoleDir())
+	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +600,7 @@ func (a *sharder) getServerRoles() (map[string]map[int64]*ServerRole, error) {
 }
 
 func (a *sharder) getServerRole(address string) (map[int64]*ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(context.TODO(), a.serverRoleKey(address))
+	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(address))
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +627,7 @@ func (a *sharder) getAddresses(version int64) (*Addresses, error) {
 	a.addressesLock.RUnlock()
 	a.addressesLock.Lock()
 	defer a.addressesLock.Unlock()
-	encodedAddresses, err := a.discoveryClient.Get(context.TODO(), a.addressesKey(version))
+	encodedAddresses, err := a.discoveryClient.Get(a.addressesKey(version))
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +688,7 @@ func (a *sharder) announceServers(
 		if err != nil {
 			return err
 		}
-		if err := a.discoveryClient.Set(context.TODO(), a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
+		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
 			log.Printf("Error setting server state: %s", err.Error())
 		}
 		log.Debug(&SetServerState{serverState})
@@ -720,7 +717,7 @@ func (a *sharder) announceFrontends(
 		if err != nil {
 			return err
 		}
-		if err := a.discoveryClient.Set(context.TODO(), a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
+		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
 			log.Printf("Error setting server state: %s", err.Error())
 		}
 		log.Debug(&SetFrontendState{frontendState})
@@ -748,7 +745,6 @@ func (a *sharder) fillRoles(
 ) error {
 	oldRoles := make(map[int64]ServerRole)
 	return a.discoveryClient.WatchAll(
-		context.TODO(),
 		a.serverRoleKey(address),
 		cancel,
 		func(encodedServerRoles map[string]string) error {
@@ -847,7 +843,6 @@ func (a *sharder) runFrontends(
 ) error {
 	version := InvalidVersion
 	return a.discoveryClient.WatchAll(
-		context.TODO(),
 		a.serverStateDir(),
 		cancel,
 		func(encodedServerStates map[string]string) error {
