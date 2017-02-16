@@ -46,6 +46,7 @@ deploy_k8s_on_aws() {
     
     # This will allow us to cleanup the cluster afterwards
     # ... if we don't do it explicitly its annoying to kill the cluster
+    set +euxo pipefail
     mkdir tmp
     echo "KOPS_STATE_STORE=$KOPS_STATE_STORE" >> tmp/$NAME.sh
     echo $KOPS_STATE_STORE > tmp/current-benchmark-state-store.txt
@@ -54,7 +55,6 @@ deploy_k8s_on_aws() {
     # Get the IP of the k8s master node and hack /etc/hosts so we can connect
     # Need to retry this in a loop until we see the instance appear
 
-    set +euxo pipefail
     get_k8s_master_domain
     while [ $? -ne 0 ]; do
         get_k8s_master_domain
@@ -62,9 +62,10 @@ deploy_k8s_on_aws() {
     echo "Master k8s node is up and lives at $masterk8sdomain"
     set -euxo pipefail
     masterk8sip=`dig +short $masterk8sdomain`
+    # This is the only operation that requires sudo privileges
     sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
 
-    wait_for_nodes_to_come_online()
+    wait_for_nodes_to_come_online
 
     # Wait until all nodes show as ready, and we have as many as we expect
 }
@@ -84,15 +85,15 @@ check_all_nodes_ready() {
     echo "Checking k8s nodes are ready"
     kubectl get nodes > nodes.txt
     cat nodes.txt
-    if [ $? -ne 0 ]; do
+    if [ $? -ne 0 ]; then
         return 1
     fi
-    if [ cat nodes.txt | grep "master" | wc -l -ne 1 ]; do
+    if [ "cat nodes.txt | grep master | wc -l" -ne 1 ]; then
         echo "no master nodes found"
         return 1
     fi
     TOTAL_NODES=( NUM_NODES + 1 )
-    if [ cat nodes.txt | grep -v "NotReady" | grep "Ready" | wc -l -eq $TOTAL_NODES ]; do
+    if [ "cat nodes.txt | grep -v NotReady | grep Ready | wc -l" -eq $TOTAL_NODES ]; then
         echo "all nodes ready"
         return 0
     fi
@@ -153,5 +154,9 @@ deploy_pachyderm_on_aws() {
 
 }
 
+if [ "$EUID" -ne 0 ]
+  then echo "Cowardly refusing to deploy cluster. Please run as root"
+  exit
+fi
 
 deploy_k8s_on_aws
