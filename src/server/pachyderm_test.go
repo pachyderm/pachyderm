@@ -4261,6 +4261,73 @@ func TestJobGC(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRerunPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRerunPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("TestRerunPipeline_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{{
+			Repo:   &pfsclient.Repo{Name: dataRepo},
+			Method: client.MapMethod,
+		}},
+		false,
+	))
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	commitInfos1, err := c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	// Rerun the pipeline on commit1
+	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos1[1].Commit}, nil))
+	commitInfos1, err = c.FlushCommit([]*pfsclient.Commit{commit1}, nil)
+	require.NoError(t, err)
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+
+	// Do second commit to repo
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	commitInfos2, err := c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
+	require.NoError(t, err)
+
+	// Rerun the pipeline on commit2
+	require.NoError(t, c.RerunPipeline(pipelineName, []*pfsclient.Commit{commitInfos2[1].Commit}, []*pfsclient.Commit{commitInfos1[1].Commit}))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit2}, nil)
+	require.NoError(t, err)
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(jobInfos))
+	jobInfos, err = c.ListJob(pipelineName, []*pfsclient.Commit{commit2})
+	require.NoError(t, err)
+	for _, jobInfo := range jobInfos {
+		require.NotNil(t, jobInfo.ParentJob)
+	}
+}
+
 // Make sure that a file F in a PFS commit that is part of a shard S can always
 // be listed from S, reguardless of its path. Specifically, if I have a file
 // /foo/bar/buzz.txt, then:
