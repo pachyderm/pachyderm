@@ -132,6 +132,13 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
+launch-bench:
+	etc/deploy/aws.sh
+
+clean-launch-bench:
+	kops delete cluster `cat current-benchmark-cluster.txt` --yes --state `cat current-benchmark-state-store.txt`
+
+
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
