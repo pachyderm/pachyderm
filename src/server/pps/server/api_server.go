@@ -233,11 +233,22 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	return nil
 }
 
+func validatePipelineName(pipelineName string) error {
+	if strings.Contains(pipelineName, "_") {
+		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineName)
+	}
+	return nil
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if err := validatePipelineName(request.Pipeline.Name); err != nil {
+		return nil, err
+	}
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := &ppsclient.PipelineInfo{
@@ -477,7 +488,7 @@ type workerOptions struct {
 }
 
 func workerRcName(pipelineName string) string {
-	return fmt.Sprintf("pipeline_%s", pipelineName)
+	return fmt.Sprintf("pipeline-%s", pipelineName)
 }
 
 func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *ppsclient.PipelineInfo, workerShimImage string, workerImagePullPolicy string) (*workerOptions, error) {
