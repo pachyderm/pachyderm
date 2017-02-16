@@ -20,11 +20,11 @@ const (
 	// violation of an internal invariant).
 	Internal
 
-	// CannotDeserialize is returned when Unmarshal(bytes) fails, perhaps due to
+	// CannotDeserialize is returned when Deserialize(bytes) fails, perhaps due to
 	// 'bytes' being corrupted.
 	CannotDeserialize
 
-	// Unsupported is returned when Unmarshal(bytes) encounters an unsupported
+	// Unsupported is returned when Deserialize(bytes) encounters an unsupported
 	// (likely old) serialized HashTree.
 	Unsupported
 
@@ -46,34 +46,34 @@ const (
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a
-// new hash tree, see hashtree.NewHashTree().
+// new HashTree, create one with NewHashTree().
 type HashTree interface {
-	// PutFile appends data to a file (and creates the file if it doesn't exist)
-	PutFile(path string, blockRefs []*pfs.BlockRef) error
-
-	// PutDir creates a directory (or does nothing if one exists)
-	PutDir(path string) error
-
-	// DeleteFile deletes a regular file or directory (along with its children).
-	DeleteFile(path string) error
-
-	// Get retrieves the contents of a regular file
+	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
 
 	// List retrieves the list of files and subdirectories of the directory at
 	// 'path'.
 	List(path string) ([]*NodeProto, error)
 
-	// Glob returns a list of files and directories that match 'pattern'
+	// Glob returns a list of files and directories that match 'pattern'.
 	Glob(pattern string) ([]*NodeProto, error)
+
+	// Serialize serializes a HashTree so that it can be persisted. Also see
+	// Deserialize(bytes).
+	Serialize() ([]byte, error)
+
+	// PutFile appends data to a file (and creates the file if it doesn't exist).
+	PutFile(path string, blockRefs []*pfs.BlockRef) error
+
+	// PutDir creates a directory (or does nothing if one exists).
+	PutDir(path string) error
+
+	// DeleteFile deletes a regular file or directory (along with its children).
+	DeleteFile(path string) error
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
 	// this tree. The effect is equivalent to calling this.PutFile with every
 	// file in every tree in 'tree', though the performance may be slightly
 	// better.
 	Merge(trees []HashTree) error
-
-	// Marshal serializes a HashTree so that it can be persisted (also see
-	// Unmarshal())
-	Marshal() ([]byte, error)
 }
