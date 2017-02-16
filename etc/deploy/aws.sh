@@ -9,6 +9,7 @@ deploy_k8s_on_aws() {
     aws configure
     aws iam list-users
     which jq
+    which uuid
     
     # Setup K8S DNS hosted zone
     
@@ -24,8 +25,9 @@ deploy_k8s_on_aws() {
     
     # KOPS options
     
-    export NAME=bpachydermcluster.kubernetes.com
+    export NAME=`uuid | cut -f 1 -d "-"`-pachydermcluster.kubernetes.com
     export KOPS_STATE_STORE=s3://$STATE_STORE_NAME
+    echo "kops state store: $KOPS_STATE_STORE"
     export NODE_SIZE=r4.xlarge
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
@@ -42,20 +44,40 @@ deploy_k8s_on_aws() {
     
     kops update cluster $NAME --yes --state $KOPS_STATE_STORE
     
-    
-    
-    # NON AUTOMATIC PART
-    
-    # kubectl context now set to 'apachydermcluster.kubernetes.com'
-    # which tries to connect to the k8s server at https://api.apachydermcluster.kubernetes.com
-    # which of course doesn't resolve
-    
-    # So I just used an etc/hosts hack:
-    # 107.22.153.120 api.apachydermcluster.kubernetes.com
-    
-    # and now its up!
+    # This will allow us to cleanup the cluster afterwards
+    # ... if we don't do it explicitly its annoying to kill the cluster
+    echo "KOPS_STATE_STORE=$KOPS_STATE_STORE" >> $NAME.sh
+    echo $KOPS_STATE_STORE > current-benchmark-state-store.txt
+    echo $NAME > current-benchmark-cluster.txt
+
+    # Get the IP of the k8s master node and hack /etc/hosts so we can connect
+    # Need to retry this in a loop until we see the instance appear
+
+    set +euxo pipefail
+    get_k8s_master_domain
+    while [ $? -ne 0 ]; do
+        get_k8s_master_domain
+    done
+    echo "Master k8s node is up and lives at $masterk8sdomain"
+    set -euxo pipefail
+    masterk8sip=`dig +short $masterk8sdomain`
+    sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
+
+    kubectl get nodes --show-labels
+
+    # Wait until all nodes show as ready, and we have as many as we expect
 }
 
+get_k8s_master_domain() {
+    sleep 1
+    echo "Retrieving ec2 instance list to get k8s master domain name"
+    aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region $AWS_REGION > $NAME.instances.json
+    export masterk8sdomain=`cat $NAME.instances.json | jq ".Reservations | .[] | .Instances | .[] | select( .Tags | .[]? | select( .Value | contains(\"masters.$NAME\") ) ) | .PublicDnsName" | head -n 1 | cut -f 2 -d "\""`
+    if [ -n "$masterk8sdomain" ]; then
+        return 0
+    fi
+    return 1
+}
 
 
 ##################################3333
@@ -99,3 +121,6 @@ deploy_pachyderm_on_aws() {
     pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
 
 }
+
+
+deploy_k8s_on_aws
