@@ -25,9 +25,21 @@ You'll need the following credentials / tools:
 
 1) Make sure your commit has a passing build on travis
 
-2) Update `src/client/version/version.go` version values
+2) Update `src/client/version/client.go` version values
 
 3) Run `make doc` with the new version values.
+
+Make sure you add any new doc files, e.g:
+
+```
+$ git status
+...
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	doc/pachctl/pachctl_rerun-pipeline.md
+$ git add doc/pachctl/pachctl_rerun-pipeline.md
+```
 
 4) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
 
