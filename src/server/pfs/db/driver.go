@@ -1653,7 +1653,7 @@ func (d *driver) SquashCommit(fromCommits []*pfs.Commit, toCommit *pfs.Commit) e
 			"ID":    gorethink.UUID(),
 			"Clock": newPersistCommit.FullClock,
 		}
-	})).RunWrite(d.dbClient)
+	})).RunWrite(d.dbClient, gorethink.RunOpts{ArrayLimit: 10000000})
 	if err != nil {
 		return err
 	}

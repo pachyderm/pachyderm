@@ -159,6 +159,15 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
+			// Setup the hostPath mount to use a unique directory for this pod
+			podDataDir := filepath.Join("/pach-job-data", appEnv.PodName)
+			if err := os.Mkdir(podDataDir, 0777); err != nil {
+				return err
+			}
+			if err := os.Symlink(podDataDir, "/pfs"); err != nil {
+				return err
+			}
+
 			if err := downloadInput(c, response.CommitMounts); err != nil {
 				return err
 			}

@@ -525,13 +525,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			return nil, err
 		}
 
-		if commitInfo.SizeBytes == 0 {
-			if input.RunEmpty {
-				// An empty input shouldn't be partitioned
-				limitHit[i] = true
-			} else {
-				return nil, newErrEmptyInput(input.Commit.ID)
-			}
+		if commitInfo.SizeBytes == 0 && !input.RunEmpty {
+			return nil, newErrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -553,9 +548,13 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			}
 		}
 
-		b, err := a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
-		if err != nil {
-			return nil, err
+		b := true
+
+		if !inputs[modulusIndex].RunEmpty {
+			b, err = a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if b {
@@ -2072,6 +2071,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commitInfo.Commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 		}
 	}
@@ -2223,6 +2223,19 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 	volumeMounts = append(volumeMounts, api.VolumeMount{
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
+	})
+	dataPath := "pach-job-data"
+	volumes = append(volumes, api.Volume{
+		Name: dataPath,
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: fmt.Sprintf("/%v", dataPath),
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      dataPath,
+		MountPath: fmt.Sprintf("/%v", dataPath),
 	})
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range jobInfo.Transform.ImagePullSecrets {
