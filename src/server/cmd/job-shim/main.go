@@ -50,7 +50,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			continue
 		}
 		g.Go(func() error {
-			return sync.Pull(context.Background(), c.PfsAPIClient, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
+			return sync.Pull(c, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
 				commitMount.Commit, commitMount.DiffMethod, commitMount.Shard, commitMount.Lazy)
 		})
 	}
@@ -58,7 +58,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 }
 
 func uploadOutput(c *client.APIClient, out *fuse.CommitMount, overwrite bool) error {
-	return sync.Push(context.Background(), c.PfsAPIClient, PFSOutputPrefix, out.Commit, overwrite)
+	return sync.Push(c, PFSOutputPrefix, out.Commit, overwrite)
 }
 
 func do(appEnvObj interface{}) error {

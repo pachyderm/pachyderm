@@ -2,14 +2,12 @@
 package sync
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	log "github.com/Sirupsen/logrus"
@@ -24,31 +22,39 @@ import (
 // for those functions for details on these arguments.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed
-func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, pipes bool) error {
-	return pullDir(ctx, client, root, commit, diffMethod, shard, "/", pipes)
+func Pull(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, pipes bool) error {
+	return pullDir(client, root, commit, diffMethod, shard, "/", pipes)
 }
 
-func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
+func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
 	if err := os.MkdirAll(filepath.Join(root, dir), 0777); err != nil {
 		return err
 	}
 
-	fileInfos, err := client.ListFile(ctx, &pfs.ListFileRequest{
-		File: &pfs.File{
-			Commit: commit,
-			Path:   dir,
-		},
-		Shard:      shard,
-		DiffMethod: diffMethod,
-		Mode:       pfs.ListFileMode_ListFile_NORMAL,
-	})
+	fromCommit := ""
+	fullFile := false
+	if diffMethod != nil {
+		if diffMethod.FromCommit != nil {
+			fromCommit = diffMethod.FromCommit.ID
+		}
+		fullFile = diffMethod.FullFile
+	}
+	fileInfos, err := client.ListFile(
+		commit.Repo.Name,
+		commit.ID,
+		dir,
+		fromCommit,
+		fullFile,
+		shard,
+		false,
+	)
 	if err != nil {
 		return err
 	}
 
 	var g errgroup.Group
 	sem := make(chan struct{}, 100)
-	for _, fileInfo := range fileInfos.FileInfo {
+	for _, fileInfo := range fileInfos {
 		fileInfo := fileInfo
 		sem <- struct{}{}
 		g.Go(func() (retErr error) {
@@ -56,14 +62,6 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 			switch fileInfo.FileType {
 			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
-				request := &pfs.GetFileRequest{
-					File: &pfs.File{
-						Commit: commit,
-						Path:   fileInfo.File.Path,
-					},
-					Shard:      shard,
-					DiffMethod: diffMethod,
-				}
 				if pipes {
 					if err := syscall.Mkfifo(path, 0666); err != nil {
 						return err
@@ -84,13 +82,9 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
-						getFileClient, err := client.GetFile(ctx, request)
+						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 						if err != nil {
 							log.Printf("error from GetFile: %s", err)
-							return
-						}
-						if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-							log.Printf("error streaming data: %s", err)
 							return
 						}
 					}()
@@ -104,14 +98,10 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 							retErr = err
 						}
 					}()
-					getFileClient, err := client.GetFile(ctx, request)
-					if err != nil {
-						return err
-					}
-					return grpcutil.WriteFromStreamingBytesClient(getFileClient, f)
+					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 				}
 			case pfs.FileType_FILE_TYPE_DIR:
-				return pullDir(ctx, client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
+				return pullDir(client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
 			}
 			return nil
 		})
@@ -120,7 +110,7 @@ func pullDir(ctx context.Context, client pfs.APIClient, root string, commit *pfs
 }
 
 // Push puts files under root into an open commit.
-func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
+func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
 	var g errgroup.Group
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
@@ -144,20 +134,12 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 			}
 
 			if overwrite {
-				if _, err := client.DeleteFile(ctx, &pfs.DeleteFileRequest{
-					File: &pfs.File{
-						Commit: commit,
-						Path:   relPath,
-					},
-				}); err != nil {
+				if err := client.DeleteFile(commit.Repo.Name, commit.ID, relPath); err != nil {
 					return err
 				}
 			}
 
-			pclient := pachclient.APIClient{
-				PfsAPIClient: client,
-			}
-			_, err = pclient.PutFile(commit.Repo.Name, commit.ID, relPath, f)
+			_, err = client.PutFile(commit.Repo.Name, commit.ID, relPath, f)
 			return err
 		})
 		return nil

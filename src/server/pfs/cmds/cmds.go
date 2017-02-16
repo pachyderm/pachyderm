@@ -522,7 +522,7 @@ files into your Pachyderm cluster.
 	pachctl put-file repo commit -i http://host/path
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
 				return err
 			}
@@ -640,7 +640,7 @@ files into your Pachyderm cluster.
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", 100, "The number of files that can be uploaded in parallel")
+	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The number of files that can be uploaded in parallel")
 
 	var fromCommitID string
 	var fullFile bool
