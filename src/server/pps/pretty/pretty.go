@@ -39,7 +39,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 
 // PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT REPO\tSTATE\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.

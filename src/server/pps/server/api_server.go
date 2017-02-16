@@ -13,11 +13,11 @@ import (
 	client "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
-	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
@@ -79,16 +79,18 @@ type ctxAndCancel struct {
 
 type apiServer struct {
 	protorpclog.Logger
-	etcdPrefix    string
-	hasher        *ppsserver.Hasher
-	address       string
-	etcdClient    *etcd.Client
-	pfsAPIClient  pfsclient.APIClient
-	pfsClientOnce sync.Once
-	kubeClient    *kube.Client
-	shardLock     sync.RWMutex
-	shardCtxs     map[uint64]*ctxAndCancel
-	version       int64
+	etcdPrefix          string
+	hasher              *ppsserver.Hasher
+	address             string
+	etcdClient          *etcd.Client
+	pfsAPIClient        pfsclient.APIClient
+	pfsClientOnce       sync.Once
+	kubeClient          *kube.Client
+	shardLock           sync.RWMutex
+	shardCtxs           map[uint64]*ctxAndCancel
+	pipelineCancelsLock sync.Mutex
+	pipelineCancels     map[string]context.CancelFunc
+	version             int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -304,7 +306,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 			break
 		}
 	}
-	return
+	return pipelineInfos, nil
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
@@ -353,6 +355,18 @@ func (a *apiServer) Version(version int64) error {
 	return nil
 }
 
+func (a *apiServer) getPipelineCancel(pipelineName string) context.CancelFunc {
+	a.pipelineCancelsLock.Lock()
+	defer a.pipelineCancelsLock.Unlock()
+	return a.pipelineCancels[pipelineName]
+}
+
+func (a *apiServer) setPipelineCancel(pipelineName string, cancel context.CancelFunc) {
+	a.pipelineCancelsLock.Lock()
+	defer a.pipelineCancelsLock.Unlock()
+	a.pipelineCancels[pipelineName] = cancel
+}
+
 // pipelineWatcher watches for pipelines and launch pipelineManager
 // when it gets a pipeline that falls into a shard assigned to the
 // API server.
@@ -369,38 +383,65 @@ func (a *apiServer) pipelineWatcher() {
 		for {
 			var pipelineName string
 			pipelineInfo := new(ppsclient.PipelineInfo)
-			ok, err := pipelineIter.Next(&pipelineName, pipelineInfo)
+			event, err := pipelineIter.Next()
 			if err != nil {
 				return err
 			}
-			if !ok {
-				return fmt.Errorf("pipeline stream broken")
+			if err := event.Unmarshal(&pipelineName, pipelineInfo); err != nil {
+				return err
 			}
-			shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineInfo.Pipeline))
-			if shardCtx != nil {
-				go a.pipelineManager(shardCtx, pipelineInfo)
+			switch event.Type() {
+			case col.EventPut:
+				shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineInfo.Pipeline))
+				if shardCtx != nil {
+					pipelineCtx, cancel := context.WithCancel(shardCtx)
+					a.setPipelineCancel(pipelineName, cancel)
+					go a.pipelineManager(pipelineCtx, pipelineInfo)
+				}
+			case col.EventDelete:
+				cancel := a.getPipelineCancel(pipelineName)
+				cancel()
 			}
 		}
-	}, b, func(err error, d time.Duration) {
+	}, b, func(err error, d time.Duration) error {
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
+		return nil
 	})
 	panic("pipelineWatcher should never exit")
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
+	go func() {
+		// Clean up workers if the pipeline gets cancelled
+		<-ctx.Done()
+		if err := a.deleteWorkers(pipelineInfo); err != nil {
+			protolion.Errorf("error deleting workers for pipeline: %v", pipelineInfo.Pipeline.Name)
+		}
+		protolion.Infof("deleted workers for pipeline: %v", pipelineInfo.Pipeline.Name)
+	}()
+
 	b := backoff.NewExponentialBackOff()
 	// never stop retrying
 	b.MaxElapsedTime = 0
-	backoff.RetryNotify(func() error {
+	if err := backoff.RetryNotify(func() error {
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkers(pipelineInfo); err != nil {
 			return err
 		}
+		for {
+			time.Sleep(10 * time.Second)
+		}
+		panic("unreachable")
 		return nil
-	}, b, func(err error, d time.Duration) {
+	}, b, func(err error, d time.Duration) error {
+		if err == context.Canceled {
+			return err
+		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
-	})
-	panic("pipelineManager should never exit")
+		return nil
+	}); err != context.Canceled {
+		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
+	}
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
@@ -434,6 +475,10 @@ func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
 	}
 	_, err = a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
 	return err
+}
+
+func (a *apiServer) deleteWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo.Pipeline.Name), nil)
 }
 
 // getShardCtx returns the context associated with a shard that this server

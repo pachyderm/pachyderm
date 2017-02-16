@@ -234,7 +234,7 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 		kv := i.resp.Kvs[i.index]
 		i.index += 1
 
-		*key = string(kv.Key)
+		*key = path.Base(string(kv.Key))
 		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
 			return false, err
 		}
@@ -281,7 +281,7 @@ type event struct {
 }
 
 func (e event) Unmarshal(key *string, value proto.Message) error {
-	*key = string(e.key)
+	*key = path.Base(string(e.key))
 	return proto.UnmarshalText(string(e.value), value)
 }
 
@@ -303,20 +303,15 @@ func (w *watcher) Next() (Event, error) {
 		}
 
 		for _, etcdEv := range ev.Events {
-			var ev event
+			ev := event{
+				key:   etcdEv.Kv.Key,
+				value: etcdEv.Kv.Value,
+			}
 			switch etcdEv.Type {
 			case etcd.EventTypePut:
-				ev = event{
-					key:   etcdEv.Kv.Key,
-					value: etcdEv.Kv.Value,
-					typ:   EventPut,
-				}
+				ev.typ = EventPut
 			case etcd.EventTypeDelete:
-				ev = event{
-					key:   etcdEv.PrevKv.Key,
-					value: etcdEv.PrevKv.Value,
-					typ:   EventDelete,
-				}
+				ev.typ = EventDelete
 			}
 			w.events = append(w.events, ev)
 		}
