@@ -261,6 +261,7 @@ service API {
   // Pipeline rpcs
   rpc CreatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
   rpc UpdatePipelineInfo(PipelineInfo) returns (google.protobuf.Empty) {}
+  rpc TouchPipelineInfo(pps.Pipeline) returns (google.protobuf.Empty) {}
   rpc GetPipelineInfo(pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
