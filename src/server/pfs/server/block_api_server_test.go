@@ -28,6 +28,8 @@ func TestTags(t *testing.T) {
 	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
 	require.NoError(t, err)
 	require.NoError(t, c.TagObject(object.Hash, "buzz"))
+	_, err = c.PutObject(strings.NewReader("foo"), "quux")
+	require.NoError(t, err)
 	value, err := c.ReadTag("bar")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
@@ -35,6 +37,9 @@ func TestTags(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
 	value, err = c.ReadTag("buzz")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	value, err = c.ReadTag("quux")
 	require.NoError(t, err)
 	require.Equal(t, []byte("foo"), value)
 }
