@@ -134,6 +134,7 @@ check-kubectl-connection:
 
 launch-dev-bench:
 	@# Put it here so sudo can see it
+	rm /usr/local/bin/pachctl
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
