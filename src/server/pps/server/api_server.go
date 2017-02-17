@@ -11,8 +11,8 @@ import (
 	"time"
 
 	client "github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -83,7 +83,7 @@ type apiServer struct {
 	hasher              *ppsserver.Hasher
 	address             string
 	etcdClient          *etcd.Client
-	pfsAPIClient        pfsclient.APIClient
+	pfsAPIClient        pfs.APIClient
 	pfsClientOnce       sync.Once
 	kubeClient          *kube.Client
 	shardLock           sync.RWMutex
@@ -103,7 +103,7 @@ type apiServer struct {
 
 // JobInputs implements sort.Interface so job inputs can be sorted
 // We sort job inputs based on repo names
-type JobInputs []*ppsclient.JobInput
+type JobInputs []*pps.JobInput
 
 func (inputs JobInputs) Len() int {
 	return len(inputs)
@@ -121,20 +121,20 @@ func (inputs JobInputs) Swap(i, j int) {
 // the ParallelismSpec 'spec'.
 //
 // This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (uint64, error) {
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
 	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
 	if spec == nil {
 		// Unset ParallelismSpec is handled here. Currently we start one worker per
 		// node
 		coefficient = 1.0
-	} else if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
+	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
 		if spec.Constant > 0 {
 			return spec.Constant, nil
 		}
 		// Zero-initialized ParallelismSpec is handled here. Currently we start one
 		// worker per node
 		coefficient = 1
-	} else if spec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
+	} else if spec.Strategy == pps.ParallelismSpec_COEFFICIENT {
 		coefficient = spec.Coefficient
 	} else {
 		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
@@ -149,13 +149,13 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 		return 0, fmt.Errorf("Unable to retrieve node list from k8s to determine parallelism")
 	}
 	if len(nodeList.Items) == 0 {
-		return 0, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
+		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
 	}
 	result := math.Floor(coefficient * float64(len(nodeList.Items)))
 	return uint64(math.Max(result, 1)), nil
 }
 
-func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
+func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
@@ -164,7 +164,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
+func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
@@ -173,7 +173,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
+func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListJob")
@@ -182,7 +182,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
@@ -191,7 +191,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *ppsclient.DeleteJobR
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
+func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pods, err := a.jobPods(request.Job)
@@ -242,7 +242,7 @@ func validatePipelineName(pipelineName string) error {
 	return nil
 }
 
-func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
@@ -253,7 +253,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	}
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineInfo := &ppsclient.PipelineInfo{
+		pipelineInfo := &pps.PipelineInfo{
 			Pipeline:        request.Pipeline,
 			Transform:       request.Transform,
 			ParallelismSpec: request.ParallelismSpec,
@@ -267,20 +267,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	return &types.Empty{}, err
 }
 
-func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, retErr error) {
+func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	pipelineInfo := new(ppsclient.PipelineInfo)
+	pipelineInfo := new(pps.PipelineInfo)
 	if err := a.pipelinesReadonly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, retErr error) {
+func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
@@ -291,11 +291,11 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 		return nil, err
 	}
 
-	pipelineInfos := new(ppsclient.PipelineInfos)
+	pipelineInfos := new(pps.PipelineInfos)
 
 	for {
 		var pipelineName string
-		pipelineInfo := new(ppsclient.PipelineInfo)
+		pipelineInfo := new(pps.PipelineInfo)
 		ok, err := pipelineIter.Next(&pipelineName, pipelineInfo)
 		if err != nil {
 			return nil, err
@@ -309,7 +309,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 	return pipelineInfos, nil
 }
 
-func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
@@ -321,7 +321,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	return &types.Empty{}, err
 }
 
-func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartPipeline")
@@ -330,7 +330,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *ppsclient.StartP
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopPipeline")
@@ -382,7 +382,7 @@ func (a *apiServer) pipelineWatcher() {
 
 		for {
 			var pipelineName string
-			pipelineInfo := new(ppsclient.PipelineInfo)
+			pipelineInfo := new(pps.PipelineInfo)
 			event, err := pipelineIter.Next()
 			if err != nil {
 				return err
@@ -410,7 +410,11 @@ func (a *apiServer) pipelineWatcher() {
 	panic("pipelineWatcher should never exit")
 }
 
-func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient.PipelineInfo) {
+func isAlreadyExistsErr(err error) bool {
+	return strings.Contains(err.Error(), "already exists")
+}
+
+func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
@@ -426,9 +430,52 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient
 	if err := backoff.RetryNotify(func() error {
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkers(pipelineInfo); err != nil {
-			return err
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
 		}
 		for {
+			pfsClient, err := a.getPFSClient()
+			if err != nil {
+				return err
+			}
+
+			branchSets, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Inputs)
+			if err != nil {
+				return err
+			}
+
+			for {
+				branchSet, err := branchSets.Next()
+				if err != nil {
+					return err
+				}
+
+				var jobInputs []*pps.JobInput
+				for _, pipelineInput := range pipelineInfo.Inputs {
+					for _, branch := range branchSet {
+						if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
+							jobInputs = append(jobInputs, &pps.JobInput{
+								Commit: branch.Head,
+								Glob:   pipelineInput.Glob,
+								Lazy:   pipelineInput.Lazy,
+							})
+						}
+					}
+				}
+
+				job, err := a.CreateJob(ctx, &pps.CreateJobRequest{
+					Transform:       pipelineInfo.Transform,
+					Pipeline:        pipelineInfo.Pipeline,
+					ParallelismSpec: pipelineInfo.ParallelismSpec,
+					Inputs:          jobInputs,
+					Output:          pipelineInfo.Output,
+				})
+				if err != nil {
+					return err
+				}
+				protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineInfo.Pipeline.Name, job.ID, jobInputs)
+			}
 		}
 		panic("unreachable")
 		return nil
@@ -443,7 +490,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *ppsclient
 	}
 }
 
-func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
+func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
 	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerShimImage, a.workerImagePullPolicy)
 	if err != nil {
 		return err
@@ -457,7 +504,7 @@ func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   workerRcName(pipelineInfo.Pipeline.Name),
+			Name:   workerRcName(pipelineInfo),
 			Labels: options.labels,
 		},
 		Spec: api.ReplicationControllerSpec{
@@ -465,7 +512,7 @@ func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
 			Replicas: options.parallelism,
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   workerRcName(pipelineInfo.Pipeline.Name),
+					Name:   workerRcName(pipelineInfo),
 					Labels: options.labels,
 				},
 				Spec: workerPodSpec(options),
@@ -476,8 +523,8 @@ func (a *apiServer) createWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
 	return err
 }
 
-func (a *apiServer) deleteWorkers(pipelineInfo *ppsclient.PipelineInfo) error {
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo.Pipeline.Name), nil)
+func (a *apiServer) deleteWorkers(pipelineInfo *pps.PipelineInfo) error {
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), nil)
 }
 
 // getShardCtx returns the context associated with a shard that this server
@@ -519,11 +566,11 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	return nil
 }
 
-func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
+func (a *apiServer) jobManager(ctx context.Context, job *pps.Job) error {
 	return fmt.Errorf("TODO")
 }
 
-func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
+func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
 	if a.pfsAPIClient == nil {
 		var onceErr error
 		a.pfsClientOnce.Do(func() {
@@ -531,7 +578,7 @@ func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
 			if err != nil {
 				onceErr = err
 			}
-			a.pfsAPIClient = pfsclient.NewAPIClient(clientConn)
+			a.pfsAPIClient = pfs.NewAPIClient(clientConn)
 		})
 		if onceErr != nil {
 			return nil, onceErr
@@ -558,12 +605,12 @@ type workerOptions struct {
 	imagePullSecrets      []api.LocalObjectReference
 }
 
-func workerRcName(pipelineName string) string {
-	return fmt.Sprintf("pipeline-%s", pipelineName)
+func workerRcName(pipelineInfo *pps.PipelineInfo) string {
+	return fmt.Sprintf("pipeline-%s-v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
-func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *ppsclient.PipelineInfo, workerShimImage string, workerImagePullPolicy string) (*workerOptions, error) {
-	labels := labels(workerRcName(pipelineInfo.Pipeline.Name))
+func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerShimImage string, workerImagePullPolicy string) (*workerOptions, error) {
+	labels := labels(workerRcName(pipelineInfo))
 	parallelism, err := GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
@@ -675,7 +722,7 @@ func workerPodSpec(options *workerOptions) api.PodSpec {
 	}
 }
 
-func (a *apiServer) jobPods(job *ppsclient.Job) ([]api.Pod, error) {
+func (a *apiServer) jobPods(job *pps.Job) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
