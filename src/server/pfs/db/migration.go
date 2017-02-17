@@ -21,6 +21,7 @@ func newMissingMigrationErr(msg error) MissingMigrationErr {
 var (
 	migrationMap = map[string]migrationFunc{
 		"1.3.4-1.3.7": oneThreeFourToOneThreeSeven,
+		"1.3.7-1.3.8": oneThreeSevenToOneThreeEight,
 	}
 )
 
@@ -53,6 +54,28 @@ func oneThreeFourToOneThreeSeven(address, databaseName string) error {
 	}
 	log.Infof("Renaming Repo 'Size' to 'SizeBytes'")
 	if _, err := gorethink.DB(databaseName).Table(repoTable).Replace(
+		func(row gorethink.Term) gorethink.Term {
+			return row.Without("Size").Merge(
+				map[string]gorethink.Term{
+					"SizeBytes": row.Field("Size"),
+				},
+			)
+		},
+	).RunWrite(session); err != nil {
+		return err
+	}
+	log.Infof("Migration succeeded")
+	return nil
+}
+
+// 1.3.7 -> 1.3.8
+func oneThreeSevenToOneThreeEight(address, databaseName string) error {
+	session, err := DbConnect(address)
+	if err != nil {
+		return err
+	}
+	log.Infof("Renaming Commit 'Size' to 'SizeBytes'")
+	if _, err := gorethink.DB(databaseName).Table(commitTable).Replace(
 		func(row gorethink.Term) gorethink.Term {
 			return row.Without("Size").Merge(
 				map[string]gorethink.Term{
