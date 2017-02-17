@@ -98,6 +98,26 @@ func NewExponentialBackOff() *ExponentialBackOff {
 	return b
 }
 
+// NewInfiniteBackoff creates an instance of ExponentialBackOff that never
+// ends.
+func NewInfiniteBackOff() *ExponentialBackOff {
+	b := &ExponentialBackOff{
+		InitialInterval:     DefaultInitialInterval,
+		RandomizationFactor: DefaultRandomizationFactor,
+		Multiplier:          DefaultMultiplier,
+		MaxInterval:         15 * time.Second,
+		MaxElapsedTime:      0,
+		Clock:               SystemClock,
+	}
+	if b.RandomizationFactor < 0 {
+		b.RandomizationFactor = 0
+	} else if b.RandomizationFactor > 1 {
+		b.RandomizationFactor = 1
+	}
+	b.Reset()
+	return b
+}
+
 type systemClock struct{}
 
 func (t systemClock) Now() time.Time {

@@ -397,9 +397,7 @@ func (a *apiServer) setPipelineCancel(pipelineName string, cancel context.Cancel
 // when it gets a pipeline that falls into a shard assigned to the
 // API server.
 func (a *apiServer) pipelineWatcher() {
-	b := backoff.NewExponentialBackOff()
-	// never stop retrying
-	b.MaxElapsedTime = 0
+	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		pipelineIter, err := a.pipelinesReadonly(context.Background()).Watch()
 		if err != nil {
@@ -450,9 +448,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		protolion.Infof("deleted workers for pipeline: %v", pipelineInfo.Pipeline.Name)
 	}()
 
-	b := backoff.NewExponentialBackOff()
-	// never stop retrying
-	b.MaxElapsedTime = 0
+	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkers(pipelineInfo); err != nil {
