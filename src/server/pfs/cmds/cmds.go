@@ -132,6 +132,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
+	var branch string
 	startCommit := &cobra.Command{
 		Use:   "start-commit repo-name [parent-commit | branch]",
 		Short: "Start a new commit.",
@@ -139,11 +140,20 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 
 	Examples:
 
-	# Start a commit in repo "foo" on branch "bar"
-	$ pachctl start-commit foo bar
+	# Start a new commit in repo "test"
+	$ pachctl start-commit test
 
-	# Start a commit with master/3 as the parent in repo foo
-	$ pachctl start-commit foo master/3
+	# Start a new commit in repo "test", on a new branch "master"
+	$ pachctl start-commit test -b master
+
+	# Start a commit in repo "test" on an existing branch "master"
+	$ pachctl start-commit test master
+
+	# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
+	$ pachctl start-commit test master -b patch
+
+	# Start a commit with XXX as the parent in repo "test"
+	$ pachctl start-commit test XXX
 	`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
@@ -159,9 +169,16 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				return err
 			}
 			fmt.Println(commit.ID)
+
+			if branch != "" {
+				if err := client.SetBranch(args[0], commit.ID, branch); err != nil {
+					return err
+				}
+			}
 			return nil
 		}),
 	}
+	startCommit.Flags().StringVarP(&branch, "branch", "b", "", "create a new branch, or move an existing branch to point to this commit")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
