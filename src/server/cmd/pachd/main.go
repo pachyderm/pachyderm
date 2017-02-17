@@ -119,7 +119,11 @@ func do(appEnvObj interface{}) error {
 		return nil
 	}
 	if migrate != "" {
-		return persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
+		err = persist_server.Migrate(rethinkAddress, appEnv.PPSDatabaseName, migrate)
+		if err != nil {
+			return err
+		}
+		return pfs_persist.Migrate(rethinkAddress, appEnv.PFSDatabaseName, migrate)
 	}
 
 	clusterID, err := getClusterID(etcdClient)
