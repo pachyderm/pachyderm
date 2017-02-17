@@ -12,6 +12,15 @@ import (
 
 type migrationFunc func(address string, databaseName string) error
 
+// MissingMigrationErr denotes that no migration is supported for the provided versions
+type MissingMigrationErr struct {
+	error
+}
+
+func newMissingMigrationErr(msg error) MissingMigrationErr {
+	return MissingMigrationErr{msg}
+}
+
 var (
 	migrationMap = map[string]migrationFunc{
 		"1.2.4-1.3.0": oneTwoFourToOneThreeZero,
@@ -22,7 +31,7 @@ var (
 func Migrate(address, databaseName, migrationKey string) error {
 	migrate, ok := migrationMap[migrationKey]
 	if !ok {
-		return fmt.Errorf("migration %s is not supported", migrationKey)
+		return newMissingMigrationErr(fmt.Errorf("migration %s is not supported for %v", migrationKey, databaseName))
 	}
 	return migrate(address, databaseName)
 }
