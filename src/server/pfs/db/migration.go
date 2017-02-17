@@ -20,7 +20,7 @@ func newMissingMigrationErr(msg error) MissingMigrationErr {
 
 var (
 	migrationMap = map[string]migrationFunc{
-		"1.3.4-1.3.6": oneThreeFourToOneThreeSix,
+		"1.3.4-1.3.7": oneThreeFourToOneThreeSeven,
 	}
 )
 
@@ -33,8 +33,8 @@ func Migrate(address, databaseName, migrationKey string) error {
 	return migrate(address, databaseName)
 }
 
-// 1.3.4 -> 1.3.6
-func oneThreeFourToOneThreeSix(address, databaseName string) error {
+// 1.3.4 -> 1.3.7
+func oneThreeFourToOneThreeSeven(address, databaseName string) error {
 	session, err := DbConnect(address)
 	if err != nil {
 		return err
