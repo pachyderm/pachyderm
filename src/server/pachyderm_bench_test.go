@@ -249,3 +249,18 @@ func BenchmarkListFile(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkDailyPutBigFile(b *testing.B) {
+	repo := uniqueString("BenchmarkDailyPutBigFile")
+	c, err := client.NewInCluster()
+	require.NoError(b, err)
+	require.NoError(b, c.CreateRepo(repo))
+	for i := 0; i < b.N; i++ {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(b, err)
+		err = c.PutFile(repo, "master", "/", "s3://pachyderm-internal-benchmark/bigfiles/EUbookshop0.2.tar.gz", false)
+		require.NoError(b, err)
+		require.NoError(b, c.FinishCommit(repo, "master"))
+		b.SetBytes(int64(nFiles * MB))
+	}
+}
