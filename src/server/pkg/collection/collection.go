@@ -200,7 +200,14 @@ type ReadonlyCollectionFactory func(string) *ReadonlyCollection
 
 // path returns the full path of a key in the etcd namespace
 func (c *ReadonlyCollection) path(key string) string {
-	return path.Join(c.prefix, key)
+	s := path.Join(c.prefix, key)
+	// make sure that path always ends with "/".  Otherwise, we can have a
+	// situation where someone is trying to list the items under "/foo", but
+	// ends up listing the items under "/foobar" as well.
+	if s[len(s)-1] != '/' {
+		s = s + "/"
+	}
+	return s
 }
 
 func (c *ReadonlyCollection) Get(key string, val proto.Message) error {
