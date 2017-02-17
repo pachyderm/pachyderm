@@ -138,8 +138,9 @@ launch-dev-bench:
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-launch-bench:
+launch-bench: docker-build
 	etc/deploy/aws.sh
+	kubectl delete po/bench && kubectl run bench --image=pachyderm_compile --restart=Never --attach=true -- go test ./src/server/pfs/server -bench=. -run=XXX
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`
