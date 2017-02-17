@@ -261,24 +261,29 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	if err := server.SendAndClose(object); err != nil {
 		return err
 	}
+	var eg errgroup.Group
+	var blockRef *pfsclient.BlockRef
 	// Now that we have a hash of the object we can check if it already exists.
-	_, err := s.InspectObject(server.Context(), object)
+	objectInfo, err := s.InspectObject(server.Context(), object)
 	if err == nil {
 		// the object already exists so we delete the block we put
-		return s.objClient.Delete(s.localServer.blockPath(block))
+		eg.Go(func() error {
+			return s.objClient.Delete(s.localServer.blockPath(block))
+		})
+		blockRef = objectInfo.BlockRef
+	} else {
+		blockRef = &pfsclient.BlockRef{
+			Block: block,
+			Range: &pfsclient.ByteRange{
+				Lower: 0,
+				Upper: uint64(size),
+			},
+		}
+		index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
+		eg.Go(func() error {
+			return s.writeProto(s.localServer.objectPath(object), index)
+		})
 	}
-	blockRef := &pfsclient.BlockRef{
-		Block: block,
-		Range: &pfsclient.ByteRange{
-			Lower: 0,
-			Upper: uint64(size),
-		},
-	}
-	index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return s.writeProto(s.localServer.objectPath(object), index)
-	})
 	for _, tag := range putObjectReader.tags {
 		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
