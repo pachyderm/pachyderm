@@ -79,8 +79,8 @@ func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []
 					select {
 					case errCh <- err:
 					default:
-						return
 					}
+					return
 				}
 				branchCh <- &pfs.Branch{
 					Name: branchName,

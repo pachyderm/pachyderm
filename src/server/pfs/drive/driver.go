@@ -577,6 +577,9 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		newCommitsIter: newCommitsIter,
 		seen:           make(map[string]bool),
 	}
+
+	// include all commits that are currently on the given branch, but only
+	// the ones that have been finished
 	commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
 		Repo: repo,
 		ID:   branch,
@@ -584,7 +587,12 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	if err != nil {
 		return nil, err
 	}
-	iterator.buffer = commitInfos
+	for _, commitInfo := range commitInfos {
+		if commitInfo.Finished != nil {
+			iterator.buffer = append(iterator.buffer, commitInfo)
+		}
+	}
+
 	return iterator, nil
 }
 

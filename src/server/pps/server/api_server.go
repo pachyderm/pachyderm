@@ -12,6 +12,7 @@ import (
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -161,7 +162,32 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	job := &pps.Job{uuid.NewWithoutDashes()}
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := a.pipelines(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+
+		jobInfo := &pps.JobInfo{
+			Job:             job,
+			Transform:       request.Transform,
+			Pipeline:        request.Pipeline,
+			PipelineVersion: pipelineInfo.Version,
+			ParallelismSpec: request.ParallelismSpec,
+			Inputs:          request.Inputs,
+			Output:          request.Output,
+			ParentJob:       nil,
+			Started:         nil,
+			Finished:        nil,
+			OutputCommit:    nil,
+			State:           pps.JobState_JOB_STARTING,
+			Service:         request.Service,
+		}
+		a.jobsRunning(stm).Put(job.ID, jobInfo)
+		return nil
+	})
+	return job, err
 }
 
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
