@@ -318,7 +318,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
 
 	listBranch := &cobra.Command{
-		Use:   "list-branch repo-name",
+		Use:   "list-branch <repo-name>",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -336,6 +336,43 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				pretty.PrintBranch(writer, branch)
 			}
 			return writer.Flush()
+		}),
+	}
+
+	setBranch := &cobra.Command{
+		Use:   "set-branch <repo-name> <commit-id/branch-name> <new-branch-name>",
+		Short: "Set a commit and its ancestors to a branch",
+		Long: `Set a commit and its ancestors to a branch.
+
+	Examples:
+
+	# Set commit XXX and its ancestors as branch master in repo foo.
+	$ pachctl set-branch foo XXX master
+
+	# Set the head of branch test as branch master in repo foo.
+	# After running this command, "test" and "master" both point to the
+	# same commit.
+	$ pachctl set-branch foo test master
+	`,
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.SetBranch(args[0], args[1], args[2])
+		}),
+	}
+
+	deleteBranch := &cobra.Command{
+		Use:   "delete-branch <repo-name> <branch-name>",
+		Short: "Delete a branch",
+		Long:  "Delete a branch, while leaving the commits intact",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.DeleteBranch(args[0], args[1])
 		}),
 	}
 
@@ -654,6 +691,8 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	result = append(result, listCommit)
 	result = append(result, flushCommit)
 	result = append(result, listBranch)
+	result = append(result, setBranch)
+	result = append(result, deleteBranch)
 	result = append(result, file)
 	result = append(result, putFile)
 	result = append(result, getFile)
