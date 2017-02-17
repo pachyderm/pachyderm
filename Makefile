@@ -132,12 +132,21 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
+launch-dev-bench:
+	@# Put it here so sudo can see it
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	make launch-bench
+
 launch-bench:
 	etc/deploy/aws.sh
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`
-
+	@#Todo - remove the s3 bucket that served as a state store as well
+	@#which s3cmd
+	@#s3cmd del --recursive --force `cat tmp/current-benchmark-state-store.txt`
+	@# if the bucket is empty we need to do:
+	@#s3cmd rb s3://k8scom-state-store-pachyderm-4902
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh

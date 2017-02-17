@@ -51,10 +51,31 @@ deploy_k8s_on_aws() {
     echo "KOPS_STATE_STORE=$KOPS_STATE_STORE" >> tmp/$NAME.sh
     echo $KOPS_STATE_STORE > tmp/current-benchmark-state-store.txt
     echo $NAME > tmp/current-benchmark-cluster.txt
+    set -euxo pipefail
 
+    wait_for_k8s_master_ip
+    update_sec_group
+    wait_for_nodes_to_come_online
+
+}
+
+update_sec_group() {
+    export sec_group_id=`cat tmp/$NAME.instances.json | jq ".Reservations | .[] | .Instances | .[] | select( .Tags | .[]? | select( .Value | contains(\"masters.$NAME\") ) ) | .SecurityGroups[0].GroupId" | head -n 1 | cut -f 2 -d "\""`
+    # Note - groupname may be sufficient and is just master.$NAME
+    #aws ec2 authorize-security-group-ingress --group-id $sec_group_id --protocol tcp --port 30650 --cidr "0.0.0.0/0"
+
+    # For k8s access
+    #aws ec2 authorize-security-group-ingress --group-name "masters.$NAME" --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region $AWS_REGION
+    aws ec2 authorize-security-group-ingress --group-id $sec_group_id --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region $AWS_REGION
+    # For pachyderm direct access:
+    aws ec2 authorize-security-group-ingress --group-id $sec_group_id --protocol tcp --port 30650 --cidr "0.0.0.0/0" --region $AWS_REGION
+}
+
+wait_for_k8s_master_ip() {
     # Get the IP of the k8s master node and hack /etc/hosts so we can connect
     # Need to retry this in a loop until we see the instance appear
 
+    set +euxo pipefail
     get_k8s_master_domain
     while [ $? -ne 0 ]; do
         get_k8s_master_domain
@@ -64,13 +85,10 @@ deploy_k8s_on_aws() {
     masterk8sip=`dig +short $masterk8sdomain`
     # This is the only operation that requires sudo privileges
     sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
-
-    wait_for_nodes_to_come_online
-
-    # Wait until all nodes show as ready, and we have as many as we expect
 }
 
 wait_for_nodes_to_come_online() {
+    # Wait until all nodes show as ready, and we have as many as we expect
     set +euxo pipefail
     check_all_nodes_ready
     while [ $? -ne 0 ]; do
@@ -84,16 +102,21 @@ wait_for_nodes_to_come_online() {
 check_all_nodes_ready() {
     echo "Checking k8s nodes are ready"
     kubectl get nodes > nodes.txt
-    cat nodes.txt
     if [ $? -ne 0 ]; then
         return 1
     fi
-    if [ "cat nodes.txt | grep master | wc -l" -ne 1 ]; then
+
+    master=`cat nodes.txt | grep master | wc -l`
+    if [ $master != "1" ]; then
         echo "no master nodes found"
         return 1
     fi
-    TOTAL_NODES=( NUM_NODES + 1 )
-    if [ "cat nodes.txt | grep -v NotReady | grep Ready | wc -l" -eq $TOTAL_NODES ]; then
+
+    NUM_NODES=3
+    TOTAL_NODES=$(($NUM_NODES+1))
+    ready_nodes=`cat nodes.txt | grep -v NotReady | grep Ready | wc -l`
+    echo "total $TOTAL_NODES, ready $ready_nodes"
+    if [ $ready_nodes == $TOTAL_NODES ]; then
         echo "all nodes ready"
         return 0
     fi
@@ -122,23 +145,16 @@ deploy_pachyderm_on_aws() {
     KUBECTLFLAGS="-s 107.22.153.120"
     
     # top 2 shared w k8s deploy script
-    export AWS_REGION=us-east-1
-    export AWS_AVAILABILITY_ZONE=us-east-1a
     export STORAGE_SIZE=100
-    export BUCKET_NAME=fdy-pachyderm-norm-test41
+    export BUCKET_NAME=${RANDOM}-pachyderm-store
     
     # Omit location constraint if us-east
+    # TODO - check the $AWS_REGION value and Do The Right Thing
     # aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
     
     aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
     
     STORAGE_NAME=`aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2 | grep VolumeId | cut -d "\"" -f 4`
-    
-    ## Redeploying a cluster, so need to reuse the vol name
-    #export STORAGE_NAME="vol-064e19d4dc8042d04"
-    #export STORAGE_NAME="vol-01d86f7d128981b6d"
-    #export STORAGE_NAME="vol-06872bcc37b8367e3"
-    #export STORAGE_NAME="vol-0b136c33257a51036"
     
     echo "volume storage: ${STORAGE_NAME}"
     
@@ -148,15 +164,23 @@ deploy_pachyderm_on_aws() {
     
     
     # Omit token since im using my personal creds
-    # pachctl deploy amazon ${BUCKET_NAME} ${AWS_ID} ${AWS_KEY} ${AWS_TOKEN} ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
-    # Also ... need to escape them in quotes ... or pachctl will complain only 6 args not 7 (and some special chars in tokesn are bad)
     pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
 
 }
 
-if [ "$EUID" -ne 0 ]
-  then echo "Cowardly refusing to deploy cluster. Please run as root"
-  exit
+if [ "$EUID" -ne 0 ]; then
+  echo "Cowardly refusing to deploy cluster. Please run as root"
+  echo "Please run this command like 'sudo -E make launch-bench'"
+  exit 1
 fi
 
+set +euxo pipefail
+which pachctl
+if [ $? -ne 0 ]; then
+    echo "pachctl not found on path"
+    exit 1
+fi
+set -euxo pipefail
+
 deploy_k8s_on_aws
+deploy_pachyderm_on_aws
