@@ -74,17 +74,19 @@ func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []
 				return nil, err
 			}
 			go func(branchName string) {
-				commitInfo, err := stream.Recv()
-				if err != nil {
-					select {
-					case errCh <- err:
-					default:
+				for {
+					commitInfo, err := stream.Recv()
+					if err != nil {
+						select {
+						case errCh <- err:
+						default:
+						}
+						return
 					}
-					return
-				}
-				branchCh <- &pfs.Branch{
-					Name: branchName,
-					Head: commitInfo.Commit,
+					branchCh <- &pfs.Branch{
+						Name: branchName,
+						Head: commitInfo.Commit,
+					}
 				}
 			}(branchName)
 		}

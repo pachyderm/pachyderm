@@ -79,18 +79,6 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 			MountPath: "/pach",
 		},
 	}
-	readinessProbe := &api.Probe{
-		Handler: api.Handler{
-			Exec: &api.ExecAction{
-				Command: []string{
-					"./pachd",
-					"--readiness-check",
-				},
-			},
-		},
-		InitialDelaySeconds: 15,
-		TimeoutSeconds:      1,
-	}
 	var backendEnvVar string
 	switch backend {
 	case localBackend:
@@ -240,7 +228,6 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
-							ReadinessProbe:  readinessProbe,
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},

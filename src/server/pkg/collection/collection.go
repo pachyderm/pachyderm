@@ -200,14 +200,7 @@ type ReadonlyCollectionFactory func(string) *ReadonlyCollection
 
 // path returns the full path of a key in the etcd namespace
 func (c *ReadonlyCollection) path(key string) string {
-	s := path.Join(c.prefix, key)
-	// make sure that path always ends with "/".  Otherwise, we can have a
-	// situation where someone is trying to list the items under "/foo", but
-	// ends up listing the items under "/foobar" as well.
-	if s[len(s)-1] != '/' {
-		s = s + "/"
-	}
-	return s
+	return path.Join(c.prefix, key)
 }
 
 func (c *ReadonlyCollection) Get(key string, val proto.Message) error {
@@ -255,7 +248,7 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.
 func (c *ReadonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
 	}

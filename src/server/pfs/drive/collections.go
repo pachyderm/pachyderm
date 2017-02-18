@@ -14,6 +14,17 @@ const (
 	branchesPrefix      = "/branches"
 )
 
+func joinWithTrailingSlash(parts ...string) string {
+	s := path.Join(parts...)
+	// make sure that path always ends with "/".  Otherwise, we can have a
+	// situation where someone is trying to list the items under "/foo", but
+	// ends up listing the items under "/foobar" as well.
+	if s[len(s)-1] != '/' {
+		s = s + "/"
+	}
+	return s
+}
+
 // repos returns a collection of repos
 // Example etcd structure, assuming we have two repos "foo" and "bar":
 //   /repos
@@ -53,7 +64,7 @@ func (d *driver) commits(stm col.STM) col.CollectionFactory {
 	return func(repo string) *col.Collection {
 		return col.NewCollection(
 			d.etcdClient,
-			path.Join(d.prefix, commitsPrefix, repo),
+			joinWithTrailingSlash(d.prefix, commitsPrefix, repo),
 			stm,
 		)
 	}
@@ -73,7 +84,7 @@ func (d *driver) branches(stm col.STM) col.CollectionFactory {
 	return func(repo string) *col.Collection {
 		return col.NewCollection(
 			d.etcdClient,
-			path.Join(d.prefix, branchesPrefix, repo),
+			joinWithTrailingSlash(d.prefix, branchesPrefix, repo),
 			stm,
 		)
 	}
@@ -92,7 +103,7 @@ func (d *driver) commitsReadonly(ctx context.Context) col.ReadonlyCollectionFact
 		return col.NewReadonlyCollection(
 			ctx,
 			d.etcdClient,
-			path.Join(d.prefix, commitsPrefix, repo),
+			joinWithTrailingSlash(d.prefix, commitsPrefix, repo),
 		)
 	}
 }
@@ -102,7 +113,7 @@ func (d *driver) branchesReadonly(ctx context.Context) col.ReadonlyCollectionFac
 		return col.NewReadonlyCollection(
 			ctx,
 			d.etcdClient,
-			path.Join(d.prefix, branchesPrefix, repo),
+			joinWithTrailingSlash(d.prefix, branchesPrefix, repo),
 		)
 	}
 }
