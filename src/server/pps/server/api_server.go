@@ -462,7 +462,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 
-			branchSets, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Inputs)
+			branchSetCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Inputs)
 			if err != nil {
 				return err
 			}
