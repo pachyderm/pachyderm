@@ -132,13 +132,13 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench:
+launch-dev-bench: docker-build install
 	@# Put it here so sudo can see it
 	rm /usr/local/bin/pachctl
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-launch-bench: docker-build
+launch-bench: 
 	etc/deploy/aws.sh
 	kubectl delete po/bench && kubectl run bench --image=pachyderm_compile --restart=Never --attach=true -- go test ./src/server/pfs/server -bench=. -run=XXX
 
