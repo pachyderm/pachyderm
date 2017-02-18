@@ -279,9 +279,8 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 				Upper: uint64(size),
 			},
 		}
-		index := &pfsclient.ObjectIndex{Objects: map[string]*pfsclient.BlockRef{object.Hash: blockRef}}
 		eg.Go(func() error {
-			return s.writeProto(s.localServer.objectPath(object), index)
+			return s.writeProto(s.localServer.objectPath(object), blockRef)
 		})
 	}
 	for _, tag := range putObjectReader.tags {
@@ -412,13 +411,9 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 	eg.Go(func() error {
 		return s.objClient.Walk(s.localServer.objectDir(), func(name string) error {
 			eg.Go(func() (retErr error) {
-				localObjectIndex := &pfsclient.ObjectIndex{}
-				if err := s.readProto(name, localObjectIndex); err != nil {
+				blockRef := &pfsclient.BlockRef{}
+				if err := s.readProto(name, blockRef); err != nil {
 					return err
-				}
-				blockRef, ok := localObjectIndex.Objects[filepath.Base(name)]
-				if !ok {
-					return fmt.Errorf("localObjectIndex should contain hash: %s (this is likely a bug)", filepath.Base(name))
 				}
 				blockPath := s.localServer.blockPath(blockRef.Block)
 				r, err := s.objClient.Reader(blockPath, blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower)
@@ -637,16 +632,10 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	// written objects that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.objectPath(object), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	blockRef := &pfsclient.BlockRef{}
+	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	} else if err == nil {
-		blockRef, ok := objectIndex.Objects[object.Hash]
-		if !ok {
-			// The objectIndex should always contain the Hash we're after
-			// because it's an index written specifically for this object.
-			return fmt.Errorf("objectIndex should contain hash: %s (this is likely a bug)", object.Hash)
-		}
 		result.BlockRef = blockRef
 		dest.SetProto(result)
 		return nil
