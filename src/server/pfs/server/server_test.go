@@ -196,7 +196,7 @@ func TestListRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	for i, repoInfo := range repoInfos {
-		require.Equal(t, repoNames[i], repoInfo.Repo.Name)
+		require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
 	}
 
 	require.Equal(t, len(repoInfos), numRepos)
