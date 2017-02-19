@@ -1846,7 +1846,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: MaxMsgSize,
+				MaxMsgSize: pclient.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
@@ -1879,12 +1879,9 @@ func getClient(t *testing.T) pclient.APIClient {
 		apiServer := newAPIServer(driver, nil)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
-	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
+	c, err := pclient.NewFromAddress(addresses[0])
 	require.NoError(t, err)
-	return pclient.APIClient{
-		PfsAPIClient:   pfs.NewAPIClient(clientConn),
-		BlockAPIClient: pfs.NewBlockAPIClient(clientConn),
-	}
+	return *c
 }
 
 func uniqueString(prefix string) string {
