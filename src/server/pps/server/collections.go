@@ -26,6 +26,7 @@ func (a *apiServer) jobsRunning(stm col.STM) *col.Collection {
 		a.etcdClient,
 		path.Join(a.etcdPrefix, jobsRunningPrefix),
 		stm,
+		"Pipeline",
 	)
 }
 

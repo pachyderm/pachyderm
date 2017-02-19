@@ -25,16 +25,32 @@ import (
 	"google.golang.org/grpc"
 )
 
+type collectionFactory func(string) col.Collection
+
 type driver struct {
 	blockAddress    string
 	blockClientOnce sync.Once
 	blockClient     *client.APIClient
 	etcdClient      *etcd.Client
 	prefix          string
+
+	// collections
+	repos         col.Collection
+	repoRefCounts col.Collection
+	commits       collectionFactory
+	branches      collectionFactory
 }
 
 const (
 	TOMBSTONE = "delete"
+)
+
+// collection prefixes
+const (
+	reposPrefix         = "/repos"
+	repoRefCountsPrefix = "/repoRefCounts"
+	commitsPrefix       = "/commits"
+	branchesPrefix      = "/branches"
 )
 
 // NewDriver is used to create a new Driver instance
@@ -51,6 +67,26 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 		blockAddress: blockAddress,
 		etcdClient:   etcdClient,
 		prefix:       etcdPrefix,
+		repos: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, reposPrefix),
+		),
+		repoRefCounts: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, repoRefCountsPrefix),
+		),
+		commits: func(repo string) col.Collection {
+			return col.NewCollection(
+				etcdClient,
+				path.Join(etcdPrefix, commitsPrefix, repo),
+			)
+		},
+		branches: func(repo string) col.Collection {
+			return col.NewCollection(
+				etcdClient,
+				path.Join(etcdPrefix, branchesPrefix, repo),
+			)
+		},
 	}, nil
 }
 
@@ -100,8 +136,8 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	}
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos(stm)
-		repoRefCounts := d.repoRefCounts(stm)
+		repos := d.repos.ReadWrite(stm)
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 
 		// compute the full provenance of this repo
 		fullProv := make(map[string]bool)
@@ -141,7 +177,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 
 func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	repoInfo := new(pfs.RepoInfo)
-	if err := d.reposReadonly(ctx).Get(repo.Name, repoInfo); err != nil {
+	if err := d.repos.ReadOnly(ctx).Get(repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
 	return repoInfo, nil
@@ -149,7 +185,7 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 
 func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
 	var result []*pfs.RepoInfo
-	repos := d.reposReadonly(ctx)
+	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
 		repoInfo := new(pfs.RepoInfo)
@@ -192,10 +228,10 @@ nextRepo:
 
 func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos(stm)
-		repoRefCounts := d.repoRefCounts(stm)
-		commits := d.commits(stm)(repo.Name)
-		branches := d.branches(stm)(repo.Name)
+		repos := d.repos.ReadWrite(stm)
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
+		commits := d.commits(repo.Name).ReadWrite(stm)
+		branches := d.branches(repo.Name).ReadWrite(stm)
 
 		// Check if this repo is the provenance of some other repos
 		if !force {
@@ -237,9 +273,9 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		ID:   uuid.NewWithoutDashes(),
 	}
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos(stm)
-		commits := d.commits(stm)(parent.Repo.Name)
-		branches := d.branches(stm)(parent.Repo.Name)
+		repos := d.repos.ReadWrite(stm)
+		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
+		branches := d.branches(parent.Repo.Name).ReadWrite(stm)
 
 		// Check if repo exists
 		repoInfo := new(pfs.RepoInfo)
@@ -255,7 +291,7 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 		// Build the full provenance; my provenance's provenance is
 		// my provenance
 		for _, prov := range provenance {
-			provCommits := d.commits(stm)(prov.Repo.Name)
+			provCommits := d.commits(prov.Repo.Name).ReadWrite(stm)
 			provCommitInfo := new(pfs.CommitInfo)
 			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
 				return err
@@ -314,8 +350,8 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	}
 
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(stm)(commit.Repo.Name)
-		repos := d.repos(stm)
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		repos := d.repos.ReadWrite(stm)
 
 		commitInfo := new(pfs.CommitInfo)
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
@@ -422,7 +458,7 @@ func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 		return nil, err
 	}
 
-	commits := d.commitsReadonly(ctx)(commit.Repo.Name)
+	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
 	commitInfo := &pfs.CommitInfo{}
 	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return nil, err
@@ -446,7 +482,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		number = math.MaxUint64
 	}
 	var commitInfos []*pfs.CommitInfo
-	commits := d.commitsReadonly(ctx)(repo.Name)
+	commits := d.commits(repo.Name).ReadOnly(ctx)
 
 	if from != nil && to == nil {
 		return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
@@ -516,7 +552,7 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 			}
 		}
 		// Now we watch the CommitInfo until the commit has been finished
-		commits := c.driver.commitsReadonly(c.ctx)(commit.Repo.Name)
+		commits := c.driver.commits(commit.Repo.Name).ReadOnly(c.ctx)
 		commitInfoIter, err := commits.WatchOne(commit.ID)
 		if err != nil {
 			return nil, err
@@ -565,7 +601,7 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// We need to watch for new commits before we start listing commits,
 	// because otherwise we might miss some commits in between when we
 	// finish listing and when we start watching.
-	branches := d.branchesReadonly(ctx)(repo.Name)
+	branches := d.branches(repo.Name).ReadOnly(ctx)
 	newCommitsIter, err := branches.WatchOne(branch)
 	if err != nil {
 		return nil, err
@@ -606,7 +642,7 @@ func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
 }
 
 func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
-	branches := d.branchesReadonly(ctx)(repo.Name)
+	branches := d.branches(repo.Name).ReadOnly(ctx)
 	iterator, err := branches.List()
 	if err != nil {
 		return nil, err
@@ -633,8 +669,8 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(stm)(commit.Repo.Name)
-		branches := d.branches(stm)(commit.Repo.Name)
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
 
 		// Make sure that the commit exists
 		var commitInfo pfs.CommitInfo
@@ -650,7 +686,7 @@ func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string)
 
 func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		branches := d.branches(stm)(repo.Name)
+		branches := d.branches(repo.Name).ReadWrite(stm)
 		return branches.Delete(name)
 	})
 	return err
@@ -665,7 +701,7 @@ func (d *driver) resolveBranch(ctx context.Context, commit *pfs.Commit) error {
 		return nil
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		branches := d.branches(stm)(commit.Repo.Name)
+		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
 
 		head := new(pfs.Commit)
 		// See if we are given a branch
@@ -762,7 +798,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*has
 	// TODO: get the tree from a cache
 	var treeRef *pfs.BlockRef
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(stm)(commit.Repo.Name)
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
