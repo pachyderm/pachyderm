@@ -42,10 +42,27 @@ type APIClient struct {
 	cancel            func()
 	reportUserMetrics bool
 	metricsPrefix     string
+	streamSemaphore   chan struct{}
 }
+
+// DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
+const DefaultMaxConcurrentStreams uint = 100
+
+var (
+	// MaxMsgSize is used to define the GRPC frame size
+	MaxMsgSize = 10 * 1024 * 1024
+)
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
 func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
+	return NewMetricsClientFromAddressWithConcurrency(addr, metrics, prefix,
+		DefaultMaxConcurrentStreams)
+}
+
+// NewMetricsClientFromAddressWithConcurrency Creates a client that will report
+// a user's Metrics, and sets the max concurrency of streaming requests (GetFile
+// / PutFile)
+func NewMetricsClientFromAddressWithConcurrency(addr string, metrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
 	c, err := NewFromAddress(addr)
 	if err != nil {
 		return nil, err
@@ -62,15 +79,22 @@ func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*API
 	return c, err
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string) (*APIClient, error) {
+// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
+// concurrency of streaming requests (GetFile / PutFile)
+func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
 	c := &APIClient{
-		addr: addr,
+		addr:            addr,
+		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
 	}
 	return c, nil
+}
+
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string) (*APIClient, error) {
+	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
 }
 
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.

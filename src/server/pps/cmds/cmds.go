@@ -19,6 +19,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -505,6 +506,43 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var rerunPipelineExclude cmdutil.RepeatedStringArg
+	rerunPipeline := &cobra.Command{
+		Use:   "rerun-pipeline pipeline-name commit",
+		Short: "Rerun part of a pipeline.",
+		Long: `Rerun part of a pipeline.
+Examples:
+
+	# Rerun pipeline foo on commits from branch/n to branch/m
+	pachctl rerun-pipeline foo branch/n -x branch/m
+
+Arguments the commit arguments have similar meaning to those in list-commit,
+you can use list-commit to see which output commits will be recomputed without
+actually rerunning the pipeline.
+`,
+		Run: cmdutil.Run(func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("expected at least 1 argument, got 0")
+			}
+			pipeline := args[0]
+			var include []*pfsclient.Commit
+			for _, commit := range args[1:] {
+				include = append(include, pach.NewCommit(pipeline, commit))
+			}
+			var exclude []*pfsclient.Commit
+			for _, commit := range rerunPipelineExclude {
+				exclude = append(exclude, pach.NewCommit(pipeline, commit))
+			}
+			return client.RerunPipeline(pipeline, include, exclude)
+		}),
+	}
+	rerunPipeline.Flags().VarP(&rerunPipelineExclude, "exclude", "x",
+		"exclude the ancestors of this commit, or exclude the commits on this branch")
+
 	var specPath string
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
@@ -574,6 +612,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
+	result = append(result, rerunPipeline)
 	result = append(result, runPipeline)
 	return result, nil
 }
