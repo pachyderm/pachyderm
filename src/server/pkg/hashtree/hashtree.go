@@ -94,8 +94,12 @@ func (h *hashtree) clone() (*hashtree, error) {
 
 // Serialize serializes a HashTree so that it can be persisted. Also see
 // Deserialize(bytes).
-func Serialize(h *HashTreeProto) ([]byte, error) {
-	return proto.Marshal(h)
+func Serialize(h HashTree) ([]byte, error) {
+	tree, ok := h.(*HashTreeProto)
+	if !ok {
+		return nil, fmt.Errorf("HashTree is of the wrong concrete type")
+	}
+	return proto.Marshal(tree)
 }
 
 // Deserialize deserializes a hash tree so that it can be read or modified.
