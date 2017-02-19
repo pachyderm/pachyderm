@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"reflect"
 	"strconv"
+	"strings"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -13,9 +15,10 @@ import (
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
+	indexes    []Index
 }
 
-func NewCollection(etcdClient *etcd.Client, prefix string) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -27,6 +30,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string) Collection {
 	return &collection{
 		prefix:     prefix,
 		etcdClient: etcdClient,
+		indexes:    indexes,
 	}
 }
 
@@ -56,6 +60,19 @@ func (c *collection) path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
+// See the documentation for `Index` for details.
+func (c *collection) indexDir(index Index, indexVal string) string {
+	indexDir := c.prefix
+	// remove trailing slash
+	indexDir = strings.TrimRight(indexDir, "/")
+	return fmt.Sprintf("%s__index_%s/%s", indexDir, index, indexVal)
+}
+
+// See the documentation for `Index` for details.
+func (c *collection) indexPath(index Index, indexVal string, key string) string {
+	return path.Join(c.indexDir(index, indexVal), key)
+}
+
 type readWriteCollection struct {
 	*collection
 	stm STM
@@ -70,6 +87,14 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 }
 
 func (c *readWriteCollection) Put(key string, val proto.Message) {
+	if c.indexes != nil {
+		r := reflect.ValueOf(val)
+		for _, index := range c.indexes {
+			f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
+			indexKey := f.Call([]reflect.Value{})[0].String()
+			c.stm.Put(c.indexPath(index, indexKey, key), "")
+		}
+	}
 	c.stm.Put(c.path(key), val.String())
 }
 
@@ -174,6 +199,52 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.UnmarshalText(string(resp.Kvs[0].Value), val)
 }
 
+// an indirect iterator goes through a list of keys and retrieve those
+// items from the collection.
+type indirectIterator struct {
+	index int
+	resp  *etcd.GetResponse
+	col   *readonlyCollection
+}
+
+func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if i.index < len(i.resp.Kvs) {
+		kv := i.resp.Kvs[i.index]
+		i.index += 1
+
+		*key = path.Base(string(kv.Key))
+		if err := i.col.Get(string(kv.Key), val); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+	return false, nil
+}
+
+func (c *readonlyCollection) GetByIndex(index Index, val string) (Iterator, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+	return &iterator{
+		resp: resp,
+	}, nil
+}
+
+// List returns an iteraor that can be used to iterate over the collection.
+// The objects are sorted by revision time in descending order, i.e. newer
+// objects are returned first.
+func (c *readonlyCollection) List() (Iterator, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+	return &iterator{
+		resp: resp,
+	}, nil
+}
+
 type iterator struct {
 	index int
 	resp  *etcd.GetResponse
@@ -192,19 +263,6 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 		return true, nil
 	}
 	return false, nil
-}
-
-// List returns an iteraor that can be used to iterate over the collection.
-// The objects are sorted by revision time in descending order, i.e. newer
-// objects are returned first.
-func (c *readonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-	return &iterator{
-		resp: resp,
-	}, nil
 }
 
 type event struct {

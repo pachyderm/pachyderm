@@ -7,8 +7,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-type Index string
-
 // Collection implements helper functions that makes common operations
 // on top of etcd more pleasant to work with.  It's called collection
 // because most of our data is modelled as collections, such as repos,
@@ -28,6 +26,25 @@ type Collection interface {
 	ReadOnly(ctx context.Context) ReadonlyCollection
 }
 
+// Index specifies a secondary index on a collection.
+//
+// Indexes are created in a transactional manner thanks to etcd's
+// transactional support.
+//
+// A secondary index for collection "foo" on field "bar" will reside under
+// the path `/foo__index_bar`.  Each item under the path is in turn a
+// directory whose name is the value of the field `bar`.  For instance,
+// if you have a object in collection `foo` whose `bar` field is `test`,
+// then you will see a directory at path `/foo__index_bar/test`.
+//
+// Under that directory, you have keys that point to items in the collection.
+// For instance, if the aforementioned object has the key "buzz", then you
+// will see an item at `/foo__index_bar/test/buzz`.  The value of this item
+// is empty.  Thus, to get all items in collection `foo` whose values of
+// field `bar` is `test`, we issue a query for all items under
+// `foo__index_bar/test`.
+type Index string
+
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
 	Put(key string, val proto.Message)
@@ -46,6 +63,7 @@ type ReadWriteIntCollection interface {
 
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
+	GetByIndex(index Index, val string) (Iterator, error)
 	List() (Iterator, error)
 	Watch() (Watcher, error)
 	WatchOne(key string) (Watcher, error)
