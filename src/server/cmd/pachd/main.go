@@ -58,7 +58,7 @@ type appEnv struct {
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes       int64  `env:"BLOCK_CACHE_BYTES,default=1073741824"` //default = 1 gigabyte
+	BlockCacheBytes       int64  `env:"BLOCK_CACHE_BYTES,default=5368709120"` //default = 1 gigabyte
 	WorkerShimImage       string `env:"WORKER_SHIM_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
@@ -190,7 +190,7 @@ func do(appEnvObj interface{}) error {
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
-			MaxMsgSize: pfs_server.MaxMsgSize,
+			MaxMsgSize: client.MaxMsgSize,
 		},
 		grpcutil.ServeEnv{
 			GRPCPort: appEnv.Port,

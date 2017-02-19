@@ -409,6 +409,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	var recursive bool
 	var commitFlag bool
 	var inputFile string
+	var parallelism uint
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -448,7 +449,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	pachctl put-file repo commit -i http://host/path
 	`,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
 				return err
 			}
@@ -458,6 +459,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			if len(args) == 3 {
 				path = args[2]
 			}
+
 			var sources []string
 			if inputFile != "" {
 				var r io.Reader
@@ -505,17 +507,17 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
-					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive) })
+					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive, sem) })
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem)
 					})
 				}
 			}
@@ -526,6 +528,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
+	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The number of files that can be uploaded in parallel")
 
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
@@ -739,28 +742,42 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}) (retErr error) {
 	if source == "-" {
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		_, err := client.PutFile(repo, commit, path, os.Stdin)
 		return err
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		return client.PutFileURL(repo, commit, path, url.String(), recursive)
 	}
 	if recursive {
 		var eg errgroup.Group
-		filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
+			// file doesn't exist
+			if info == nil {
+				return fmt.Errorf("%s doesn't exist", filePath)
+			}
 			if info.IsDir() {
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem)
 			})
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 		return eg.Wait()
 	}
+	// use the semaphore here so that we don't even open the file until
+	// we are ready to upload it.
+	sem <- struct{}{}
+	defer func() { <-sem }()
 	f, err := os.Open(source)
 	if err != nil {
 		return err

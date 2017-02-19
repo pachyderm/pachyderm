@@ -258,3 +258,19 @@ func (c APIClient) StopPipeline(name string) error {
 	)
 	return sanitizeErr(err)
 }
+
+// RerunPipeline reruns a pipeline over a given set of commits. Exclude and
+// include are filters that either include or exclude the ancestors of the
+// given commits.  A commit is considered the ancestor of itself. The behavior
+// is the same as that of ListCommit.
+func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*pfs.Commit) error {
+	_, err := c.PpsAPIClient.RerunPipeline(
+		c.ctx(),
+		&pps.RerunPipelineRequest{
+			Pipeline: NewPipeline(name),
+			Include:  include,
+			Exclude:  exclude,
+		},
+	)
+	return sanitizeErr(err)
+}

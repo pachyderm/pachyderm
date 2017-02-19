@@ -2,58 +2,66 @@
 package sync
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
-// Pull downloads a subtree of a commit
+// Pull clones an entire repo at a certain commit
 //
-// root is the local path you want to pull the data to
-
+// root is the local path you want to clone to
 // commit is the commit you want to clone
-//
-// path is the path of the subtree that we are downloading
-//
+// shard and diffMethod get passed to ListFile and GetFile. See documentations
+// for those functions for details on these arguments.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed
-func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, path string, pipes bool) error {
-	if err := os.MkdirAll(filepath.Join(root, path), 0777); err != nil {
+func Pull(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, pipes bool) error {
+	return pullDir(client, root, commit, diffMethod, shard, "/", pipes)
+}
+
+func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
+	if err := os.MkdirAll(filepath.Join(root, dir), 0777); err != nil {
 		return err
 	}
 
-	fileInfos, err := client.ListFile(ctx, &pfs.ListFileRequest{
-		File: &pfs.File{
-			Commit: commit,
-			Path:   path,
-		},
-	})
+	fromCommit := ""
+	fullFile := false
+	if diffMethod != nil {
+		if diffMethod.FromCommit != nil {
+			fromCommit = diffMethod.FromCommit.ID
+		}
+		fullFile = diffMethod.FullFile
+	}
+	fileInfos, err := client.ListFile(
+		commit.Repo.Name,
+		commit.ID,
+		dir,
+		fromCommit,
+		fullFile,
+		shard,
+		false,
+	)
 	if err != nil {
 		return err
 	}
 
 	var g errgroup.Group
-	for _, fileInfo := range fileInfos.FileInfo {
+	sem := make(chan struct{}, 100)
+	for _, fileInfo := range fileInfos {
 		fileInfo := fileInfo
+		sem <- struct{}{}
 		g.Go(func() (retErr error) {
+			defer func() { <-sem }()
 			switch fileInfo.FileType {
-			case pfs.FileType_FILE:
+			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
-				request := &pfs.GetFileRequest{
-					File: &pfs.File{
-						Commit: commit,
-						Path:   fileInfo.File.Path,
-					},
-				}
 				if pipes {
 					if err := syscall.Mkfifo(path, 0666); err != nil {
 						return err
@@ -74,13 +82,9 @@ func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
-						getFileClient, err := client.GetFile(ctx, request)
+						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 						if err != nil {
 							log.Printf("error from GetFile: %s", err)
-							return
-						}
-						if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, f); err != nil {
-							log.Printf("error streaming data: %s", err)
 							return
 						}
 					}()
@@ -94,14 +98,10 @@ func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 							retErr = err
 						}
 					}()
-					getFileClient, err := client.GetFile(ctx, request)
-					if err != nil {
-						return err
-					}
-					return grpcutil.WriteFromStreamingBytesClient(getFileClient, f)
+					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 				}
-			case pfs.FileType_DIR:
-				return Pull(ctx, client, root, commit, fileInfo.File.Path, pipes)
+			case pfs.FileType_FILE_TYPE_DIR:
+				return pullDir(client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
 			}
 			return nil
 		})
@@ -110,7 +110,7 @@ func Pull(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 }
 
 // Push puts files under root into an open commit.
-func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
+func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwrite bool) error {
 	var g errgroup.Group
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
@@ -134,20 +134,12 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 			}
 
 			if overwrite {
-				if _, err := client.DeleteFile(ctx, &pfs.DeleteFileRequest{
-					File: &pfs.File{
-						Commit: commit,
-						Path:   relPath,
-					},
-				}); err != nil {
+				if err := client.DeleteFile(commit.Repo.Name, commit.ID, relPath); err != nil {
 					return err
 				}
 			}
 
-			pclient := pachclient.APIClient{
-				PfsAPIClient: client,
-			}
-			_, err = pclient.PutFile(commit.Repo.Name, commit.ID, relPath, f)
+			_, err = client.PutFile(commit.Repo.Name, commit.ID, relPath, f)
 			return err
 		})
 		return nil
@@ -161,8 +153,8 @@ func Push(ctx context.Context, client pfs.APIClient, root string, commit *pfs.Co
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
-	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", func(fileInfo *pfs.FileInfo) error {
-		if fileInfo.FileType != pfs.FileType_FILE {
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
 			return nil
 		}
 		eg.Go(func() (retErr error) {
@@ -175,7 +167,7 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 					retErr = err
 				}
 			}()
-			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, w)
+			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
 			return nil
 		})
 		return nil
