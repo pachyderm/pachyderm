@@ -1,11 +1,13 @@
 package server
 
 import (
+	"path"
 	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
@@ -21,6 +23,12 @@ type APIServer interface {
 	shard.Frontend
 	shard.Server
 }
+
+const (
+	pipelinesPrefix     = "/pipelines"
+	jobsRunningPrefix   = "/jobs/running"
+	jobsCompletedPrefix = "/jobs/completed"
+)
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
@@ -58,6 +66,18 @@ func NewAPIServer(
 		workerShimImage:       workerShimImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		reporter:              reporter,
+		pipelines: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, pipelinesPrefix),
+		),
+		jobsRunning: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, jobsRunningPrefix),
+		),
+		jobsCompleted: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, jobsCompletedPrefix),
+		),
 	}
 	go apiServer.pipelineWatcher()
 	return apiServer, nil

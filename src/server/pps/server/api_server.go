@@ -100,6 +100,10 @@ type apiServer struct {
 	workerShimImage       string
 	workerImagePullPolicy string
 	reporter              *metrics.Reporter
+	// collections
+	pipelines     col.Collection
+	jobsRunning   col.Collection
+	jobsCompleted col.Collection
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -165,7 +169,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	job := &pps.Job{uuid.NewWithoutDashes()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := new(pps.PipelineInfo)
-		if err := a.pipelines(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 			return err
 		}
 
@@ -184,7 +188,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			State:           pps.JobState_JOB_STARTING,
 			Service:         request.Service,
 		}
-		a.jobsRunning(stm).Put(job.ID, jobInfo)
+		a.jobsRunning.ReadWrite(stm).Put(job.ID, jobInfo)
 		return nil
 	})
 	return job, err
@@ -287,7 +291,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			Output:          request.Output,
 			GcPolicy:        request.GcPolicy,
 		}
-		a.pipelines(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 		return nil
 	})
 	return &types.Empty{}, err
@@ -300,7 +304,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pipelineInfo := new(pps.PipelineInfo)
-	if err := a.pipelinesReadonly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
@@ -312,7 +316,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	pipelineIter, err := a.pipelinesReadonly(ctx).List()
+	pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +346,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		return a.pipelines(stm).Delete(request.Pipeline.Name)
+		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	})
 	return &types.Empty{}, err
 }
@@ -399,7 +403,7 @@ func (a *apiServer) setPipelineCancel(pipelineName string, cancel context.Cancel
 func (a *apiServer) pipelineWatcher() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		pipelineIter, err := a.pipelinesReadonly(context.Background()).Watch()
+		pipelineIter, err := a.pipelines.ReadOnly(context.Background()).Watch()
 		if err != nil {
 			return err
 		}
