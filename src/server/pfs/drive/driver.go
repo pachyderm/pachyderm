@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"google.golang.org/grpc"
@@ -362,10 +361,11 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return fmt.Errorf("commit %s has already been finished", commit.FullID())
 		}
 
-		tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+		_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 		if err != nil {
 			return err
 		}
+		tree := _tree.Open()
 
 		for _, kv := range resp.Kvs {
 			// fileStr is going to look like "some/path/0"
@@ -400,8 +400,9 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			}
 		}
 
+		finishedTree, err := tree.Finish()
 		// Serialize the tree
-		data, err := proto.Marshal(tree)
+		data, err := hashtree.Serialize(finishedTree)
 		if err != nil {
 			return err
 		}
@@ -426,7 +427,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 
 		// update commit size
-		root, err := tree.Get("/")
+		root, err := finishedTree.Get("/")
 		// the tree might be empty (if the commit is empty), in which case
 		// the library returns a PathNotFound error
 		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
@@ -786,9 +787,13 @@ func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil
 }
 
-func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*hashtree.HashTreeProto, error) {
+func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil {
-		return &hashtree.HashTreeProto{}, nil
+		t, err := hashtree.NewHashTree().Finish()
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
 	}
 
 	if err := d.resolveBranch(ctx, commit); err != nil {
@@ -813,7 +818,11 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*has
 	}
 
 	if treeRef == nil {
-		return &hashtree.HashTreeProto{}, nil
+		t, err := hashtree.NewHashTree().Finish()
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
 	}
 
 	// read the tree from the block store
@@ -832,8 +841,8 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (*has
 		return nil, err
 	}
 
-	h := &hashtree.HashTreeProto{}
-	if err := proto.Unmarshal(bytes, h); err != nil {
+	h, err := hashtree.Deserialize(bytes)
+	if err != nil {
 		return nil, err
 	}
 
