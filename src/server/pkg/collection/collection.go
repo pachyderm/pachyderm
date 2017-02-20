@@ -92,7 +92,13 @@ func (c *readWriteCollection) Put(key string, val proto.Message) {
 		for _, index := range c.indexes {
 			f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
 			indexKey := f.Call([]reflect.Value{})[0].String()
-			c.stm.Put(c.indexPath(index, indexKey, key), "")
+			indexPath := c.indexPath(index, indexKey, key)
+			// Only put the index if it doesn't already exist; otherwise
+			// we might trigger an unnecessary event if someone is
+			// watching the index
+			if c.stm.Get(indexPath) == "" {
+				c.stm.Put(indexPath, key)
+			}
 		}
 	}
 	c.stm.Put(c.path(key), val.String())

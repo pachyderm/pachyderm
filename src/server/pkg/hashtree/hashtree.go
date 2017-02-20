@@ -468,6 +468,7 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 }
 
 // Glob returns a list of files and directories that match 'pattern'.
+// The nodes returned have their `Name`s set to their full paths.
 func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
@@ -483,6 +484,9 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 			return nil, err
 		}
 		if matched {
+			nodeCopy := new(NodeProto)
+			*nodeCopy = *node
+			nodeCopy.Name = p
 			res = append(res, node)
 		}
 	}

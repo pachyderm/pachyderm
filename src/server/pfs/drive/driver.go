@@ -994,6 +994,24 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 	return fileInfos, nil
 }
 
+func (d *driver) GlobFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
+	tree, err := d.getTreeForCommit(ctx, commit)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes, err := tree.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	var fileInfos []*pfs.FileInfo
+	for _, node := range nodes {
+		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node))
+	}
+	return fileInfos, nil
+}
+
 func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 	if err := d.resolveBranch(ctx, file.Commit); err != nil {
 		return err
