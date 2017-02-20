@@ -88,11 +88,15 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 
 func (c *readWriteCollection) Put(key string, val proto.Message) {
 	if c.indexes != nil {
+		fmt.Println("BP1")
 		r := reflect.ValueOf(val)
 		for _, index := range c.indexes {
+			fmt.Printf("BP2: %v\n", index)
 			f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
 			indexKey := f.Call([]reflect.Value{})[0].String()
+			fmt.Printf("BP3: %v\n", indexKey)
 			c.stm.Put(c.indexPath(index, indexKey, key), "")
+			fmt.Printf("BP4: %v\n", c.indexPath(index, indexKey, key))
 		}
 	}
 	c.stm.Put(c.path(key), val.String())
@@ -213,7 +217,7 @@ func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr
 		i.index += 1
 
 		*key = path.Base(string(kv.Key))
-		if err := i.col.Get(string(kv.Key), val); err != nil {
+		if err := i.col.Get(*key, val); err != nil {
 			return false, err
 		}
 
@@ -227,8 +231,9 @@ func (c *readonlyCollection) GetByIndex(index Index, val string) (Iterator, erro
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{
+	return &indirectIterator{
 		resp: resp,
+		col:  c,
 	}, nil
 }
 
