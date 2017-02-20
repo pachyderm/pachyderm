@@ -101,9 +101,8 @@ type apiServer struct {
 	workerImagePullPolicy string
 	reporter              *metrics.Reporter
 	// collections
-	pipelines     col.Collection
-	jobsRunning   col.Collection
-	jobsCompleted col.Collection
+	pipelines col.Collection
+	jobs      col.Collection
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -188,7 +187,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			State:           pps.JobState_JOB_STARTING,
 			Service:         request.Service,
 		}
-		a.jobsRunning.ReadWrite(stm).Put(job.ID, jobInfo)
+		a.jobs.ReadWrite(stm).Put(job.ID, jobInfo)
 		return nil
 	})
 	return job, err
@@ -209,7 +208,33 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	jobs := a.jobs.ReadOnly(ctx)
+	var iter col.Iterator
+	var err error
+	if request.Pipeline != nil {
+		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline.String())
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		iter, err = jobs.List()
+	}
+
+	var jobInfos []*pps.JobInfo
+	for {
+		var jobID string
+		var jobInfo pps.JobInfo
+		ok, err := iter.Next(&jobID, &jobInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		jobInfos = append(jobInfos, &jobInfo)
+	}
+
+	return &pps.JobInfos{jobInfos}, nil
 }
 
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {

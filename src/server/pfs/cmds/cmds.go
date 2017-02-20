@@ -460,6 +460,8 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				path = args[2]
 			}
 
+			// A semaphore used to limit parallelism
+			sem := make(chan struct{}, parallelism)
 			var sources []string
 			if inputFile != "" {
 				var r io.Reader

@@ -106,6 +106,29 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j1.Job.ID, ID)
 	require.Equal(t, j1, job)
+
+	j2 := &pps.JobInfo{
+		Job:      &pps.Job{"j2"},
+		Pipeline: &pps.Pipeline{"p1"},
+	}
+	j3 := &pps.JobInfo{
+		Job:      &pps.Job{"j3"},
+		Pipeline: &pps.Pipeline{"p2"},
+	}
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j2.Job.ID, j2)
+		persons.Put(j3.Job.ID, j3)
+		return nil
+	})
+	require.NoError(t, err)
+
+	event, err = iter.Next()
+	require.NoError(t, err)
+	require.Equal(t, event.Type(), EventPut)
+	require.NoError(t, event.Unmarshal(&ID, job))
+	require.Equal(t, j2.Job.ID, ID)
+	require.Equal(t, j2, job)
 }
 
 func getEtcdClient() (*etcd.Client, error) {
