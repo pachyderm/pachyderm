@@ -225,6 +225,7 @@ message CreateJobRequest {
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
+  uint64 pipeline_version = 10;
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
   Output output = 9;
@@ -284,6 +285,12 @@ message StopPipelineRequest {
   Pipeline pipeline = 1;
 }
 
+message RerunPipelineRequest {
+  Pipeline pipeline = 1;
+  repeated pfs.Commit exclude = 2;
+  repeated pfs.Commit include = 3;
+}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -297,6 +304,7 @@ service API {
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
+  rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
