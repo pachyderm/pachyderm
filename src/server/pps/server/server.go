@@ -25,11 +25,9 @@ type APIServer interface {
 }
 
 const (
-	pipelinesPrefix     = "/pipelines"
-	jobsRunningPrefix   = "/jobs/running"
-	jobsCompletedPrefix = "/jobs/completed"
-
-	jobPipelineIndex = "Pipeline"
+	pipelinesPrefix   = "/pipelines"
+	jobsPrefix        = "/jobs"
+	jobsPipelineIndex = "Pipeline"
 )
 
 // NewAPIServer creates an APIServer.
@@ -73,15 +71,10 @@ func NewAPIServer(
 			path.Join(etcdPrefix, pipelinesPrefix),
 			nil,
 		),
-		jobsRunning: col.NewCollection(
+		jobs: col.NewCollection(
 			etcdClient,
-			path.Join(etcdPrefix, jobsRunningPrefix),
-			[]col.Index{jobPipelineIndex},
-		),
-		jobsCompleted: col.NewCollection(
-			etcdClient,
-			path.Join(etcdPrefix, jobsCompletedPrefix),
-			[]col.Index{jobPipelineIndex},
+			path.Join(etcdPrefix, jobsPrefix),
+			[]col.Index{jobsPipelineIndex},
 		),
 	}
 	go apiServer.pipelineWatcher()

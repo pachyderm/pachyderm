@@ -88,15 +88,11 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 
 func (c *readWriteCollection) Put(key string, val proto.Message) {
 	if c.indexes != nil {
-		fmt.Println("BP1")
 		r := reflect.ValueOf(val)
 		for _, index := range c.indexes {
-			fmt.Printf("BP2: %v\n", index)
 			f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
 			indexKey := f.Call([]reflect.Value{})[0].String()
-			fmt.Printf("BP3: %v\n", indexKey)
 			c.stm.Put(c.indexPath(index, indexKey, key), "")
-			fmt.Printf("BP4: %v\n", c.indexPath(index, indexKey, key))
 		}
 	}
 	c.stm.Put(c.path(key), val.String())
@@ -340,7 +336,7 @@ func (c *readonlyCollection) Watch() (Watcher, error) {
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
-	rch := etcdWatcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
+	rch := etcdWatcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
 	w := &watcher{
 		etcdWatcher: etcdWatcher,
 		rch:         rch,
@@ -416,7 +412,7 @@ func (c *readonlyCollection) WatchByIndex(index Index, val string) (Watcher, err
 	// Get request earlier.  That way even if some items are added between
 	// when we list the index and when we start watching the index,
 	// we won't miss any items.
-	rch := etcdWatcher.Watch(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
+	rch := etcdWatcher.Watch(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
 	w := &indirectWatcher{
 		watcher: &watcher{
 			etcdWatcher: etcdWatcher,
@@ -454,7 +450,7 @@ func (c *readonlyCollection) WatchOne(key string) (Watcher, error) {
 	}
 
 	etcdWatcher := etcd.NewWatcher(c.etcdClient)
-	rch := etcdWatcher.Watch(c.ctx, c.path(key), etcd.WithRev(resp.Header.Revision))
+	rch := etcdWatcher.Watch(c.ctx, c.path(key), etcd.WithRev(resp.Header.Revision+1))
 	w := &watcher{
 		etcdWatcher: etcdWatcher,
 		rch:         rch,
