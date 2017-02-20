@@ -76,6 +76,38 @@ func TestIndex(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestIndexWatch(t *testing.T) {
+	etcdClient, err := getEtcdClient()
+	require.NoError(t, err)
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	persons := NewCollection(etcdClient, uuidPrefix, []Index{PipelineIndex})
+
+	j1 := &pps.JobInfo{
+		Job:      &pps.Job{"j1"},
+		Pipeline: &pps.Pipeline{"p1"},
+	}
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j1.Job.ID, j1)
+		return nil
+	})
+	require.NoError(t, err)
+
+	personsReadonly := persons.ReadOnly(context.Background())
+
+	iter, err := personsReadonly.WatchByIndex(PipelineIndex, j1.Pipeline.String())
+	require.NoError(t, err)
+	var ID string
+	job := new(pps.JobInfo)
+	event, err := iter.Next()
+	require.NoError(t, err)
+	require.Equal(t, event.Type(), EventPut)
+	require.NoError(t, event.Unmarshal(&ID, job))
+	require.Equal(t, j1.Job.ID, ID)
+	require.Equal(t, j1, job)
+}
+
 func getEtcdClient() (*etcd.Client, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{"localhost:2379"},

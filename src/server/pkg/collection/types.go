@@ -67,6 +67,7 @@ type ReadonlyCollection interface {
 	List() (Iterator, error)
 	Watch() (Watcher, error)
 	WatchOne(key string) (Watcher, error)
+	WatchByIndex(index Index, val string) (Watcher, error)
 }
 
 type Iterator interface {

@@ -286,9 +286,9 @@ func (e event) Type() EventType {
 }
 
 type watcher struct {
-	events  []event
-	watcher etcd.Watcher
-	rch     etcd.WatchChan
+	events      []event
+	etcdWatcher etcd.Watcher
+	rch         etcd.WatchChan
 }
 
 func (w *watcher) Next() (Event, error) {
@@ -321,13 +321,11 @@ func (w *watcher) Next() (Event, error) {
 }
 
 func (w *watcher) Close() error {
-	return w.watcher.Close()
+	return w.etcdWatcher.Close()
 }
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-// TODO: handle deletion events; right now if an item is deleted from
-// this collection, we treat the event as if it's an addition event.
 func (c *readonlyCollection) Watch() (Watcher, error) {
 	// Firstly we list the collection to get the current items
 	// Sort them by ascending order because that's how the items would have
@@ -344,14 +342,102 @@ func (c *readonlyCollection) Watch() (Watcher, error) {
 	// we won't miss any items.
 	rch := etcdWatcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
 	w := &watcher{
-		watcher: etcdWatcher,
-		rch:     rch,
+		etcdWatcher: etcdWatcher,
+		rch:         rch,
 	}
 
 	for _, etcdKv := range resp.Kvs {
 		w.events = append(w.events, event{
 			key:   etcdKv.Key,
 			value: etcdKv.Value,
+			typ:   EventPut,
+		})
+	}
+	return w, nil
+}
+
+type indirectWatcher struct {
+	*watcher
+	col *readonlyCollection
+}
+
+func (w *indirectWatcher) Next() (Event, error) {
+	if len(w.events) == 0 {
+		ev, ok := <-w.rch
+		if !ok {
+			return nil, fmt.Errorf("stream has been closed")
+		}
+
+		for _, etcdEv := range ev.Events {
+			resp, err := w.col.etcdClient.Get(w.col.ctx, w.col.path(path.Base(string(etcdEv.Kv.Key))), etcd.WithRev(etcdEv.Kv.ModRevision))
+			if err != nil {
+				return nil, err
+			}
+			if len(resp.Kvs) != 1 {
+				return nil, fmt.Errorf("inconsistent index (%+v): value not found; this is likely a bug", etcdEv)
+			}
+			ev := event{
+				key:   etcdEv.Kv.Key,
+				value: resp.Kvs[0].Value,
+			}
+			switch etcdEv.Type {
+			case etcd.EventTypePut:
+				ev.typ = EventPut
+			case etcd.EventTypeDelete:
+				ev.typ = EventDelete
+			}
+			w.events = append(w.events, ev)
+		}
+	}
+
+	// pop the first element
+	event := w.events[0]
+	w.events = w.events[1:]
+
+	return event, nil
+}
+
+func (w *indirectWatcher) Close() error {
+	return w.etcdWatcher.Close()
+}
+
+// WatchByIndex watches items in a collection that match a particular index
+func (c *readonlyCollection) WatchByIndex(index Index, val string) (Watcher, error) {
+	// Firstly we list the index to get the current items
+	// Sort them by ascending order because that's how the items would have
+	// been returned if we watched them from the beginning.
+	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+	if err != nil {
+		return nil, err
+	}
+
+	etcdWatcher := etcd.NewWatcher(c.etcdClient)
+	// Now we issue a watch that uses the revision timestamp returned by the
+	// Get request earlier.  That way even if some items are added between
+	// when we list the index and when we start watching the index,
+	// we won't miss any items.
+	rch := etcdWatcher.Watch(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision))
+	w := &indirectWatcher{
+		watcher: &watcher{
+			etcdWatcher: etcdWatcher,
+			rch:         rch,
+		},
+		col: c,
+	}
+
+	for _, etcdKv := range resp.Kvs {
+		fmt.Printf("path: %v\n", c.path(path.Base(string(etcdKv.Key))))
+		resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(etcdKv.Key))), etcd.WithRev(etcdKv.ModRevision))
+		if err != nil {
+			return nil, err
+		}
+		if len(resp.Kvs) != 1 {
+			return nil, fmt.Errorf("inconsistent index (%+v): value not found; this is likely a bug", etcdKv)
+		}
+
+		w.events = append(w.events, event{
+			key:   etcdKv.Key,
+			value: resp.Kvs[0].Value,
 			typ:   EventPut,
 		})
 	}
@@ -370,8 +456,8 @@ func (c *readonlyCollection) WatchOne(key string) (Watcher, error) {
 	etcdWatcher := etcd.NewWatcher(c.etcdClient)
 	rch := etcdWatcher.Watch(c.ctx, c.path(key), etcd.WithRev(resp.Header.Revision))
 	w := &watcher{
-		watcher: etcdWatcher,
-		rch:     rch,
+		etcdWatcher: etcdWatcher,
+		rch:         rch,
 	}
 	if resp.Count > 0 {
 		kv := resp.Kvs[0]

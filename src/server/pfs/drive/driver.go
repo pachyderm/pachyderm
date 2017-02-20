@@ -69,21 +69,25 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 		repos: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, reposPrefix),
+			nil,
 		),
 		repoRefCounts: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, repoRefCountsPrefix),
+			nil,
 		),
 		commits: func(repo string) col.Collection {
 			return col.NewCollection(
 				etcdClient,
 				path.Join(etcdPrefix, commitsPrefix, repo),
+				nil,
 			)
 		},
 		branches: func(repo string) col.Collection {
 			return col.NewCollection(
 				etcdClient,
 				path.Join(etcdPrefix, branchesPrefix, repo),
+				nil,
 			)
 		},
 	}, nil
