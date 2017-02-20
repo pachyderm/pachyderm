@@ -228,6 +228,11 @@ message ListFileRequest {
   File file = 1;
 }
 
+message GlobFileRequest {
+  Commit commit = 1;
+  string pattern = 2;
+}
+
 message DeleteFileRequest {
   File file = 1;
 }
@@ -276,6 +281,8 @@ service API {
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // GlobFile returns info about all files.
+  rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 

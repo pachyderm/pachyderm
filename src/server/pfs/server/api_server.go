@@ -382,6 +382,21 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	}, nil
 }
 
+func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GlobFile")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	fileInfos, err := a.driver.GlobFile(ctx, request.Commit, request.Pattern)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.FileInfos{
+		FileInfo: fileInfos,
+	}, nil
+}
+
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())

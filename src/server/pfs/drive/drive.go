@@ -70,6 +70,7 @@ type Driver interface {
 	GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
 	InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error)
 	ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error)
+	GlobFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error)
 	DeleteFile(ctx context.Context, file *pfs.File) error
 
 	DeleteAll(ctx context.Context) error

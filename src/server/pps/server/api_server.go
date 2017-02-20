@@ -248,7 +248,13 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -378,7 +384,10 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	})
-	return &types.Empty{}, err
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
@@ -612,6 +621,12 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 }
 
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return err
+	}
+	for _, input := range jobInfo.Inputs {
+	}
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
