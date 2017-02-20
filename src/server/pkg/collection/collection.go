@@ -422,7 +422,6 @@ func (c *readonlyCollection) WatchByIndex(index Index, val string) (Watcher, err
 	}
 
 	for _, etcdKv := range resp.Kvs {
-		fmt.Printf("path: %v\n", c.path(path.Base(string(etcdKv.Key))))
 		resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(etcdKv.Key))), etcd.WithRev(etcdKv.ModRevision))
 		if err != nil {
 			return nil, err

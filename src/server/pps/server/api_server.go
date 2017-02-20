@@ -91,6 +91,8 @@ type apiServer struct {
 	shardCtxs           map[uint64]*ctxAndCancel
 	pipelineCancelsLock sync.Mutex
 	pipelineCancels     map[string]context.CancelFunc
+	jobCancelsLock      sync.Mutex
+	jobCancels          map[string]context.CancelFunc
 	version             int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
@@ -181,7 +183,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Inputs:          request.Inputs,
 			Output:          request.Output,
 			ParentJob:       nil,
-			Started:         nil,
+			Started:         now(),
 			Finished:        nil,
 			OutputCommit:    nil,
 			State:           pps.JobState_JOB_STARTING,
@@ -190,7 +192,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		a.jobs.ReadWrite(stm).Put(job.ID, jobInfo)
 		return nil
 	})
-	return job, err
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
 }
 
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
@@ -431,6 +436,18 @@ func (a *apiServer) setPipelineCancel(pipelineName string, cancel context.Cancel
 	a.pipelineCancels[pipelineName] = cancel
 }
 
+func (a *apiServer) getJobCancel(jobID string) context.CancelFunc {
+	a.jobCancelsLock.Lock()
+	defer a.jobCancelsLock.Unlock()
+	return a.jobCancels[jobID]
+}
+
+func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
+	a.jobCancelsLock.Lock()
+	defer a.jobCancelsLock.Unlock()
+	a.jobCancels[jobID] = cancel
+}
+
 // pipelineWatcher watches for pipelines and launch pipelineManager
 // when it gets a pipeline that falls into a shard assigned to the
 // API server.
@@ -458,6 +475,7 @@ func (a *apiServer) pipelineWatcher() {
 				if shardCtx != nil {
 					pipelineCtx, cancel := context.WithCancel(shardCtx)
 					a.setPipelineCancel(pipelineName, cancel)
+					protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
 					go a.pipelineManager(pipelineCtx, pipelineInfo)
 				}
 			case col.EventDelete:
@@ -470,6 +488,47 @@ func (a *apiServer) pipelineWatcher() {
 		return nil
 	})
 	panic("pipelineWatcher should never exit")
+}
+
+// jobWatcher watches for unfinished jobs and launches jobManagers for
+// the jobs that fall into this server's shards
+func (a *apiServer) jobWatcher() {
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		jobIter, err := a.jobs.ReadOnly(context.Background()).WatchByIndex(jobsFinishedIndex, fmt.Sprintf("%v", (*types.Timestamp)(nil)))
+		if err != nil {
+			return err
+		}
+
+		for {
+			var jobID string
+			var jobInfo pps.JobInfo
+			event, err := jobIter.Next()
+			if err != nil {
+				return err
+			}
+			if err := event.Unmarshal(&jobID, &jobInfo); err != nil {
+				return err
+			}
+			switch event.Type() {
+			case col.EventPut:
+				shardCtx := a.getShardCtx(a.hasher.HashJob(jobInfo.Job))
+				if shardCtx != nil {
+					jobCtx, cancel := context.WithCancel(shardCtx)
+					a.setJobCancel(jobID, cancel)
+					protolion.Infof("launching job manager for job %s", jobInfo.Job.ID)
+					go a.jobManager(jobCtx, &jobInfo)
+				}
+			case col.EventDelete:
+				cancel := a.getJobCancel(jobID)
+				cancel()
+			}
+		}
+	}, b, func(err error, d time.Duration) error {
+		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
+		return nil
+	})
+	panic("jobWatcher should never exit")
 }
 
 func isAlreadyExistsErr(err error) bool {
@@ -552,6 +611,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	}
 }
 
+func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
+}
+
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
 	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerShimImage, a.workerImagePullPolicy)
 	if err != nil {
@@ -626,10 +688,6 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	ctxAndCancel.cancel()
 	delete(a.shardCtxs, shard)
 	return nil
-}
-
-func (a *apiServer) jobManager(ctx context.Context, job *pps.Job) error {
-	return fmt.Errorf("TODO")
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
@@ -815,4 +873,12 @@ func (s podSlice) Swap(i, j int) {
 }
 func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
+}
+
+func now() *types.Timestamp {
+	t, err := types.TimestampProto(time.Now())
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
