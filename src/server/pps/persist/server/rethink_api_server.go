@@ -408,6 +408,17 @@ func (a *rethinkAPIServer) UpdatePipelineInfo(ctx context.Context, request *pers
 	return &types.Empty{}, nil
 }
 
+func (a *rethinkAPIServer) TouchPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *types.Empty, err error) {
+	if _, err := a.getTerm(pipelineInfosTable).Get(request.Name).Update(func(p gorethink.Term) gorethink.Term {
+		return p.Merge(map[string]interface{}{
+			"Version": p.Field("Version").Add(1),
+		})
+	}).RunWrite(a.session); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {
 	pipelineInfo := &persist.PipelineInfo{}
 	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {

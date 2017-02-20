@@ -343,15 +343,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				if _, err := pfsAPIClient.DeleteCommit(
-					ctx,
-					&pfsclient.DeleteCommitRequest{
-						Commit: client.NewCommit(parent.Repo.Name, strings.Split(parent.ID, "/")[0]),
-					},
-				); err != nil {
-					return nil, err
+				// If the commit already exists we fork to a knew branch, this
+				// happens in the case of some errors and when rerun pipeline is
+				// called.
+				forkCommitRequest := &pfsclient.ForkCommitRequest{
+					Provenance: provenance,
+					Parent:     parent,
+					Branch:     uuid.NewWithoutDashes(),
 				}
-				outputCommit, err = pfsAPIClient.StartCommit(ctx, startCommitRequest)
+				forkCommitRequest.Parent.ID = parentJobInfo.OutputCommit.ID
+				outputCommit, err = pfsAPIClient.ForkCommit(ctx, forkCommitRequest)
 				if err != nil {
 					return nil, err
 				}
@@ -376,7 +377,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
-		persistJobInfo.PipelineVersion = pipelineInfo.Version
+		persistJobInfo.PipelineVersion = request.PipelineVersion
 	}
 
 	// If the job has no input, we respect the specified degree of parallelism
@@ -525,13 +526,8 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			return nil, err
 		}
 
-		if commitInfo.SizeBytes == 0 {
-			if input.RunEmpty {
-				// An empty input shouldn't be partitioned
-				limitHit[i] = true
-			} else {
-				return nil, newErrEmptyInput(input.Commit.ID)
-			}
+		if commitInfo.SizeBytes == 0 && !input.RunEmpty {
+			return nil, newErrEmptyInput(input.Commit.ID)
 		}
 
 		inputSizes = append(inputSizes, commitInfo.SizeBytes)
@@ -553,9 +549,13 @@ func (a *apiServer) shardModuli(ctx context.Context, inputs []*ppsclient.JobInpu
 			}
 		}
 
-		b, err := a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
-		if err != nil {
-			return nil, err
+		b := true
+
+		if !inputs[modulusIndex].RunEmpty {
+			b, err = a.noEmptyShards(ctx, inputs[modulusIndex], shardModuli[modulusIndex]*2, repoToFromCommit)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if b {
@@ -656,6 +656,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 		for _, input := range req.Inputs {
 			s += "/" + input.String()
 		}
+		s += fmt.Sprint(req.PipelineVersion)
 
 		hash := md5.Sum([]byte(s))
 		return fmt.Sprintf("%x", hash)
@@ -1368,6 +1369,64 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *ppsclient.StopPip
 	})
 }
 
+func (a *apiServer) RerunPipeline(ctx context.Context, request *ppsclient.RerunPipelineRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	if _, err := a.StopPipeline(ctx, &ppsclient.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if _, err := a.StartPipeline(ctx, &ppsclient.StartPipelineRequest{Pipeline: request.Pipeline}); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	// archive the commits the user wants to rerun
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	for _, commit := range append(request.Include, request.Exclude...) {
+		if commit.Repo.Name != ppsserver.PipelineRepo(request.Pipeline).Name {
+			return nil, fmt.Errorf("commit %s/%s must be on repo %s",
+				commit.Repo.Name, commit.ID, ppsserver.PipelineRepo(request.Pipeline).Name)
+		}
+	}
+	commitInfos, err := pfsAPIClient.ListCommit(
+		ctx,
+		&pfsclient.ListCommitRequest{
+			Include: request.Include,
+			Exclude: request.Exclude,
+		})
+	if err != nil {
+		return nil, err
+	}
+	var commits []*pfsclient.Commit
+	for _, commitInfo := range commitInfos.CommitInfo {
+		commits = append(commits, commitInfo.Commit)
+	}
+	if _, err := pfsAPIClient.ArchiveCommit(
+		ctx,
+		&pfsclient.ArchiveCommitRequest{
+			Commits: commits,
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := persistClient.TouchPipelineInfo(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1733,6 +1792,17 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 				if len(rawInputs) < len(rawInputRepos) {
 					continue
 				}
+				outCommitInfos, err := pfsAPIClient.ListCommit(ctx, &pfsclient.ListCommitRequest{
+					Include:    []*pfsclient.Commit{client.NewCommit(ppsserver.PipelineRepo(pipelineInfo.Pipeline).Name, "")},
+					Provenance: rawInputs,
+				})
+				if err != nil {
+					return err
+				}
+				if len(outCommitInfos.CommitInfo) > 0 {
+					// we've already processed this commit
+					continue
+				}
 				trueInputs, err := a.trueInputs(ctx, rawInputs, pipelineInfo)
 				if err != nil {
 					if isCommitCancelledErr(err) {
@@ -1758,6 +1828,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						Inputs:          trueInputs,
 						ParentJob:       parentJob,
 						Output:          pipelineInfo.Output,
+						PipelineVersion: pipelineInfo.Version,
 					},
 				)
 				if err != nil {
@@ -1952,10 +2023,15 @@ func (a *apiServer) parentJob(
 	if err != nil {
 		return nil, err
 	}
+	var parentJobInfo *ppsclient.JobInfo
 	for _, jobInfo := range jobInfos.JobInfo {
-		if jobInfo.PipelineVersion == pipelineInfo.Version {
-			return jobInfo.Job, nil
+		if jobInfo.PipelineVersion <= pipelineInfo.Version &&
+			(parentJobInfo == nil || parentJobInfo.PipelineVersion < jobInfo.PipelineVersion) {
+			parentJobInfo = jobInfo
 		}
+	}
+	if parentJobInfo != nil {
+		return parentJobInfo.Job, nil
 	}
 	return nil, nil
 }
@@ -2072,6 +2148,7 @@ func (a *apiServer) trueInputs(
 					Commit:   commitInfo.Commit,
 					Method:   pipelineInput.Method,
 					RunEmpty: pipelineInput.RunEmpty,
+					Lazy:     pipelineInput.Lazy,
 				})
 		}
 	}
@@ -2223,6 +2300,19 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 	volumeMounts = append(volumeMounts, api.VolumeMount{
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
+	})
+	dataPath := "pach-job-data"
+	volumes = append(volumes, api.Volume{
+		Name: dataPath,
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: fmt.Sprintf("/%v", dataPath),
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      dataPath,
+		MountPath: fmt.Sprintf("/%v", dataPath),
 	})
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range jobInfo.Transform.ImagePullSecrets {

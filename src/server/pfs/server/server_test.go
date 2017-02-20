@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dancannon/gorethink"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
+	pfs_persist "github.com/pachyderm/pachyderm/src/server/pfs/db/persist"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
@@ -481,6 +483,77 @@ func TestPutFileBig(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, string(expectedOutputA), buffer.String())
+}
+
+func TestPutFileOverMaxMsgSize(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	rawMessage := "Some\nreal\ncustom\ncontent."
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > pclient.MaxMsgSize) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := bytes.NewReader(expectedOutputA)
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, "foo", pfs.Delimiter_NONE, r)
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
+}
+
+func TestPutFileOverMaxBlockSize(t *testing.T) {
+	t.Parallel()
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	client := getClientWithDB(t, dbName)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	rawMessage := "Some\nreal\ncustom\ncontent."
+	customPath := "/some/custom/path/" + uuid.NewWithoutDashes()[0:12]
+
+	// Write a big blob that would normally not fit in a block
+	var expectedOutputA []byte
+	for !(len(expectedOutputA) > maxBlockSize) {
+		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
+	}
+	r := bytes.NewReader(expectedOutputA)
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFileWithDelimiter(repo, commit1.ID, customPath, pfs.Delimiter_NONE, r)
+	require.NoError(t, err)
+	err = client.FinishCommit(repo, "master")
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, customPath, 0, 0, "", false, nil, &buffer))
+	require.Equal(t, string(expectedOutputA), buffer.String())
+
+	dbClient, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: RethinkAddress,
+		Timeout: 30 * time.Second,
+	})
+	require.NoError(t, err)
+
+	cursor, err := gorethink.DB(dbName).Table("Diffs").Filter(
+		map[string]interface{}{
+			"Path": customPath,
+		}).Run(dbClient)
+	defer cursor.Close()
+	var diff *pfs_persist.Diff
+	require.NoError(t, cursor.One(&diff))
+	require.Equal(t, 2, len(diff.BlockRefs))
 }
 
 func TestPutFile(t *testing.T) {
@@ -3410,7 +3483,7 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Pull(context.Background(), client.PfsAPIClient, tmpDir, commit1, nil, nil, false))
+	require.NoError(t, pfssync.Pull(&client, tmpDir, commit1, nil, nil, false))
 
 	repo2 := "repo2"
 	require.NoError(t, client.CreateRepo(repo2))
@@ -3418,7 +3491,7 @@ func TestSyncPullPush(t *testing.T) {
 	commit2, err := client.StartCommit(repo2, "master")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit2, false))
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit2, false))
 	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
 
 	var buffer bytes.Buffer
@@ -3438,7 +3511,7 @@ func TestSyncPullPush(t *testing.T) {
 	// Test the overwrite flag.
 	// After this Push operation, all files should still look the same, since
 	// the old files were overwritten.
-	require.NoError(t, pfssync.Push(context.Background(), client.PfsAPIClient, tmpDir, commit3, true))
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit3, true))
 	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
 
 	buffer.Reset()
@@ -3497,7 +3570,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: MaxMsgSize,
+				MaxMsgSize: pclient.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
@@ -3508,6 +3581,10 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 
 func getClient(t *testing.T) pclient.APIClient {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	return getClientWithDB(t, dbName)
+}
+
+func getClientWithDB(t *testing.T, dbName string) pclient.APIClient {
 	testDBs = append(testDBs, dbName)
 
 	if err := persist.InitDB(RethinkAddress, dbName); err != nil {
@@ -3533,9 +3610,9 @@ func getClient(t *testing.T) pclient.APIClient {
 		apiServer := newAPIServer(driver, nil)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
-	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
+	c, err := pclient.NewFromAddress(addresses[0])
 	require.NoError(t, err)
-	return pclient.APIClient{PfsAPIClient: pfs.NewAPIClient(clientConn)}
+	return *c
 }
 
 func uniqueString(prefix string) string {

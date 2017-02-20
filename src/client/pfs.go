@@ -563,6 +563,8 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string, 
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
+	c.streamSemaphore <- struct{}{}
+	defer func() { <-c.streamSemaphore }()
 	return c.PutFileWithDelimiter(repoName, commitID, path, pfs.Delimiter_LINE, reader)
 }
 
@@ -616,6 +618,8 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // blocks in the file. shard may be left nil in which case the entire file will be returned
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64,
 	size int64, fromCommitID string, fullFile bool, shard *pfs.Shard, writer io.Writer) error {
+	c.streamSemaphore <- struct{}{}
+	defer func() { <-c.streamSemaphore }()
 	return c.getFile(repoName, commitID, path, offset, size, fromCommitID, fullFile, shard, writer)
 }
 
@@ -848,15 +852,30 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 }
 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.putFileClient.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+	bytesWritten := 0
+	for {
+		// Buffer the write so that we don't exceed the grpc
+		// MaxMsgSize. This value includes the whole payload
+		// including headers, so we're conservative and halve it
+		ceil := bytesWritten + MaxMsgSize/2
+		if ceil > len(p) {
+			ceil = len(p)
+		}
+		actualP := p[bytesWritten:ceil]
+		if len(actualP) == 0 {
+			break
+		}
+		w.request.Value = actualP
+		if err := w.putFileClient.Send(w.request); err != nil {
+			return 0, sanitizeErr(err)
+		}
+		w.sent = true
+		w.request.Value = nil
+		// File is only needed on the first request
+		w.request.File = nil
+		bytesWritten += len(actualP)
 	}
-	w.sent = true
-	w.request.Value = nil
-	// File is only needed on the first request
-	w.request.File = nil
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 func (w *putFileWriteCloser) Close() error {
