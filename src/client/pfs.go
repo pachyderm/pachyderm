@@ -10,6 +10,10 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
+const (
+	bufferSize = 15 * 1024 * 1024 // 15 MB
+)
+
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
@@ -456,7 +460,7 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, r
 			object = w.object
 		}
 	}()
-	if _, err := io.Copy(w, r); err != nil {
+	if _, err := io.CopyBuffer(w, r, make([]byte, bufferSize)); err != nil {
 		return nil, sanitizeErr(err)
 	}
 	// return value set by deferred function

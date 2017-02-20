@@ -35,7 +35,8 @@ const (
 	objectCacheShares     = 8
 	tagCacheShares        = 1
 	objectInfoCacheShares = 1
-	maxCachedObjectDenom  = 4 // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
+	maxCachedObjectDenom  = 4                // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
+	bufferSize            = 15 * 1024 * 1024 // 15 MB
 )
 
 type objBlockAPIServer struct {
@@ -249,7 +250,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 				retErr = err
 			}
 		}()
-		size, err = io.Copy(w, r)
+		size, err = io.CopyBuffer(w, r, make([]byte, bufferSize))
 		if err != nil {
 			return err
 		}
