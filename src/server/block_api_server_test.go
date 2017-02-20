@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
@@ -74,10 +73,4 @@ func TestBigObject(t *testing.T) {
 	value, err = c.ReadObject(object.Hash)
 	require.NoError(t, err)
 	require.Equal(t, 50*1024*1024, len(value))
-}
-
-func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
-	require.NoError(t, err)
-	return client
 }
