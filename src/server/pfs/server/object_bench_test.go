@@ -14,17 +14,17 @@ import (
 )
 
 const (
-	clients          = 12
-	objectsPerClient = 500
-	objectSize       = 1024 * 1024
+	clients          = 8
+	objectsPerClient = 50
+	objectSize       = 15 * 1024 * 1024
 )
 
 func BenchmarkManyObjects(b *testing.B) {
-	fmt.Println("running benchmark")
 	b.Run("Put", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
+				i := i
 				c := getPachClientInCluster(b)
 				rand := rand.New(rand.NewSource(int64(i)))
 				eg.Go(func() error {
@@ -51,6 +51,7 @@ func BenchmarkManyObjects(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
+				i := i
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
@@ -70,6 +71,7 @@ func BenchmarkManyObjects(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
+				i := i
 				c := getPachClientInCluster(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
