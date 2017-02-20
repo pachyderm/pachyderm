@@ -28,6 +28,7 @@ const (
 	pipelinesPrefix   = "/pipelines"
 	jobsPrefix        = "/jobs"
 	jobsPipelineIndex = "Pipeline"
+	jobsFinishedIndex = "Finished"
 )
 
 // NewAPIServer creates an APIServer.
@@ -62,6 +63,7 @@ func NewAPIServer(
 		version:               shard.InvalidVersion,
 		shardCtxs:             make(map[uint64]*ctxAndCancel),
 		pipelineCancels:       make(map[string]context.CancelFunc),
+		jobCancels:            make(map[string]context.CancelFunc),
 		namespace:             namespace,
 		workerShimImage:       workerShimImage,
 		workerImagePullPolicy: workerImagePullPolicy,
@@ -74,9 +76,10 @@ func NewAPIServer(
 		jobs: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, jobsPrefix),
-			[]col.Index{jobsPipelineIndex},
+			[]col.Index{jobsPipelineIndex, jobsFinishedIndex},
 		),
 	}
 	go apiServer.pipelineWatcher()
+	go apiServer.jobWatcher()
 	return apiServer, nil
 }
