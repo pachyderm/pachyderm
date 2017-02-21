@@ -54,7 +54,7 @@ const DefaultMaxConcurrentStreams uint = 100
 
 var (
 	// MaxMsgSize is used to define the GRPC frame size
-	MaxMsgSize = 10 * 1024 * 1024
+	MaxMsgSize = 20 * 1024 * 1024
 )
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
