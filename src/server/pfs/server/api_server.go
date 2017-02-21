@@ -102,6 +102,19 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	return commit, nil
 }
 
+func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Provenance, request.Tree)
+	if err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())

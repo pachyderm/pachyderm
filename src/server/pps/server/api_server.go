@@ -653,8 +653,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Build the final tree
 		tree := hashtree.NewHashTree()
 		for {
-			datumSet := dsf.Next()
+			//datumSet := dsf.Next()
 			var data []byte
+			// TODO
 			//data, err := a.objClient.Get(a.hasher.HashDatumSet(jobInfo.Transform, datumSet))
 			//if err != nil {
 			//return err
@@ -671,14 +672,20 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-			Tree: finishedTree,
-		})
+		_, err = hashtree.Serialize(finishedTree)
 		if err != nil {
 			return err
 		}
-		jobInfo.OutputCommit = outputCommit
-		jobInfo.Finished = now()
+		// TODO
+		//a.objClient.Put(data)
+		//outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+		//Tree: finishedTree,
+		//})
+		//if err != nil {
+		//return err
+		//}
+		//jobInfo.OutputCommit = outputCommit
+		//jobInfo.Finished = now()
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
 			return nil

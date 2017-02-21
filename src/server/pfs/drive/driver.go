@@ -271,6 +271,14 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, provenance, nil)
+}
+
+func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.BlockRef) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, provenance, tree)
+}
+
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.BlockRef) (*pfs.Commit, error) {
 	commit := &pfs.Commit{
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
@@ -326,6 +334,10 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
 			}
 			commitInfo.ParentCommit = parent
+		}
+		if tree != nil {
+			commitInfo.Tree = tree
+			commitInfo.Finished = now()
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
