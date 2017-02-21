@@ -11,6 +11,9 @@ import (
 )
 
 func TestPutGet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	c := getPachClient(t)
 	object, err := c.PutObject(strings.NewReader("foo"))
 	require.NoError(t, err)
@@ -23,6 +26,9 @@ func TestPutGet(t *testing.T) {
 }
 
 func TestTags(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	c := getPachClient(t)
 	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
 	require.NoError(t, err)
@@ -44,6 +50,9 @@ func TestTags(t *testing.T) {
 }
 
 func TestManyObjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	c := getPachClient(t)
 	var objects []string
 	for i := 0; i < 25; i++ {
@@ -63,6 +72,9 @@ func TestManyObjects(t *testing.T) {
 }
 
 func TestBigObject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	c := getPachClient(t)
 	r := workload.NewReader(rand.New(rand.NewSource(time.Now().UnixNano())), 50*1024*1024)
 	object, err := c.PutObject(r)
