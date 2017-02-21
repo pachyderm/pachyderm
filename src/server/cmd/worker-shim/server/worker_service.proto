@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package worker_shim;
+
+import  "client/pfs/pfs.proto";
+
+option go_package = "worker_shim";
+
+message ProcessRequest {
+  // The file to process
+  repeated pfs.File datum = 1;
+
+  // The tag to write the output hashtree under
+  // (Possible alternative: return blobref)
+  string tag = 2;
+}
+
+enum DatumState {
+  // The user's process started, (possibly) read this datum, produced output,
+  // and exited successfully
+  DATUM_SUCCESS = 0;
+
+  // Worker-shim failed to download the input data, or otherwise couldn't
+  // prepare the container to start the user's process (or it couldn't upload
+  // the data after the user's process finished successfully)
+  DATUM_INTERNAL_ERROR = 1;
+
+  // The user's process didn't start, or it exited with an error code
+  DATUM_FAILURE = 2;
+}
+
+message ProcessResponse {
+  // The final state after trying to process ProcessRequest.Datum
+  DatumState state = 1;
+}
+
+service WorkerShim {
+  rpc Process(ProcessRequest) returns (ProcessResponse) {}
+}
