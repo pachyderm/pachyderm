@@ -1,7 +1,10 @@
-package worker_shim
+package worker
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 type AppEnv struct {
@@ -13,13 +16,12 @@ type apiServer struct {
 	env AppEnv
 }
 
-func NewApiServer(env *AppEnv) *apiServer {
+func NewAPIServer(env *AppEnv) *apiServer {
 	return new(apiServer)
 }
 
 func getEtcdClient(env *AppEnv) *etc.Client {
 	etcd.NewClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
-	etc
 }
 
 func (a *apiServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
