@@ -255,6 +255,12 @@
 			"revisionTime": "2017-02-05T05:28:56Z"
 		},
 		{
+			"checksumSHA1": "muiqfaDEp60w1SvL64c2t7hJouo=",
+			"path": "github.com/coreos/etcd/clientv3/mirror",
+			"revision": "25403970f575e22eb23ca04d32f45e4d428a8489",
+			"revisionTime": "2017-02-21T21:26:53Z"
+		},
+		{
 			"checksumSHA1": "lY/Ca8yCqHV9cv0BQU88br59VeI=",
 			"path": "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
 			"revision": "6fb99a858598cf001f545e1253fea004f1e0510b",
