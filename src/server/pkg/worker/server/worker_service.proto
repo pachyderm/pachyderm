@@ -1,10 +1,7 @@
 syntax = "proto3";
-
-package worker_shim;
+package worker;
 
 import  "client/pfs/pfs.proto";
-
-option go_package = "worker_shim";
 
 message ProcessRequest {
   // The file to process
@@ -20,7 +17,7 @@ enum DatumState {
   // and exited successfully
   DATUM_SUCCESS = 0;
 
-  // Worker-shim failed to download the input data, or otherwise couldn't
+  // Worker failed to download the input data, or otherwise couldn't
   // prepare the container to start the user's process (or it couldn't upload
   // the data after the user's process finished successfully)
   DATUM_INTERNAL_ERROR = 1;
@@ -34,6 +31,6 @@ message ProcessResponse {
   DatumState state = 1;
 }
 
-service WorkerShim {
+service Worker {
   rpc Process(ProcessRequest) returns (ProcessResponse) {}
 }
