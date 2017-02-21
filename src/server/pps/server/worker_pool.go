@@ -12,6 +12,7 @@ import (
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/mirror"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
 )
@@ -74,15 +75,29 @@ func (w *workerPool) delWorker(addr string) error {
 func (w *workerPool) discoverWorkers(ctx context.Context) {
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
-		watcher := etcd.NewWatcher(w.etcdClient)
-		watchCh := watcher.Watch(ctx, w.workerDir, etcd.WithRev(0))
+		syncer := mirror.NewSyncer(w.etcdClient, w.workerDir, 0)
+		respCh, errCh := syncer.SyncBase(ctx)
+		for {
+			select {
+			case resp := <-respCh:
+				for _, kv := range resp.Kvs {
+					addr := string(kv.Key)
+					if err := w.addWorker(addr); err != nil {
+						return err
+					}
+				}
+			case err := <-errCh:
+				return err
+			}
+		}
+		watchCh := syncer.SyncUpdates(ctx)
 		for {
 			resp, ok := <-watchCh
 			if !ok {
-				if err := watcher.Close(); err != nil {
-					return err
-				}
 				return fmt.Errorf("watcher for prefix %s closed for unknown reasons", w.workerDir)
+			}
+			if err := resp.Err(); err != nil {
+				return err
 			}
 			for _, event := range resp.Events {
 				addr := string(event.Kv.Key)
