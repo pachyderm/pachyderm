@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
@@ -621,11 +622,76 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 }
 
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return err
-	}
-	for _, input := range jobInfo.Inputs {
+	b := backoff.NewInfiniteBackOff()
+	if err := backoff.RetryNotify(func() error {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+		dsf, err := newDatumSetFactory(ctx, pfsClient, jobInfo.Inputs, nil)
+		if err != nil {
+			return err
+		}
+		workerPool, err := a.workerPool(ctx, jobInfo)
+		if err != nil {
+			return err
+		}
+		// process all datums
+		for {
+			datumSet := dsf.Next()
+			if datumSet == nil {
+				break
+			}
+			if err := workerPool.Submit(datumSet); err != nil {
+				return err
+			}
+		}
+		if err := workerPool.Wait(); err != nil {
+			return err
+		}
+		dsf.Reset()
+		// Build the final tree
+		tree := hashtree.NewHashTree()
+		for {
+			datumSet := dsf.Next()
+			var data []byte
+			//data, err := a.objClient.Get(a.hasher.HashDatumSet(jobInfo.Transform, datumSet))
+			//if err != nil {
+			//return err
+			//}
+			datumTree, err := hashtree.Deserialize(data)
+			if err != nil {
+				return err
+			}
+			if err := tree.Merge([]hashtree.HashTree{datumTree}); err != nil {
+				return err
+			}
+		}
+		finishedTree, err := tree.Finish()
+		if err != nil {
+			return err
+		}
+		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Tree: finishedTree,
+		})
+		if err != nil {
+			return err
+		}
+		jobInfo.OutputCommit = outputCommit
+		jobInfo.Finished = now()
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
+			return nil
+		})
+		return nil
+	}, b, func(err error, d time.Duration) error {
+		if err == context.Canceled {
+			return err
+		}
+		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+		return nil
+	}); err != context.Canceled {
+		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
 }
 
