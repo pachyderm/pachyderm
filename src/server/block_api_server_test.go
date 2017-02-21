@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -56,7 +57,7 @@ func TestManyObjects(t *testing.T) {
 	c := getPachClient(t)
 	var objects []string
 	for i := 0; i < 25; i++ {
-		object, err := c.PutObject(strings.NewReader(string(i)), string(i))
+		object, err := c.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}
@@ -65,7 +66,7 @@ func TestManyObjects(t *testing.T) {
 		value, err := c.ReadObject(hash)
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
-		value, err = c.ReadTag(string(i))
+		value, err = c.ReadTag(fmt.Sprint(i))
 		require.NoError(t, err)
 		require.Equal(t, []byte(string(i)), value)
 	}
