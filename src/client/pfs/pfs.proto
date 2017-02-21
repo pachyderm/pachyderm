@@ -131,29 +131,18 @@ message StartCommitRequest {
   repeated Commit provenance = 2;
 }
 
-message ForkCommitRequest {
+message BuildCommitRequest {
   Commit parent = 1;
-  string branch = 2;
-  repeated Commit provenance = 3;
+  repeated Commit provenance = 2;
+  BlockRef tree = 3;
 }
 
 message FinishCommitRequest {
   Commit commit = 1;
 }
 
-message ArchiveCommitRequest {
-  repeated Commit commits = 1;
-}
-
 message InspectCommitRequest {
   Commit commit = 1;
-}
-
-enum CommitStatus {
-  NORMAL = 0;
-  ARCHIVED = 1;
-  CANCELLED = 2;
-  ALL = 3;
 }
 
 message ListCommitRequest {
@@ -264,6 +253,8 @@ service API {
   rpc FlushCommit(FlushCommitRequest) returns (CommitInfos) {}
   // SubscribeCommit subscribes for new commits on a given branch
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
+  // BuildCommit builds a commit that's backed by the given tree
+  rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
 
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (Branches) {}
