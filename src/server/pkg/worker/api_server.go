@@ -20,8 +20,8 @@ func NewAPIServer(env *AppEnv) *apiServer {
 	return new(apiServer)
 }
 
-func getEtcdClient(env *AppEnv) *etc.Client {
-	etcd.NewClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
+func getEtcdClient(env *AppEnv) *etcd.Client {
+	return etcd.NewClient([]string{fmt.Sprintf("http://%s:2379", env.EtcdAddress)})
 }
 
 func (a *apiServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {

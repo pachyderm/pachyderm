@@ -94,6 +94,8 @@ type apiServer struct {
 	pipelineCancels     map[string]context.CancelFunc
 	jobCancelsLock      sync.Mutex
 	jobCancels          map[string]context.CancelFunc
+	workerPools         map[string]WorkerPool
+	workerPoolsLock     sync.Mutex
 	version             int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
@@ -632,10 +634,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		workerPool, err := a.workerPool(ctx, jobInfo)
-		if err != nil {
-			return err
-		}
+		workerPool := a.workerPool(ctx, jobInfo.Pipeline)
 		// process all datums
 		for {
 			datumSet := dsf.Next()
