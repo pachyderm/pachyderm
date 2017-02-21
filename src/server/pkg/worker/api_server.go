@@ -1,27 +1,18 @@
-package worker
+package worker_shim
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/coreos/go-etcd/etcd"
+	etcd "github.com/coreos/etcd/clientv3"
 )
 
-type AppEnv struct {
-	Port        uint16 `env:"PORT,default=650"`
-	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+type ApiServer struct {
+	// A client connected to the Etcd instance at 'EtcdAddr'
+	EtcdClient *etcd.Client
 }
 
-type apiServer struct {
-	env AppEnv
-}
-
-func NewAPIServer(env *AppEnv) *apiServer {
-	return new(apiServer)
-}
-
-func getEtcdClient(env *AppEnv) *etcd.Client {
-	return etcd.NewClient([]string{fmt.Sprintf("http://%s:2379", env.EtcdAddress)})
+func NewApiServer(port uint16, etcdAddr string) *apiServer {
+	return &ApiServer{}
 }
 
 func (a *apiServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
