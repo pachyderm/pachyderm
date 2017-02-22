@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -40,18 +41,23 @@ type workerPool struct {
 	workerDir  string
 	workers    []worker
 	etcdClient *etcd.Client
+	lock       sync.Mutex
 }
 
 func (w *workerPool) addWorker(addr string) error {
+	// we establish the connection outside of the critical section
+	// to minimize the amount of time spent holding the lock
+	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+	if err != nil {
+		return err
+	}
+
+	w.lock.Lock()
+	defer w.lock.Unlock()
 	for _, worker := range w.workers {
 		if worker.addr == addr {
 			return nil
 		}
-	}
-
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	if err != nil {
-		return err
 	}
 
 	w.workers = append(w.workers, worker{
@@ -63,6 +69,8 @@ func (w *workerPool) addWorker(addr string) error {
 }
 
 func (w *workerPool) delWorker(addr string) error {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 	for i, worker := range w.workers {
 		if worker.addr == addr {
 			worker.conn.Close()
@@ -77,20 +85,27 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 	if err := backoff.RetryNotify(func() error {
 		syncer := mirror.NewSyncer(w.etcdClient, w.workerDir, 0)
 		respCh, errCh := syncer.SyncBase(ctx)
+	getBaseWorkers:
 		for {
 			select {
-			case resp := <-respCh:
+			case resp, ok := <-respCh:
+				if !ok {
+					break getBaseWorkers
+				}
 				for _, kv := range resp.Kvs {
-					addr := string(kv.Key)
+					addr := path.Base(string(kv.Key))
 					if err := w.addWorker(addr); err != nil {
 						return err
 					}
 				}
 			case err := <-errCh:
-				return err
+				if err != nil {
+					return err
+				}
 			}
 		}
 		watchCh := syncer.SyncUpdates(ctx)
+		protolion.Infof("watching `%s` for workers", w.workerDir)
 		for {
 			resp, ok := <-watchCh
 			if !ok {
@@ -100,7 +115,7 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 				return err
 			}
 			for _, event := range resp.Events {
-				addr := string(event.Kv.Key)
+				addr := path.Base(string(event.Kv.Key))
 				switch event.Type {
 				case etcd.EventTypePut:
 					if err := w.addWorker(addr); err != nil {
@@ -113,7 +128,7 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 				}
 			}
 		}
-		return nil
+		panic("unreachable")
 	}, b, func(err error, d time.Duration) error {
 		if err == context.Canceled {
 			return err
@@ -139,6 +154,7 @@ func (a *apiServer) workerPool(ctx context.Context, pipeline *pps.Pipeline) Work
 	workerPool, ok := a.workerPools[pipeline.Name]
 	if !ok {
 		workerPool = a.newWorkerPool(ctx, pipeline)
+		a.workerPools[pipeline.Name] = workerPool
 	}
 	return workerPool
 }
