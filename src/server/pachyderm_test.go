@@ -4407,6 +4407,67 @@ func TestListFileWithSharding(t *testing.T) {
 	}
 }
 
+func TestListFileWithBlockSharding(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	// create repo, and put file at /Data/foo
+	dataRepo := uniqueString("TestListFileWithBlockSharding")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err := c.PutFile(dataRepo, commit.ID, fmt.Sprintf("/dir/%d", i),
+			strings.NewReader(fmt.Sprintf("foo%d", i)))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// For many different sharding modulii, iterate through each shard, and check
+	// that /Data/foo.txt and /Data/dir/bar.txt are accessible
+	for modulus := uint64(1); modulus < 15; modulus++ {
+		// Search through all chunks of dataRepo; must find /Data/foo in one of them
+		var files []*pfsclient.FileInfo
+		for i := uint64(0); i < modulus; i++ {
+			// In Pachyderm < 1.4, this does not pass if you shard by
+			// BlockNumber/BlockModulus. In Pachyderm >= 1.4, sharding by
+			// BlockNumber/BlockModulus is no longer possible, but we still need file-
+			// sharding to be consistent.
+			shard := &pfsclient.Shard{
+				BlockNumber:  i,
+				BlockModulus: modulus,
+			}
+			// Recursively get all regular PFS files (similar to job-shim)
+			var getfiles func(path string)
+			getfiles = func(path string) {
+				fileinfos, err := c.ListFile(
+					dataRepo, "master",
+					path,
+					"",    /* fromCommitId */
+					false, /* fullFile */
+					shard,
+					false, /* recurse */
+				)
+				require.NoError(t, err)
+				for _, fi := range fileinfos {
+					if fi.FileType == pfsclient.FileType_FILE_TYPE_REGULAR {
+						files = append(files, fi)
+					} else if fi.FileType == pfsclient.FileType_FILE_TYPE_DIR {
+						getfiles(fi.File.Path)
+					} else {
+						t.Fatal("Unknown FileType: %s", fi.FileType.String())
+					}
+				}
+			}
+			getfiles("/")
+		}
+		require.Equal(t, 100, len(files))
+	}
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
