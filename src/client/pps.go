@@ -15,10 +15,16 @@ func NewJob(jobID string) *pps.Job {
 }
 
 const (
+	// PPSEtcdEnv is the environment variable that specifies the etcd
+	// prefix that PPS uses.
+	PPSEtcdPrefixEnv = "PPS_ETCD_PREFIX"
 	// PPSWorkerIPEnv is the environment variable that a worker can use to
 	// see its own IP.  The IP address is made available through the
 	// Kubernetes downward API.
 	PPSWorkerIPEnv = "PPS_WORKER_IP"
+	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
+	// that the workers are running.
+	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
 )
 
 // NewJobInput creates a pps.JobInput.

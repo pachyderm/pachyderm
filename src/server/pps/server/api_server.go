@@ -702,7 +702,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
-	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerImage, a.workerImagePullPolicy)
+	options, err := a.getWorkerOptions(a.kubeClient, pipelineInfo, a.workerImage, a.workerImagePullPolicy)
 	if err != nil {
 		return err
 	}
@@ -816,7 +816,7 @@ func workerRcName(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("pipeline-%s-v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
-func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerImage string, workerImagePullPolicy string) (*workerOptions, error) {
+func (a *apiServer) getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerImage string, workerImagePullPolicy string) (*workerOptions, error) {
 	labels := labels(workerRcName(pipelineInfo))
 	parallelism, err := GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
@@ -851,6 +851,16 @@ func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, w
 				FieldPath:  "status.podIP",
 			},
 		},
+	})
+	// Set the etcd prefix env
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name:  client.PPSEtcdPrefixEnv,
+		Value: a.etcdPrefix,
+	})
+	// Set the pipline name env
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
 	})
 
 	var volumes []api.Volume
