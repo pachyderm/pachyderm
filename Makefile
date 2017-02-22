@@ -72,7 +72,7 @@ point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-job-shim release-pachctl doc
+release: release-version release-pachd release-worker release-pachctl doc
 	@rm VERSION
 	@echo "Release completed"
 
@@ -85,8 +85,8 @@ release-version:
 release-pachd:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
 
-release-job-shim:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
+release-worker:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
 
 release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
@@ -94,15 +94,15 @@ release-pachctl:
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
-docker-clean-job-shim:
-	docker stop job_shim_compile || true
-	docker rm job_shim_compile || true
+docker-clean-worker:
+	docker stop worker_compile || true
+	docker rm worker_compile || true
 
-docker-build-job-shim: docker-clean-job-shim docker-build-compile
-	docker run --name job_shim_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
+docker-build-worker: docker-clean-worker docker-build-compile
+	docker run --name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh worker "$(LD_FLAGS)"
 
-docker-wait-job-shim:
-	etc/compile/wait.sh job_shim_compile
+docker-wait-worker:
+	etc/compile/wait.sh worker_compile
 
 docker-clean-pachd:
 	docker stop pachd_compile || true
@@ -117,7 +117,7 @@ docker-build-microsoft-vhd:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
+docker-build: docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -360,17 +360,17 @@ goxc-build:
 	install-doc \
 	homebrew \
 	release \
-	release-job-shim \
+	release-worker \
 	release-manifest \
 	release-pachd \
 	release-version \
 	docker-build \
 	docker-build-compile \
-	docker-build-job-shim \
+	docker-build-worker \
 	docker-build-microsoft-vhd \
 	docker-build-pachd \
 	docker-build-proto \
-	docker-push-job-shim \
+	docker-push-worker \
 	docker-push-pachd \
 	docker-push \
 	launch-kube \
