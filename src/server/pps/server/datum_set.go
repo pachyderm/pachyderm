@@ -18,21 +18,26 @@ type datumSetFactory interface {
 type datumSetFactoryImpl struct {
 	indexes    []int
 	datumLists [][]*pfs.FileInfo
+	done       bool
 }
 
 func (d *datumSetFactoryImpl) Next() []*pfs.FileInfo {
-	var hasMore bool
-	for i := 0; i < len(d.datumLists); i++ {
-		if d.indexes[i] == len(d.datumLists[i])-1 {
-			continue
-		}
-		d.indexes[i]++
-		hasMore = true
-		break
-	}
-	if !hasMore {
+	if d.done {
 		return nil
 	}
+
+	defer func() {
+		// Increment the indexes
+		for i := 0; i < len(d.datumLists); i++ {
+			if d.indexes[i] == len(d.datumLists[i])-1 {
+				continue
+			}
+			d.indexes[i]++
+			return
+		}
+		d.done = true
+	}()
+
 	var datumSet []*pfs.FileInfo
 	for i, index := range d.indexes {
 		datumSet = append(datumSet, d.datumLists[i][index])
@@ -60,8 +65,10 @@ func newDatumSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*
 		if err != nil {
 			return nil, err
 		}
-		dsf.datumLists = append(dsf.datumLists, fileInfos.FileInfo)
-		dsf.indexes = append(dsf.indexes, 0)
+		if len(fileInfos.FileInfo) > 0 {
+			dsf.datumLists = append(dsf.datumLists, fileInfos.FileInfo)
+			dsf.indexes = append(dsf.indexes, 0)
+		}
 	}
 	if indexes != nil {
 		dsf.indexes = indexes
