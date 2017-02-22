@@ -59,7 +59,7 @@ type appEnv struct {
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
 	BlockCacheBytes       int64  `env:"BLOCK_CACHE_BYTES,default=5368709120"` //default = 1 gigabyte
-	WorkerShimImage       string `env:"WORKER_SHIM_IMAGE,default="`
+	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 }
@@ -157,7 +157,7 @@ func do(appEnvObj interface{}) error {
 		address,
 		kubeClient,
 		getNamespace(),
-		appEnv.WorkerShimImage,
+		appEnv.WorkerImage,
 		appEnv.WorkerImagePullPolicy,
 		reporter,
 	)
