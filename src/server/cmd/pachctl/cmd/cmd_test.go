@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"sync"
 	"testing"
 
@@ -95,11 +96,7 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 	require.Equal(t, true, foundPachdManifest)
 }
 
-func TestBadAWSCredentialsDeploy(t *testing.T) {
-	t.Parallel()
-	stdoutMutex.Lock()
-	defer stdoutMutex.Unlock()
-
+func testBadAWSCredentialsDeploy(t *testing.T) {
 	// Setup user config prior to test
 	// So that stdout only contains JSON no warnings
 	_, err := config.Read()
@@ -119,6 +116,20 @@ func TestBadAWSCredentialsDeploy(t *testing.T) {
 		"vol-2345436",
 		"100",
 	}
+	// This should exit 1
 	err = deploycmds.DeployCmd(&noMetrics).Execute()
-	require.YesError(t, err)
+}
+
+func TestBadAWSCredentialsDeploy(t *testing.T) {
+	if os.Getenv("BE_CRASHER") == "1" {
+		testBadAWSCredentialsDeploy(t)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestBadAWSCredentialsDeploy")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
 }
