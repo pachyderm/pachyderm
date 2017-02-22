@@ -24,8 +24,8 @@ echo "LD_FLAGS=$LD_FLAGS"
 if [ -z ${PROFILE} ]
 then
     cp Dockerfile.${BINARY} _tmp/Dockerfile
-    if [ ${BINARY} = "job-shim" ]; then
-        cp ./etc/job-shim/* _tmp/
+    if [ ${BINARY} = "worker" ]; then
+        cp ./etc/worker/* _tmp/
     fi
     cp /etc/ssl/certs/ca-certificates.crt _tmp/ca-certificates.crt
     docker build -t pachyderm_${BINARY} _tmp
