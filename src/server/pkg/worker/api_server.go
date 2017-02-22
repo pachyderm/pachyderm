@@ -1,7 +1,7 @@
-package worker_shim
+package worker
 
 import (
-	"context"
+	"golang.org/x/net/context"
 
 	etcd "github.com/coreos/etcd/clientv3"
 )
@@ -11,10 +11,10 @@ type ApiServer struct {
 	EtcdClient *etcd.Client
 }
 
-func NewApiServer(port uint16, etcdAddr string) *apiServer {
+func NewApiServer(port uint16, etcdAddr string) *ApiServer {
 	return &ApiServer{}
 }
 
-func (a *apiServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
+func (a *ApiServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
 	return nil, nil
 }
