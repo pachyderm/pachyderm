@@ -1355,6 +1355,10 @@ func (d *driver) newFileReader(blockRefs []*persist.BlockRef, file *pfs.File, of
 // error if all of the blockrefs have been figured out, except that we want to
 // make sure that there's at least one shard that matches a given empty diff
 func filterBlocks(diff *persist.Diff, filterShard *pfs.Shard, file *pfs.File) (*persist.Diff, error) {
+	// return directories as is
+	if diff.FileType == persist.FileType_DIR {
+		return diff, nil
+	}
 	if len(diff.BlockRefs) == 0 {
 		// If the file is empty, we want to make sure that it's seen by one shard.
 		if !pfsserver.BlockInShard(filterShard, file, nil) {
