@@ -102,7 +102,7 @@ type apiServer struct {
 	// requests using version have returned
 	versionLock           sync.RWMutex
 	namespace             string
-	workerShimImage       string
+	workerImage           string
 	workerImagePullPolicy string
 	reporter              *metrics.Reporter
 	// collections
@@ -702,7 +702,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
-	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerShimImage, a.workerImagePullPolicy)
+	options, err := getWorkerOptions(a.kubeClient, pipelineInfo, a.workerImage, a.workerImagePullPolicy)
 	if err != nil {
 		return err
 	}
@@ -804,7 +804,7 @@ type workerOptions struct {
 	labels                map[string]string
 	parallelism           int32
 	userImage             string
-	workerShimImage       string
+	workerImage           string
 	workerImagePullPolicy string
 	workerEnv             []api.EnvVar
 	volumes               []api.Volume
@@ -816,7 +816,7 @@ func workerRcName(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("pipeline-%s-v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 }
 
-func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerShimImage string, workerImagePullPolicy string) (*workerOptions, error) {
+func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerImage string, workerImagePullPolicy string) (*workerOptions, error) {
 	labels := labels(workerRcName(pipelineInfo))
 	parallelism, err := GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
@@ -889,7 +889,7 @@ func getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, w
 		labels:                labels,
 		parallelism:           int32(parallelism),
 		userImage:             userImage,
-		workerShimImage:       workerShimImage,
+		workerImage:           workerImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		workerEnv:             workerEnv,
 		volumes:               volumes,
@@ -903,8 +903,8 @@ func workerPodSpec(options *workerOptions) api.PodSpec {
 		InitContainers: []api.Container{
 			{
 				Name:            "init",
-				Image:           options.workerShimImage,
-				Command:         []string{"/pach/job-shim.sh"},
+				Image:           options.workerImage,
+				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: api.PullPolicy(options.workerImagePullPolicy),
 				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,

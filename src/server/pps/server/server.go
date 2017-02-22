@@ -39,7 +39,7 @@ func NewAPIServer(
 	address string,
 	kubeClient *kube.Client,
 	namespace string,
-	workerShimImage string,
+	workerImage string,
 	workerImagePullPolicy string,
 	reporter *metrics.Reporter,
 ) (APIServer, error) {
@@ -66,7 +66,7 @@ func NewAPIServer(
 		jobCancels:            make(map[string]context.CancelFunc),
 		workerPools:           make(map[string]WorkerPool),
 		namespace:             namespace,
-		workerShimImage:       workerShimImage,
+		workerImage:           workerImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		reporter:              reporter,
 		pipelines: col.NewCollection(
