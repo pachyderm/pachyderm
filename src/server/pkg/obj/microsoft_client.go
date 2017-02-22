@@ -39,15 +39,19 @@ func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := ""
-	if size == 0 {
-		byteRange = fmt.Sprintf("%d-", offset)
+	var reader io.ReadCloser
+	var err error
+	if offset == 0 && size == 0 {
+		reader, err = c.blobClient.GetBlob(c.container, name)
 	} else {
-		byteRange = fmt.Sprintf("%d-%d", offset, offset+size-1)
+		byteRange := ""
+		if size == 0 {
+			byteRange = fmt.Sprintf("%d-", offset)
+		} else {
+			byteRange = fmt.Sprintf("%d-%d", offset, offset+size-1)
+		}
+		reader, err = c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
 	}
-
-	reader, err := c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +82,9 @@ func (c *microsoftClient) Exists(name string) bool {
 }
 
 func (c *microsoftClient) IsRetryable(err error) (ret bool) {
+	if _, ok := err.(*sizeMismatchError); ok {
+		return true
+	}
 	microsoftErr, ok := err.(storage.AzureStorageServiceError)
 	if !ok {
 		return false
@@ -98,9 +105,10 @@ func (c *microsoftClient) IsIgnorable(err error) bool {
 }
 
 type microsoftWriter struct {
-	container  string
-	blob       string
-	blobClient storage.BlobStorageClient
+	container   string
+	blob        string
+	blobClient  storage.BlobStorageClient
+	sizeWritten int64
 }
 
 func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
@@ -172,9 +180,31 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	w.sizeWritten += int64(len(b))
 	return len(b), nil
 }
 
 func (w *microsoftWriter) Close() error {
+	blobProperties, err := w.blobClient.GetBlobProperties(w.container, w.blob)
+	if err != nil {
+		return err
+	}
+	if blobProperties.ContentLength != w.sizeWritten {
+		return &sizeMismatchError{
+			path:     fmt.Sprintf("%s/%s", w.container, w.blob),
+			expected: w.sizeWritten,
+			actual:   blobProperties.ContentLength,
+		}
+	}
 	return nil
+}
+
+type sizeMismatchError struct {
+	path     string
+	expected int64
+	actual   int64
+}
+
+func (e *sizeMismatchError) Error() string {
+	return fmt.Sprintf("%s has size %d, expected %d", e.path, e.expected, e.actual)
 }
