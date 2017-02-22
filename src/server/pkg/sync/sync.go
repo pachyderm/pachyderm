@@ -27,10 +27,6 @@ func Pull(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMet
 }
 
 func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
-	if err := os.MkdirAll(filepath.Join(root, dir), 0777); err != nil {
-		return err
-	}
-
 	fromCommit := ""
 	fullFile := false
 	if diffMethod != nil {
@@ -62,6 +58,9 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 			switch fileInfo.FileType {
 			case pfs.FileType_FILE_TYPE_REGULAR:
 				path := filepath.Join(root, fileInfo.File.Path)
+				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+					return err
+				}
 				if pipes {
 					if err := syscall.Mkfifo(path, 0666); err != nil {
 						return err
