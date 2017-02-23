@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -31,54 +32,20 @@ type WorkerPool interface {
 }
 
 type worker struct {
-	addr   string
-	conn   *grpc.ClientConn
-	client workerpkg.WorkerClient
-	busy   bool
+	sync.Mutex
+	addr    string
+	conn    *grpc.ClientConn
+	client  workerpkg.WorkerClient
+	removed bool
 }
 
 type workerPool struct {
+	ctx        context.Context
 	workerDir  string
-	workers    []worker
+	workers    chan *worker
+	workersMap map[string]*worker
+	// workersLock sync.Mutex
 	etcdClient *etcd.Client
-	lock       sync.Mutex
-}
-
-func (w *workerPool) addWorker(addr string) error {
-	// we establish the connection outside of the critical section
-	// to minimize the amount of time spent holding the lock
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
-	if err != nil {
-		return err
-	}
-
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	for _, worker := range w.workers {
-		if worker.addr == addr {
-			return nil
-		}
-	}
-
-	w.workers = append(w.workers, worker{
-		addr:   addr,
-		conn:   conn,
-		client: workerpkg.NewWorkerClient(conn),
-	})
-	protolion.Infof("adding worker %s to pool", addr)
-	return nil
-}
-
-func (w *workerPool) delWorker(addr string) error {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	for i, worker := range w.workers {
-		if worker.addr == addr {
-			worker.conn.Close()
-			w.workers = append(w.workers[:i], w.workers[i+1:]...)
-		}
-	}
-	return nil
 }
 
 func (w *workerPool) discoverWorkers(ctx context.Context) {
@@ -142,7 +109,34 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 }
 
 func (w *workerPool) Submit(datumSet []*pfs.FileInfo) error {
-	return nil
+	var wr *worker
+	for {
+		wr := <-w.workers
+		wr.Lock()
+		defer wr.Unlock()
+		if !wr.removed {
+			break
+		}
+	}
+	if wr == nil {
+		protolion.Debugf("workers channel returns a nil worker; this is likely a bug")
+		return nil
+	}
+	go func() retErr {
+		defer func() {
+			if retErr != nil {
+				protolion.Errorf("error processing datum %v: %v", datumSet, retErr)
+			}
+			w.workers <- wr
+		}()
+		_, err := wr.client.Process(w.ctx, workerpkg.ProcessRequest{
+			Data: datumSet,
+		})
+		if err != nil {
+			go w.Submit(datumSet)
+			return err
+		}
+	}()
 }
 
 func (w *workerPool) Wait() error {
@@ -160,10 +154,16 @@ func (a *apiServer) workerPool(ctx context.Context, pipeline *pps.Pipeline) Work
 	return workerPool
 }
 
+func (a *apiServer) newJob(ctx context.Context, pipeline *pps.Pipeline) (chan<- []*pfs.FileInfo, <-chan hashtree.HashTree) {
+
+}
+
 func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) WorkerPool {
 	wp := &workerPool{
+		ctx:        ctx,
 		workerDir:  path.Join(a.etcdPrefix, WorkerEtcdPrefix, pipeline.Name),
 		etcdClient: a.etcdClient,
+		workers:    make(chan worker, 1000),
 	}
 	// We need to make sure that the prefix ends with the trailing slash,
 	// because

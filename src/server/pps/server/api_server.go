@@ -634,47 +634,37 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		workerPool := a.workerPool(ctx, jobInfo.Pipeline)
+		datumCh, respCh := a.workerPool(ctx, jobInfo.Pipeline)
 		// process all datums
-		for {
-			datumSet := dsf.Next()
-			if datumSet == nil {
-				break
-			}
-			if err := workerPool.Submit(datumSet); err != nil {
-				return err
-			}
-		}
-		if err := workerPool.Wait(); err != nil {
-			return err
-		}
-		dsf.Reset()
-		// Build the final tree
+		var numDatums int
 		tree := hashtree.NewHashTree()
+		datumSet := dsf.Next()
 		for {
-			//datumSet := dsf.Next()
-			var data []byte
-			// TODO
-			//data, err := a.objClient.Get(a.hasher.HashDatumSet(jobInfo.Transform, datumSet))
-			//if err != nil {
-			//return err
-			//}
-			datumTree, err := hashtree.Deserialize(data)
-			if err != nil {
-				return err
+			var resp hashtree.HashTree
+			if datumSet != nil {
+				select {
+				case datumCh <- datumSet:
+					datumSet = dsf.Next()
+					numDatums++
+				case resp = <-respCh:
+					numDatums--
+				}
+			} else {
+				if numDatums == 0 {
+					break
+				}
+				select {
+				case resp = <-respCh:
+					numDatums--
+				}
 			}
-			if err := tree.Merge([]hashtree.HashTree{datumTree}); err != nil {
-				return err
+			if resp != nil {
+				if err := tree.Merge([]hashtree.HashTree{resp}); err != nil {
+					return err
+				}
 			}
 		}
-		finishedTree, err := tree.Finish()
-		if err != nil {
-			return err
-		}
-		_, err = hashtree.Serialize(finishedTree)
-		if err != nil {
-			return err
-		}
+
 		// TODO
 		//a.objClient.Put(data)
 		//outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
