@@ -5,7 +5,7 @@ import  "client/pfs/pfs.proto";
 
 message ProcessRequest {
   // The file to process
-  repeated pfs.File datum = 1;
+  repeated pfs.FileInfo data = 1;
 
   // The tag to write the output hashtree under
   // (Possible alternative: return blobref)

@@ -65,6 +65,7 @@ func (w *workerPool) addWorker(addr string) error {
 		conn:   conn,
 		client: workerpkg.NewWorkerClient(conn),
 	})
+	protolion.Infof("adding worker %s to pool", addr)
 	return nil
 }
 

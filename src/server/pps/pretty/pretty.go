@@ -48,14 +48,11 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	if len(pipelineInfo.Inputs) == 0 {
 		fmt.Fprintf(w, "\t")
 	} else {
-		for i, input := range pipelineInfo.Inputs {
-			fmt.Fprintf(w, "%s", input.Repo.Name)
-			if i == len(pipelineInfo.Inputs)-1 {
-				fmt.Fprintf(w, "\t")
-			} else {
-				fmt.Fprintf(w, ", ")
-			}
+		var inputNames []string
+		for _, input := range pipelineInfo.Inputs {
+			inputNames = append(inputNames, input.Name)
 		}
+		fmt.Fprintf(w, "%s\t", strings.Join(inputNames, ", "))
 	}
 	if pipelineInfo.OutputRepo != nil {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.OutputRepo.Name)

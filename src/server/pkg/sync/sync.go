@@ -2,6 +2,7 @@
 package sync
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -22,31 +23,19 @@ import (
 // for those functions for details on these arguments.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed
-func Pull(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, pipes bool) error {
-	return pullDir(client, root, commit, diffMethod, shard, "/", pipes)
+func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool) error {
+	return pullDir(ctx, client, root, fileInfo.File.Commit, fileInfo.File.Path, pipes)
 }
 
-func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
+func pullDir(ctx context.Context, client *pachclient.APIClient, root string, commit *pfs.Commit, dir string, pipes bool) error {
 	if err := os.MkdirAll(filepath.Join(root, dir), 0777); err != nil {
 		return err
 	}
 
-	fromCommit := ""
-	fullFile := false
-	if diffMethod != nil {
-		if diffMethod.FromCommit != nil {
-			fromCommit = diffMethod.FromCommit.ID
-		}
-		fullFile = diffMethod.FullFile
-	}
 	fileInfos, err := client.ListFile(
 		commit.Repo.Name,
 		commit.ID,
 		dir,
-		fromCommit,
-		fullFile,
-		shard,
-		false,
 	)
 	if err != nil {
 		return err
@@ -60,7 +49,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 		g.Go(func() (retErr error) {
 			defer func() { <-sem }()
 			switch fileInfo.FileType {
-			case pfs.FileType_FILE_TYPE_REGULAR:
+			case pfs.FileType_FILE:
 				path := filepath.Join(root, fileInfo.File.Path)
 				if pipes {
 					if err := syscall.Mkfifo(path, 0666); err != nil {
@@ -82,7 +71,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 								log.Printf("error closing %s: %s", path, err)
 							}
 						}()
-						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
+						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
 						if err != nil {
 							log.Printf("error from GetFile: %s", err)
 							return
@@ -98,10 +87,10 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							retErr = err
 						}
 					}()
-					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
+					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
 				}
-			case pfs.FileType_FILE_TYPE_DIR:
-				return pullDir(client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
+			case pfs.FileType_DIR:
+				return pullDir(ctx, client, root, commit, fileInfo.File.Path, pipes)
 			}
 			return nil
 		})
@@ -153,8 +142,8 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
-	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
-		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
 		eg.Go(func() (retErr error) {
@@ -167,7 +156,7 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 					retErr = err
 				}
 			}()
-			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
+			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, w)
 			return nil
 		})
 		return nil

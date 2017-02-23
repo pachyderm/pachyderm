@@ -25,6 +25,12 @@ const (
 	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
 	// that the workers are running.
 	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
+	// PPSInputPrefix is the prefix of the path where datums are downloaded
+	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
+	PPSInputPrefix = "/pfs"
+	// PPSOutputPrefix is the path where the user code is
+	// expected to write its output to.
+	PPSOutputPath = "/pfs/out"
 )
 
 // NewJobInput creates a pps.JobInput.
