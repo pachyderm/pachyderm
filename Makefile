@@ -138,9 +138,14 @@ launch-dev-bench: docker-build install
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-launch-bench: 
+launch-bench: docker-build-compile
 	etc/deploy/aws.sh
-	kubectl delete po/bench && kubectl run bench --image=pachyderm_compile --restart=Never --attach=true -- go test ./src/server/pfs/server -bench=. -run=XXX
+	
+run-bench:
+	# We need the pachyderm_compile image to be up to date
+	docker tag pachyderm_compile pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	kubectl delete po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`
@@ -149,6 +154,8 @@ clean-launch-bench:
 	@#s3cmd del --recursive --force `cat tmp/current-benchmark-state-store.txt`
 	@# if the bucket is empty we need to do:
 	@#s3cmd rb s3://k8scom-state-store-pachyderm-4902
+
+bench: clean-launch-bench launch-bench run-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
