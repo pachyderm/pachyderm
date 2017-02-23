@@ -134,21 +134,23 @@ check-kubectl-connection:
 
 launch-dev-bench: docker-build install
 	@# Put it here so sudo can see it
-	rm /usr/local/bin/pachctl
+	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
 launch-bench: docker-build-compile
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
 	
 run-bench:
 	# We need the pachyderm_compile image to be up to date
 	docker tag pachyderm_compile pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	kubectl delete po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
 
 clean-launch-bench:
-	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`
+	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
 	@#Todo - remove the s3 bucket that served as a state store as well
 	@#which s3cmd
 	@#s3cmd del --recursive --force `cat tmp/current-benchmark-state-store.txt`
