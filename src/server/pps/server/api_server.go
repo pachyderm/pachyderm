@@ -694,7 +694,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err == context.Canceled {
 			return err
 		}
-		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
 		return nil
 	}); err != context.Canceled {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))

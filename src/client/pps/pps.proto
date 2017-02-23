@@ -122,6 +122,7 @@ message Pipeline {
 }
 
 message PipelineInput {
+  string name = 5;
   pfs.Repo repo = 1;
   string branch = 2;
   string glob = 3;
