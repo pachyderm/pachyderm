@@ -16,6 +16,7 @@ type APIServer struct {
 	pachClient   *client.APIClient
 	etcdClient   *etcd.Client
 	pipelineInfo *pps.PipelineInfo
+	lock         sync.Mutex
 }
 
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, pipelineInfo *pps.PipelineInfo) *APIServer {
@@ -37,6 +38,8 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}
