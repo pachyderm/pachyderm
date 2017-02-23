@@ -630,33 +630,37 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		dsf, err := newDatumSetFactory(ctx, pfsClient, jobInfo.Inputs, nil)
+		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
 		if err != nil {
 			return err
 		}
 		wp := a.workerPool(ctx, jobInfo.Pipeline)
 		// process all datums
-		var numDatums int
+		var numData int
 		tree := hashtree.NewHashTree()
-		datumSet := dsf.Next()
+		respCh := make(chan hashtree.HashTree)
+		datum := df.Next()
 		for {
+			protolion.Infof("whatever")
 			var resp hashtree.HashTree
-			if datumSet != nil {
+			if datum != nil {
 				select {
-				case datumSet.DataCh() <- datumSet:
-					datumSet = dsf.Next()
-					numDatums++
+				case wp.DataCh() <- datumAndResp{
+					datum: datum,
+					resp:  respCh,
+				}:
+					protolion.Infof("sending datum: %v", datum)
+					datum = df.Next()
+					numData++
 				case resp = <-respCh:
-					numDatums--
+					numData--
 				}
 			} else {
-				if numDatums == 0 {
+				if numData == 0 {
 					break
 				}
-				select {
-				case resp = <-respCh:
-					numDatums--
-				}
+				resp = <-respCh
+				numData--
 			}
 			if resp != nil {
 				if err := tree.Merge([]hashtree.HashTree{resp}); err != nil {

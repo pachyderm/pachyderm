@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"sync"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -24,25 +24,47 @@ const (
 )
 
 type WorkerPool interface {
-	DataCh() chan datumSet
+	DataCh() chan datumAndResp
 }
 
 type worker struct {
+	ctx    context.Context
 	addr   string
 	client workerpkg.WorkerClient
-	ctx    context.Context
+}
+
+func (w *worker) run(dataCh chan datumAndResp) {
+	for {
+		dr, ok := <-dataCh
+		if !ok {
+			return
+		}
+		protolion.Infof("processing datum: %v", dr.datum)
+		_, err := w.client.Process(w.ctx, &workerpkg.ProcessRequest{
+			Data: dr.datum,
+		})
+		if err != nil {
+			dataCh <- dr
+			if err == context.Canceled {
+				return
+			}
+			protolion.Errorf("worker request to %s failed with error %s", w.addr, err)
+		}
+		// tree := ?
+		dr.resp <- nil
+	}
 }
 
 // An input/output pair for a single datum. When a worker has finished
 // processing 'data', it writes the resulting hashtree to 'resp' (each job has
 // its own response channel)
-type datumSet struct {
-	data []*pfs.FileInfo
-	resp chan hashtree.HashTree
+type datumAndResp struct {
+	datum []*pfs.FileInfo
+	resp  chan hashtree.HashTree
 }
 
 type workerPool struct {
-	dataCh chan *datumSet
+	dataCh chan datumAndResp
 
 	// Parent of all worker contexts (see workersMap)
 	ctx context.Context
@@ -122,7 +144,7 @@ func (wp *workerPool) addWorker(addr string) error {
 		return fmt.Errorf("worker already exists at %s", addr)
 	}
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
 	if err != nil {
 		return err
 	}
@@ -131,35 +153,24 @@ func (wp *workerPool) addWorker(addr string) error {
 
 	wr := &worker{
 		addr:   addr,
-		client: workerpkg.NewWorkerClient(),
+		client: workerpkg.NewWorkerClient(conn),
 		ctx:    childCtx,
 	}
-	go w.run(wp.datumCh)
+	protolion.Infof("launching new worker at %v", addr)
+	go wr.run(wp.dataCh)
+	return nil
 }
 
-func (w *worker) run(datumCh chan *datumSet) (retErr error) {
-	var data []*pfs.FileInfo
-	for {
-		datumSet = <-datumCh
-		if datumSet != nil {
-			return
-		}
-		resp, err := w.client.Process(w.ctx, &workerpkg.ProcessRequest{
-			Data: datumSet.data,
-		})
-		if err != nil {
-			datumCh <- data
-			if err == context.Cancelled {
-				return err
-			}
-			protolion.Errorf("worker request to %s failed with error %s", w.addr, retErr)
-		}
-		// tree := ?
-		datumSet.resp <- hashtree.NewHashTree()
+func (wp *workerPool) delWorker(addr string) error {
+	cancel, ok := wp.workersMap[addr]
+	if !ok {
+		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
+	cancel()
+	return nil
 }
 
-func (wp *workerPool) DataCh() chan datumSet {
+func (wp *workerPool) DataCh() chan datumAndResp {
 	return wp.dataCh
 }
 
@@ -177,8 +188,9 @@ func (a *apiServer) workerPool(ctx context.Context, pipeline *pps.Pipeline) Work
 func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,
-		dataCh:     make(chan datumSet),
+		dataCh:     make(chan datumAndResp),
 		workerDir:  path.Join(a.etcdPrefix, WorkerEtcdPrefix, pipeline.Name),
+		workersMap: make(map[string]context.CancelFunc),
 		etcdClient: a.etcdClient,
 	}
 	// We need to make sure that the prefix ends with the trailing slash,
