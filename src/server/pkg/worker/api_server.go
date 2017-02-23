@@ -1,22 +1,22 @@
 package worker
 
 import (
-	"path"
-
 	"golang.org/x/net/context"
+	"path"
+	"sync"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
 type APIServer struct {
+	sync.Mutex
 	pachClient   *client.APIClient
 	etcdClient   *etcd.Client
 	pipelineInfo *pps.PipelineInfo
-	lock         sync.Mutex
 }
 
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, pipelineInfo *pps.PipelineInfo) *APIServer {
@@ -30,7 +30,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, pipelin
 func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) error {
 	for i, datum := range data {
 		input := a.pipelineInfo.Inputs[i]
-		if err := sync.Pull(ctx, a.pachClient, path.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy); err != nil {
+		if err := filesync.Pull(ctx, a.pachClient, path.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy); err != nil {
 			return err
 		}
 	}
@@ -38,8 +38,8 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
+	a.Lock()
+	defer a.Unlock()
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}

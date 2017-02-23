@@ -634,7 +634,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		datumCh, respCh := a.workerPool(ctx, jobInfo.Pipeline)
+		wp := a.workerPool(ctx, jobInfo.Pipeline)
 		// process all datums
 		var numDatums int
 		tree := hashtree.NewHashTree()
@@ -643,7 +643,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			var resp hashtree.HashTree
 			if datumSet != nil {
 				select {
-				case datumCh <- datumSet:
+				case datumSet.DataCh() <- datumSet:
 					datumSet = dsf.Next()
 					numDatums++
 				case resp = <-respCh:
