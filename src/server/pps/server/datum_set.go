@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-type datumSetFactory interface {
+type datumFactory interface {
 	Next() []*pfs.FileInfo
 	// Resets the internal indexes so we start reading from the first
 	// datum set again.
@@ -15,13 +15,13 @@ type datumSetFactory interface {
 	Indexes() []int
 }
 
-type datumSetFactoryImpl struct {
+type datumFactoryImpl struct {
 	indexes    []int
 	datumLists [][]*pfs.FileInfo
 	done       bool
 }
 
-func (d *datumSetFactoryImpl) Next() []*pfs.FileInfo {
+func (d *datumFactoryImpl) Next() []*pfs.FileInfo {
 	if d.done {
 		return nil
 	}
@@ -38,25 +38,25 @@ func (d *datumSetFactoryImpl) Next() []*pfs.FileInfo {
 		d.done = true
 	}()
 
-	var datumSet []*pfs.FileInfo
+	var datum []*pfs.FileInfo
 	for i, index := range d.indexes {
-		datumSet = append(datumSet, d.datumLists[i][index])
+		datum = append(datum, d.datumLists[i][index])
 	}
-	return datumSet
+	return datum
 }
 
-func (d *datumSetFactoryImpl) Indexes() []int {
+func (d *datumFactoryImpl) Indexes() []int {
 	return d.indexes
 }
 
-func (d *datumSetFactoryImpl) Reset() {
+func (d *datumFactoryImpl) Reset() {
 	for i := range d.indexes {
 		d.indexes[i] = 0
 	}
 }
 
-func newDatumSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.JobInput, indexes []int) (datumSetFactory, error) {
-	dsf := &datumSetFactoryImpl{}
+func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.JobInput, indexes []int) (datumFactory, error) {
+	df := &datumFactoryImpl{}
 	for _, input := range inputs {
 		fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
 			Commit:  input.Commit,
@@ -66,12 +66,12 @@ func newDatumSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*
 			return nil, err
 		}
 		if len(fileInfos.FileInfo) > 0 {
-			dsf.datumLists = append(dsf.datumLists, fileInfos.FileInfo)
-			dsf.indexes = append(dsf.indexes, 0)
+			df.datumLists = append(df.datumLists, fileInfos.FileInfo)
+			df.indexes = append(df.indexes, 0)
 		}
 	}
 	if indexes != nil {
-		dsf.indexes = indexes
+		df.indexes = indexes
 	}
-	return dsf, nil
+	return df, nil
 }

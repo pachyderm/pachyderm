@@ -1,9 +1,11 @@
 package worker
 
 import (
-	"golang.org/x/net/context"
+	"fmt"
 	"path"
 	"sync"
+
+	"golang.org/x/net/context"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -40,6 +42,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (*ProcessResponse, error) {
 	a.Lock()
 	defer a.Unlock()
+	fmt.Printf("processing: %v\n", req)
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}

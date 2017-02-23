@@ -18,7 +18,6 @@ import (
 )
 
 type AppEnv struct {
-	Port            uint16 `env:"PORT,default=650"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	PachdAddress    string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
@@ -82,7 +81,7 @@ func do(appEnvObj interface{}) error {
 			MaxMsgSize: client.MaxMsgSize,
 		},
 		grpcutil.ServeEnv{
-			GRPCPort: appEnv.Port,
+			GRPCPort: client.PPSWorkerPort,
 		},
 	)
 }

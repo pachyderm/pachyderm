@@ -31,6 +31,8 @@ const (
 	// PPSOutputPrefix is the path where the user code is
 	// expected to write its output to.
 	PPSOutputPath = "/pfs/out"
+	// PPSWorkerPort is the port that workers use for their gRPC server
+	PPSWorkerPort = 30652
 )
 
 // NewJobInput creates a pps.JobInput.
