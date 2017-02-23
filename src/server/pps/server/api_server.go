@@ -1962,6 +1962,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			return err
 		}
 		pClient := client.APIClient{PfsAPIClient: pfsAPIClient}
+		pClient.SetMaxConcurrentStreams(200)
 		objClient, err := obj.NewClientFromURLAndSecret(context.Background(), jobInfo.Output.URL)
 		if err != nil {
 			return err
