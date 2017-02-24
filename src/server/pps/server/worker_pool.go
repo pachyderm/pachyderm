@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -28,9 +29,10 @@ type WorkerPool interface {
 }
 
 type worker struct {
-	ctx    context.Context
-	addr   string
-	client workerpkg.WorkerClient
+	ctx          context.Context
+	addr         string
+	workerClient workerpkg.WorkerClient
+	pachClient   *client.APIClient
 }
 
 func (w *worker) run(dataCh chan datumAndResp) {
@@ -39,19 +41,29 @@ func (w *worker) run(dataCh chan datumAndResp) {
 		if !ok {
 			return
 		}
-		protolion.Infof("processing datum: %v", dr.datum)
-		_, err := w.client.Process(w.ctx, &workerpkg.ProcessRequest{
+		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			Data: dr.datum,
 		})
-		if err != nil {
+		if err != nil || resp.State != workerpkg.DatumState_SUCCESS {
 			dataCh <- dr
 			if err == context.Canceled {
 				return
+			} else if err != nil {
+				protolion.Errorf("worker request to %s failed with error %s", w.addr, err)
 			}
-			protolion.Errorf("worker request to %s failed with error %s", w.addr, err)
+			continue
 		}
-		// tree := ?
-		dr.resp <- nil
+		var buffer bytes.Buffer
+		if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
+			protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v", w.addr, dr.datum)
+			dataCh <- dr
+			continue
+		}
+		tree, err := hashtree.Deserialize(buffer.Bytes())
+		if err != nil {
+			panic(err)
+		}
+		dr.resp <- tree
 	}
 }
 
@@ -151,10 +163,16 @@ func (wp *workerPool) addWorker(addr string) error {
 	childCtx, cancelFn := context.WithCancel(wp.ctx)
 	wp.workersMap[addr] = cancelFn
 
+	pachClient, err := client.NewInCluster()
+	if err != nil {
+		return err
+	}
+
 	wr := &worker{
-		addr:   addr,
-		client: workerpkg.NewWorkerClient(conn),
-		ctx:    childCtx,
+		ctx:          childCtx,
+		addr:         addr,
+		workerClient: workerpkg.NewWorkerClient(conn),
+		pachClient:   pachClient,
 	}
 	protolion.Infof("launching new worker at %v", addr)
 	go wr.run(wp.dataCh)
