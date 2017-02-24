@@ -67,7 +67,7 @@ message CommitInfo {
   repeated Commit provenance = 6;
   // this is the block that stores the serialized form of a tree that
   // represents the entire file system hierarchy of the repo at this commit 
-  BlockRef tree = 7;
+  Object tree = 7;
 }
 
 message CommitInfos {
@@ -147,7 +147,7 @@ message StartCommitRequest {
 message BuildCommitRequest {
   Commit parent = 1;
   repeated Commit provenance = 2;
-  BlockRef tree = 3;
+  Object tree = 3;
 }
 
 message FinishCommitRequest {
