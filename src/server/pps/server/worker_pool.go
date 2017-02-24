@@ -44,7 +44,7 @@ func (w *worker) run(dataCh chan datumAndResp) {
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			Data: dr.datum,
 		})
-		if err != nil || resp.State != workerpkg.DatumState_SUCCESS {
+		if err != nil {
 			dataCh <- dr
 			if err == context.Canceled {
 				return
