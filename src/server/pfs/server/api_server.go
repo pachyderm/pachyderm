@@ -319,7 +319,16 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	put := func(filePath string, objPath string) error {
+	put := func(filePath string, objPath string) (thisRetErr error) {
+		a.Logger.Info("pfs.API", "putFileObj", request, nil, nil, 0)
+		defer func(start time.Time) {
+			if thisRetErr != nil {
+				a.Logger.Error("pfs.API", "putFileObj", request, response, thisRetErr, time.Since(start))
+			} else {
+				a.Logger.Info("pfs.API", "putFileObj", request, response, thisRetErr, time.Since(start))
+			}
+		}(time.Now())
+
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
 			return err
