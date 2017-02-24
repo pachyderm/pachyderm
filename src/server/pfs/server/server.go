@@ -26,24 +26,30 @@ type APIServer interface {
 	pfsclient.APIServer
 }
 
+// BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
+type BlockAPIServer interface {
+	pfsclient.BlockAPIServer
+	pfsclient.ObjectAPIServer
+}
+
 // NewAPIServer creates an APIServer.
 func NewAPIServer(driver drive.Driver, reporter *metrics.Reporter) APIServer {
 	return newAPIServer(driver, reporter)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.
-func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) {
+func NewLocalBlockAPIServer(dir string) (BlockAPIServer, error) {
 	return newLocalBlockAPIServer(dir)
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (pfsclient.BlockAPIServer, error) {
+func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (BlockAPIServer, error) {
 	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
-// NewBlockAPIServer creates a BlockAPIServer using the credentials
-// it finds in the environment
-func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (pfsclient.BlockAPIServer, error) {
+// NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
+// the environment
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (BlockAPIServer, error) {
 	switch backend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes

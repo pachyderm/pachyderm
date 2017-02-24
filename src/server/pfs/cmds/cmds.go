@@ -617,6 +617,32 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
+	getObject := &cobra.Command{
+		Use:   "get-object hash",
+		Short: "Return the contents of an object",
+		Long:  "Return the contents of an object",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.GetObject(args[0], os.Stdout)
+		}),
+	}
+
+	getTag := &cobra.Command{
+		Use:   "get-tag tag",
+		Short: "Return the contents of a tag",
+		Long:  "Return the contents of a tag",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.GetTag(args[0], os.Stdout)
+		}),
+	}
+
 	var debug bool
 	var allCommits bool
 	mount := &cobra.Command{
@@ -721,6 +747,8 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	result = append(result, inspectFile)
 	result = append(result, listFile)
 	result = append(result, deleteFile)
+	result = append(result, getObject)
+	result = append(result, getTag)
 	result = append(result, mount)
 	result = append(result, unmount)
 	return result

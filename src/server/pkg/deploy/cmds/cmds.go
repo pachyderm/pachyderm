@@ -189,7 +189,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return nil
 		}),
 	}
-	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 1, "Number of Pachd nodes (stateless Pachyderm API servers).")
+	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "Number of Pachd nodes (stateless Pachyderm API servers).")
+	deploy.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
+		"--deploy-rethink-as-stateful-set is used.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.AddCommand(deployLocal)
