@@ -209,6 +209,7 @@ func do(appEnvObj interface{}) error {
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
+			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalPodAPIServer(s, ppsAPIServer)
 			persist.RegisterAPIServer(s, rethinkAPIServer)

@@ -34,6 +34,14 @@ message Block {
   string hash = 1;
 }
 
+message Object {
+  string hash = 1;
+}
+
+message Tag {
+  string name = 1;
+}
+
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -118,6 +126,11 @@ message BlockInfo {
 
 message BlockInfos {
   repeated BlockInfo block_info = 1;
+}
+
+message ObjectInfo {
+  Object object = 1;
+  BlockRef block_ref = 2;
 }
 
 message Shard {
@@ -350,3 +363,29 @@ service BlockAPI {
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 }
+
+message PutObjectRequest {
+  bytes value = 1;
+  repeated Tag tags = 2;
+}
+
+message TagObjectRequest {
+  Object object = 1;
+  repeated Tag tags = 2;
+}
+
+service ObjectAPI {
+  rpc PutObject(stream PutObjectRequest) returns (Object) {}
+  rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
+  rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
+  rpc InspectObject(Object) returns (ObjectInfo) {}
+  rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectTag(Tag) returns (ObjectInfo) {}
+  rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message ObjectIndex {
+  map<string, BlockRef> objects = 1;
+  map<string, Object> tags = 2;
+}
+

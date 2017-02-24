@@ -1,0 +1,89 @@
+package server
+
+import (
+	"fmt"
+	"math/rand"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
+)
+
+func TestPutGet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	object, err := c.PutObject(strings.NewReader("foo"))
+	require.NoError(t, err)
+	value, err := c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	objectInfo, err := c.InspectObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), objectInfo.BlockRef.Range.Upper-objectInfo.BlockRef.Range.Lower)
+}
+
+func TestTags(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
+	require.NoError(t, err)
+	require.NoError(t, c.TagObject(object.Hash, "buzz"))
+	_, err = c.PutObject(strings.NewReader("foo"), "quux")
+	require.NoError(t, err)
+	value, err := c.ReadTag("bar")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	value, err = c.ReadTag("fizz")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	value, err = c.ReadTag("buzz")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+	value, err = c.ReadTag("quux")
+	require.NoError(t, err)
+	require.Equal(t, []byte("foo"), value)
+}
+
+func TestManyObjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	var objects []string
+	for i := 0; i < 25; i++ {
+		object, err := c.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
+		require.NoError(t, err)
+		objects = append(objects, object.Hash)
+	}
+	require.NoError(t, c.Compact())
+	for i, hash := range objects {
+		value, err := c.ReadObject(hash)
+		require.NoError(t, err)
+		require.Equal(t, []byte(string(i)), value)
+		value, err = c.ReadTag(fmt.Sprint(i))
+		require.NoError(t, err)
+		require.Equal(t, []byte(string(i)), value)
+	}
+}
+
+func TestBigObject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	r := workload.NewReader(rand.New(rand.NewSource(time.Now().UnixNano())), 50*1024*1024)
+	object, err := c.PutObject(r)
+	require.NoError(t, err)
+	value, err := c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, 50*1024*1024, len(value))
+	value, err = c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, 50*1024*1024, len(value))
+}
