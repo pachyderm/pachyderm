@@ -239,9 +239,6 @@ pretest:
 
 test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-bench:
-	go test ./src/server -run=XXX -bench=.
-
 test-client:
 	rm -rf src/client/vendor
 	rm -rf src/server/vendor/github.com/pachyderm
