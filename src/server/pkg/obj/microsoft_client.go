@@ -39,14 +39,7 @@ func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := ""
-	if size == 0 {
-		byteRange = fmt.Sprintf("%d-", offset)
-	} else {
-		byteRange = fmt.Sprintf("%d-%d", offset, offset+size-1)
-	}
-
-	reader, err := c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
+	reader, err := c.blobClient.GetBlobRange(c.container, name, byteRange(offset, size), nil)
 
 	if err != nil {
 		return nil, err
