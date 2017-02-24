@@ -14,10 +14,10 @@ import (
 )
 
 func ValidateRepoName(name string) error {
-	match, _ := regexp.MatchString("^[a-zA-Z0-9_]+$", name)
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 
 	if !match {
-		return fmt.Errorf("repo name (%v) invalid: only alphanumeric and underscore characters allowed", name)
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
 	}
 
 	return nil

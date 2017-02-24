@@ -110,20 +110,20 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-// JobInputs implements sort.Interface so job inputs can be sorted
-// We sort job inputs based on repo names
-type JobInputs []*pps.JobInput
-
-func (inputs JobInputs) Len() int {
-	return len(inputs)
+type byInputName struct {
+	inputs []*pps.PipelineInput
 }
 
-func (inputs JobInputs) Less(i, j int) bool {
-	return inputs[i].Commit.Repo.Name < inputs[j].Commit.Repo.Name
+func (b byInputName) Len() int {
+	return len(b.inputs)
 }
 
-func (inputs JobInputs) Swap(i, j int) {
-	inputs[i], inputs[j] = inputs[j], inputs[i]
+func (b byInputName) Less(i, j int) bool {
+	return b.inputs[i].Name < b.inputs[j].Name
+}
+
+func (b byInputName) Swap(i, j int) {
+	b.inputs[i], b.inputs[j] = b.inputs[j], b.inputs[i]
 }
 
 // GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
@@ -321,6 +321,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
+	sort.Sort(byInputName{request.Inputs})
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := &pps.PipelineInfo{
 			Pipeline:        request.Pipeline,
@@ -559,6 +560,26 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+
+		var provenance []*pfs.Repo
+		for _, input := range pipelineInfo.Inputs {
+			provenance = append(provenance, input.Repo)
+		}
+
+		// Create the output repo; if it already exists, do nothing
+		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Provenance: provenance,
+		}); err != nil {
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
+		}
+
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkers(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -589,6 +610,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 					for _, branch := range branchSet {
 						if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
 							jobInputs = append(jobInputs, &pps.JobInput{
+								Name:   pipelineInput.Name,
 								Commit: branch.Head,
 								Glob:   pipelineInput.Glob,
 								Lazy:   pipelineInput.Lazy,
@@ -696,14 +718,24 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
+		var provenance []*pfs.Commit
+		for _, input := range jobInfo.Inputs {
+			provenance = append(provenance, input.Commit)
+		}
+
 		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-			Tree: obj,
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{jobInfo.Pipeline.Name},
+			},
+			Provenance: provenance,
+			Tree:       obj,
 		})
 		if err != nil {
 			return err
 		}
 		jobInfo.OutputCommit = outputCommit
 		jobInfo.Finished = now()
+		jobInfo.State = pps.JobState_JOB_SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
 			return nil
@@ -715,7 +747,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
 		return nil
-	}); err != context.Canceled {
+	}); err != nil && err != context.Canceled {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
 }
