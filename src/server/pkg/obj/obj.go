@@ -294,3 +294,12 @@ func (b *BackoffWriteCloser) Close() error {
 	}
 	return err
 }
+
+func byteRange(offset uint64, size uint64) string {
+	if offset == 0 && size == 0 {
+		return ""
+	} else if size == 0 {
+		return fmt.Sprintf("%d-", offset)
+	}
+	return fmt.Sprintf("%d-%d", offset, offset+size-1)
+}
