@@ -6,7 +6,7 @@ deploy_k8s_on_aws() {
     # Check prereqs
     
     which aws
-    aws configure
+    aws configure list
     aws iam list-users
     which jq
     which uuid
