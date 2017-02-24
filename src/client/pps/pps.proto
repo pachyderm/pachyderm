@@ -50,6 +50,7 @@ message Service {
 };
 
 message JobInput {
+  string name = 4;
   pfs.Commit commit = 1;
   string glob = 2;
   bool lazy = 3;

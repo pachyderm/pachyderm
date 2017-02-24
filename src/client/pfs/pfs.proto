@@ -86,6 +86,7 @@ message FileInfo {
   // the base names (i.e. just the filenames, not the full paths) of
   // the children
   repeated string children = 6;
+  bytes hash = 7;
 }
 
 message FileInfos {

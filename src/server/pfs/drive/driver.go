@@ -294,6 +294,9 @@ func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance
 }
 
 func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+	if parent == nil {
+		return nil, fmt.Errorf("parent cannot be nil")
+	}
 	commit := &pfs.Commit{
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
@@ -970,6 +973,7 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *
 			Path:   path,
 		},
 		SizeBytes: uint64(node.SubtreeSize),
+		Hash:      node.Hash,
 	}
 	if node.FileNode != nil {
 		fileInfo.FileType = pfs.FileType_FILE

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,12 +13,15 @@ import (
 
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 type APIServer struct {
@@ -76,8 +80,75 @@ func (a *APIServer) runUserCode(ctx context.Context) error {
 	return nil
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context) error {
-	return nil
+func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (string, error) {
+	var lock sync.Mutex
+	tree := hashtree.NewHashTree()
+	var g errgroup.Group
+	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
+		g.Go(func() (retErr error) {
+			if path == client.PPSOutputPath {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(client.PPSOutputPath, path)
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				lock.Lock()
+				defer lock.Unlock()
+				tree.PutDir(relPath)
+				return nil
+			}
+
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+
+			blockRefs, err := a.pachClient.PutBlock(pfs.Delimiter_NONE, f)
+			if err != nil {
+				return err
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			return tree.PutFile(relPath, blockRefs.BlockRef)
+		})
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	if err := g.Wait(); err != nil {
+		return "", err
+	}
+
+	finTree, err := tree.Finish()
+	if err != nil {
+		return "", err
+	}
+
+	treeBytes, err := hashtree.Serialize(finTree)
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := ppsserver.HashDatum(data, a.pipelineInfo)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), hash); err != nil {
+		return "", err
+	}
+
+	return hash, nil
 }
 
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
@@ -90,8 +161,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := a.runUserCode(ctx); err != nil {
 		return nil, err
 	}
-	if err := a.uploadOutput(ctx); err != nil {
+	tag, err := a.uploadOutput(ctx, req.Data)
+	if err != nil {
 		return nil, err
 	}
-	return &ProcessResponse{}, nil
+	return &ProcessResponse{
+		Tag: &pfs.Tag{tag},
+	}, nil
 }
