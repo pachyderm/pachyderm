@@ -8,24 +8,8 @@ message ProcessRequest {
   repeated pfs.FileInfo data = 1;
 }
 
-enum DatumState {
-  // The user's process started, (possibly) read this datum, produced output,
-  // and exited successfully
-  SUCCESS = 0;
-
-  // Worker failed to download the input data, or otherwise couldn't
-  // prepare the container to start the user's process (or it couldn't upload
-  // the data after the user's process finished successfully)
-  INTERNAL_ERROR = 1;
-
-  // The user's process didn't start, or it exited with an error code
-  FAILURE = 2;
-}
-
 message ProcessResponse {
   pfs.Tag tag = 1;
-  // The final state after trying to process ProcessRequest.Datum
-  DatumState state = 2;
 }
 
 service Worker {
