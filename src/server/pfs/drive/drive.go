@@ -53,7 +53,7 @@ type Driver interface {
 	DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error
 
 	StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error)
-	BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.BlockRef) (*pfs.Commit, error)
+	BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error)
 	FinishCommit(ctx context.Context, commit *pfs.Commit) error
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
 

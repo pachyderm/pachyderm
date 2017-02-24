@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"path"
 	"strings"
@@ -27,11 +26,11 @@ import (
 type collectionFactory func(string) col.Collection
 
 type driver struct {
-	blockAddress    string
-	blockClientOnce sync.Once
-	blockClient     *client.APIClient
-	etcdClient      *etcd.Client
-	prefix          string
+	address      string
+	pachConnOnce sync.Once
+	pachConn     *grpc.ClientConn
+	etcdClient   *etcd.Client
+	prefix       string
 
 	// collections
 	repos         col.Collection
@@ -53,7 +52,7 @@ const (
 )
 
 // NewDriver is used to create a new Driver instance
-func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
+func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialTimeout: 5 * time.Second,
@@ -63,9 +62,9 @@ func NewDriver(blockAddress string, etcdAddresses []string, etcdPrefix string) (
 	}
 
 	return &driver{
-		blockAddress: blockAddress,
-		etcdClient:   etcdClient,
-		prefix:       etcdPrefix,
+		address:    address,
+		etcdClient: etcdClient,
+		prefix:     etcdPrefix,
 		repos: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, reposPrefix),
@@ -100,21 +99,37 @@ func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
 }
 
 func (d *driver) getBlockClient() (*client.APIClient, error) {
-	if d.blockClient == nil {
+	if d.pachConn == nil {
 		var onceErr error
-		// Be thread safe
-		d.blockClientOnce.Do(func() {
-			clientConn, err := grpc.Dial(d.blockAddress, grpc.WithInsecure())
+		d.pachConnOnce.Do(func() {
+			pachConn, err := grpc.Dial(d.address, grpc.WithInsecure())
 			if err != nil {
 				onceErr = err
 			}
-			d.blockClient = &client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(clientConn)}
+			d.pachConn = pachConn
 		})
 		if onceErr != nil {
 			return nil, onceErr
 		}
 	}
-	return d.blockClient, nil
+	return &client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(d.pachConn)}, nil
+}
+
+func (d *driver) getObjectClient() (*client.APIClient, error) {
+	if d.pachConn == nil {
+		var onceErr error
+		d.pachConnOnce.Do(func() {
+			pachConn, err := grpc.Dial(d.address, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			d.pachConn = pachConn
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return &client.APIClient{ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn)}, nil
 }
 
 func now() *types.Timestamp {
@@ -274,11 +289,11 @@ func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance
 	return d.makeCommit(ctx, parent, provenance, nil)
 }
 
-func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.BlockRef) (*pfs.Commit, error) {
+func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
 	return d.makeCommit(ctx, parent, provenance, tree)
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.BlockRef) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
 	commit := &pfs.Commit{
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
@@ -423,23 +438,19 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return err
 		}
 
-		// Put the tree into the blob store
-		blockClient, err := d.getBlockClient()
-		if err != nil {
-			return err
-		}
+		if len(data) > 0 {
+			// Put the tree into the blob store
+			objClient, err := d.getObjectClient()
+			if err != nil {
+				return err
+			}
 
-		blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, bytes.NewReader(data))
-		if err != nil {
-			return err
-		}
+			obj, err := objClient.PutObject(bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
 
-		if len(blockRefs.BlockRef) > 0 {
-			// TODO: the block store might break up the tree into multiple
-			// blocks if the tree is big enough, in which case the following
-			// code won't work.  This shouldn't be a problem once we migrate
-			// to use the tag store, which puts everything as one block.
-			commitInfo.Tree = blockRefs.BlockRef[0]
+			commitInfo.Tree = obj
 		}
 
 		// update commit size
@@ -817,7 +828,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	// TODO: get the tree from a cache
-	var treeRef *pfs.BlockRef
+	var treeRef *pfs.Object
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		commitInfo := &pfs.CommitInfo{}
@@ -842,22 +853,17 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	// read the tree from the block store
-	blockClient, err := d.getBlockClient()
+	objClient, err := d.getObjectClient()
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := blockClient.GetBlock(treeRef.Block.Hash, 0, 0)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := objClient.GetObject(treeRef.Hash, &buf); err != nil {
 		return nil, err
 	}
 
-	bytes, err := ioutil.ReadAll(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := hashtree.Deserialize(bytes)
+	h, err := hashtree.Deserialize(buf.Bytes())
 	if err != nil {
 		return nil, err
 	}
