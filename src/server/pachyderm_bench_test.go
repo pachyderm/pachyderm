@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 )
 
 const (
-	MB = 1024 * 1024
+	MB     = 1024 * 1024
+	nFiles = 1000
 )
 
 type CountWriter struct {
@@ -33,7 +35,6 @@ func BenchmarkPachyderm(b *testing.B) {
 	c, err := client.NewInCluster()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
-	nFiles := 1000
 
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(b, err)
@@ -43,12 +44,11 @@ func BenchmarkPachyderm(b *testing.B) {
 			for k := 0; k < nFiles; k++ {
 				k := k
 				eg.Go(func() error {
-					rand := rand.New(rand.NewSource(int64(time.Now().UnixNano())))
-					_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d", k), workload.NewReader(rand, MB))
+					_, err := c.PutFile(repo, "master", fmt.Sprintf("file%d", k), strings.NewReader("foo"))
 					return err
 				})
 			}
-			b.SetBytes(int64(nFiles * MB))
+			b.SetBytes(int64(nFiles * 250))
 			require.NoError(b, eg.Wait())
 		}
 	}) {
@@ -72,34 +72,34 @@ func BenchmarkPachyderm(b *testing.B) {
 	}) {
 		return
 	}
-	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", nFiles), func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			pipeline := uniqueString("BenchmarkPachydermPipeline")
-			require.NoError(b, c.CreatePipeline(
-				pipeline,
-				"",
-				[]string{"bash"},
-				[]string{fmt.Sprintf("cp -R %s /pfs/out", path.Join("/pfs", repo, "/*"))},
-				&ppsclient.ParallelismSpec{
-					Strategy: ppsclient.ParallelismSpec_CONSTANT,
-					Constant: 4,
-				},
-				[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
-				false,
-			))
-			_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
-			require.NoError(b, err)
-			b.StopTimer()
-			repoInfo, err := c.InspectRepo(repo)
-			require.NoError(b, err)
-			b.SetBytes(int64(repoInfo.SizeBytes))
-			repoInfo, err = c.InspectRepo(pipeline)
-			require.NoError(b, err)
-			b.SetBytes(int64(repoInfo.SizeBytes))
-		}
-	}) {
-		return
-	}
+	// if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", nFiles), func(b *testing.B) {
+	// 	for i := 0; i < b.N; i++ {
+	// 		pipeline := uniqueString("BenchmarkPachydermPipeline")
+	// 		require.NoError(b, c.CreatePipeline(
+	// 			pipeline,
+	// 			"",
+	// 			[]string{"bash"},
+	// 			[]string{fmt.Sprintf("cp -R %s /pfs/out", path.Join("/pfs", repo, "/*"))},
+	// 			&ppsclient.ParallelismSpec{
+	// 				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+	// 				Constant: 4,
+	// 			},
+	// 			[]*ppsclient.PipelineInput{{Repo: client.NewRepo(repo)}},
+	// 			false,
+	// 		))
+	// 		_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, "master")}, nil)
+	// 		require.NoError(b, err)
+	// 		b.StopTimer()
+	// 		repoInfo, err := c.InspectRepo(repo)
+	// 		require.NoError(b, err)
+	// 		b.SetBytes(int64(repoInfo.SizeBytes))
+	// 		repoInfo, err = c.InspectRepo(pipeline)
+	// 		require.NoError(b, err)
+	// 		b.SetBytes(int64(repoInfo.SizeBytes))
+	// 	}
+	// }) {
+	// 	return
+	// }
 }
 
 func BenchmarkBigPFSWorkload(b *testing.B) {

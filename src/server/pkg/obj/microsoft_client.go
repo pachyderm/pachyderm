@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 
+	"go.pedge.io/lion"
+
 	"github.com/Azure/azure-sdk-for-go/storage"
 )
 
@@ -190,6 +192,7 @@ func (w *microsoftWriter) Close() error {
 		return err
 	}
 	if blobProperties.ContentLength != w.sizeWritten {
+		lion.Printf("Got a wrong sized block.\n")
 		return &sizeMismatchError{
 			path:     fmt.Sprintf("%s/%s", w.container, w.blob),
 			expected: w.sizeWritten,

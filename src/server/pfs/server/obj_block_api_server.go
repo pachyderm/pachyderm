@@ -136,9 +136,9 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				// We don't want to overwrite blocks that already exist, since:
 				// 1) blocks are content-addressable, so it will be the same block
 				// 2) we risk exceeding the object store's rate limit
-				if s.objClient.Exists(path) {
-					return nil
-				}
+				// if s.objClient.Exists(path) {
+				// 	return nil
+				// }
 				writer, err := s.objClient.Writer(path)
 				if err != nil {
 					outerErr = err
