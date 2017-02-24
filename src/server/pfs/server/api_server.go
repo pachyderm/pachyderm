@@ -319,14 +319,11 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+	protorpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
 	put := func(filePath string, objPath string) (thisRetErr error) {
-		a.Logger.Info("pfs.API", "putFileObj", request, nil, nil, 0)
+		protorpclog.Log("pfs.API", "putFileObjHelper", request, nil, nil, 0)
 		defer func(start time.Time) {
-			if thisRetErr != nil {
-				a.Logger.Error("pfs.API", "putFileObj", request, response, thisRetErr, time.Since(start))
-			} else {
-				a.Logger.Info("pfs.API", "putFileObj", request, response, thisRetErr, time.Since(start))
-			}
+			protorpclog.Log("pfs.API", "putFileObjHelper", request, nil, thisRetErr, time.Since(start))
 		}(time.Now())
 
 		r, err := objClient.Reader(objPath, 0, 0)
@@ -344,6 +341,7 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 		var eg errgroup.Group
 		path := strings.TrimPrefix(url.Path, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
+		fmt.Printf("Going to walk folder: %v\n", path)
 		objClient.Walk(path, func(name string) error {
 			eg.Go(func() error {
 				sem <- struct{}{}
