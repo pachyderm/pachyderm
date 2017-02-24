@@ -85,8 +85,8 @@ type apiServer struct {
 	hasher              *ppsserver.Hasher
 	address             string
 	etcdClient          *etcd.Client
-	pfsAPIClient        pfs.APIClient
-	pfsClientOnce       sync.Once
+	pachConn            *grpc.ClientConn
+	pachConnOnce        sync.Once
 	kubeClient          *kube.Client
 	shardLock           sync.RWMutex
 	shardCtxs           map[uint64]*ctxAndCancel
@@ -641,7 +641,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		respCh := make(chan hashtree.HashTree)
 		datum := df.Next()
 		for {
-			protolion.Infof("whatever")
 			var resp hashtree.HashTree
 			if datum != nil {
 				select {
@@ -649,7 +648,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					datum: datum,
 					resp:  respCh,
 				}:
-					protolion.Infof("sending datum: %v", datum)
 					datum = df.Next()
 					numData++
 				case resp = <-respCh:
@@ -669,16 +667,44 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
+		finishedTree, err := tree.Finish()
+		if err != nil {
+			return err
+		}
+
+		data, err := hashtree.Serialize(finishedTree)
+		if err != nil {
+			return err
+		}
+
+		objClient, err := a.getObjectClient()
+		if err != nil {
+			return err
+		}
+
+		putObjClient, err := objClient.PutObject(ctx)
+		if err != nil {
+			return err
+		}
+		if err := putObjClient.Send(&pfs.PutObjectRequest{
+			Value: data,
+		}); err != nil {
+			return err
+		}
 		// TODO
-		//a.objClient.Put(data)
-		//outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-		//Tree: finishedTree,
-		//})
-		//if err != nil {
-		//return err
-		//}
-		//jobInfo.OutputCommit = outputCommit
-		//jobInfo.Finished = now()
+		_, err = putObjClient.CloseAndRecv()
+		if err != nil {
+			return err
+		}
+
+		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+		//Tree: obj,
+		})
+		if err != nil {
+			return err
+		}
+		jobInfo.OutputCommit = outputCommit
+		jobInfo.Finished = now()
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
 			return nil
@@ -772,20 +798,37 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
-	if a.pfsAPIClient == nil {
+	if a.pachConn == nil {
 		var onceErr error
-		a.pfsClientOnce.Do(func() {
-			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+		a.pachConnOnce.Do(func() {
+			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
 			if err != nil {
 				onceErr = err
 			}
-			a.pfsAPIClient = pfs.NewAPIClient(clientConn)
+			a.pachConn = pachConn
 		})
 		if onceErr != nil {
 			return nil, onceErr
 		}
 	}
-	return a.pfsAPIClient, nil
+	return pfs.NewAPIClient(a.pachConn), nil
+}
+
+func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
+	if a.pachConn == nil {
+		var onceErr error
+		a.pachConnOnce.Do(func() {
+			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			a.pachConn = pachConn
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return pfs.NewObjectAPIClient(a.pachConn), nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for
