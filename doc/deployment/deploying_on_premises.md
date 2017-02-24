@@ -15,7 +15,7 @@ This guide will walk you through the recommended current recommended path to tes
 Assuming that you have Minikube running, it's incredibly easy to deploy Pachyderm backed by a locally running Minio object store at `127.0.0.1:9000`.  
 
 ```sh
-pachctl deploy minio <id> <secret> 10.0.2.2:9000
+pachctl deploy minio <bucket name> <id> <secret> 10.0.2.2:9000
 ```
 
 This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It also instructs Pachyderm to use the Minio instance for the storage backend (note `10.0.2.2` is used here instead of `127.0.0.1`, because minikube is running inside of virtual box).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`.
