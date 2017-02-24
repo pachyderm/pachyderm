@@ -691,14 +691,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}); err != nil {
 			return err
 		}
-		// TODO
-		_, err = putObjClient.CloseAndRecv()
+		obj, err := putObjClient.CloseAndRecv()
 		if err != nil {
 			return err
 		}
 
 		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-		//Tree: obj,
+			Tree: obj,
 		})
 		if err != nil {
 			return err
