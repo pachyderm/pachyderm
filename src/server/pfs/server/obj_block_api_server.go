@@ -115,6 +115,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 		if err != io.EOF {
 			return err
 		}
+		protolion.Printf("Got no data.")
 		return putBlockServer.SendAndClose(result)
 	}
 	reader := bufio.NewReader(&putBlockReader{
