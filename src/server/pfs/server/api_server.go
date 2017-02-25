@@ -321,13 +321,13 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 type putFileHelperLog struct {
-	service  string
-	method   string
-	request  string
-	duration string
-	err      error
-	filePath string
-	objPath  string
+	Service  string `json:"service,omitempty"`
+	Method   string `json:"method,omitempty"`
+	Request  string `json:"request,omitempty"`
+	Duration string `json:"duration,omitempty"`
+	Error    error  `json:"error,omitempty"`
+	FilePath string `json:"filepath,omitempty"`
+	ObjPath  string `json:"objpath,omitempty"`
 }
 
 func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Duration, filePath string, objPath string) {
@@ -336,13 +336,13 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 		requestString = request.String()
 	}
 	l := &putFileHelperLog{
-		service:  "pfs.API",
-		method:   "putFileObjHelper",
-		request:  requestString,
-		duration: duration.String(),
-		err:      err,
-		filePath: filePath,
-		objPath:  objPath,
+		Service:  "pfs.API",
+		Method:   "putFileObjHelper",
+		Request:  requestString,
+		Duration: duration.String(),
+		Err:      err,
+		FilePath: filePath,
+		ObjPath:  objPath,
 	}
 	logJSON, err := json.Marshal(l)
 	if err != nil {
@@ -350,7 +350,7 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 		return
 	}
 	rawLog := string(logJSON)
-	if l.err != nil {
+	if l.Error != nil {
 		lion.Errorln(rawLog)
 	} else {
 		lion.Infoln(rawLog)
