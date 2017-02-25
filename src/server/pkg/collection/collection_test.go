@@ -111,14 +111,10 @@ func TestIndexWatch(t *testing.T) {
 		Job:      &pps.Job{"j2"},
 		Pipeline: &pps.Pipeline{"p1"},
 	}
-	j3 := &pps.JobInfo{
-		Job:      &pps.Job{"j3"},
-		Pipeline: &pps.Pipeline{"p2"},
-	}
+
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		persons := persons.ReadWrite(stm)
 		persons.Put(j2.Job.ID, j2)
-		persons.Put(j3.Job.ID, j3)
 		return nil
 	})
 	require.NoError(t, err)
@@ -129,6 +125,36 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j2.Job.ID, ID)
 	require.Equal(t, j2, job)
+
+	j1Prime := &pps.JobInfo{
+		Job:      &pps.Job{"j1"},
+		Pipeline: &pps.Pipeline{"p3"},
+	}
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j1.Job.ID, j1Prime)
+		return nil
+	})
+	require.NoError(t, err)
+
+	event, err = iter.Next()
+	require.NoError(t, err)
+	require.Equal(t, event.Type(), EventDelete)
+	require.NoError(t, event.Unmarshal(&ID, job))
+	require.Equal(t, j1.Job.ID, ID)
+
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Delete(j2.Job.ID, &pps.JobInfo{})
+		return nil
+	})
+	require.NoError(t, err)
+
+	event, err = iter.Next()
+	require.NoError(t, err)
+	require.Equal(t, event.Type(), EventDelete)
+	require.NoError(t, event.Unmarshal(&ID, job))
+	require.Equal(t, j2.Job.ID, ID)
 }
 
 func getEtcdClient() (*etcd.Client, error) {
