@@ -53,6 +53,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 func (a *APIServer) runUserCode(ctx context.Context) error {
+	// Create output directory (currently /pfs/out)
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return err
 	}
@@ -80,9 +81,12 @@ func (a *APIServer) runUserCode(ctx context.Context) error {
 	return nil
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (string, error) {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
+	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
+
+	// Upload all files in output directory
 	var g errgroup.Group
 	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
@@ -95,6 +99,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (str
 				return err
 			}
 
+			// Put directory. Even if the directory is empty, that may be useful to
+			// users
+			// TODO(msteffen) write a test pipeline that outputs an empty directory and
+			// make sure it's preserved
 			if info.IsDir() {
 				lock.Lock()
 				defer lock.Unlock()
@@ -122,41 +130,52 @@ func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (str
 		})
 		return nil
 	}); err != nil {
-		return "", err
+		return err
 	}
 
 	if err := g.Wait(); err != nil {
-		return "", err
+		return err
 	}
 
 	finTree, err := tree.Finish()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	treeBytes, err := hashtree.Serialize(finTree)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	hash, err := ppsserver.HashDatum(data, a.pipelineInfo)
-	if err != nil {
-		return "", err
+	if _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
+		return err
 	}
 
-	if _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), hash); err != nil {
-		return "", err
-	}
-
-	return hash, nil
+	return nil
 }
 
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	// We cannot run more than one user process at once; otherwise they'd be
+	// writing to the same output directory. Acquire lock to make sure only one
+	// user process runs at a time.
 	a.Lock()
 	defer a.Unlock()
-	fmt.Printf("received req: %v\n", req)
-	fmt.Println("BP1")
+
+	// ppsserver sorts inputs by input name, so this is stable even if
+	// a.pipelineInfo.Inputs are reordered by the user
+	tag, err := ppsserver.HashDatum(req.Data, a.pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	treebytes := &bytes.Buffer{}
+	if err := a.pachClient.GetTag(tag, treebytes); err == nil {
+		// We've already computed the output for these inputs. Return immediately
+		return &ProcessResponse{
+			Tag: &pfs.Tag{tag},
+		}, nil
+	}
+
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}
@@ -164,9 +183,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := a.runUserCode(ctx); err != nil {
 		return nil, err
 	}
-	fmt.Println("BP3")
-	tag, err := a.uploadOutput(ctx, req.Data)
-	if err != nil {
+	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err
 	}
 	fmt.Println("BP4")
