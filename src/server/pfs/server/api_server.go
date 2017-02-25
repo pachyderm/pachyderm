@@ -343,11 +343,18 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
 		fmt.Printf("Going to walk folder: %v\n", path)
 		objClient.Walk(path, func(name string) error {
+			fmt.Printf("I spy %v\n", name)
 			eg.Go(func() error {
+				fmt.Printf("acquiring sem\n")
 				sem <- struct{}{}
+				fmt.Printf("acquired sem\n")
 				defer func() {
+					fmt.Printf("releasing sem\n")
 					<-sem
+					fmt.Printf("released sem\n")
+
 				}()
+				fmt.Printf("putting file %v\n", filepath.Join(request.File.Path, strings.TrimPrefix(name, path)))
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
