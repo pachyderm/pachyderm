@@ -86,13 +86,33 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	return proto.UnmarshalText(valStr, val)
 }
 
+func cloneProtoMsg(original proto.Message) proto.Message {
+	val := reflect.ValueOf(original)
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	return reflect.New(val.Type()).Interface().(proto.Message)
+}
+
+func (c *readWriteCollection) indexPathFromVal(val proto.Message, index Index, key string) string {
+	r := reflect.ValueOf(val)
+	f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
+	indexKey := f.Call([]reflect.Value{})[0].String()
+	return c.indexPath(index, indexKey, key)
+}
+
 func (c *readWriteCollection) Put(key string, val proto.Message) {
 	if c.indexes != nil {
-		r := reflect.ValueOf(val)
 		for _, index := range c.indexes {
-			f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
-			indexKey := f.Call([]reflect.Value{})[0].String()
-			indexPath := c.indexPath(index, indexKey, key)
+			indexPath := c.indexPathFromVal(val, index, key)
+			clone := cloneProtoMsg(val)
+			// If we can get the original value, we remove the original indexes
+			if err := c.Get(key, clone); err == nil {
+				originalIndexPath := c.indexPathFromVal(clone, index, key)
+				if originalIndexPath != indexPath {
+					c.stm.Del(originalIndexPath)
+				}
+			}
 			// Only put the index if it doesn't already exist; otherwise
 			// we might trigger an unnecessary event if someone is
 			// watching the index
@@ -114,10 +134,20 @@ func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	return nil
 }
 
-func (c *readWriteCollection) Delete(key string) error {
+func (c *readWriteCollection) Delete(key string, vals ...proto.Message) error {
 	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
+	}
+	if c.indexes != nil && len(vals) > 0 {
+		val := vals[0]
+		for _, index := range c.indexes {
+			// If we can get the value, we remove the corresponding indexes
+			if err := c.Get(key, val); err == nil {
+				indexPath := c.indexPathFromVal(val, index, key)
+				c.stm.Del(indexPath)
+			}
+		}
 	}
 	c.stm.Del(fullKey)
 	return nil
@@ -375,16 +405,16 @@ func (w *indirectWatcher) Next() (Event, error) {
 			if err != nil {
 				return nil, err
 			}
-			if len(resp.Kvs) != 1 {
+			if len(resp.Kvs) != 1 && etcdEv.Type != etcd.EventTypeDelete {
 				return nil, fmt.Errorf("inconsistent index (%+v): value not found; this is likely a bug", etcdEv)
 			}
 			ev := event{
-				key:   etcdEv.Kv.Key,
-				value: resp.Kvs[0].Value,
+				key: etcdEv.Kv.Key,
 			}
 			switch etcdEv.Type {
 			case etcd.EventTypePut:
 				ev.typ = EventPut
+				ev.value = resp.Kvs[0].Value
 			case etcd.EventTypeDelete:
 				ev.typ = EventDelete
 			}

@@ -49,7 +49,7 @@ type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
 	Put(key string, val proto.Message)
 	Create(key string, val proto.Message) error
-	Delete(key string) error
+	Delete(key string, vals ...proto.Message) error
 	DeleteAll()
 }
 
