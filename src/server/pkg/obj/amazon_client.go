@@ -56,6 +56,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	); err != nil {
 		return err
 	}
+	fmt.Printf("finished checking bucket\n")
 	return fnErr
 }
 
