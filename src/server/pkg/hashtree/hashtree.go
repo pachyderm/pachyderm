@@ -493,6 +493,14 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 	return res, nil
 }
 
+func (h *HashTreeProto) Size() int64 {
+	rootNode, ok := h.Fs["/"]
+	if !ok {
+		return 0
+	}
+	return rootNode.SubtreeSize
+}
+
 // mergeNode merges the node at 'path' from the trees in 'srcs' into 'h'.
 func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 	path = clean(path)

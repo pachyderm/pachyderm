@@ -293,13 +293,29 @@ func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance
 	return d.makeCommit(ctx, parent, provenance, tree)
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
 	}
 	commit := &pfs.Commit{
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
+	}
+	var commitSize uint64
+	if treeRef != nil {
+		objClient, err := d.getObjectClient()
+		if err != nil {
+			return nil, err
+		}
+		var buf bytes.Buffer
+		if err := objClient.GetObject(treeRef.Hash, &buf); err != nil {
+			return nil, err
+		}
+		tree, err := hashtree.Deserialize(buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		commitSize = uint64(tree.Size())
 	}
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -353,9 +369,12 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			}
 			commitInfo.ParentCommit = parent
 		}
-		if tree != nil {
-			commitInfo.Tree = tree
+		if treeRef != nil {
+			commitInfo.Tree = treeRef
+			commitInfo.SizeBytes = commitSize
 			commitInfo.Finished = now()
+			repoInfo.SizeBytes += commitSize
+			repos.Put(parent.Repo.Name, repoInfo)
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
@@ -382,93 +401,85 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+	commitInfo := new(pfs.CommitInfo)
+	if err := commits.Get(commit.ID, commitInfo); err != nil {
+		return err
+	}
+
+	if commitInfo.Finished != nil {
+		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+	}
+
+	_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+	if err != nil {
+		return err
+	}
+	tree := _tree.Open()
+
+	for _, kv := range resp.Kvs {
+		// fileStr is going to look like "some/path/0"
+		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
+		// the last element of `parts` is going to be 0
+		parts := strings.Split(fileStr, "/")
+		// filePath should look like "some/path"
+		filePath := strings.Join(parts[:len(parts)-1], "/")
+
+		if string(kv.Value) == TOMBSTONE {
+			if err := tree.DeleteFile(filePath); err != nil {
+				return err
+			}
+		} else {
+			// The serialized data contains multiple blockrefs; read them all
+			var blockRefs []*pfs.BlockRef
+			data := bytes.NewReader(kv.Value)
+			for {
+				blockRef := &pfs.BlockRef{}
+				if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				blockRefs = append(blockRefs, blockRef)
+			}
+
+			if err := tree.PutFile(filePath, blockRefs); err != nil {
+				return err
+			}
+		}
+	}
+
+	finishedTree, err := tree.Finish()
+	// Serialize the tree
+	data, err := hashtree.Serialize(finishedTree)
+	if err != nil {
+		return err
+	}
+
+	if len(data) > 0 {
+		// Put the tree into the blob store
+		objClient, err := d.getObjectClient()
+		if err != nil {
+			return err
+		}
+
+		obj, err := objClient.PutObject(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+
+		commitInfo.Tree = obj
+	}
+
+	commitInfo.SizeBytes = uint64(finishedTree.Size())
+	commitInfo.Finished = now()
+
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
 
-		commitInfo := new(pfs.CommitInfo)
-		if err := commits.Get(commit.ID, commitInfo); err != nil {
-			return err
-		}
-
-		if commitInfo.Finished != nil {
-			return fmt.Errorf("commit %s has already been finished", commit.FullID())
-		}
-
-		_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
-		if err != nil {
-			return err
-		}
-		tree := _tree.Open()
-
-		for _, kv := range resp.Kvs {
-			// fileStr is going to look like "some/path/0"
-			fileStr := strings.TrimPrefix(string(kv.Key), prefix)
-			// the last element of `parts` is going to be 0
-			parts := strings.Split(fileStr, "/")
-			// filePath should look like "some/path"
-			filePath := strings.Join(parts[:len(parts)-1], "/")
-
-			if string(kv.Value) == TOMBSTONE {
-				if err := tree.DeleteFile(filePath); err != nil {
-					return err
-				}
-			} else {
-				// The serialized data contains multiple blockrefs; read them all
-				var blockRefs []*pfs.BlockRef
-				data := bytes.NewReader(kv.Value)
-				for {
-					blockRef := &pfs.BlockRef{}
-					if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
-						if err == io.EOF {
-							break
-						}
-						return err
-					}
-					blockRefs = append(blockRefs, blockRef)
-				}
-
-				if err := tree.PutFile(filePath, blockRefs); err != nil {
-					return err
-				}
-			}
-		}
-
-		finishedTree, err := tree.Finish()
-		// Serialize the tree
-		data, err := hashtree.Serialize(finishedTree)
-		if err != nil {
-			return err
-		}
-
-		if len(data) > 0 {
-			// Put the tree into the blob store
-			objClient, err := d.getObjectClient()
-			if err != nil {
-				return err
-			}
-
-			obj, err := objClient.PutObject(bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-
-			commitInfo.Tree = obj
-		}
-
-		// update commit size
-		root, err := finishedTree.Get("/")
-		// the tree might be empty (if the commit is empty), in which case
-		// the library returns a PathNotFound error
-		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
-			return err
-		}
-		if root != nil {
-			commitInfo.SizeBytes = uint64(root.SubtreeSize)
-		}
-		commitInfo.Finished = now()
 		commits.Put(commit.ID, commitInfo)
-
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
@@ -477,11 +488,8 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repoInfo.SizeBytes += commitInfo.SizeBytes
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
+	return err
 }
 
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
@@ -831,21 +839,15 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	// TODO: get the tree from a cache
-	var treeRef *pfs.Object
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		commitInfo := &pfs.CommitInfo{}
-		if err := commits.Get(commit.ID, commitInfo); err != nil {
-			return err
-		}
-		if commitInfo.Finished == nil {
-			return fmt.Errorf("cannot read from an open commit")
-		}
-		treeRef = commitInfo.Tree
-		return nil
-	}); err != nil {
+	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+	commitInfo := &pfs.CommitInfo{}
+	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return nil, err
 	}
+	if commitInfo.Finished == nil {
+		return nil, fmt.Errorf("cannot read from an open commit")
+	}
+	treeRef := commitInfo.Tree
 
 	if treeRef == nil {
 		t, err := hashtree.NewHashTree().Finish()
