@@ -305,6 +305,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 }
 
 func validatePipelineName(pipelineName string) error {
+	// etcd does not allow keys with underscores; ban them from pipeline names
 	if strings.Contains(pipelineName, "_") {
 		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineName)
 	}
@@ -321,6 +322,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
+	// worker.APIServer needs the order of pipeline inputs to be stable--sort them
 	sort.Sort(byInputName{request.Inputs})
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := &pps.PipelineInfo{

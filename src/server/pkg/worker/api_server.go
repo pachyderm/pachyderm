@@ -53,20 +53,25 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 func (a *APIServer) runUserCode(ctx context.Context) error {
+	// Create output directory
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return err
 	}
-	transform := a.pipelineInfo.Transform
-	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
-	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
+
+	// Run user's binary
+	t := a.pipelineInfo.Transform
+	cmd := exec.Command(t.Cmd[0], t.Cmd[1:]...)
+	cmd.Stdin = strings.NewReader(strings.Join(t.Stdin, "\n") + "\n")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	success := true
 	if err := cmd.Run(); err != nil {
 		success = false
+		// Get exit code from user binary, and compare with pipeline config's
+		// allowed exit codes. If actual exit code is allowed, we're done.
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range transform.AcceptReturnCode {
+				for _, returnCode := range t.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						success = true
 					}
@@ -74,27 +79,37 @@ func (a *APIServer) runUserCode(ctx context.Context) error {
 			}
 		}
 		if !success {
-			fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "error from exec: %s\n", err.Error())
 		}
 	}
 	return nil
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (string, error) {
+	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
+
+	// Upload all files in /pfs/out
 	var g errgroup.Group
 	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
+			// Don't upload root directory
 			if path == client.PPSOutputPath {
 				return nil
 			}
 
+			// Get 'path' relative to /pfs/out (so we don't put /pfs/out/xyz into
+			// the object store)
 			relPath, err := filepath.Rel(client.PPSOutputPath, path)
 			if err != nil {
 				return err
 			}
 
+			// Put directory. Even if the directory is empty, that may be useful to
+			// users
+			// TODO(msteffen) write a pipeline that outputs an empty directory and
+			// make sure its preserved
 			if info.IsDir() {
 				lock.Lock()
 				defer lock.Unlock()
@@ -102,6 +117,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (str
 				return nil
 			}
 
+			// 1) Open the file, and upload it to pfs with PutBlock.
+			// 2) Take the block refs returned by PutBlock and put them in 'tree'
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -129,6 +146,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (str
 		return "", err
 	}
 
+	// 3) Put 'tree' into object store; tag it with hash(inputs + transform)
+	// This way we can skip these inputs in the next job (just fetch the blocks
+	// that were output from this run)
 	finTree, err := tree.Finish()
 	if err != nil {
 		return "", err
@@ -139,6 +159,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, data []*pfs.FileInfo) (str
 		return "", err
 	}
 
+	// ppsserver sorts inputs by input name, so this is stable even if
+	// a.pipelineInfo.Inputs are reordered by the user
 	hash, err := ppsserver.HashDatum(data, a.pipelineInfo)
 	if err != nil {
 		return "", err
