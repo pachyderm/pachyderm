@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	"go.pedge.io/lion"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -318,12 +319,46 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return nil
 }
 
+type putFileHelperLog struct {
+	Service  string
+	Request  string
+	Duration string
+	Error    error
+	FilePath string
+	ObjPath  string
+}
+
+func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Duration, filePath string, objPath string) {
+	requestString = ""
+	if request != nil {
+		requestString = request.String()
+	}
+	errorString = ""
+	l := &putFileHelperLog{
+		Service:  "pfs.API",
+		Request:  requestString,
+		Duration: duration.String(),
+		Error:    err,
+		FilePath: filePath,
+		ObjPath:  objPath,
+	}
+	rawLog, err := json.Marshal(l)
+	if err != nil {
+		lion.Errorln("Malformed putFileObj log")
+		return
+	}
+	if l.err != nil {
+		lion.Errorln(rawLog)
+	} else {
+		lion.Infoln(rawLog)
+	}
+}
+
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	protorpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
 	put := func(filePath string, objPath string) (thisRetErr error) {
-		protorpclog.Log("pfs.API", "putFileObjHelper", request, nil, nil, 0)
+		putFileLogHelper(request, nil, 0, filePath, objPath)
 		defer func(start time.Time) {
-			protorpclog.Log("pfs.API", "putFileObjHelper", request, nil, thisRetErr, time.Since(start))
+			putFileLogHelper(request, thisRetErr, time.Since(start), filePath, objPath)
 		}(time.Now())
 
 		r, err := objClient.Reader(objPath, 0, 0)
