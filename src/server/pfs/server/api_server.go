@@ -321,12 +321,13 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 type putFileHelperLog struct {
-	Service  string
-	Request  string
-	Duration string
-	Error    error
-	FilePath string
-	ObjPath  string
+	service  string
+	method   string
+	request  string
+	duration string
+	err      error
+	filePath string
+	objPath  string
 }
 
 func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Duration, filePath string, objPath string) {
@@ -335,20 +336,21 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 		requestString = request.String()
 	}
 	l := &putFileHelperLog{
-		Service:  "pfs.API",
-		Request:  requestString,
-		Duration: duration.String(),
-		Error:    err,
-		FilePath: filePath,
-		ObjPath:  objPath,
+		service:  "pfs.API",
+		method:   "putFileObjHelper",
+		request:  requestString,
+		duration: duration.String(),
+		err:      err,
+		filePath: filePath,
+		objPath:  objPath,
 	}
 	logJSON, err := json.Marshal(l)
 	if err != nil {
-		lion.Errorln("Malformed putFileObj log")
+		lion.Errorln("malformed putFileObj log")
 		return
 	}
 	rawLog := string(logJSON)
-	if l.Error != nil {
+	if l.err != nil {
 		lion.Errorln(rawLog)
 	} else {
 		lion.Infoln(rawLog)
