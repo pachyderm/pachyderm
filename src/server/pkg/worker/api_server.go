@@ -57,21 +57,17 @@ func (a *APIServer) runUserCode(ctx context.Context) error {
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return err
 	}
-
-	// Run user's binary
-	t := a.pipelineInfo.Transform
-	cmd := exec.Command(t.Cmd[0], t.Cmd[1:]...)
-	cmd.Stdin = strings.NewReader(strings.Join(t.Stdin, "\n") + "\n")
+	transform := a.pipelineInfo.Transform
+	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
+	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	success := true
 	if err := cmd.Run(); err != nil {
 		success = false
-		// Get exit code from user binary, and compare with pipeline config's
-		// allowed exit codes. If actual exit code is allowed, we're done.
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range t.AcceptReturnCode {
+				for _, returnCode := range transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
 						success = true
 					}
@@ -79,7 +75,7 @@ func (a *APIServer) runUserCode(ctx context.Context) error {
 			}
 		}
 		if !success {
-			fmt.Fprintf(os.Stderr, "error from exec: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
 		}
 	}
 	return nil
@@ -94,13 +90,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 	var g errgroup.Group
 	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
-			// Don't upload root directory
 			if path == client.PPSOutputPath {
 				return nil
 			}
 
-			// Get 'path' relative to /pfs/out (so we don't put /pfs/out/xyz into
-			// the object store)
 			relPath, err := filepath.Rel(client.PPSOutputPath, path)
 			if err != nil {
 				return err
@@ -117,8 +110,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				return nil
 			}
 
-			// 1) Open the file, and upload it to pfs with PutBlock.
-			// 2) Take the block refs returned by PutBlock and put them in 'tree'
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -146,9 +137,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 		return err
 	}
 
-	// 3) Put 'tree' into object store; tag it with hash(inputs + transform)
-	// This way we can skip these inputs in the next job (just fetch the blocks
-	// that were output from this run)
 	finTree, err := tree.Finish()
 	if err != nil {
 		return err
@@ -197,6 +185,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err
 	}
+	fmt.Println("BP4")
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
