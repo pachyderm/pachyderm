@@ -61,6 +61,10 @@ type HashTree interface {
 
 	// Glob returns a list of files and directories that match 'pattern'.
 	Glob(pattern string) ([]*NodeProto, error)
+
+	// Size gets the size of the file system that this tree represents.
+	// It's essentially a helper around h.Get("/").SubtreeBytes
+	Size() int64
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash or
