@@ -305,7 +305,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 }
 
 func validatePipelineName(pipelineName string) error {
-	// etcd does not allow keys with underscores; ban them from pipeline names
 	if strings.Contains(pipelineName, "_") {
 		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineName)
 	}
@@ -322,7 +321,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
-	// worker.APIServer needs the order of pipeline inputs to be stable--sort them
 	sort.Sort(byInputName{request.Inputs})
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := &pps.PipelineInfo{
@@ -495,7 +493,13 @@ func (a *apiServer) pipelineWatcher() {
 				}
 			case col.EventDelete:
 				cancel := a.getPipelineCancel(pipelineName)
-				cancel()
+				if cancel != nil {
+					cancel()
+				}
+				// delete the worker pool here, so we don't end up with a
+				// race where the same pipeline is immediately recreated
+				// and ends up using the defunct worker pool.
+				a.delWorkerPool(pipelineInfo.Pipeline)
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
@@ -536,7 +540,9 @@ func (a *apiServer) jobWatcher() {
 				}
 			case col.EventDelete:
 				cancel := a.getJobCancel(jobID)
-				cancel()
+				if cancel != nil {
+					cancel()
+				}
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
@@ -562,6 +568,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		// Start worker pool
+		a.workerPool(ctx, pipelineInfo.Pipeline)
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
