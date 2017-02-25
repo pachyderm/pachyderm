@@ -2,7 +2,6 @@
 package sync
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -71,12 +70,6 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 					retErr = err
 				}
 			}()
-			var buffer bytes.Buffer
-			if err := client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, &buffer); err != nil {
-				return err
-			}
-			fmt.Println("buffer content:")
-			fmt.Println(buffer.String())
 			return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
 		}
 	case pfs.FileType_DIR:
@@ -172,4 +165,3 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 	}
 	return eg.Wait()
 }
-

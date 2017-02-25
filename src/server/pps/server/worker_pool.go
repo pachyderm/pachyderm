@@ -41,6 +41,7 @@ func (w *worker) run(dataCh chan datumAndResp) {
 		if !ok {
 			return
 		}
+		fmt.Printf("processing datum: %v\n", dr.datum)
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			Data: dr.datum,
 		})
@@ -101,6 +102,9 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 			select {
 			case resp, ok := <-respCh:
 				if !ok {
+					if err := <-errCh; err != nil {
+						return err
+					}
 					break getBaseWorkers
 				}
 				for _, kv := range resp.Kvs {
@@ -219,4 +223,10 @@ func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) W
 
 	go wp.discoverWorkers(ctx)
 	return wp
+}
+
+func (a *apiServer) delWorkerPool(pipeline *pps.Pipeline) {
+	a.workerPoolsLock.Lock()
+	defer a.workerPoolsLock.Unlock()
+	delete(a.workerPools, pipeline.Name)
 }

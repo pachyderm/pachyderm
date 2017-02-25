@@ -494,7 +494,7 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 }
 
 func (h *HashTreeProto) Size() int64 {
-	rootNode, ok := h.Fs["/"]
+	rootNode, ok := h.Fs[clean("/")]
 	if !ok {
 		return 0
 	}
