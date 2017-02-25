@@ -340,7 +340,7 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 		Method:   "putFileObjHelper",
 		Request:  requestString,
 		Duration: duration.String(),
-		Err:      err,
+		Error:    err,
 		FilePath: filePath,
 		ObjPath:  objPath,
 	}
@@ -379,20 +379,12 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 		var eg errgroup.Group
 		path := strings.TrimPrefix(url.Path, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
-		fmt.Printf("Going to walk folder: %v\n", path)
 		objClient.Walk(path, func(name string) error {
-			fmt.Printf("I spy %v\n", name)
 			eg.Go(func() error {
-				fmt.Printf("acquiring sem\n")
 				sem <- struct{}{}
-				fmt.Printf("acquired sem\n")
 				defer func() {
-					fmt.Printf("releasing sem\n")
 					<-sem
-					fmt.Printf("released sem\n")
-
 				}()
-				fmt.Printf("putting file %v\n", filepath.Join(request.File.Path, strings.TrimPrefix(name, path)))
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
