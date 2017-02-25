@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -329,11 +330,10 @@ type putFileHelperLog struct {
 }
 
 func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Duration, filePath string, objPath string) {
-	requestString = ""
+	requestString := ""
 	if request != nil {
 		requestString = request.String()
 	}
-	errorString = ""
 	l := &putFileHelperLog{
 		Service:  "pfs.API",
 		Request:  requestString,
@@ -342,12 +342,13 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 		FilePath: filePath,
 		ObjPath:  objPath,
 	}
-	rawLog, err := json.Marshal(l)
+	logJSON, err := json.Marshal(l)
 	if err != nil {
 		lion.Errorln("Malformed putFileObj log")
 		return
 	}
-	if l.err != nil {
+	rawLog := string(logJSON)
+	if l.Error != nil {
 		lion.Errorln(rawLog)
 	} else {
 		lion.Infoln(rawLog)
