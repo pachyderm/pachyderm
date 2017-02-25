@@ -37,12 +37,14 @@ func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	var fnErr error
+	fmt.Printf("checking bucket %v and prefix %v\n", c.bucket, name)
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
 			Prefix: aws.String(name),
 		},
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
+			fmt.Printf("got %v results in s3 ListObjectsOutput: %v\n", len(listObjectsOutput.Contents), listObjectsOutput)
 			for _, object := range listObjectsOutput.Contents {
 				if err := fn(*object.Key); err != nil {
 					fnErr = err
