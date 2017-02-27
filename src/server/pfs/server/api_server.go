@@ -353,12 +353,10 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) (thisRetErr error) {
 		request.Url = objPath
-		request.File = &pfs.File{Path: filePath}
-		func() {
-			a.Log(request, nil, nil, 0)
-		}()
+		request.File.Path = filePath
+		rpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
 		defer func(start time.Time) {
-			a.Log(request, nil, retErr, time.Since(start))
+			rpclog.Log("pfs.API", "putFileObj", request, nil, retErr, time.Since(start))
 		}(time.Now())
 
 		r, err := objClient.Reader(objPath, 0, 0)
