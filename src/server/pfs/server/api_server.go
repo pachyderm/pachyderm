@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	"go.pedge.io/lion"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -317,37 +316,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}
 	return nil
-}
-
-type putFileHelperLog struct {
-	Service  string `json:"service,omitempty"`
-	Method   string `json:"method,omitempty"`
-	Request  string `json:"request,omitempty"`
-	Duration string `json:"duration,omitempty"`
-	Error    error  `json:"error,omitempty"`
-	FilePath string `json:"filepath,omitempty"`
-	ObjPath  string `json:"objpath,omitempty"`
-}
-
-func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Duration, filePath string, objPath string) {
-	requestString := ""
-	if request != nil {
-		requestString = request.String()
-	}
-	l := &putFileHelperLog{
-		Service:  "pfs.API",
-		Method:   "putFileObjHelper",
-		Request:  requestString,
-		Duration: duration.String(),
-		Error:    err,
-		FilePath: filePath,
-		ObjPath:  objPath,
-	}
-	if l.Error != nil {
-		lion.Errorln(l)
-	} else {
-		lion.Infoln(l)
-	}
 }
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
