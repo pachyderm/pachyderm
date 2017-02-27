@@ -354,9 +354,9 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 	put := func(filePath string, objPath string) (thisRetErr error) {
 		request.Url = objPath
 		request.File.Path = filePath
-		rpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
+		protorpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
 		defer func(start time.Time) {
-			rpclog.Log("pfs.API", "putFileObj", request, nil, retErr, time.Since(start))
+			protorpclog.Log("pfs.API", "putFileObj", request, nil, retErr, time.Since(start))
 		}(time.Now())
 
 		r, err := objClient.Reader(objPath, 0, 0)
