@@ -439,12 +439,12 @@ func (d *driver) getFullProvenance(repo *pfs.Repo, provenance []*pfs.Commit) (fu
 	provenanceSet := make(map[string]*pfs.Commit)
 	for _, c := range provenance {
 		commitInfo, err := d.InspectCommit(c)
-		// If any of the commit's provenance is archived, the commit should be
-		// archived
-		archived = archived || commitInfo.Archived
 		if err != nil {
 			return nil, false, err
 		}
+		// If any of the commit's provenance is archived, the commit should be
+		// archived
+		archived = archived || commitInfo.Archived
 
 		for _, p := range commitInfo.Provenance {
 			provenanceSet[fmt.Sprintf("%s:%s", p.Repo.Name, p.ID)] = p
