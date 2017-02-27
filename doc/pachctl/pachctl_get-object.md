@@ -1,14 +1,14 @@
-## ./pachctl stop-pipeline
+## ./pachctl get-object
 
-Stop a running pipeline.
+Return the contents of an object
 
 ### Synopsis
 
 
-Stop a running pipeline.
+Return the contents of an object
 
 ```
-./pachctl stop-pipeline pipeline-name
+./pachctl get-object hash
 ```
 
 ### Options inherited from parent commands

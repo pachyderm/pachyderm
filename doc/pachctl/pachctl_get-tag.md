@@ -1,14 +1,14 @@
-## ./pachctl stop-pipeline
+## ./pachctl get-tag
 
-Stop a running pipeline.
+Return the contents of a tag
 
 ### Synopsis
 
 
-Stop a running pipeline.
+Return the contents of a tag
 
 ```
-./pachctl stop-pipeline pipeline-name
+./pachctl get-tag tag
 ```
 
 ### Options inherited from parent commands
