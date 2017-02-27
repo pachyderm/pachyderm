@@ -28,16 +28,14 @@ type APIServer struct {
 	sync.Mutex
 	protorpclog.Logger
 	pachClient   *client.APIClient
-	etcdClient   *etcd.Client
 	pipelineInfo *pps.PipelineInfo
 }
 
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, pipelineInfo *pps.PipelineInfo) *APIServer {
+func NewAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
 	return &APIServer{
 		Mutex:        sync.Mutex{},
 		Logger:       protorpclog.NewLogger(""),
 		pachClient:   pachClient,
-		etcdClient:   etcdClient,
 		pipelineInfo: pipelineInfo,
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"path"
 	"time"
 
@@ -29,12 +30,6 @@ func main() {
 	cmdutil.Main(do, &AppEnv{})
 }
 
-func putAddress(appEnv *AppEnv, etcdClient *etcd.Client) error {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	_, err := etcdClient.Put(ctx, path.Join(appEnv.PPSPrefix, "workers", appEnv.PPSPipelineName, appEnv.PPSWorkerIP), "")
-	return err
-}
-
 func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
@@ -53,10 +48,14 @@ func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*AppEnv)
+	// get pachd client, so we can upload results
 	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
 	if err != nil {
 		return err
 	}
+	pachClient.KeepConnected(make(chan bool)) // don't want to cancel connection ever
+
+	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
 		DialTimeout: 15 * time.Second,
@@ -64,24 +63,40 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	// Get info about this worker's pipeline
 	pipelineInfo, err := getPipelineInfo(appEnv, etcdClient)
 	if err != nil {
 		return err
 	}
-	if err := putAddress(appEnv, etcdClient); err != nil {
+
+	// Start worker api server
+	apiServer := worker.NewAPIServer(pachClient, etcdClient, pipelineInfo)
+	eg := errgroup.Group{}
+	ready := make(chan error)
+	eg.Go(func() error {
+		return grpcutil.Serve(
+			func(s *grpc.Server) {
+				worker.RegisterWorkerServer(s, apiServer)
+				close(ready)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: client.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: client.PPSWorkerPort,
+			},
+		)
+	})
+
+	// Put our IP address into etcd once server is ready, so pachd can discover us
+	<-ready
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	_, err := etcdClient.Put(ctx, path.Join(appEnv.PPSPrefix, "workers",
+		appEnv.PPSPipelineName, appEnv.PPSWorkerIP), "")
+
+	// if server ever exits, return error
+	if err := eg.Wait(); err != nil {
 		return err
 	}
-	apiServer := worker.NewAPIServer(pachClient, etcdClient, pipelineInfo)
-	return grpcutil.Serve(
-		func(s *grpc.Server) {
-			worker.RegisterWorkerServer(s, apiServer)
-		},
-		grpcutil.ServeOptions{
-			Version:    version.Version,
-			MaxMsgSize: client.MaxMsgSize,
-		},
-		grpcutil.ServeEnv{
-			GRPCPort: client.PPSWorkerPort,
-		},
-	)
 }
