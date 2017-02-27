@@ -352,8 +352,14 @@ func putFileLogHelper(request *pfs.PutFileRequest, err error, duration time.Dura
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) (thisRetErr error) {
-		request.Url = objPath
-		request.File.Path = filePath
+		logRequest := &pfs.PutFileRequest{
+			FileType:  request.FileType,
+			Delimiter: request.Delimiter,
+			Url:       objPath,
+			File:      request.File,
+			Recursive: request.Recursive,
+		}
+		logRequest.File.Path = filePath
 		protorpclog.Log("pfs.API", "putFileObj", request, nil, nil, 0)
 		defer func(start time.Time) {
 			protorpclog.Log("pfs.API", "putFileObj", request, nil, retErr, time.Since(start))
