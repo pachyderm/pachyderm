@@ -319,7 +319,21 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	put := func(filePath string, objPath string) error {
+	put := func(filePath string, objPath string) (thisRetErr error) {
+		logRequest := &pfs.PutFileRequest{
+			FileType:  request.FileType,
+			Delimiter: request.Delimiter,
+			Url:       objPath,
+			File: &pfs.File{
+				Path: filePath,
+			},
+			Recursive: request.Recursive,
+		}
+		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		defer func(start time.Time) {
+			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+		}(time.Now())
+
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
 			return err
