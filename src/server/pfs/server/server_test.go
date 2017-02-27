@@ -44,8 +44,8 @@ func TestInvalidRepo(t *testing.T) {
 	require.NoError(t, client.CreateRepo("lenny"))
 	require.NoError(t, client.CreateRepo("lenny123"))
 	require.NoError(t, client.CreateRepo("lenny_123"))
+	require.NoError(t, client.CreateRepo("lenny-123"))
 
-	require.YesError(t, client.CreateRepo("lenny-123"))
 	require.YesError(t, client.CreateRepo("lenny.123"))
 	require.YesError(t, client.CreateRepo("lenny:"))
 	require.YesError(t, client.CreateRepo("lenny,"))
@@ -1834,28 +1834,6 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	return pfs.NewBlockAPIClient(clientConn)
 }
 
-func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
-	blockAPIServer BlockAPIServer) {
-	ready := make(chan bool)
-	go func() {
-		err := grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfs.RegisterAPIServer(s, apiServer)
-				pfs.RegisterBlockAPIServer(s, blockAPIServer)
-				pfs.RegisterObjectAPIServer(s, blockAPIServer)
-				close(ready)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
-				MaxMsgSize: pclient.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{GRPCPort: uint16(port)},
-		)
-		require.NoError(t, err)
-	}()
-	<-ready
-}
-
 func getClient(t *testing.T) pclient.APIClient {
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
@@ -1878,7 +1856,24 @@ func getClient(t *testing.T) pclient.APIClient {
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
 		apiServer := newAPIServer(driver, nil)
-		runServers(t, port, apiServer, blockAPIServer)
+		ready := make(chan bool)
+		go func() {
+			err := grpcutil.Serve(
+				func(s *grpc.Server) {
+					pfs.RegisterAPIServer(s, apiServer)
+					pfs.RegisterBlockAPIServer(s, blockAPIServer)
+					pfs.RegisterObjectAPIServer(s, blockAPIServer)
+					close(ready)
+				},
+				grpcutil.ServeOptions{
+					Version:    version.Version,
+					MaxMsgSize: pclient.MaxMsgSize,
+				},
+				grpcutil.ServeEnv{GRPCPort: uint16(port)},
+			)
+			require.NoError(t, err)
+		}()
+		<-ready
 	}
 	c, err := pclient.NewFromAddress(addresses[0])
 	require.NoError(t, err)

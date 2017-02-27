@@ -164,8 +164,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
-	treebytes := &bytes.Buffer{}
-	if err := a.pachClient.GetTag(tag, treebytes); err == nil {
+	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 		// We've already computed the output for these inputs. Return immediately
 		return &ProcessResponse{
 			Tag: &pfs.Tag{tag},

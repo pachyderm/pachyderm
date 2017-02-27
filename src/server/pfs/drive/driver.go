@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
@@ -565,7 +566,7 @@ type commitInfoIterator struct {
 	driver *driver
 	buffer []*pfs.CommitInfo
 	// a watcher that watches for updates to a branch
-	newCommitsIter col.Watcher
+	newCommitEvents watch.EventChan
 	// record whether a commit has been seen
 	seen map[string]bool
 }
@@ -576,14 +577,13 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 		var branchName string
 		commit := new(pfs.Commit)
 		for {
-			event, err := c.newCommitsIter.Next()
-			if err != nil {
-				return nil, err
-			}
-			switch event.Type() {
-			case col.EventPut:
+			event := <-c.newCommitEvents
+			switch event.Type {
+			case watch.EventError:
+				return nil, event.Err
+			case watch.EventPut:
 				event.Unmarshal(&branchName, commit)
-			case col.EventDelete:
+			case watch.EventDelete:
 				continue
 			}
 			if !c.seen[commit.ID] {
@@ -592,21 +592,17 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 		}
 		// Now we watch the CommitInfo until the commit has been finished
 		commits := c.driver.commits(commit.Repo.Name).ReadOnly(c.ctx)
-		commitInfoIter, err := commits.WatchOne(commit.ID)
-		if err != nil {
-			return nil, err
-		}
+		commitInfoEvents := commits.WatchOne(commit.ID)
 		for {
 			var commitID string
 			commitInfo := new(pfs.CommitInfo)
-			event, err := commitInfoIter.Next()
-			if err != nil {
-				return nil, err
-			}
-			switch event.Type() {
-			case col.EventPut:
+			event := <-commitInfoEvents
+			switch event.Type {
+			case watch.EventError:
+				return nil, event.Err
+			case watch.EventPut:
 				event.Unmarshal(&commitID, commitInfo)
-			case col.EventDelete:
+			case watch.EventDelete:
 				// if this commit that we are waiting for is deleted, then
 				// we go back to watch the branch to get a new commit
 				goto receiveNewCommit
@@ -628,10 +624,6 @@ func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
 	return commitInfo, nil
 }
 
-func (c *commitInfoIterator) Close() error {
-	return c.newCommitsIter.Close()
-}
-
 func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error) {
 	if from != nil && from.Repo.Name != repo.Name {
 		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
@@ -641,16 +633,13 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// because otherwise we might miss some commits in between when we
 	// finish listing and when we start watching.
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	newCommitsIter, err := branches.WatchOne(branch)
-	if err != nil {
-		return nil, err
-	}
+	newCommitEvents := branches.WatchOne(branch)
 
 	iterator := &commitInfoIterator{
-		ctx:            ctx,
-		driver:         d,
-		newCommitsIter: newCommitsIter,
-		seen:           make(map[string]bool),
+		ctx:             ctx,
+		driver:          d,
+		newCommitEvents: newCommitEvents,
+		seen:            make(map[string]bool),
 	}
 
 	// include all commits that are currently on the given branch, but only

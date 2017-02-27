@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 )
@@ -302,201 +304,19 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 	return false, nil
 }
 
-type event struct {
-	key   []byte
-	value []byte
-	typ   EventType
-}
-
-func (e event) Unmarshal(key *string, value proto.Message) error {
-	*key = path.Base(string(e.key))
-	return proto.UnmarshalText(string(e.value), value)
-}
-
-func (e event) Type() EventType {
-	return e.typ
-}
-
-type watcher struct {
-	events      []event
-	etcdWatcher etcd.Watcher
-	rch         etcd.WatchChan
-}
-
-func (w *watcher) Next() (Event, error) {
-	if len(w.events) == 0 {
-		ev, ok := <-w.rch
-		if !ok {
-			return nil, fmt.Errorf("stream has been closed")
-		}
-
-		for _, etcdEv := range ev.Events {
-			ev := event{
-				key:   etcdEv.Kv.Key,
-				value: etcdEv.Kv.Value,
-			}
-			switch etcdEv.Type {
-			case etcd.EventTypePut:
-				ev.typ = EventPut
-			case etcd.EventTypeDelete:
-				ev.typ = EventDelete
-			}
-			w.events = append(w.events, ev)
-		}
-	}
-
-	// pop the first element
-	event := w.events[0]
-	w.events = w.events[1:]
-
-	return event, nil
-}
-
-func (w *watcher) Close() error {
-	return w.etcdWatcher.Close()
-}
-
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-func (c *readonlyCollection) Watch() (Watcher, error) {
-	// Firstly we list the collection to get the current items
-	// Sort them by ascending order because that's how the items would have
-	// been returned if we watched them from the beginning.
-	resp, err := c.etcdClient.Get(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return nil, err
-	}
-
-	etcdWatcher := etcd.NewWatcher(c.etcdClient)
-	// Now we issue a watch that uses the revision timestamp returned by the
-	// Get request earlier.  That way even if some items are added between
-	// when we list the collection and when we start watching the collection,
-	// we won't miss any items.
-	rch := etcdWatcher.Watch(c.ctx, c.path(""), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
-	w := &watcher{
-		etcdWatcher: etcdWatcher,
-		rch:         rch,
-	}
-
-	for _, etcdKv := range resp.Kvs {
-		w.events = append(w.events, event{
-			key:   etcdKv.Key,
-			value: etcdKv.Value,
-			typ:   EventPut,
-		})
-	}
-	return w, nil
-}
-
-type indirectWatcher struct {
-	*watcher
-	col *readonlyCollection
-}
-
-func (w *indirectWatcher) Next() (Event, error) {
-	if len(w.events) == 0 {
-		ev, ok := <-w.rch
-		if !ok {
-			return nil, fmt.Errorf("stream has been closed")
-		}
-
-		for _, etcdEv := range ev.Events {
-			resp, err := w.col.etcdClient.Get(w.col.ctx, w.col.path(path.Base(string(etcdEv.Kv.Key))), etcd.WithRev(etcdEv.Kv.ModRevision))
-			if err != nil {
-				return nil, err
-			}
-			if len(resp.Kvs) != 1 && etcdEv.Type != etcd.EventTypeDelete {
-				return nil, fmt.Errorf("inconsistent index (%+v): value not found; this is likely a bug", etcdEv)
-			}
-			ev := event{
-				key: etcdEv.Kv.Key,
-			}
-			switch etcdEv.Type {
-			case etcd.EventTypePut:
-				ev.typ = EventPut
-				ev.value = resp.Kvs[0].Value
-			case etcd.EventTypeDelete:
-				ev.typ = EventDelete
-			}
-			w.events = append(w.events, ev)
-		}
-	}
-
-	// pop the first element
-	event := w.events[0]
-	w.events = w.events[1:]
-
-	return event, nil
-}
-
-func (w *indirectWatcher) Close() error {
-	return w.etcdWatcher.Close()
+func (c *readonlyCollection) Watch() watch.EventChan {
+	return watch.Watch(c.ctx, c.etcdClient, c.prefix)
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index Index, val string) (Watcher, error) {
-	// Firstly we list the index to get the current items
-	// Sort them by ascending order because that's how the items would have
-	// been returned if we watched them from the beginning.
-	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return nil, err
-	}
-
-	etcdWatcher := etcd.NewWatcher(c.etcdClient)
-	// Now we issue a watch that uses the revision timestamp returned by the
-	// Get request earlier.  That way even if some items are added between
-	// when we list the index and when we start watching the index,
-	// we won't miss any items.
-	rch := etcdWatcher.Watch(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
-	w := &indirectWatcher{
-		watcher: &watcher{
-			etcdWatcher: etcdWatcher,
-			rch:         rch,
-		},
-		col: c,
-	}
-
-	for _, etcdKv := range resp.Kvs {
-		resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(etcdKv.Key))), etcd.WithRev(etcdKv.ModRevision))
-		if err != nil {
-			return nil, err
-		}
-		if len(resp.Kvs) != 1 {
-			return nil, fmt.Errorf("inconsistent index (%+v): value not found; this is likely a bug", etcdKv)
-		}
-
-		w.events = append(w.events, event{
-			key:   etcdKv.Key,
-			value: resp.Kvs[0].Value,
-			typ:   EventPut,
-		})
-	}
-	return w, nil
+func (c *readonlyCollection) WatchByIndex(index Index, val string) watch.EventChan {
+	return nil
 }
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *readonlyCollection) WatchOne(key string) (Watcher, error) {
-	// Firstly we list the collection to get the current items
-	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
-	if err != nil {
-		return nil, err
-	}
-
-	etcdWatcher := etcd.NewWatcher(c.etcdClient)
-	rch := etcdWatcher.Watch(c.ctx, c.path(key), etcd.WithRev(resp.Header.Revision+1))
-	w := &watcher{
-		etcdWatcher: etcdWatcher,
-		rch:         rch,
-	}
-	if resp.Count > 0 {
-		kv := resp.Kvs[0]
-		w.events = append(w.events, event{
-			key:   kv.Key,
-			value: kv.Value,
-			typ:   EventPut,
-		})
-	}
-	return w, nil
+func (c *readonlyCollection) WatchOne(key string) watch.EventChan {
+	return watch.Watch(c.ctx, c.etcdClient, c.path(key))
 }

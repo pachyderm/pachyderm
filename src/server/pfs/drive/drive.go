@@ -42,7 +42,6 @@ func IsPermissionError(err error) bool {
 
 type CommitInfoIterator interface {
 	Next() (*pfs.CommitInfo, error)
-	Close() error
 }
 
 // Driver represents a low-level pfs storage driver.
