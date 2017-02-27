@@ -179,7 +179,6 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	fmt.Println("pachd is ready to serve!")
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
