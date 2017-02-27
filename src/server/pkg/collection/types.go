@@ -2,7 +2,8 @@ package collection
 
 import (
 	"context"
-	"io"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -65,9 +66,9 @@ type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index Index, val string) (Iterator, error)
 	List() (Iterator, error)
-	Watch() (Watcher, error)
-	WatchOne(key string) (Watcher, error)
-	WatchByIndex(index Index, val string) (Watcher, error)
+	Watch() watch.EventChan
+	WatchOne(key string) watch.EventChan
+	WatchByIndex(index Index, val string) watch.EventChan
 }
 
 type Iterator interface {
@@ -76,21 +77,4 @@ type Iterator interface {
 	// ok is true if the serialization was successful.  It's false if the
 	// collection has been exhausted.
 	Next(key *string, val proto.Message) (ok bool, retErr error)
-}
-
-type EventType int
-
-const (
-	EventPut EventType = iota
-	EventDelete
-)
-
-type Watcher interface {
-	io.Closer
-	Next() (Event, error)
-}
-
-type Event interface {
-	Unmarshal(key *string, value proto.Message) error
-	Type() EventType
 }

@@ -597,51 +597,54 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 		}
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+
+		branchSetCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Inputs)
+		if err != nil {
+			return err
+		}
+
+		// Before we start receiving branch sets,
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
+			return nil
+		})
 		for {
-			pfsClient, err := a.getPFSClient()
+			branchSet, err := branchSets.Next()
 			if err != nil {
 				return err
 			}
 
-			branchSetCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
-			branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Inputs)
-			if err != nil {
-				return err
-			}
-
-			for {
-				branchSet, err := branchSets.Next()
-				if err != nil {
-					return err
-				}
-
-				var jobInputs []*pps.JobInput
-				for _, pipelineInput := range pipelineInfo.Inputs {
-					for _, branch := range branchSet {
-						if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
-							jobInputs = append(jobInputs, &pps.JobInput{
-								Name:   pipelineInput.Name,
-								Commit: branch.Head,
-								Glob:   pipelineInput.Glob,
-								Lazy:   pipelineInput.Lazy,
-							})
-						}
+			var jobInputs []*pps.JobInput
+			for _, pipelineInput := range pipelineInfo.Inputs {
+				for _, branch := range branchSet {
+					if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
+						jobInputs = append(jobInputs, &pps.JobInput{
+							Name:   pipelineInput.Name,
+							Commit: branch.Head,
+							Glob:   pipelineInput.Glob,
+							Lazy:   pipelineInput.Lazy,
+						})
 					}
 				}
-
-				job, err := a.CreateJob(ctx, &pps.CreateJobRequest{
-					Transform:       pipelineInfo.Transform,
-					Pipeline:        pipelineInfo.Pipeline,
-					ParallelismSpec: pipelineInfo.ParallelismSpec,
-					Inputs:          jobInputs,
-					Output:          pipelineInfo.Output,
-				})
-				if err != nil {
-					return err
-				}
-				protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineInfo.Pipeline.Name, job.ID, jobInputs)
 			}
+
+			job, err := a.CreateJob(ctx, &pps.CreateJobRequest{
+				Transform:       pipelineInfo.Transform,
+				Pipeline:        pipelineInfo.Pipeline,
+				ParallelismSpec: pipelineInfo.ParallelismSpec,
+				Inputs:          jobInputs,
+				Output:          pipelineInfo.Output,
+			})
+			if err != nil {
+				return err
+			}
+			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineInfo.Pipeline.Name, job.ID, jobInputs)
 		}
 		panic("unreachable")
 		return nil
