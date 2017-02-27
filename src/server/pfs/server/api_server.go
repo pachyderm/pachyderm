@@ -358,7 +358,6 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 			Url:       objPath,
 			File: &pfs.File{
 				Path: filePath,
-				Repo: request.File.Repo,
 			},
 			Recursive: request.Recursive,
 		}
