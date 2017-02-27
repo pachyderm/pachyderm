@@ -34,6 +34,8 @@ before_script:
 - pip --version
 - pip install awscli --upgrade --user
 - aws --version
+- which aws
+- sudo -E which aws
 - sudo apt-get install uuid
 script:
 - make lint
