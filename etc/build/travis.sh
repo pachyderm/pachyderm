@@ -12,6 +12,7 @@ if [ "$TRAVIS_EVENT_TYPE" == "cron" ]; then
 ${AWS_SECRET_ACCESS_KEY}
 
 " | aws configure
+    make install
 	sudo -E make bench
 else
 	echo "Running tests"
