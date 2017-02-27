@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -62,7 +63,7 @@ type appEnv struct {
 	Namespace          string `env:"NAMESPACE,default=default"`
 	Metrics            bool   `env:"METRICS,default=true"`
 	Init               bool   `env:"INIT,default=false"`
-	BlockCacheBytes    int64  `env:"BLOCK_CACHE_BYTES,default=5368709120"` //default = 5 gigabyte
+	BlockCacheBytes    string `env:"BLOCK_CACHE_BYTES,default=5G"`
 	JobShimImage       string `env:"JOB_SHIM_IMAGE,default="`
 	JobImagePullPolicy string `env:"JOB_IMAGE_PULL_POLICY,default="`
 	LogLevel           string `env:"LOG_LEVEL,default=info"`
@@ -200,7 +201,11 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.BlockCacheBytes, appEnv.StorageBackend)
+	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
+	if err != nil {
+		return err
+	}
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
