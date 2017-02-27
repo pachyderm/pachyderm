@@ -13,6 +13,8 @@ ${AWS_SECRET_ACCESS_KEY}
 
 " | aws configure
     make install
+    echo "pachctl is installed here:"
+    which pachctl
 	sudo -E make bench
 else
 	echo "Running tests"
