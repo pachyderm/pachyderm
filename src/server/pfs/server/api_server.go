@@ -356,10 +356,12 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 			FileType:  request.FileType,
 			Delimiter: request.Delimiter,
 			Url:       objPath,
-			File:      request.File,
+			File: &pfs.File{
+				Path: filePath,
+				Repo: request.File.Repo,
+			},
 			Recursive: request.Recursive,
 		}
-		logRequest.File.Path = filePath
 		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
 		defer func(start time.Time) {
 			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
