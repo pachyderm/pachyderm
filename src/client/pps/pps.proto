@@ -101,6 +101,7 @@ message JobInfo {
   pfs.Commit output_commit = 9;
   JobState state = 10;
   Service service = 14;
+  bool stopped = 16;
 }
 
 enum WorkerState {
@@ -173,6 +174,7 @@ message PipelineInfo {
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
   GCPolicy gc_policy = 12;
+  bool stopped = 13;
 }
 
 message PipelineInfos {
