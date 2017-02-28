@@ -70,7 +70,7 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// Start worker api server
-	apiServer := worker.NewAPIServer(pachClient, etcdClient, pipelineInfo)
+	apiServer := worker.NewAPIServer(pachClient, pipelineInfo)
 	eg := errgroup.Group{}
 	ready := make(chan error)
 	eg.Go(func() error {
@@ -89,14 +89,29 @@ func do(appEnvObj interface{}) error {
 		)
 	})
 
-	// Put our IP address into etcd once server is ready, so pachd can discover us
+	// Wait until server is ready, then put our IP address into etcd, so pachd can
+	// discover us
 	<-ready
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	_, err := etcdClient.Put(ctx, path.Join(appEnv.PPSPrefix, "workers",
-		appEnv.PPSPipelineName, appEnv.PPSWorkerIP), "")
+	key := path.Join(appEnv.PPSPrefix, "workers", appEnv.PPSPipelineName, appEnv.PPSWorkerIP)
 
-	// if server ever exits, return error
+	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
+	// IP will be removed from etcd
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	resp, err := etcdClient.Grant(ctx, 60 /* seconds */)
+	if err != nil {
+		return err
+	}
+	etcdClient.KeepAlive(context.Background(), resp.ID) // keepalive forever
+
+	// Actually write "key" into etcd
+	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second) // new ctx
+	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
+		return err
+	}
+
+	// If server ever exits, return error
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+	return nil
 }
