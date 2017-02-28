@@ -47,7 +47,7 @@ func TestIndex(t *testing.T) {
 
 	personsReadonly := persons.ReadOnly(context.Background())
 
-	iter, err := personsReadonly.GetByIndex(PipelineIndex, j1.Pipeline.String())
+	iter, err := personsReadonly.GetByIndex(PipelineIndex, j1.Pipeline)
 	require.NoError(t, err)
 	var ID string
 	job := new(pps.JobInfo)
@@ -65,7 +65,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	iter, err = personsReadonly.GetByIndex(PipelineIndex, j3.Pipeline.String())
+	iter, err = personsReadonly.GetByIndex(PipelineIndex, j3.Pipeline)
 	require.NoError(t, err)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)

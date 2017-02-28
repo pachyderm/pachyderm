@@ -64,7 +64,7 @@ type ReadWriteIntCollection interface {
 
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index Index, val string) (Iterator, error)
+	GetByIndex(index Index, val interface{}) (Iterator, error)
 	List() (Iterator, error)
 	Watch() watch.EventChan
 	WatchOne(key string) watch.EventChan
