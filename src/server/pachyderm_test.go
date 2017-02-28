@@ -2142,32 +2142,6 @@ fi
 	require.Equal(t, "foo", lines[2])
 }
 
-func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
-
-	pipelineName := uniqueString("pipeline")
-	require.YesError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{""},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{
-			{
-				Repo: &pfsclient.Repo{Name: "nonexistent"},
-			},
-		},
-		false,
-	))
-}
-
 func TestPipelineWhoseInputsGetDeleted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3924,66 +3898,6 @@ func TestCleanPath(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.InspectFile(repo, "master", "file", "", false, nil)
 	require.NoError(t, err)
-}
-
-func TestInvalidSimpleService(t *testing.T) {
-	t.Parallel()
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := getPachClient(t)
-	dataRepo := uniqueString("TestService_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	fileContent := "hai\n"
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader(fileContent))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	// Only specifying an external port should error
-	_, err = c.CreateJob(
-		"pachyderm_netcat",
-		[]string{"sh"},
-		[]string{
-			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
-			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
-			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
-		},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: uint64(1),
-		},
-		[]*ppsclient.JobInput{{
-			Commit: commit,
-			Method: client.ReduceMethod,
-		}},
-		"",
-		0,
-		30004,
-	)
-	require.YesError(t, err)
-	// Using anything but parallelism 1 should error
-	_, err = c.CreateJob(
-		"pachyderm_netcat",
-		[]string{"sh"},
-		[]string{
-			fmt.Sprintf("ls /pfs/%v/file", dataRepo),
-			fmt.Sprintf("ls /pfs/%v/file > /pfs/out/filelist", dataRepo),
-			fmt.Sprintf("while true; do nc -l 30003 < /pfs/%v/file; done", dataRepo),
-		},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: uint64(2),
-		},
-		[]*ppsclient.JobInput{{
-			Commit: commit,
-			Method: client.ReduceMethod,
-		}},
-		"",
-		0,
-		30004,
-	)
-	require.YesError(t, err)
 }
 
 func TestSimpleService(t *testing.T) {
