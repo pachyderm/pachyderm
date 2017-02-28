@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/sync/errgroup"
+	"log"
 	"path"
 	"time"
 
@@ -47,15 +48,18 @@ func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo
 }
 
 func do(appEnvObj interface{}) error {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*AppEnv)
 	// get pachd client, so we can upload results
+	log.Println()
 	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
 	if err != nil {
 		return err
 	}
-	pachClient.KeepConnected(make(chan bool)) // don't want to cancel connection ever
+	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
+	log.Println()
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
 		DialTimeout: 15 * time.Second,
@@ -64,12 +68,14 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	// Get info about this worker's pipeline
+	log.Println()
 	pipelineInfo, err := getPipelineInfo(appEnv, etcdClient)
 	if err != nil {
 		return err
 	}
 
 	// Start worker api server
+	log.Println()
 	apiServer := worker.NewAPIServer(pachClient, pipelineInfo)
 	eg := errgroup.Group{}
 	ready := make(chan error)
@@ -91,11 +97,13 @@ func do(appEnvObj interface{}) error {
 
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
+	log.Println()
 	<-ready
 	key := path.Join(appEnv.PPSPrefix, "workers", appEnv.PPSPipelineName, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
+	log.Println()
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Grant(ctx, 60 /* seconds */)
 	if err != nil {
@@ -104,12 +112,14 @@ func do(appEnvObj interface{}) error {
 	etcdClient.KeepAlive(context.Background(), resp.ID) // keepalive forever
 
 	// Actually write "key" into etcd
+	log.Println()
 	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second) // new ctx
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return err
 	}
 
 	// If server ever exits, return error
+	log.Println()
 	if err := eg.Wait(); err != nil {
 		return err
 	}
