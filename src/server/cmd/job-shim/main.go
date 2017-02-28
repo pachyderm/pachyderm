@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,8 +35,10 @@ const (
 )
 
 type appEnv struct {
-	PachydermAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
-	PodName          string `env:"PPS_POD_NAME,required"`
+	PachydermAddress    string `env:"PACHD_PORT_650_TCP_ADDR,required"`
+	PodName             string `env:"PPS_POD_NAME,required"`
+	HeartbeatSecs       string `env:"PPS_HEARTBEAT_SECS,required"`
+	MaxHeartbeatRetries string `env:"PPS_MAX_HEARTBEAT_RETRIES,required"`
 }
 
 func main() {
@@ -95,7 +98,12 @@ func do(appEnvObj interface{}) error {
 			// Start sending ContinuePod to PPS to signal that we are alive
 			exitCh := make(chan struct{})
 			go func() {
-				tick := time.Tick(10 * time.Second)
+				secs, err := strconv.Atoi(appEnv.HeartbeatSecs)
+				if err != nil {
+					panic(fmt.Sprintf("invalid heartbeat period: %s", appEnv.HeartbeatSecs))
+				}
+				tick := time.Tick(time.Duration(secs) * time.Second)
+				var numHeartbeatRetries int
 				for {
 					<-tick
 					res, err := ppsClient.ContinuePod(
@@ -105,9 +113,17 @@ func do(appEnvObj interface{}) error {
 							PodName: appEnv.PodName,
 						},
 					)
+					maxRetries, err := strconv.Atoi(appEnv.MaxHeartbeatRetries)
 					if err != nil {
-						log.Errorf("error from ContinuePod: %s; restarting...", err.Error())
+						panic(fmt.Sprintf("invalid max heartbeat retries: %s", appEnv.MaxHeartbeatRetries))
 					}
+					if err != nil && numHeartbeatRetries < maxRetries {
+						log.Errorf("error from heartbeat: %s; retrying...", err.Error())
+						numHeartbeatRetries++
+						continue
+					}
+					// reset
+					numHeartbeatRetries = 0
 					if res != nil && res.Restart {
 						log.Errorf("chunk was revoked. restarting...")
 					}
