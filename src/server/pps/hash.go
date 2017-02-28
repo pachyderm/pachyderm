@@ -25,13 +25,13 @@ func NewHasher(jobModulus uint64, pipelineModulus uint64) *Hasher {
 }
 
 // HashJob computes and returns the hash of a job.
-func (s *Hasher) HashJob(job *pps.Job) uint64 {
-	return uint64(adler32.Checksum([]byte(job.ID))) % s.PipelineModulus
+func (s *Hasher) HashJob(jobID string) uint64 {
+	return uint64(adler32.Checksum([]byte(jobID))) % s.PipelineModulus
 }
 
 // HashPipeline computes and returns the hash of a pipeline.
-func (s *Hasher) HashPipeline(pipeline *pps.Pipeline) uint64 {
-	return uint64(adler32.Checksum([]byte(pipeline.Name))) % s.JobModulus
+func (s *Hasher) HashPipeline(pipelineName string) uint64 {
+	return uint64(adler32.Checksum([]byte(pipelineName))) % s.JobModulus
 }
 
 // HashDatum computes and returns the hash of a datum + pipeline.
