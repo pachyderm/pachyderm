@@ -221,7 +221,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var iter col.Iterator
 	var err error
 	if request.Pipeline != nil {
-		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline.String())
+		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline)
 		if err != nil {
 			return nil, err
 		}
@@ -660,6 +660,34 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 						})
 					}
 				}
+			}
+
+			// Check if this input set has already been processed
+			jobIter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsInputsIndex, jobInputs)
+			if err != nil {
+				return err
+			}
+			var jobExists bool
+			for {
+				var jobID string
+				var jobInfo pps.JobInfo
+				ok, err := jobIter.Next(&jobID, &jobInfo)
+				if !ok {
+					break
+				}
+				if err != nil {
+					return err
+				}
+				if jobInfo.Pipeline.Name == pipelineInfo.Pipeline.Name && jobInfo.PipelineVersion == pipelineInfo.Version {
+					// TODO: we should check if the output commit exists.
+					// If the output commit has been deleted, we should
+					// re-run the job.
+					jobExists = true
+					break
+				}
+			}
+			if jobExists {
+				continue
 			}
 
 			job, err := a.CreateJob(ctx, &pps.CreateJobRequest{

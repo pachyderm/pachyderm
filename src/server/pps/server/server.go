@@ -28,6 +28,7 @@ const (
 	pipelinesPrefix   = "/pipelines"
 	jobsPrefix        = "/jobs"
 	jobsPipelineIndex = "Pipeline"
+	jobsInputsIndex   = "Inputs"
 	stoppedIndex      = "Stopped"
 )
 
@@ -76,7 +77,7 @@ func NewAPIServer(
 		jobs: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, jobsPrefix),
-			[]col.Index{jobsPipelineIndex, stoppedIndex},
+			[]col.Index{jobsPipelineIndex, stoppedIndex, jobsInputsIndex},
 		),
 	}
 	go apiServer.pipelineWatcher()
