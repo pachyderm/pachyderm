@@ -2,6 +2,7 @@ package server
 
 import (
 	// "fmt"
+
 	"path"
 	// "strings"
 	"testing"
@@ -181,28 +182,31 @@ func TestInvalidCreatePipeline(t *testing.T) {
 }
 
 // Make sure that pipeline validation checks that all inputs exist
-// func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-// 	if testing.Short() {
-// 		t.Skip("Skipping integration tests in short mode")
-// 	}
-// 	t.Parallel()
-// 	c := getPachClient(t)
-//
-// 	pipelineName := uniqueString("pipeline")
-// 	require.YesError(t, c.CreatePipeline(
-// 		pipelineName,
-// 		"",
-// 		[]string{"bash"},
-// 		[]string{""},
-// 		&ppsclient.ParallelismSpec{
-// 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-// 			Constant: 1,
-// 		},
-// 		[]*ppsclient.PipelineInput{
-// 			{
-// 				Repo: &pfsclient.Repo{Name: "nonexistent"},
-// 			},
-// 		},
-// 		false,
-// 	))
-// }
+func TestPipelineThatUseNonexistentInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	pipelineName := uniqueString("pipeline")
+	require.YesError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&ppsclient.ParallelismSpec{
+			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*ppsclient.PipelineInput{
+			{
+				Name:   "whatever",
+				Branch: "master",
+				Glob:   "/*",
+				Repo:   &pfsclient.Repo{Name: "nonexistent"},
+			},
+		},
+		false,
+	))
+}
