@@ -401,7 +401,10 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
@@ -410,7 +413,10 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopPipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_STOPPED); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {
@@ -487,29 +493,31 @@ func (a *apiServer) pipelineWatcher() {
 		pipelineEvents := a.pipelines.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
 		for {
 			event := <-pipelineEvents
-			switch event.Type {
-			case watch.EventError:
+			if event.Err != nil {
 				return event.Err
+			}
+			pipelineName := string(event.Key)
+			shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineName))
+			if shardCtx == nil {
+				// Skip pipelines that don't fall into my shards
+				continue
+			}
+			switch event.Type {
 			case watch.EventPut:
-				var pipelineName string
 				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
 				}
-				shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineInfo.Pipeline))
-				if shardCtx != nil {
-					if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
-						protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
-						protolion.Infof("cancelling pipeline: %s", pipelineName)
-						cancel()
-					}
-					pipelineCtx, cancel := context.WithCancel(shardCtx)
-					a.setPipelineCancel(pipelineName, cancel)
-					protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
-					go a.pipelineManager(pipelineCtx, &pipelineInfo)
+				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
+					protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
+					protolion.Infof("cancelling pipeline: %s", pipelineName)
+					cancel()
 				}
+				pipelineCtx, cancel := context.WithCancel(shardCtx)
+				a.setPipelineCancel(pipelineName, cancel)
+				protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
+				go a.pipelineManager(pipelineCtx, &pipelineInfo)
 			case watch.EventDelete:
-				pipelineName := string(event.Key)
 				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
 					protolion.Infof("cancelling pipeline: %s", pipelineName)
 					cancel()
@@ -536,29 +544,31 @@ func (a *apiServer) jobWatcher() {
 
 		for {
 			event := <-jobEvents
-			switch event.Type {
-			case watch.EventError:
+			if event.Err != nil {
 				return event.Err
+			}
+			jobID := string(event.Key)
+			shardCtx := a.getShardCtx(a.hasher.HashJob(jobID))
+			if shardCtx == nil {
+				// Skip jobs that don't fall into my shards
+				continue
+			}
+			switch event.Type {
 			case watch.EventPut:
-				var jobID string
 				var jobInfo pps.JobInfo
 				if err := event.Unmarshal(&jobID, &jobInfo); err != nil {
 					return err
 				}
-				shardCtx := a.getShardCtx(a.hasher.HashJob(jobInfo.Job))
-				if shardCtx != nil {
-					if cancel := a.deleteJobCancel(jobID); cancel != nil {
-						protolion.Infof("Appear to be running a job (%s) that's already being run; this may be a bug", jobID)
-						protolion.Infof("cancelling job: %s", jobID)
-						cancel()
-					}
-					jobCtx, cancel := context.WithCancel(shardCtx)
-					a.setJobCancel(jobID, cancel)
-					protolion.Infof("launching job manager for job %s", jobInfo.Job.ID)
-					go a.jobManager(jobCtx, &jobInfo)
+				if cancel := a.deleteJobCancel(jobID); cancel != nil {
+					protolion.Infof("Appear to be running a job (%s) that's already being run; this may be a bug", jobID)
+					protolion.Infof("cancelling job: %s", jobID)
+					cancel()
 				}
+				jobCtx, cancel := context.WithCancel(shardCtx)
+				a.setJobCancel(jobID, cancel)
+				protolion.Infof("launching job manager for job %s", jobInfo.Job.ID)
+				go a.jobManager(jobCtx, &jobInfo)
 			case watch.EventDelete:
-				jobID := string(event.Key)
 				if cancel := a.deleteJobCancel(jobID); cancel != nil {
 					cancel()
 					protolion.Infof("cancelling job: %s", jobID)
@@ -576,6 +586,10 @@ func isAlreadyExistsErr(err error) bool {
 	return strings.Contains(err.Error(), "already exists")
 }
 
+func isContextCancelledErr(err error) bool {
+	return strings.Contains(err.Error(), context.Canceled.Error())
+}
+
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
@@ -588,6 +602,10 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		if err := a.updatePipelineState(ctx, pipelineInfo.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+			return err
+		}
+
 		// Start worker pool
 		a.workerPool(ctx, pipelineInfo.Pipeline)
 
@@ -659,19 +677,58 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		panic("unreachable")
 		return nil
 	}, b, func(err error, d time.Duration) error {
-		if err == context.Canceled {
+		if isContextCancelledErr(err) {
 			return err
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
 		return nil
-	}); err != context.Canceled {
+	}); err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
+}
+
+// pipelineStateToStopped defines what pipeline states are "stopped"
+// states, meaning that pipelines in this state should not be managed
+// by pipelineManager
+func pipelineStateToStopped(state pps.PipelineState) bool {
+	switch state {
+	case pps.PipelineState_PIPELINE_STARTING:
+		return false
+	case pps.PipelineState_PIPELINE_RUNNING:
+		return false
+	case pps.PipelineState_PIPELINE_RESTARTING:
+		return false
+	case pps.PipelineState_PIPELINE_STOPPED:
+		return true
+	case pps.PipelineState_PIPELINE_FAILURE:
+		return true
+	default:
+		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
+	}
+}
+
+func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string, state pps.PipelineState) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+			return err
+		}
+		pipelineInfo.State = state
+		pipelineInfo.Stopped = pipelineStateToStopped(state)
+		pipelines.Put(pipelineName, pipelineInfo)
+		return nil
+	})
+	return err
 }
 
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		if err := a.updateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_RUNNING); err != nil {
+			return err
+		}
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -760,20 +817,53 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		jobInfo.OutputCommit = outputCommit
 		jobInfo.Finished = now()
 		jobInfo.State = pps.JobState_JOB_SUCCESS
+		jobInfo.Stopped = jobStateToStopped(jobInfo.State)
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
 			return nil
 		})
 		return nil
 	}, b, func(err error, d time.Duration) error {
-		if err == context.Canceled {
+		if isContextCancelledErr(err) {
 			return err
 		}
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
 		return nil
-	}); err != nil && err != context.Canceled {
+	}); err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
+}
+
+// jobStateToStopped defines what job states are "stopped" states,
+// meaning that jobs in this state should not be managed by jobManager
+func jobStateToStopped(state pps.JobState) bool {
+	switch state {
+	case pps.JobState_JOB_STARTING:
+		return false
+	case pps.JobState_JOB_RUNNING:
+		return false
+	case pps.JobState_JOB_SUCCESS:
+		return true
+	case pps.JobState_JOB_FAILURE:
+		return true
+	default:
+		panic(fmt.Sprintf("unrecognized job state: %s", state))
+	}
+}
+
+func (a *apiServer) updateJobState(ctx context.Context, jobID string, state pps.JobState) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobInfo := new(pps.JobInfo)
+		if err := jobs.Get(jobID, jobInfo); err != nil {
+			return err
+		}
+		jobInfo.State = state
+		jobInfo.Stopped = jobStateToStopped(state)
+		jobs.Put(jobID, jobInfo)
+		return nil
+	})
+	return err
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
