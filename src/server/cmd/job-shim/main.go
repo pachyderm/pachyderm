@@ -71,6 +71,14 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			heartbeatSecs, err := strconv.Atoi(appEnv.HeartbeatSecs)
+			if err != nil {
+				panic(fmt.Sprintf("invalid heartbeat period: %s", appEnv.HeartbeatSecs))
+			}
+			maxRetries, err := strconv.Atoi(appEnv.MaxHeartbeatRetries)
+			if err != nil {
+				panic(fmt.Sprintf("invalid max heartbeat retries: %s", appEnv.MaxHeartbeatRetries))
+			}
 			defer func() {
 				// We always clear the output directory, this prevents filling
 				// up disk with completed container images.
@@ -98,11 +106,7 @@ func do(appEnvObj interface{}) error {
 			// Start sending ContinuePod to PPS to signal that we are alive
 			exitCh := make(chan struct{})
 			go func() {
-				secs, err := strconv.Atoi(appEnv.HeartbeatSecs)
-				if err != nil {
-					panic(fmt.Sprintf("invalid heartbeat period: %s", appEnv.HeartbeatSecs))
-				}
-				tick := time.Tick(time.Duration(secs) * time.Second)
+				tick := time.Tick(time.Duration(heartbeatSecs) * time.Second)
 				var numHeartbeatRetries int
 				for {
 					<-tick
@@ -113,10 +117,6 @@ func do(appEnvObj interface{}) error {
 							PodName: appEnv.PodName,
 						},
 					)
-					maxRetries, err := strconv.Atoi(appEnv.MaxHeartbeatRetries)
-					if err != nil {
-						panic(fmt.Sprintf("invalid max heartbeat retries: %s", appEnv.MaxHeartbeatRetries))
-					}
 					if err != nil && numHeartbeatRetries < maxRetries {
 						log.Errorf("error from heartbeat: %s; retrying...", err.Error())
 						numHeartbeatRetries++
