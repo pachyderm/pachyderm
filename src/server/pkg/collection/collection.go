@@ -98,8 +98,8 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 
 func (c *readWriteCollection) indexPathFromVal(val proto.Message, index Index, key string) string {
 	r := reflect.ValueOf(val)
-	f := reflect.Indirect(r).FieldByName(string(index)).MethodByName("String")
-	indexKey := f.Call([]reflect.Value{})[0].String()
+	f := reflect.Indirect(r).FieldByName(string(index)).Interface()
+	indexKey := fmt.Sprintf("%s", f)
 	return c.indexPath(index, indexKey, key)
 }
 
@@ -311,8 +311,55 @@ func (c *readonlyCollection) Watch() watch.EventChan {
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index Index, val string) watch.EventChan {
-	return nil
+func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) watch.EventChan {
+	eventCh := make(chan *watch.Event)
+	indirectEventCh := watch.Watch(c.ctx, c.etcdClient, c.indexDir(index, fmt.Sprintf("%s", val)))
+	go func() (retErr error) {
+		defer func() {
+			if retErr != nil {
+				eventCh <- &watch.Event{
+					Type: watch.EventError,
+					Err:  retErr,
+				}
+				close(eventCh)
+			}
+		}()
+		for {
+			ev, ok := <-indirectEventCh
+			if !ok {
+				close(eventCh)
+				return nil
+			}
+			var directEv *watch.Event
+			switch ev.Type {
+			case watch.EventError:
+				// pass along the error
+				return ev.Err
+			case watch.EventPut:
+				resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(ev.Key))))
+				if err != nil {
+					return err
+				}
+				if len(resp.Kvs) == 0 {
+					// this happens only if the item was deleted shortly after
+					// we receive this event.
+					continue
+				}
+				directEv = &watch.Event{
+					Key:   []byte(path.Base(string(ev.Key))),
+					Value: resp.Kvs[0].Value,
+					Type:  ev.Type,
+				}
+			case watch.EventDelete:
+				directEv = &watch.Event{
+					Key:  []byte(path.Base(string(ev.Key))),
+					Type: ev.Type,
+				}
+			}
+			eventCh <- directEv
+		}
+	}()
+	return eventCh
 }
 
 // WatchOne watches a given item.  The first value returned from the watch
