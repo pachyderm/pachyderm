@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	logbuiltin "log"
 	"math"
 	"sort"
 	"strings"
@@ -306,16 +305,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	return nil
 }
 
-func validatePipelineInputs(inputs []*pps.PipelineInput) error {
-	logbuiltin.SetFlags(logbuiltin.LstdFlags | logbuiltin.Lshortfile)
-	for _, in := range inputs {
-		logbuiltin.Println("validating input:\n%+v", inputs)
-		logbuiltin.Println("%v %v %v %v",
-			len(in.Name),
-			in.Name == "out",
-			len(in.Branch),
-			len(in.Glob),
-		)
+func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	for _, in := range pipelineInfo.Inputs {
 		switch {
 		case len(in.Name) == 0:
 			return fmt.Errorf("every pipeline input must specify a name")
@@ -327,13 +318,20 @@ func validatePipelineInputs(inputs []*pps.PipelineInput) error {
 		case len(in.Glob) == 0:
 			return fmt.Errorf("every pipeline input must specify a glob")
 		}
+		// check that the input repo exists
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+		_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+			Repo: in.Repo,
+		})
+		if err != nil {
+			return fmt.Errorf("repo %s not found: %s", in.Repo.Name, err)
+		}
 	}
-	return nil
-}
-
-func validatePipelineName(pipelineName string) error {
-	if strings.Contains(pipelineName, "_") {
-		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineName)
+	if strings.Contains(pipelineInfo.Pipeline.Name, "_") {
+		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineInfo.Pipeline.Name)
 	}
 	return nil
 }
@@ -344,23 +342,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := validatePipelineName(request.Pipeline.Name); err != nil {
-		return nil, err
+	sort.Sort(byInputName{request.Inputs})
+	pipelineInfo := &pps.PipelineInfo{
+		Pipeline:        request.Pipeline,
+		Transform:       request.Transform,
+		ParallelismSpec: request.ParallelismSpec,
+		Inputs:          request.Inputs,
+		Output:          request.Output,
+		GcPolicy:        request.GcPolicy,
 	}
-	if err := validatePipelineInputs(request.Inputs); err != nil {
+	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
 
-	sort.Sort(byInputName{request.Inputs})
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineInfo := &pps.PipelineInfo{
-			Pipeline:        request.Pipeline,
-			Transform:       request.Transform,
-			ParallelismSpec: request.ParallelismSpec,
-			Inputs:          request.Inputs,
-			Output:          request.Output,
-			GcPolicy:        request.GcPolicy,
-		}
 		a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 		return nil
 	})
