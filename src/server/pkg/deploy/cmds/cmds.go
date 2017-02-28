@@ -45,6 +45,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var deployRethinkAsRc bool
 	var deployRethinkAsStatefulSet bool
 	var rethinkdbCacheSize string
+	var blockCacheSize string
 	var logLevel string
 	var opts *assets.AssetOpts
 
@@ -206,6 +207,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				PachdShards:                uint64(pachdShards),
 				RethinkShards:              uint64(rethinkShards),
 				RethinkdbCacheSize:         rethinkdbCacheSize,
+				BlockCacheSize:             blockCacheSize,
 				DeployRethinkAsStatefulSet: deployRethinkAsStatefulSet,
 				Version:                    version.PrettyPrintVersion(version.Version),
 				LogLevel:                   logLevel,
@@ -220,6 +222,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
 		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
+		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
 		"Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.")
