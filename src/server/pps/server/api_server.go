@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	logbuiltin "log"
 	"math"
 	"sort"
 	"strings"
@@ -305,6 +306,31 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	return nil
 }
 
+func validatePipelineInputs(inputs []*pps.PipelineInput) error {
+	logbuiltin.SetFlags(logbuiltin.LstdFlags | logbuiltin.Lshortfile)
+	for _, in := range inputs {
+		logbuiltin.Println("validating input:\n%+v", inputs)
+		logbuiltin.Println("%v %v %v %v",
+			len(in.Name),
+			in.Name == "out",
+			len(in.Branch),
+			len(in.Glob),
+		)
+		switch {
+		case len(in.Name) == 0:
+			return fmt.Errorf("every pipeline input must specify a name")
+		case in.Name == "out":
+			return fmt.Errorf("no pipeline input may be named \"out\", as pachyderm " +
+				"already creates /pfs/out to collect pipeline output")
+		case len(in.Branch) == 0:
+			return fmt.Errorf("every pipeline input must specify a branch")
+		case len(in.Glob) == 0:
+			return fmt.Errorf("every pipeline input must specify a glob")
+		}
+	}
+	return nil
+}
+
 func validatePipelineName(pipelineName string) error {
 	if strings.Contains(pipelineName, "_") {
 		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineName)
@@ -319,6 +345,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := validatePipelineName(request.Pipeline.Name); err != nil {
+		return nil, err
+	}
+	if err := validatePipelineInputs(request.Inputs); err != nil {
 		return nil, err
 	}
 
