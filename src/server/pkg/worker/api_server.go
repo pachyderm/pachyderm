@@ -15,7 +15,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -28,16 +27,14 @@ type APIServer struct {
 	sync.Mutex
 	protorpclog.Logger
 	pachClient   *client.APIClient
-	etcdClient   *etcd.Client
 	pipelineInfo *pps.PipelineInfo
 }
 
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, pipelineInfo *pps.PipelineInfo) *APIServer {
+func NewAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
 	return &APIServer{
 		Mutex:        sync.Mutex{},
 		Logger:       protorpclog.NewLogger(""),
 		pachClient:   pachClient,
-		etcdClient:   etcdClient,
 		pipelineInfo: pipelineInfo,
 	}
 }
@@ -53,10 +50,6 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 func (a *APIServer) runUserCode(ctx context.Context) error {
-	// Create output directory (currently /pfs/out)
-	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
-		return err
-	}
 	transform := a.pipelineInfo.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
@@ -178,14 +171,22 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}
-	fmt.Println("BP2")
+	// Create output directory (currently /pfs/out)
+	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := os.RemoveAll(client.PPSOutputPath); retErr == nil && err != nil {
+			retErr = err
+			return
+		}
+	}()
 	if err := a.runUserCode(ctx); err != nil {
 		return nil, err
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err
 	}
-	fmt.Println("BP4")
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
