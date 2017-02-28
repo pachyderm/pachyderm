@@ -18,6 +18,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -443,6 +444,14 @@ func (a *apiServer) getPipelineCancel(pipelineName string) context.CancelFunc {
 	return a.pipelineCancels[pipelineName]
 }
 
+func (a *apiServer) deletePipelineCancel(pipelineName string) context.CancelFunc {
+	a.pipelineCancelsLock.Lock()
+	defer a.pipelineCancelsLock.Unlock()
+	cancel := a.pipelineCancels[pipelineName]
+	delete(a.pipelineCancels, pipelineName)
+	return cancel
+}
+
 func (a *apiServer) setPipelineCancel(pipelineName string, cancel context.CancelFunc) {
 	a.pipelineCancelsLock.Lock()
 	defer a.pipelineCancelsLock.Unlock()
@@ -453,6 +462,14 @@ func (a *apiServer) getJobCancel(jobID string) context.CancelFunc {
 	a.jobCancelsLock.Lock()
 	defer a.jobCancelsLock.Unlock()
 	return a.jobCancels[jobID]
+}
+
+func (a *apiServer) deleteJobCancel(jobID string) context.CancelFunc {
+	a.jobCancelsLock.Lock()
+	defer a.jobCancelsLock.Unlock()
+	cancel := a.jobCancels[jobID]
+	delete(a.jobCancels, jobID)
+	return cancel
 }
 
 func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
@@ -467,39 +484,40 @@ func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
 func (a *apiServer) pipelineWatcher() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		pipelineIter, err := a.pipelines.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-
+		pipelineEvents := a.pipelines.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
 		for {
-			var pipelineName string
-			pipelineInfo := new(pps.PipelineInfo)
-			event, err := pipelineIter.Next()
-			if err != nil {
-				return err
-			}
-			if err := event.Unmarshal(&pipelineName, pipelineInfo); err != nil {
-				return err
-			}
-			switch event.Type() {
-			case col.EventPut:
+			event := <-pipelineEvents
+			switch event.Type {
+			case watch.EventError:
+				return event.Err
+			case watch.EventPut:
+				var pipelineName string
+				var pipelineInfo pps.PipelineInfo
+				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
+					return err
+				}
 				shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineInfo.Pipeline))
 				if shardCtx != nil {
+					if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
+						protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
+						protolion.Infof("cancelling pipeline: %s", pipelineName)
+						cancel()
+					}
 					pipelineCtx, cancel := context.WithCancel(shardCtx)
 					a.setPipelineCancel(pipelineName, cancel)
 					protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
-					go a.pipelineManager(pipelineCtx, pipelineInfo)
+					go a.pipelineManager(pipelineCtx, &pipelineInfo)
 				}
-			case col.EventDelete:
-				cancel := a.getPipelineCancel(pipelineName)
-				if cancel != nil {
+			case watch.EventDelete:
+				pipelineName := string(event.Key)
+				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
+					protolion.Infof("cancelling pipeline: %s", pipelineName)
 					cancel()
+					// delete the worker pool here, so we don't end up with a
+					// race where the same pipeline is immediately recreated
+					// and ends up using the defunct worker pool.
+					a.delWorkerPool(pipelineName)
 				}
-				// delete the worker pool here, so we don't end up with a
-				// race where the same pipeline is immediately recreated
-				// and ends up using the defunct worker pool.
-				a.delWorkerPool(pipelineInfo.Pipeline)
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
@@ -514,34 +532,36 @@ func (a *apiServer) pipelineWatcher() {
 func (a *apiServer) jobWatcher() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		jobIter, err := a.jobs.ReadOnly(context.Background()).WatchByIndex(jobsFinishedIndex, fmt.Sprintf("%v", (*types.Timestamp)(nil)))
-		if err != nil {
-			return err
-		}
+		jobEvents := a.jobs.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
 
 		for {
-			var jobID string
-			var jobInfo pps.JobInfo
-			event, err := jobIter.Next()
-			if err != nil {
-				return err
-			}
-			if err := event.Unmarshal(&jobID, &jobInfo); err != nil {
-				return err
-			}
-			switch event.Type() {
-			case col.EventPut:
+			event := <-jobEvents
+			switch event.Type {
+			case watch.EventError:
+				return event.Err
+			case watch.EventPut:
+				var jobID string
+				var jobInfo pps.JobInfo
+				if err := event.Unmarshal(&jobID, &jobInfo); err != nil {
+					return err
+				}
 				shardCtx := a.getShardCtx(a.hasher.HashJob(jobInfo.Job))
 				if shardCtx != nil {
+					if cancel := a.deleteJobCancel(jobID); cancel != nil {
+						protolion.Infof("Appear to be running a job (%s) that's already being run; this may be a bug", jobID)
+						protolion.Infof("cancelling job: %s", jobID)
+						cancel()
+					}
 					jobCtx, cancel := context.WithCancel(shardCtx)
 					a.setJobCancel(jobID, cancel)
 					protolion.Infof("launching job manager for job %s", jobInfo.Job.ID)
 					go a.jobManager(jobCtx, &jobInfo)
 				}
-			case col.EventDelete:
-				cancel := a.getJobCancel(jobID)
-				if cancel != nil {
+			case watch.EventDelete:
+				jobID := string(event.Key)
+				if cancel := a.deleteJobCancel(jobID); cancel != nil {
 					cancel()
+					protolion.Infof("cancelling job: %s", jobID)
 				}
 			}
 		}
@@ -571,16 +591,15 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		// Start worker pool
 		a.workerPool(ctx, pipelineInfo.Pipeline)
 
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
-		}
-
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
 			provenance = append(provenance, input.Repo)
 		}
 
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
 		// Create the output repo; if it already exists, do nothing
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
@@ -597,10 +616,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 		}
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
-		}
 
 		branchSetCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -609,11 +624,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 
-		// Before we start receiving branch sets,
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
-			return nil
-		})
 		for {
 			branchSet, err := branchSets.Next()
 			if err != nil {

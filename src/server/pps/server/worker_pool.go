@@ -225,8 +225,8 @@ func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) W
 	return wp
 }
 
-func (a *apiServer) delWorkerPool(pipeline *pps.Pipeline) {
+func (a *apiServer) delWorkerPool(pipelineName string) {
 	a.workerPoolsLock.Lock()
 	defer a.workerPoolsLock.Unlock()
-	delete(a.workerPools, pipeline.Name)
+	delete(a.workerPools, pipelineName)
 }

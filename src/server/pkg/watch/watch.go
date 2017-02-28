@@ -20,17 +20,19 @@ const (
 	EventError
 )
 
-type EventChan chan Event
+type EventChan chan *Event
 
 type Event struct {
-	Key   []byte
-	Value []byte
-	Type  EventType
-	Rev   int64
-	Err   error
+	Key       []byte
+	Value     []byte
+	PrevKey   []byte
+	PrevValue []byte
+	Type      EventType
+	Rev       int64
+	Err       error
 }
 
-func (e Event) Unmarshal(key *string, val proto.Message) error {
+func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	*key = string(e.Key)
 	return proto.UnmarshalText(string(e.Value), val)
 }
@@ -51,7 +53,7 @@ func (s byModRev) Less(i, j int) bool {
 }
 
 func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
-	eventCh := make(chan Event)
+	eventCh := make(chan *Event)
 	go func() {
 		syncer := mirror.NewSyncer(client, prefix, 0)
 		respCh, errCh := syncer.SyncBase(ctx)
@@ -66,7 +68,7 @@ func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
 			// by modification time.
 			sort.Sort(byModRev{resp})
 			for _, kv := range resp.Kvs {
-				eventCh <- Event{
+				eventCh <- &Event{
 					Key:   kv.Key,
 					Value: kv.Value,
 					Type:  EventPut,
@@ -75,7 +77,7 @@ func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
 			}
 		}
 		if err := <-errCh; err != nil {
-			eventCh <- Event{
+			eventCh <- &Event{
 				Type: EventError,
 				Err:  err,
 			}
@@ -86,7 +88,7 @@ func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
 		for {
 			resp := <-watchCh
 			if err := resp.Err(); err != nil {
-				eventCh <- Event{
+				eventCh <- &Event{
 					Type: EventError,
 					Err:  err,
 				}
@@ -94,10 +96,14 @@ func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
 				return
 			}
 			for _, etcdEv := range resp.Events {
-				ev := Event{
+				ev := &Event{
 					Key:   etcdEv.Kv.Key,
 					Value: etcdEv.Kv.Value,
 					Rev:   etcdEv.Kv.ModRevision,
+				}
+				if etcdEv.PrevKv != nil {
+					ev.PrevKey = etcdEv.PrevKv.Key
+					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				switch etcdEv.Type {
 				case etcd.EventTypePut:

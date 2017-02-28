@@ -68,7 +68,7 @@ type ReadonlyCollection interface {
 	List() (Iterator, error)
 	Watch() watch.EventChan
 	WatchOne(key string) watch.EventChan
-	WatchByIndex(index Index, val string) watch.EventChan
+	WatchByIndex(index Index, val interface{}) watch.EventChan
 }
 
 type Iterator interface {

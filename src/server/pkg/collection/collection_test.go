@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
 )
@@ -96,16 +97,29 @@ func TestIndexWatch(t *testing.T) {
 
 	personsReadonly := persons.ReadOnly(context.Background())
 
-	iter, err := personsReadonly.WatchByIndex(PipelineIndex, j1.Pipeline.String())
-	require.NoError(t, err)
+	eventCh := personsReadonly.WatchByIndex(PipelineIndex, j1.Pipeline.String())
 	var ID string
 	job := new(pps.JobInfo)
-	event, err := iter.Next()
-	require.NoError(t, err)
-	require.Equal(t, event.Type(), EventPut)
+	event := <-eventCh
+	require.NoError(t, event.Err)
+	require.Equal(t, event.Type, watch.EventPut)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j1.Job.ID, ID)
 	require.Equal(t, j1, job)
+
+	// Now we will put j1 again, unchanged.  We want to make sure
+	// that we do not receive an event.
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j1.Job.ID, j1)
+		return nil
+	})
+
+	select {
+	case event := <-eventCh:
+		t.Fatalf("should not have received an event %s", event)
+	case <-time.After(2 * time.Second):
+	}
 
 	j2 := &pps.JobInfo{
 		Job:      &pps.Job{"j2"},
@@ -119,9 +133,9 @@ func TestIndexWatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	event, err = iter.Next()
-	require.NoError(t, err)
-	require.Equal(t, event.Type(), EventPut)
+	event = <-eventCh
+	require.NoError(t, event.Err)
+	require.Equal(t, event.Type, watch.EventPut)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j2.Job.ID, ID)
 	require.Equal(t, j2, job)
@@ -137,9 +151,9 @@ func TestIndexWatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	event, err = iter.Next()
-	require.NoError(t, err)
-	require.Equal(t, event.Type(), EventDelete)
+	event = <-eventCh
+	require.NoError(t, event.Err)
+	require.Equal(t, event.Type, watch.EventDelete)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j1.Job.ID, ID)
 
@@ -150,9 +164,9 @@ func TestIndexWatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	event, err = iter.Next()
-	require.NoError(t, err)
-	require.Equal(t, event.Type(), EventDelete)
+	event = <-eventCh
+	require.NoError(t, event.Err)
+	require.Equal(t, event.Type, watch.EventDelete)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j2.Job.ID, ID)
 }
