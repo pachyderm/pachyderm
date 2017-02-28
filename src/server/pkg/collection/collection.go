@@ -260,8 +260,9 @@ func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr
 	return false, nil
 }
 
-func (c *readonlyCollection) GetByIndex(index Index, val string) (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
+	valStr := fmt.Sprintf("%s", val)
+	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, valStr), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
 	}
