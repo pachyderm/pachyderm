@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
@@ -235,6 +236,18 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								{
 									Name:  "LOG_LEVEL",
 									Value: logLevel,
+								},
+								{
+									Name:  client.PPSLeasePeriodSecsEnv,
+									Value: "30",
+								},
+								{
+									Name:  client.PPSHeartbeatSecsEnv,
+									Value: "10",
+								},
+								{
+									Name:  client.PPSMaxHeartbeatRetriesEnv,
+									Value: "3",
 								},
 								{
 									Name:  "BLOCK_CACHE_BYTES",
