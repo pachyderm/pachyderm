@@ -176,7 +176,7 @@ func do(appEnvObj interface{}) error {
 			}
 
 			// Setup the hostPath mount to use a unique directory for this pod
-			podDataDir := filepath.Join("/pach-job-data", appEnv.PodName)
+			podDataDir := filepath.Join(ppsserver.JobDataPath, appEnv.PodName)
 			if err := os.Mkdir(podDataDir, 0777); err != nil {
 				return err
 			}
