@@ -200,13 +200,35 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) FlushCommit(ctx context.Context, request *pfs.FlushCommitRequest) (response *pfs.CommitInfos, retErr error) {
+func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
+	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	commitEvents, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
+	if err != nil {
+		return err
+	}
+
+	for {
+		ev, ok := <-commitEvents
+		if !ok {
+			return nil
+		}
+		if ev.Err != nil {
+			return ev.Err
+		}
+		var commitID string
+		commitInfo := new(pfs.CommitInfo)
+		if err := ev.Unmarshal(&commitID, commitInfo); err != nil {
+			return err
+		}
+		if err := stream.Send(commitInfo); err != nil {
+			return err
+		}
+	}
 }
 
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
