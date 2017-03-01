@@ -71,7 +71,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, version string, metrics bool) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, version string, metrics bool, blockCacheSize string) *api.ReplicationController {
 	image := pachdImage
 	if version != "" {
 		image += ":" + version
@@ -248,6 +248,10 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								{
 									Name:  client.PPSMaxHeartbeatRetriesEnv,
 									Value: "3",
+								},
+								{
+									Name:  "BLOCK_CACHE_BYTES",
+									Value: blockCacheSize,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -890,6 +894,7 @@ type AssetOpts struct {
 	PachdShards        uint64
 	RethinkShards      uint64
 	RethinkdbCacheSize string
+	BlockCacheSize     string
 	Version            string
 	LogLevel           string
 	Metrics            bool
@@ -941,7 +946,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.PachdShards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
+	PachdRc(opts.PachdShards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics, opts.BlockCacheSize).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }

@@ -2317,18 +2317,17 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
-	dataPath := "pach-job-data"
 	volumes = append(volumes, api.Volume{
-		Name: dataPath,
+		Name: "job-data",
 		VolumeSource: api.VolumeSource{
 			HostPath: &api.HostPathVolumeSource{
-				Path: fmt.Sprintf("/%v", dataPath),
+				Path: ppsserver.JobDataPath,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      dataPath,
-		MountPath: fmt.Sprintf("/%v", dataPath),
+		Name:      "job-data",
+		MountPath: ppsserver.JobDataPath,
 	})
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range jobInfo.Transform.ImagePullSecrets {
