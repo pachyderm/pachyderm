@@ -52,6 +52,13 @@ const (
 	branchesPrefix      = "/branches"
 )
 
+var (
+	provenanceIndex = col.Index{
+		Field: "Provenance",
+		Multi: true,
+	}
+)
+
 // NewDriver is used to create a new Driver instance
 func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -69,7 +76,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 		repos: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, reposPrefix),
-			nil,
+			[]col.Index{provenanceIndex},
 			&pfs.RepoInfo{},
 		),
 		repoRefCounts: col.NewCollection(
@@ -82,10 +89,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 			return col.NewCollection(
 				etcdClient,
 				path.Join(etcdPrefix, commitsPrefix, repo),
-				[]col.Index{{
-					Field: "Provenance",
-					Multi: true,
-				}},
+				[]col.Index{provenanceIndex},
 				&pfs.CommitInfo{},
 			)
 		},
@@ -667,10 +671,71 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	return iterator, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
-	//for _, commit := range fromCommits {
-	//}
-	return nil, nil
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) watch.EventChan {
+	commitChan := make(watch.EventChan)
+	for _, commit := range fromCommits {
+		// get repos that have the commit's repo as provenance
+		repos, err := d.flushRepo(ctx, commit.Repo)
+		if err != nil {
+			commitChan <- &watch.Event{
+				Type: watch.EventError,
+				Err:  err,
+			}
+			return commitChan
+		}
+		for _, repo := range repos {
+			if toRepos != nil {
+				// Only return commits in toRepos
+				var found bool
+				for _, toRepo := range toRepos {
+					if repo.Repo.Name == toRepo.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+			commitEvents := d.commits(repo.Repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
+			go func(commit *pfs.Commit) {
+				ev, ok := <-commitEvents
+				if !ok {
+					commitChan <- &watch.Event{
+						Type: watch.EventError,
+						Err:  fmt.Errorf("stream for commits that have %v as provenance closed unexpectedly", commit),
+					}
+					return
+				}
+				// We only expect to receive one commit per repo,
+				// because usually there's only one commit per repo
+				// that has a given commit as provenance.
+				commitChan <- ev
+			}(commit)
+		}
+	}
+	return commitChan
+}
+
+func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
+	iter, err := d.repos.ReadOnly(ctx).GetByIndex(provenanceIndex, repo)
+	if err != nil {
+		return nil, err
+	}
+	var repoInfos []*pfs.RepoInfo
+	for {
+		var repoName string
+		repoInfo := new(pfs.RepoInfo)
+		ok, err := iter.Next(&repoName, repoInfo)
+		if !ok {
+			return repoInfos, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		repoInfos = append(repoInfos, repoInfo)
+	}
+	panic("unreachable")
 }
 
 func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
