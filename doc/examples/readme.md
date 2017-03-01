@@ -14,7 +14,7 @@ Edge detection using OpenCV on whatever images you want. More interesting than t
 
 ## Web Scraper
 
-Using ``wget`` to build a distrbuted web scraper. Scraping is such a common task that we wanted to give you a simple example just in Shell.
+Using ``wget`` to build a distributed web scraper. Scraping is such a common task that we wanted to give you a simple example just in Shell.
 
 [Web Scraper](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/scraper)
 
