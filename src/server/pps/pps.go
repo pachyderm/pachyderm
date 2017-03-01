@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	// JobDataPath specifies ephemereal storage on the host for job data.
 	JobDataPath = "/var/pachyderm/job-data"
 )
 
