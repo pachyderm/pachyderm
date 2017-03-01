@@ -263,18 +263,19 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
 // no matter what, FlushCommit just allows you to wait for them to complete and
 // see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
-	commitInfos, err := c.PfsAPIClient.FlushCommit(
-		c.ctx(),
+func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
+	ctx, cancel := context.WithCancel(c.ctx())
+	stream, err := c.PfsAPIClient.FlushCommit(
+		ctx,
 		&pfs.FlushCommitRequest{
-			Commit: commits,
-			ToRepo: toRepos,
+			Commits: commits,
+			ToRepos: toRepos,
 		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return commitInfos.CommitInfo, nil
+	return &commitInfoIterator{stream, cancel}, nil
 }
 
 type CommitInfoIterator interface {
