@@ -25,11 +25,14 @@ type APIServer interface {
 }
 
 const (
-	pipelinesPrefix   = "/pipelines"
-	jobsPrefix        = "/jobs"
-	jobsPipelineIndex = "Pipeline"
-	jobsInputsIndex   = "Inputs"
-	stoppedIndex      = "Stopped"
+	pipelinesPrefix = "/pipelines"
+	jobsPrefix      = "/jobs"
+)
+
+var (
+	jobsPipelineIndex = col.Index{"Pipeline", false}
+	jobsInputsIndex   = col.Index{"Inputs", false}
+	stoppedIndex      = col.Index{"Stopped", false}
 )
 
 // NewAPIServer creates an APIServer.

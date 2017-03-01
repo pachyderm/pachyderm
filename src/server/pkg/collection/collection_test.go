@@ -13,8 +13,9 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 )
 
-const (
-	PipelineIndex Index = "Pipeline"
+var (
+	pipelineIndex    Index = Index{"Pipeline", false}
+	inputsMultiIndex Index = Index{"Inputs", true}
 )
 
 func TestIndex(t *testing.T) {
@@ -22,7 +23,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	persons := NewCollection(etcdClient, uuidPrefix, []Index{PipelineIndex})
+	persons := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex})
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -47,7 +48,7 @@ func TestIndex(t *testing.T) {
 
 	personsReadonly := persons.ReadOnly(context.Background())
 
-	iter, err := personsReadonly.GetByIndex(PipelineIndex, j1.Pipeline)
+	iter, err := personsReadonly.GetByIndex(pipelineIndex, j1.Pipeline)
 	require.NoError(t, err)
 	var ID string
 	job := new(pps.JobInfo)
@@ -65,7 +66,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	iter, err = personsReadonly.GetByIndex(PipelineIndex, j3.Pipeline)
+	iter, err = personsReadonly.GetByIndex(pipelineIndex, j3.Pipeline)
 	require.NoError(t, err)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
@@ -82,7 +83,7 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	persons := NewCollection(etcdClient, uuidPrefix, []Index{PipelineIndex})
+	persons := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex})
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -97,7 +98,7 @@ func TestIndexWatch(t *testing.T) {
 
 	personsReadonly := persons.ReadOnly(context.Background())
 
-	eventCh := personsReadonly.WatchByIndex(PipelineIndex, j1.Pipeline.String())
+	eventCh := personsReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.String())
 	var ID string
 	job := new(pps.JobInfo)
 	event := <-eventCh
@@ -169,6 +170,100 @@ func TestIndexWatch(t *testing.T) {
 	require.Equal(t, event.Type, watch.EventDelete)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j2.Job.ID, ID)
+}
+
+func TestMultiIndex(t *testing.T) {
+	etcdClient, err := getEtcdClient()
+	require.NoError(t, err)
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	persons := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex})
+
+	j1 := &pps.JobInfo{
+		Job: &pps.Job{"j1"},
+		Inputs: []*pps.JobInput{
+			{Name: "input1"},
+			{Name: "input2"},
+			{Name: "input3"},
+		},
+	}
+	j2 := &pps.JobInfo{
+		Job: &pps.Job{"j2"},
+		Inputs: []*pps.JobInput{
+			{Name: "input1"},
+			{Name: "input2"},
+			{Name: "input3"},
+		},
+	}
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j1.Job.ID, j1)
+		persons.Put(j2.Job.ID, j2)
+		return nil
+	})
+	require.NoError(t, err)
+
+	personsReadonly := persons.ReadOnly(context.Background())
+
+	iter, err := personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+		Name: "input1",
+	})
+	require.NoError(t, err)
+	var ID string
+	job := new(pps.JobInfo)
+	ok, err := iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j1.Job.ID, ID)
+	require.Equal(t, j1, job)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j2.Job.ID, ID)
+	require.Equal(t, j2, job)
+
+	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+		Name: "input2",
+	})
+	require.NoError(t, err)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j1.Job.ID, ID)
+	require.Equal(t, j1, job)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j2.Job.ID, ID)
+	require.Equal(t, j2, job)
+
+	j1.Inputs[2] = &pps.JobInput{Name: "input4"}
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		persons := persons.ReadWrite(stm)
+		persons.Put(j1.Job.ID, j1)
+		return nil
+	})
+	require.NoError(t, err)
+
+	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+		Name: "input3",
+	})
+	require.NoError(t, err)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j2.Job.ID, ID)
+	require.Equal(t, j2, job)
+
+	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+		Name: "input4",
+	})
+	require.NoError(t, err)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j1.Job.ID, ID)
+	require.Equal(t, j1, job)
 }
 
 func getEtcdClient() (*etcd.Client, error) {
