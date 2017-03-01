@@ -1880,6 +1880,229 @@ func getClient(t *testing.T) pclient.APIClient {
 	return *c
 }
 
+func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
+	var commitInfos []*pfs.CommitInfo
+	for {
+		commitInfo, err := commitInfoIter.Next()
+		if commitInfo == nil {
+			return commitInfos, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
+	}
+}
+
+func TestFlush(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("B"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("C"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:       pclient.NewRepo("D"),
+		Provenance: []*pfs.Repo{pclient.NewRepo("B")},
+	})
+	require.NoError(t, err)
+	ACommit, err := client.StartCommit("A", "")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+
+	// do the other commits in a goro so we can block for them
+	go func() {
+		BCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfs.StartCommitRequest{
+				Parent:     pclient.NewCommit("B", ""),
+				Provenance: []*pfs.Commit{ACommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+		CCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfs.StartCommitRequest{
+				Parent:     pclient.NewCommit("C", ""),
+				Provenance: []*pfs.Commit{BCommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("C", CCommit.ID))
+		DCommit, err := client.PfsAPIClient.StartCommit(
+			context.Background(),
+			&pfs.StartCommitRequest{
+				Parent:     pclient.NewCommit("D", ""),
+				Provenance: []*pfs.Commit{BCommit},
+			},
+		)
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit("D", DCommit.ID))
+	}()
+
+	// Flush ACommit
+	commitInfoIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	commitInfos, err := collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+
+	commitInfoIter, err = client.FlushCommit(
+		[]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)},
+		[]*pfs.Repo{pclient.NewRepo("C")},
+	)
+	require.NoError(t, err)
+	commitInfos, err = collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+}
+
+//func TestFlush2(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+//require.NoError(t, client.CreateRepo("A"))
+//require.NoError(t, client.CreateRepo("B"))
+//_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+//Repo:       pclient.NewRepo("C"),
+//Provenance: []*pfs.Repo{pclient.NewRepo("A"), pclient.NewRepo("B")},
+//})
+//require.NoError(t, err)
+
+//ACommit, err := client.StartCommit("A", "master")
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("A", ACommit.ID))
+//BCommit, err := client.StartCommit("B", "master")
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("B", BCommit.ID))
+//CCommit, err := client.PfsAPIClient.StartCommit(
+//context.Background(),
+//&pfs.StartCommitRequest{
+//Parent:     pclient.NewCommit("C", "master"),
+//Provenance: []*pfs.Commit{ACommit, BCommit},
+//},
+//)
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("C", CCommit.ID))
+
+//BCommit, err = client.StartCommit("B", "master")
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("B", BCommit.ID))
+//CCommit, err = client.PfsAPIClient.StartCommit(
+//context.Background(),
+//&pfs.StartCommitRequest{
+//Parent:     pclient.NewCommit("C", "master"),
+//Provenance: []*pfs.Commit{ACommit, BCommit},
+//},
+//)
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("C", CCommit.ID))
+
+//commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 3, len(commitInfos))
+
+//require.Equal(t, commitInfos[2].Commit.Repo.Name, "C")
+//require.Equal(t, commitInfos[2].Commit.ID, "master/1")
+//}
+
+//func TestFlushCommitReturnsFromCommit(t *testing.T) {
+//t.Parallel()
+//c := getClient(t)
+//repo := "TestFlushCommitReturnsFromCommit"
+//require.NoError(t, c.CreateRepo(repo))
+//_, err := c.StartCommit(repo, "master")
+//require.NoError(t, err)
+//require.NoError(t, c.FinishCommit(repo, "master"))
+//commitInfos, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, "master")}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 1, len(commitInfos))
+//}
+
+//func TestFlushOpenCommit(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+//require.NoError(t, client.CreateRepo("A"))
+//_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+//Repo:       pclient.NewRepo("B"),
+//Provenance: []*pfs.Repo{pclient.NewRepo("A")},
+//})
+//ACommit, err := client.StartCommit("A", "master")
+//require.NoError(t, err)
+
+//// do the other commits in a goro so we can block for them
+//go func() {
+//time.Sleep(5 * time.Second)
+//require.NoError(t, client.FinishCommit("A", ACommit.ID))
+//BCommit, err := client.PfsAPIClient.StartCommit(
+//context.Background(),
+//&pfs.StartCommitRequest{
+//Parent:     pclient.NewCommit("B", "master"),
+//Provenance: []*pfs.Commit{ACommit},
+//},
+//)
+//require.NoError(t, err)
+//require.NoError(t, client.FinishCommit("B", BCommit.ID))
+//}()
+
+//// Flush ACommit
+//commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 2, len(commitInfos))
+//}
+
+//func TestEmptyFlush(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+//_, err := client.FlushCommit(nil, nil)
+//require.NoError(t, err)
+//}
+
+//func TestShardingInTopLevel(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+
+//repo := "test"
+//require.NoError(t, client.CreateRepo(repo))
+
+//folders := 4
+//filesPerFolder := 10
+
+//commit, err := client.StartCommit(repo, "master")
+//require.NoError(t, err)
+//for i := 0; i < folders; i++ {
+//for j := 0; j < filesPerFolder; j++ {
+//_, err = client.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+//require.NoError(t, err)
+//}
+//}
+//require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+//totalFiles := 0
+//for i := 0; i < folders; i++ {
+//shard := &pfs.Shard{
+//FileNumber:  uint64(i),
+//FileModulus: uint64(folders),
+//}
+//for j := 0; j < folders; j++ {
+//// You should either see all files in the folder (if the folder
+//// matches the shard), or a NotFound error (if the folder does not
+//// match the shard).
+//fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", false, shard, false)
+//require.True(t, err != nil || len(fileInfos) == filesPerFolder)
+//totalFiles += len(fileInfos)
+//}
+//}
+//require.Equal(t, folders*filesPerFolder, totalFiles)
+//}
+
 func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }

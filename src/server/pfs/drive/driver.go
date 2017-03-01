@@ -671,33 +671,55 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	return iterator, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) watch.EventChan {
-	commitChan := make(watch.EventChan)
-	for _, commit := range fromCommits {
-		// get repos that have the commit's repo as provenance
-		repos, err := d.flushRepo(ctx, commit.Repo)
-		if err != nil {
-			commitChan <- &watch.Event{
-				Type: watch.EventError,
-				Err:  err,
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, error) {
+	var repos []*pfs.Repo
+	if toRepos != nil {
+		repos = toRepos
+	} else {
+		var downstreamRepos []*pfs.Repo
+		// keep track of how many times a repo appears downstream of
+		// a repo in fromCommits.
+		repoCounts := make(map[string]int)
+		// Find the repos that have *all* the given repos as provenance
+		for _, commit := range fromCommits {
+			// get repos that have the commit's repo as provenance
+			repoInfos, err := d.flushRepo(ctx, commit.Repo)
+			if err != nil {
+				return nil, err
 			}
-			return commitChan
-		}
-		for _, repo := range repos {
-			if toRepos != nil {
-				// Only return commits in toRepos
-				var found bool
-				for _, toRepo := range toRepos {
-					if repo.Repo.Name == toRepo.Name {
-						found = true
-						break
+
+		NextRepoInfo:
+			for _, repoInfo := range repoInfos {
+				repoCounts[repoInfo.Repo.Name]++
+				for _, repo := range downstreamRepos {
+					if repoInfo.Repo.Name == repo.Name {
+						// Already in the list; skip it
+						continue NextRepoInfo
 					}
 				}
-				if !found {
-					continue
-				}
+				downstreamRepos = append(downstreamRepos, repoInfo.Repo)
 			}
-			commitEvents := d.commits(repo.Repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
+		}
+		for _, repo := range downstreamRepos {
+			// Only the repos that showed up as a downstream repo for
+			// len(fromCommits) repos will contain commits that are
+			// downstream of all fromCommits.
+			if repoCounts[repo.Name] == len(fromCommits) {
+				repos = append(repos, repo)
+			}
+		}
+	}
+
+	// A commit needs to show up len(fromCommits) times in order to
+	// prove that it indeed has all the fromCommits as provenance.
+	commitCounts := make(map[string]int)
+	var commitCountsLock sync.Mutex
+	// When we've sent len(repos) commits, we are done
+	var numCommitsSent int
+	commitChan := make(watch.EventChan, len(repos))
+	for _, commit := range fromCommits {
+		for _, repo := range repos {
+			commitEvents := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
 			go func(commit *pfs.Commit) {
 				ev, ok := <-commitEvents
 				if !ok {
@@ -707,14 +729,28 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 					}
 					return
 				}
-				// We only expect to receive one commit per repo,
-				// because usually there's only one commit per repo
-				// that has a given commit as provenance.
-				commitChan <- ev
+				commitID := string(ev.Key)
+				commitCountsLock.Lock()
+				defer commitCountsLock.Unlock()
+				commitCounts[commitID]++
+				if commitCounts[commitID] == len(fromCommits) {
+					// The reason we only receive one event from the
+					// cannel is that We only expect to receive one
+					// commit per repo, because usually there's only
+					// one commit per repo that has a given commit as
+					// provenance.
+					// Wrapping it in a select in case a send fails
+					// because the other side closed.
+					commitChan <- ev
+					numCommitsSent++
+					if numCommitsSent == len(repos) {
+						close(commitChan)
+					}
+				}
 			}(commit)
 		}
 	}
-	return commitChan
+	return commitChan, nil
 }
 
 func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
