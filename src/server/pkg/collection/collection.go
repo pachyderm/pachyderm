@@ -18,9 +18,16 @@ type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
 	indexes    []Index
+	// We need this to figure out the concrete type of the objects
+	// that this collection is storing. It's pretty retarded, but
+	// not sure what else we can do since types in Go are not first-class
+	// objects.
+	// To be clear, this is only necessary because of `Delete`, where we
+	// need to know the type in order to properly remove secondary indexes.
+	template proto.Message
 }
 
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -33,6 +40,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index) Coll
 		prefix:     prefix,
 		etcdClient: etcdClient,
 		indexes:    indexes,
+		template:   template,
 	}
 }
 
@@ -176,18 +184,24 @@ func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	return nil
 }
 
-func (c *readWriteCollection) Delete(key string, vals ...proto.Message) error {
+func (c *readWriteCollection) Delete(key string) error {
 	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
-	if c.indexes != nil && len(vals) > 0 {
-		val := vals[0]
+	if c.indexes != nil && c.template != nil {
+		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			// If we can get the value, we remove the corresponding indexes
 			if err := c.Get(key, val); err == nil {
-				indexPath := c.getIndexPath(val, index, key)
-				c.stm.Del(indexPath)
+				if index.Multi {
+					indexPaths := c.getMultiIndexPaths(val, index, key)
+					for _, indexPath := range indexPaths {
+						c.stm.Del(indexPath)
+					}
+				} else {
+					indexPath := c.getIndexPath(val, index, key)
+					c.stm.Del(indexPath)
+				}
 			}
 		}
 	}

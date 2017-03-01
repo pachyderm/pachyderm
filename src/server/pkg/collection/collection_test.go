@@ -23,7 +23,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	persons := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{})
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -38,17 +38,17 @@ func TestIndex(t *testing.T) {
 		Pipeline: &pps.Pipeline{"p2"},
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1)
-		persons.Put(j2.Job.ID, j2)
-		persons.Put(j3.Job.ID, j3)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
+		jobInfos.Put(j2.Job.ID, j2)
+		jobInfos.Put(j3.Job.ID, j3)
 		return nil
 	})
 	require.NoError(t, err)
 
-	personsReadonly := persons.ReadOnly(context.Background())
+	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	iter, err := personsReadonly.GetByIndex(pipelineIndex, j1.Pipeline)
+	iter, err := jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline)
 	require.NoError(t, err)
 	var ID string
 	job := new(pps.JobInfo)
@@ -66,7 +66,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	iter, err = personsReadonly.GetByIndex(pipelineIndex, j3.Pipeline)
+	iter, err = jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline)
 	require.NoError(t, err)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
@@ -83,22 +83,22 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	persons := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{})
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
 		Pipeline: &pps.Pipeline{"p1"},
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
 		return nil
 	})
 	require.NoError(t, err)
 
-	personsReadonly := persons.ReadOnly(context.Background())
+	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	eventCh := personsReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.String())
+	eventCh := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.String())
 	var ID string
 	job := new(pps.JobInfo)
 	event := <-eventCh
@@ -111,8 +111,8 @@ func TestIndexWatch(t *testing.T) {
 	// Now we will put j1 again, unchanged.  We want to make sure
 	// that we do not receive an event.
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
 		return nil
 	})
 
@@ -128,8 +128,8 @@ func TestIndexWatch(t *testing.T) {
 	}
 
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j2.Job.ID, j2)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j2.Job.ID, j2)
 		return nil
 	})
 	require.NoError(t, err)
@@ -146,8 +146,8 @@ func TestIndexWatch(t *testing.T) {
 		Pipeline: &pps.Pipeline{"p3"},
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1Prime)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1Prime)
 		return nil
 	})
 	require.NoError(t, err)
@@ -159,8 +159,8 @@ func TestIndexWatch(t *testing.T) {
 	require.Equal(t, j1.Job.ID, ID)
 
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Delete(j2.Job.ID, &pps.JobInfo{})
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Delete(j2.Job.ID)
 		return nil
 	})
 	require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	persons := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex}, &pps.JobInfo{})
 
 	j1 := &pps.JobInfo{
 		Job: &pps.Job{"j1"},
@@ -196,16 +196,16 @@ func TestMultiIndex(t *testing.T) {
 		},
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1)
-		persons.Put(j2.Job.ID, j2)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
+		jobInfos.Put(j2.Job.ID, j2)
 		return nil
 	})
 	require.NoError(t, err)
 
-	personsReadonly := persons.ReadOnly(context.Background())
+	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	iter, err := personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+	iter, err := jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
 		Name: "input1",
 	})
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestMultiIndex(t *testing.T) {
 	require.Equal(t, j2.Job.ID, ID)
 	require.Equal(t, j2, job)
 
-	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
 		Name: "input2",
 	})
 	require.NoError(t, err)
@@ -239,13 +239,13 @@ func TestMultiIndex(t *testing.T) {
 
 	j1.Inputs[2] = &pps.JobInput{Name: "input4"}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		persons := persons.ReadWrite(stm)
-		persons.Put(j1.Job.ID, j1)
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
 		return nil
 	})
 	require.NoError(t, err)
 
-	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
 		Name: "input3",
 	})
 	require.NoError(t, err)
@@ -255,7 +255,7 @@ func TestMultiIndex(t *testing.T) {
 	require.Equal(t, j2.Job.ID, ID)
 	require.Equal(t, j2, job)
 
-	iter, err = personsReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
 		Name: "input4",
 	})
 	require.NoError(t, err)
@@ -264,6 +264,22 @@ func TestMultiIndex(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, j1.Job.ID, ID)
 	require.Equal(t, j1, job)
+
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Delete(j1.Job.ID)
+		return nil
+	})
+
+	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
+		Name: "input1",
+	})
+	require.NoError(t, err)
+	ok, err = iter.Next(&ID, job)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, j2.Job.ID, ID)
+	require.Equal(t, j2, job)
 }
 
 func getEtcdClient() (*etcd.Client, error) {

@@ -76,11 +76,13 @@ func NewAPIServer(
 			etcdClient,
 			path.Join(etcdPrefix, pipelinesPrefix),
 			[]col.Index{stoppedIndex},
+			&ppsclient.PipelineInfo{},
 		),
 		jobs: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, jobsPrefix),
 			[]col.Index{jobsPipelineIndex, stoppedIndex, jobsInputsIndex},
+			&ppsclient.JobInfo{},
 		),
 	}
 	go apiServer.pipelineWatcher()
