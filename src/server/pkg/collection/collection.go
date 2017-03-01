@@ -96,30 +96,70 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 	return reflect.New(val.Type()).Interface().(proto.Message)
 }
 
-func (c *readWriteCollection) indexPathFromVal(val proto.Message, index Index, key string) string {
+// Giving a value, an index, and the key of the item, return the path
+// under which the new index item should be stored.
+func (c *readWriteCollection) getIndexPath(val proto.Message, index Index, key string) string {
 	r := reflect.ValueOf(val)
-	f := reflect.Indirect(r).FieldByName(string(index)).Interface()
+	f := reflect.Indirect(r).FieldByName(index.Field).Interface()
 	indexKey := fmt.Sprintf("%s", f)
 	return c.indexPath(index, indexKey, key)
 }
 
+// Giving a value, a multi-index, and the key of the item, return the
+// paths under which the multi-index items should be stored.
+func (c *readWriteCollection) getMultiIndexPaths(val proto.Message, index Index, key string) []string {
+	var indexPaths []string
+	f := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
+	for i := 0; i < f.Len(); i++ {
+		indexKey := fmt.Sprintf("%s", f.Index(i).Interface())
+		indexPaths = append(indexPaths, c.indexPath(index, indexKey, key))
+	}
+	return indexPaths
+}
+
 func (c *readWriteCollection) Put(key string, val proto.Message) {
 	if c.indexes != nil {
+		clone := cloneProtoMsg(val)
 		for _, index := range c.indexes {
-			indexPath := c.indexPathFromVal(val, index, key)
-			clone := cloneProtoMsg(val)
-			// If we can get the original value, we remove the original indexes
-			if err := c.Get(key, clone); err == nil {
-				originalIndexPath := c.indexPathFromVal(clone, index, key)
-				if originalIndexPath != indexPath {
-					c.stm.Del(originalIndexPath)
+			if index.Multi {
+				indexPaths := c.getMultiIndexPaths(val, index, key)
+				for _, indexPath := range indexPaths {
+					// Only put the index if it doesn't already exist; otherwise
+					// we might trigger an unnecessary event if someone is
+					// watching the index
+					if c.stm.Get(indexPath) == "" {
+						c.stm.Put(indexPath, key)
+					}
 				}
-			}
-			// Only put the index if it doesn't already exist; otherwise
-			// we might trigger an unnecessary event if someone is
-			// watching the index
-			if c.stm.Get(indexPath) == "" {
-				c.stm.Put(indexPath, key)
+				// If we can get the original value, we remove the original indexes
+				if err := c.Get(key, clone); err == nil {
+					for _, originalIndexPath := range c.getMultiIndexPaths(clone, index, key) {
+						var found bool
+						for _, indexPath := range indexPaths {
+							if originalIndexPath == indexPath {
+								found = true
+							}
+						}
+						if !found {
+							c.stm.Del(originalIndexPath)
+						}
+					}
+				}
+			} else {
+				indexPath := c.getIndexPath(val, index, key)
+				// If we can get the original value, we remove the original indexes
+				if err := c.Get(key, clone); err == nil {
+					originalIndexPath := c.getIndexPath(clone, index, key)
+					if originalIndexPath != indexPath {
+						c.stm.Del(originalIndexPath)
+					}
+				}
+				// Only put the index if it doesn't already exist; otherwise
+				// we might trigger an unnecessary event if someone is
+				// watching the index
+				if c.stm.Get(indexPath) == "" {
+					c.stm.Put(indexPath, key)
+				}
 			}
 		}
 	}
@@ -146,7 +186,7 @@ func (c *readWriteCollection) Delete(key string, vals ...proto.Message) error {
 		for _, index := range c.indexes {
 			// If we can get the value, we remove the corresponding indexes
 			if err := c.Get(key, val); err == nil {
-				indexPath := c.indexPathFromVal(val, index, key)
+				indexPath := c.getIndexPath(val, index, key)
 				c.stm.Del(indexPath)
 			}
 		}
