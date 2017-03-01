@@ -959,8 +959,8 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
 func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStore string,
 	persistentDisk string, secure bool) error {
-	switch {
-	case objectStore == "s3":
+	switch objectStore {
+	case "s3":
 		if len(args) != s3CustomArgs {
 			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
