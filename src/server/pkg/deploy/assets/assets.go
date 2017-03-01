@@ -960,53 +960,36 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStore string,
 	persistentDisk string, secure bool) error {
 	switch {
-	case persistentDisk == "aws" && objectStore == "s3":
+	case objectStore == "s3":
 		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for aws+s3 backend", s3CustomArgs)
+			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
 		}
 		volumeSize, err := strconv.Atoi(args[1])
 		if err != nil {
 			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
-		if err := WriteAssets(w, opts, minioBackend, amazonBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
-			return err
-		}
-		encoder := codec.NewEncoder(w, jsonEncoderHandle)
-		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-		return nil
-	case persistentDisk == "google" && objectStore == "s3":
-		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for google+s3 backend", s3CustomArgs)
-		}
-		volumeSize, err := strconv.Atoi(args[1])
-		if err != nil {
-			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
-		}
-		if err := WriteAssets(w, opts, minioBackend, googleBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
-			return err
-		}
-		encoder := codec.NewEncoder(w, jsonEncoderHandle)
-		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-		return nil
-	case persistentDisk == "azure" && objectStore == "s3":
-		if len(args) != s3CustomArgs {
-			return fmt.Errorf("Expected %d arguments for azure+s3 backend", s3CustomArgs)
-		}
-		volumeSize, err := strconv.Atoi(args[1])
-		if err != nil {
-			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
-		}
-		if err := WriteAssets(w, opts, minioBackend, microsoftBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
-			return err
+		switch persistentDisk {
+		case "aws":
+			if err := WriteAssets(w, opts, minioBackend, amazonBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "google":
+			if err := WriteAssets(w, opts, minioBackend, googleBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "azure":
+			if err := WriteAssets(w, opts, minioBackend, microsoftBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
 		encoder := codec.NewEncoder(w, jsonEncoderHandle)
 		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 		return nil
 	default:
-		return fmt.Errorf("Did not recognize the choice of persistent-disk or object-store")
+		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
 }
 
