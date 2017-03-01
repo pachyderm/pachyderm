@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,11 +99,14 @@ type apiServer struct {
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
-	versionLock        sync.RWMutex
-	namespace          string
-	jobShimImage       string
-	jobImagePullPolicy string
-	reporter           *metrics.Reporter
+	versionLock         sync.RWMutex
+	namespace           string
+	jobShimImage        string
+	jobImagePullPolicy  string
+	reporter            *metrics.Reporter
+	leasePeriodSecs     string
+	heartbeatSecs       string
+	maxHeartbeatRetries string
 }
 
 // JobInputs implements sort.Interface so job inputs can be sorted
@@ -463,7 +467,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	}
 
 	if request.Service != nil {
-		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.Service.InternalPort, request.Service.ExternalPort)
+		rc, service, err := service(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, request.Service.InternalPort, request.Service.ExternalPort, a.heartbeatSecs, a.maxHeartbeatRetries)
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +478,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 	} else {
-		job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy)
+		job, err := job(a.kubeClient, persistJobInfo, a.jobShimImage, a.jobImagePullPolicy, a.heartbeatSecs, a.maxHeartbeatRetries)
 		if err != nil {
 			return nil, err
 		}
@@ -1894,7 +1898,11 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 					podCommits = append(podCommits, chunk.Pods[len(chunk.Pods)-1].OutputCommit)
 					failed = true
 				case persist.ChunkState_ASSIGNED:
-					lm.Lease(chunk.ID, client.PPSLeasePeriod, func() {
+					secs, err := strconv.Atoi(a.leasePeriodSecs)
+					if err != nil {
+						return fmt.Errorf("invalid lease period: %s", a.leasePeriodSecs)
+					}
+					lm.Lease(chunk.ID, time.Duration(secs)*time.Second, func() {
 						b := backoff.NewExponentialBackOff()
 						b.MaxElapsedTime = 0
 						backoff.Retry(func() error {
@@ -2226,7 +2234,7 @@ type jobOptions struct {
 	imagePullSecrets   []api.LocalObjectReference
 }
 
-func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*jobOptions, error) {
+func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, heartbeatSecs string, maxHeartbeatRetries string) (*jobOptions, error) {
 	labels := labels(jobInfo.JobID)
 	parallelism64, err := GetExpectedNumWorkers(kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
@@ -2273,6 +2281,14 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 			},
 		},
 	})
+	jobEnv = append(jobEnv, api.EnvVar{
+		Name:  client.PPSHeartbeatSecsEnv,
+		Value: heartbeatSecs,
+	})
+	jobEnv = append(jobEnv, api.EnvVar{
+		Name:  client.PPSMaxHeartbeatRetriesEnv,
+		Value: maxHeartbeatRetries,
+	})
 
 	var volumes []api.Volume
 	var volumeMounts []api.VolumeMount
@@ -2301,18 +2317,17 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
-	dataPath := "pach-job-data"
 	volumes = append(volumes, api.Volume{
-		Name: dataPath,
+		Name: "job-data",
 		VolumeSource: api.VolumeSource{
 			HostPath: &api.HostPathVolumeSource{
-				Path: fmt.Sprintf("/%v", dataPath),
+				Path: ppsserver.JobDataPath,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      dataPath,
-		MountPath: fmt.Sprintf("/%v", dataPath),
+		Name:      "job-data",
+		MountPath: ppsserver.JobDataPath,
 	})
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range jobInfo.Transform.ImagePullSecrets {
@@ -2367,9 +2382,8 @@ func serviceName(jobID string) string {
 	return fmt.Sprintf("pach-%v", jobID)
 }
 
-func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32) (*api.ReplicationController, *api.Service, error) {
-
-	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, internalPort int32, externalPort int32, heartbeatSecs string, maxHeartbeatRetries string) (*api.ReplicationController, *api.Service, error) {
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy, heartbeatSecs, maxHeartbeatRetries)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2422,8 +2436,8 @@ func service(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage str
 }
 
 // Convert a persist.JobInfo into a Kubernetes batch.Job spec
-func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string) (*batch.Job, error) {
-	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy)
+func job(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, heartbeatSecs string, maxHeartbeatRetries string) (*batch.Job, error) {
+	options, err := getJobOptions(kubeClient, jobInfo, jobShimImage, jobImagePullPolicy, heartbeatSecs, maxHeartbeatRetries)
 	if err != nil {
 		return nil, err
 	}
