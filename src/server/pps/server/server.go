@@ -29,6 +29,9 @@ func NewAPIServer(
 	jobShimImage string,
 	jobImagePullPolicy string,
 	reporter *metrics.Reporter,
+	leasePeriodSecs string,
+	heartbeatSecs string,
+	maxHeartbeatRetries string,
 ) APIServer {
 	return &apiServer{
 		Logger:                  protorpclog.NewLogger("pps.API"),
@@ -51,5 +54,8 @@ func NewAPIServer(
 		jobShimImage:            jobShimImage,
 		jobImagePullPolicy:      jobImagePullPolicy,
 		reporter:                reporter,
+		leasePeriodSecs:         leasePeriodSecs,
+		heartbeatSecs:           heartbeatSecs,
+		maxHeartbeatRetries:     maxHeartbeatRetries,
 	}
 }
