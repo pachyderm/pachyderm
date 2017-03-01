@@ -19,14 +19,18 @@ const (
 	// see its own name.  The pod name is made available through the Kubernetes
 	// downward API.
 	PPSPodNameEnv = "PPS_POD_NAME"
-	// PPSLeasePeriodEnv is the amount of time for a lease on a chunk
+	// PPSLeasePeriodSecsEnv is the amount of time for a lease on a chunk
 	// to expire.
 	// That is, a pod needs to send ContinueJob to PPS at lease once every this
 	// amount of time in order to keep owning a chunk.  In reality, pods send
 	// ContinueJob more often than that because they need to account for network
 	// latency.
-	PPSLeasePeriodSecsEnv     = "PPS_LEASE_PERIOD_SECS"
-	PPSHeartbeatSecsEnv       = "PPS_HEARTBEAT_SECS"
+	PPSLeasePeriodSecsEnv = "PPS_LEASE_PERIOD_SECS"
+	// PPSHeartbeatSecsEnv controls how many seconds before a pod sends
+	// a heartbeat again.
+	PPSHeartbeatSecsEnv = "PPS_HEARTBEAT_SECS"
+	// PPSMaxHeartbeatRetriesEnv controls how many times a pod can fail
+	// to send heartbeats before it decides to shut itself down.
 	PPSMaxHeartbeatRetriesEnv = "PPS_MAX_HEARTBEAT_RETRIES"
 )
 
