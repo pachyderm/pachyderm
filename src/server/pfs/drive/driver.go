@@ -70,17 +70,23 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 			etcdClient,
 			path.Join(etcdPrefix, reposPrefix),
 			nil,
+			&pfs.RepoInfo{},
 		),
 		repoRefCounts: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, repoRefCountsPrefix),
+			nil,
 			nil,
 		),
 		commits: func(repo string) col.Collection {
 			return col.NewCollection(
 				etcdClient,
 				path.Join(etcdPrefix, commitsPrefix, repo),
-				nil,
+				[]col.Index{{
+					Field: "Provenance",
+					Multi: true,
+				}},
+				&pfs.CommitInfo{},
 			)
 		},
 		branches: func(repo string) col.Collection {
@@ -88,6 +94,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 				etcdClient,
 				path.Join(etcdPrefix, branchesPrefix, repo),
 				nil,
+				&pfs.Commit{},
 			)
 		},
 	}, nil
@@ -661,7 +668,8 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 }
 
 func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
-	// watch /prov/repo/commit/commit
+	//for _, commit := range fromCommits {
+	//}
 	return nil, nil
 }
 
