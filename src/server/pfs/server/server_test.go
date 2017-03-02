@@ -419,6 +419,20 @@ func TestDeleteCommitFuture(t *testing.T) {
 	require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
+func TestCleanPath(t *testing.T) {
+	t.Parallel()
+	c := getClient(t)
+	repo := "TestCleanPath"
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "./././file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	_, err = c.InspectFile(repo, commit.ID, "file")
+	require.NoError(t, err)
+}
+
 func TestBasicFile(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
