@@ -671,7 +671,17 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	return iterator, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, error) {
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, chan struct{}, error) {
+	if len(fromCommits) == 0 {
+		return nil, nil, fmt.Errorf("fromCommits cannot be empty")
+	}
+
+	for _, commit := range fromCommits {
+		if err := d.resolveBranch(ctx, commit); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	var repos []*pfs.Repo
 	if toRepos != nil {
 		repos = toRepos
@@ -685,7 +695,7 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 			// get repos that have the commit's repo as provenance
 			repoInfos, err := d.flushRepo(ctx, commit.Repo)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 		NextRepoInfo:
@@ -717,40 +727,68 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	// When we've sent len(repos) commits, we are done
 	var numCommitsSent int
 	commitChan := make(watch.EventChan, len(repos))
+	// close this channel when we've sent len(repos) commits
+	doneSending := make(chan struct{})
+	// the receiver is supposed to close this channel when they are done
+	// getting the flushed commits, so that we can release resources.
+	doneReceiving := make(chan struct{})
+
+	if len(repos) == 0 {
+		close(commitChan)
+		return commitChan, doneReceiving, nil
+	}
+
 	for _, commit := range fromCommits {
 		for _, repo := range repos {
 			commitEvents := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
 			go func(commit *pfs.Commit) {
-				ev, ok := <-commitEvents
-				if !ok {
-					commitChan <- &watch.Event{
-						Type: watch.EventError,
-						Err:  fmt.Errorf("stream for commits that have %v as provenance closed unexpectedly", commit),
+				for {
+					var ev *watch.Event
+					var ok bool
+					select {
+					case ev, ok = <-commitEvents:
+					case <-doneReceiving:
+						return
+					case <-doneSending:
+						return
 					}
-					return
-				}
-				commitID := string(ev.Key)
-				commitCountsLock.Lock()
-				defer commitCountsLock.Unlock()
-				commitCounts[commitID]++
-				if commitCounts[commitID] == len(fromCommits) {
-					// The reason we only receive one event from the
-					// cannel is that We only expect to receive one
-					// commit per repo, because usually there's only
-					// one commit per repo that has a given commit as
-					// provenance.
-					// Wrapping it in a select in case a send fails
-					// because the other side closed.
-					commitChan <- ev
-					numCommitsSent++
-					if numCommitsSent == len(repos) {
-						close(commitChan)
+					if !ok {
+						commitChan <- &watch.Event{
+							Type: watch.EventError,
+							Err:  fmt.Errorf("stream for commits that have %v as provenance closed unexpectedly", commit),
+						}
+						return
+					}
+					fmt.Printf("receiving event: %s\n", string(ev.Value))
+					commitID := string(ev.Key)
+					// Using a func just so we can unlock the commits in
+					// a refer function
+					if func() bool {
+						commitCountsLock.Lock()
+						defer commitCountsLock.Unlock()
+						commitCounts[commitID]++
+						return commitCounts[commitID] == len(fromCommits)
+					}() {
+						// Wrapping it in a select in case a send fails
+						// because the other side closed.
+						select {
+						case commitChan <- ev:
+						case <-doneReceiving:
+							return
+						case <-doneSending:
+							return
+						}
+						numCommitsSent++
+						if numCommitsSent == len(repos) {
+							close(commitChan)
+							close(doneSending)
+						}
 					}
 				}
 			}(commit)
 		}
 	}
-	return commitChan, nil
+	return commitChan, doneReceiving, nil
 }
 
 func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {

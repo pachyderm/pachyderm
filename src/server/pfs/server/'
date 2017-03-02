@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math/rand"
 	"strings"
 	"sync"
@@ -1885,7 +1884,7 @@ func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.Commi
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
+		if commitInfo == nil {
 			return commitInfos, nil
 		}
 		if err != nil {
@@ -2058,21 +2057,55 @@ func TestFlushOpenCommit(t *testing.T) {
 	}()
 
 	// Flush ACommit
-	commitIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
+	commitInfos, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
-	commitInfos, err := collectCommitInfos(commitIter)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 }
 
-func TestEmptyFlush(t *testing.T) {
-	t.Parallel()
-	client := getClient(t)
-	commitIter, err := client.FlushCommit(nil, nil)
-	require.NoError(t, err)
-	_, err = collectCommitInfos(commitIter)
-	require.YesError(t, err)
-}
+//func TestEmptyFlush(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+//_, err := client.FlushCommit(nil, nil)
+//require.NoError(t, err)
+//}
+
+//func TestShardingInTopLevel(t *testing.T) {
+//t.Parallel()
+//client := getClient(t)
+
+//repo := "test"
+//require.NoError(t, client.CreateRepo(repo))
+
+//folders := 4
+//filesPerFolder := 10
+
+//commit, err := client.StartCommit(repo, "master")
+//require.NoError(t, err)
+//for i := 0; i < folders; i++ {
+//for j := 0; j < filesPerFolder; j++ {
+//_, err = client.PutFile(repo, commit.ID, fmt.Sprintf("dir%d/file%d", i, j), strings.NewReader("foo\n"))
+//require.NoError(t, err)
+//}
+//}
+//require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+//totalFiles := 0
+//for i := 0; i < folders; i++ {
+//shard := &pfs.Shard{
+//FileNumber:  uint64(i),
+//FileModulus: uint64(folders),
+//}
+//for j := 0; j < folders; j++ {
+//// You should either see all files in the folder (if the folder
+//// matches the shard), or a NotFound error (if the folder does not
+//// match the shard).
+//fileInfos, err := client.ListFile(repo, commit.ID, fmt.Sprintf("dir%d", j), "", false, shard, false)
+//require.True(t, err != nil || len(fileInfos) == filesPerFolder)
+//totalFiles += len(fileInfos)
+//}
+//}
+//require.Equal(t, folders*filesPerFolder, totalFiles)
+//}
 
 func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()[0:12]

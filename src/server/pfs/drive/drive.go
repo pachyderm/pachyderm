@@ -59,7 +59,7 @@ type Driver interface {
 
 	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
 	SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error)
-	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, error)
+	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, chan struct{}, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
 	ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error)
