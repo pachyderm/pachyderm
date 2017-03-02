@@ -207,10 +207,13 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitEvents, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
+	commitEvents, doneReceiving, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		close(doneReceiving)
+	}()
 
 	for {
 		ev, ok := <-commitEvents
