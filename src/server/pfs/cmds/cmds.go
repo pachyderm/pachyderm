@@ -319,14 +319,21 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				toRepos = append(toRepos, client.NewRepo(repoName))
 			}
 
-			commitInfos, err := c.FlushCommit(commits, toRepos)
+			commitIter, err := c.FlushCommit(commits, toRepos)
 			if err != nil {
 				return err
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintCommitInfoHeader(writer)
-			for _, commitInfo := range commitInfos {
+			for {
+				commitInfo, err := commitIter.Next()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return err
+				}
 				pretty.PrintCommitInfo(writer, commitInfo)
 			}
 			return writer.Flush()
