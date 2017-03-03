@@ -54,11 +54,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 		}
 		fmt.Fprintf(w, "%s\t", strings.Join(inputNames, ", "))
 	}
-	if pipelineInfo.Output != nil {
-		fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Output.Repo.Name, pipelineInfo.Output.Branch)
-	} else {
-		fmt.Fprintf(w, "\t")
-	}
+	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
