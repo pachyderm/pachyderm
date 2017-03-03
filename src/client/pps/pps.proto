@@ -102,7 +102,8 @@ message JobInfo {
   JobState state = 10;
   Service service = 14;
   bool stopped = 16;
-  Output output = 17;
+  pfs.Repo outputRepo = 18;
+  string outputBranch = 17;
 }
 
 enum WorkerState {
@@ -130,11 +131,6 @@ message PipelineInput {
   string branch = 2;
   string glob = 3;
   bool lazy = 4;
-}
-
-message Output {
-  pfs.Repo repo = 1;
-  string branch = 2;
 }
 
 enum PipelineState {
@@ -180,7 +176,7 @@ message PipelineInfo {
   map<int32, int32> job_counts = 9;
   GCPolicy gc_policy = 12;
   bool stopped = 13;
-  Output output = 16;
+  string outputBranch = 16;
 }
 
 message PipelineInfos {
@@ -198,7 +194,8 @@ message CreateJobRequest {
   // When service is defined, we create a long running job
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
-  Output output = 11;
+  pfs.Repo outputRepo = 12;
+  string outputBranch = 11;
 }
 
 message InspectJobRequest {
@@ -228,7 +225,7 @@ message CreatePipelineRequest {
   Egress egress = 9;
   bool update = 5;
   GCPolicy gc_policy = 8;
-  Output output = 10;
+  string outputBranch = 10;
 }
 
 message InspectPipelineRequest {

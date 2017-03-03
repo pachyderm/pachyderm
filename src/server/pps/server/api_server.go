@@ -185,7 +185,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			PipelineVersion: pipelineInfo.Version,
 			ParallelismSpec: request.ParallelismSpec,
 			Inputs:          request.Inputs,
-			Output:          request.Output,
+			OutputRepo:      request.OutputRepo,
+			OutputBranch:    request.OutputBranch,
 			ParentJob:       nil,
 			Started:         now(),
 			Finished:        nil,
@@ -333,8 +334,8 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if strings.Contains(pipelineInfo.Pipeline.Name, "_") {
 		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineInfo.Pipeline.Name)
 	}
-	if pipelineInfo.Output == nil || pipelineInfo.Output.Repo == nil || pipelineInfo.Output.Branch == "" {
-		return fmt.Errorf("pipeline needs to specify an output with a repo and a branch name")
+	if pipelineInfo.OutputBranch == "" {
+		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
 	return nil
 }
@@ -351,7 +352,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Transform:       request.Transform,
 		ParallelismSpec: request.ParallelismSpec,
 		Inputs:          request.Inputs,
-		Output:          request.Output,
+		OutputBranch:    request.OutputBranch,
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
 	}
@@ -652,7 +653,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		// Create the output repo; if it already exists, do nothing
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       pipelineInfo.Output.Repo,
+			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -727,7 +728,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				Pipeline:        pipelineInfo.Pipeline,
 				ParallelismSpec: pipelineInfo.ParallelismSpec,
 				Inputs:          jobInputs,
-				Output:          pipelineInfo.Output,
+				OutputRepo:      &pfs.Repo{pipelineInfo.Pipeline.Name},
+				OutputBranch:    pipelineInfo.OutputBranch,
 				Egress:          pipelineInfo.Egress,
 			})
 			if err != nil {
@@ -869,14 +871,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// If the branch does not exist, create it
 		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 			Commit: &pfs.Commit{
-				Repo: jobInfo.Output.Repo,
-				ID:   jobInfo.Output.Branch,
+				Repo: jobInfo.OutputRepo,
+				ID:   jobInfo.OutputBranch,
 			},
 		})
 		if isNotFoundErr(err) {
 			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
-					Repo: jobInfo.Output.Repo,
+					Repo: jobInfo.OutputRepo,
 				},
 				Provenance: provenance,
 				Tree:       obj,
@@ -886,15 +888,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 			if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
 				Commit: outputCommit,
-				Branch: jobInfo.Output.Branch,
+				Branch: jobInfo.OutputBranch,
 			}); err != nil {
 				return err
 			}
 		} else {
 			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
-					Repo: jobInfo.Output.Repo,
-					ID:   jobInfo.Output.Branch,
+					Repo: jobInfo.OutputRepo,
+					ID:   jobInfo.OutputBranch,
 				},
 				Provenance: provenance,
 				Tree:       obj,
