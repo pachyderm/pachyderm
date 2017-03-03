@@ -333,6 +333,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if strings.Contains(pipelineInfo.Pipeline.Name, "_") {
 		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineInfo.Pipeline.Name)
 	}
+	if pipelineInfo.Output == nil || pipelineInfo.Output.Repo == nil || pipelineInfo.Output.Branch == "" {
+		return fmt.Errorf("pipeline needs to specify an output with a repo and a branch name")
+	}
 	return nil
 }
 
@@ -350,6 +353,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Inputs:          request.Inputs,
 		Output:          request.Output,
 		GcPolicy:        request.GcPolicy,
+		Egress:          request.Egress,
 	}
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
@@ -607,11 +611,15 @@ func (a *apiServer) jobWatcher() {
 }
 
 func isAlreadyExistsErr(err error) bool {
-	return strings.Contains(err.Error(), "already exists")
+	return err != nil && strings.Contains(err.Error(), "already exists")
+}
+
+func isNotFoundErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
 func isContextCancelledErr(err error) bool {
-	return strings.Contains(err.Error(), context.Canceled.Error())
+	return err != nil && strings.Contains(err.Error(), context.Canceled.Error())
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
@@ -644,7 +652,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		// Create the output repo; if it already exists, do nothing
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Repo:       pipelineInfo.Output.Repo,
 			Provenance: provenance,
 		}); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -720,6 +728,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				ParallelismSpec: pipelineInfo.ParallelismSpec,
 				Inputs:          jobInputs,
 				Output:          pipelineInfo.Output,
+				Egress:          pipelineInfo.Egress,
 			})
 			if err != nil {
 				return err
@@ -856,16 +865,45 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			provenance = append(provenance, input.Commit)
 		}
 
-		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{jobInfo.Pipeline.Name},
+		var outputCommit *pfs.Commit
+		// If the branch does not exist, create it
+		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: jobInfo.Output.Repo,
+				ID:   jobInfo.Output.Branch,
 			},
-			Provenance: provenance,
-			Tree:       obj,
 		})
-		if err != nil {
-			return err
+		if isNotFoundErr(err) {
+			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.Output.Repo,
+				},
+				Provenance: provenance,
+				Tree:       obj,
+			})
+			if err != nil {
+				return err
+			}
+			if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
+				Commit: outputCommit,
+				Branch: jobInfo.Output.Branch,
+			}); err != nil {
+				return err
+			}
+		} else {
+			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.Output.Repo,
+					ID:   jobInfo.Output.Branch,
+				},
+				Provenance: provenance,
+				Tree:       obj,
+			})
+			if err != nil {
+				return err
+			}
 		}
+
 		jobInfo.OutputCommit = outputCommit
 		jobInfo.Finished = now()
 		jobInfo.State = pps.JobState_JOB_SUCCESS
