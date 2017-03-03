@@ -170,15 +170,11 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name:   aRepo,
-			Repo:   client.NewRepo(aRepo),
-			Branch: "master",
-			Glob:   "/",
+			Name: aRepo,
+			Repo: client.NewRepo(aRepo),
+			Glob: "/",
 		}},
-		&pps.Output{
-			Repo:   &pfs.Repo{bPipeline},
-			Branch: "master",
-		},
+		"",
 		false,
 	))
 
@@ -194,20 +190,15 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name:   bPipeline,
-			Repo:   client.NewRepo(bPipeline),
-			Branch: "master",
-			Glob:   "/",
+			Name: bPipeline,
+			Repo: client.NewRepo(bPipeline),
+			Glob: "/",
 		}, {
-			Name:   eRepo,
-			Repo:   client.NewRepo(eRepo),
-			Branch: "master",
-			Glob:   "/",
+			Name: eRepo,
+			Repo: client.NewRepo(eRepo),
+			Glob: "/",
 		}},
-		&pps.Output{
-			Repo:   &pfs.Repo{cPipeline},
-			Branch: "master",
-		},
+		"",
 		false,
 	))
 
@@ -223,15 +214,11 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name:   cPipeline,
-			Repo:   client.NewRepo(cPipeline),
-			Branch: "master",
-			Glob:   "/",
+			Name: cPipeline,
+			Repo: client.NewRepo(cPipeline),
+			Glob: "/",
 		}},
-		&pps.Output{
-			Repo:   &pfs.Repo{dPipeline},
-			Branch: "master",
-		},
+		"",
 		false,
 	))
 
@@ -342,15 +329,11 @@ func TestPipelineJobDeletion(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name:   dataRepo,
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Glob:   "/",
-			Branch: "master",
+			Name: dataRepo,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
 		}},
-		&pps.Output{
-			Repo:   &pfs.Repo{pipelineName},
-			Branch: "master",
-		},
+		"",
 		false,
 	))
 
