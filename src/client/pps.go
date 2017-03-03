@@ -197,6 +197,7 @@ func (c APIClient) CreatePipeline(
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
+	outputBranch string,
 	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -210,6 +211,7 @@ func (c APIClient) CreatePipeline(
 			},
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
+			OutputBranch:    outputBranch,
 			Update:          update,
 		},
 	)
