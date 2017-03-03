@@ -17,12 +17,10 @@ limitations under the License.
 package internalversion
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	api "k8s.io/kubernetes/pkg/api"
 	batch "k8s.io/kubernetes/pkg/apis/batch"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
+	watch "k8s.io/kubernetes/pkg/watch"
 )
 
 // CronJobsGetter has a method to return a CronJobInterface.
@@ -36,18 +34,18 @@ type CronJobInterface interface {
 	Create(*batch.CronJob) (*batch.CronJob, error)
 	Update(*batch.CronJob) (*batch.CronJob, error)
 	UpdateStatus(*batch.CronJob) (*batch.CronJob, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*batch.CronJob, error)
-	List(opts v1.ListOptions) (*batch.CronJobList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *batch.CronJob, err error)
+	Delete(name string, options *api.DeleteOptions) error
+	DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error
+	Get(name string) (*batch.CronJob, error)
+	List(opts api.ListOptions) (*batch.CronJobList, error)
+	Watch(opts api.ListOptions) (watch.Interface, error)
+	Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *batch.CronJob, err error)
 	CronJobExpansion
 }
 
 // cronJobs implements CronJobInterface
 type cronJobs struct {
-	client rest.Interface
+	client restclient.Interface
 	ns     string
 }
 
@@ -84,9 +82,6 @@ func (c *cronJobs) Update(cronJob *batch.CronJob) (result *batch.CronJob, err er
 	return
 }
 
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclientstatus=false comment above the type to avoid generating UpdateStatus().
-
 func (c *cronJobs) UpdateStatus(cronJob *batch.CronJob) (result *batch.CronJob, err error) {
 	result = &batch.CronJob{}
 	err = c.client.Put().
@@ -101,7 +96,7 @@ func (c *cronJobs) UpdateStatus(cronJob *batch.CronJob) (result *batch.CronJob, 
 }
 
 // Delete takes name of the cronJob and deletes it. Returns an error if one occurs.
-func (c *cronJobs) Delete(name string, options *v1.DeleteOptions) error {
+func (c *cronJobs) Delete(name string, options *api.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("cronjobs").
@@ -112,53 +107,52 @@ func (c *cronJobs) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *cronJobs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *cronJobs) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("cronjobs").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
 }
 
 // Get takes name of the cronJob, and returns the corresponding cronJob object, and an error if there is any.
-func (c *cronJobs) Get(name string, options v1.GetOptions) (result *batch.CronJob, err error) {
+func (c *cronJobs) Get(name string) (result *batch.CronJob, err error) {
 	result = &batch.CronJob{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("cronjobs").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of CronJobs that match those selectors.
-func (c *cronJobs) List(opts v1.ListOptions) (result *batch.CronJobList, err error) {
+func (c *cronJobs) List(opts api.ListOptions) (result *batch.CronJobList, err error) {
 	result = &batch.CronJobList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("cronjobs").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested cronJobs.
-func (c *cronJobs) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
+func (c *cronJobs) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("cronjobs").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 
 // Patch applies the patch and returns the patched cronJob.
-func (c *cronJobs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *batch.CronJob, err error) {
+func (c *cronJobs) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *batch.CronJob, err error) {
 	result = &batch.CronJob{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).

@@ -17,18 +17,19 @@ limitations under the License.
 package internalversion
 
 import (
-	rest "k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	api "k8s.io/kubernetes/pkg/api"
+	registered "k8s.io/kubernetes/pkg/apimachinery/registered"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
 )
 
 type AppsInterface interface {
-	RESTClient() rest.Interface
+	RESTClient() restclient.Interface
 	StatefulSetsGetter
 }
 
-// AppsClient is used to interact with features provided by the apps group.
+// AppsClient is used to interact with features provided by the k8s.io/kubernetes/pkg/apimachinery/registered.Group group.
 type AppsClient struct {
-	restClient rest.Interface
+	restClient restclient.Interface
 }
 
 func (c *AppsClient) StatefulSets(namespace string) StatefulSetInterface {
@@ -36,12 +37,12 @@ func (c *AppsClient) StatefulSets(namespace string) StatefulSetInterface {
 }
 
 // NewForConfig creates a new AppsClient for the given config.
-func NewForConfig(c *rest.Config) (*AppsClient, error) {
+func NewForConfig(c *restclient.Config) (*AppsClient, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	client, err := restclient.RESTClientFor(&config)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func NewForConfig(c *rest.Config) (*AppsClient, error) {
 
 // NewForConfigOrDie creates a new AppsClient for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *AppsClient {
+func NewForConfigOrDie(c *restclient.Config) *AppsClient {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -59,25 +60,25 @@ func NewForConfigOrDie(c *rest.Config) *AppsClient {
 }
 
 // New creates a new AppsClient for the given RESTClient.
-func New(c rest.Interface) *AppsClient {
+func New(c restclient.Interface) *AppsClient {
 	return &AppsClient{c}
 }
 
-func setConfigDefaults(config *rest.Config) error {
-	g, err := scheme.Registry.Group("apps")
+func setConfigDefaults(config *restclient.Config) error {
+	// if apps group is not registered, return an error
+	g, err := registered.Group("apps")
 	if err != nil {
 		return err
 	}
-
 	config.APIPath = "/apis"
 	if config.UserAgent == "" {
-		config.UserAgent = rest.DefaultKubernetesUserAgent()
+		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
 	if config.GroupVersion == nil || config.GroupVersion.Group != g.GroupVersion.Group {
-		gv := g.GroupVersion
-		config.GroupVersion = &gv
+		copyGroupVersion := g.GroupVersion
+		config.GroupVersion = &copyGroupVersion
 	}
-	config.NegotiatedSerializer = scheme.Codecs
+	config.NegotiatedSerializer = api.Codecs
 
 	if config.QPS == 0 {
 		config.QPS = 5
@@ -85,13 +86,12 @@ func setConfigDefaults(config *rest.Config) error {
 	if config.Burst == 0 {
 		config.Burst = 10
 	}
-
 	return nil
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *AppsClient) RESTClient() rest.Interface {
+func (c *AppsClient) RESTClient() restclient.Interface {
 	if c == nil {
 		return nil
 	}

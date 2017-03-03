@@ -16,10 +16,7 @@ limitations under the License.
 
 package internalversion
 
-import (
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubernetes/pkg/api"
-)
+import "k8s.io/kubernetes/pkg/api"
 
 // The NodeExpansion interface allows manually adding extra methods to the NodeInterface.
 type NodeExpansion interface {
@@ -32,7 +29,7 @@ type NodeExpansion interface {
 // the node that the server returns, or an error.
 func (c *nodes) PatchStatus(nodeName string, data []byte) (*api.Node, error) {
 	result := &api.Node{}
-	err := c.client.Patch(types.StrategicMergePatchType).
+	err := c.client.Patch(api.StrategicMergePatchType).
 		Resource("nodes").
 		Name(nodeName).
 		SubResource("status").

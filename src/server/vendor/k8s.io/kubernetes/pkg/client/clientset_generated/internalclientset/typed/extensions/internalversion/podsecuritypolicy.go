@@ -17,12 +17,10 @@ limitations under the License.
 package internalversion
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	api "k8s.io/kubernetes/pkg/api"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
+	watch "k8s.io/kubernetes/pkg/watch"
 )
 
 // PodSecurityPoliciesGetter has a method to return a PodSecurityPolicyInterface.
@@ -35,18 +33,18 @@ type PodSecurityPoliciesGetter interface {
 type PodSecurityPolicyInterface interface {
 	Create(*extensions.PodSecurityPolicy) (*extensions.PodSecurityPolicy, error)
 	Update(*extensions.PodSecurityPolicy) (*extensions.PodSecurityPolicy, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*extensions.PodSecurityPolicy, error)
-	List(opts v1.ListOptions) (*extensions.PodSecurityPolicyList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.PodSecurityPolicy, err error)
+	Delete(name string, options *api.DeleteOptions) error
+	DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error
+	Get(name string) (*extensions.PodSecurityPolicy, error)
+	List(opts api.ListOptions) (*extensions.PodSecurityPolicyList, error)
+	Watch(opts api.ListOptions) (watch.Interface, error)
+	Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.PodSecurityPolicy, err error)
 	PodSecurityPolicyExpansion
 }
 
 // podSecurityPolicies implements PodSecurityPolicyInterface
 type podSecurityPolicies struct {
-	client rest.Interface
+	client restclient.Interface
 }
 
 // newPodSecurityPolicies returns a PodSecurityPolicies
@@ -80,7 +78,7 @@ func (c *podSecurityPolicies) Update(podSecurityPolicy *extensions.PodSecurityPo
 }
 
 // Delete takes name of the podSecurityPolicy and deletes it. Returns an error if one occurs.
-func (c *podSecurityPolicies) Delete(name string, options *v1.DeleteOptions) error {
+func (c *podSecurityPolicies) Delete(name string, options *api.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("podsecuritypolicies").
 		Name(name).
@@ -90,49 +88,48 @@ func (c *podSecurityPolicies) Delete(name string, options *v1.DeleteOptions) err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *podSecurityPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *podSecurityPolicies) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
 	return c.client.Delete().
 		Resource("podsecuritypolicies").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
 }
 
 // Get takes name of the podSecurityPolicy, and returns the corresponding podSecurityPolicy object, and an error if there is any.
-func (c *podSecurityPolicies) Get(name string, options v1.GetOptions) (result *extensions.PodSecurityPolicy, err error) {
+func (c *podSecurityPolicies) Get(name string) (result *extensions.PodSecurityPolicy, err error) {
 	result = &extensions.PodSecurityPolicy{}
 	err = c.client.Get().
 		Resource("podsecuritypolicies").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of PodSecurityPolicies that match those selectors.
-func (c *podSecurityPolicies) List(opts v1.ListOptions) (result *extensions.PodSecurityPolicyList, err error) {
+func (c *podSecurityPolicies) List(opts api.ListOptions) (result *extensions.PodSecurityPolicyList, err error) {
 	result = &extensions.PodSecurityPolicyList{}
 	err = c.client.Get().
 		Resource("podsecuritypolicies").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested podSecurityPolicies.
-func (c *podSecurityPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
+func (c *podSecurityPolicies) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
+		Prefix("watch").
 		Resource("podsecuritypolicies").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 
 // Patch applies the patch and returns the patched podSecurityPolicy.
-func (c *podSecurityPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.PodSecurityPolicy, err error) {
+func (c *podSecurityPolicies) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.PodSecurityPolicy, err error) {
 	result = &extensions.PodSecurityPolicy{}
 	err = c.client.Patch(pt).
 		Resource("podsecuritypolicies").

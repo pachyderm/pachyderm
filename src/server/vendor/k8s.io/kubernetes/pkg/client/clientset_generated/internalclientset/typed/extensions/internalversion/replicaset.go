@@ -17,12 +17,10 @@ limitations under the License.
 package internalversion
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	api "k8s.io/kubernetes/pkg/api"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
+	watch "k8s.io/kubernetes/pkg/watch"
 )
 
 // ReplicaSetsGetter has a method to return a ReplicaSetInterface.
@@ -36,18 +34,18 @@ type ReplicaSetInterface interface {
 	Create(*extensions.ReplicaSet) (*extensions.ReplicaSet, error)
 	Update(*extensions.ReplicaSet) (*extensions.ReplicaSet, error)
 	UpdateStatus(*extensions.ReplicaSet) (*extensions.ReplicaSet, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*extensions.ReplicaSet, error)
-	List(opts v1.ListOptions) (*extensions.ReplicaSetList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.ReplicaSet, err error)
+	Delete(name string, options *api.DeleteOptions) error
+	DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error
+	Get(name string) (*extensions.ReplicaSet, error)
+	List(opts api.ListOptions) (*extensions.ReplicaSetList, error)
+	Watch(opts api.ListOptions) (watch.Interface, error)
+	Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.ReplicaSet, err error)
 	ReplicaSetExpansion
 }
 
 // replicaSets implements ReplicaSetInterface
 type replicaSets struct {
-	client rest.Interface
+	client restclient.Interface
 	ns     string
 }
 
@@ -84,9 +82,6 @@ func (c *replicaSets) Update(replicaSet *extensions.ReplicaSet) (result *extensi
 	return
 }
 
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclientstatus=false comment above the type to avoid generating UpdateStatus().
-
 func (c *replicaSets) UpdateStatus(replicaSet *extensions.ReplicaSet) (result *extensions.ReplicaSet, err error) {
 	result = &extensions.ReplicaSet{}
 	err = c.client.Put().
@@ -101,7 +96,7 @@ func (c *replicaSets) UpdateStatus(replicaSet *extensions.ReplicaSet) (result *e
 }
 
 // Delete takes name of the replicaSet and deletes it. Returns an error if one occurs.
-func (c *replicaSets) Delete(name string, options *v1.DeleteOptions) error {
+func (c *replicaSets) Delete(name string, options *api.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("replicasets").
@@ -112,53 +107,52 @@ func (c *replicaSets) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *replicaSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *replicaSets) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("replicasets").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
 }
 
 // Get takes name of the replicaSet, and returns the corresponding replicaSet object, and an error if there is any.
-func (c *replicaSets) Get(name string, options v1.GetOptions) (result *extensions.ReplicaSet, err error) {
+func (c *replicaSets) Get(name string) (result *extensions.ReplicaSet, err error) {
 	result = &extensions.ReplicaSet{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("replicasets").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ReplicaSets that match those selectors.
-func (c *replicaSets) List(opts v1.ListOptions) (result *extensions.ReplicaSetList, err error) {
+func (c *replicaSets) List(opts api.ListOptions) (result *extensions.ReplicaSetList, err error) {
 	result = &extensions.ReplicaSetList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("replicasets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested replicaSets.
-func (c *replicaSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
+func (c *replicaSets) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
+		Prefix("watch").
 		Namespace(c.ns).
 		Resource("replicasets").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 
 // Patch applies the patch and returns the patched replicaSet.
-func (c *replicaSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.ReplicaSet, err error) {
+func (c *replicaSets) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.ReplicaSet, err error) {
 	result = &extensions.ReplicaSet{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).

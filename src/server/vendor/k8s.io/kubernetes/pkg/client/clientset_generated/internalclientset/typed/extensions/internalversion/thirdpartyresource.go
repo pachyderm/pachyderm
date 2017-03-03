@@ -17,12 +17,10 @@ limitations under the License.
 package internalversion
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	api "k8s.io/kubernetes/pkg/api"
 	extensions "k8s.io/kubernetes/pkg/apis/extensions"
-	scheme "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/scheme"
+	restclient "k8s.io/kubernetes/pkg/client/restclient"
+	watch "k8s.io/kubernetes/pkg/watch"
 )
 
 // ThirdPartyResourcesGetter has a method to return a ThirdPartyResourceInterface.
@@ -35,18 +33,18 @@ type ThirdPartyResourcesGetter interface {
 type ThirdPartyResourceInterface interface {
 	Create(*extensions.ThirdPartyResource) (*extensions.ThirdPartyResource, error)
 	Update(*extensions.ThirdPartyResource) (*extensions.ThirdPartyResource, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*extensions.ThirdPartyResource, error)
-	List(opts v1.ListOptions) (*extensions.ThirdPartyResourceList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.ThirdPartyResource, err error)
+	Delete(name string, options *api.DeleteOptions) error
+	DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error
+	Get(name string) (*extensions.ThirdPartyResource, error)
+	List(opts api.ListOptions) (*extensions.ThirdPartyResourceList, error)
+	Watch(opts api.ListOptions) (watch.Interface, error)
+	Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.ThirdPartyResource, err error)
 	ThirdPartyResourceExpansion
 }
 
 // thirdPartyResources implements ThirdPartyResourceInterface
 type thirdPartyResources struct {
-	client rest.Interface
+	client restclient.Interface
 }
 
 // newThirdPartyResources returns a ThirdPartyResources
@@ -80,7 +78,7 @@ func (c *thirdPartyResources) Update(thirdPartyResource *extensions.ThirdPartyRe
 }
 
 // Delete takes name of the thirdPartyResource and deletes it. Returns an error if one occurs.
-func (c *thirdPartyResources) Delete(name string, options *v1.DeleteOptions) error {
+func (c *thirdPartyResources) Delete(name string, options *api.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("thirdpartyresources").
 		Name(name).
@@ -90,49 +88,48 @@ func (c *thirdPartyResources) Delete(name string, options *v1.DeleteOptions) err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *thirdPartyResources) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *thirdPartyResources) DeleteCollection(options *api.DeleteOptions, listOptions api.ListOptions) error {
 	return c.client.Delete().
 		Resource("thirdpartyresources").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOptions, api.ParameterCodec).
 		Body(options).
 		Do().
 		Error()
 }
 
 // Get takes name of the thirdPartyResource, and returns the corresponding thirdPartyResource object, and an error if there is any.
-func (c *thirdPartyResources) Get(name string, options v1.GetOptions) (result *extensions.ThirdPartyResource, err error) {
+func (c *thirdPartyResources) Get(name string) (result *extensions.ThirdPartyResource, err error) {
 	result = &extensions.ThirdPartyResource{}
 	err = c.client.Get().
 		Resource("thirdpartyresources").
 		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of ThirdPartyResources that match those selectors.
-func (c *thirdPartyResources) List(opts v1.ListOptions) (result *extensions.ThirdPartyResourceList, err error) {
+func (c *thirdPartyResources) List(opts api.ListOptions) (result *extensions.ThirdPartyResourceList, err error) {
 	result = &extensions.ThirdPartyResourceList{}
 	err = c.client.Get().
 		Resource("thirdpartyresources").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Do().
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested thirdPartyResources.
-func (c *thirdPartyResources) Watch(opts v1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
+func (c *thirdPartyResources) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
+		Prefix("watch").
 		Resource("thirdpartyresources").
-		VersionedParams(&opts, scheme.ParameterCodec).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }
 
 // Patch applies the patch and returns the patched thirdPartyResource.
-func (c *thirdPartyResources) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *extensions.ThirdPartyResource, err error) {
+func (c *thirdPartyResources) Patch(name string, pt api.PatchType, data []byte, subresources ...string) (result *extensions.ThirdPartyResource, err error) {
 	result = &extensions.ThirdPartyResource{}
 	err = c.client.Patch(pt).
 		Resource("thirdpartyresources").
