@@ -307,9 +307,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	names := make(map[string]bool)
 	for _, in := range pipelineInfo.Inputs {
 		switch {
-		case len(in.Name) == 0:
+		case in.Name == "":
 			return fmt.Errorf("every pipeline input must specify a name")
 		case in.Name == "out":
 			return fmt.Errorf("no pipeline input may be named \"out\", as pachyderm " +
@@ -319,6 +320,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		case len(in.Glob) == 0:
 			return fmt.Errorf("every pipeline input must specify a glob")
 		}
+		// detect input name conflicts
+		if names[in.Name] {
+			return fmt.Errorf("conflicting input names: %s", in.Name)
+		}
+		names[in.Name] = true
 		// check that the input repo exists
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
@@ -356,7 +362,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
 	}
-	setMasterBranch(pipelineInfo)
+	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
@@ -393,14 +399,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &types.Empty{}, err
 }
 
-// If branches are not given in inputs/output, set them to "master"
-func setMasterBranch(pipelineInfo *pps.PipelineInfo) {
+// setPipelineDefaults sets the default values for a pipeline info
+func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	for _, input := range pipelineInfo.Inputs {
+		// Input branches default to master
 		if input.Branch == "" {
 			input.Branch = "master"
 		}
+		if input.Name == "" {
+			input.Name = input.Repo.Name
+		}
 	}
 	if pipelineInfo.OutputBranch == "" {
+		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
 	}
 }
@@ -1125,7 +1136,9 @@ type workerOptions struct {
 }
 
 func workerRcName(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("pipeline-%s-v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	// k8s won't allow RC names that contain upper-case letters
+	// TODO: deal with name collision
+	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineInfo.Pipeline.Name), pipelineInfo.Version)
 }
 
 func (a *apiServer) getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerImage string, workerImagePullPolicy string) (*workerOptions, error) {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path"
@@ -18,120 +19,138 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-//func TestPipelineWithFullObjects(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-//t.Parallel()
-//c := getPachClient(t)
-//// create repos
-//dataRepo := uniqueString("TestPipeline_data")
-//require.NoError(t, c.CreateRepo(dataRepo))
-//// create pipeline
-//pipelineName := uniqueString("pipeline")
-//require.NoError(t, c.CreatePipeline(
-//pipelineName,
-//"",
-//[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-//nil,
-//&ppsclient.ParallelismSpec{
-//Strategy: ppsclient.ParallelismSpec_CONSTANT,
-//Constant: 1,
-//},
-//[]*ppsclient.PipelineInput{
-//{
-//Name:   dataRepo,
-//Repo:   client.NewRepo(dataRepo),
-//Glob:   "/*",
-//Branch: "master",
-//},
-//},
-//false,
-//))
-//// Do first commit to repo
-//commit1, err := c.StartCommit(dataRepo, "master")
-//require.NoError(t, err)
-//_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
-//require.NoError(t, err)
-//require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-//commitInfos, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
-//require.NoError(t, err)
-//require.Equal(t, 2, len(commitInfos))
-//var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
-//require.Equal(t, "foo\n", buffer.String())
-//// Do second commit to repo
-//commit2, err := c.StartCommit(dataRepo, commit1.ID)
-//require.NoError(t, err)
-//_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
-//require.NoError(t, err)
-//require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-//commitInfos, err = c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit2.ID)}, nil)
-//require.NoError(t, err)
-//require.Equal(t, 2, len(commitInfos))
-//buffer = bytes.Buffer{}
-//require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
-//require.Equal(t, "foo\nbar\n", buffer.String())
-//}
+func TestPipelineWithFullObjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{
+			{
+				Repo: client.NewRepo(dataRepo),
+				Glob: "/*",
+			},
+		},
+		"",
+		false,
+	))
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+	commitInfos, err := collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	// Do second commit to repo
+	commit2, err := c.StartCommit(dataRepo, commit1.ID)
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	commitInfoIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit2.ID)}, nil)
+	require.NoError(t, err)
+	commitInfos, err = collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\nbar\n", buffer.String())
+}
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
-//func TestChainedPipelines(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-//t.Parallel()
-//c := getPachClient(t)
-//aRepo := uniqueString("A")
-//require.NoError(t, c.CreateRepo(aRepo))
+func TestChainedPipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
 
-//dRepo := uniqueString("D")
-//require.NoError(t, c.CreateRepo(dRepo))
+	dRepo := uniqueString("D")
+	require.NoError(t, c.CreateRepo(dRepo))
 
-//aCommit, err := c.StartCommit(aRepo, "master")
-//require.NoError(t, err)
-//_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
-//require.NoError(t, err)
-//require.NoError(t, c.FinishCommit(aRepo, "master"))
+	aCommit, err := c.StartCommit(aRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(aRepo, aCommit.ID, "master"))
+	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, "master"))
 
-//dCommit, err := c.StartCommit(dRepo, "master")
-//require.NoError(t, err)
-//_, err = c.PutFile(dRepo, "master", "file", strings.NewReader("bar\n"))
-//require.NoError(t, err)
-//require.NoError(t, c.FinishCommit(dRepo, "master"))
+	dCommit, err := c.StartCommit(dRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dRepo, dCommit.ID, "master"))
+	_, err = c.PutFile(dRepo, "master", "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dRepo, "master"))
 
-//bPipeline := uniqueString("B")
-//require.NoError(t, c.CreatePipeline(
-//bPipeline,
-//"",
-//[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
-//nil,
-//&ppsclient.ParallelismSpec{
-//Strategy: ppsclient.ParallelismSpec_CONSTANT,
-//Constant: 1,
-//},
-//[]*ppsclient.PipelineInput{{Repo: client.NewRepo(aRepo)}},
-//false,
-//))
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(aRepo),
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
 
-//cPipeline := uniqueString("C")
-//require.NoError(t, c.CreatePipeline(
-//cPipeline,
-//"",
-//[]string{"sh"},
-//[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
-//fmt.Sprintf("cp /pfs/%s/file /pfs/out/dFile", dRepo)},
-//&ppsclient.ParallelismSpec{
-//Strategy: ppsclient.ParallelismSpec_CONSTANT,
-//Constant: 1,
-//},
-//[]*ppsclient.PipelineInput{{Repo: client.NewRepo(bPipeline)},
-//{Repo: client.NewRepo(dRepo)}},
-//false,
-//))
-//results, err := c.FlushCommit([]*pfsclient.Commit{aCommit, dCommit}, nil)
-//require.NoError(t, err)
-//require.Equal(t, 4, len(results))
-//}
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/dFile", dRepo)},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(bPipeline),
+			Glob: "/",
+		}, {
+			Repo: client.NewRepo(dRepo),
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+	resultIter, err := c.FlushCommit([]*pfs.Commit{aCommit, dCommit}, nil)
+	require.NoError(t, err)
+	results, err := collectCommitInfos(resultIter)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(results))
+}
 
 func TestChainedPipelinesNoDelay(t *testing.T) {
 	if testing.Short() {
@@ -170,7 +189,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name: aRepo,
 			Repo: client.NewRepo(aRepo),
 			Glob: "/",
 		}},
@@ -190,11 +208,9 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name: bPipeline,
 			Repo: client.NewRepo(bPipeline),
 			Glob: "/",
 		}, {
-			Name: eRepo,
 			Repo: client.NewRepo(eRepo),
 			Glob: "/",
 		}},
@@ -214,7 +230,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		[]*pps.PipelineInput{{
-			Name: cPipeline,
 			Repo: client.NewRepo(cPipeline),
 			Glob: "/",
 		}},
@@ -226,7 +241,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	results, err := collectCommitInfos(resultsIter)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(results))
+	require.Equal(t, 2, len(results))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
@@ -238,7 +253,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	results, err = collectCommitInfos(resultsIter)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(results))
+	require.Equal(t, 2, len(results))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil)
