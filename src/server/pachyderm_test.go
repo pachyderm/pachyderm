@@ -4392,7 +4392,7 @@ func TestListFileWithSharding(t *testing.T) {
 					} else if fi.FileType == pfsclient.FileType_FILE_TYPE_DIR {
 						getfiles(fi.File.Path)
 					} else {
-						t.Fatal("Unknown FileType: %s", fi.FileType.String())
+						t.Fatalf("Unknown FileType: %s", fi.FileType.String())
 					}
 				}
 			}
@@ -4458,7 +4458,7 @@ func TestListFileWithBlockSharding(t *testing.T) {
 					} else if fi.FileType == pfsclient.FileType_FILE_TYPE_DIR {
 						getfiles(fi.File.Path)
 					} else {
-						t.Fatal("Unknown FileType: %s", fi.FileType.String())
+						t.Fatalf("Unknown FileType: %s", fi.FileType.String())
 					}
 				}
 			}
