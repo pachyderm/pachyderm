@@ -76,5 +76,4 @@ func (a *apiServer) runGC(ctx context.Context, pipelineInfo *ppsclient.PipelineI
 		}
 		wait()
 	}
-	panic("unreachable")
 }
