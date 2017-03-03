@@ -4496,7 +4496,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 
 func getKubeClient(t *testing.T) *kube.Client {
 	config := &kube_client.Config{
-		Host:     "//0.0.0.0:8080",
+		Host:     "http//0.0.0.0:8080",
 		Insecure: false,
 	}
 	k, err := kube.New(config)
