@@ -356,6 +356,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
 	}
+	setMasterBranch(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
@@ -364,7 +365,44 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 		return nil
 	})
+
+	// Create output repo
+	// The pipeline manager also creates the output repo, but we want to
+	// also create the repo here to make sure that the output repo is
+	// guaranteed to be there after CreatePipeline returns.  This is
+	// because it's a very common pattern to create many pipelines in a
+	// row, some of which depend on the existence of the output repos
+	// of upstream pipelines.
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var provenance []*pfs.Repo
+	for _, input := range pipelineInfo.Inputs {
+		provenance = append(provenance, input.Repo)
+	}
+
+	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+		Provenance: provenance,
+	}); err != nil {
+		return nil, err
+	}
+
 	return &types.Empty{}, err
+}
+
+// If branches are not given in inputs/output, set them to "master"
+func setMasterBranch(pipelineInfo *pps.PipelineInfo) {
+	for _, input := range pipelineInfo.Inputs {
+		if input.Branch == "" {
+			input.Branch = "master"
+		}
+	}
+	if pipelineInfo.OutputBranch == "" {
+		pipelineInfo.OutputBranch = "master"
+	}
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
