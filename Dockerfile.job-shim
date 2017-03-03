@@ -8,11 +8,7 @@ RUN \
     ca-certificates \
     wget && \
   apt-get clean && \
-  rm -rf /var/lib/apt \
-  mkdir /pach
-ADD ./job-shim.sh /pach/
-ADD ./guest.sh /pach/
-ADD ./job-shim /pach/
+  rm -rf /var/lib/apt
 
 # statically compile FUSE
 
@@ -26,4 +22,9 @@ RUN wget https://github.com/libfuse/libfuse/releases/download/fuse-${FUSE_VERSIO
 && cd fuse-${FUSE_VERSION} \
 && ./configure \
 && make -C util LDFLAGS="-all-static -Wl,-v -Wl,--strip-all" V=1 fusermount \
+&& mkdir /pach \
 && cp util/fusermount /pach/
+
+ADD ./job-shim.sh /pach/
+ADD ./guest.sh /pach/
+ADD ./job-shim /pach/
