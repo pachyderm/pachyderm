@@ -325,6 +325,11 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			defer func() {
+				if err := writer.Flush(); retErr == nil && err != nil {
+					retErr = err
+				}
+			}()
 			pretty.PrintCommitInfoHeader(writer)
 			for {
 				commitInfo, err := commitIter.Next()
@@ -336,7 +341,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				}
 				pretty.PrintCommitInfo(writer, commitInfo)
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
