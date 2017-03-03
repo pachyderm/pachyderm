@@ -759,7 +759,6 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 						}
 						return
 					}
-					fmt.Printf("receiving event: %s\n", string(ev.Value))
 					commitID := string(ev.Key)
 					// Using a func just so we can unlock the commits in
 					// a refer function
