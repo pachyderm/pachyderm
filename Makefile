@@ -241,6 +241,11 @@ doc: install-doc
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
 
+launch-monitoring:
+	kubectl create -f ./etc/plugin/monitoring
+	sleep 120
+	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
+
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt
 	go run examples/grep/generate.go >examples/grep/set2.txt
