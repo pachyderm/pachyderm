@@ -29,7 +29,7 @@ message Transform {
   bool debug = 7;
 }
 
-message Output {
+message Egress {
   string URL = 1;
 }
 
@@ -94,7 +94,7 @@ message JobInfo {
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
-  Output output = 15;
+  Egress egress = 15;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
@@ -102,6 +102,7 @@ message JobInfo {
   JobState state = 10;
   Service service = 14;
   bool stopped = 16;
+  Output output = 17;
 }
 
 enum WorkerState {
@@ -129,6 +130,11 @@ message PipelineInput {
   string branch = 2;
   string glob = 3;
   bool lazy = 4;
+}
+
+message Output {
+  pfs.Repo repo = 1;
+  string branch = 2;
 }
 
 enum PipelineState {
@@ -167,14 +173,14 @@ message PipelineInfo {
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
-  Output output = 15;
-  pfs.Repo output_repo = 5;
+  Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
   GCPolicy gc_policy = 12;
   bool stopped = 13;
+  Output output = 16;
 }
 
 message PipelineInfos {
@@ -188,10 +194,11 @@ message CreateJobRequest {
   uint64 pipeline_version = 10;
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
-  Output output = 9;
+  Egress egress = 9;
   // When service is defined, we create a long running job
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
+  Output output = 11;
 }
 
 message InspectJobRequest {
@@ -218,9 +225,10 @@ message CreatePipelineRequest {
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
-  Output output = 9;
+  Egress egress = 9;
   bool update = 5;
   GCPolicy gc_policy = 8;
+  Output output = 10;
 }
 
 message InspectPipelineRequest {
