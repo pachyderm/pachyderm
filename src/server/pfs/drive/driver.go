@@ -38,6 +38,9 @@ type driver struct {
 	repoRefCounts col.Collection
 	commits       collectionFactory
 	branches      collectionFactory
+
+	// a cache for commit IDs that we know exist
+	commitExists map[string]bool
 }
 
 const (
@@ -101,6 +104,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 				&pfs.Commit{},
 			)
 		},
+		commitExists: make(map[string]bool),
 	}, nil
 }
 
@@ -397,7 +401,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 }
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
-	if err := d.resolveBranch(ctx, commit); err != nil {
+	if _, err := d.InspectCommit(ctx, commit); err != nil {
 		return err
 	}
 
@@ -504,8 +508,33 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
+// InspectCommit takes a Commit and returns the corresponding CommitInfo.
+//
+// As a side effect, it sets the commit ID to the real commit ID, if the
+// original commit ID is actually a branch.
+//
+// This side effect is used internally by other APIs to resolve branch
+// names to real commit IDs.
 func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
-	if err := d.resolveBranch(ctx, commit); err != nil {
+	if commit == nil {
+		return nil, fmt.Errorf("cannot inspect nil commit")
+	}
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
+
+		head := new(pfs.Commit)
+		// See if we are given a branch
+		if err := branches.Get(commit.ID, head); err != nil {
+			if _, ok := err.(col.ErrNotFound); !ok {
+				return err
+			}
+			// If it's not a branch, use it as it is
+			return nil
+		}
+		commit.ID = head.ID
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -522,12 +551,18 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
-	if err := d.resolveBranch(ctx, from); err != nil {
-		return nil, err
+	// Make sure that both from and to are valid commits
+	if from != nil {
+		if _, err := d.InspectCommit(ctx, from); err != nil {
+			return nil, err
+		}
 	}
-	if err := d.resolveBranch(ctx, to); err != nil {
-		return nil, err
+	if to != nil {
+		if _, err := d.InspectCommit(ctx, to); err != nil {
+			return nil, err
+		}
 	}
+
 	// if number is 0, we return all commits that match the criteria
 	if number == 0 {
 		number = math.MaxUint64
@@ -677,7 +712,8 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	}
 
 	for _, commit := range fromCommits {
-		if err := d.resolveBranch(ctx, commit); err != nil {
+		if _, err := d.InspectCommit(ctx, commit); err != nil {
+			fmt.Printf("returning error: %v\n", err)
 			return nil, nil, err
 		}
 	}
@@ -866,37 +902,11 @@ func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) 
 	return err
 }
 
-// resolveBranch replaces a branch with a real commit ID, e.g. "master" ->
-// UUID.
-// If the given commit already contains a real commit ID, then this
-// function does nothing.
-func (d *driver) resolveBranch(ctx context.Context, commit *pfs.Commit) error {
-	if commit == nil {
-		return nil
-	}
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
-
-		head := new(pfs.Commit)
-		// See if we are given a branch
-		if err := branches.Get(commit.ID, head); err != nil {
-			if _, ok := err.(col.ErrNotFound); !ok {
-				return err
-			}
-			// If it's not a branch, use it as it is
-			return nil
-		}
-		commit.ID = head.ID
-		return nil
-	})
-	return err
-}
-
 // scratchCommitPrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
-	if err := d.resolveBranch(ctx, commit); err != nil {
+	if _, err := d.InspectCommit(ctx, commit); err != nil {
 		return "", err
 	}
 	return path.Join(d.prefix, "scratch", commit.Repo.Name, commit.ID), nil
@@ -918,6 +928,16 @@ func checkPath(path string) error {
 }
 
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
+	// Cache existing commit IDs so we don't hit the database on every
+	// PutFile call.
+	if !d.commitExists[file.Commit.ID] {
+		_, err := d.InspectCommit(ctx, file.Commit)
+		if err != nil {
+			return err
+		}
+		d.commitExists[file.Commit.ID] = true
+	}
+
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
@@ -944,10 +964,6 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 		}
 	}
 
-	if err := d.resolveBranch(ctx, file.Commit); err != nil {
-		return err
-	}
-
 	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return err
@@ -969,7 +985,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return t, nil
 	}
 
-	if err := d.resolveBranch(ctx, commit); err != nil {
+	if _, err := d.InspectCommit(ctx, commit); err != nil {
 		return nil, err
 	}
 
@@ -1172,7 +1188,7 @@ func (d *driver) GlobFile(ctx context.Context, commit *pfs.Commit, pattern strin
 }
 
 func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
-	if err := d.resolveBranch(ctx, file.Commit); err != nil {
+	if _, err := d.InspectCommit(ctx, file.Commit); err != nil {
 		return err
 	}
 
