@@ -20,17 +20,39 @@ import (
 )
 
 type AppEnv struct {
-	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-	PachdAddress    string `env:"PACHD_PORT_650_TCP_ADDR,required"`
-	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
-	PPSPrefix       string `env:"PPS_ETCD_PREFIX,required"`
-	PPSWorkerIP     string `env:"PPS_WORKER_IP,required"`
+	// Address of etcd, so that worker can write its own IP there for discoverh
+	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+
+	// Address for connecting to pachd (so this can download input data)
+	PachdAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
+
+	// Prefix in etcd for all pachd-related records
+	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
+
+	// worker gets its own IP here, via the k8s downward API. It then writes that
+	// IP back to etcd so that pachd can discover it
+	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
+
+	// Either pipeline name or job name must be set
+	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
+	PPSJobName      string `env:"PPS_JOB_NAME"`
 }
 
 func main() {
 	cmdutil.Main(do, &AppEnv{})
 }
 
+func validateEnv(appEnv *AppEnv) error {
+	if appEnv.PPSPipelineName == "" && appEnv.PPSJobName == "" {
+		return fmt.Errorf("worker must recieve either pipeline name or job name, but got neither")
+	} else if appEnv.PPSPipelineName != "" && appEnv.PPSJobName != "" {
+		return fmt.Errorf("worker must recieve either pipeline name or job name, but got both")
+	}
+	return nil
+}
+
+// getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
+// worker is part of
 func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
@@ -50,7 +72,11 @@ func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo
 func do(appEnvObj interface{}) error {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*AppEnv)
-	// get pachd client, so we can upload results
+	if err := validateEnv(appEnv); err != nil {
+		return err
+	}
+
+	// get pachd client, so we can upload output data from the user binary
 	log.Println()
 	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
 	if err != nil {
@@ -99,7 +125,8 @@ func do(appEnvObj interface{}) error {
 	// discover us
 	log.Println()
 	<-ready
-	key := path.Join(appEnv.PPSPrefix, "workers", appEnv.PPSPipelineName, appEnv.PPSWorkerIP)
+	id := worker.PipelineID(pipelineInfo.Pipeline)
+	key := path.Join(appEnv.PPSPrefix, "workers", id, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
