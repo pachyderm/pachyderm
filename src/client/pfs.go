@@ -306,14 +306,14 @@ func (c *commitInfoIterator) Close() {
 
 func (c APIClient) SubscribeCommit(repo string, branch string, from string) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.ctx())
-	stream, err := c.PfsAPIClient.SubscribeCommit(
-		ctx,
-		&pfs.SubscribeCommitRequest{
-			Repo:   NewRepo(repo),
-			Branch: branch,
-			From:   NewCommit(repo, from),
-		},
-	)
+	req := &pfs.SubscribeCommitRequest{
+		Repo:   NewRepo(repo),
+		Branch: branch,
+	}
+	if from != "" {
+		req.From = NewCommit(repo, from)
+	}
+	stream, err := c.PfsAPIClient.SubscribeCommit(ctx, req)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}

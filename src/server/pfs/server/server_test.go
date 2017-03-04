@@ -2088,6 +2088,21 @@ func TestEmptyFlush(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestFlushNonExistentCommit(t *testing.T) {
+	t.Parallel()
+	c := getClient(t)
+	iter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
+	require.NoError(t, err)
+	_, err = collectCommitInfos(iter)
+	require.YesError(t, err)
+	repo := "FlushNonExistentCommit"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err = c.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, "fake-commit")}, nil)
+	require.NoError(t, err)
+	_, err = collectCommitInfos(iter)
+	require.YesError(t, err)
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }
