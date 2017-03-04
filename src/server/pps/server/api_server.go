@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	ppsworker "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -156,7 +157,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (
 	// Start ('coefficient' * 'nodes') workers. Determine number of workers
 	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("Unable to retrieve node list from k8s to determine parallelism")
+		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
 	}
 	if len(nodeList.Items) == 0 {
 		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
@@ -618,6 +619,8 @@ func (a *apiServer) pipelineWatcher() {
 func (a *apiServer) jobWatcher() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
+		// Wait for job events where JobInfo.Stopped is set to "false", and then
+		// start JobManagers for those jobs
 		jobEvents := a.jobs.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
 
 		for {
@@ -689,7 +692,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, pipelineInfo.Pipeline)
+		a.workerPool(ctx, ppsworker.PipelineID(pipelineInfo.Pipeline))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -725,11 +728,13 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		for {
+			// Block until new input commit comes in, then gather input branches for processing
 			branchSet, err := branchSets.Next()
 			if err != nil {
 				return err
 			}
 
+			// Create JobInput for new processing job
 			var jobInputs []*pps.JobInput
 			for _, pipelineInput := range pipelineInfo.Inputs {
 				for _, branch := range branchSet {
@@ -849,7 +854,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		wp := a.workerPool(ctx, jobInfo.Pipeline)
+		// TODO(msteffen): jobInfo may not have pipeline -- fix
+		wp := a.workerPool(ctx, ppsworker.PipelineID(jobInfo.Pipeline))
 		// process all datums
 		var numData int
 		tree := hashtree.NewHashTree()

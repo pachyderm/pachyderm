@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
@@ -196,22 +195,24 @@ func (wp *workerPool) DataCh() chan datumAndResp {
 	return wp.dataCh
 }
 
-func (a *apiServer) workerPool(ctx context.Context, pipeline *pps.Pipeline) WorkerPool {
+// workerPool fetches the worker pool associated with 'id', or creates one if
+// none exists.
+func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
 	a.workerPoolsLock.Lock()
 	defer a.workerPoolsLock.Unlock()
-	workerPool, ok := a.workerPools[pipeline.Name]
+	workerPool, ok := a.workerPools[id]
 	if !ok {
-		workerPool = a.newWorkerPool(ctx, pipeline)
-		a.workerPools[pipeline.Name] = workerPool
+		workerPool = a.newWorkerPool(ctx, id)
+		a.workerPools[id] = workerPool
 	}
 	return workerPool
 }
 
-func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) WorkerPool {
+func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,
 		dataCh:     make(chan datumAndResp),
-		workerDir:  path.Join(a.etcdPrefix, WorkerEtcdPrefix, pipeline.Name),
+		workerDir:  path.Join(a.etcdPrefix, WorkerEtcdPrefix, id),
 		workersMap: make(map[string]context.CancelFunc),
 		etcdClient: a.etcdClient,
 	}
@@ -225,8 +226,8 @@ func (a *apiServer) newWorkerPool(ctx context.Context, pipeline *pps.Pipeline) W
 	return wp
 }
 
-func (a *apiServer) delWorkerPool(pipelineName string) {
+func (a *apiServer) delWorkerPool(id string) {
 	a.workerPoolsLock.Lock()
 	defer a.workerPoolsLock.Unlock()
-	delete(a.workerPools, pipelineName)
+	delete(a.workerPools, id)
 }
