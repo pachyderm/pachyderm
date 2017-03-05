@@ -128,6 +128,8 @@ func (c *readWriteCollection) getMultiIndexPaths(val proto.Message, index Index,
 func (c *readWriteCollection) Put(key string, val proto.Message) {
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
+
+		// Put the appropriate record in any of c's secondary indexes
 		for _, index := range c.indexes {
 			if index.Multi {
 				indexPaths := c.getMultiIndexPaths(val, index, key)
