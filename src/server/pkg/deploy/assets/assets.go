@@ -19,26 +19,25 @@ import (
 )
 
 var (
-	suite                       = "pachyderm"
-	pachdImage                  = "pachyderm/pachd"
-	etcdImage                   = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage                = "rethinkdb:2.3.2"
-	rethinkNonCacheMemFootprint = resource.MustParse("256M") // Amount of memory needed by rethink beyond the cache
-	serviceAccountName          = "pachyderm"
-	etcdName                    = "etcd"
-	pachdName                   = "pachd"
-	rethinkControllerName       = "rethink" // Used by both the RethinkDB Stateful Set and ReplicationController (whichever is enabled)
-	rethinkServiceName          = "rethink"
-	rethinkHeadlessName         = "rethink-headless" // headless service; give Rethink pods consistent DNS addresses
-	rethinkVolumeName           = "rethink-volume"
-	rethinkVolumeClaimName      = "rethink-volume-claim"
-	minioSecretName             = "minio-secret"
-	amazonSecretName            = "amazon-secret"
-	googleSecretName            = "google-secret"
-	microsoftSecretName         = "microsoft-secret"
-	initName                    = "pachd-init"
-	trueVal                     = true
-	jsonEncoderHandle           = &codec.JsonHandle{
+	suite                  = "pachyderm"
+	pachdImage             = "pachyderm/pachd"
+	etcdImage              = "gcr.io/google_containers/etcd:2.0.12"
+	rethinkImage           = "rethinkdb:2.3.2"
+	serviceAccountName     = "pachyderm"
+	etcdName               = "etcd"
+	pachdName              = "pachd"
+	rethinkControllerName  = "rethink" // Used by both the RethinkDB Stateful Set and ReplicationController (whichever is enabled)
+	rethinkServiceName     = "rethink"
+	rethinkHeadlessName    = "rethink-headless" // headless service; give Rethink pods consistent DNS addresses
+	rethinkVolumeName      = "rethink-volume"
+	rethinkVolumeClaimName = "rethink-volume-claim"
+	minioSecretName        = "minio-secret"
+	amazonSecretName       = "amazon-secret"
+	googleSecretName       = "google-secret"
+	microsoftSecretName    = "microsoft-secret"
+	initName               = "pachd-init"
+	trueVal                = true
+	jsonEncoderHandle      = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
 			EncodeOptions: codec.EncodeOptions{Canonical: true},
 		},
@@ -71,12 +70,109 @@ type AssetOpts struct {
 	DeployRethinkAsStatefulSet bool
 
 	// RethinkCacheSize is the amount of memory each RethinkDB node allocates
-	// towards its cache.
+	// towards its cache. If empty, assets.go will choose a default size.
 	RethinkCacheSize string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
-	// its cache of PFS blocks.
+	// its cache of PFS blocks. If empty, assets.go will choose a default size.
 	BlockCacheSize string
+
+	// PachdCPUFootprint is the amount of CPU we request for each pachd node. If
+	// empty, assets.go will choose a default size.
+	PachdCPUFootprint string
+
+	// PachdNonCacheMemFootprint is the amount of memory we request for each
+	// pachd node in addition to BlockCacheSize. If empty, assets.go will choose
+	// a default size.
+	PachdNonCacheMemFootprint string
+
+	// RethinkCPUFootprint is the amount of CPU we request for each rethink node.
+	// If empty, assets.go will choose a default size.
+	RethinkCPUFootprint string
+
+	// RethinkNonCacheMemFootprint is the amount of memory we request for each
+	// rethink node in addition to RethinkCacheSize. If empty, assets.go will
+	// choose a default size.
+	RethinkNonCacheMemFootprint string
+
+	// EtcdCPUFootprint is the amount of CPU (in cores) we request for each etcd
+	// node. If empty, assets.go will choose a default size.
+	EtcdCPUFootprint string
+
+	// EtcdMemFootprint is the amount of memory we request for each etcd node. If
+	// empty, assets.go will choose a default size.
+	EtcdMemFootprint string
+}
+
+// adjustResourceRequests sets any of:
+//   RethinkCacheSize
+//   BlockCacheSize
+//   PachdCPUFootprint
+//   PachdNonCacheMemFootprint
+//   RethinkCPUFootprint
+//   RethinkNonCacheMemFootprint
+// that are unset in 'opts' to the appropriate default ('persistentDiskBackend'
+// just used to determine if this is a local deployment, and if so, make the
+// resource requests smaller)
+func adjustResourceRequests(opts *AssetOpts, persistentDiskBackend backend) {
+	if persistentDiskBackend == localBackend {
+		// For local deployments, we set the resource requirements and cache sizes
+		// low so that pachyderm clusters will fit inside e.g. minikube or travis
+
+		if len(opts.PachdCPUFootprint) == 0 {
+			opts.PachdCPUFootprint = "0.25"
+		}
+		if len(opts.RethinkCPUFootprint) == 0 {
+			opts.RethinkCPUFootprint = "0.25"
+		}
+		if len(opts.EtcdCPUFootprint) == 0 {
+			opts.EtcdCPUFootprint = "0.25"
+		}
+
+		if len(opts.RethinkCacheSize) == 0 {
+			opts.RethinkCacheSize = "256M"
+		}
+		if len(opts.BlockCacheSize) == 0 {
+			opts.BlockCacheSize = "256M"
+		}
+		if len(opts.PachdNonCacheMemFootprint) == 0 {
+			opts.PachdNonCacheMemFootprint = "256M"
+		}
+		if len(opts.RethinkNonCacheMemFootprint) == 0 {
+			opts.RethinkNonCacheMemFootprint = "256M"
+		}
+		if len(opts.EtcdMemFootprint) == 0 {
+			opts.EtcdMemFootprint = "256M"
+		}
+	} else {
+		// For non-local deployments, we set the resource requirements and cache
+		// sizes higher, so that the cluster is stable and performant
+		if len(opts.PachdCPUFootprint) == 0 {
+			opts.PachdCPUFootprint = "1"
+		}
+		if len(opts.RethinkCPUFootprint) == 0 {
+			opts.RethinkCPUFootprint = "1"
+		}
+		if len(opts.EtcdCPUFootprint) == 0 {
+			opts.EtcdCPUFootprint = "1"
+		}
+
+		if len(opts.RethinkCacheSize) == 0 {
+			opts.RethinkCacheSize = "1G"
+		}
+		if len(opts.BlockCacheSize) == 0 {
+			opts.BlockCacheSize = "5G"
+		}
+		if len(opts.PachdNonCacheMemFootprint) == 0 {
+			opts.PachdNonCacheMemFootprint = "2G"
+		}
+		if len(opts.RethinkNonCacheMemFootprint) == 0 {
+			opts.RethinkNonCacheMemFootprint = "2G"
+		}
+		if len(opts.EtcdMemFootprint) == 0 {
+			opts.EtcdMemFootprint = "2G"
+		}
+	}
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -96,6 +192,9 @@ func ServiceAccount() *api.ServiceAccount {
 // PachdRc returns a pachd replication controller.
 func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
 	image := pachdImage
+	mem := resource.MustParse(opts.BlockCacheSize)
+	mem.Add(resource.MustParse(opts.PachdNonCacheMemFootprint))
+	cpu := resource.MustParse(opts.PachdCPUFootprint)
 	if opts.Version != "" {
 		image += ":" + opts.Version
 	}
@@ -294,6 +393,12 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 							},
 							ReadinessProbe:  readinessProbe,
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					ServiceAccountName: serviceAccountName,
@@ -337,8 +442,10 @@ func PachdService() *api.Service {
 }
 
 // EtcdRc returns an etcd replication controller.
-func EtcdRc(hostPath string) *api.ReplicationController {
+func EtcdRc(opts *AssetOpts, hostPath string) *api.ReplicationController {
 	replicas := int32(1)
+	mem := resource.MustParse(opts.EtcdMemFootprint)
+	cpu := resource.MustParse(opts.EtcdCPUFootprint)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -386,6 +493,12 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					Volumes: []api.Volume{
@@ -438,7 +551,8 @@ func RethinkRc(opts *AssetOpts, volume string) *api.ReplicationController {
 	replicas := int32(1)
 	rethinkCacheQuantity := resource.MustParse(opts.RethinkCacheSize)
 	mem := rethinkCacheQuantity.Copy()
-	mem.Add(rethinkNonCacheMemFootprint)
+	mem.Add(resource.MustParse(opts.RethinkNonCacheMemFootprint))
+	cpu := resource.MustParse(opts.RethinkCPUFootprint)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -494,6 +608,7 @@ func RethinkRc(opts *AssetOpts, volume string) *api.ReplicationController {
 							Resources: api.ResourceRequirements{
 								Requests: api.ResourceList{
 									api.ResourceMemory: *mem,
+									api.ResourceCPU:    cpu,
 								},
 							},
 						},
@@ -519,7 +634,8 @@ func RethinkRc(opts *AssetOpts, volume string) *api.ReplicationController {
 func RethinkStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 	rethinkCacheQuantity := resource.MustParse(opts.RethinkCacheSize)
 	mem := rethinkCacheQuantity.Copy()
-	mem.Add(rethinkNonCacheMemFootprint)
+	mem.Add(resource.MustParse(opts.RethinkNonCacheMemFootprint))
+	cpu := resource.MustParse(opts.RethinkCPUFootprint)
 
 	// As of Oct 24 2016, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
@@ -584,6 +700,7 @@ func RethinkStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 							"resources": map[string]interface{}{
 								"requests": map[string]interface{}{
 									"memory": mem.String(),
+									"cpu":    (&cpu).String(),
 								},
 							},
 						},
@@ -923,6 +1040,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
 			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
 	}
+	adjustResourceRequests(opts, persistentDiskBackend) // adjust any unset resource reqs
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -932,7 +1050,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 
-	EtcdRc(hostPath).CodecEncodeSelf(encoder)
+	EtcdRc(opts, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	EtcdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

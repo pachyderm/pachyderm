@@ -49,6 +49,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var logLevel string
 	var persistentDiskBackend string
 	var objectStoreBackend string
+	var pachdCPUFootprint string
+	var pachdNonCacheMemFootprint string
+	var rethinkCPUFootprint string
+	var rethinkNonCacheMemFootprint string
+	var etcdCPUFootprint string
+	var etcdMemoryFootprint string
 	var opts *assets.AssetOpts
 
 	deployLocal := &cobra.Command{
@@ -212,14 +218,20 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					"wish to deploy RethinkDB as a multi-node cluster.")
 			}
 			opts = &assets.AssetOpts{
-				PachdShards:                uint64(pachdShards),
-				RethinkShards:              uint64(rethinkShards),
-				DeployRethinkAsStatefulSet: deployRethinkAsStatefulSet,
-				Version:                    version.PrettyPrintVersion(version.Version),
-				LogLevel:                   logLevel,
-				Metrics:                    metrics,
-				BlockCacheSize:             blockCacheSize,
-				RethinkCacheSize:           rethinkCacheSize,
+				PachdShards:                 uint64(pachdShards),
+				RethinkShards:               uint64(rethinkShards),
+				DeployRethinkAsStatefulSet:  deployRethinkAsStatefulSet,
+				Version:                     version.PrettyPrintVersion(version.Version),
+				LogLevel:                    logLevel,
+				Metrics:                     metrics,
+				BlockCacheSize:              blockCacheSize,
+				PachdCPUFootprint:           pachdCPUFootprint,
+				PachdNonCacheMemFootprint:   pachdNonCacheMemFootprint,
+				RethinkCacheSize:            rethinkCacheSize,
+				RethinkCPUFootprint:         rethinkCPUFootprint,
+				RethinkNonCacheMemFootprint: rethinkNonCacheMemFootprint,
+				EtcdCPUFootprint:            etcdCPUFootprint,
+				EtcdMemFootprint:            etcdMemoryFootprint,
 			}
 			return nil
 		}),
@@ -234,10 +246,46 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
 		"controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both "+
 		"your local kubectl binary and the kubernetes server must be at least version 1.5.")
-	deploy.PersistentFlags().StringVar(&rethinkCacheSize, "rethink-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
-		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
-		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+
+	// Flags for setting pachd and rethink resource requests. These should rarely
+	// be set -- only if we get the defaults wrong, or users have an unusual
+	// access pattern.
+	//
+	// All of these are empty by default, because the actual default values we
+	// use to deploy depends on the backend we're deploying to. The defaults are
+	// set in s/s/pkg/deploy/assets/assets.go
+	deploy.PersistentFlags().StringVar(&rethinkCacheSize,
+		"rethink-cache-size", "", "Size of in-memory cache to use for "+
+			"Pachyderm's RethinkDB instance, e.g. \"2G\". Size is specified in "+
+			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
+		"Size of in-memory cache to use for blocks. Size is specified in bytes, "+
+			"with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&rethinkCPUFootprint,
+		"rethink-cpu-footprint", "", "(rarely set) The size of RethinkDB's CPU "+
+			"footprint, which we give to Kubernetes. Size is in cores (with partial "+
+			"cores allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&pachdCPUFootprint,
+		"pachd-cpu-footprint", "", "(rarely set) The size of PachD's CPU "+
+			"footprint, which we give to Kubernetes. Size is in cores (with partial "+
+			"cores allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&rethinkNonCacheMemFootprint,
+		"rethink-memory-footprint", "", "(rarely set) The size of RethinkDB's "+
+			"memory footprint in addition to its cache (set via "+
+			"--rethinkdb-cache-size). Size is in bytes, with SI suffixes (M, K, G, "+
+			"Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&pachdNonCacheMemFootprint,
+		"pachd-memory-footprint", "", "(rarely set) The size of PachD's memory "+
+			"footprint in addition to its block cache (set via --block-cache-size). "+
+			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&etcdCPUFootprint,
+		"etcd-cpu-footprint", "", "(rarely set) The size of etcd's CPU footprint, "+
+			"which we give to Kubernetes. Size is in cores (with partial cores "+
+			"allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&pachdNonCacheMemFootprint,
+		"etcd-memory-footprint", "", "(rarely set) The size of etcd's memory "+
+			"footprint. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+			"etc).")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)

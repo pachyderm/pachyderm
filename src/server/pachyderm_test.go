@@ -4614,6 +4614,45 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPachdAndRethinkResourceRequests doesn't create any jobs or pipelines, it
+// just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
+// and etcd default resource requests. This prevents them from overloading
+// nodes and getting evicted, which can slow down or break a cluster.
+func TestSystemResourceRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	kubeClient := getKubeClient(t)
+
+	// Get Pod info for 'app' from k8s
+	var c api.Container
+	for _, app := range []string{"pachd", "rethink", "etcd"} {
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 10 * time.Second
+		err := backoff.Retry(func() error {
+			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+				LabelSelector: labels.SelectorFromSet(
+					map[string]string{"app": app, "suite": "pachyderm"}),
+			})
+			if err != nil {
+				return err
+			}
+			if len(podList.Items) < 1 {
+				return fmt.Errorf("could not find pod for %s", app) // retry
+			}
+			return nil
+		}, b)
+		require.NoError(t, err)
+
+		// Make sure the pod's container has resource requests
+		_, ok := c.Resources.Requests[api.ResourceCPU]
+		require.True(t, ok, "could not get CPU request for "+app)
+		_, ok = c.Resources.Requests[api.ResourceMemory]
+		require.True(t, ok, "could not get memory request for "+app)
+	}
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
