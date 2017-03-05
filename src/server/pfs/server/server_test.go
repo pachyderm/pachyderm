@@ -1835,13 +1835,14 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 }
 
 func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
-	blockAPIServer pfs.BlockAPIServer) {
+	blockAPIServer BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
 		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
+				pfs.RegisterObjectAPIServer(s, blockAPIServer)
 				close(ready)
 			},
 			grpcutil.ServeOptions{
