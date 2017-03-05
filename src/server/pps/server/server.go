@@ -30,9 +30,17 @@ const (
 )
 
 var (
+	// Index mapping pipeline to jobs started by the pipeline
 	jobsPipelineIndex = col.Index{"Pipeline", false}
-	jobsInputsIndex   = col.Index{"Inputs", false}
-	stoppedIndex      = col.Index{"Stopped", false}
+
+	// Index mapping job inputs (repos + pipeline version) to output commit. This
+	// is how we know if we need to start a job
+	jobsInputsIndex = col.Index{"Inputs", false}
+
+	// Index of pipelines and jobs that have been stopped (state is "success" or
+	// "failure" for jobs, or "stopped" or "failure" for pipelines). See
+	// (Job|Pipeline)StateToStopped in s/s/pps/server/api_server.go
+	stoppedIndex = col.Index{"Stopped", false}
 )
 
 // NewAPIServer creates an APIServer.

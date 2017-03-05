@@ -208,6 +208,10 @@ func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
 	return workerPool
 }
 
+// newWorkerPool generates a new worker pool for the job or pipeline identified
+// with 'id'.  Each 'id' used to create a new worker pool must correspond to
+// a unique binary (in other words, all workers in the worker pool for 'id'
+// will be running the same user binary)
 func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,

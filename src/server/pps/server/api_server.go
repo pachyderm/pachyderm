@@ -172,7 +172,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	job := &pps.Job{uuid.NewWithoutDashes()}
+	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineInfo := new(pps.PipelineInfo)
 		if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
@@ -311,7 +311,7 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	names := make(map[string]bool)
 	for _, in := range pipelineInfo.Inputs {
 		switch {
-		case in.Name == "":
+		case len(in.Name) == 0:
 			return fmt.Errorf("every pipeline input must specify a name")
 		case in.Name == "out":
 			return fmt.Errorf("no pipeline input may be named \"out\", as pachyderm " +
