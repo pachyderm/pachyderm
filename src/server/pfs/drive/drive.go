@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 func ValidateRepoName(name string) error {
@@ -41,8 +40,14 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
-type CommitInfoIterator interface {
-	Next() (*pfs.CommitInfo, error)
+type CommitEvent struct {
+	Err   error
+	Value *pfs.CommitInfo
+}
+
+type CommitStream interface {
+	Stream() <-chan CommitEvent
+	Close()
 }
 
 // Driver represents a low-level pfs storage driver.
@@ -58,8 +63,8 @@ type Driver interface {
 	InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error)
 
 	ListCommit(ctx context.Context, repo *pfs.Repo, from *pfs.Commit, to *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error)
-	SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error)
-	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, chan struct{}, error)
+	SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error)
+	FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitStream, error)
 	DeleteCommit(ctx context.Context, commit *pfs.Commit) error
 
 	ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error)

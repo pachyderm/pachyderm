@@ -73,9 +73,9 @@ type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
 	List() (Iterator, error)
-	Watch() watch.EventChan
-	WatchOne(key string) watch.EventChan
-	WatchByIndex(index Index, val interface{}) watch.EventChan
+	Watch() (watch.Watcher, error)
+	WatchOne(key string) (watch.Watcher, error)
+	WatchByIndex(index Index, val interface{}) (watch.Watcher, error)
 }
 
 type Iterator interface {

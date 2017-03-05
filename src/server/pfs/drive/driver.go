@@ -40,7 +40,8 @@ type driver struct {
 	branches      collectionFactory
 
 	// a cache for commit IDs that we know exist
-	commitExists map[string]bool
+	commitCache      map[string]bool
+	commitCacheMutex sync.Mutex
 }
 
 const (
@@ -104,7 +105,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 				&pfs.Commit{},
 			)
 		},
-		commitExists: make(map[string]bool),
+		commitCache: make(map[string]bool),
 	}, nil
 }
 
@@ -607,70 +608,20 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return commitInfos, nil
 }
 
-type commitInfoIterator struct {
-	ctx    context.Context
-	driver *driver
-	buffer []*pfs.CommitInfo
-	// a watcher that watches for updates to a branch
-	newCommitEvents watch.EventChan
-	// record whether a commit has been seen
-	seen map[string]bool
+type commitStream struct {
+	stream chan CommitEvent
+	done   chan struct{}
 }
 
-func (c *commitInfoIterator) Next() (*pfs.CommitInfo, error) {
-	if len(c.buffer) == 0 {
-	receiveNewCommit:
-		var branchName string
-		commit := new(pfs.Commit)
-		for {
-			event := <-c.newCommitEvents
-			switch event.Type {
-			case watch.EventError:
-				return nil, event.Err
-			case watch.EventPut:
-				event.Unmarshal(&branchName, commit)
-			case watch.EventDelete:
-				continue
-			}
-			if !c.seen[commit.ID] {
-				break
-			}
-		}
-		// Now we watch the CommitInfo until the commit has been finished
-		commits := c.driver.commits(commit.Repo.Name).ReadOnly(c.ctx)
-		commitInfoEvents := commits.WatchOne(commit.ID)
-		for {
-			var commitID string
-			commitInfo := new(pfs.CommitInfo)
-			event := <-commitInfoEvents
-			switch event.Type {
-			case watch.EventError:
-				return nil, event.Err
-			case watch.EventPut:
-				event.Unmarshal(&commitID, commitInfo)
-			case watch.EventDelete:
-				// if this commit that we are waiting for is deleted, then
-				// we go back to watch the branch to get a new commit
-				goto receiveNewCommit
-			}
-			if commitInfo.Finished != nil {
-				c.buffer = append(c.buffer, commitInfo)
-				break
-			}
-		}
-	}
-	// We pop the buffer from the end because the buffer is ordered such
-	// that the newer commits come first, but we want to return the older
-	// commits first.  The buffered is ordered this way because that's how
-	// ListCommit() orders the returned commits, and we use ListCommit to
-	// populate the initial buffer.
-	commitInfo := c.buffer[len(c.buffer)-1]
-	c.buffer = c.buffer[:len(c.buffer)-1]
-	c.seen[commitInfo.Commit.ID] = true
-	return commitInfo, nil
+func (c *commitStream) Stream() <-chan CommitEvent {
+	return c.stream
 }
 
-func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitInfoIterator, error) {
+func (c *commitStream) Close() {
+	close(c.done)
+}
+
+func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error) {
 	if from != nil && from.Repo.Name != repo.Name {
 		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
@@ -679,151 +630,242 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// because otherwise we might miss some commits in between when we
 	// finish listing and when we start watching.
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	newCommitEvents := branches.WatchOne(branch)
-
-	iterator := &commitInfoIterator{
-		ctx:             ctx,
-		driver:          d,
-		newCommitEvents: newCommitEvents,
-		seen:            make(map[string]bool),
-	}
-
-	// include all commits that are currently on the given branch, but only
-	// the ones that have been finished
-	commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
-		Repo: repo,
-		ID:   branch,
-	}, from, 0)
+	newCommitWatcher, err := branches.WatchOne(branch)
 	if err != nil {
 		return nil, err
 	}
-	for _, commitInfo := range commitInfos {
-		if commitInfo.Finished != nil {
-			iterator.buffer = append(iterator.buffer, commitInfo)
-		}
-	}
 
-	return iterator, nil
+	stream := make(chan CommitEvent)
+	done := make(chan struct{})
+
+	go func() (retErr error) {
+		defer func() {
+			if retErr != nil {
+				select {
+				case stream <- CommitEvent{
+					Err: retErr,
+				}:
+				case <-done:
+				}
+			}
+			close(stream)
+		}()
+		// keep track of the commits that have been sent
+		seen := make(map[string]bool)
+		// include all commits that are currently on the given branch,
+		// but only the ones that have been finished
+		commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
+			Repo: repo,
+			ID:   branch,
+		}, from, 0)
+		if err != nil {
+			return err
+		}
+		// ListCommit returns commits in newest-first order,
+		// but SubscribeCommit should return commit in oldest-first
+		// order, so we reverse the order.
+		for i := range commitInfos {
+			commitInfo := commitInfos[len(commitInfos)-i-1]
+			if commitInfo.Finished != nil {
+				select {
+				case stream <- CommitEvent{
+					Value: commitInfo,
+				}:
+					seen[commitInfo.Commit.ID] = true
+				case <-done:
+					return nil
+				}
+			}
+		}
+
+	receiveNewCommit:
+		for {
+			var branchName string
+			commit := new(pfs.Commit)
+			for {
+				var event *watch.Event
+				var ok bool
+				select {
+				case event, ok = <-newCommitWatcher.Watch():
+				case <-done:
+					return nil
+				}
+				if !ok {
+					return nil
+				}
+				switch event.Type {
+				case watch.EventError:
+					return event.Err
+				case watch.EventPut:
+					event.Unmarshal(&branchName, commit)
+				case watch.EventDelete:
+					continue
+				}
+				if !seen[commit.ID] {
+					break
+				}
+			}
+			// Now we watch the CommitInfo until the commit has been finished
+			commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+			commitInfoWatcher, err := commits.WatchOne(commit.ID)
+			if err != nil {
+				return err
+			}
+			for {
+				var commitID string
+				commitInfo := new(pfs.CommitInfo)
+				event := <-commitInfoWatcher.Watch()
+				switch event.Type {
+				case watch.EventError:
+					return event.Err
+				case watch.EventPut:
+					event.Unmarshal(&commitID, commitInfo)
+				case watch.EventDelete:
+					// if this commit that we are waiting for is
+					// deleted, then we go back to watch the branch
+					// to get a new commit
+					continue receiveNewCommit
+				}
+				if commitInfo.Finished != nil {
+					select {
+					case stream <- CommitEvent{
+						Value: commitInfo,
+					}:
+						seen[commitInfo.Commit.ID] = true
+					case <-done:
+						return nil
+					}
+					break
+				}
+			}
+		}
+	}()
+
+	return &commitStream{
+		stream: stream,
+		done:   done,
+	}, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (watch.EventChan, chan struct{}, error) {
-	if len(fromCommits) == 0 {
-		return nil, nil, fmt.Errorf("fromCommits cannot be empty")
-	}
+func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitStream, error) {
+	return nil, nil
+	//if len(fromCommits) == 0 {
+	//return nil, nil, fmt.Errorf("fromCommits cannot be empty")
+	//}
 
-	for _, commit := range fromCommits {
-		if _, err := d.InspectCommit(ctx, commit); err != nil {
-			fmt.Printf("returning error: %v\n", err)
-			return nil, nil, err
-		}
-	}
+	//for _, commit := range fromCommits {
+	//if _, err := d.InspectCommit(ctx, commit); err != nil {
+	//fmt.Printf("returning error: %v\n", err)
+	//return nil, nil, err
+	//}
+	//}
 
-	var repos []*pfs.Repo
-	if toRepos != nil {
-		repos = toRepos
-	} else {
-		var downstreamRepos []*pfs.Repo
-		// keep track of how many times a repo appears downstream of
-		// a repo in fromCommits.
-		repoCounts := make(map[string]int)
-		// Find the repos that have *all* the given repos as provenance
-		for _, commit := range fromCommits {
-			// get repos that have the commit's repo as provenance
-			repoInfos, err := d.flushRepo(ctx, commit.Repo)
-			if err != nil {
-				return nil, nil, err
-			}
+	//var repos []*pfs.Repo
+	//if toRepos != nil {
+	//repos = toRepos
+	//} else {
+	//var downstreamRepos []*pfs.Repo
+	//// keep track of how many times a repo appears downstream of
+	//// a repo in fromCommits.
+	//repoCounts := make(map[string]int)
+	//// Find the repos that have *all* the given repos as provenance
+	//for _, commit := range fromCommits {
+	//// get repos that have the commit's repo as provenance
+	//repoInfos, err := d.flushRepo(ctx, commit.Repo)
+	//if err != nil {
+	//return nil, nil, err
+	//}
 
-		NextRepoInfo:
-			for _, repoInfo := range repoInfos {
-				repoCounts[repoInfo.Repo.Name]++
-				for _, repo := range downstreamRepos {
-					if repoInfo.Repo.Name == repo.Name {
-						// Already in the list; skip it
-						continue NextRepoInfo
-					}
-				}
-				downstreamRepos = append(downstreamRepos, repoInfo.Repo)
-			}
-		}
-		for _, repo := range downstreamRepos {
-			// Only the repos that showed up as a downstream repo for
-			// len(fromCommits) repos will contain commits that are
-			// downstream of all fromCommits.
-			if repoCounts[repo.Name] == len(fromCommits) {
-				repos = append(repos, repo)
-			}
-		}
-	}
+	//NextRepoInfo:
+	//for _, repoInfo := range repoInfos {
+	//repoCounts[repoInfo.Repo.Name]++
+	//for _, repo := range downstreamRepos {
+	//if repoInfo.Repo.Name == repo.Name {
+	//// Already in the list; skip it
+	//continue NextRepoInfo
+	//}
+	//}
+	//downstreamRepos = append(downstreamRepos, repoInfo.Repo)
+	//}
+	//}
+	//for _, repo := range downstreamRepos {
+	//// Only the repos that showed up as a downstream repo for
+	//// len(fromCommits) repos will contain commits that are
+	//// downstream of all fromCommits.
+	//if repoCounts[repo.Name] == len(fromCommits) {
+	//repos = append(repos, repo)
+	//}
+	//}
+	//}
 
-	// A commit needs to show up len(fromCommits) times in order to
-	// prove that it indeed has all the fromCommits as provenance.
-	commitCounts := make(map[string]int)
-	var commitCountsLock sync.Mutex
-	// When we've sent len(repos) commits, we are done
-	var numCommitsSent int
-	commitChan := make(watch.EventChan, len(repos))
-	// close this channel when we've sent len(repos) commits
-	doneSending := make(chan struct{})
-	// the receiver is supposed to close this channel when they are done
-	// getting the flushed commits, so that we can release resources.
-	doneReceiving := make(chan struct{})
+	//// A commit needs to show up len(fromCommits) times in order to
+	//// prove that it indeed has all the fromCommits as provenance.
+	//commitCounts := make(map[string]int)
+	//var commitCountsLock sync.Mutex
+	//// When we've sent len(repos) commits, we are done
+	//var numCommitsSent int
+	//commitChan := make(watch.EventChan, len(repos))
+	//// close this channel when we've sent len(repos) commits
+	//doneSending := make(chan struct{})
+	//// the receiver is supposed to close this channel when they are done
+	//// getting the flushed commits, so that we can release resources.
+	//doneReceiving := make(chan struct{})
 
-	if len(repos) == 0 {
-		close(commitChan)
-		return commitChan, doneReceiving, nil
-	}
+	//if len(repos) == 0 {
+	//close(commitChan)
+	//return commitChan, doneReceiving, nil
+	//}
 
-	for _, commit := range fromCommits {
-		for _, repo := range repos {
-			commitEvents := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
-			go func(commit *pfs.Commit) {
-				for {
-					var ev *watch.Event
-					var ok bool
-					select {
-					case ev, ok = <-commitEvents:
-					case <-doneReceiving:
-						return
-					case <-doneSending:
-						return
-					}
-					if !ok {
-						commitChan <- &watch.Event{
-							Type: watch.EventError,
-							Err:  fmt.Errorf("stream for commits that have %v as provenance closed unexpectedly", commit),
-						}
-						return
-					}
-					commitID := string(ev.Key)
-					// Using a func just so we can unlock the commits in
-					// a refer function
-					if func() bool {
-						commitCountsLock.Lock()
-						defer commitCountsLock.Unlock()
-						commitCounts[commitID]++
-						return commitCounts[commitID] == len(fromCommits)
-					}() {
-						// Wrapping it in a select in case a send fails
-						// because the other side closed.
-						select {
-						case commitChan <- ev:
-						case <-doneReceiving:
-							return
-						case <-doneSending:
-							return
-						}
-						numCommitsSent++
-						if numCommitsSent == len(repos) {
-							close(commitChan)
-							close(doneSending)
-						}
-					}
-				}
-			}(commit)
-		}
-	}
-	return commitChan, doneReceiving, nil
+	//for _, commit := range fromCommits {
+	//for _, repo := range repos {
+	//commitEvents := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
+	//go func(commit *pfs.Commit) {
+	//for {
+	//var ev *watch.Event
+	//var ok bool
+	//select {
+	//case ev, ok = <-commitEvents:
+	//case <-doneReceiving:
+	//return
+	//case <-doneSending:
+	//return
+	//}
+	//if !ok {
+	//commitChan <- &watch.Event{
+	//Type: watch.EventError,
+	//Err:  fmt.Errorf("stream for commits that have %v as provenance closed unexpectedly", commit),
+	//}
+	//return
+	//}
+	//commitID := string(ev.Key)
+	//// Using a func just so we can unlock the commits in
+	//// a refer function
+	//if func() bool {
+	//commitCountsLock.Lock()
+	//defer commitCountsLock.Unlock()
+	//commitCounts[commitID]++
+	//return commitCounts[commitID] == len(fromCommits)
+	//}() {
+	//// Wrapping it in a select in case a send fails
+	//// because the other side closed.
+	//select {
+	//case commitChan <- ev:
+	//case <-doneReceiving:
+	//return
+	//case <-doneSending:
+	//return
+	//}
+	//numCommitsSent++
+	//if numCommitsSent == len(repos) {
+	//close(commitChan)
+	//close(doneSending)
+	//}
+	//}
+	//}
+	//}(commit)
+	//}
+	//}
+	//return commitChan, doneReceiving, nil
 }
 
 func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
@@ -927,15 +969,27 @@ func checkPath(path string) error {
 	return nil
 }
 
+func (d *driver) commitExists(commitID string) bool {
+	d.commitCacheMutex.Lock()
+	defer d.commitCacheMutex.Unlock()
+	return d.commitCache[commitID]
+}
+
+func (d *driver) setCommitExist(commitID string) {
+	d.commitCacheMutex.Lock()
+	defer d.commitCacheMutex.Unlock()
+	d.commitCache[commitID] = true
+}
+
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
-	if !d.commitExists[file.Commit.ID] {
+	if !d.commitExists(file.Commit.ID) {
 		_, err := d.InspectCommit(ctx, file.Commit)
 		if err != nil {
 			return err
 		}
-		d.commitExists[file.Commit.ID] = true
+		d.setCommitExist(file.Commit.ID)
 	}
 
 	if err := checkPath(file.Path); err != nil {

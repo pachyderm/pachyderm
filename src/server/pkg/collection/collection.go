@@ -361,30 +361,44 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-func (c *readonlyCollection) Watch() watch.EventChan {
-	return watch.Watch(c.ctx, c.etcdClient, c.prefix)
+func (c *readonlyCollection) Watch() (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix)
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) watch.EventChan {
+func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
-	indirectEventCh := watch.Watch(c.ctx, c.etcdClient, c.indexDir(index, fmt.Sprintf("%s", val)))
+	done := make(chan struct{})
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.indexDir(index, fmt.Sprintf("%s", val)))
+	if err != nil {
+		return nil, err
+	}
 	go func() (retErr error) {
 		defer func() {
+			close(eventCh)
 			if retErr != nil {
 				eventCh <- &watch.Event{
 					Type: watch.EventError,
 					Err:  retErr,
 				}
 				close(eventCh)
+				watcher.Close()
 			}
 		}()
 		for {
-			ev, ok := <-indirectEventCh
-			if !ok {
-				close(eventCh)
+			var ev *watch.Event
+			var ok bool
+			select {
+			case ev, ok = <-watcher.Watch():
+			case <-done:
+				watcher.Close()
 				return nil
 			}
+			if !ok {
+				watcher.Close()
+				return nil
+			}
+
 			var directEv *watch.Event
 			switch ev.Type {
 			case watch.EventError:
@@ -414,11 +428,11 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) watch.Ev
 			eventCh <- directEv
 		}
 	}()
-	return eventCh
+	return watch.MakeWatcher(eventCh, done), nil
 }
 
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
-func (c *readonlyCollection) WatchOne(key string) watch.EventChan {
-	return watch.Watch(c.ctx, c.etcdClient, c.path(key))
+func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.path(key))
 }
