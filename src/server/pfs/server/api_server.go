@@ -207,28 +207,23 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitEvents, doneReceiving, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
+	commitStream, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		close(doneReceiving)
+		commitStream.Close()
 	}()
 
 	for {
-		ev, ok := <-commitEvents
+		ev, ok := <-commitStream.Stream()
 		if !ok {
 			return nil
 		}
 		if ev.Err != nil {
 			return ev.Err
 		}
-		var commitID string
-		commitInfo := new(pfs.CommitInfo)
-		if err := ev.Unmarshal(&commitID, commitInfo); err != nil {
-			return err
-		}
-		if err := stream.Send(commitInfo); err != nil {
+		if err := stream.Send(ev.Value); err != nil {
 			return err
 		}
 	}
@@ -241,20 +236,23 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitIter, err := a.driver.SubscribeCommit(ctx, request.Repo, request.Branch, request.From)
+	commitStream, err := a.driver.SubscribeCommit(ctx, request.Repo, request.Branch, request.From)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		commitStream.Close()
+	}()
 
 	for {
-		commit, err := commitIter.Next()
-		if err != nil {
-			return err
+		ev, ok := <-commitStream.Stream()
+		if !ok {
+			return nil
 		}
-		if commit == nil {
-			break
+		if ev.Err != nil {
+			return ev.Err
 		}
-		if err := stream.Send(commit); err != nil {
+		if err := stream.Send(ev.Value); err != nil {
 			return err
 		}
 	}

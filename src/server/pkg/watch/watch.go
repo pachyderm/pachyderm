@@ -5,10 +5,8 @@ package watch
 
 import (
 	"context"
-	"sort"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/mirror"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -19,8 +17,6 @@ const (
 	EventDelete
 	EventError
 )
-
-type EventChan chan *Event
 
 type Event struct {
 	Key       []byte
@@ -35,6 +31,26 @@ type Event struct {
 func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	*key = string(e.Key)
 	return proto.UnmarshalText(string(e.Value), val)
+}
+
+type Watcher interface {
+	// Receive events from this channel
+	Watch() <-chan *Event
+	// Close this channel when you are done receiving events
+	Close()
+}
+
+type watcher struct {
+	eventCh chan *Event
+	done    chan struct{}
+}
+
+func (w *watcher) Watch() <-chan *Event {
+	return w.eventCh
+}
+
+func (w *watcher) Close() {
+	close(w.done)
 }
 
 // sort the key-value pairs by revision time
@@ -52,48 +68,59 @@ func (s byModRev) Less(i, j int) bool {
 	return s.GetResponse.Kvs[i].ModRevision < s.GetResponse.Kvs[j].ModRevision
 }
 
-func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
+func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
 	eventCh := make(chan *Event)
-	go func() {
-		syncer := mirror.NewSyncer(client, prefix, 0)
-		respCh, errCh := syncer.SyncBase(ctx)
-	getBaseObjects:
-		for {
-			resp, ok := <-respCh
-			if !ok {
-				break getBaseObjects
-			}
-			// we sort the responses by modification time, in order to be
-			// consistent with new events which by their nature are sorted
-			// by modification time.
-			sort.Sort(byModRev{resp})
-			for _, kv := range resp.Kvs {
-				eventCh <- &Event{
-					Key:   kv.Key,
-					Value: kv.Value,
-					Type:  EventPut,
-					Rev:   kv.ModRevision,
+	done := make(chan struct{})
+	// Firstly we list the collection to get the current items
+	// Sort them by ascending order because that's how the items would have
+	// been returned if we watched them from the beginning.
+	resp, err := client.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+	if err != nil {
+		return nil, err
+	}
+
+	etcdWatcher := etcd.NewWatcher(client)
+	// Now we issue a watch that uses the revision timestamp returned by the
+	// Get request earlier.  That way even if some items are added between
+	// when we list the collection and when we start watching the collection,
+	// we won't miss any items.
+	rch := etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
+
+	go func() (retErr error) {
+		defer func() {
+			if retErr != nil {
+				select {
+				case eventCh <- &Event{
+					Err:  retErr,
+					Type: EventError,
+				}:
+				case <-done:
 				}
-			}
-		}
-		if err := <-errCh; err != nil {
-			eventCh <- &Event{
-				Type: EventError,
-				Err:  err,
 			}
 			close(eventCh)
-			return
+			etcdWatcher.Close()
+		}()
+		for _, etcdKv := range resp.Kvs {
+			eventCh <- &Event{
+				Key:   etcdKv.Key,
+				Value: etcdKv.Value,
+				Type:  EventPut,
+				Rev:   etcdKv.ModRevision,
+			}
 		}
-		watchCh := syncer.SyncUpdates(ctx)
 		for {
-			resp := <-watchCh
+			var resp etcd.WatchResponse
+			var ok bool
+			select {
+			case resp, ok = <-rch:
+			case <-done:
+				return nil
+			}
+			if !ok {
+				return nil
+			}
 			if err := resp.Err(); err != nil {
-				eventCh <- &Event{
-					Type: EventError,
-					Err:  err,
-				}
-				close(eventCh)
-				return
+				return err
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{
@@ -105,15 +132,29 @@ func Watch(ctx context.Context, client *etcd.Client, prefix string) EventChan {
 					ev.PrevKey = etcdEv.PrevKv.Key
 					ev.PrevValue = etcdEv.PrevKv.Value
 				}
-				switch etcdEv.Type {
-				case etcd.EventTypePut:
+				if etcdEv.Type == etcd.EventTypePut {
 					ev.Type = EventPut
-				case etcd.EventTypeDelete:
+				} else {
 					ev.Type = EventDelete
 				}
-				eventCh <- ev
+				select {
+				case eventCh <- ev:
+				case <-done:
+					return nil
+				}
 			}
 		}
 	}()
-	return eventCh
+
+	return &watcher{
+		eventCh: eventCh,
+		done:    done,
+	}, nil
+}
+
+func MakeWatcher(eventCh chan *Event, done chan struct{}) Watcher {
+	return &watcher{
+		eventCh: eventCh,
+		done:    done,
+	}
 }
