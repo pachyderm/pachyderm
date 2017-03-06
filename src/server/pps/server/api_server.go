@@ -402,9 +402,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
-		return nil
+		if request.Update {
+			a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+			return nil
+		} else {
+			err := a.pipelines.ReadWrite(stm).Create(pipelineInfo.Pipeline.Name, pipelineInfo)
+			if isAlreadyExistsErr(err) {
+				return newErrPipelineExists(pipelineInfo.Pipeline.Name)
+			}
+			return err
+		}
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// Create output repo
 	// The pipeline manager also creates the output repo, but we want to
@@ -925,7 +936,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				numData--
 			}
 			if resp != nil {
-				if err := tree.Merge([]hashtree.HashTree{resp}); err != nil {
+				if err := tree.Merge(resp); err != nil {
 					return err
 				}
 			}

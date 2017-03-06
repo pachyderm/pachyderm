@@ -606,14 +606,29 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 // errors are encountered while merging any tree, or else a new error e, where:
 // - Code(e) is the error code of the first error encountered
 // - e.Error() contains the error messages of the first 10 errors encountered
-func (h *hashtree) Merge(trees []HashTree) error {
+func (h *hashtree) Merge(trees ...HashTree) error {
+	// Skip empty trees
+	var nonEmptyTrees []HashTree
+	for _, tree := range trees {
+		_, err := tree.Get("/")
+		if err != nil {
+			continue
+		}
+		nonEmptyTrees = append(nonEmptyTrees, tree)
+	}
+
+	if len(nonEmptyTrees) == 0 {
+		return nil
+	}
+
 	hmod, err := h.clone()
 	if err != nil {
 		return errorf(Internal, "could not snapshot hashtree before merge: %s", err)
 	}
-	if err = hmod.mergeNode("/", trees); err != nil {
+	if err = hmod.mergeNode("/", nonEmptyTrees); err != nil {
 		return err
 	}
 	*h = *hmod
+
 	return nil
 }

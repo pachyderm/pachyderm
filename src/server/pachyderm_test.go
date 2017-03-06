@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -20,6 +21,349 @@ import (
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
+
+func TestRecursiveCp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRecursiveCp_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("TestRecursiveCp")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("cp -r /pfs/%s /pfs/out", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(dataRepo),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	for i := 0; i < 100; i++ {
+		_, err = c.PutFile(
+			dataRepo,
+			commit.ID,
+			fmt.Sprintf("file%d", i),
+			strings.NewReader(strings.Repeat("foo\n", 10000)),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
+}
+
+func TestPipelineUniqueness(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{
+			{
+				Repo: &pfs.Repo{Name: repo},
+				Glob: "/",
+			},
+		},
+		"",
+		false,
+	))
+	err := c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{
+			{
+				Repo: &pfs.Repo{Name: repo},
+				Glob: "/",
+			},
+		},
+		"",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "pipeline .*? already exists", err.Error())
+}
+
+//func TestUpdatePipeline(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+//t.Parallel()
+//c := getPachClient(t)
+//// create repos
+//dataRepo := uniqueString("TestUpdatePipeline_data")
+//require.NoError(t, c.CreateRepo(dataRepo))
+//// create 2 pipelines
+//pipelineName := uniqueString("pipeline")
+//require.NoError(t, c.CreatePipeline(
+//pipelineName,
+//"",
+//[]string{"bash"},
+//[]string{fmt.Sprintf(`
+//cat /pfs/%s/file1 >>/pfs/out/file
+//`, dataRepo)},
+//&pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*pps.PipelineInput{{
+//Repo: client.NewRepo(dataRepo),
+//Glob: "/*",
+//}},
+//"",
+//false,
+//))
+//pipeline2Name := uniqueString("pipeline2")
+//require.NoError(t, c.CreatePipeline(
+//pipeline2Name,
+//"",
+//[]string{"bash"},
+//[]string{fmt.Sprintf(`
+//cat /pfs/%s/file >>/pfs/out/file
+//`, pipelineName)},
+//&pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*pps.PipelineInput{{
+//Repo: client.NewRepo(pipelineName),
+//Glob: "/*",
+//}},
+//"",
+//false,
+//))
+//// Do first commit to repo
+//var commit *pfs.Commit
+//var err error
+//for i := 0; i < 2; i++ {
+//commit, err = c.StartCommit(dataRepo, "")
+//require.NoError(t, err)
+//if i == 0 {
+//require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+//}
+//_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("file1\n"))
+//_, err = c.PutFile(dataRepo, commit.ID, "file2", strings.NewReader("file2\n"))
+//_, err = c.PutFile(dataRepo, commit.ID, "file3", strings.NewReader("file3\n"))
+//require.NoError(t, err)
+//require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+//}
+//commitInfos, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 3, len(commitInfos))
+//// only care about non-provenance commits
+//commitInfos = commitInfos[1:]
+//for _, commitInfo := range commitInfos {
+//var buffer bytes.Buffer
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "file1\nfile1\n", buffer.String())
+//}
+
+//// We archive the temporary commits created per job/pod
+//// So the total we see here is 4, but 'real' commits is just 1
+//outputRepoCommitInfos, err := c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//require.NoError(t, err)
+//require.Equal(t, 4, len(outputRepoCommitInfos))
+
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//require.NoError(t, err)
+//require.Equal(t, 2, len(outputRepoCommitInfos))
+
+//// Update the pipeline to look at file2
+//require.NoError(t, c.CreatePipeline(
+//pipelineName,
+//"",
+//[]string{"bash"},
+//[]string{fmt.Sprintf(`
+//cat /pfs/%s/file2 >>/pfs/out/file
+//`, dataRepo)},
+//&pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
+//true,
+//))
+//pipelineInfo, err := c.InspectPipeline(pipelineName)
+//require.NoError(t, err)
+//require.NotNil(t, pipelineInfo.CreatedAt)
+//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 3, len(commitInfos))
+//// only care about non-provenance commits
+//commitInfos = commitInfos[1:]
+//for _, commitInfo := range commitInfos {
+//var buffer bytes.Buffer
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "file2\nfile2\n", buffer.String())
+//}
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//require.NoError(t, err)
+//require.Equal(t, 8, len(outputRepoCommitInfos))
+//// Expect real commits to still be 1
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//require.NoError(t, err)
+//require.Equal(t, 2, len(outputRepoCommitInfos))
+
+//// Update the pipeline to look at file3
+//require.NoError(t, c.CreatePipeline(
+//pipelineName,
+//"",
+//[]string{"bash"},
+//[]string{fmt.Sprintf(`
+//cat /pfs/%s/file3 >>/pfs/out/file
+//`, dataRepo)},
+//&pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
+//true,
+//))
+//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 3, len(commitInfos))
+//// only care about non-provenance commits
+//commitInfos = commitInfos[1:]
+//for _, commitInfo := range commitInfos {
+//var buffer bytes.Buffer
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "file3\nfile3\n", buffer.String())
+//}
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//require.NoError(t, err)
+//require.Equal(t, 12, len(outputRepoCommitInfos))
+//// Expect real commits to still be 1
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//require.NoError(t, err)
+//require.Equal(t, 2, len(outputRepoCommitInfos))
+
+//commitInfos, _ = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//// Do an update that shouldn't cause archiving
+//_, err = c.PpsAPIClient.CreatePipeline(
+//context.Background(),
+//&pps.CreatePipelineRequest{
+//Pipeline: client.NewPipeline(pipelineName),
+//Transform: &pps.Transform{
+//Cmd: []string{"bash"},
+//Stdin: []string{fmt.Sprintf(`
+//cat /pfs/%s/file3 >>/pfs/out/file
+//`, dataRepo)},
+//},
+//ParallelismSpec: &pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 2,
+//},
+//Inputs:    []*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
+//Update:    true,
+//NoArchive: true,
+//})
+//require.NoError(t, err)
+//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//require.NoError(t, err)
+//require.Equal(t, 3, len(commitInfos))
+//// only care about non-provenance commits
+//commitInfos = commitInfos[1:]
+//for _, commitInfo := range commitInfos {
+//var buffer bytes.Buffer
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "file3\nfile3\n", buffer.String())
+//}
+//commitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//require.NoError(t, err)
+//require.Equal(t, 12, len(commitInfos))
+//// Expect real commits to still be 1
+//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//require.NoError(t, err)
+//require.Equal(t, 2, len(outputRepoCommitInfos))
+//}
+
+func TestStopPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	require.NoError(t, c.StopPipeline(pipelineName))
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	// wait for 10 seconds and check that no commit has been outputted
+	time.Sleep(10 * time.Second)
+	commits, err := c.ListCommit(pipelineName, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, len(commits), 0)
+	require.NoError(t, c.StartPipeline(pipelineName))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
 
 func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {

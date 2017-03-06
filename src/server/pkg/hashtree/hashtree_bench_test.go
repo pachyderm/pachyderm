@@ -75,7 +75,7 @@ func BenchmarkMerge(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h := NewHashTree()
-		h.Merge(trees)
+		h.Merge(trees...)
 		h.Finish()
 	}
 }
