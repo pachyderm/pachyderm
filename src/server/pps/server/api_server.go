@@ -2236,6 +2236,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		State:           persistJobInfo.State,
 		Service:         persistJobInfo.Service,
 		Output:          persistJobInfo.Output,
+		Resources:       persistJobInfo.Resources,
 	}, nil
 }
 
