@@ -243,7 +243,11 @@ doc: install-doc
 
 launch-monitoring:
 	kubectl create -f ./etc/plugin/monitoring
-	sleep 120
+	@echo "Waiting for services to spin up ..."
+	until timeout 1s ./etc/kube/check_ready.sh app=heapster kube-system; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=influxdb kube-system; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=grafana kube-system; do sleep 1; done
+	@echo "All services up. Now port forwarding grafana to localhost:3000"
 	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
 
 grep-data:
