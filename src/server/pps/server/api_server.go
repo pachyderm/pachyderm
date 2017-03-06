@@ -2380,7 +2380,10 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 	if err != nil {
 		mem = resource.MustParse(defaultMem)
 	}
-	cpu := resource.MustParse(fmt.Sprintf("%f", options.cpuFootprint))
+	cpu, err := resource.ParseQuantity(options.cpuFootprint)
+	if err != nil {
+		cpu = resource.MustParse(defaultCPU)
+	}
 	return api.PodSpec{
 		InitContainers: []api.Container{
 			{
