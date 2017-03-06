@@ -165,6 +165,32 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (
 	return uint64(math.Max(result, 1)), nil
 }
 
+func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	for _, in := range jobInfo.Inputs {
+		switch {
+		case len(in.Name) == 0:
+			return fmt.Errorf("every job input must specify a name")
+		case in.Name == "out":
+			return fmt.Errorf("no job input may be named \"out\", as pachyderm " +
+				"already creates /pfs/out to collect job output")
+		case in.Commit == nil:
+			return fmt.Errorf("every job input must specify a commit")
+		}
+		// check that the input commit exists
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: in.Commit,
+		})
+		if err != nil {
+			return fmt.Errorf("commit %s not found: %s", in.Commit.FullID(), err)
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -173,16 +199,21 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineInfo := new(pps.PipelineInfo)
-		if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
-			return err
+		// Get pipeline version, to attach to job info
+		var pipelineVersion uint64
+		if request.Pipeline != nil {
+			pipelineInfo := new(pps.PipelineInfo)
+			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+				return err
+			}
+			pipelineVersion = pipelineInfo.Version
 		}
 
 		jobInfo := &pps.JobInfo{
 			Job:             job,
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
-			PipelineVersion: pipelineInfo.Version,
+			PipelineVersion: pipelineVersion,
 			ParallelismSpec: request.ParallelismSpec,
 			Inputs:          request.Inputs,
 			OutputRepo:      request.OutputRepo,
@@ -193,6 +224,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			OutputCommit:    nil,
 			State:           pps.JobState_JOB_STARTING,
 			Service:         request.Service,
+		}
+		if err := a.validateJob(ctx, jobInfo); err != nil {
+			return err
 		}
 		a.jobs.ReadWrite(stm).Put(job.ID, jobInfo)
 		return nil
