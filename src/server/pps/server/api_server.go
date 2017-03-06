@@ -392,7 +392,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 		Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 		Provenance: provenance,
-	}); err != nil {
+	}); err != nil && !isAlreadyExistsErr(err) {
 		return nil, err
 	}
 
@@ -1083,6 +1083,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	protolion.Infof("adding shard %d", shard)
 	return nil
 }
 
@@ -1095,6 +1096,7 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	}
 	ctxAndCancel.cancel()
 	delete(a.shardCtxs, shard)
+	protolion.Infof("removing shard %d", shard)
 	return nil
 }
 

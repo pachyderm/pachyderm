@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"path"
@@ -15,9 +16,84 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
+
+func TestPipelineEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	// make a secret to reference
+	k := getKubeClient(t)
+	secretName := uniqueString("test-secret")
+	_, err := k.Secrets(api.NamespaceDefault).Create(
+		&api.Secret{
+			ObjectMeta: api.ObjectMeta{
+				Name: secretName,
+			},
+			Data: map[string][]byte{
+				"foo": []byte("foo\n"),
+			},
+		},
+	)
+	require.NoError(t, err)
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineEnv_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"ls /var/secret",
+					"cat /var/secret/foo > /pfs/out/foo",
+					"echo $bar> /pfs/out/bar",
+				},
+				Env: map[string]string{"bar": "bar"},
+				Secrets: []*pps.Secret{
+					{
+						Name:      secretName,
+						MountPath: "/var/secret",
+					},
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/*",
+			}},
+		})
+	require.NoError(t, err)
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+}
 
 func TestPipelineWithFullObjects(t *testing.T) {
 	if testing.Short() {
@@ -57,8 +133,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	commitInfos, err := collectCommitInfos(commitInfoIter)
-	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
@@ -71,8 +146,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 	commitInfoIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos, err = collectCommitInfos(commitInfoIter)
-	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 1, len(commitInfos))
 	buffer = bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
@@ -147,8 +221,7 @@ func TestChainedPipelines(t *testing.T) {
 	))
 	resultIter, err := c.FlushCommit([]*pfs.Commit{aCommit, dCommit}, nil)
 	require.NoError(t, err)
-	results, err := collectCommitInfos(resultIter)
-	require.NoError(t, err)
+	results := collectCommitInfos(t, resultIter)
 	require.Equal(t, 1, len(results))
 }
 
@@ -239,8 +312,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	resultsIter, err := c.FlushCommit([]*pfs.Commit{aCommit, eCommit}, nil)
 	require.NoError(t, err)
-	results, err := collectCommitInfos(resultsIter)
-	require.NoError(t, err)
+	results := collectCommitInfos(t, resultsIter)
 	require.Equal(t, 2, len(results))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
@@ -251,8 +323,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	resultsIter, err = c.FlushCommit([]*pfs.Commit{eCommit2}, nil)
 	require.NoError(t, err)
-	results, err = collectCommitInfos(resultsIter)
-	require.NoError(t, err)
+	results = collectCommitInfos(t, resultsIter)
 	require.Equal(t, 2, len(results))
 
 	// Get number of jobs triggered in pipeline D
@@ -261,16 +332,14 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 }
 
-func collectCommitInfos(commitInfoIter client.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
+func collectCommitInfos(t *testing.T, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
 		if err == io.EOF {
-			return commitInfos, nil
+			return commitInfos
 		}
-		if err != nil {
-			return nil, err
-		}
+		require.NoError(t, err)
 		commitInfos = append(commitInfos, commitInfo)
 	}
 }

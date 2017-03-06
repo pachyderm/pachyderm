@@ -40,7 +40,6 @@ func (w *worker) run(dataCh chan datumAndResp) {
 		if !ok {
 			return
 		}
-		fmt.Printf("processing datum: %v\n", dr.datum)
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			Data: dr.datum,
 		})
