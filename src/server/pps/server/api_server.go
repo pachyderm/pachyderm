@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	ppsworker "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -698,7 +697,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, ppsworker.PipelineID(pipelineInfo.Pipeline))
+		a.workerPool(ctx, pipelineInfo.Pipeline.Name)
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -860,8 +859,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		// TODO(msteffen): jobInfo may not have pipeline -- fix
-		wp := a.workerPool(ctx, ppsworker.PipelineID(jobInfo.Pipeline))
+		var wp WorkerPool
+		if jobInfo.Pipeline != nil {
+			wp = a.workerPool(ctx, jobInfo.Pipeline.Name)
+		} else {
+			wp = a.workerPool(ctx, jobInfo.Job.ID)
+		}
 		// process all datums
 		var numData int
 		tree := hashtree.NewHashTree()
