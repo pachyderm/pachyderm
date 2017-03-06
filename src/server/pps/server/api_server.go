@@ -176,7 +176,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-	request.Resources = maybeDefaultResourceRequest(request.Resources)
+	request.Resources = getResourceRequest(request.Resources)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -1106,7 +1106,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-	request.Resources = maybeDefaultResourceRequest(request.Resources)
+	request.Resources = getResourceRequest(request.Resources)
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -1282,11 +1282,11 @@ const (
 	defaultMem = "250M"
 )
 
-// maybeDefaultResouceRequest returns 'res' if it's not nil, and a default
+// getResouceRequest returns 'res' if it's not nil, and a default
 // resource request it if is. This makes sure that pipeline/job workers are
 // given a baseline set of compute resources if none are specified in the
 // request.
-func maybeDefaultResourceRequest(res *ppsclient.Resources) *ppsclient.Resources {
+func getResourceRequest(res *ppsclient.Resources) *ppsclient.Resources {
 	if res != nil {
 		return res
 	}
