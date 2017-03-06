@@ -392,7 +392,7 @@ func (h *hashtree) DeleteFile(path string) error {
 	}
 	if node.DirNode == nil {
 		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
-			"under it (likely an uncaught PathConflict in prior PutFile or Merge)")
+			"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
 	}
 	if !removeStr(&node.DirNode.Children, child) {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)
@@ -537,7 +537,7 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 			pathtype = n.nodetype()
 		} else if pathtype != n.nodetype() {
 			return errorf(PathConflict, "could not merge path \"%s\" which is "+
-				"not consistently a file/directory in the hashtrees being merged")
+				"not consistently a file/directory in the hashtrees being merged", path)
 		}
 		switch n.nodetype() {
 		case directory:
