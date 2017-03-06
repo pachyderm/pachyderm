@@ -2376,14 +2376,8 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 }
 
 func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy) api.PodSpec {
-	mem, err := resource.ParseQuantity(options.memFootprint)
-	if err != nil {
-		mem = resource.MustParse(defaultMem)
-	}
-	cpu, err := resource.ParseQuantity(options.cpuFootprint)
-	if err != nil {
-		cpu = resource.MustParse(defaultCPU)
-	}
+	mem := resource.MustParse(options.memFootprint)
+	cpu := resource.MustParse(fmt.Sprintf("%f", options.cpuFootprint))
 	return api.PodSpec{
 		InitContainers: []api.Container{
 			{
