@@ -60,11 +60,12 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 
 // PrintJobInputHeader pretty prints a job input header.
 func PrintJobInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tCOMMIT\tGLOB\tLAZY\t\n")
+	fmt.Fprint(w, "NAME\tREPO\tCOMMIT\tGLOB\tLAZY\t\n")
 }
 
 // PrintJobInput pretty-prints a job input.
 func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
+	fmt.Fprintf(w, "%s\t", jobInput.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", jobInput.Commit.ID)
 	fmt.Fprintf(w, "%s\t", jobInput.Glob)
@@ -73,12 +74,14 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 
 // PrintPipelineInputHeader prints a pipeline input header.
 func PrintPipelineInputHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tGLOB\tLAZY\t\n")
+	fmt.Fprint(w, "NAME\tREPO\tBRANCH\tGLOB\tLAZY\t\n")
 }
 
 // PrintPipelineInput pretty-prints a pipeline input.
 func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
+	fmt.Fprintf(w, "%s\t", pipelineInput.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Repo.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInput.Branch)
 	fmt.Fprintf(w, "%s\t", pipelineInput.Glob)
 	fmt.Fprintf(w, "%t\t\n", pipelineInput.Lazy)
 }
@@ -107,7 +110,7 @@ Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}}
 Output Commit: {{.OutputCommit.ID}}
-{{ if .Output }}Output: {{.Output.URL}} {{end}}
+{{ if .Egress }}Egress: {{.Egress.URL}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -125,11 +128,13 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 		`Name: {{.Pipeline.Name}}
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
-ParallelismSpec: {{.ParallelismSpec}}
+Parallelism Spec: {{.ParallelismSpec}}
 Inputs:
-{{pipelineInputs .}}Transform:
+{{pipelineInputs .}}
+Output Branch: {{.OutputBranch}}
+Transform:
 {{prettyTransform .Transform}}
-{{ if .Output }}Output: {{.Output.URL}} {{end}}
+{{ if .Egress }}Egress: {{.Egress.URL}} {{end}}
 {{if .RecentError}} Recent Error: {{.RecentError}} {{end}}
 Job Counts:
 {{jobCounts .JobCounts}}

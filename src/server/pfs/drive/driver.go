@@ -839,7 +839,6 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 					var ok bool
 					select {
 					case ev, ok = <-commitWatcher.Watch():
-						fmt.Printf("receiving ev: %v\n", string(ev.Value))
 					case <-done:
 						return
 					}
@@ -871,7 +870,6 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 						case stream <- CommitEvent{
 							Value: &commitInfo,
 						}:
-							fmt.Printf("sending commitInfo: %v\n", commitInfo)
 						case <-done:
 							return
 						}
