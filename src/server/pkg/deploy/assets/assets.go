@@ -54,6 +54,7 @@ const (
 	googleBackend
 	microsoftBackend
 	minioBackend
+	s3CustomArgs = 6
 )
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -796,7 +797,7 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 // WriteRethinkVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
 func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
-	if backend != localBackend && backend != minioBackend && len(names) < shards {
+	if backend != localBackend && len(names) < shards {
 		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -905,15 +906,14 @@ type AssetOpts struct {
 }
 
 // WriteAssets writes the assets to w.
-func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
+func WriteAssets(w io.Writer, opts *AssetOpts, objectStore backend, persistentDisk backend,
 	volumeNames []string, volumeSize int, hostPath string) error {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	err := WriteRethinkVolumes(w, backend, int(opts.RethinkShards), hostPath, volumeNames, volumeSize)
-	if err != nil {
+	if err := WriteRethinkVolumes(w, persistentDisk, int(opts.RethinkShards), hostPath, volumeNames, volumeSize); err != nil {
 		return err
 	}
 
@@ -929,12 +929,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 		fmt.Fprintf(w, "\n")
 		RethinkHeadlessService().CodecEncodeSelf(encoder)
 	} else {
-		if backend != localBackend && backend != minioBackend && len(volumeNames) != 1 {
+		if objectStore != localBackend && len(volumeNames) != 1 {
 			return fmt.Errorf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames))
 		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		volumeName := ""
-		if backend != localBackend && backend != minioBackend {
+		if objectStore != localBackend {
 			volumeName = volumeNames[0]
 		}
 		RethinkRc(volumeName, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
@@ -946,32 +946,57 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.PachdShards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics, opts.BlockCacheSize).CodecEncodeSelf(encoder)
+	PachdRc(opts.PachdShards, objectStore, hostPath, opts.LogLevel, opts.Version, opts.Metrics, opts.BlockCacheSize).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }
 
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
-	return WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
+	return WriteAssets(w, opts, localBackend, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
 }
 
-// WriteMinioAssets writes assets to an s3 backend.
-func WriteMinioAssets(w io.Writer, opts *AssetOpts, hostPath string, bucket string, id string,
-	secret string, endpoint string, secure bool) error {
-	if err := WriteAssets(w, opts, minioBackend, nil, 1 /* = volume size (gb) */, hostPath); err != nil {
-		return err
+// WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
+func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStore string,
+	persistentDisk string, secure bool) error {
+	switch objectStore {
+	case "s3":
+		if len(args) != s3CustomArgs {
+			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
+		}
+		volumeSize, err := strconv.Atoi(args[1])
+		if err != nil {
+			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
+		}
+		switch persistentDisk {
+		case "aws":
+			if err := WriteAssets(w, opts, minioBackend, amazonBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "google":
+			if err := WriteAssets(w, opts, minioBackend, googleBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "azure":
+			if err := WriteAssets(w, opts, minioBackend, microsoftBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Did not recognize the choice of persistent-disk")
+		}
+		encoder := codec.NewEncoder(w, jsonEncoderHandle)
+		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		return nil
+	default:
+		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	MinioSecret(bucket, id, secret, endpoint, secure).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-	return nil
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
 	token string, region string, volumeNames []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -982,7 +1007,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -993,7 +1018,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames 
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)

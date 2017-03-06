@@ -47,6 +47,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var rethinkdbCacheSize string
 	var blockCacheSize string
 	var logLevel string
+	var persistentDisk string
+	var objectStore string
 	var opts *assets.AssetOpts
 
 	deployLocal := &cobra.Command{
@@ -97,27 +99,28 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 
-	deployMinio := &cobra.Command{
-		Use:   "minio [-s] <S3 bucket> <id> <secret> <endpoint>",
-		Short: "Deploy a Pachyderm cluster running locally.",
-		Long: "Deploy a Pachyderm cluster running locally. Arguments are:\n" +
-			"  <Minio bucket>: A Minio bucket where Pachyderm will store PFS data.\n" +
-			"  <id>, <secret>, <endpoint>: Access credentials.\n" +
-			"  <secure>: Secure connection.\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 4}, func(args []string) (retErr error) {
+	deployCustom := &cobra.Command{
+		Use:   "custom --persistent-disk <persistent disk> --object-store <object store> <persistent disk args> <object store args>",
+		Short: "Deploy a custom Pachyderm cluster configuration",
+		Long: "Deploy a custom Pachyderm cluster configuration. Required flags are:\n" +
+			"  <persistent-disk>: aws, google, or azure\n" +
+			"  <object-store>: s3, gcs, azure-blob\n",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			manifest := &bytes.Buffer{}
-			err := assets.WriteMinioAssets(manifest, opts, hostPath, args[0], args[1], args[2], args[3], secure)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStore, persistentDisk, secure)
 			if err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-	deployMinio.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to Minio server.")
+	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
+	deployCustom.Flags().StringVar(&persistentDisk, "persistent-disk", "aws", "Choice of persistent disk for the custom deployment.")
+	deployCustom.Flags().StringVar(&objectStore, "object-store", "s3", "Choice of object store for the custom deployment.")
 
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
@@ -234,7 +237,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
-	deploy.AddCommand(deployMinio)
+	deploy.AddCommand(deployCustom)
 	return deploy
 }
 
