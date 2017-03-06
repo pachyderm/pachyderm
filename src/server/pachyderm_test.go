@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"path"
 	"strings"
 	"testing"
@@ -22,7 +23,59 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/labels"
 )
+
+func TestRestartOne(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRestartOne_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+
+	restartOne(t)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	_, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	_, err = c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	_, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+}
 
 func TestPrettyPrinting(t *testing.T) {
 	if testing.Short() {
@@ -912,4 +965,85 @@ func getPachClient(t testing.TB) *client.APIClient {
 
 func uniqueString(prefix string) string {
 	return prefix + uuid.NewWithoutDashes()[0:12]
+}
+
+func restartOne(t *testing.T) {
+	k := getKubeClient(t)
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse("app=pachd")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	require.NoError(t, podsInterface.Delete(podList.Items[rand.Intn(len(podList.Items))].Name, api.NewDeleteOptions(0)))
+	waitForReadiness(t)
+}
+
+const (
+	retries = 10
+)
+
+// getUsablePachClient is like getPachClient except it blocks until it gets a
+// connection that actually works
+func getUsablePachClient(t *testing.T) *client.APIClient {
+	for i := 0; i < retries; i++ {
+		client := getPachClient(t)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel() //cleanup resources
+		_, err := client.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+		if err == nil {
+			return client
+		}
+	}
+	t.Fatalf("failed to connect after %d tries", retries)
+	return nil
+}
+
+func waitForReadiness(t *testing.T) {
+	k := getKubeClient(t)
+	rc := pachdRc(t)
+	for {
+		// This code is taken from
+		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
+		// It used to call that fun ction but an update to the k8s library
+		// broke it due to a type error.  We should see if we can go back to
+		// using that code but I(jdoliner) couldn't figure out how to fanagle
+		// the types into compiling.
+		newRc, err := k.ReplicationControllers(api.NamespaceDefault).Get(rc.Name)
+		require.NoError(t, err)
+		if newRc.Status.ObservedGeneration >= rc.Generation && newRc.Status.Replicas == newRc.Spec.Replicas {
+			break
+		}
+		time.Sleep(time.Second * 5)
+	}
+	watch, err := k.Pods(api.NamespaceDefault).Watch(api.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "pachd"}),
+	})
+	defer watch.Stop()
+	require.NoError(t, err)
+	readyPods := make(map[string]bool)
+	for event := range watch.ResultChan() {
+		ready, err := kube.PodRunningAndReady(event)
+		require.NoError(t, err)
+		if ready {
+			pod, ok := event.Object.(*api.Pod)
+			if !ok {
+				t.Fatal("event.Object should be an object")
+			}
+			readyPods[pod.Name] = true
+			if len(readyPods) == int(rc.Spec.Replicas) {
+				break
+			}
+		}
+	}
+}
+
+func pachdRc(t *testing.T) *api.ReplicationController {
+	k := getKubeClient(t)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get("pachd")
+	require.NoError(t, err)
+	return result
 }
