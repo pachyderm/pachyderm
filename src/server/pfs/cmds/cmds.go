@@ -325,11 +325,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			defer func() {
-				if err := writer.Flush(); retErr == nil && err != nil {
-					retErr = err
-				}
-			}()
 			pretty.PrintCommitInfoHeader(writer)
 			for {
 				commitInfo, err := commitIter.Next()

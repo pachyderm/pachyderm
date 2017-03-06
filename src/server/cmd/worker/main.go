@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"path"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -125,7 +126,8 @@ func do(appEnvObj interface{}) error {
 	// discover us
 	log.Println()
 	<-ready
-	id := worker.PipelineID(pipelineInfo.Pipeline)
+	// TODO: handle the case where this worker is part of a pipeline-less job
+	id := pipelineInfo.Pipeline.Name
 	key := path.Join(appEnv.PPSPrefix, "workers", id, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
