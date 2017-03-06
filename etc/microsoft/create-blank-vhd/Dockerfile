@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:1.8.0-alpine
 
 ADD . /src
 WORKDIR /src
