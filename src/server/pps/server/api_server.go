@@ -569,9 +569,12 @@ func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
 func (a *apiServer) pipelineWatcher() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		pipelineEvents := a.pipelines.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		pipelineWatcher, err := a.pipelines.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		if err != nil {
+			return err
+		}
 		for {
-			event := <-pipelineEvents
+			event := <-pipelineWatcher.Watch()
 			if event.Err != nil {
 				return event.Err
 			}
@@ -621,10 +624,13 @@ func (a *apiServer) jobWatcher() {
 	backoff.RetryNotify(func() error {
 		// Wait for job events where JobInfo.Stopped is set to "false", and then
 		// start JobManagers for those jobs
-		jobEvents := a.jobs.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		jobWatcher, err := a.jobs.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		if err != nil {
+			return err
+		}
 
 		for {
-			event := <-jobEvents
+			event := <-jobWatcher.Watch()
 			if event.Err != nil {
 				return event.Err
 			}
