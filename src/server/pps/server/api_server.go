@@ -557,7 +557,29 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PPSDeleteAll")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{pipelineInfo.Pipeline}); err != nil {
+			return nil, err
+		}
+	}
+
+	jobInfos, err := a.ListJob(ctx, &pps.ListJobRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, jobInfo := range jobInfos.JobInfo {
+		if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{jobInfo.Job}); err != nil {
+			return nil, err
+		}
+	}
+
+	return &types.Empty{}, err
 }
 
 func (a *apiServer) Version(version int64) error {

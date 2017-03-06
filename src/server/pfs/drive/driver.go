@@ -552,6 +552,12 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
+	// Make sure that the repo exists
+	_, err := d.InspectRepo(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure that both from and to are valid commits
 	if from != nil {
 		if _, err := d.InspectCommit(ctx, from); err != nil {
@@ -1292,7 +1298,17 @@ func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) DeleteAll(ctx context.Context) error {
+	repoInfos, err := d.ListRepo(ctx, nil)
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos {
+		if err := d.DeleteRepo(ctx, repoInfo.Repo, true); err != nil {
+			return err
+		}
+	}
 	return nil
 }
+
 func (d *driver) Dump(ctx context.Context) {
 }

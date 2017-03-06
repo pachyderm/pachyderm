@@ -22,6 +22,55 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+func TestDeleteAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it deletes everything
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestDeleteAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+	// Do commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
+	require.NoError(t, c.DeleteAll())
+	repoInfos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(repoInfos))
+	pipelineInfos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(pipelineInfos))
+	jobInfos, err := c.ListJob("", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobInfos))
+}
+
 func TestRecursiveCp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
