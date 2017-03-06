@@ -32,6 +32,7 @@ message JobInfo {
   bool gc = 21;
   pps.Service service = 22;
   pps.Output output = 23;
+  pps.Resources resources = 24;
 }
 
 message Pod {

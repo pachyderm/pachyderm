@@ -128,6 +128,7 @@ message JobInfo {
   JobState state = 10;
   repeated Chunk chunks = 11;
   Service service = 14;
+  Resources resources = 16;
 }
 
 enum ChunkState {
@@ -222,6 +223,7 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
+  // next field value: 12
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
@@ -229,6 +231,10 @@ message CreateJobRequest {
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
   Output output = 9;
+
+  // The compute resources that should be allocated to each worker in this
+  // job. If unset, pachyderm will generate a default resource request.
+  Resources resources = 11;
   Job parent_job = 5;
   bool force = 6;
   // When service is defined, we create a long running job
@@ -254,6 +260,17 @@ message GetLogsRequest {
     Job job = 1;
 }
 
+message Resources {
+  // The amount of cpu that each worker in a pipeline should be allocated,
+  // in cores. Partial cores are allowed (and encouraged).
+  float cpu = 1;
+
+  // The amount of memory that each worker in a pipeline should be allocated,
+  // in bytes. This should be a number, with allowed SI suffixes (M, K, G, Mi,
+  // Ki, Gi, etc)
+  string memory = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
@@ -261,6 +278,10 @@ message CreatePipelineRequest {
   ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
   Output output = 9;
+
+  // The compute resources that should be allocated to each worker in this
+  // pipeline. If unset, pachyderm will generate a default resource request.
+  Resources resources = 10;
   bool update = 5;
   bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
   GCPolicy gc_policy = 8;

@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/batch"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -175,6 +176,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	request.Resources = getResourceRequest(request.Resources)
 
 	persistClient, err := a.getPersistClient()
 	if err != nil {
@@ -376,8 +378,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		Shard: a.hasher.HashJob(&ppsclient.Job{
 			ID: jobID,
 		}),
-		Service: request.Service,
-		Output:  request.Output,
+		Service:   request.Service,
+		Output:    request.Output,
+		Resources: request.Resources,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = pipelineInfo.Pipeline.Name
@@ -1103,6 +1106,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	request.Resources = getResourceRequest(request.Resources)
 
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -1270,6 +1274,25 @@ func setDefaultJobInputMethod(inputs []*ppsclient.JobInput) {
 		if input.Method == nil {
 			input.Method = client.DefaultMethod
 		}
+	}
+}
+
+const (
+	defaultCPU = 0.25
+	defaultMem = "250M"
+)
+
+// getResouceRequest returns 'res' if it's not nil, and a default
+// resource request it if is. This makes sure that pipeline/job workers are
+// given a baseline set of compute resources if none are specified in the
+// request.
+func getResourceRequest(res *ppsclient.Resources) *ppsclient.Resources {
+	if res != nil {
+		return res
+	}
+	return &ppsclient.Resources{
+		Cpu:    defaultCPU,
+		Memory: defaultMem,
 	}
 }
 
@@ -2213,6 +2236,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		State:           persistJobInfo.State,
 		Service:         persistJobInfo.Service,
 		Output:          persistJobInfo.Output,
+		Resources:       persistJobInfo.Resources,
 	}, nil
 }
 
@@ -2232,6 +2256,8 @@ type jobOptions struct {
 	volumes            []api.Volume
 	volumeMounts       []api.VolumeMount
 	imagePullSecrets   []api.LocalObjectReference
+	cpuFootprint       float32
+	memFootprint       string
 }
 
 func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimImage string, jobImagePullPolicy string, heartbeatSecs string, maxHeartbeatRetries string) (*jobOptions, error) {
@@ -2344,10 +2370,14 @@ func getJobOptions(kubeClient *kube.Client, jobInfo *persist.JobInfo, jobShimIma
 		volumes:            volumes,
 		volumeMounts:       volumeMounts,
 		imagePullSecrets:   imagePullSecrets,
+		cpuFootprint:       jobInfo.Resources.GetCpu(),
+		memFootprint:       jobInfo.Resources.GetMemory(),
 	}, nil
 }
 
 func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy) api.PodSpec {
+	mem := resource.MustParse(options.memFootprint)
+	cpu := resource.MustParse(fmt.Sprintf("%f", options.cpuFootprint))
 	return api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -2370,6 +2400,12 @@ func podSpec(options *jobOptions, jobID string, restartPolicy api.RestartPolicy)
 				ImagePullPolicy: api.PullPolicy(options.jobImagePullPolicy),
 				Env:             options.jobEnv,
 				VolumeMounts:    options.volumeMounts,
+				Resources: api.ResourceRequirements{
+					Requests: api.ResourceList{
+						api.ResourceCPU:    cpu,
+						api.ResourceMemory: mem,
+					},
+				},
 			},
 		},
 		RestartPolicy:    restartPolicy,
