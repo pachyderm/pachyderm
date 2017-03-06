@@ -95,7 +95,7 @@ type OpenHashTree interface {
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
 	// this tree.
-	Merge(trees []HashTree) error
+	Merge(trees ...HashTree) error
 
 	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
 	// node size metadata in the copy, and returns the copy

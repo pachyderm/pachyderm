@@ -234,7 +234,7 @@ func TestPutError(t *testing.T) {
 	src, err := srcOpen.Finish()
 	require.NoError(t, err)
 	requireOperationInvariant(t, h, func() {
-		err := h.Merge([]HashTree{src})
+		err := h.Merge(src)
 		require.YesError(t, err, tostring(h))
 		require.Equal(t, PathConflict, Code(err))
 	})
@@ -507,15 +507,15 @@ func TestMerge(t *testing.T) {
 	require.NoError(t, err)
 
 	h := l.Open()
-	h.Merge([]HashTree{r})
+	h.Merge(r)
 	requireSame(t, expected, finish(t, h))
 
 	h = r.Open()
-	h.Merge([]HashTree{l})
+	h.Merge(l)
 	requireSame(t, expected, finish(t, h))
 
 	h = NewHashTree()
-	h.Merge([]HashTree{l, r})
+	h.Merge(l, r)
 	requireSame(t, expected, finish(t, h))
 }
 
@@ -530,11 +530,11 @@ func TestMergeEmpty(t *testing.T) {
 	// Merge empty tree into full tree
 	l := expected.Open()
 	r := NewHashTree()
-	l.Merge([]HashTree{finish(t, r)})
+	require.NoError(t, l.Merge(finish(t, r)))
 	requireSame(t, expected, finish(t, l))
 
 	// Merge full tree into empty tree
-	r.Merge([]HashTree{finish(t, l)})
+	require.NoError(t, r.Merge(finish(t, l)))
 	requireSame(t, expected, finish(t, r))
 }
 
