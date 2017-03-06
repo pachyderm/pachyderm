@@ -15,12 +15,71 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
+
+func TestPrettyPrinting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPrettyPrinting_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	// Do a commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	repoInfo, err := c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(repoInfo))
+	for _, commitInfo := range commitInfos {
+		require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+	}
+	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "file")
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(pipelineInfo))
+	jobInfos, err := c.ListJob("", nil)
+	require.NoError(t, err)
+	require.True(t, len(jobInfos) > 0)
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
+}
 
 func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
