@@ -47,7 +47,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var rethinkCacheSize string
 	var blockCacheSize string
 	var logLevel string
-	var computeBackend string
+	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
 
@@ -100,10 +100,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deployCustom := &cobra.Command{
-		Use:   "custom --compute-backend <compute backend> --object-store-backend <object store backend> <compute args> <object store args>",
-		Short: "(preliminary) Deploy a custom Pachyderm cluster configuration",
-		Long: "Deploy a custom Pachyderm cluster configuration. This command is " +
-			"in progress.\n" +
+		Use:   "custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
+		Short: "(in progress) Deploy a custom Pachyderm cluster configuration",
+		Long: "(in progress) Deploy a custom Pachyderm cluster configuration.\n" +
 			"If <object store backend> is \"s3\", then the arguments are:\n" +
 			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
@@ -112,7 +111,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			manifest := &bytes.Buffer{}
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, computeBackend, secure)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure)
 			if err != nil {
 				return err
 			}
@@ -120,8 +119,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
-	deployCustom.Flags().StringVar(&computeBackend, "compute-backend", "aws", "(required) Compute backend for the custom deployment: aws, google, or azure.")
-	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store-backend", "s3", "(required) Object store backend for the custom deployment: s3, gcs, or azure-blob.")
+	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
+		"(required) Backend providing persistent local volumes to stateful pods. "+
+			"One of: aws, google, or azure.")
+	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
+		"(required) Backend providing an object-storage API to pachyderm. One of: "+
+			"s3, gcs, or azure-blob.")
 
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
@@ -184,6 +187,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
+
 	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
