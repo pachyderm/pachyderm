@@ -4561,8 +4561,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 				Constant: 1,
 			},
 			Resources: &ppsclient.Resources{
-				Cpu:    2.25,
-				Memory: "5G",
+				Cpu:    0.5,
+				Memory: "100M",
 			},
 			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 			GcPolicy: &ppsclient.GCPolicy{
@@ -4601,10 +4601,12 @@ func TestPipelineResourceRequest(t *testing.T) {
 		for _, p := range podList.Items {
 			for _, container := range p.Spec.Containers {
 				// Make sure a CPU and Memory request are both set
-				_, ok := container.Resources.Requests[api.ResourceCPU]
+				cpu, ok := container.Resources.Requests[api.ResourceCPU]
 				require.True(t, ok)
-				_, ok = container.Resources.Requests[api.ResourceMemory]
+				require.Equal(t, "500m", cpu.String())
+				mem, ok := container.Resources.Requests[api.ResourceMemory]
 				require.True(t, ok)
+				require.Equal(t, "100M", mem.String())
 			}
 		}
 		break // no more retries needed
