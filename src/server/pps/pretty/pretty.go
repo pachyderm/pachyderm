@@ -140,6 +140,9 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 ParallelismSpec: {{.ParallelismSpec}}
+{{ if .Resources }}Resources:
+	CPU: {{ .Resources.Cpu }}
+	Memory: {{ .Resources.Memory }} {{end}}
 Inputs:
 {{pipelineInputs .}}Transform:
 {{prettyTransform .Transform}}
