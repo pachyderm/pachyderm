@@ -55,20 +55,21 @@ func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []
 		errCh:    errCh,
 	}
 
-	uniqueBranches := make(map[string]map[string]bool)
+	uniqueBranches := make(map[string]map[string]*pfs.Commit)
 	for _, input := range inputs {
 		if uniqueBranches[input.Repo.Name] == nil {
-			uniqueBranches[input.Repo.Name] = make(map[string]bool)
-			uniqueBranches[input.Repo.Name][input.Branch] = true
+			uniqueBranches[input.Repo.Name] = make(map[string]*pfs.Commit)
 		}
+		uniqueBranches[input.Repo.Name][input.Branch] = input.From
 	}
 
 	for repoName, branches := range uniqueBranches {
-		for branchName := range branches {
+		for branchName, fromCommit := range branches {
 			f.numBranches++
 			stream, err := pfsClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{
 				Repo:   &pfs.Repo{repoName},
 				Branch: branchName,
+				From:   fromCommit,
 			})
 			if err != nil {
 				return nil, err

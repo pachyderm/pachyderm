@@ -243,7 +243,11 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	jobInfo := new(pps.JobInfo)
+	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobInfo); err != nil {
+		return nil, err
+	}
+	return jobInfo, nil
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
@@ -395,26 +399,72 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		OutputBranch:    request.OutputBranch,
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
+		CreatedAt:       now(),
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
 
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		if request.Update {
-			a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
-			return nil
-		} else {
-			err := a.pipelines.ReadWrite(stm).Create(pipelineInfo.Pipeline.Name, pipelineInfo)
-			if isAlreadyExistsErr(err) {
-				return newErrPipelineExists(pipelineInfo.Pipeline.Name)
-			}
-			return err
-		}
-	})
+	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return nil, err
+	}
+
+	pipelineName := pipelineInfo.Pipeline.Name
+
+	if request.Update {
+		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
+			return nil, err
+		}
+		var oldPipelineInfo pps.PipelineInfo
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			if err := pipelines.Get(pipelineName, &oldPipelineInfo); err != nil {
+				return err
+			}
+			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			pipelines.Put(pipelineName, pipelineInfo)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// Rename the original output branch to `outputBranch-vN`, where N
+		// is the previous version number of the pipeline.
+		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{pipelineName},
+				ID:   oldPipelineInfo.OutputBranch,
+			},
+			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
+		}); err != nil {
+			return nil, err
+		}
+
+		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
+			Repo:   &pfs.Repo{pipelineName},
+			Branch: oldPipelineInfo.OutputBranch,
+		}); err != nil {
+			return nil, err
+		}
+
+		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			err := pipelines.Create(pipelineName, pipelineInfo)
+			if isAlreadyExistsErr(err) {
+				return newErrPipelineExists(pipelineName)
+			}
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Create output repo
@@ -424,11 +474,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// because it's a very common pattern to create many pipelines in a
 	// row, some of which depend on the existence of the output repos
 	// of upstream pipelines.
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return nil, err
-	}
-
 	var provenance []*pfs.Repo
 	for _, input := range pipelineInfo.Inputs {
 		provenance = append(provenance, input.Repo)
@@ -908,6 +953,9 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
+	if isNotFoundErr(err) {
+		return newErrPipelineNotFound(pipelineName)
+	}
 	return err
 }
 
@@ -1123,7 +1171,11 @@ func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
 }
 
 func (a *apiServer) deleteWorkers(pipelineInfo *pps.PipelineInfo) error {
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), nil)
+	falseVal := false
+	deleteOptions := &api.DeleteOptions{
+		OrphanDependents: &falseVal,
+	}
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), deleteOptions)
 }
 
 // getShardCtx returns the context associated with a shard that this server

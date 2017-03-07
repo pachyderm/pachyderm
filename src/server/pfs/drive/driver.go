@@ -960,6 +960,9 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 }
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
+	if _, err := d.InspectCommit(ctx, commit); err != nil {
+		return err
+	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)

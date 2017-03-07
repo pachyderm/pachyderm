@@ -26,6 +26,60 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestRestartAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestRestartAll_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+
+	restartAll(t)
+
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	// Wait a little for pipelines to restart
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	_, err = c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	_, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+}
+
 func TestRestartOne(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -965,6 +1019,22 @@ func getPachClient(t testing.TB) *client.APIClient {
 
 func uniqueString(prefix string) string {
 	return prefix + uuid.NewWithoutDashes()[0:12]
+}
+
+func restartAll(t *testing.T) {
+	k := getKubeClient(t)
+	podsInterface := k.Pods(api.NamespaceDefault)
+	labelSelector, err := labels.Parse("suite=pachyderm")
+	require.NoError(t, err)
+	podList, err := podsInterface.List(
+		api.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	require.NoError(t, err)
+	for _, pod := range podList.Items {
+		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
+	}
+	waitForReadiness(t)
 }
 
 func restartOne(t *testing.T) {
