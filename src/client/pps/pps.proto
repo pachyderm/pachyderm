@@ -131,6 +131,7 @@ message PipelineInput {
   string branch = 2;
   string glob = 3;
   bool lazy = 4;
+  pfs.Commit from = 6;
 }
 
 enum PipelineState {

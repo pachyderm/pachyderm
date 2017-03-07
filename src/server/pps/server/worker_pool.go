@@ -154,8 +154,8 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 }
 
 func (wp *workerPool) addWorker(addr string) error {
-	if _, ok := wp.workersMap[addr]; ok {
-		return fmt.Errorf("worker already exists at %s", addr)
+	if cancel, ok := wp.workersMap[addr]; ok {
+		cancel()
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
