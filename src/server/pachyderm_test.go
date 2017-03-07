@@ -26,6 +26,255 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestPipelineJobCounts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(repo),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	// Trigger a job by creating a commit
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	inspectJobRequest := &pps.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	_, err = c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+
+	// check that the job has been accounted for
+	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
+}
+
+//func TestJobState(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+
+//t.Parallel()
+//c := getPachClient(t)
+
+//// This job uses a nonexistent image; it's supposed to stay in the
+//// "creating" state
+//job, err := c.CreateJob(
+//"nonexistent",
+//[]string{"bash"},
+//nil,
+//&pps.ParallelismSpec{},
+//nil,
+//"",
+//0,
+//0,
+//)
+//require.NoError(t, err)
+//time.Sleep(10 * time.Second)
+//jobInfo, err := c.InspectJob(job.ID, false)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_CREATING, jobInfo.State)
+
+//// This job sleeps for 20 secs
+//job, err = c.CreateJob(
+//"",
+//[]string{"bash"},
+//[]string{"sleep 20"},
+//&pps.ParallelismSpec{},
+//nil,
+//"",
+//0,
+//0,
+//)
+//require.NoError(t, err)
+//time.Sleep(10 * time.Second)
+//jobInfo, err = c.InspectJob(job.ID, false)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_RUNNING, jobInfo.State)
+
+//// Wait for the job to complete
+//jobInfo, err = c.InspectJob(job.ID, true)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+//}
+
+//func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
+//t.Skip("this test is flaky")
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+
+//scalePachd(t, true)
+//testJob(t, 4)
+//scalePachd(t, false)
+//testJob(t, 4)
+//}
+
+func TestDeleteAfterMembershipChange(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	test := func(up bool) {
+		repo := uniqueString("TestDeleteAfterMembershipChange")
+		c := getPachClient(t)
+		require.NoError(t, c.CreateRepo(repo))
+		commit, err := c.StartCommit(repo, "")
+		require.NoError(t, err)
+		require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+		require.NoError(t, c.FinishCommit(repo, "master"))
+		scalePachd(t, up)
+		c = getUsablePachClient(t)
+		require.NoError(t, c.DeleteRepo(repo, false))
+	}
+	test(true)
+	test(false)
+}
+
+//func TestScrubbedErrors(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+
+//t.Parallel()
+//c := getPachClient(t)
+
+//_, err := c.InspectPipeline("blah")
+//require.Equal(t, "PipelineInfos blah not found", err.Error())
+
+//err = c.CreatePipeline(
+//"lskdjf$#%^ERTYC",
+//"",
+//[]string{},
+//nil,
+//&pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: "test"}}},
+//false,
+//)
+//require.Equal(t, "repo test not found", err.Error())
+
+//_, err = c.CreateJob(
+//"askjdfhgsdflkjh",
+//[]string{},
+//[]string{},
+//&pps.ParallelismSpec{},
+//[]*pps.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+//"",
+//0,
+//0,
+//)
+//require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
+
+//_, err = c.InspectJob("blah", true)
+//require.Equal(t, "JobInfos blah not found", err.Error())
+
+//home := os.Getenv("HOME")
+//f, err := os.Create(filepath.Join(home, "/tmpfile"))
+//defer func() {
+//os.Remove(filepath.Join(home, "/tmpfile"))
+//}()
+//require.NoError(t, err)
+//err = c.GetLogs("bogusJobId", f)
+//require.Equal(t, "job bogusJobId not found", err.Error())
+//}
+
+//func TestLeakingRepo(t *testing.T) {
+//// If CreateJob fails, it should also destroy the output repo it creates
+//// If it doesn't, it can cause flush commit to fail, as a bogus repo will
+//// be listed in the output repo's provenance
+
+//// This test can't be run in parallel, since it requires using the repo counts as controls
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+
+//c := getPachClient(t)
+
+//repoInfos, err := c.ListRepo(nil)
+//require.NoError(t, err)
+//initialCount := len(repoInfos)
+
+//_, err = c.CreateJob(
+//"bogusImage",
+//[]string{},
+//[]string{},
+//&pps.ParallelismSpec{},
+//[]*pps.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
+//"",
+//0,
+//0,
+//)
+//require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
+
+//repoInfos, err = c.ListRepo(nil)
+//require.NoError(t, err)
+//require.Equal(t, initialCount, len(repoInfos))
+//}
+
+//func TestAcceptReturnCode(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+//t.Parallel()
+//c := getPachClient(t)
+//job, err := c.PpsAPIClient.CreateJob(
+//context.Background(),
+//&pps.CreateJobRequest{
+//Transform: &pps.Transform{
+//Cmd:              []string{"sh"},
+//Stdin:            []string{"exit 1"},
+//AcceptReturnCode: []int64{1},
+//},
+//ParallelismSpec: &pps.ParallelismSpec{},
+//},
+//)
+//require.NoError(t, err)
+//inspectJobRequest := &pps.InspectJobRequest{
+//Job:        job,
+//BlockState: true,
+//}
+//ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+//defer cancel() //cleanup resources
+//jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+//}
+
 func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1116,4 +1365,33 @@ func pachdRc(t *testing.T) *api.ReplicationController {
 	result, err := rc.Get("pachd")
 	require.NoError(t, err)
 	return result
+}
+
+// scalePachd scales the number of pachd nodes up or down.
+// If up is true, then the number of nodes will be within (n, 2n]
+// If up is false, then the number of nodes will be within [1, n)
+func scalePachd(t *testing.T, up bool) {
+	k := getKubeClient(t)
+	pachdRc := pachdRc(t)
+	originalReplicas := pachdRc.Spec.Replicas
+	for {
+		if up {
+			pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
+		} else {
+			pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
+		}
+
+		if pachdRc.Spec.Replicas != originalReplicas {
+			break
+		}
+	}
+	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	_, err := rc.Update(pachdRc)
+	require.NoError(t, err)
+	waitForReadiness(t)
+	// Unfortunately, even when all pods are ready, the cluster membership
+	// protocol might still be running, thus PFS API calls might fail.  So
+	// we wait a little bit for membership to stablize.
+	time.Sleep(15 * time.Second)
 }

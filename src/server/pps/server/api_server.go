@@ -222,14 +222,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Started:         now(),
 			Finished:        nil,
 			OutputCommit:    nil,
-			State:           pps.JobState_JOB_STARTING,
 			Service:         request.Service,
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
 		}
-		a.jobs.ReadWrite(stm).Put(job.ID, jobInfo)
-		return nil
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
 	})
 	if err != nil {
 		return nil, err
@@ -243,8 +241,40 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	jobs := a.jobs.ReadOnly(ctx)
+
+	if request.BlockState {
+		watcher, err := jobs.WatchOne(request.Job.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer watcher.Close()
+
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return nil, fmt.Errorf("the stream for job updates closed unexpectedly")
+			}
+			switch ev.Type {
+			case watch.EventError:
+				return nil, ev.Err
+			case watch.EventDelete:
+				return nil, fmt.Errorf("job %s was deleted", request.Job.ID)
+			case watch.EventPut:
+				var jobID string
+				var jobInfo pps.JobInfo
+				if err := ev.Unmarshal(&jobID, &jobInfo); err != nil {
+					return nil, err
+				}
+				if jobStateToStopped(jobInfo.State) {
+					return &jobInfo, nil
+				}
+			}
+		}
+	}
+
 	jobInfo := new(pps.JobInfo)
-	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobInfo); err != nil {
+	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
 	return jobInfo, nil
@@ -959,10 +989,43 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 	return err
 }
 
+func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+	// Update job counts
+	if jobInfo.Pipeline != nil {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
+		}
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)] -= 1
+		}
+		pipelineInfo.JobCounts[int32(state)] += 1
+		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	}
+	jobInfo.State = state
+	jobInfo.Stopped = jobStateToStopped(state)
+	jobs := a.jobs.ReadWrite(stm)
+	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
+}
+
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
+	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
-		if err := a.updateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_RUNNING); err != nil {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobID, jobInfo); err != nil {
+				return err
+			}
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
+		})
+		if err != nil {
 			return err
 		}
 
@@ -1085,15 +1148,17 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
-		jobInfo.OutputCommit = outputCommit
-		jobInfo.Finished = now()
-		jobInfo.State = pps.JobState_JOB_SUCCESS
-		jobInfo.Stopped = jobStateToStopped(jobInfo.State)
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
-			return nil
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobID, jobInfo); err != nil {
+				return err
+			}
+			jobInfo.OutputCommit = outputCommit
+			jobInfo.Finished = now()
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
-		return nil
+		return err
 	}, b, func(err error, d time.Duration) error {
 		if isContextCancelledErr(err) {
 			return err
@@ -1120,21 +1185,6 @@ func jobStateToStopped(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
-}
-
-func (a *apiServer) updateJobState(ctx context.Context, jobID string, state pps.JobState) error {
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobInfo := new(pps.JobInfo)
-		if err := jobs.Get(jobID, jobInfo); err != nil {
-			return err
-		}
-		jobInfo.State = state
-		jobInfo.Stopped = jobStateToStopped(state)
-		jobs.Put(jobID, jobInfo)
-		return nil
-	})
-	return err
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
