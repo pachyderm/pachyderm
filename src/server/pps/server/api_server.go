@@ -199,21 +199,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		// Get pipeline version, to attach to job info
-		var pipelineVersion uint64
-		if request.Pipeline != nil {
-			pipelineInfo := new(pps.PipelineInfo)
-			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
-				return err
-			}
-			pipelineVersion = pipelineInfo.Version
-		}
-
 		jobInfo := &pps.JobInfo{
 			Job:             job,
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
-			PipelineVersion: pipelineVersion,
 			ParallelismSpec: request.ParallelismSpec,
 			Inputs:          request.Inputs,
 			OutputRepo:      request.OutputRepo,
@@ -223,6 +212,15 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Finished:        nil,
 			OutputCommit:    nil,
 			Service:         request.Service,
+		}
+
+		if request.Pipeline != nil {
+			pipelineInfo := new(pps.PipelineInfo)
+			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
+				return err
+			}
+			jobInfo.PipelineVersion = pipelineInfo.Version
+			jobInfo.PipelineID = pipelineInfo.ID
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
@@ -422,6 +420,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	sort.Sort(byInputName{request.Inputs})
 	pipelineInfo := &pps.PipelineInfo{
+		ID:              uuid.NewWithoutDashes(),
 		Pipeline:        request.Pipeline,
 		Transform:       request.Transform,
 		ParallelismSpec: request.ParallelismSpec,
@@ -823,6 +822,7 @@ func isContextCancelledErr(err error) bool {
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+	pipelineName := pipelineInfo.Pipeline.Name
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
@@ -834,12 +834,12 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
-		if err := a.updatePipelineState(ctx, pipelineInfo.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, pipelineInfo.Pipeline.Name)
+		a.workerPool(ctx, pipelineName)
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -852,7 +852,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		// Create the output repo; if it already exists, do nothing
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Repo:       &pfs.Repo{pipelineName},
 			Provenance: provenance,
 		}); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -912,10 +912,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				if err != nil {
 					return err
 				}
-				if jobInfo.Pipeline.Name == pipelineInfo.Pipeline.Name && jobInfo.PipelineVersion == pipelineInfo.Version {
+				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO: we should check if the output commit exists.
 					// If the output commit has been deleted, we should
 					// re-run the job.
+					// Also,
 					jobExists = true
 					break
 				}
@@ -936,7 +937,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			if err != nil {
 				return err
 			}
-			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineInfo.Pipeline.Name, job.ID, jobInputs)
+			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
 		}
 		panic("unreachable")
 		return nil
@@ -945,6 +946,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RESTARTING); err != nil {
+			protolion.Errorf("error updating pipeline state: %v", err)
+		}
 		return nil
 	}); err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))

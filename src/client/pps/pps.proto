@@ -90,6 +90,7 @@ message JobInfo {
   reserved 4;
   Job job = 1;
   Transform transform = 2;
+  string pipeline_id = 19 [(gogoproto.customname) = "PipelineID"];
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
@@ -165,6 +166,7 @@ message GCPolicy {
 
 message PipelineInfo {
   reserved 3;
+  string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
