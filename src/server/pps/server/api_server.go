@@ -1178,6 +1178,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		State:           ppsclient.PipelineState_PIPELINE_IDLE,
 		GcPolicy:        request.GcPolicy,
 		Output:          request.Output,
+		Resources:       request.Resources,
 	}
 	if persistPipelineInfo.GcPolicy == nil {
 		persistPipelineInfo.GcPolicy = DefaultGCPolicy
@@ -1720,6 +1721,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		JobCounts:       persistPipelineInfo.JobCounts,
 		GcPolicy:        persistPipelineInfo.GcPolicy,
 		Output:          persistPipelineInfo.Output,
+		Resources:       persistPipelineInfo.Resources,
 	}
 }
 
@@ -1856,6 +1858,7 @@ func (a *apiServer) runPipeline(ctx context.Context, pipelineInfo *ppsclient.Pip
 						ParentJob:       parentJob,
 						Output:          pipelineInfo.Output,
 						PipelineVersion: pipelineInfo.Version,
+						Resources:       pipelineInfo.Resources,
 					},
 				)
 				if err != nil {
