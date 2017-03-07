@@ -99,6 +99,7 @@ var map_DaemonSetStatus = map[string]string{
 	"currentNumberScheduled": "CurrentNumberScheduled is the number of nodes that are running at least 1 daemon pod and are supposed to run the daemon pod. More info: http://releases.k8s.io/HEAD/docs/admin/daemons.md",
 	"numberMisscheduled":     "NumberMisscheduled is the number of nodes that are running the daemon pod, but are not supposed to run the daemon pod. More info: http://releases.k8s.io/HEAD/docs/admin/daemons.md",
 	"desiredNumberScheduled": "DesiredNumberScheduled is the total number of nodes that should be running the daemon pod (including nodes correctly running the daemon pod). More info: http://releases.k8s.io/HEAD/docs/admin/daemons.md",
+	"numberReady":            "NumberReady is the number of nodes that should be running the daemon pod and have one or more of the daemon pod running and ready.",
 }
 
 func (DaemonSetStatus) SwaggerDoc() map[string]string {
@@ -114,6 +115,20 @@ var map_Deployment = map[string]string{
 
 func (Deployment) SwaggerDoc() map[string]string {
 	return map_Deployment
+}
+
+var map_DeploymentCondition = map[string]string{
+	"":                   "DeploymentCondition describes the state of a deployment at a certain point.",
+	"type":               "Type of deployment condition.",
+	"status":             "Status of the condition, one of True, False, Unknown.",
+	"lastUpdateTime":     "The last time this condition was updated.",
+	"lastTransitionTime": "Last time the condition transitioned from one status to another.",
+	"reason":             "The reason for the condition's last transition.",
+	"message":            "A human readable message indicating details about the transition.",
+}
+
+func (DeploymentCondition) SwaggerDoc() map[string]string {
+	return map_DeploymentCondition
 }
 
 var map_DeploymentList = map[string]string{
@@ -138,15 +153,16 @@ func (DeploymentRollback) SwaggerDoc() map[string]string {
 }
 
 var map_DeploymentSpec = map[string]string{
-	"":                     "DeploymentSpec is the specification of the desired behavior of the Deployment.",
-	"replicas":             "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-	"selector":             "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment.",
-	"template":             "Template describes the pods that will be created.",
-	"strategy":             "The deployment strategy to use to replace existing pods with new ones.",
-	"minReadySeconds":      "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-	"revisionHistoryLimit": "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified.",
-	"paused":               "Indicates that the deployment is paused and will not be processed by the deployment controller.",
-	"rollbackTo":           "The config this deployment is rolling back to. Will be cleared after rollback is done.",
+	"":                        "DeploymentSpec is the specification of the desired behavior of the Deployment.",
+	"replicas":                "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+	"selector":                "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment.",
+	"template":                "Template describes the pods that will be created.",
+	"strategy":                "The deployment strategy to use to replace existing pods with new ones.",
+	"minReadySeconds":         "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
+	"revisionHistoryLimit":    "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified.",
+	"paused":                  "Indicates that the deployment is paused and will not be processed by the deployment controller.",
+	"rollbackTo":              "The config this deployment is rolling back to. Will be cleared after rollback is done.",
+	"progressDeadlineSeconds": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Once autoRollback is implemented, the deployment controller will automatically rollback failed deployments. Note that progress will not be estimated during the time a deployment is paused. This is not set by default.",
 }
 
 func (DeploymentSpec) SwaggerDoc() map[string]string {
@@ -160,6 +176,7 @@ var map_DeploymentStatus = map[string]string{
 	"updatedReplicas":     "Total number of non-terminated pods targeted by this deployment that have the desired template spec.",
 	"availableReplicas":   "Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.",
 	"unavailableReplicas": "Total number of unavailable pods targeted by this deployment.",
+	"conditions":          "Represents the latest available observations of a deployment's current state.",
 }
 
 func (DeploymentStatus) SwaggerDoc() map[string]string {
@@ -360,7 +377,7 @@ func (IngressTLS) SwaggerDoc() map[string]string {
 }
 
 var map_Job = map[string]string{
-	"":         "Job represents the configuration of a single job.",
+	"":         "Job represents the configuration of a single job. DEPRECATED: extensions/v1beta1.Job is deprecated, use batch/v1.Job instead.",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
 	"spec":     "Spec is a structure defining the expected behavior of a job. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status",
 	"status":   "Status is a structure describing current status of a job. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status",
@@ -385,7 +402,7 @@ func (JobCondition) SwaggerDoc() map[string]string {
 }
 
 var map_JobList = map[string]string{
-	"":         "JobList is a collection of jobs.",
+	"":         "JobList is a collection of jobs. DEPRECATED: extensions/v1beta1.JobList is deprecated, use batch/v1.JobList instead.",
 	"metadata": "Standard list metadata More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
 	"items":    "Items is the list of Job.",
 }
@@ -420,27 +437,6 @@ var map_JobStatus = map[string]string{
 
 func (JobStatus) SwaggerDoc() map[string]string {
 	return map_JobStatus
-}
-
-var map_LabelSelector = map[string]string{
-	"":                 "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
-	"matchLabels":      "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
-	"matchExpressions": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
-}
-
-func (LabelSelector) SwaggerDoc() map[string]string {
-	return map_LabelSelector
-}
-
-var map_LabelSelectorRequirement = map[string]string{
-	"":         "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
-	"key":      "key is the label key that the selector applies to.",
-	"operator": "operator represents a key's relationship to a set of values. Valid operators ard In, NotIn, Exists and DoesNotExist.",
-	"values":   "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
-}
-
-func (LabelSelectorRequirement) SwaggerDoc() map[string]string {
-	return map_LabelSelectorRequirement
 }
 
 var map_NetworkPolicy = map[string]string{
@@ -552,6 +548,19 @@ func (ReplicaSet) SwaggerDoc() map[string]string {
 	return map_ReplicaSet
 }
 
+var map_ReplicaSetCondition = map[string]string{
+	"":                   "ReplicaSetCondition describes the state of a replica set at a certain point.",
+	"type":               "Type of replica set condition.",
+	"status":             "Status of the condition, one of True, False, Unknown.",
+	"lastTransitionTime": "The last time the condition transitioned from one status to another.",
+	"reason":             "The reason for the condition's last transition.",
+	"message":            "A human readable message indicating details about the transition.",
+}
+
+func (ReplicaSetCondition) SwaggerDoc() map[string]string {
+	return map_ReplicaSetCondition
+}
+
 var map_ReplicaSetList = map[string]string{
 	"":         "ReplicaSetList is a collection of ReplicaSets.",
 	"metadata": "Standard list metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds",
@@ -581,6 +590,7 @@ var map_ReplicaSetStatus = map[string]string{
 	"readyReplicas":        "The number of ready replicas for this replica set.",
 	"availableReplicas":    "The number of available replicas (ready for at least minReadySeconds) for this replica set.",
 	"observedGeneration":   "ObservedGeneration reflects the generation of the most recently observed ReplicaSet.",
+	"conditions":           "Represents the latest available observations of a replica set's current state.",
 }
 
 func (ReplicaSetStatus) SwaggerDoc() map[string]string {
