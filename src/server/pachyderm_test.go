@@ -786,6 +786,36 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileSplit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	repo := uniqueString("TestPutFileSplit")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, strings.NewReader("foo\nbar\nbuzz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuzz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, strings.NewReader("{}{}{}"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	files, err := c.ListFile(repo, commit.ID, "none")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+	files, err = c.ListFile(repo, commit.ID, "line")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(files))
+	files, err = c.ListFile(repo, commit.ID, "json")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(files))
+}
+
 func getKubeClient(t *testing.T) *kube.Client {
 	config := &kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
