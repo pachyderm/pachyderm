@@ -121,6 +121,7 @@ message PipelineInfo {
   bool stopped = 11;
   pps.GCPolicy gc_policy = 14;
   pps.Output output = 15;
+  pps.Resources resources = 16;
 }
 
 enum ChangeType {
