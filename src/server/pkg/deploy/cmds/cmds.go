@@ -44,11 +44,11 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var secure bool
 	var deployRethinkAsRc bool
 	var deployRethinkAsStatefulSet bool
-	var rethinkdbCacheSize string
+	var rethinkCacheSize string
 	var blockCacheSize string
 	var logLevel string
-	var persistentDisk string
-	var objectStore string
+	var computeBackend string
+	var objectStoreBackend string
 	var opts *assets.AssetOpts
 
 	deployLocal := &cobra.Command{
@@ -100,18 +100,19 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deployCustom := &cobra.Command{
-		Use:   "custom --persistent-disk <persistent disk> --object-store <object store> <persistent disk args> <object store args>",
-		Short: "Deploy a custom Pachyderm cluster configuration",
-		Long: "Deploy a custom Pachyderm cluster configuration. Required flags are:\n" +
-			"  <persistent-disk>: aws, google, or azure\n" +
-			"  <object-store>: s3, gcs, azure-blob\n",
+		Use:   "custom --compute-backend <compute backend> --object-store-backend <object store backend> <compute args> <object store args>",
+		Short: "(preliminary) Deploy a custom Pachyderm cluster configuration",
+		Long: "Deploy a custom Pachyderm cluster configuration. This command is " +
+			"in progress.\n" +
+			"If <object store backend> is \"s3\", then the arguments are:\n" +
+			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			manifest := &bytes.Buffer{}
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStore, persistentDisk, secure)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, computeBackend, secure)
 			if err != nil {
 				return err
 			}
@@ -119,8 +120,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
-	deployCustom.Flags().StringVar(&persistentDisk, "persistent-disk", "aws", "Choice of persistent disk for the custom deployment.")
-	deployCustom.Flags().StringVar(&objectStore, "object-store", "s3", "Choice of object store for the custom deployment.")
+	deployCustom.Flags().StringVar(&computeBackend, "compute-backend", "aws", "(required) Compute backend for the custom deployment: aws, google, or azure.")
+	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store-backend", "s3", "(required) Object store backend for the custom deployment: s3, gcs, or azure-blob.")
 
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
@@ -209,12 +210,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			opts = &assets.AssetOpts{
 				PachdShards:                uint64(pachdShards),
 				RethinkShards:              uint64(rethinkShards),
-				RethinkdbCacheSize:         rethinkdbCacheSize,
-				BlockCacheSize:             blockCacheSize,
 				DeployRethinkAsStatefulSet: deployRethinkAsStatefulSet,
 				Version:                    version.PrettyPrintVersion(version.Version),
 				LogLevel:                   logLevel,
 				Metrics:                    metrics,
+				BlockCacheSize:             blockCacheSize,
+				RethinkCacheSize:           rethinkCacheSize,
 			}
 			return nil
 		}),
@@ -223,16 +224,16 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().IntVar(&rethinkShards, "rethink-shards", 1, "Number of RethinkDB shards (for pfs metadata storage) if "+
 		"--deploy-rethink-as-stateful-set is used.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	deploy.PersistentFlags().StringVar(&rethinkdbCacheSize, "rethinkdb-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
-		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
-		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&deployRethinkAsRc, "deploy-rethink-as-rc", false, "Defunct flag (does nothing). The default behavior since "+
 		"Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.")
 	deploy.PersistentFlags().BoolVar(&deployRethinkAsStatefulSet, "deploy-rethink-as-stateful-set", false, "Deploy RethinkDB as a multi-node cluster "+
 		"controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both "+
 		"your local kubectl binary and the kubernetes server must be at least version 1.5.")
+	deploy.PersistentFlags().StringVar(&rethinkCacheSize, "rethink-cache-size", "768M", "Size of in-memory cache to use for Pachyderm's RethinkDB instance, "+
+		"e.g. \"2G\". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
+		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
