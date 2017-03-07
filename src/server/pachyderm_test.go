@@ -4538,6 +4538,80 @@ func TestWorkerResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPipelineResourceRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceRequest")
+	pipelineName := uniqueString("TestPipelineResourceRequest_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Resources: &ppsclient.Resources{
+				Cpu:    2.25,
+				Memory: "5G",
+			},
+			Inputs: []*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+			GcPolicy: &ppsclient.GCPolicy{
+				Success: types.DurationProto(time.Second),
+				Failure: types.DurationProto(time.Second),
+			},
+		})
+	require.NoError(t, err)
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+
+	// Get jobInfos from pachyderm so we can find the job pods with the k8s client
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	// Get info about the job pods from k8s & check for resources
+	kubeClient := getKubeClient(t)
+	retries := 10
+	for i := 0; i < retries; i++ {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": jobInfos[0].Job.ID}),
+		})
+		// TODO(msteffen): Is there a more robust way to do this? We want to query
+		// kubernetes after the job is created and before the job is deleted.
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			continue // retry
+		}
+		for _, p := range podList.Items {
+			for _, container := range p.Spec.Containers {
+				// Make sure a CPU and Memory request are both set
+				_, ok := container.Resources.Requests[api.ResourceCPU]
+				require.True(t, ok)
+				_, ok = container.Resources.Requests[api.ResourceMemory]
+				require.True(t, ok)
+			}
+		}
+		break // no more retries needed
+	}
+	require.NoError(t, err)
+}
+
 func getPachClient(t testing.TB) *client.APIClient {
 	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
