@@ -26,6 +26,107 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+// TestRecreatePipeline tracks #432
+func TestRecreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	pipeline := uniqueString("pipeline")
+	createPipeline := func() {
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			nil,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			[]*pps.PipelineInput{{
+				Repo: client.NewRepo(repo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
+	}
+
+	// Do it twice.  We expect jobs to be created on both runs.
+	createPipeline()
+	time.Sleep(5 * time.Second)
+	require.NoError(t, c.DeleteRepo(pipeline, false))
+	require.NoError(t, c.DeletePipeline(pipeline))
+	time.Sleep(5 * time.Second)
+	createPipeline()
+}
+
+func TestPipelineState(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(repo),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	// The state of the pipeline will alternate between running and
+	// restarting, because the input branch does not exist yet.
+	// We just want to make sure that it has definitely restarted.
+	var states []interface{}
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		states = append(states, pipelineInfo.State)
+	}
+
+	require.EqualOneOf(t, states, pps.PipelineState_PIPELINE_RESTARTING)
+
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+	time.Sleep(5 * time.Second) // wait for this pipeline pick up the branch
+	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+}
+
 func TestPipelineJobCounts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -592,6 +693,7 @@ func TestPipelineUniqueness(t *testing.T) {
 //}
 //t.Parallel()
 //c := getPachClient(t)
+//fmt.Println("BP1")
 //// create repos
 //dataRepo := uniqueString("TestUpdatePipeline_data")
 //require.NoError(t, c.CreateRepo(dataRepo))
@@ -615,6 +717,7 @@ func TestPipelineUniqueness(t *testing.T) {
 //"",
 //false,
 //))
+//fmt.Println("BP2")
 //pipeline2Name := uniqueString("pipeline2")
 //require.NoError(t, c.CreatePipeline(
 //pipeline2Name,
@@ -634,14 +737,18 @@ func TestPipelineUniqueness(t *testing.T) {
 //"",
 //false,
 //))
+//fmt.Println("BP3")
 //// Do first commit to repo
 //var commit *pfs.Commit
 //var err error
 //for i := 0; i < 2; i++ {
+//if i == 0 {
 //commit, err = c.StartCommit(dataRepo, "")
 //require.NoError(t, err)
-//if i == 0 {
 //require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+//} else {
+//commit, err = c.StartCommit(dataRepo, "master")
+//require.NoError(t, err)
 //}
 //_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("file1\n"))
 //_, err = c.PutFile(dataRepo, commit.ID, "file2", strings.NewReader("file2\n"))
@@ -649,24 +756,21 @@ func TestPipelineUniqueness(t *testing.T) {
 //require.NoError(t, err)
 //require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 //}
-//commitInfos, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+//fmt.Println("BP4")
+//commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 //require.NoError(t, err)
-//require.Equal(t, 3, len(commitInfos))
+//commitInfos := collectCommitInfos(t, commitIter)
+//require.Equal(t, 2, len(commitInfos))
 //// only care about non-provenance commits
 //commitInfos = commitInfos[1:]
 //for _, commitInfo := range commitInfos {
 //var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer))
 //require.Equal(t, "file1\nfile1\n", buffer.String())
 //}
+//fmt.Println("BP5")
 
-//// We archive the temporary commits created per job/pod
-//// So the total we see here is 4, but 'real' commits is just 1
-//outputRepoCommitInfos, err := c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
-//require.NoError(t, err)
-//require.Equal(t, 4, len(outputRepoCommitInfos))
-
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//outputRepoCommitInfos, err := c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
 //require.Equal(t, 2, len(outputRepoCommitInfos))
 
@@ -682,29 +786,32 @@ func TestPipelineUniqueness(t *testing.T) {
 //Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
-//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
+//[]*pps.PipelineInput{{
+//Repo: &pfs.Repo{Name: dataRepo},
+//Glob: "/*",
+//}},
+//"",
 //true,
 //))
 //pipelineInfo, err := c.InspectPipeline(pipelineName)
 //require.NoError(t, err)
 //require.NotNil(t, pipelineInfo.CreatedAt)
-//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//fmt.Println("BP6")
+//commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
 //require.NoError(t, err)
-//require.Equal(t, 3, len(commitInfos))
+//commitInfos = collectCommitInfos(t, commitIter)
+//require.Equal(t, 2, len(commitInfos))
 //// only care about non-provenance commits
 //commitInfos = commitInfos[1:]
+//fmt.Println("BP7")
 //for _, commitInfo := range commitInfos {
 //var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer))
 //require.Equal(t, "file2\nfile2\n", buffer.String())
 //}
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//outputRepoCommitInfos, err = c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
-//require.Equal(t, 8, len(outputRepoCommitInfos))
-//// Expect real commits to still be 1
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
-//require.NoError(t, err)
-//require.Equal(t, 2, len(outputRepoCommitInfos))
+//require.Equal(t, 3, len(outputRepoCommitInfos))
 
 //// Update the pipeline to look at file3
 //require.NoError(t, c.CreatePipeline(
@@ -718,28 +825,33 @@ func TestPipelineUniqueness(t *testing.T) {
 //Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
-//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
+//[]*pps.PipelineInput{{
+//Repo: &pfs.Repo{Name: dataRepo},
+//Glob: "/*",
+//}},
+//"",
 //true,
 //))
-//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
 //require.NoError(t, err)
+//commitInfos = collectCommitInfos(t, commitIter)
 //require.Equal(t, 3, len(commitInfos))
 //// only care about non-provenance commits
 //commitInfos = commitInfos[1:]
 //for _, commitInfo := range commitInfos {
 //var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer))
 //require.Equal(t, "file3\nfile3\n", buffer.String())
 //}
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//outputRepoCommitInfos, err = c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
 //require.Equal(t, 12, len(outputRepoCommitInfos))
 //// Expect real commits to still be 1
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//outputRepoCommitInfos, err = c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
 //require.Equal(t, 2, len(outputRepoCommitInfos))
 
-//commitInfos, _ = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//commitInfos, _ = c.ListCommit(pipelineName, "", "", 0)
 //// Do an update that shouldn't cause archiving
 //_, err = c.PpsAPIClient.CreatePipeline(
 //context.Background(),
@@ -755,26 +867,30 @@ func TestPipelineUniqueness(t *testing.T) {
 //Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 2,
 //},
-//Inputs:    []*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
-//Update:    true,
-//NoArchive: true,
+//Inputs: []*pps.PipelineInput{{
+//Repo: &pfs.Repo{Name: dataRepo},
+//Glob: "/*",
+//}},
+//OutputBranch: "",
+//Update:       true,
 //})
 //require.NoError(t, err)
-//commitInfos, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+//commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
 //require.NoError(t, err)
+//commitInfos = collectCommitInfos(t, commitIter)
 //require.Equal(t, 3, len(commitInfos))
 //// only care about non-provenance commits
 //commitInfos = commitInfos[1:]
 //for _, commitInfo := range commitInfos {
 //var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, "", false, nil, &buffer))
+//require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer))
 //require.Equal(t, "file3\nfile3\n", buffer.String())
 //}
-//commitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusAll, false)
+//commitInfos, err = c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
 //require.Equal(t, 12, len(commitInfos))
 //// Expect real commits to still be 1
-//outputRepoCommitInfos, err = c.ListCommitByRepo([]string{pipelineName}, nil, client.CommitTypeRead, client.CommitStatusNormal, false)
+//outputRepoCommitInfos, err = c.ListCommit(pipelineName, "", "", 0)
 //require.NoError(t, err)
 //require.Equal(t, 2, len(outputRepoCommitInfos))
 //}
