@@ -802,9 +802,13 @@ func TestPutFileSplit(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, strings.NewReader("{}{}{}"))
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, strings.NewReader("{}{}{}"))
 	require.NoError(t, err)
@@ -818,7 +822,7 @@ func TestPutFileSplit(t *testing.T) {
 	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	files, err := c.ListFile(repo, commit.ID, "line")
 	require.NoError(t, err)
-	require.Equal(t, 3, len(files))
+	require.Equal(t, 6, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	}
@@ -836,7 +840,7 @@ func TestPutFileSplit(t *testing.T) {
 	}
 	files, err = c.ListFile(repo, commit.ID, "json")
 	require.NoError(t, err)
-	require.Equal(t, 3, len(files))
+	require.Equal(t, 6, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(2), fileInfo.SizeBytes)
 	}
