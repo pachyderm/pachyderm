@@ -350,6 +350,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			Started: now(),
 		}
 
+		// Use a map to de-dup provenance
+		provenanceMap := make(map[string]*pfs.Commit)
 		// Build the full provenance; my provenance's provenance is
 		// my provenance
 		for _, prov := range provenance {
@@ -358,10 +360,18 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
 				return err
 			}
-			commitInfo.Provenance = append(commitInfo.Provenance, provCommitInfo.Provenance...)
+			for _, c := range provCommitInfo.Provenance {
+				provenanceMap[c.ID] = c
+			}
 		}
 		// finally include the given provenance
-		commitInfo.Provenance = append(commitInfo.Provenance, provenance...)
+		for _, c := range provenance {
+			provenanceMap[c.ID] = c
+		}
+
+		for _, c := range provenanceMap {
+			commitInfo.Provenance = append(commitInfo.Provenance, c)
+		}
 
 		if parent.ID != "" {
 			head := new(pfs.Commit)
@@ -665,7 +675,12 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			ID:   branch,
 		}, from, 0)
 		if err != nil {
-			return err
+			// We skip NotFound error because it's ok if the branch
+			// doesn't exist yet, in which case ListCommit returns
+			// a NotFound error.
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 		// ListCommit returns commits in newest-first order,
 		// but SubscribeCommit should return commit in oldest-first
@@ -1312,4 +1327,8 @@ func (d *driver) DeleteAll(ctx context.Context) error {
 }
 
 func (d *driver) Dump(ctx context.Context) {
+}
+
+func isNotFoundErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found")
 }

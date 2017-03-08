@@ -26,6 +26,255 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+// TestProvenance creates a pipeline DAG that's not a transitive reduction
+// It looks like this:
+// A
+// | \
+// v  v
+// B-->C
+// When we commit to A we expect to see 1 commit on C rather than 2.
+func TestProvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(aRepo),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("diff %s %s >/pfs/out/file",
+			path.Join("/pfs", aRepo, "file"), path.Join("/pfs", bPipeline, "file"))},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(aRepo),
+			Glob: "/*",
+		}, {
+			Repo: client.NewRepo(bPipeline),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	// commit to aRepo
+	commit1, err := c.StartCommit(aRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(aRepo, commit1.ID, "master"))
+	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
+
+	aCommit := commit2
+	commitIter, err := c.FlushCommit([]*pfs.Commit{aCommit}, []*pfs.Repo{{bPipeline}})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	bCommit := commitInfos[0].Commit
+	commitIter, err = c.FlushCommit([]*pfs.Commit{aCommit, bCommit}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	cCommitInfo := commitInfos[0]
+	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
+}
+
+//func TestDirectory(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+//t.Parallel()
+
+//c := getPachClient(t)
+
+//ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+//defer cancel() //cleanup resources
+
+//job1, err := c.PpsAPIClient.CreateJob(context.Background(), &pps.CreateJobRequest{
+//Transform: &pps.Transform{
+//Cmd: []string{"sh"},
+//Stdin: []string{
+//"mkdir /pfs/out/dir",
+//"echo foo >> /pfs/out/dir/file",
+//},
+//},
+//ParallelismSpec: &pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 3,
+//},
+//})
+//require.NoError(t, err)
+//inspectJobRequest1 := &pps.InspectJobRequest{
+//Job:        job1,
+//BlockState: true,
+//}
+//jobInfo1, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest1)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo1.State)
+
+//var buffer bytes.Buffer
+//require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "dir/file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+
+//job2, err := c.PpsAPIClient.CreateJob(context.Background(), &pps.CreateJobRequest{
+//Transform: &pps.Transform{
+//Cmd: []string{"sh"},
+//Stdin: []string{
+//"mkdir /pfs/out/dir",
+//"echo bar >> /pfs/out/dir/file",
+//},
+//},
+//ParallelismSpec: &pps.ParallelismSpec{
+//Strategy: pps.ParallelismSpec_CONSTANT,
+//Constant: 3,
+//},
+//ParentJob: job1,
+//})
+//require.NoError(t, err)
+//inspectJobRequest2 := &pps.InspectJobRequest{
+//Job:        job2,
+//BlockState: true,
+//}
+//jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
+//require.NoError(t, err)
+//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo2.State)
+
+//buffer = bytes.Buffer{}
+//require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "dir/file", 0, 0, "", false, nil, &buffer))
+//require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
+//}
+
+// TestFlushCommit
+func TestFlushCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	prefix := uniqueString("repo")
+	makeRepoName := func(i int) string {
+		return fmt.Sprintf("%s-%d", prefix, i)
+	}
+
+	sourceRepo := makeRepoName(0)
+	require.NoError(t, c.CreateRepo(sourceRepo))
+
+	// Create a five-stage pipeline
+	numStages := 5
+	for i := 0; i < numStages; i++ {
+		repo := makeRepoName(i)
+		require.NoError(t, c.CreatePipeline(
+			makeRepoName(i+1),
+			"",
+			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			nil,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			[]*pps.PipelineInput{{
+				Repo: client.NewRepo(repo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+	}
+
+	for i := 0; i < 10; i++ {
+		var commit *pfs.Commit
+		var err error
+		if i == 0 {
+			commit, err = c.StartCommit(sourceRepo, "")
+			require.NoError(t, err)
+			c.SetBranch(sourceRepo, commit.ID, "master")
+		} else {
+			commit, err = c.StartCommit(sourceRepo, "master")
+			require.NoError(t, err)
+		}
+		_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, numStages, len(commitInfos))
+	}
+}
+
+func TestFlushCommitAfterCreatePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+
+	var commit *pfs.Commit
+	var err error
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(repo, "")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+	}
+	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: client.NewRepo(repo),
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+}
+
 // TestRecreatePipeline tracks #432
 func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
@@ -101,28 +350,21 @@ func TestPipelineState(t *testing.T) {
 		false,
 	))
 
-	// The state of the pipeline will alternate between running and
-	// restarting, because the input branch does not exist yet.
-	// We just want to make sure that it has definitely restarted.
-	var states []interface{}
-	for i := 0; i < 20; i++ {
-		time.Sleep(50 * time.Millisecond)
-		pipelineInfo, err := c.InspectPipeline(pipeline)
-		require.NoError(t, err)
-		states = append(states, pipelineInfo.State)
-	}
-
-	require.EqualOneOf(t, states, pps.PipelineState_PIPELINE_RESTARTING)
-
-	commit, err := c.StartCommit(repo, "")
-	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
-	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
-
-	time.Sleep(5 * time.Second) // wait for this pipeline pick up the branch
 	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+
+	require.NoError(t, c.StopPipeline(pipeline))
+	time.Sleep(5 * time.Second)
+
+	pipelineInfo, err = c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_STOPPED, pipelineInfo.State)
+
+	require.NoError(t, c.StartPipeline(pipeline))
+	time.Sleep(5 * time.Second)
+
+	pipelineInfo, err = c.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 }

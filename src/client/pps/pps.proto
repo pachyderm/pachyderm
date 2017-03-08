@@ -199,6 +199,7 @@ message CreateJobRequest {
   Service service = 8;
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
+  Job parent_job = 13;
 }
 
 message InspectJobRequest {
