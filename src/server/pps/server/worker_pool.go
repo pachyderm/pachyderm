@@ -64,10 +64,8 @@ func (w *worker) run(dataCh chan datumAndResp) {
 				panic(err)
 			}
 			dr.respCh <- tree
-		} else if resp.Log != "" {
-			dr.errCh <- resp.Log
 		} else {
-			panic("either Tag or Log needs to be set in ProcessResponse")
+			dr.errCh <- resp.Log
 		}
 	}
 }
