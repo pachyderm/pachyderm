@@ -333,13 +333,10 @@ func (f *file) delimiter() pfsclient.Delimiter {
 }
 
 func (f *file) touch() error {
-	w, err := f.fs.apiClient.PutFileSplitWriter(
+	w, err := f.fs.apiClient.PutFileWriter(
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
 		f.File.Path,
-		f.delimiter(),
-		0,
-		0,
 	)
 	if err != nil {
 		return err
@@ -427,8 +424,8 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if h.w == nil {
-		w, err := h.f.fs.apiClient.PutFileSplitWriter(
-			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.f.delimiter(), 0, 0)
+		w, err := h.f.fs.apiClient.PutFileWriter(
+			h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path)
 		if err != nil {
 			return err
 		}
