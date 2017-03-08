@@ -1133,14 +1133,14 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 
-	indexOffset := 0
+	var indexOffset int64
 	if parentCommit != nil {
 		fileInfos, err := d.ListFile(ctx, client.NewFile(parentCommit.Repo.Name, parentCommit.ID, file.Path))
 		if err != nil {
 			return err
 		}
 		for _, fileInfo := range fileInfos {
-			i, err := strconv.Atoi(path.Base(string(fileInfo.File.Path)))
+			i, err := strconv.ParseInt(path.Base(string(fileInfo.File.Path)), 16, 64)
 			if err != nil {
 				return err
 			}
@@ -1155,7 +1155,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			return err
 		}
 		if len(resp.Kvs) != 0 {
-			i, err := strconv.Atoi(path.Base(path.Dir(string(resp.Kvs[0].Key))))
+			i, err := strconv.ParseInt(path.Base(path.Dir(string(resp.Kvs[0].Key))), 16, 64)
 			if err != nil {
 				return err
 			}
@@ -1172,7 +1172,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					return err
 				}
 			}
-			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%d", index+indexOffset), uuid.NewWithoutDashes()), buffer.String()))
+			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), buffer.String()))
 		}
 		txnResp, err := txn.If(cmp).Then(ops...).Commit()
 		if err != nil {
