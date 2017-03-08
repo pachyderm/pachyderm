@@ -218,11 +218,11 @@ message PutFileRequest {
   // Delimiter causes data to be broken up into separate files with File.Path
   // as a prefix.
   Delimiter delimiter = 7;
-  // TargetChunkCount specifies the target number of datums in each written
+  // TargetFileDatums specifies the target number of datums in each written
   // file it may be lower if data does not split evenly, but will never be
   // higher, unless the value is 0.
   int64 target_file_datums = 8;
-  // TargetChunkBytes specifies the target number of bytes in each written
+  // TargetFileBytes specifies the target number of bytes in each written
   // file, files may have more or fewer bytes than the target.
   int64 target_file_bytes = 9;
 }

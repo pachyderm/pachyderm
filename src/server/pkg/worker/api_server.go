@@ -48,7 +48,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 	return nil
 }
 
-// Run user code and return the combined output of stdout and stderr
+// Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context) (string, error) {
 	transform := a.pipelineInfo.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
