@@ -1028,11 +1028,13 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
+	var parentCommit *pfs.Commit
+	commitInfo, err := d.InspectCommit(ctx, file.Commit)
+	if err != nil {
+		return err
+	}
+	parentCommit = commitInfo.ParentCommit
 	if !d.commitExists(file.Commit.ID) {
-		_, err := d.InspectCommit(ctx, file.Commit)
-		if err != nil {
-			return err
-		}
 		d.setCommitExist(file.Commit.ID)
 	}
 
@@ -1130,20 +1132,36 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 
+	indexOffset := 0
+	if parentCommit != nil {
+		fileInfos, err := d.ListFile(ctx, client.NewFile(parentCommit.Repo.Name, parentCommit.ID, file.Path))
+		if err != nil {
+			return err
+		}
+		lion.Printf("Got fileInfos: %+v\n", fileInfos)
+		for _, fileInfo := range fileInfos {
+			i, err := strconv.Atoi(path.Base(string(fileInfo.File.Path)))
+			if err != nil {
+				return err
+			}
+			if i+1 > indexOffset {
+				indexOffset = i + 1
+			}
+		}
+	}
 	for {
-		indexOffset := 0
 		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithLastKey()...)
 		if err != nil {
 			return err
 		}
 		if len(resp.Kvs) != 0 {
-			lion.Printf("%s\n", resp.Kvs[0].Key)
 			i, err := strconv.Atoi(path.Base(path.Dir(string(resp.Kvs[0].Key))))
 			if err != nil {
 				return err
 			}
 			indexOffset = i + 1
 		}
+		lion.Printf("indexOffset: %d\n", indexOffset)
 		txn := d.etcdClient.Txn(ctx)
 		baseKey := "__" + prefix
 		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
