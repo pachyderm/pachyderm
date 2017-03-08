@@ -35,6 +35,8 @@ before_script:
 - pip install awscli --upgrade --user
 - aws --version
 - which aws
+- sudo bash -Ec 'echo $PATH'
+- sudo ln -s `which aws` /usr/local/bin/aws
 - sudo -E which aws
 - sudo apt-get install uuid
 script:
