@@ -1028,13 +1028,11 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
-	var parentCommit *pfs.Commit
-	commitInfo, err := d.InspectCommit(ctx, file.Commit)
-	if err != nil {
-		return err
-	}
-	parentCommit = commitInfo.ParentCommit
 	if !d.commitExists(file.Commit.ID) {
+		_, err := d.InspectCommit(ctx, file.Commit)
+		if err != nil {
+			return err
+		}
 		d.setCommitExist(file.Commit.ID)
 	}
 
@@ -1071,6 +1069,11 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
 		return err
 	}
+	commitInfo, err := d.InspectCommit(ctx, file.Commit)
+	if err != nil {
+		return err
+	}
+	parentCommit := commitInfo.ParentCommit
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
 	var bytesWritten int64
