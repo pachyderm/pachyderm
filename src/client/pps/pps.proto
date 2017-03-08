@@ -218,10 +218,6 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
-message GetLogsRequest {
-  Job job = 1;
-}
-
 message CreatePipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
@@ -264,7 +260,6 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
-  rpc GetLogs(GetLogsRequest) returns (stream google.protobuf.BytesValue) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
