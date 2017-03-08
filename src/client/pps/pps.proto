@@ -105,6 +105,8 @@ message JobInfo {
   bool stopped = 16;
   pfs.Repo outputRepo = 18;
   string outputBranch = 17;
+  // The log of stdout+stderr of the most recent datum that failed
+  string error = 20;
 }
 
 enum WorkerState {

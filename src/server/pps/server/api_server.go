@@ -1056,29 +1056,52 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
+		errCh := make(chan string)
 		datum := df.Next()
 		for {
 			var resp hashtree.HashTree
+			var datumErr string
 			if datum != nil {
 				select {
 				case wp.DataCh() <- datumAndResp{
-					datum: datum,
-					resp:  respCh,
+					datum:  datum,
+					respCh: respCh,
+					errCh:  errCh,
 				}:
 					datum = df.Next()
 					numData++
 				case resp = <-respCh:
+					numData--
+				case datumErr = <-errCh:
 					numData--
 				}
 			} else {
 				if numData == 0 {
 					break
 				}
-				resp = <-respCh
+				select {
+				case resp = <-respCh:
+				case datumErr = <-errCh:
+				}
 				numData--
 			}
 			if resp != nil {
 				if err := tree.Merge(resp); err != nil {
+					return err
+				}
+			}
+			if datumErr != "" {
+				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobInfo := new(pps.JobInfo)
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.Error = datumErr
+					jobInfo.Finished = now()
+					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+				})
+				if err != nil {
 					return err
 				}
 			}
