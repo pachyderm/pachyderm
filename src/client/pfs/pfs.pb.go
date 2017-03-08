@@ -1051,11 +1051,11 @@ type PutFileRequest struct {
 	// Delimiter causes data to be broken up into separate files with File.Path
 	// as a prefix.
 	Delimiter Delimiter `protobuf:"varint,7,opt,name=delimiter,proto3,enum=pfs.Delimiter" json:"delimiter,omitempty"`
-	// TargetChunkCount specifies the target number of datums in each written
+	// TargetFileDatums specifies the target number of datums in each written
 	// file it may be lower if data does not split evenly, but will never be
 	// higher, unless the value is 0.
 	TargetFileDatums int64 `protobuf:"varint,8,opt,name=target_file_datums,json=targetFileDatums,proto3" json:"target_file_datums,omitempty"`
-	// TargetChunkBytes specifies the target number of bytes in each written
+	// TargetFileBytes specifies the target number of bytes in each written
 	// file, files may have more or fewer bytes than the target.
 	TargetFileBytes int64 `protobuf:"varint,9,opt,name=target_file_bytes,json=targetFileBytes,proto3" json:"target_file_bytes,omitempty"`
 }
