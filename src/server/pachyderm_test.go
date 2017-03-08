@@ -798,11 +798,19 @@ func TestPutFileSplit(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, strings.NewReader("foo\nbar\nbuzz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuzz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, strings.NewReader("{}{}{}"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, strings.NewReader("{}{}{}{}"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, strings.NewReader("{}{}{}{}"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	fileInfo, err := c.InspectFile(repo, commit.ID, "none")
@@ -811,9 +819,39 @@ func TestPutFileSplit(t *testing.T) {
 	files, err := c.ListFile(repo, commit.ID, "line")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+	files, err = c.ListFile(repo, commit.ID, "line2")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(8), fileInfo.SizeBytes)
+	}
+	files, err = c.ListFile(repo, commit.ID, "line3")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(8), fileInfo.SizeBytes)
+	}
 	files, err = c.ListFile(repo, commit.ID, "json")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(2), fileInfo.SizeBytes)
+	}
+	files, err = c.ListFile(repo, commit.ID, "json2")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+	files, err = c.ListFile(repo, commit.ID, "json3")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
 }
 
 func getKubeClient(t *testing.T) *kube.Client {
