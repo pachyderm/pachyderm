@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"go.pedge.io/lion"
-
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -1141,7 +1139,6 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		if err != nil {
 			return err
 		}
-		lion.Printf("Got fileInfos: %+v\n", fileInfos)
 		for _, fileInfo := range fileInfos {
 			i, err := strconv.Atoi(path.Base(string(fileInfo.File.Path)))
 			if err != nil {
@@ -1164,7 +1161,6 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			}
 			indexOffset = i + 1
 		}
-		lion.Printf("indexOffset: %d\n", indexOffset)
 		txn := d.etcdClient.Txn(ctx)
 		baseKey := "__" + prefix
 		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
