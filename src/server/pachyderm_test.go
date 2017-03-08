@@ -26,6 +26,70 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestPipelineFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineFailure_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit := new(pfs.Commit)
+	var err error
+	numCommits := 10
+	for i := 0; i < numCommits; i++ {
+		commit, err = c.StartCommit(dataRepo, commit.ID)
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	}
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+
+	pipeline := uniqueString("pipeline")
+	errMsg := "error message"
+	// This pipeline fails half the times
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("echo '%s'", errMsg),
+			"exit $(($RANDOM % 2))",
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	// Wait for the jobs to spawn
+	time.Sleep(20 * time.Second)
+
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(jobInfos))
+
+	for _, jobInfo := range jobInfos {
+		// Wait for the job to finish
+		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
+		require.NoError(t, err)
+
+		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
+		if jobInfo.State == pps.JobState_JOB_FAILURE {
+			require.Equal(t, errMsg+"\n", jobInfo.Error)
+		}
+	}
+}
+
 func TestLazyPipelinePropagation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -71,7 +135,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		false,
 	))
 
-	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "")
 	require.NoError(t, err)
 	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
@@ -79,7 +142,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	// Inspect each job
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
 	collectCommitInfos(t, commitIter)

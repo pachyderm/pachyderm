@@ -2,7 +2,6 @@ package worker
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,29 +48,27 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 	return nil
 }
 
-func (a *APIServer) runUserCode(ctx context.Context) error {
+// Run user code and return the combined output of stdout and stderr
+func (a *APIServer) runUserCode(ctx context.Context) (string, error) {
 	transform := a.pipelineInfo.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	success := true
+	var log bytes.Buffer
+	cmd.Stdout = &log
+	cmd.Stderr = &log
 	if err := cmd.Run(); err != nil {
-		success = false
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				for _, returnCode := range transform.AcceptReturnCode {
 					if int(returnCode) == status.ExitStatus() {
-						success = true
+						return log.String(), nil
 					}
 				}
 			}
 		}
-		if !success {
-			fmt.Fprintf(os.Stderr, "Error from exec: %s\n", err.Error())
-		}
+		return log.String(), err
 	}
-	return nil
+	return log.String(), nil
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
@@ -181,8 +178,10 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return
 		}
 	}()
-	if err := a.runUserCode(ctx); err != nil {
-		return nil, err
+	if log, err := a.runUserCode(ctx); err != nil {
+		return &ProcessResponse{
+			Log: log,
+		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err

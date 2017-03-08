@@ -108,9 +108,13 @@ ParallelismSpec: {{.ParallelismSpec}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
 Inputs:
 {{jobInputs .}}Transform:
-{{prettyTransform .Transform}}
-Output Commit: {{.OutputCommit.ID}}
-{{ if .Egress }}Egress: {{.Egress.URL}} {{end}}
+{{prettyTransform .Transform}} {{if .OutputCommit}}
+Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
+Egress: {{.Egress.URL}} {{end}}
+{{ if .Error }}
+Error:
+{{.Error}}
+{{end}}
 `)
 	if err != nil {
 		return err
