@@ -52,17 +52,23 @@ func (w *worker) run(dataCh chan datumAndResp) {
 			}
 			continue
 		}
-		var buffer bytes.Buffer
-		if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
-			protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v", w.addr, dr.datum)
-			dataCh <- dr
-			continue
+		if resp.Tag != nil {
+			var buffer bytes.Buffer
+			if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
+				protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v", w.addr, dr.datum)
+				dataCh <- dr
+				continue
+			}
+			tree, err := hashtree.Deserialize(buffer.Bytes())
+			if err != nil {
+				panic(err)
+			}
+			dr.respCh <- tree
+		} else if resp.Log != "" {
+			dr.errCh <- resp.Log
+		} else {
+			panic("either Tag or Log needs to be set in ProcessResponse")
 		}
-		tree, err := hashtree.Deserialize(buffer.Bytes())
-		if err != nil {
-			panic(err)
-		}
-		dr.resp <- tree
 	}
 }
 
@@ -70,8 +76,9 @@ func (w *worker) run(dataCh chan datumAndResp) {
 // processing 'data', it writes the resulting hashtree to 'resp' (each job has
 // its own response channel)
 type datumAndResp struct {
-	datum []*pfs.FileInfo
-	resp  chan hashtree.HashTree
+	datum  []*pfs.FileInfo
+	respCh chan hashtree.HashTree
+	errCh  chan string
 }
 
 type workerPool struct {
@@ -154,8 +161,8 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 }
 
 func (wp *workerPool) addWorker(addr string) error {
-	if _, ok := wp.workersMap[addr]; ok {
-		return fmt.Errorf("worker already exists at %s", addr)
+	if cancel, ok := wp.workersMap[addr]; ok {
+		cancel()
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))

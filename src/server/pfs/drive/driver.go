@@ -355,6 +355,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			Started: now(),
 		}
 
+		// Use a map to de-dup provenance
+		provenanceMap := make(map[string]*pfs.Commit)
 		// Build the full provenance; my provenance's provenance is
 		// my provenance
 		for _, prov := range provenance {
@@ -363,10 +365,18 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
 				return err
 			}
-			commitInfo.Provenance = append(commitInfo.Provenance, provCommitInfo.Provenance...)
+			for _, c := range provCommitInfo.Provenance {
+				provenanceMap[c.ID] = c
+			}
 		}
 		// finally include the given provenance
-		commitInfo.Provenance = append(commitInfo.Provenance, provenance...)
+		for _, c := range provenance {
+			provenanceMap[c.ID] = c
+		}
+
+		for _, c := range provenanceMap {
+			commitInfo.Provenance = append(commitInfo.Provenance, c)
+		}
 
 		if parent.ID != "" {
 			head := new(pfs.Commit)
@@ -557,6 +567,12 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
+	// Make sure that the repo exists
+	_, err := d.InspectRepo(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure that both from and to are valid commits
 	if from != nil {
 		if _, err := d.InspectCommit(ctx, from); err != nil {
@@ -664,7 +680,12 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			ID:   branch,
 		}, from, 0)
 		if err != nil {
-			return err
+			// We skip NotFound error because it's ok if the branch
+			// doesn't exist yet, in which case ListCommit returns
+			// a NotFound error.
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 		// ListCommit returns commits in newest-first order,
 		// but SubscribeCommit should return commit in oldest-first
@@ -838,7 +859,6 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 					var ok bool
 					select {
 					case ev, ok = <-commitWatcher.Watch():
-						fmt.Printf("receiving ev: %v\n", string(ev.Value))
 					case <-done:
 						return
 					}
@@ -870,7 +890,6 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 						case stream <- CommitEvent{
 							Value: &commitInfo,
 						}:
-							fmt.Printf("sending commitInfo: %v\n", commitInfo)
 						case <-done:
 							return
 						}
@@ -961,6 +980,9 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 }
 
 func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
+	if _, err := d.InspectCommit(ctx, commit); err != nil {
+		return err
+	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
@@ -1414,7 +1436,21 @@ func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) DeleteAll(ctx context.Context) error {
+	repoInfos, err := d.ListRepo(ctx, nil)
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos {
+		if err := d.DeleteRepo(ctx, repoInfo.Repo, true); err != nil {
+			return err
+		}
+	}
 	return nil
 }
+
 func (d *driver) Dump(ctx context.Context) {
+}
+
+func isNotFoundErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found")
 }

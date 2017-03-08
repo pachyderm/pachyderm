@@ -3,7 +3,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -23,16 +22,13 @@ import (
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
 func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool) (retErr error) {
-	fmt.Printf("pulling: %v\n", fileInfo)
 	commit := fileInfo.File.Commit
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE:
 		path := filepath.Join(root, fileInfo.File.Path)
-		fmt.Printf("path is: %v\n", path)
 		if err := os.MkdirAll(filepath.Dir(path), 0666); err != nil {
 			return err
 		}
-		fmt.Printf("made dir: %v\n", filepath.Dir(path))
 		if pipes {
 			if err := syscall.Mkfifo(path, 0666); err != nil {
 				return err
@@ -60,7 +56,6 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 				}
 			}()
 		} else {
-			fmt.Printf("creating: %v\n", path)
 			f, err := os.Create(path)
 			if err != nil {
 				return err
@@ -88,6 +83,7 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 
 		var g errgroup.Group
 		for _, fileInfo := range fileInfos {
+			fileInfo := fileInfo
 			g.Go(func() error {
 				return Pull(ctx, client, root, fileInfo, pipes)
 			})

@@ -87,13 +87,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}} {{end}} {{if .Branch}}
-Branch: {{.Branch}} {{end}}
+Parent: {{.ParentCommit.ID}} {{end}}
 Started: {{prettyAgo .Started}}{{if .Finished}}
 Finished: {{prettyAgo .Finished}} {{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}{{if .Cancelled}}
-CANCELLED {{end}}
+Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -129,7 +127,7 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
-Children: {{range .Children}} {{.Path}} {{end}} {{end}}
+Children: {{range .Children}} {{.Path}} {{end}}
 `)
 	if err != nil {
 		return err

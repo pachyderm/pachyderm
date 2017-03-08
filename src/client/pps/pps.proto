@@ -90,6 +90,7 @@ message JobInfo {
   reserved 4;
   Job job = 1;
   Transform transform = 2;
+  string pipeline_id = 19 [(gogoproto.customname) = "PipelineID"];
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
@@ -104,6 +105,8 @@ message JobInfo {
   bool stopped = 16;
   pfs.Repo outputRepo = 18;
   string outputBranch = 17;
+  // The log of stdout+stderr of the most recent datum that failed
+  string error = 20;
 }
 
 enum WorkerState {
@@ -131,6 +134,7 @@ message PipelineInput {
   string branch = 2;
   string glob = 3;
   bool lazy = 4;
+  pfs.Commit from = 6;
 }
 
 enum PipelineState {
@@ -164,6 +168,7 @@ message GCPolicy {
 
 message PipelineInfo {
   reserved 3;
+  string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
@@ -196,6 +201,7 @@ message CreateJobRequest {
   Service service = 8;
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
+  Job parent_job = 13;
 }
 
 message InspectJobRequest {
