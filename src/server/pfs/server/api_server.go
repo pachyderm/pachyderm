@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	"go.pedge.io/lion"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -402,7 +401,6 @@ func (a *apiServer) putFileSplit(ctx context.Context, file *pfs.File, delimiter 
 			value = jsonValue
 		case pfs.Delimiter_LINE:
 			value, err = bufioR.ReadBytes('\n')
-			//value = append(value, '\n')
 		default:
 			return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 		}
@@ -417,13 +415,13 @@ func (a *apiServer) putFileSplit(ctx context.Context, file *pfs.File, delimiter 
 		bytesWritten += int64(len(value))
 		datumsWritten += 1
 		if buffer.Len() != 0 &&
-			((targetFileBytes != 0 && bytesWritten > targetFileBytes) ||
-				(targetFileDatums != 0 && datumsWritten == targetFileDatums) ||
+			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
+				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
 				(targetFileBytes == 0 && targetFileDatums == 0) ||
 				EOF) {
 			file := client.NewFile(file.Commit.Repo.Name, file.Commit.ID, fmt.Sprintf("%s/%d", file.Path, filesPut))
-			lion.Printf("writing %s, %s\n", file.Path, buffer.String())
-			eg.Go(func() error { return a.driver.PutFile(ctx, file, buffer) })
+			_buffer := buffer
+			eg.Go(func() error { return a.driver.PutFile(ctx, file, _buffer) })
 			datumsWritten = 0
 			bytesWritten = 0
 			buffer = &bytes.Buffer{}
