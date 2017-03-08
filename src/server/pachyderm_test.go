@@ -5,12 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -25,6 +29,27 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
 )
+
+// This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
+// that are used in code but forgot to run:
+// $ make assets
+func TestAssets(t *testing.T) {
+	assetPaths := []string{"doc/deployment/pipeline_spec.md"}
+
+	for _, path := range assetPaths {
+		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		asset, err := pachyderm.Asset(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		require.Equal(t, doc, asset)
+	}
+}
 
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
