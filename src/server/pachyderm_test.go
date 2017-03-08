@@ -26,6 +26,126 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestLazyPipelinePropagation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestPipeline_datax")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineA := uniqueString("pipelineA")
+	require.NoError(t, c.CreatePipeline(
+		pipelineA,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Lazy: true,
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	pipelineB := uniqueString("pipelineB")
+	require.NoError(t, c.CreatePipeline(
+		pipelineB,
+		"",
+		[]string{"cp", path.Join("/pfs", pipelineA, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: pipelineA},
+			Glob: "/*",
+			Lazy: true,
+		}},
+		"",
+		false,
+	))
+
+	// Do first commit to repo
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	// Inspect each job
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+
+	jobInfos, err := c.ListJob(pipelineA, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	jobInfos, err = c.ListJob(pipelineB, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+}
+
+func TestLazyPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestLazyPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/",
+				Lazy: true,
+			}},
+		})
+	require.NoError(t, err)
+	// Do a commit
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	// We put 2 files, 1 of which will never be touched by the pipeline code.
+	// This is an important part of the correctness of this test because the
+	// job-shim sets up a goro for each pipe, pipes that are never opened will
+	// leak but that shouldn't prevent the job from completing.
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
+
 // TestProvenance creates a pipeline DAG that's not a transitive reduction
 // It looks like this:
 // A
