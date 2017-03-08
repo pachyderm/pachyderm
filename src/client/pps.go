@@ -2,10 +2,8 @@ package client
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -152,23 +150,6 @@ func (c APIClient) DeleteJob(jobID string) error {
 		},
 	)
 	return sanitizeErr(err)
-}
-
-// GetLogs gets logs from a job (logs includes stdout and stderr).
-func (c APIClient) GetLogs(
-	jobID string,
-	writer io.Writer,
-) error {
-	getLogsClient, err := c.PpsAPIClient.GetLogs(
-		c.ctx(),
-		&pps.GetLogsRequest{
-			Job: NewJob(jobID),
-		},
-	)
-	if err != nil {
-		return sanitizeErr(err)
-	}
-	return sanitizeErr(grpcutil.WriteFromStreamingBytesClient(getLogsClient, writer))
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
