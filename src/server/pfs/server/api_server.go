@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -338,7 +336,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			}
 			r = &reader
 		}
-		if err := a.putFileSplit(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
+		if err := a.driver.PutFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
 			return err
 		}
 	}
@@ -356,7 +354,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 				retErr = err
 			}
 		}()
-		return a.putFileSplit(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
+		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
 			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	if request.Recursive {
@@ -376,59 +374,6 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 		return eg.Wait()
 	}
 	return put(request.File.Path, url.Path)
-}
-
-func (a *apiServer) putFileSplit(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, r io.Reader) error {
-	if delimiter == pfs.Delimiter_NONE {
-		return a.driver.PutFile(ctx, file, r)
-	}
-	buffer := &bytes.Buffer{}
-	var datumsWritten int64
-	var bytesWritten int64
-	var filesPut int
-	EOF := false
-	var eg errgroup.Group
-	decoder := json.NewDecoder(r)
-	bufioR := bufio.NewReader(r)
-	for !EOF {
-		var err error
-		var value []byte
-		switch delimiter {
-		case pfs.Delimiter_JSON:
-			var jsonValue json.RawMessage
-			err = decoder.Decode(&jsonValue)
-			value = jsonValue
-		case pfs.Delimiter_LINE:
-			value, err = bufioR.ReadBytes('\n')
-		default:
-			return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
-		}
-		if err != nil {
-			if err == io.EOF {
-				EOF = true
-			} else {
-				return err
-			}
-		}
-		buffer.Write(value)
-		bytesWritten += int64(len(value))
-		datumsWritten += 1
-		if buffer.Len() != 0 &&
-			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
-				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
-				(targetFileBytes == 0 && targetFileDatums == 0) ||
-				EOF) {
-			file := client.NewFile(file.Commit.Repo.Name, file.Commit.ID, fmt.Sprintf("%s/%d", file.Path, filesPut))
-			_buffer := buffer
-			eg.Go(func() error { return a.driver.PutFile(ctx, file, _buffer) })
-			datumsWritten = 0
-			bytesWritten = 0
-			buffer = &bytes.Buffer{}
-			filesPut += 1
-		}
-	}
-	return eg.Wait()
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
