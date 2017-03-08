@@ -213,30 +213,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
-	deleteCommit := &cobra.Command{
-		Use:   "delete-commit repo-name commit-id",
-		Short: "Delete a commit.",
-		Long:  "Delete a commit.  The commit needs to be 1) open and 2) the head of a branch.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-			fmt.Printf("delete-commit is a beta feature; specifically, it may race with concurrent start-commit on the same branch.  Are you sure you want to proceed? yN\n")
-			r := bufio.NewReader(os.Stdin)
-			bytes, err := r.ReadBytes('\n')
-			if err != nil {
-				return err
-			}
-			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				if err := client.DeleteCommit(args[0], args[1]); err != nil {
-					return err
-				}
-			}
-			return nil
-		}),
-	}
-
 	var from string
 	var number int
 	listCommit := &cobra.Command{
@@ -301,7 +277,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 
 	# return commits caused by foo/master/1 leading to repos bar and baz
 	$ pachctl flush-commit foo/master/1 -r bar -r baz
-
 	`,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
@@ -414,7 +389,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 
 	var filePaths []string
 	var recursive bool
-	var commitFlag bool
 	var inputFile string
 	var parallelism uint
 	putFile := &cobra.Command{
@@ -423,10 +397,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Long: `Put-file supports a number of ways to insert data into pfs:
 	Put data from stdin as repo/commit/path:
 	echo "data" | pachctl put-file repo commit path
-
-	Start a new commmit on branch, put data from stdin as repo/branch/path and
-	finish the commit:
-	echo "data" | pachctl put-file -c repo branch path
 
 	Put a file from the local filesystem as repo/commit/path:
 	pachctl put-file repo commit path -f file
@@ -536,7 +506,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().BoolVarP(&commitFlag, "commit", "c", false, "Start and finish the commit in addition to putting data.")
 	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The number of files that can be uploaded in parallel")
 
 	getFile := &cobra.Command{
@@ -572,17 +541,11 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
-	var recurse bool
-	var fast bool
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
-			if fast && recurse {
-				return fmt.Errorf("you may only provide either --fast or --recurse, but not both")
-			}
-
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
@@ -591,12 +554,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			if len(args) == 3 {
 				path = args[2]
 			}
-			var fileInfos []*pfsclient.FileInfo
-			if fast {
-				fileInfos, err = client.ListFile(args[0], args[1], path)
-			} else {
-				fileInfos, err = client.ListFile(args[0], args[1], path)
-			}
+			fileInfos, err := client.ListFile(args[0], args[1], path)
 			if err != nil {
 				return err
 			}
@@ -608,8 +566,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			return writer.Flush()
 		}),
 	}
-	listFile.Flags().BoolVar(&recurse, "recurse", false, "if recurse is true, compute and display the sizes of directories")
-	listFile.Flags().BoolVar(&fast, "fast", false, "if fast is true, don't compute the sizes of files; this makes list-file faster")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
@@ -742,7 +698,6 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	result = append(result, startCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
-	result = append(result, deleteCommit)
 	result = append(result, listCommit)
 	result = append(result, flushCommit)
 	result = append(result, listBranch)
