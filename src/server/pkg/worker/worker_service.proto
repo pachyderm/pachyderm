@@ -4,12 +4,17 @@ package worker;
 import  "client/pfs/pfs.proto";
 
 message ProcessRequest {
-  // The file to process
+  // The datum to process
   repeated pfs.FileInfo data = 1;
 }
 
+// ProcessResponse contains either a tag, if the processing was successful,
+// or a log that's the combination of stdout+stderr, if the processing
+// was unsuccessful.
+// TODO: allow for capturing logs even if processing was successful.
 message ProcessResponse {
   pfs.Tag tag = 1;
+  string log = 2;
 }
 
 service Worker {

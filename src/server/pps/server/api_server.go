@@ -199,37 +199,33 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		// Get pipeline version, to attach to job info
-		var pipelineVersion uint64
+		jobInfo := &pps.JobInfo{
+			Job:             job,
+			Transform:       request.Transform,
+			Pipeline:        request.Pipeline,
+			ParallelismSpec: request.ParallelismSpec,
+			Inputs:          request.Inputs,
+			OutputRepo:      request.OutputRepo,
+			OutputBranch:    request.OutputBranch,
+			Started:         now(),
+			Finished:        nil,
+			OutputCommit:    nil,
+			Service:         request.Service,
+			ParentJob:       request.ParentJob,
+		}
+
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 				return err
 			}
-			pipelineVersion = pipelineInfo.Version
-		}
-
-		jobInfo := &pps.JobInfo{
-			Job:             job,
-			Transform:       request.Transform,
-			Pipeline:        request.Pipeline,
-			PipelineVersion: pipelineVersion,
-			ParallelismSpec: request.ParallelismSpec,
-			Inputs:          request.Inputs,
-			OutputRepo:      request.OutputRepo,
-			OutputBranch:    request.OutputBranch,
-			ParentJob:       nil,
-			Started:         now(),
-			Finished:        nil,
-			OutputCommit:    nil,
-			State:           pps.JobState_JOB_STARTING,
-			Service:         request.Service,
+			jobInfo.PipelineVersion = pipelineInfo.Version
+			jobInfo.PipelineID = pipelineInfo.ID
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
 		}
-		a.jobs.ReadWrite(stm).Put(job.ID, jobInfo)
-		return nil
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
 	})
 	if err != nil {
 		return nil, err
@@ -243,7 +239,43 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	jobs := a.jobs.ReadOnly(ctx)
+
+	if request.BlockState {
+		watcher, err := jobs.WatchOne(request.Job.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer watcher.Close()
+
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return nil, fmt.Errorf("the stream for job updates closed unexpectedly")
+			}
+			switch ev.Type {
+			case watch.EventError:
+				return nil, ev.Err
+			case watch.EventDelete:
+				return nil, fmt.Errorf("job %s was deleted", request.Job.ID)
+			case watch.EventPut:
+				var jobID string
+				var jobInfo pps.JobInfo
+				if err := ev.Unmarshal(&jobID, &jobInfo); err != nil {
+					return nil, err
+				}
+				if jobStateToStopped(jobInfo.State) {
+					return &jobInfo, nil
+				}
+			}
+		}
+	}
+
+	jobInfo := new(pps.JobInfo)
+	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
+		return nil, err
+	}
+	return jobInfo, nil
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
@@ -388,6 +420,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	sort.Sort(byInputName{request.Inputs})
 	pipelineInfo := &pps.PipelineInfo{
+		ID:              uuid.NewWithoutDashes(),
 		Pipeline:        request.Pipeline,
 		Transform:       request.Transform,
 		ParallelismSpec: request.ParallelismSpec,
@@ -395,26 +428,72 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		OutputBranch:    request.OutputBranch,
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
+		CreatedAt:       now(),
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
 
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		if request.Update {
-			a.pipelines.ReadWrite(stm).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
-			return nil
-		} else {
-			err := a.pipelines.ReadWrite(stm).Create(pipelineInfo.Pipeline.Name, pipelineInfo)
-			if isAlreadyExistsErr(err) {
-				return newErrPipelineExists(pipelineInfo.Pipeline.Name)
-			}
-			return err
-		}
-	})
+	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return nil, err
+	}
+
+	pipelineName := pipelineInfo.Pipeline.Name
+
+	if request.Update {
+		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
+			return nil, err
+		}
+		var oldPipelineInfo pps.PipelineInfo
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			if err := pipelines.Get(pipelineName, &oldPipelineInfo); err != nil {
+				return err
+			}
+			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			pipelines.Put(pipelineName, pipelineInfo)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// Rename the original output branch to `outputBranch-vN`, where N
+		// is the previous version number of the pipeline.
+		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{pipelineName},
+				ID:   oldPipelineInfo.OutputBranch,
+			},
+			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
+		}); err != nil {
+			return nil, err
+		}
+
+		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
+			Repo:   &pfs.Repo{pipelineName},
+			Branch: oldPipelineInfo.OutputBranch,
+		}); err != nil {
+			return nil, err
+		}
+
+		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			err := pipelines.Create(pipelineName, pipelineInfo)
+			if isAlreadyExistsErr(err) {
+				return newErrPipelineExists(pipelineName)
+			}
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Create output repo
@@ -424,11 +503,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// because it's a very common pattern to create many pipelines in a
 	// row, some of which depend on the existence of the output repos
 	// of upstream pipelines.
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return nil, err
-	}
-
 	var provenance []*pfs.Repo
 	for _, input := range pipelineInfo.Inputs {
 		provenance = append(provenance, input.Repo)
@@ -557,7 +631,29 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PPSDeleteAll")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{pipelineInfo.Pipeline}); err != nil {
+			return nil, err
+		}
+	}
+
+	jobInfos, err := a.ListJob(ctx, &pps.ListJobRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, jobInfo := range jobInfos.JobInfo {
+		if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{jobInfo.Job}); err != nil {
+			return nil, err
+		}
+	}
+
+	return &types.Empty{}, err
 }
 
 func (a *apiServer) Version(version int64) error {
@@ -726,6 +822,7 @@ func isContextCancelledErr(err error) bool {
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+	pipelineName := pipelineInfo.Pipeline.Name
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
@@ -737,12 +834,12 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
-		if err := a.updatePipelineState(ctx, pipelineInfo.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, pipelineInfo.Pipeline.Name)
+		a.workerPool(ctx, pipelineName)
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -755,7 +852,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		// Create the output repo; if it already exists, do nothing
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Repo:       &pfs.Repo{pipelineName},
 			Provenance: provenance,
 		}); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -777,6 +874,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 
+		var job *pps.Job
 		for {
 			// Block until new input commit comes in, then gather input branches for processing
 			branchSet, err := branchSets.Next()
@@ -815,10 +913,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				if err != nil {
 					return err
 				}
-				if jobInfo.Pipeline.Name == pipelineInfo.Pipeline.Name && jobInfo.PipelineVersion == pipelineInfo.Version {
+				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO: we should check if the output commit exists.
 					// If the output commit has been deleted, we should
 					// re-run the job.
+					// Also,
 					jobExists = true
 					break
 				}
@@ -827,7 +926,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				continue
 			}
 
-			job, err := a.CreateJob(ctx, &pps.CreateJobRequest{
+			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Transform:       pipelineInfo.Transform,
 				Pipeline:        pipelineInfo.Pipeline,
 				ParallelismSpec: pipelineInfo.ParallelismSpec,
@@ -835,11 +934,15 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				OutputRepo:      &pfs.Repo{pipelineInfo.Pipeline.Name},
 				OutputBranch:    pipelineInfo.OutputBranch,
 				Egress:          pipelineInfo.Egress,
+				// TODO
+				// Note that once the pipeline restarts, the `job` variable
+				// is lost and we don't know who is our parent job.
+				ParentJob: job,
 			})
 			if err != nil {
 				return err
 			}
-			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineInfo.Pipeline.Name, job.ID, jobInputs)
+			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
 		}
 		panic("unreachable")
 		return nil
@@ -848,6 +951,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RESTARTING); err != nil {
+			protolion.Errorf("error updating pipeline state: %v", err)
+		}
 		return nil
 	}); err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
@@ -886,13 +992,49 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
+	if isNotFoundErr(err) {
+		return newErrPipelineNotFound(pipelineName)
+	}
 	return err
 }
 
+func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+	// Update job counts
+	if jobInfo.Pipeline != nil {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
+		}
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)] -= 1
+		}
+		pipelineInfo.JobCounts[int32(state)] += 1
+		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	}
+	jobInfo.State = state
+	jobInfo.Stopped = jobStateToStopped(state)
+	jobs := a.jobs.ReadWrite(stm)
+	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
+}
+
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
+	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
-		if err := a.updateJobState(ctx, jobInfo.Job.ID, pps.JobState_JOB_RUNNING); err != nil {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobID, jobInfo); err != nil {
+				return err
+			}
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
+		})
+		if err != nil {
 			return err
 		}
 
@@ -914,29 +1056,52 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
+		errCh := make(chan string)
 		datum := df.Next()
 		for {
 			var resp hashtree.HashTree
+			var datumErr string
 			if datum != nil {
 				select {
 				case wp.DataCh() <- datumAndResp{
-					datum: datum,
-					resp:  respCh,
+					datum:  datum,
+					respCh: respCh,
+					errCh:  errCh,
 				}:
 					datum = df.Next()
 					numData++
 				case resp = <-respCh:
+					numData--
+				case datumErr = <-errCh:
 					numData--
 				}
 			} else {
 				if numData == 0 {
 					break
 				}
-				resp = <-respCh
+				select {
+				case resp = <-respCh:
+				case datumErr = <-errCh:
+				}
 				numData--
 			}
 			if resp != nil {
 				if err := tree.Merge(resp); err != nil {
+					return err
+				}
+			}
+			if datumErr != "" {
+				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobInfo := new(pps.JobInfo)
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.Error = datumErr
+					jobInfo.Finished = now()
+					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+				})
+				if err != nil {
 					return err
 				}
 			}
@@ -984,6 +1149,22 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				ID:   jobInfo.OutputBranch,
 			},
 		})
+
+		if jobInfo.ParentJob != nil {
+			// Wait for the parent job to finish, to ensure that output commits
+			// are ordered correctly.
+			// Right now we don't care if the parent job succeeded or not; we
+			// just output a commit anyways.  But maybe it makes sense to only
+			// output a commit if the parent job succeeded?
+			// TODO
+			if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+				Job:        jobInfo.ParentJob,
+				BlockState: true,
+			}); err != nil {
+				return err
+			}
+		}
+
 		if isNotFoundErr(err) {
 			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
@@ -1015,15 +1196,17 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
-		jobInfo.OutputCommit = outputCommit
-		jobInfo.Finished = now()
-		jobInfo.State = pps.JobState_JOB_SUCCESS
-		jobInfo.Stopped = jobStateToStopped(jobInfo.State)
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			a.jobs.ReadWrite(stm).Put(jobInfo.Job.ID, jobInfo)
-			return nil
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobID, jobInfo); err != nil {
+				return err
+			}
+			jobInfo.OutputCommit = outputCommit
+			jobInfo.Finished = now()
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
-		return nil
+		return err
 	}, b, func(err error, d time.Duration) error {
 		if isContextCancelledErr(err) {
 			return err
@@ -1050,21 +1233,6 @@ func jobStateToStopped(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
-}
-
-func (a *apiServer) updateJobState(ctx context.Context, jobID string, state pps.JobState) error {
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobInfo := new(pps.JobInfo)
-		if err := jobs.Get(jobID, jobInfo); err != nil {
-			return err
-		}
-		jobInfo.State = state
-		jobInfo.Stopped = jobStateToStopped(state)
-		jobs.Put(jobID, jobInfo)
-		return nil
-	})
-	return err
 }
 
 func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
@@ -1101,7 +1269,11 @@ func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
 }
 
 func (a *apiServer) deleteWorkers(pipelineInfo *pps.PipelineInfo) error {
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), nil)
+	falseVal := false
+	deleteOptions := &api.DeleteOptions{
+		OrphanDependents: &falseVal,
+	}
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), deleteOptions)
 }
 
 // getShardCtx returns the context associated with a shard that this server
