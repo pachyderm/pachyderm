@@ -24,6 +24,13 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
 .. toctree::
     :maxdepth: 1
+    :caption: Deploy Pachyderm
+
+    deployment/deploy_intro
+    deployment/google_cloud_platform
+
+.. toctree::
+    :maxdepth: 1
     :caption: Analyze Your Data
 
     deployment/analyze_your_data
