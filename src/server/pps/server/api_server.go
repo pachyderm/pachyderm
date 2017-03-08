@@ -207,11 +207,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Inputs:          request.Inputs,
 			OutputRepo:      request.OutputRepo,
 			OutputBranch:    request.OutputBranch,
-			ParentJob:       nil,
 			Started:         now(),
 			Finished:        nil,
 			OutputCommit:    nil,
 			Service:         request.Service,
+			ParentJob:       request.ParentJob,
 		}
 
 		if request.Pipeline != nil {
@@ -874,6 +874,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 
+		var job *pps.Job
 		for {
 			// Block until new input commit comes in, then gather input branches for processing
 			branchSet, err := branchSets.Next()
@@ -925,7 +926,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				continue
 			}
 
-			job, err := a.CreateJob(ctx, &pps.CreateJobRequest{
+			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Transform:       pipelineInfo.Transform,
 				Pipeline:        pipelineInfo.Pipeline,
 				ParallelismSpec: pipelineInfo.ParallelismSpec,
@@ -933,6 +934,10 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				OutputRepo:      &pfs.Repo{pipelineInfo.Pipeline.Name},
 				OutputBranch:    pipelineInfo.OutputBranch,
 				Egress:          pipelineInfo.Egress,
+				// TODO
+				// Note that once the pipeline restarts, the `job` variable
+				// is lost and we don't know who is our parent job.
+				ParentJob: job,
 			})
 			if err != nil {
 				return err
@@ -1121,6 +1126,22 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				ID:   jobInfo.OutputBranch,
 			},
 		})
+
+		if jobInfo.ParentJob != nil {
+			// Wait for the parent job to finish, to ensure that output commits
+			// are ordered correctly.
+			// Right now we don't care if the parent job succeeded or not; we
+			// just output a commit anyways.  But maybe it makes sense to only
+			// output a commit if the parent job succeeded?
+			// TODO
+			if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+				Job:        jobInfo.ParentJob,
+				BlockState: true,
+			}); err != nil {
+				return err
+			}
+		}
+
 		if isNotFoundErr(err) {
 			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
