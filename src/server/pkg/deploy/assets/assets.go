@@ -341,7 +341,13 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 }
 
 // EtcdService returns an etcd service.
-func EtcdService() *api.Service {
+func EtcdService(local bool) *api.Service {
+	var clientNodePort int32
+	serviceType := api.ServiceTypeNodePort
+	if local {
+		clientNodePort = 32379
+		serviceType = api.ServiceTypeNodePort
+	}
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
@@ -352,13 +358,15 @@ func EtcdService() *api.Service {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ServiceSpec{
+			Type: serviceType,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
 			Ports: []api.ServicePort{
 				{
-					Port: 2379,
-					Name: "client-port",
+					Port:     2379,
+					Name:     "client-port",
+					NodePort: clientNodePort,
 				},
 				{
 					Port: 2380,
@@ -482,7 +490,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 
 	EtcdRc(hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	EtcdService().CodecEncodeSelf(encoder)
+	EtcdService(backend == localBackend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)

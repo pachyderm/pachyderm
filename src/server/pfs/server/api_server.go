@@ -336,7 +336,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			}
 			r = &reader
 		}
-		if err := a.driver.PutFile(ctx, request.File, r); err != nil {
+		if err := a.driver.PutFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
 			return err
 		}
 	}
@@ -354,7 +354,8 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 				retErr = err
 			}
 		}()
-		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath), r)
+		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
+			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	if request.Recursive {
 		var eg errgroup.Group
