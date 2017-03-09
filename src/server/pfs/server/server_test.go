@@ -1624,7 +1624,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_LINE, 0, 0)
+	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0)
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -2200,5 +2200,5 @@ func TestPutFileSplit(t *testing.T) {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "." + uuid.NewWithoutDashes()[0:12]
+	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
