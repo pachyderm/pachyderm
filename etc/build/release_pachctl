@@ -40,30 +40,3 @@ fi
 set -e
 echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
 make VERSION=$VERSION goxc-release
-
-echo "--- Updating homebrew formula to use binaries at version $VERSION"
-
-rm -rf homebrew-tap || true
-git clone git@github.com:pachyderm/homebrew-tap
-cd homebrew-tap
-    make VERSION=$VERSION update-formula
-    git commit -a -m "[Automated] Update formula to release version $VERSION"
-    git pull origin master
-    git push origin master
-cd ..
-rm -rf homebrew-tap
-
-rm -rf www || true
-curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
-git clone git@github.com:pachyderm/www
-cp /tmp/pachctl.deb www/pachctl.deb
-cd www 
-    git add pachctl.deb
-    make # Cannot upload single file ... see: https://github.com/pachyderm/www/issues/9
-    git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION"
-    git pull origin master
-    git push origin master
-cd ..
-rm -rf www
-
-echo "--- Successfully released pachctl"
