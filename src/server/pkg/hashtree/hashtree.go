@@ -493,6 +493,7 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 	return res, nil
 }
 
+// Size returns the size of the file system that the hashtree represents.
 func (h *HashTreeProto) Size() int64 {
 	rootNode, ok := h.Fs[clean("/")]
 	if !ok {

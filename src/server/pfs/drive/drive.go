@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+// ValidateRepoName determines if a repo name is valid
 func ValidateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 
@@ -40,11 +41,13 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
+// CommitEvent is an event that contains a CommitInfo or an error
 type CommitEvent struct {
 	Err   error
 	Value *pfs.CommitInfo
 }
 
+// CommitStream is a stream of CommitInfos
 type CommitStream interface {
 	Stream() <-chan CommitEvent
 	Close()

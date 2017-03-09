@@ -24,11 +24,14 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
+// Input is a generic input object that can either be a pipeline input or
+// a job input.  It only defines the attributes that the worker cares about.
 type Input struct {
 	Name string
 	Lazy bool
 }
 
+// Options are the options used to initialize a worker.
 type Options struct {
 	Transform *pps.Transform
 	Inputs    []*Input

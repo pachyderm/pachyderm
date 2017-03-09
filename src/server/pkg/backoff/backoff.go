@@ -39,16 +39,20 @@ const Stop time.Duration = -1
 // meaning that the operation is retried immediately without waiting, indefinitely.
 type ZeroBackOff struct{}
 
+// Reset ...
 func (b *ZeroBackOff) Reset() {}
 
+// NextBackOff ...
 func (b *ZeroBackOff) NextBackOff() time.Duration { return 0 }
 
 // StopBackOff is a fixed backoff policy that always returns backoff.Stop for
 // NextBackOff(), meaning that the operation should never be retried.
 type StopBackOff struct{}
 
+// Reset ...
 func (b *StopBackOff) Reset() {}
 
+// NextBackOff ...
 func (b *StopBackOff) NextBackOff() time.Duration { return Stop }
 
 // ConstantBackOff is a backoff policy that always returns the same backoff delay.
@@ -58,9 +62,13 @@ type ConstantBackOff struct {
 	Interval time.Duration
 }
 
-func (b *ConstantBackOff) Reset()                     {}
+// Reset ...
+func (b *ConstantBackOff) Reset() {}
+
+// NextBackOff ...
 func (b *ConstantBackOff) NextBackOff() time.Duration { return b.Interval }
 
+// NewConstantBackOff ...
 func NewConstantBackOff(d time.Duration) *ConstantBackOff {
 	return &ConstantBackOff{Interval: d}
 }

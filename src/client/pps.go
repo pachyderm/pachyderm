@@ -23,10 +23,10 @@ const (
 	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
 	// that the workers are running.
 	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
-	// PPSJobNameEnv is the env var that sets the ID of the job that the
+	// PPSJobIDEnv is the env var that sets the ID of the job that the
 	// workers are running (if the workers belong to an orphan job, rather than a
 	// pipeline).
-	PPSJobIdEnv = "PPS_JOB_ID"
+	PPSJobIDEnv = "PPS_JOB_ID"
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
 	PPSInputPrefix = "/pfs"

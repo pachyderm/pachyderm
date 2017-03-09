@@ -1195,7 +1195,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		jobInfo.Transform)
 	// Set the job name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
-		Name:  client.PPSJobIdEnv,
+		Name:  client.PPSJobIDEnv,
 		Value: jobInfo.Job.ID,
 	})
 	return a.createWorkerRc(options)
