@@ -213,6 +213,12 @@ pretest:
 
 test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
+pfs-test:
+	go test ./src/server/pfs/server
+
+pps-test:
+	go test ./src/server/pachyderm_test.go
+
 bench:
 	go test ./src/server -run=XXX -bench=.
 
