@@ -391,6 +391,9 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	var recursive bool
 	var inputFile string
 	var parallelism uint
+	var split string
+	var targetFileDatums uint
+	var targetFileBytes uint
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -486,17 +489,19 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
-					eg.Go(func() error { return putFileHelper(client, repoName, commitID, path, source, recursive, sem) })
+					eg.Go(func() error {
+						return putFileHelper(client, repoName, commitID, path, source, recursive, sem, split, targetFileDatums, targetFileBytes)
+					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -507,6 +512,9 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The number of files that can be uploaded in parallel")
+	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes")
+	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "the target upper bound of the number of datums that each file contains; needs to be used with --split")
+	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "the target upper bound of the number of bytes that each file contains; needs to be used with --split")
 
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
@@ -734,12 +742,30 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
+	putFile := func(reader io.Reader) error {
+		if split == "" {
+			_, err := client.PutFile(repo, commit, path, reader)
+			return err
+		} else {
+			var delimiter pfsclient.Delimiter
+			switch split {
+			case "line":
+				delimiter = pfsclient.Delimiter_LINE
+			case "json":
+				delimiter = pfsclient.Delimiter_JSON
+			default:
+				return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
+			}
+			_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), reader)
+			return err
+		}
+	}
+
 	if source == "-" {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		_, err := client.PutFile(repo, commit, path, os.Stdin)
-		return err
+		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
@@ -758,7 +784,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem, split, targetFileDatums, targetFileBytes)
 			})
 			return nil
 		}); err != nil {
@@ -779,8 +805,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 			retErr = err
 		}
 	}()
-	_, err = client.PutFile(repo, commit, path, f)
-	return err
+	return putFile(f)
 }
 
 func joinPaths(prefix, filePath string) string {
