@@ -1,15 +1,20 @@
 package drive
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -112,7 +117,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
-	return NewDriver(blockAddress, []string{"localhost:2379"}, etcdPrefix)
+	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix)
 }
 
 func (d *driver) getBlockClient() (*client.APIClient, error) {
@@ -1039,7 +1044,8 @@ func (d *driver) setCommitExist(commitID string) {
 	d.commitCache[commitID] = true
 }
 
-func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) error {
+func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
+	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
 	if !d.commitExists(file.Commit.ID) {
@@ -1053,36 +1059,152 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, reader io.Reader) 
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
+	prefix, err := d.scratchFilePrefix(ctx, file)
+	if err != nil {
+		return err
+	}
 
 	// Put the tree into the blob store
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
 	}
-
-	blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
-	if err != nil {
-		return err
-	}
-
-	// Serialize the blockrefs.
-	// Since we are serializing multiple blockrefs, we use WriteDelimited
-	// to write them into the same object, since protobuf messages are not
-	// self-delimiting.
-	var buffer bytes.Buffer
-	for _, blockRef := range blockRefs.BlockRef {
-		if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
+	if delimiter == pfs.Delimiter_NONE {
+		blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
+		if err != nil {
 			return err
 		}
-	}
 
-	prefix, err := d.scratchFilePrefix(ctx, file)
+		// Serialize the blockrefs.
+		// Since we are serializing multiple blockrefs, we use WriteDelimited
+		// to write them into the same object, since protobuf messages are not
+		// self-delimiting.
+		var buffer bytes.Buffer
+		for _, blockRef := range blockRefs.BlockRef {
+			if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
+				return err
+			}
+		}
+
+		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
+		return err
+	}
+	commitInfo, err := d.InspectCommit(ctx, file.Commit)
 	if err != nil {
 		return err
 	}
+	parentCommit := commitInfo.ParentCommit
+	buffer := &bytes.Buffer{}
+	var datumsWritten int64
+	var bytesWritten int64
+	var filesPut int
+	EOF := false
+	var eg errgroup.Group
+	decoder := json.NewDecoder(reader)
+	bufioR := bufio.NewReader(reader)
 
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
-	return err
+	indexToBlockRefs := make(map[int]*pfs.BlockRefs)
+	var mu sync.Mutex
+	for !EOF {
+		var err error
+		var value []byte
+		switch delimiter {
+		case pfs.Delimiter_JSON:
+			var jsonValue json.RawMessage
+			err = decoder.Decode(&jsonValue)
+			value = jsonValue
+		case pfs.Delimiter_LINE:
+			value, err = bufioR.ReadBytes('\n')
+		default:
+			return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
+		}
+		if err != nil {
+			if err == io.EOF {
+				EOF = true
+			} else {
+				return err
+			}
+		}
+		buffer.Write(value)
+		bytesWritten += int64(len(value))
+		datumsWritten += 1
+		if buffer.Len() != 0 &&
+			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
+				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
+				(targetFileBytes == 0 && targetFileDatums == 0) ||
+				EOF) {
+			_buffer := buffer
+			index := filesPut
+			eg.Go(func() error {
+				blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, _buffer)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				indexToBlockRefs[index] = blockRefs
+				return nil
+			})
+			datumsWritten = 0
+			bytesWritten = 0
+			buffer = &bytes.Buffer{}
+			filesPut += 1
+		}
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	var indexOffset int64
+	if parentCommit != nil {
+		fileInfos, err := d.ListFile(ctx, client.NewFile(parentCommit.Repo.Name, parentCommit.ID, file.Path))
+		if err != nil {
+			return err
+		}
+		for _, fileInfo := range fileInfos {
+			i, err := strconv.ParseInt(path.Base(string(fileInfo.File.Path)), 16, 64)
+			if err != nil {
+				return err
+			}
+			if i+1 > indexOffset {
+				indexOffset = i + 1
+			}
+		}
+	}
+	for {
+		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithLastKey()...)
+		if err != nil {
+			return err
+		}
+		if len(resp.Kvs) != 0 {
+			i, err := strconv.ParseInt(path.Base(path.Dir(string(resp.Kvs[0].Key))), 16, 64)
+			if err != nil {
+				return err
+			}
+			indexOffset = i + 1
+		}
+		txn := d.etcdClient.Txn(ctx)
+		baseKey := "__" + prefix
+		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
+		ops := []etcd.Op{etcd.OpPut(baseKey, "")}
+		for index, blockRefs := range indexToBlockRefs {
+			var buffer bytes.Buffer
+			for _, blockRef := range blockRefs.BlockRef {
+				if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
+					return err
+				}
+			}
+			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), buffer.String()))
+		}
+		txnResp, err := txn.If(cmp).Then(ops...).Commit()
+		if err != nil {
+			return err
+		}
+		if txnResp.Succeeded {
+			break
+		}
+	}
+	return nil
 }
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil

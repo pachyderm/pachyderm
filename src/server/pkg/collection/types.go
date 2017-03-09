@@ -53,6 +53,8 @@ type Index struct {
 	Multi bool
 }
 
+// ReadWriteCollection is a collection interface that supports read,write and delete
+// operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
 	Put(key string, val proto.Message)
@@ -61,6 +63,7 @@ type ReadWriteCollection interface {
 	DeleteAll()
 }
 
+// ReadWriteIntCollection is a ReadonlyCollection interface specifically for ints.
 type ReadWriteIntCollection interface {
 	Create(key string, val int) error
 	Get(key string) (int, error)
@@ -69,6 +72,7 @@ type ReadWriteIntCollection interface {
 	Delete(key string) error
 }
 
+// ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
@@ -78,6 +82,7 @@ type ReadonlyCollection interface {
 	WatchByIndex(index Index, val interface{}) (watch.Watcher, error)
 }
 
+// Iterator is an interface for iterating protobufs.
 type Iterator interface {
 	// Next is a function that, when called, serializes the key and value
 	// of the next object in a collection.
