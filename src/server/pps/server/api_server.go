@@ -653,10 +653,6 @@ func (a *apiServer) pipelineWatcher() {
 				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
 					protolion.Infof("cancelling pipeline: %s", pipelineName)
 					cancel()
-					// delete the worker pool here, so we don't end up with a
-					// race where the same pipeline is immediately recreated
-					// and ends up using the defunct worker pool.
-					a.delWorkerPool(pipelineName)
 				}
 			}
 		}
@@ -737,11 +733,12 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		rcName := pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err := a.deleteWorkers(rcName); err != nil {
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
 		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
+		a.delWorkerPool(rcName)
 	}()
 
 	b := backoff.NewInfiniteBackOff()
@@ -751,7 +748,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -944,11 +941,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			go func() {
 				// Clean up workers if the job gets cancelled
 				<-ctx.Done()
-				rcName := jobRcName(jobInfo.Job.ID)
+				rcName := JobRcName(jobInfo.Job.ID)
 				if err := a.deleteWorkers(rcName); err != nil {
 					protolion.Errorf("error deleting workers for job: %v", jobID)
 				}
 				protolion.Infof("deleted workers for job: %v", jobID)
+				a.delWorkerPool(rcName)
 			}()
 
 			// Create output repo for this job
@@ -995,11 +993,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
 			wp = a.workerPool(ctx,
-				pipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+				PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
 		} else {
 			// Start worker pool
 			wp = a.workerPool(ctx,
-				jobRcName(jobInfo.Job.ID))
+				JobRcName(jobInfo.Job.ID))
 		}
 		// process all datums
 		var numData int
@@ -1192,7 +1190,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		return err
 	}
 	options := a.getWorkerOptions(
-		jobRcName(jobInfo.Job.ID),
+		JobRcName(jobInfo.Job.ID),
 		int32(parallelism),
 		jobInfo.Transform)
 	// Set the job name env
@@ -1209,7 +1207,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	options := a.getWorkerOptions(
-		pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		pipelineInfo.Transform)
 	// Set the pipeline name env
@@ -1225,7 +1223,7 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	rcName := pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 

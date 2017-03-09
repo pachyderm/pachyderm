@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/worker"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"google.golang.org/grpc"
 )
 
@@ -45,19 +46,19 @@ func main() {
 }
 
 func validateEnv(appEnv *AppEnv) error {
-	if appEnv.PPSPipelineName == "" && appEnv.PPSJobName == "" {
-		return fmt.Errorf("worker must recieve either pipeline name or job name, but got neither")
-	} else if appEnv.PPSPipelineName != "" && appEnv.PPSJobName != "" {
-		return fmt.Errorf("worker must recieve either pipeline name or job name, but got both")
+	if appEnv.PPSPipelineName == "" && appEnv.PPSJobID == "" {
+		return fmt.Errorf("worker must recieve either pipeline name or job ID, but got neither")
+	} else if appEnv.PPSPipelineName != "" && appEnv.PPSJobID != "" {
+		return fmt.Errorf("worker must recieve either pipeline name or job ID, but got both")
 	}
 	return nil
 }
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
-func getPipelineInfo(etcdClient *etcd.Client, pipelineName string) (*pps.PipelineInfo, error) {
+func getPipelineInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.PipelineInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", pipelineName))
+	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +72,9 @@ func getPipelineInfo(etcdClient *etcd.Client, pipelineName string) (*pps.Pipelin
 	return pipelineInfo, nil
 }
 
-func getJobInfo(etcdClient *etcd.Client, jobID string) (*pps.JobInfo, error) {
+func getJobInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.JobInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", jobID))
+	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", appEnv.PPSJobID))
 	if err != nil {
 		return nil, err
 	}
@@ -111,35 +112,38 @@ func do(appEnvObj interface{}) error {
 	}
 
 	var options worker.Options
+	var workerRcName string
 	if appEnv.PPSPipelineName != "" {
 		// Get info about this worker's pipeline
-		pipelineInfo, err := getPipelineInfo(appEnv.PPSPipelineName, etcdClient)
+		pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
 		options.Transform = pipelineInfo.Transform
 		for _, input := range pipelineInfo.Inputs {
-			options.Inputs = append(options.Input, &worker.Input{
+			options.Inputs = append(options.Inputs, &worker.Input{
 				Name: input.Name,
 				Lazy: input.Lazy,
 			})
 		}
+		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	} else if appEnv.PPSJobID != "" {
-		jobInfo, err := getJobInfo(appEnv.PPSJobID, etcdClient)
+		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
 		options.Transform = jobInfo.Transform
 		for _, input := range jobInfo.Inputs {
-			options.Inputs = append(options.Input, &worker.Input{
+			options.Inputs = append(options.Inputs, &worker.Input{
 				Name: input.Name,
 				Lazy: input.Lazy,
 			})
 		}
+		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
 	}
 
 	// Start worker api server
-	apiServer := worker.NewAPIServer(pachClient, options)
+	apiServer := worker.NewAPIServer(pachClient, &options)
 	eg := errgroup.Group{}
 	ready := make(chan error)
 	eg.Go(func() error {
@@ -161,9 +165,7 @@ func do(appEnvObj interface{}) error {
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
 	<-ready
-	// TODO: handle the case where this worker is part of a pipeline-less job
-	id := pipelineInfo.Pipeline.Name
-	key := path.Join(appEnv.PPSPrefix, "workers", id, appEnv.PPSWorkerIP)
+	key := path.Join(appEnv.PPSPrefix, "workers", workerRcName, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd

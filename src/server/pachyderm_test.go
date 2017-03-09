@@ -935,6 +935,7 @@ func TestAcceptReturnCode(t *testing.T) {
 				Commit: commit,
 				Glob:   "/*",
 			}},
+			OutputBranch: "master",
 		},
 	)
 	require.NoError(t, err)

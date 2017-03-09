@@ -32,7 +32,7 @@ type workerOptions struct {
 
 // pipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
-func pipelineRcName(name string, version uint64) string {
+func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// TODO: deal with name collision
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
@@ -40,7 +40,7 @@ func pipelineRcName(name string, version uint64) string {
 
 // jobRcName generates the name of the k8s replication controller that manages
 // an orphan job's workers
-func jobRcName(id string) string {
+func JobRcName(id string) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// TODO: deal with name collision
 	return fmt.Sprintf("job-%s", strings.ToLower(id))
