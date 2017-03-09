@@ -37,7 +37,7 @@ type AppEnv struct {
 
 	// Either pipeline name or job name must be set
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
-	PPSJobName      string `env:"PPS_JOB_ID"`
+	PPSJobID        string `env:"PPS_JOB_ID"`
 }
 
 func main() {
@@ -55,9 +55,9 @@ func validateEnv(appEnv *AppEnv) error {
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
-func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo, error) {
+func getPipelineInfo(etcdClient *etcd.Client, pipelineName string) (*pps.PipelineInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
+	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", pipelineName))
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +71,22 @@ func getPipelineInfo(appEnv *AppEnv, etcdClient *etcd.Client) (*pps.PipelineInfo
 	return pipelineInfo, nil
 }
 
+func getJobInfo(etcdClient *etcd.Client, jobID string) (*pps.JobInfo, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", jobID))
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Kvs) != 1 {
+		return nil, fmt.Errorf("expected to find 1 job, got %d: %v", len(resp.Kvs), resp)
+	}
+	jobInfo := new(pps.JobInfo)
+	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), jobInfo); err != nil {
+		return nil, err
+	}
+	return jobInfo, nil
+}
+
 func do(appEnvObj interface{}) error {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*AppEnv)
@@ -79,7 +95,6 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// get pachd client, so we can upload output data from the user binary
-	log.Println()
 	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
 	if err != nil {
 		return err
@@ -87,7 +102,6 @@ func do(appEnvObj interface{}) error {
 	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
-	log.Println()
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
 		DialTimeout: 15 * time.Second,
@@ -95,16 +109,37 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	// Get info about this worker's pipeline
-	log.Println()
-	pipelineInfo, err := getPipelineInfo(appEnv, etcdClient)
-	if err != nil {
-		return err
+
+	var options worker.Options
+	if appEnv.PPSPipelineName != "" {
+		// Get info about this worker's pipeline
+		pipelineInfo, err := getPipelineInfo(appEnv.PPSPipelineName, etcdClient)
+		if err != nil {
+			return err
+		}
+		options.Transform = pipelineInfo.Transform
+		for _, input := range pipelineInfo.Inputs {
+			options.Inputs = append(options.Input, &worker.Input{
+				Name: input.Name,
+				Lazy: input.Lazy,
+			})
+		}
+	} else if appEnv.PPSJobID != "" {
+		jobInfo, err := getJobInfo(appEnv.PPSJobID, etcdClient)
+		if err != nil {
+			return err
+		}
+		options.Transform = jobInfo.Transform
+		for _, input := range jobInfo.Inputs {
+			options.Inputs = append(options.Input, &worker.Input{
+				Name: input.Name,
+				Lazy: input.Lazy,
+			})
+		}
 	}
 
 	// Start worker api server
-	log.Println()
-	apiServer := worker.NewAPIServer(pachClient, pipelineInfo)
+	apiServer := worker.NewAPIServer(pachClient, options)
 	eg := errgroup.Group{}
 	ready := make(chan error)
 	eg.Go(func() error {
@@ -125,7 +160,6 @@ func do(appEnvObj interface{}) error {
 
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
-	log.Println()
 	<-ready
 	// TODO: handle the case where this worker is part of a pipeline-less job
 	id := pipelineInfo.Pipeline.Name
@@ -133,7 +167,6 @@ func do(appEnvObj interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	log.Println()
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Grant(ctx, 60 /* seconds */)
 	if err != nil {
@@ -142,14 +175,12 @@ func do(appEnvObj interface{}) error {
 	etcdClient.KeepAlive(context.Background(), resp.ID) // keepalive forever
 
 	// Actually write "key" into etcd
-	log.Println()
 	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second) // new ctx
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return err
 	}
 
 	// If server ever exits, return error
-	log.Println()
 	if err := eg.Wait(); err != nil {
 		return err
 	}

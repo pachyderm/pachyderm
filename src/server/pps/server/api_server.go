@@ -109,22 +109,6 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-type byInputName struct {
-	inputs []*pps.PipelineInput
-}
-
-func (b byInputName) Len() int {
-	return len(b.inputs)
-}
-
-func (b byInputName) Less(i, j int) bool {
-	return b.inputs[i].Name < b.inputs[j].Name
-}
-
-func (b byInputName) Swap(i, j int) {
-	b.inputs[i], b.inputs[j] = b.inputs[j], b.inputs[i]
-}
-
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 	for _, in := range jobInfo.Inputs {
 		switch {
@@ -158,9 +142,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	var jobInfo *pps.JobInfo
+	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobInfo = &pps.JobInfo{
+		jobInfo := &pps.JobInfo{
 			Job:             job,
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
@@ -174,7 +158,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
 		}
-
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
@@ -187,15 +170,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
+		} else {
+			if jobInfo.OutputRepo == nil {
+				jobInfo.OutputRepo = &pfs.Repo{job.ID}
+			}
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
 		}
 		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
 	})
-	if request.Pipeline == nil {
-		a.createWorkersForOrphanJob(jobInfo)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +327,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	sort.Sort(byInputName{request.Inputs})
+	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	pipelineInfo := &pps.PipelineInfo{
 		ID:              uuid.NewWithoutDashes(),
 		Pipeline:        request.Pipeline,
@@ -753,10 +737,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
-			protolion.Errorf("error deleting workers for pipeline: %v", pipelineInfo.Pipeline.Name)
+		rcName := pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		if err := a.deleteWorkers(rcName); err != nil {
+			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
-		protolion.Infof("deleted workers for pipeline: %v", pipelineInfo.Pipeline.Name)
+		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
 	}()
 
 	b := backoff.NewInfiniteBackOff()
@@ -950,6 +935,42 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		if jobInfo.Pipeline == nil {
+			if err := a.createWorkersForOrphanJob(jobInfo); err != nil {
+				if !isAlreadyExistsErr(err) {
+					return err
+				}
+			}
+			go func() {
+				// Clean up workers if the job gets cancelled
+				<-ctx.Done()
+				rcName := jobRcName(jobInfo.Job.ID)
+				if err := a.deleteWorkers(rcName); err != nil {
+					protolion.Errorf("error deleting workers for job: %v", jobID)
+				}
+				protolion.Infof("deleted workers for job: %v", jobID)
+			}()
+
+			// Create output repo for this job
+			var provenance []*pfs.Repo
+			for _, input := range jobInfo.Inputs {
+				provenance = append(provenance, input.Commit.Repo)
+			}
+
+			pfsClient, err := a.getPFSClient()
+			if err != nil {
+				return err
+			}
+			// Create the output repo; if it already exists, do nothing
+			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+				Repo:       jobInfo.OutputRepo,
+				Provenance: provenance,
+			}); err != nil {
+				if !isAlreadyExistsErr(err) {
+					return err
+				}
+			}
+		}
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
@@ -978,34 +999,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		} else {
 			// Start worker pool
 			wp = a.workerPool(ctx,
-				jobRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
-
-			// var provenance []*pfs.Repo
-			// for _, input := range pipelineInfo.Inputs {
-			// 	provenance = append(provenance, input.Repo)
-			// }
-
-			// pfsClient, err := a.getPFSClient()
-			// if err != nil {
-			// 	return err
-			// }
-			// // Create the output repo; if it already exists, do nothing
-			// if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			// 	Repo:       &pfs.Repo{pipelineName},
-			// 	Provenance: provenance,
-			// }); err != nil {
-			// 	if !isAlreadyExistsErr(err) {
-			// 		return err
-			// 	}
-			// }
-
-			// // Create a k8s replication controller that runs the workers
-			// if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
-			// 	if !isAlreadyExistsErr(err) {
-			// 		return err
-			// 	}
-			// }
-
+				jobRcName(jobInfo.Job.ID))
 		}
 		// process all datums
 		var numData int
@@ -1232,6 +1226,14 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		OrphanDependents: &falseVal,
 	}
 	rcName := pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
+}
+
+func (a *apiServer) deleteWorkers(rcName string) error {
+	falseVal := false
+	deleteOptions := &api.DeleteOptions{
+		OrphanDependents: &falseVal,
+	}
 	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 

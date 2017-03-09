@@ -132,7 +132,6 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
-
 // This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
@@ -906,34 +905,49 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 //require.Equal(t, initialCount, len(repoInfos))
 //}
 
-//func TestAcceptReturnCode(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-//t.Parallel()
-//c := getPachClient(t)
-//job, err := c.PpsAPIClient.CreateJob(
-//context.Background(),
-//&pps.CreateJobRequest{
-//Transform: &pps.Transform{
-//Cmd:              []string{"sh"},
-//Stdin:            []string{"exit 1"},
-//AcceptReturnCode: []int64{1},
-//},
-//ParallelismSpec: &pps.ParallelismSpec{},
-//},
-//)
-//require.NoError(t, err)
-//inspectJobRequest := &pps.InspectJobRequest{
-//Job:        job,
-//BlockState: true,
-//}
-//ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-//defer cancel() //cleanup resources
-//jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-//}
+func TestAcceptReturnCode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestAcceptReturnCode")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	job, err := c.PpsAPIClient.CreateJob(
+		context.Background(),
+		&pps.CreateJobRequest{
+			Transform: &pps.Transform{
+				Cmd:              []string{"sh"},
+				Stdin:            []string{"exit 1"},
+				AcceptReturnCode: []int64{1},
+			},
+			Inputs: []*pps.JobInput{{
+				Name:   dataRepo,
+				Commit: commit,
+				Glob:   "/*",
+			}},
+		},
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &pps.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+}
 
 func TestRestartAll(t *testing.T) {
 	if testing.Short() {
@@ -1923,26 +1937,6 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 	err = c.DeleteJob(jobInfos[0].Job.ID)
 	require.NoError(t, err)
-}
-
-func getKubeClient(t *testing.T) *kube.Client {
-	config := &kube_client.Config{
-		Host:     "http://0.0.0.0:8080",
-		Insecure: false,
-	}
-	k, err := kube.New(config)
-	require.NoError(t, err)
-	return k
-}
-
-func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
-	require.NoError(t, err)
-	return client
-}
-
-func uniqueString(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
 }
 
 func restartAll(t *testing.T) {
