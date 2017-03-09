@@ -84,6 +84,7 @@ wait_for_k8s_master_ip() {
     set -euxo pipefail
     masterk8sip=`dig +short $masterk8sdomain`
     # This is the only operation that requires sudo privileges
+    sudo echo " " >> /etc/hosts # Some files dont contain newlines ... I'm looking at you travisCI
     sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
     echo "state of /etc/hosts:"
     cat /etc/hosts
