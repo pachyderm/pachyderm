@@ -48,7 +48,7 @@ type STM interface {
 // stmError safely passes STM errors through panic to the STM error channel.
 type stmError struct{ err error }
 
-// newSTM is newSTMSerializable
+// NewSTM intiates a new STM operation. It uses a serializable model.
 func NewSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
 	return newSTMSerializable(ctx, c, apply)
 }
@@ -271,9 +271,8 @@ func (s *stmReadCommitted) commit() *v3.TxnResponse {
 func isKeyCurrent(k string, r *v3.GetResponse) v3.Cmp {
 	if len(r.Kvs) != 0 {
 		return v3.Compare(v3.ModRevision(k), "=", r.Kvs[0].ModRevision)
-	} else {
-		return v3.Compare(v3.ModRevision(k), "=", 0)
 	}
+	return v3.Compare(v3.ModRevision(k), "=", 0)
 }
 
 func respToValue(resp *v3.GetResponse) string {

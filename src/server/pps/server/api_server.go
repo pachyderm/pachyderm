@@ -916,9 +916,9 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 			pipelineInfo.JobCounts = make(map[int32]int32)
 		}
 		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelineInfo.JobCounts[int32(jobInfo.State)] -= 1
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
 		}
-		pipelineInfo.JobCounts[int32(state)] += 1
+		pipelineInfo.JobCounts[int32(state)]++
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state

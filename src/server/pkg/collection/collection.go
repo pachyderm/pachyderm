@@ -27,6 +27,7 @@ type collection struct {
 	template proto.Message
 }
 
+// NewCollection creates a new collection.
 func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
@@ -304,7 +305,7 @@ type indirectIterator struct {
 func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
-		i.index += 1
+		i.index++
 
 		*key = path.Base(string(kv.Key))
 		if err := i.col.Get(*key, val); err != nil {
@@ -349,7 +350,7 @@ type iterator struct {
 func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
-		i.index += 1
+		i.index++
 
 		*key = path.Base(string(kv.Key))
 		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {

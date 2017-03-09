@@ -13,7 +13,7 @@ func NewJob(jobID string) *pps.Job {
 }
 
 const (
-	// PPSEtcdEnv is the environment variable that specifies the etcd
+	// PPSEtcdPrefixEnv is the environment variable that specifies the etcd
 	// prefix that PPS uses.
 	PPSEtcdPrefixEnv = "PPS_ETCD_PREFIX"
 	// PPSWorkerIPEnv is the environment variable that a worker can use to
@@ -30,7 +30,7 @@ const (
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
 	PPSInputPrefix = "/pfs"
-	// PPSOutputPrefix is the path where the user code is
+	// PPSOutputPath is the path where the user code is
 	// expected to write its output to.
 	PPSOutputPath = "/pfs/out"
 	// PPSWorkerPort is the port that workers use for their gRPC server

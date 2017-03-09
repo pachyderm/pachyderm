@@ -34,6 +34,7 @@ type Options struct {
 	Inputs    []*Input
 }
 
+// APIServer implements the worker API
 type APIServer struct {
 	sync.Mutex
 	protorpclog.Logger
@@ -41,6 +42,7 @@ type APIServer struct {
 	options    *Options
 }
 
+// NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, options *Options) *APIServer {
 	return &APIServer{
 		Mutex:      sync.Mutex{},
@@ -60,7 +62,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 	return nil
 }
 
-// Run user code and return the combined output of stdout and stderr
+// Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context) (string, error) {
 	transform := a.options.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
@@ -177,6 +179,7 @@ func HashDatum(data []*pfs.FileInfo, options *Options) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+// Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
