@@ -747,19 +747,19 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 		if split == "" {
 			_, err := client.PutFile(repo, commit, path, reader)
 			return err
-		} else {
-			var delimiter pfsclient.Delimiter
-			switch split {
-			case "line":
-				delimiter = pfsclient.Delimiter_LINE
-			case "json":
-				delimiter = pfsclient.Delimiter_JSON
-			default:
-				return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
-			}
-			_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), reader)
-			return err
 		}
+
+		var delimiter pfsclient.Delimiter
+		switch split {
+		case "line":
+			delimiter = pfsclient.Delimiter_LINE
+		case "json":
+			delimiter = pfsclient.Delimiter_JSON
+		default:
+			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
+		}
+		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), reader)
+		return err
 	}
 
 	if source == "-" {
