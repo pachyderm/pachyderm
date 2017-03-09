@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -90,11 +89,13 @@ type apiServer struct {
 	shardCtxs           map[uint64]*ctxAndCancel
 	pipelineCancelsLock sync.Mutex
 	pipelineCancels     map[string]context.CancelFunc
-	jobCancelsLock      sync.Mutex
-	jobCancels          map[string]context.CancelFunc
-	workerPools         map[string]WorkerPool
-	workerPoolsLock     sync.Mutex
-	version             int64
+
+	// lock for 'jobCancels'
+	jobCancelsLock  sync.Mutex
+	jobCancels      map[string]context.CancelFunc
+	workerPools     map[string]WorkerPool
+	workerPoolsLock sync.Mutex
+	version         int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -122,44 +123,6 @@ func (b byInputName) Less(i, j int) bool {
 
 func (b byInputName) Swap(i, j int) {
 	b.inputs[i], b.inputs[j] = b.inputs[j], b.inputs[i]
-}
-
-// GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
-// the ParallelismSpec 'spec'.
-//
-// This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
-	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
-	if spec == nil {
-		// Unset ParallelismSpec is handled here. Currently we start one worker per
-		// node
-		coefficient = 1.0
-	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
-		if spec.Constant > 0 {
-			return spec.Constant, nil
-		}
-		// Zero-initialized ParallelismSpec is handled here. Currently we start one
-		// worker per node
-		coefficient = 1
-	} else if spec.Strategy == pps.ParallelismSpec_COEFFICIENT {
-		coefficient = spec.Coefficient
-	} else {
-		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
-	}
-	if coefficient == 0.0 {
-		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
-	}
-
-	// Start ('coefficient' * 'nodes') workers. Determine number of workers
-	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
-	}
-	if len(nodeList.Items) == 0 {
-		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
-	}
-	result := math.Floor(coefficient * float64(len(nodeList.Items)))
-	return uint64(math.Max(result, 1)), nil
 }
 
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
@@ -195,8 +158,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
+	var jobInfo *pps.JobInfo
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobInfo := &pps.JobInfo{
+		jobInfo = &pps.JobInfo{
 			Job:             job,
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
@@ -229,6 +193,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		}
 		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
 	})
+	if request.Pipeline == nil {
+		a.createWorkersForOrphanJob(jobInfo)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -380,6 +347,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pipelineInfo := &pps.PipelineInfo{
 		ID:              uuid.NewWithoutDashes(),
 		Pipeline:        request.Pipeline,
+		Version:         1,
 		Transform:       request.Transform,
 		ParallelismSpec: request.ParallelismSpec,
 		Inputs:          request.Inputs,
@@ -780,11 +748,12 @@ func isContextCancelledErr(err error) bool {
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
+	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		if err := a.deleteWorkers(pipelineInfo); err != nil {
+		if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineInfo.Pipeline.Name)
 		}
 		protolion.Infof("deleted workers for pipeline: %v", pipelineInfo.Pipeline.Name)
@@ -797,7 +766,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, pipelineName)
+		a.workerPool(ctx, pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -819,7 +788,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Create a k8s replication controller that runs the workers
-		if err := a.createWorkers(pipelineInfo); err != nil {
+		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
@@ -860,6 +829,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			if err != nil {
 				return err
 			}
+
+			// Check if any of the jobs in jobIter have been run alrady
 			var jobExists bool
 			for {
 				var jobID string
@@ -999,11 +970,42 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		// TODO(msteffen): jobInfo may not have pipeline -- fix
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx, jobInfo.Pipeline.Name)
+			wp = a.workerPool(ctx,
+				pipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
 		} else {
-			wp = a.workerPool(ctx, jobInfo.Job.ID)
+			// Start worker pool
+			wp = a.workerPool(ctx,
+				jobRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+
+			// var provenance []*pfs.Repo
+			// for _, input := range pipelineInfo.Inputs {
+			// 	provenance = append(provenance, input.Repo)
+			// }
+
+			// pfsClient, err := a.getPFSClient()
+			// if err != nil {
+			// 	return err
+			// }
+			// // Create the output repo; if it already exists, do nothing
+			// if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+			// 	Repo:       &pfs.Repo{pipelineName},
+			// 	Provenance: provenance,
+			// }); err != nil {
+			// 	if !isAlreadyExistsErr(err) {
+			// 		return err
+			// 	}
+			// }
+
+			// // Create a k8s replication controller that runs the workers
+			// if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
+			// 	if !isAlreadyExistsErr(err) {
+			// 		return err
+			// 	}
+			// }
+
 		}
 		// process all datums
 		var numData int
@@ -1149,6 +1151,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
+		// Record the job's output commit and 'Finished' timestamp, and mark the job
+		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
@@ -1188,45 +1192,47 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
-func (a *apiServer) createWorkers(pipelineInfo *pps.PipelineInfo) error {
-	options, err := a.getWorkerOptions(a.kubeClient, pipelineInfo, a.workerImage, a.workerImagePullPolicy)
+func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
+	parallelism, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
-	if options.parallelism != int32(1) {
-		return fmt.Errorf("pachyderm service only supports parallelism of 1, got %v", options.parallelism)
-	}
-	rc := &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   workerRcName(pipelineInfo),
-			Labels: options.labels,
-		},
-		Spec: api.ReplicationControllerSpec{
-			Selector: options.labels,
-			Replicas: options.parallelism,
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   workerRcName(pipelineInfo),
-					Labels: options.labels,
-				},
-				Spec: workerPodSpec(options),
-			},
-		},
-	}
-	_, err = a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
-	return err
+	options := a.getWorkerOptions(
+		jobRcName(jobInfo.Job.ID),
+		int32(parallelism),
+		jobInfo.Transform)
+	// Set the job name env
+	options.workerEnv = append(options.workerEnv, api.EnvVar{
+		Name:  client.PPSJobIdEnv,
+		Value: jobInfo.Job.ID,
+	})
+	return a.createWorkerRc(options)
 }
 
-func (a *apiServer) deleteWorkers(pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
+	options := a.getWorkerOptions(
+		pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		int32(parallelism),
+		pipelineInfo.Transform)
+	// Set the pipeline name env
+	options.workerEnv = append(options.workerEnv, api.EnvVar{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
+	})
+	return a.createWorkerRc(options)
+}
+
+func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(workerRcName(pipelineInfo), deleteOptions)
+	rcName := pipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 
 // getShardCtx returns the context associated with a shard that this server
@@ -1308,147 +1314,6 @@ func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
 // use in environment variable names.
 func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
-}
-
-type workerOptions struct {
-	labels                map[string]string
-	parallelism           int32
-	userImage             string
-	workerImage           string
-	workerImagePullPolicy string
-	workerEnv             []api.EnvVar
-	volumes               []api.Volume
-	volumeMounts          []api.VolumeMount
-	imagePullSecrets      []api.LocalObjectReference
-}
-
-func workerRcName(pipelineInfo *pps.PipelineInfo) string {
-	// k8s won't allow RC names that contain upper-case letters
-	// TODO: deal with name collision
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(pipelineInfo.Pipeline.Name), pipelineInfo.Version)
-}
-
-func (a *apiServer) getWorkerOptions(kubeClient *kube.Client, pipelineInfo *pps.PipelineInfo, workerImage string, workerImagePullPolicy string) (*workerOptions, error) {
-	labels := labels(workerRcName(pipelineInfo))
-	parallelism, err := GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return nil, err
-	}
-	userImage := pipelineInfo.Transform.Image
-	if userImage == "" {
-		userImage = DefaultUserImage
-	}
-	if workerImagePullPolicy == "" {
-		workerImagePullPolicy = "IfNotPresent"
-	}
-
-	var workerEnv []api.EnvVar
-	for name, value := range pipelineInfo.Transform.Env {
-		workerEnv = append(
-			workerEnv,
-			api.EnvVar{
-				Name:  name,
-				Value: value,
-			},
-		)
-	}
-	// We use Kubernetes' "Downward API" so the workers know their IP
-	// addresses, which they will then post on etcd so the job managers
-	// can discover the workers.
-	workerEnv = append(workerEnv, api.EnvVar{
-		Name: client.PPSWorkerIPEnv,
-		ValueFrom: &api.EnvVarSource{
-			FieldRef: &api.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "status.podIP",
-			},
-		},
-	})
-	// Set the etcd prefix env
-	workerEnv = append(workerEnv, api.EnvVar{
-		Name:  client.PPSEtcdPrefixEnv,
-		Value: a.etcdPrefix,
-	})
-	// Set the pipline name env
-	workerEnv = append(workerEnv, api.EnvVar{
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	})
-
-	var volumes []api.Volume
-	var volumeMounts []api.VolumeMount
-	for _, secret := range pipelineInfo.Transform.Secrets {
-		volumes = append(volumes, api.Volume{
-			Name: secret.Name,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: secret.Name,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      secret.Name,
-			MountPath: secret.MountPath,
-		})
-	}
-
-	volumes = append(volumes, api.Volume{
-		Name: "pach-bin",
-		VolumeSource: api.VolumeSource{
-			EmptyDir: &api.EmptyDirVolumeSource{},
-		},
-	})
-	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      "pach-bin",
-		MountPath: "/pach-bin",
-	})
-	var imagePullSecrets []api.LocalObjectReference
-	for _, secret := range pipelineInfo.Transform.ImagePullSecrets {
-		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
-	}
-
-	return &workerOptions{
-		labels:                labels,
-		parallelism:           int32(parallelism),
-		userImage:             userImage,
-		workerImage:           workerImage,
-		workerImagePullPolicy: workerImagePullPolicy,
-		workerEnv:             workerEnv,
-		volumes:               volumes,
-		volumeMounts:          volumeMounts,
-		imagePullSecrets:      imagePullSecrets,
-	}, nil
-}
-
-func workerPodSpec(options *workerOptions) api.PodSpec {
-	return api.PodSpec{
-		InitContainers: []api.Container{
-			{
-				Name:            "init",
-				Image:           options.workerImage,
-				Command:         []string{"/pach/worker.sh"},
-				ImagePullPolicy: api.PullPolicy(options.workerImagePullPolicy),
-				Env:             options.workerEnv,
-				VolumeMounts:    options.volumeMounts,
-			},
-		},
-		Containers: []api.Container{
-			{
-				Name:    "user",
-				Image:   options.userImage,
-				Command: []string{"/pach-bin/guest.sh"},
-				SecurityContext: &api.SecurityContext{
-					Privileged: &trueVal, // god is this dumb
-				},
-				ImagePullPolicy: api.PullPolicy(options.workerImagePullPolicy),
-				Env:             options.workerEnv,
-				VolumeMounts:    options.volumeMounts,
-			},
-		},
-		RestartPolicy:    "Always",
-		Volumes:          options.volumes,
-		ImagePullSecrets: options.imagePullSecrets,
-	}
 }
 
 func (a *apiServer) jobPods(job *pps.Job) ([]api.Pod, error) {

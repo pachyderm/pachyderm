@@ -27,6 +27,7 @@ type APIServer struct {
 	protorpclog.Logger
 	pachClient   *client.APIClient
 	pipelineInfo *pps.PipelineInfo
+	jobInfo      *pps.JobInfo
 }
 
 func NewAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {

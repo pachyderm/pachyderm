@@ -37,7 +37,7 @@ type AppEnv struct {
 
 	// Either pipeline name or job name must be set
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
-	PPSJobName      string `env:"PPS_JOB_NAME"`
+	PPSJobName      string `env:"PPS_JOB_ID"`
 }
 
 func main() {
