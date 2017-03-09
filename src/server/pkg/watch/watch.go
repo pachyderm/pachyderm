@@ -1,4 +1,4 @@
-// package watch implements better watch semantics on top of etcd.
+// Package watch implements better watch semantics on top of etcd.
 // See this issue for the reasoning behind the package:
 // https://github.com/coreos/etcd/issues/7362
 package watch

@@ -22,6 +22,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
+// APIServer implements the worker API
 type APIServer struct {
 	sync.Mutex
 	protorpclog.Logger
@@ -29,6 +30,7 @@ type APIServer struct {
 	pipelineInfo *pps.PipelineInfo
 }
 
+// NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
 	return &APIServer{
 		Mutex:        sync.Mutex{},
@@ -144,6 +146,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 	return nil
 }
 
+// Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
