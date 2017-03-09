@@ -527,21 +527,30 @@ func (c APIClient) Compact() error {
 // PutFileWriter writes a file to PFS.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c APIClient) PutFileWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter)
+func (c APIClient) PutFileWriter(repoName string, commitID string, path string) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0)
+}
+
+// PutFileSplitWriter writes a multiple files to PFS by splitting up the data
+// that is written to it.
+// NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
+// you are done writing.
+func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes)
 }
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
 	c.streamSemaphore <- struct{}{}
 	defer func() { <-c.streamSemaphore }()
-	return c.PutFileWithDelimiter(repoName, commitID, path, pfs.Delimiter_LINE, reader)
+	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
 }
 
-//PutFileWithDelimiter writes a file to PFS from a reader
+//PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileWithDelimiter(repoName string, commitID string, path string, delimiter pfs.Delimiter, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileWriter(repoName, commitID, path, delimiter)
+func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes)
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -706,15 +715,18 @@ type putFileWriteCloser struct {
 	sent          bool
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
 	if err != nil {
 		return nil, err
 	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
-			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_FILE,
+			File:             NewFile(repoName, commitID, path),
+			FileType:         pfs.FileType_FILE,
+			Delimiter:        delimiter,
+			TargetFileDatums: targetFileDatums,
+			TargetFileBytes:  targetFileBytes,
 		},
 		putFileClient: putFileClient,
 	}, nil
