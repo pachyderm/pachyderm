@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// AppEnv stores the environment variables that this worker needs
 type AppEnv struct {
 	// Address of etcd, so that worker can write its own IP there for discoverh
 	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
