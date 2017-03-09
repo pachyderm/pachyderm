@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	WorkerEtcdPrefix = "workers"
+	workerEtcdPrefix = "workers"
 )
 
+// WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
 	DataCh() chan datumAndResp
 }
@@ -158,8 +159,8 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 	}
 }
 
-func (wp *workerPool) addWorker(addr string) error {
-	if cancel, ok := wp.workersMap[addr]; ok {
+func (w *workerPool) addWorker(addr string) error {
+	if cancel, ok := w.workersMap[addr]; ok {
 		cancel()
 	}
 
@@ -167,8 +168,8 @@ func (wp *workerPool) addWorker(addr string) error {
 	if err != nil {
 		return err
 	}
-	childCtx, cancelFn := context.WithCancel(wp.ctx)
-	wp.workersMap[addr] = cancelFn
+	childCtx, cancelFn := context.WithCancel(w.ctx)
+	w.workersMap[addr] = cancelFn
 
 	pachClient, err := client.NewInCluster()
 	if err != nil {
@@ -182,12 +183,12 @@ func (wp *workerPool) addWorker(addr string) error {
 		pachClient:   pachClient,
 	}
 	protolion.Infof("launching new worker at %v", addr)
-	go wr.run(wp.dataCh)
+	go wr.run(w.dataCh)
 	return nil
 }
 
-func (wp *workerPool) delWorker(addr string) error {
-	cancel, ok := wp.workersMap[addr]
+func (w *workerPool) delWorker(addr string) error {
+	cancel, ok := w.workersMap[addr]
 	if !ok {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
@@ -195,8 +196,8 @@ func (wp *workerPool) delWorker(addr string) error {
 	return nil
 }
 
-func (wp *workerPool) DataCh() chan datumAndResp {
-	return wp.dataCh
+func (w *workerPool) DataCh() chan datumAndResp {
+	return w.dataCh
 }
 
 // workerPool fetches the worker pool associated with 'id', or creates one if
@@ -220,7 +221,7 @@ func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,
 		dataCh:     make(chan datumAndResp),
-		workerDir:  path.Join(a.etcdPrefix, WorkerEtcdPrefix, id),
+		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
 		workersMap: make(map[string]context.CancelFunc),
 		etcdClient: a.etcdClient,
 	}

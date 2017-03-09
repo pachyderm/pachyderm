@@ -163,15 +163,11 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 }
 
 // ListCommit lists commits.
-//
 // If only `repo` is given, all commits in the repo are returned.
-//
 // If `to` is given, only the ancestors of `to`, including `to` itself,
 // are considered.
-
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
-//
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
 func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
@@ -278,6 +274,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 	return &commitInfoIterator{stream, cancel}, nil
 }
 
+// CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
 type CommitInfoIterator interface {
 	Next() (*pfs.CommitInfo, error)
 	Close()
@@ -304,6 +301,8 @@ func (c *commitInfoIterator) Close() {
 	}
 }
 
+// SubscribeCommit is like ListCommit but it keeps listening for commits as
+// they come in.
 func (c APIClient) SubscribeCommit(repo string, branch string, from string) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.ctx())
 	req := &pfs.SubscribeCommitRequest{
@@ -318,15 +317,6 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 		return nil, sanitizeErr(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
-}
-
-// TODO: this API is temporary being used until the tag store is implemented
-func (c APIClient) Put(reader io.Reader) (*pfs.BlockRef, error) {
-	blocks, err := c.PutBlock(pfs.Delimiter_NONE, reader)
-	if err != nil {
-		return nil, err
-	}
-	return blocks.BlockRef[0], nil
 }
 
 // PutBlock takes a reader and splits the data in it into blocks.
