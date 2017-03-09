@@ -1,8 +1,6 @@
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"math"
 	"sort"
@@ -26,7 +24,6 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -221,6 +218,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			}
 			jobInfo.PipelineVersion = pipelineInfo.Version
 			jobInfo.PipelineID = pipelineInfo.ID
+			jobInfo.Transform = pipelineInfo.Transform
+			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
+			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
+			jobInfo.OutputBranch = pipelineInfo.OutputBranch
+			jobInfo.Egress = pipelineInfo.Egress
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
@@ -326,50 +328,6 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pods, err := a.jobPods(request.Job)
-	if err != nil {
-		return err
-	}
-	if len(pods) == 0 {
-		return newErrJobNotFound(request.Job.ID)
-	}
-	// sort the pods to make sure that the indexes are stable
-	sort.Sort(podSlice(pods))
-	logs := make([][]byte, len(pods))
-	var eg errgroup.Group
-	for i, pod := range pods {
-		i := i
-		pod := pod
-		eg.Go(func() error {
-			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
-			value, err := result.Raw()
-			if err != nil {
-				return err
-			}
-			var buffer bytes.Buffer
-			scanner := bufio.NewScanner(bytes.NewBuffer(value))
-			for scanner.Scan() {
-				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
-			}
-			logs[i] = buffer.Bytes()
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	for _, log := range logs {
-		if err := apiGetLogsServer.Send(&types.BytesValue{Value: log}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
@@ -927,13 +885,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
-				Transform:       pipelineInfo.Transform,
-				Pipeline:        pipelineInfo.Pipeline,
-				ParallelismSpec: pipelineInfo.ParallelismSpec,
-				Inputs:          jobInputs,
-				OutputRepo:      &pfs.Repo{pipelineInfo.Pipeline.Name},
-				OutputBranch:    pipelineInfo.OutputBranch,
-				Egress:          pipelineInfo.Egress,
+				Pipeline: pipelineInfo.Pipeline,
+				Inputs:   jobInputs,
 				// TODO
 				// Note that once the pipeline restarts, the `job` variable
 				// is lost and we don't know who is our parent job.
