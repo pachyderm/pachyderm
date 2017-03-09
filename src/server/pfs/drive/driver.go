@@ -50,7 +50,7 @@ type driver struct {
 }
 
 const (
-	TOMBSTONE = "delete"
+	tombstone = "delete"
 )
 
 // collection prefixes
@@ -457,7 +457,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 		// filePath should look like "some/path"
 		filePath := strings.Join(parts[:len(parts)-1], "/")
 
-		if string(kv.Value) == TOMBSTONE {
+		if string(kv.Value) == tombstone {
 			if err := tree.DeleteFile(filePath); err != nil {
 				return err
 			}
@@ -612,7 +612,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 				break
 			}
 			commitInfos = append(commitInfos, &commitInfo)
-			number -= 1
+			number--
 		}
 	} else {
 		cursor := to
@@ -623,7 +623,7 @@ func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 			}
 			commitInfos = append(commitInfos, &commitInfo)
 			cursor = commitInfo.ParentCommit
-			number -= 1
+			number--
 		}
 	}
 	return commitInfos, nil
@@ -1127,7 +1127,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		}
 		buffer.Write(value)
 		bytesWritten += int64(len(value))
-		datumsWritten += 1
+		datumsWritten++
 		if buffer.Len() != 0 &&
 			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
 				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
@@ -1148,7 +1148,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			datumsWritten = 0
 			bytesWritten = 0
 			buffer = &bytes.Buffer{}
-			filesPut += 1
+			filesPut++
 		}
 	}
 	if err := eg.Wait(); err != nil {
@@ -1431,7 +1431,7 @@ func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 		return err
 	}
 
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), TOMBSTONE)
+	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
 	return err
 }
 

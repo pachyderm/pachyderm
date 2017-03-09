@@ -98,7 +98,7 @@ func NewExponentialBackOff() *ExponentialBackOff {
 	return b
 }
 
-// NewInfiniteBackoff creates an instance of ExponentialBackOff that never
+// NewInfiniteBackOff creates an instance of ExponentialBackOff that never
 // ends.
 func NewInfiniteBackOff() *ExponentialBackOff {
 	b := &ExponentialBackOff{

@@ -10,14 +10,19 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// EventType is the type of event
 type EventType int
 
 const (
+	// EventPut happens when an item is added
 	EventPut EventType = iota
+	// EventDelete happens when an item is removed
 	EventDelete
+	// EventError happens when an error occurred
 	EventError
 )
 
+// Event is an event that occurred to an item in etcd.
 type Event struct {
 	Key       []byte
 	Value     []byte
@@ -28,13 +33,15 @@ type Event struct {
 	Err       error
 }
 
+// Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	*key = string(e.Key)
 	return proto.UnmarshalText(string(e.Value), val)
 }
 
+// Watcher ...
 type Watcher interface {
-	// Receive events from this channel
+	// Watch returns a channel that delivers events
 	Watch() <-chan *Event
 	// Close this channel when you are done receiving events
 	Close()
@@ -68,6 +75,7 @@ func (s byModRev) Less(i, j int) bool {
 	return s.GetResponse.Kvs[i].ModRevision < s.GetResponse.Kvs[j].ModRevision
 }
 
+// NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
@@ -152,6 +160,8 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 	}, nil
 }
 
+// MakeWatcher returns a Watcher that uses the given event channel and done
+// channel internally to deliver events and signal closure, respectively.
 func MakeWatcher(eventCh chan *Event, done chan struct{}) Watcher {
 	return &watcher{
 		eventCh: eventCh,

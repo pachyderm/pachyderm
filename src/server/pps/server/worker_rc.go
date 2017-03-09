@@ -30,7 +30,7 @@ type workerOptions struct {
 	imagePullSecrets []api.LocalObjectReference
 }
 
-// pipelineRcName generates the name of the k8s replication controller that
+// PipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
 func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
@@ -38,7 +38,7 @@ func PipelineRcName(name string, version uint64) string {
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
-// jobRcName generates the name of the k8s replication controller that manages
+// JobRcName generates the name of the k8s replication controller that manages
 // an orphan job's workers
 func JobRcName(id string) string {
 	// k8s won't allow RC names that contain upper-case letters

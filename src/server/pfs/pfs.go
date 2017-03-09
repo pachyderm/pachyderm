@@ -16,7 +16,7 @@ type ErrRepoNotFound struct {
 	Repo *pfs.Repo
 }
 
-// ErrRepoNotFound represents a repo-not-found error.
+// ErrRepoExists represents a repo-exists error.
 type ErrRepoExists struct {
 	Repo *pfs.Repo
 }
