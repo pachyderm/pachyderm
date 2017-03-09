@@ -85,6 +85,8 @@ wait_for_k8s_master_ip() {
     masterk8sip=`dig +short $masterk8sdomain`
     # This is the only operation that requires sudo privileges
     sudo echo "$masterk8sip api.${NAME}" >> /etc/hosts
+    echo "state of /etc/hosts:"
+    cat /etc/hosts
 }
 
 wait_for_nodes_to_come_online() {
