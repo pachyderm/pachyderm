@@ -117,7 +117,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
-	return NewDriver(blockAddress, []string{"localhost:2379"}, etcdPrefix)
+	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix)
 }
 
 func (d *driver) getBlockClient() (*client.APIClient, error) {
