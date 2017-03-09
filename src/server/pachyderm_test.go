@@ -30,26 +30,6 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
-func getKubeClient(t *testing.T) *kube.Client {
-	config := &kube_client.Config{
-		Host:     "http://0.0.0.0:8080",
-		Insecure: true,
-	}
-	k, err := kube.New(config)
-	require.NoError(t, err)
-	return k
-}
-
-func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
-	require.NoError(t, err)
-	return client
-}
-
-func uniqueString(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
-}
-
 //func TestJob(t *testing.T) {
 //t.Parallel()
 //testJob(t, 4)
@@ -658,28 +638,21 @@ func TestPipelineState(t *testing.T) {
 		false,
 	))
 
-	// The state of the pipeline will alternate between running and
-	// restarting, because the input branch does not exist yet.
-	// We just want to make sure that it has definitely restarted.
-	var states []interface{}
-	for i := 0; i < 20; i++ {
-		time.Sleep(50 * time.Millisecond)
-		pipelineInfo, err := c.InspectPipeline(pipeline)
-		require.NoError(t, err)
-		states = append(states, pipelineInfo.State)
-	}
-
-	require.EqualOneOf(t, states, pps.PipelineState_PIPELINE_RESTARTING)
-
-	commit, err := c.StartCommit(repo, "")
-	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
-	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
-
-	time.Sleep(5 * time.Second) // wait for this pipeline pick up the branch
 	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+
+	require.NoError(t, c.StopPipeline(pipeline))
+	time.Sleep(5 * time.Second)
+
+	pipelineInfo, err = c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_STOPPED, pipelineInfo.State)
+
+	require.NoError(t, c.StartPipeline(pipeline))
+	time.Sleep(5 * time.Second)
+
+	pipelineInfo, err = c.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 }
@@ -2063,4 +2036,24 @@ func scalePachd(t *testing.T, up bool) {
 	// protocol might still be running, thus PFS API calls might fail.  So
 	// we wait a little bit for membership to stablize.
 	time.Sleep(15 * time.Second)
+}
+
+func getKubeClient(t *testing.T) *kube.Client {
+	config := &kube_client.Config{
+		Host:     "http://0.0.0.0:8080",
+		Insecure: false,
+	}
+	k, err := kube.New(config)
+	require.NoError(t, err)
+	return k
+}
+
+func getPachClient(t testing.TB) *client.APIClient {
+	client, err := client.NewFromAddress("0.0.0.0:30650")
+	require.NoError(t, err)
+	return client
+}
+
+func uniqueString(prefix string) string {
+	return prefix + uuid.NewWithoutDashes()[0:12]
 }
