@@ -70,7 +70,7 @@ func (c *microsoftClient) Exists(name string) bool {
 	return exists
 }
 
-func (c *microsoftClient) IsRetryable(err error) (ret bool) {
+func (c *microsoftClient) isRetryable(err error) (ret bool) {
 	microsoftErr, ok := err.(storage.AzureStorageServiceError)
 	if !ok {
 		return false
