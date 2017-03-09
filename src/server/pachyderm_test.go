@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -29,6 +30,108 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
 )
+
+func getKubeClient(t *testing.T) *kube.Client {
+	config := &kube_client.Config{
+		Host:     "0.0.0.0:8080",
+		Insecure: false,
+	}
+	k, err := kube.New(config)
+	require.NoError(t, err)
+	return k
+}
+
+func getPachClient(t testing.TB) *client.APIClient {
+	client, err := client.NewFromAddress("0.0.0.0:30650")
+	require.NoError(t, err)
+	return client
+}
+
+func uniqueString(prefix string) string {
+	return prefix + uuid.NewWithoutDashes()[0:12]
+}
+
+func TestJob(t *testing.T) {
+	t.Parallel()
+	testJob(t, 4)
+}
+
+func TestJobNoShard(t *testing.T) {
+	t.Parallel()
+	testJob(t, 0)
+}
+
+func testJob(t *testing.T, shards int) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+
+	// Create repo, commit, and branch
+	dataRepo := uniqueString("TestJob_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	err = c.SetBranch(dataRepo, commit.ID, "master")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	// We want to create lots of files so that each parallel job will be
+	// started with some files
+	numFiles := shards*100 + 100
+	for i := 0; i < numFiles; i++ {
+		fmt.Println("putting ", i)
+		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	job, err := c.CreateJob(
+		"",
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp %s %s", "/pfs/input/*", "/pfs/out")},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: uint64(shards),
+		},
+		[]*pps.JobInput{{
+			Name:   "input",
+			Commit: commit,
+			Glob:   "/*",
+		}},
+		0,
+		0,
+	)
+	require.NoError(t, err)
+
+	// Wait for job to finish and then inspect
+	jobInfo, err := c.InspectJob(job.ID, true /* wait for job */)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+	require.NotNil(t, jobInfo.Started)
+	require.NotNil(t, jobInfo.Finished)
+
+	// Inspect job timestamps
+	tFin, _ := types.TimestampFromProto(jobInfo.Finished)
+	tStart, _ := types.TimestampFromProto(jobInfo.Started)
+	require.True(t, tFin.After(tStart))
+
+	// Inspect job parallelism
+	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
+	require.NoError(t, err)
+	require.True(t, parellelism > 0)
+
+	// Inspect output commit
+	_, err = c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	require.NoError(t, err)
+
+	// Inspect output files
+	for i := 0; i < numFiles; i++ {
+		var buffer bytes.Buffer
+		require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buffer))
+		require.Equal(t, fileContent, buffer.String())
+	}
+}
+
 
 // This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
 // that are used in code but forgot to run:
@@ -557,21 +660,28 @@ func TestPipelineState(t *testing.T) {
 		false,
 	))
 
+	// The state of the pipeline will alternate between running and
+	// restarting, because the input branch does not exist yet.
+	// We just want to make sure that it has definitely restarted.
+	var states []interface{}
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		states = append(states, pipelineInfo.State)
+	}
+
+	require.EqualOneOf(t, states, pps.PipelineState_PIPELINE_RESTARTING)
+
+	commit, err := c.StartCommit(repo, "")
+	require.NoError(t, err)
+	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+	time.Sleep(5 * time.Second) // wait for this pipeline pick up the branch
 	pipelineInfo, err := c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
-
-	require.NoError(t, c.StopPipeline(pipeline))
-	time.Sleep(5 * time.Second)
-
-	pipelineInfo, err = c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_STOPPED, pipelineInfo.State)
-
-	require.NoError(t, c.StartPipeline(pipeline))
-	time.Sleep(5 * time.Second)
-
-	pipelineInfo, err = c.InspectPipeline(pipeline)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 }

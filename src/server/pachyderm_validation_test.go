@@ -7,22 +7,10 @@ import (
 	// "strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
-
-func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
-	require.NoError(t, err)
-	return client
-}
-
-func uniqueString(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
-}
 
 // func TestInvalidSimpleService(t *testing.T) {
 // 	t.Parallel()
