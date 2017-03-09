@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"time"
 
@@ -31,8 +32,8 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
 	Exists(name string) bool
-	// IsRetryable determines if an operation should be retried given an error
-	IsRetryable(err error) bool
+	// isRetryable determines if an operation should be retried given an error
+	isRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
 	IsNotExist(err error) bool
 	// IsIgnorable returns true if the error can be ignored
@@ -231,7 +232,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 	backoff.RetryNotify(func() error {
 		n, err = b.reader.Read(data[bytesRead:])
 		bytesRead += n
-		if err != nil && b.client.IsRetryable(err) {
+		if err != nil && IsRetryable(b.client, err) {
 			return err
 		}
 		return nil
@@ -272,7 +273,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 	backoff.RetryNotify(func() error {
 		n, err = b.writer.Write(data[bytesWritten:])
 		bytesWritten += n
-		if err != nil && b.client.IsRetryable(err) {
+		if err != nil && IsRetryable(b.client, err) {
 			return err
 		}
 		return nil
@@ -295,6 +296,11 @@ func (b *BackoffWriteCloser) Close() error {
 	return err
 }
 
+// IsRetryable determines if an operation should be retried given an error
+func IsRetryable(client Client, err error) bool {
+	return isNetRetryable(err) || client.isRetryable(err)
+}
+
 func byteRange(offset uint64, size uint64) string {
 	if offset == 0 && size == 0 {
 		return ""
@@ -302,4 +308,9 @@ func byteRange(offset uint64, size uint64) string {
 		return fmt.Sprintf("%d-", offset)
 	}
 	return fmt.Sprintf("%d-%d", offset, offset+size-1)
+}
+
+func isNetRetryable(err error) bool {
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Temporary()
 }

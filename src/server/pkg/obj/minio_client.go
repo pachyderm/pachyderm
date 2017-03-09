@@ -83,7 +83,7 @@ func (c *minioClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *minioClient) IsRetryable(err error) bool {
+func (c *minioClient) isRetryable(err error) bool {
 	// Minio client already implements retrying, no
 	// need for a caller retry.
 	return false

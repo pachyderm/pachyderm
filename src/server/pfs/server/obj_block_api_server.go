@@ -154,7 +154,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 					return nil
 				}
 				if err := writer.Close(); err != nil {
-					if s.objClient.IsRetryable(err) {
+					if obj.IsRetryable(s.objClient, err) {
 						return err
 					}
 					outerErr = err
@@ -661,7 +661,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 	var err error
 	backoff.RetryNotify(func() error {
 		reader, err = s.objClient.Reader(path, offset, size)
-		if err != nil && s.objClient.IsRetryable(err) {
+		if err != nil && obj.IsRetryable(s.objClient, err) {
 			return err
 		}
 		return nil
