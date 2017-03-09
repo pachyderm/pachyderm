@@ -2,6 +2,8 @@ package worker
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,34 +16,43 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
+
+type Input struct {
+	Name string
+	Lazy bool
+}
+
+type Options struct {
+	Transform *pps.Transform
+	Inputs    []*Input
+}
 
 type APIServer struct {
 	sync.Mutex
 	protorpclog.Logger
-	pachClient   *client.APIClient
-	pipelineInfo *pps.PipelineInfo
-	jobInfo      *pps.JobInfo
+	pachClient *client.APIClient
+	options    *Options
 }
 
-func NewAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
+func NewAPIServer(pachClient *client.APIClient, options *Options) *APIServer {
 	return &APIServer{
-		Mutex:        sync.Mutex{},
-		Logger:       protorpclog.NewLogger(""),
-		pachClient:   pachClient,
-		pipelineInfo: pipelineInfo,
+		Mutex:      sync.Mutex{},
+		Logger:     protorpclog.NewLogger(""),
+		pachClient: pachClient,
+		options:    options,
 	}
 }
 
 func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) error {
 	for i, datum := range data {
-		input := a.pipelineInfo.Inputs[i]
+		input := a.options.Inputs[i]
 		if err := filesync.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy); err != nil {
 			return err
 		}
@@ -51,7 +62,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 
 // Run user code and return the combined output of stdout and stderr
 func (a *APIServer) runUserCode(ctx context.Context) (string, error) {
-	transform := a.pipelineInfo.Transform
+	transform := a.options.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	var log bytes.Buffer
@@ -145,6 +156,27 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 	return nil
 }
 
+// HashDatum computes and returns the hash of a datum + pipeline.
+func HashDatum(data []*pfs.FileInfo, options *Options) (string, error) {
+	hash := sha256.New()
+	for i, fileInfo := range data {
+		if _, err := hash.Write([]byte(options.Inputs[i].Name)); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write(fileInfo.Hash); err != nil {
+			return "", err
+		}
+	}
+	bytes, err := proto.Marshal(options.Transform)
+	if err != nil {
+		return "", err
+	}
+	if _, err := hash.Write(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
@@ -154,8 +186,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	defer a.Unlock()
 
 	// ppsserver sorts inputs by input name, so this is stable even if
-	// a.pipelineInfo.Inputs are reordered by the user
-	tag, err := ppsserver.HashDatum(req.Data, a.pipelineInfo)
+	// a.options.Inputs are reordered by the user
+	tag, err := HashDatum(req.Data, a.options)
 	if err != nil {
 		return nil, err
 	}

@@ -43,7 +43,7 @@ func pipelineRcName(name string, version uint64) string {
 func jobRcName(id string) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// TODO: deal with name collision
-	return fmt.Sprintf("solo-job-%s", strings.ToLower(id))
+	return fmt.Sprintf("job-%s", strings.ToLower(id))
 }
 
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
@@ -187,6 +187,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 	}
 
 	return &workerOptions{
+		rcName:           rcName,
 		labels:           labels,
 		parallelism:      int32(parallelism),
 		userImage:        userImage,
