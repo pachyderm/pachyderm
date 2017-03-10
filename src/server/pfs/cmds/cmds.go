@@ -272,11 +272,11 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 
 	Examples:
 
-	# return commits caused by foo/master/1 and bar/master/2
-	$ pachctl flush-commit foo/master/1 bar/master/2
+	# return commits caused by foo/XXX and bar/YYY
+	$ pachctl flush-commit foo/XXX bar/YYY
 
-	# return commits caused by foo/master/1 leading to repos bar and baz
-	$ pachctl flush-commit foo/master/1 -r bar -r baz
+	# return commits caused by foo/XXX leading to repos bar and baz
+	$ pachctl flush-commit foo/XXX -r bar -r baz
 	`,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
@@ -311,7 +311,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				}
 				pretty.PrintCommitInfo(writer, commitInfo)
 			}
-			return nil
+			return writer.Flush()
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
