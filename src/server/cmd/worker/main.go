@@ -111,39 +111,26 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 
-	var options worker.Options
+	// Construct worker API server
 	var workerRcName string
+	var apiServer *worker.APIServer
 	if appEnv.PPSPipelineName != "" {
-		// Get info about this worker's pipeline
 		pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
-		options.Transform = pipelineInfo.Transform
-		for _, input := range pipelineInfo.Inputs {
-			options.Inputs = append(options.Inputs, &worker.Input{
-				Name: input.Name,
-				Lazy: input.Lazy,
-			})
-		}
 		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		apiServer := worker.NewPipelineAPIServer(pachClient, pipelineInfo)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
-		options.Transform = jobInfo.Transform
-		for _, input := range jobInfo.Inputs {
-			options.Inputs = append(options.Inputs, &worker.Input{
-				Name: input.Name,
-				Lazy: input.Lazy,
-			})
-		}
 		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
+		apiServer := worker.NewJobAPIServer(pachClient, jobInfo)
 	}
 
 	// Start worker api server
-	apiServer := worker.NewAPIServer(pachClient, &options)
 	eg := errgroup.Group{}
 	ready := make(chan error)
 	eg.Go(func() error {
