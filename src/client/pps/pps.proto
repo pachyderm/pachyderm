@@ -216,6 +216,7 @@ message PipelineInfo {
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
   GCPolicy gc_policy = 12;
+  Resources resources = 16;
 }
 
 message PipelineInfos {
