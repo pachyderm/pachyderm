@@ -30,6 +30,62 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestDatumDedup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+
+	pipeline := uniqueString("pipeline")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+		},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	// Since we did not change the datum, the datum should not be processed
+	// again, which means that the job should complete instantly.
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	stream, err := c.PfsAPIClient.FlushCommit(
+		ctx,
+		&pfs.FlushCommitRequest{
+			Commits: []*pfs.Commit{commit2},
+		})
+	require.NoError(t, err)
+	_, err = stream.Recv()
+	require.NoError(t, err)
+}
+
 func TestPipelineInputDataModification(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
