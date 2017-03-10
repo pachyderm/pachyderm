@@ -213,6 +213,12 @@ func (c *readWriteCollection) Delete(key string) error {
 }
 
 func (c *readWriteCollection) DeleteAll() {
+	for _, index := range c.indexes {
+		// Delete indexes
+		indexDir := c.prefix
+		indexDir = strings.TrimRight(indexDir, "/")
+		c.stm.DelAll(fmt.Sprintf("%s__index_%s/", indexDir, index))
+	}
 	c.stm.DelAll(c.prefix)
 }
 
