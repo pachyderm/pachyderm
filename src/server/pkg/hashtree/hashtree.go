@@ -487,7 +487,7 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 			nodeCopy := new(NodeProto)
 			*nodeCopy = *node
 			nodeCopy.Name = p
-			res = append(res, node)
+			res = append(res, nodeCopy)
 		}
 	}
 	return res, nil
