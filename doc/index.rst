@@ -28,6 +28,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     deployment/deploy_intro
     deployment/google_cloud_platform
+    deployment/amazon_web_services
 
 .. toctree::
     :maxdepth: 1

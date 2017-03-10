@@ -49,7 +49,13 @@ svc/kubernetes   10.0.0.1     <none>        443/TCP   22s
 
 ### Deploy Pachyderm
 
-#### Set up the Storage Infrastructure
+To deploy Pachyderm we will need to:
+
+1. Add some storage resources on Google, 
+2. Install the Pachyderm CLI tool, `pachctl`, and
+3. Deploy Pachyderm on top of the storage resources.
+
+#### Set up the Storage Resources
 
 Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
 
@@ -85,7 +91,7 @@ $ gcloud compute disks list
 # should see a number of disks, including the one you specified
 ```
 
-#### Install Pachctl
+#### Install `pachctl`
 
 `pachctl` is a command-line utility for interacting with a Pachyderm cluster.
 
@@ -107,7 +113,7 @@ pachctl             1.3.2
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
-#### Start Pachyderm
+#### Deploy Pachyderm
 
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 ```
