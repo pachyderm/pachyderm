@@ -90,7 +90,7 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *amazonClient) IsRetryable(err error) bool {
+func (c *amazonClient) isRetryable(err error) bool {
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false

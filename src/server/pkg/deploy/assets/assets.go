@@ -57,6 +57,28 @@ const (
 	s3CustomArgs = 6
 )
 
+// AssetOpts are options that are applicable to all the asset types.
+type AssetOpts struct {
+	PachdShards   uint64
+	RethinkShards uint64
+	Version       string
+	LogLevel      string
+	Metrics       bool
+
+	// DeployRethinkAsStatefulSet deploys RethinkDB as a  single-node rethink
+	// managed by a RC, rather than a multi-node, highly-available Stateful Set.
+	// This will be necessary until GKE supports Stateful Set
+	DeployRethinkAsStatefulSet bool
+
+	// RethinkCacheSize is the amount of memory each RethinkDB node allocates
+	// towards its cache.
+	RethinkCacheSize string
+
+	// BlockCacheSize is the amount of memory each PachD node allocates towards
+	// its cache of PFS blocks.
+	BlockCacheSize string
+}
+
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
 func ServiceAccount() *api.ServiceAccount {
 	return &api.ServiceAccount{
@@ -72,15 +94,15 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, version string, metrics bool, blockCacheSize string) *api.ReplicationController {
+func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
 	image := pachdImage
-	if version != "" {
-		image += ":" + version
+	if opts.Version != "" {
+		image += ":" + opts.Version
 	}
 	// we turn metrics off if we dont have a static version
 	// this prevents dev clusters from reporting metrics
-	if version == deploy.DevVersionTag {
-		metrics = false
+	if opts.Version == deploy.DevVersionTag {
+		opts.Metrics = false
 	}
 	volumes := []api.Volume{
 		{
@@ -106,7 +128,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 		TimeoutSeconds:      1,
 	}
 	var backendEnvVar string
-	switch backend {
+	switch objectStoreBackend {
 	case localBackend:
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "pachd"),
@@ -203,7 +225,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "NUM_SHARDS",
-									Value: strconv.FormatUint(shards, 10),
+									Value: strconv.FormatUint(opts.PachdShards, 10),
 								},
 								{
 									Name:  "STORAGE_BACKEND",
@@ -220,7 +242,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "JOB_SHIM_IMAGE",
-									Value: fmt.Sprintf("pachyderm/job-shim:%s", version),
+									Value: fmt.Sprintf("pachyderm/job-shim:%s", opts.Version),
 								},
 								{
 									Name:  "JOB_IMAGE_PULL_POLICY",
@@ -228,15 +250,15 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "PACHD_VERSION",
-									Value: version,
+									Value: opts.Version,
 								},
 								{
 									Name:  "METRICS",
-									Value: strconv.FormatBool(metrics),
+									Value: strconv.FormatBool(opts.Metrics),
 								},
 								{
 									Name:  "LOG_LEVEL",
-									Value: logLevel,
+									Value: opts.LogLevel,
 								},
 								{
 									Name:  client.PPSLeasePeriodSecsEnv,
@@ -252,7 +274,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "BLOCK_CACHE_BYTES",
-									Value: blockCacheSize,
+									Value: opts.BlockCacheSize,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -412,11 +434,11 @@ func EtcdService() *api.Service {
 }
 
 // RethinkRc returns a rethinkdb replication controller.
-func RethinkRc(volume string, rethinkdbCacheSize string) *api.ReplicationController {
+func RethinkRc(opts *AssetOpts, volume string) *api.ReplicationController {
 	replicas := int32(1)
-	rethinkCacheQuantity := resource.MustParse(rethinkdbCacheSize)
-	containerFootprint := rethinkCacheQuantity.Copy()
-	containerFootprint.Add(resource.MustParse("256M"))
+	rethinkCacheQuantity := resource.MustParse(opts.RethinkCacheSize)
+	mem := rethinkCacheQuantity.Copy()
+	mem.Add(rethinkNonCacheMemFootprint)
 	spec := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -471,7 +493,7 @@ func RethinkRc(volume string, rethinkdbCacheSize string) *api.ReplicationControl
 							ImagePullPolicy: "IfNotPresent",
 							Resources: api.ResourceRequirements{
 								Requests: api.ResourceList{
-									api.ResourceMemory: *containerFootprint,
+									api.ResourceMemory: *mem,
 								},
 							},
 						},
@@ -494,13 +516,13 @@ func RethinkRc(volume string, rethinkdbCacheSize string) *api.ReplicationControl
 }
 
 // RethinkStatefulSet returns a rethinkdb stateful set
-func RethinkStatefulSet(shards int, diskSpace int, cacheSize string) interface{} {
-	rethinkCacheQuantity := resource.MustParse(cacheSize)
-	containerFootprint := rethinkCacheQuantity.Copy()
-	containerFootprint.Add(rethinkNonCacheMemFootprint)
-	// As of Oct 24 2016, the Kubernetes client does not include structs for Stateful Set, so we generate the kubernetes
-	// manifest using raw json.
+func RethinkStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
+	rethinkCacheQuantity := resource.MustParse(opts.RethinkCacheSize)
+	mem := rethinkCacheQuantity.Copy()
+	mem.Add(rethinkNonCacheMemFootprint)
 
+	// As of Oct 24 2016, the Kubernetes client does not include structs for
+	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	// Stateful Set config:
 	return map[string]interface{}{
 		"apiVersion": "apps/v1beta1",
@@ -513,7 +535,7 @@ func RethinkStatefulSet(shards int, diskSpace int, cacheSize string) interface{}
 		"spec": map[string]interface{}{
 			// Effectively configures a RC
 			"serviceName": rethinkHeadlessName,
-			"replicas":    shards,
+			"replicas":    int(opts.RethinkShards),
 			"selector": map[string]interface{}{
 				"matchLabels": labels(rethinkControllerName),
 			},
@@ -561,7 +583,7 @@ func RethinkStatefulSet(shards int, diskSpace int, cacheSize string) interface{}
 							"imagePullPolicy": "IfNotPresent",
 							"resources": map[string]interface{}{
 								"requests": map[string]interface{}{
-									"memory": containerFootprint.String(),
+									"memory": mem.String(),
 								},
 							},
 						},
@@ -796,8 +818,8 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 
 // WriteRethinkVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
-func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath string, names []string, size int) error {
-	if backend != localBackend && len(names) < shards {
+func WriteRethinkVolumes(w io.Writer, persistentDiskBackend backend, shards int, hostPath string, names []string, size int) error {
+	if persistentDiskBackend != localBackend && len(names) < shards {
 		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", shards, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -820,7 +842,7 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 			},
 		}
 
-		switch backend {
+		switch persistentDiskBackend {
 		case amazonBackend:
 			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
 				AWSElasticBlockStore: &api.AWSElasticBlockStoreVolumeSource{
@@ -855,7 +877,7 @@ func WriteRethinkVolumes(w io.Writer, backend backend, shards int, hostPath stri
 				},
 			}
 		default:
-			return fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", backend)
+			return fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", persistentDiskBackend)
 		}
 		spec.CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
@@ -890,30 +912,23 @@ func RethinkVolumeClaim(size int) *api.PersistentVolumeClaim {
 	}
 }
 
-// AssetOpts are options that are applicable to all the asset types.
-type AssetOpts struct {
-	PachdShards        uint64
-	RethinkShards      uint64
-	RethinkdbCacheSize string
-	BlockCacheSize     string
-	Version            string
-	LogLevel           string
-	Metrics            bool
-
-	// Deploy single-node rethink managed by a RC, rather than a multi-node,
-	// highly-available Stateful Set. This will be necessary until GKE supports Stateful Set
-	DeployRethinkAsStatefulSet bool
-}
-
 // WriteAssets writes the assets to w.
-func WriteAssets(w io.Writer, opts *AssetOpts, objectStore backend, persistentDisk backend,
-	volumeNames []string, volumeSize int, hostPath string) error {
+func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
+	persistentDiskBackend backend, volumeNames []string, volumeSize int,
+	hostPath string) error {
+	// If either backend is "local", both must be "local"
+	if (persistentDiskBackend == localBackend || objectStoreBackend == localBackend) &&
+		persistentDiskBackend != objectStoreBackend {
+		return fmt.Errorf("if either persistentDiskBackend or objectStoreBackend "+
+			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
+			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	if err := WriteRethinkVolumes(w, persistentDisk, int(opts.RethinkShards), hostPath, volumeNames, volumeSize); err != nil {
+	if err := WriteRethinkVolumes(w, persistentDiskBackend, int(opts.RethinkShards), hostPath, volumeNames, volumeSize); err != nil {
 		return err
 	}
 
@@ -925,19 +940,23 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStore backend, persistentDi
 	RethinkNodeportService(opts).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	if opts.DeployRethinkAsStatefulSet {
-		encoder.Encode(RethinkStatefulSet(int(opts.RethinkShards), volumeSize, opts.RethinkdbCacheSize))
+		encoder.Encode(RethinkStatefulSet(opts, volumeSize))
 		fmt.Fprintf(w, "\n")
 		RethinkHeadlessService().CodecEncodeSelf(encoder)
 	} else {
-		if objectStore != localBackend && len(volumeNames) != 1 {
-			return fmt.Errorf("RethinkDB can only be managed by a ReplicationController as a single instance, but recieved %d volumes", len(volumeNames))
-		}
 		RethinkVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
-		volumeName := ""
-		if objectStore != localBackend {
-			volumeName = volumeNames[0]
+		if persistentDiskBackend == localBackend {
+			// with localBackend, we store rethink data on a hostPath volume, and
+			// therefore don't pass any storage volumes.
+			RethinkRc(opts, "").CodecEncodeSelf(encoder)
+		} else {
+			if len(volumeNames) != 1 {
+				return fmt.Errorf("RethinkDB can only be managed by a "+
+					"ReplicationController as a single instance, but recieved %d volumes",
+					len(volumeNames))
+			}
+			RethinkRc(opts, volumeNames[0]).CodecEncodeSelf(encoder)
 		}
-		RethinkRc(volumeName, opts.RethinkdbCacheSize).CodecEncodeSelf(encoder)
 	}
 	fmt.Fprintf(w, "\n")
 
@@ -946,7 +965,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStore backend, persistentDi
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.PachdShards, objectStore, hostPath, opts.LogLevel, opts.Version, opts.Metrics, opts.BlockCacheSize).CodecEncodeSelf(encoder)
+	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }
@@ -957,9 +976,9 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
-func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStore string,
-	persistentDisk string, secure bool) error {
-	switch objectStore {
+func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreBackend string,
+	persistentDiskBackend string, secure bool) error {
+	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
 			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
@@ -968,7 +987,7 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStore 
 		if err != nil {
 			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 		}
-		switch persistentDisk {
+		switch persistentDiskBackend {
 		case "aws":
 			if err := WriteAssets(w, opts, minioBackend, amazonBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
 				return err
