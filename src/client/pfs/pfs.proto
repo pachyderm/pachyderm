@@ -340,6 +340,12 @@ message PutObjectRequest {
   repeated Tag tags = 2;
 }
 
+message GetObjectsRequest {
+  repeated Object objects = 1;
+  uint64 offset_bytes = 2;
+  uint64 size_bytes = 3;
+}
+
 message TagObjectRequest {
   Object object = 1;
   repeated Tag tags = 2;
@@ -348,6 +354,7 @@ message TagObjectRequest {
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
+  rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
