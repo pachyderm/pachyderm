@@ -253,6 +253,16 @@ launch-monitoring:
 	@echo "All services up. Now port forwarding grafana to localhost:3000"
 	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
 
+clean-launch-logging: check-kubectl check-kubectl-connection
+	git submodule update --init
+	cd etc/plugin/logging && ./undeploy.sh
+
+launch-logging: check-kubectl check-kubectl-connection
+	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
+	git submodule update --init
+	cd etc/plugin/logging && ./deploy.sh
+	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
+
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt
 	go run examples/grep/generate.go >examples/grep/set2.txt
