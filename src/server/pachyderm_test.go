@@ -37,7 +37,7 @@ func TestDatumDedup(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	dataRepo := uniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "")
