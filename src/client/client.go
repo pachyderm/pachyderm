@@ -152,12 +152,9 @@ func (c APIClient) DeleteAll() error {
 }
 
 // SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
-// client can have.  This method cannot be safely used be concurrent
-// goroutines.
+// client can have. It is not safe to call this operations while operations are
+// outstanding.
 func (c APIClient) SetMaxConcurrentStreams(n int) {
-	for i := 0; i < cap(c.streamSemaphore); i++ {
-		c.streamSemaphore <- struct{}{}
-	}
 	c.streamSemaphore = make(chan struct{}, n)
 }
 
