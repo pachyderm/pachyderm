@@ -155,6 +155,13 @@ func (c APIClient) DeleteAll() error {
 	return nil
 }
 
+// SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
+// client can have. It is not safe to call this operations while operations are
+// outstanding.
+func (c APIClient) SetMaxConcurrentStreams(n int) {
+	c.streamSemaphore = make(chan struct{}, n)
+}
+
 func (c *APIClient) connect() error {
 	clientConn, err := grpc.Dial(c.addr, grpc.WithInsecure())
 	if err != nil {
