@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -164,8 +165,14 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 // HashDatum computes and returns the hash of a datum + pipeline.
 func HashDatum(data []*pfs.FileInfo, options *Options) (string, error) {
 	hash := sha256.New()
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].File.Path < data[j].File.Path
+	})
 	for i, fileInfo := range data {
 		if _, err := hash.Write([]byte(options.Inputs[i].Name)); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte(fileInfo.File.Path)); err != nil {
 			return "", err
 		}
 		if _, err := hash.Write(fileInfo.Hash); err != nil {
@@ -212,7 +219,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	defer func() {
-		if err := os.RemoveAll(client.PPSOutputPath); retErr == nil && err != nil {
+		if err := os.RemoveAll(client.PPSInputPrefix); retErr == nil && err != nil {
 			retErr = err
 			return
 		}
