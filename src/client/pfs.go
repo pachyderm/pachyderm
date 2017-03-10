@@ -407,10 +407,10 @@ func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, retErr error) {
+func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
 	w, err := c.newPutObjectWriteCloser(tags...)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, 0, sanitizeErr(err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
@@ -420,11 +420,12 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, r
 			object = w.object
 		}
 	}()
-	if _, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2)); err != nil {
-		return nil, sanitizeErr(err)
+	written, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2))
+	if err != nil {
+		return nil, 0, sanitizeErr(err)
 	}
 	// return value set by deferred function
-	return nil, nil
+	return nil, written, nil
 }
 
 // GetObject gets an object out of the object store by hash.
@@ -446,6 +447,38 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 func (c APIClient) ReadObject(hash string) ([]byte, error) {
 	var buffer bytes.Buffer
 	if err := c.GetObject(hash, &buffer); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// GetObjects gets several objects out of the object store by hash.
+func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, writer io.Writer) error {
+	var objects []*pfs.Object
+	for _, hash := range hashes {
+		objects = append(objects, &pfs.Object{Hash: hash})
+	}
+	getObjectsClient, err := c.ObjectAPIClient.GetObjects(
+		c.ctx(),
+		&pfs.GetObjectsRequest{
+			Objects:     objects,
+			OffsetBytes: offset,
+			SizeBytes:   size,
+		},
+	)
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	if err := grpcutil.WriteFromStreamingBytesClient(getObjectsClient, writer); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
+// ReadObjects gets  several objects by hash and returns them directly as []byte.
+func (c APIClient) ReadObjects(hashes []string, offset uint64, size uint64) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := c.GetObjects(hashes, offset, size, &buffer); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
