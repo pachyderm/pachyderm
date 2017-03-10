@@ -450,9 +450,9 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	tree := _tree.Open()
 
 	for _, kv := range resp.Kvs {
-		// fileStr is going to look like "some/path/0"
+		// fileStr is going to look like "some/path/UUID"
 		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
-		// the last element of `parts` is going to be 0
+		// the last element of `parts` is going to be UUID
 		parts := strings.Split(fileStr, "/")
 		// filePath should look like "some/path"
 		filePath := strings.Join(parts[:len(parts)-1], "/")
