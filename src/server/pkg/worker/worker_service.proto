@@ -1,9 +1,14 @@
 syntax = "proto3";
 package worker;
 
-import  "client/pfs/pfs.proto";
+import "gogoproto/gogo.proto";
+import "client/pfs/pfs.proto";
 
 message ProcessRequest {
+  // ID of the job for which we're processing 'data'. This is attached to logs
+  // generated while processing 'data', so that they can be searched.
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+
   // The datum to process
   repeated pfs.FileInfo data = 1;
 }

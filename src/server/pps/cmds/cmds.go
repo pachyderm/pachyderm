@@ -298,6 +298,57 @@ Examples:
 		}),
 	}
 
+	var (
+		jobId       string
+		commaInputs string // comma-separated list of input files of interest
+	)
+	getLogs := &cobra.Command{
+		Use:   "get-logs",
+		Short: "Return logs from a job.",
+		Long:  "Return logs from a job.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+			}
+			// Validate flags
+			if len(jobId) == 0 && len(pipelineName) == 0 {
+				return fmt.Errorf("must set either --pipeline or --job (or both)")
+			}
+
+			// Break up comma-separated input paths, and filter out empty entries
+			data := strings.Split(commaInputs, ",")
+			for i := 0; i < len(data); {
+				if len(data[i]) == 0 {
+					if i+1 < len(data) {
+						copy(data[i:], data[i+1:])
+					}
+					data = data[:len(data)-1]
+				} else {
+					i++
+				}
+			}
+
+			// Issue RPC
+			marshaler := &jsonpb.Marshaler{}
+			iter := client.GetLogs(pipelineName, jobId, data)
+			for iter.Next() {
+				messageStr, err := marshaler.MarshalToString(iter.Message())
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error unmarshalling \"%v\": %s\n", iter.Message(), err)
+				}
+				fmt.Println(messageStr)
+			}
+			return iter.Err()
+		}),
+	}
+	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
+		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.Flags().StringVar(&jobId, "job", "", "Filter for log lines from "+
+		"this job (accepts job ID)")
+	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
+		"generated while processing these files (accepts PFS paths or file hashes)")
+
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Docs for pipelines.",
@@ -552,6 +603,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
 	result = append(result, updatePipeline)
