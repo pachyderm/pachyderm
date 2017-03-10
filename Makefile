@@ -261,7 +261,7 @@ launch-logging: check-kubectl check-kubectl-connection
 	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
 	git submodule update --init
 	cd etc/plugin/logging && ./deploy.sh
-	kubectl --namespace=monitoring port-forward kibana-logging-v2-690172596-pztws 35601:5601
+	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt
