@@ -30,6 +30,97 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestMultipleInputsFromTheSameBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestMultipleInputsFromTheSameBranch_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	dirA := "dirA"
+	dirB := "dirB"
+
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "dirB/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+
+	pipeline := uniqueString("pipeline")
+	// Creating this pipeline should error, because the two inputs are
+	// from the same repo but they don't specify different names.
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirA, dirA),
+			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirB, dirB),
+		},
+		nil,
+		[]*pps.PipelineInput{{
+			Name: dirA,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/dirA/*",
+		}, {
+			Name: dirB,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/dirB/*",
+		}},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nfoo\n", buf.String())
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "dirA/file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nbar\nfoo\n", buf.String())
+
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit3.ID, "dirB/file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
+
+	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+}
+
 func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
