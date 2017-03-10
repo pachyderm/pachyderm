@@ -1088,15 +1088,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			provenance = append(provenance, input.Commit)
 		}
 
-		var outputCommit *pfs.Commit
-		// If the branch does not exist, create it
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
-				Repo: jobInfo.OutputRepo,
-				ID:   jobInfo.OutputBranch,
-			},
-		})
-
 		if jobInfo.ParentJob != nil {
 			// Wait for the parent job to finish, to ensure that output commits
 			// are ordered correctly.
@@ -1112,6 +1103,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
+		var outputCommit *pfs.Commit
+		// If the branch does not exist, create it
+		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: jobInfo.OutputRepo,
+				ID:   jobInfo.OutputBranch,
+			},
+		})
 		if isNotFoundErr(err) {
 			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
