@@ -51,15 +51,15 @@ func (c *minioClient) Walk(name string, fn func(name string) error) error {
 	return nil
 }
 
-// sectionReadCloser implements a closer compatible wrapper
-// over *io.SectionReader.
-type sectionReadCloser struct {
-	*io.SectionReader
+// limitReadCloser implements a closer compatible wrapper
+// for a size limited reader.
+type limitReadCloser struct {
+	io.Reader
 	mObj *minio.Object
 }
 
-func (s *sectionReadCloser) Close() (err error) {
-	return s.mObj.Close()
+func (l *limitReadCloser) Close() (err error) {
+	return l.mObj.Close()
 }
 
 func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
@@ -67,11 +67,18 @@ func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
-	sectionReader := io.NewSectionReader(obj, int64(offset), int64(size))
-	return &sectionReadCloser{
-		SectionReader: sectionReader,
-		mObj:          obj,
-	}, nil
+	if offset > 0 {
+		// Seek to an offset to fetch the new reader.
+		_, err = obj.Seek(int64(offset), 0)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if size > 0 {
+		return &limitReadCloser{io.LimitReader(obj, int64(size)), obj}, nil
+	}
+	return obj, nil
+
 }
 
 func (c *minioClient) Delete(name string) error {
