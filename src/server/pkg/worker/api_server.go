@@ -67,25 +67,31 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context) (string, error) {
+	// Run user code
 	transform := a.options.Transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	var log bytes.Buffer
 	cmd.Stdout = &log
 	cmd.Stderr = &log
-	if err := cmd.Run(); err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range transform.AcceptReturnCode {
-					if int(returnCode) == status.ExitStatus() {
-						return log.String(), nil
-					}
+	err := cmd.Run();
+
+	// Return result
+	if err == nil {
+		return log.String(), nil
+	}
+	// (if err is an acceptable return code, don't return err)
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			for _, returnCode := range transform.AcceptReturnCode {
+				if int(returnCode) == status.ExitStatus() {
+					return log.String(), nil
 				}
 			}
 		}
-		return log.String(), err
 	}
-	return log.String(), nil
+	return log.String(), err
+
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
