@@ -321,6 +321,59 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	return getObjectServer.Send(&types.BytesValue{Value: data})
 }
 
+func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	offset := request.OffsetBytes
+	size := request.SizeBytes
+	for _, object := range request.Objects {
+		// First we inspect the object to see how big it is.
+		objectInfo, err := s.InspectObject(getObjectsServer.Context(), object)
+		if err != nil {
+			return err
+		}
+		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
+		if offset > objectSize {
+			offset -= objectSize
+			continue
+		}
+		readSize := objectSize - offset
+		if size < readSize {
+			readSize = size
+		}
+		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+			// The object is a substantial portion of the available cache space so
+			// we bypass the cache and stream it directly out of the underlying store.
+			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+			r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower+offset, readSize)
+			if err != nil {
+				return err
+			}
+			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
+				return err
+			}
+		}
+		var data []byte
+		sink := groupcache.AllocatingByteSliceSink(&data)
+		if err := s.objectCache.Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
+			return err
+		}
+		if uint64(len(data)) < offset+readSize {
+			return fmt.Errorf("undersized object (this is likely a bug)")
+		}
+		if err := getObjectsServer.Send(&types.BytesValue{Value: data[offset : offset+readSize]}); err != nil {
+			return err
+		}
+		// We've hit the offset so we set it to 0
+		offset = 0
+		size -= readSize
+		if size == 0 && request.SizeBytes != 0 {
+			break
+		}
+	}
+	return nil
+}
+
 func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())

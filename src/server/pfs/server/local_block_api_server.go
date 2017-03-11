@@ -194,6 +194,41 @@ func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServ
 	return grpcutil.WriteToStreamingBytesServer(file, getObjectServer)
 }
 
+func (s *localBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	offsetBytes := request.OffsetBytes
+	sizeBytes := request.SizeBytes
+	for _, object := range request.Objects {
+		fileInfo, err := os.Stat(s.objectPath(object))
+		if err != nil {
+			return err
+		}
+		if uint64(fileInfo.Size()) < offsetBytes {
+			offsetBytes -= uint64(fileInfo.Size())
+			continue
+		}
+		file, err := os.Open(s.objectPath(object))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := file.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		if err := grpcutil.WriteToStreamingBytesServer(io.NewSectionReader(file, int64(offsetBytes), int64(sizeBytes)), getObjectsServer); err != nil {
+			return err
+		}
+		sizeBytes -= (uint64(fileInfo.Size()) - offsetBytes)
+		if sizeBytes <= 0 && request.SizeBytes != 0 {
+			break
+		}
+		offsetBytes = 0
+	}
+	return nil
+}
+
 func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
