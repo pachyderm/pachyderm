@@ -147,7 +147,10 @@ run-bench:
 	# We need the pachyderm_compile image to be up to date
 	docker tag pachyderm_compile pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	pachctl port-forward &
 	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
+	make clean-launch-bench
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
