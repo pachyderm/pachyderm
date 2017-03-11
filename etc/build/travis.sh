@@ -24,6 +24,10 @@ ${AWS_SECRET_ACCESS_KEY}
     ls ~/.ssh
     cat ~/.ssh/id_rsa.pub
 
+    # Need to login so that travis can push the bench image
+    docker login -u pachydermbuildbot -p $DOCKER_PWD
+
+    # Deploy cluster and run benchmark
 	sudo -E make bench
 else
 	echo "Running tests"
