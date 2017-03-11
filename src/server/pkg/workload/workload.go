@@ -276,6 +276,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 			Constant: 1,
 		},
 		pipelineInputs,
+		"master",
 		false,
 	); err != nil {
 		return err
