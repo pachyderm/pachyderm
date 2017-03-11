@@ -7,10 +7,11 @@ import "client/pfs/pfs.proto";
 
 // FileNodeProto is a node corresponding to a file (which is also a leaf node).
 message FileNodeProto {
-  // BlockRefs are references to the file's contents in block storage.
-  // Naturally, the blocks are ordered with respect to their position in the
-  // file (block with initial content is first)
-  repeated pfs.BlockRef block_refs = 3;
+  // Object references an object in the object store which contains the content
+  // of the data.
+  repeated pfs.Object objects = 4;
+  // ObjectSize is the size of file (and of the object).
+  int64 file_size = 5;
 }
 
 // DirectoryNodeProto is a node corresponding to a directory.
