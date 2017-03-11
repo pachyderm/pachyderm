@@ -24,8 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"google.golang.org/grpc"
 )
 
@@ -462,21 +462,11 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				return err
 			}
 		} else {
-			// The serialized data contains multiple blockrefs; read them all
-			var blockRefs []*pfs.BlockRef
-			data := bytes.NewReader(kv.Value)
-			for {
-				blockRef := &pfs.BlockRef{}
-				if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
-					if err == io.EOF {
-						break
-					}
-					return err
-				}
-				blockRefs = append(blockRefs, blockRef)
+			fileNode := &hashtree.FileNodeProto{}
+			if err := proto.Unmarshal(kv.Value, fileNode); err != nil {
+				return err
 			}
-
-			if err := tree.PutFile(filePath, blockRefs); err != nil {
+			if err := tree.PutFile(filePath, fileNode.Objects, fileNode.FileSize); err != nil {
 				return err
 			}
 		}
@@ -496,7 +486,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return err
 		}
 
-		obj, err := objClient.PutObject(bytes.NewReader(data))
+		obj, _, err := objClient.PutObject(bytes.NewReader(data))
 		if err != nil {
 			return err
 		}
@@ -1070,23 +1060,18 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 	if delimiter == pfs.Delimiter_NONE {
-		blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
+		object, size, err := blockClient.PutObject(reader)
 		if err != nil {
 			return err
 		}
-
-		// Serialize the blockrefs.
-		// Since we are serializing multiple blockrefs, we use WriteDelimited
-		// to write them into the same object, since protobuf messages are not
-		// self-delimiting.
-		var buffer bytes.Buffer
-		for _, blockRef := range blockRefs.BlockRef {
-			if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
-				return err
-			}
+		fileNode, err := proto.Marshal(&hashtree.FileNodeProto{
+			Objects:  []*pfs.Object{object},
+			FileSize: size,
+		})
+		if err != nil {
+			return err
 		}
-
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
+		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(fileNode))
 		return err
 	}
 	commitInfo, err := d.InspectCommit(ctx, file.Commit)
@@ -1103,7 +1088,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToBlockRefs := make(map[int]*pfs.BlockRefs)
+	indexToFileNodes := make(map[int]*hashtree.FileNodeProto)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1136,13 +1121,16 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			_buffer := buffer
 			index := filesPut
 			eg.Go(func() error {
-				blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, _buffer)
+				object, size, err := blockClient.PutObject(_buffer)
 				if err != nil {
 					return err
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToBlockRefs[index] = blockRefs
+				indexToFileNodes[index] = &hashtree.FileNodeProto{
+					Objects:  []*pfs.Object{object},
+					FileSize: size,
+				}
 				return nil
 			})
 			datumsWritten = 0
@@ -1187,14 +1175,12 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		baseKey := "__" + prefix
 		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
 		ops := []etcd.Op{etcd.OpPut(baseKey, "")}
-		for index, blockRefs := range indexToBlockRefs {
-			var buffer bytes.Buffer
-			for _, blockRef := range blockRefs.BlockRef {
-				if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
-					return err
-				}
+		for index, fileNode := range indexToFileNodes {
+			fileNode, err := proto.Marshal(fileNode)
+			if err != nil {
+				return err
 			}
-			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), buffer.String()))
+			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), string(fileNode)))
 		}
 		txnResp, err := txn.If(cmp).Then(ops...).Commit()
 		if err != nil {
@@ -1276,7 +1262,7 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
-	return d.newFileReader(node.FileNode.BlockRefs, file, offset, size)
+	return d.newFileReader(nil, file, offset, size)
 }
 
 type fileReader struct {
