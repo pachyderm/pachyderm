@@ -220,7 +220,7 @@ pps-test:
 	go test ./src/server/pachyderm_test.go
 
 bench:
-	go test ./src/server -run=XXX -bench=.
+	go test ./src/server/pachyderm_bench_test.go -bench=.
 
 test-client:
 	rm -rf src/client/vendor
