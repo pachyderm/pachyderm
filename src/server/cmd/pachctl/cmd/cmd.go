@@ -141,9 +141,21 @@ kubectl port-forward "$pod" %d:650
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
+	completion := &cobra.Command{
+		Use:   "completion",
+		Short: "Output bash completion code.",
+		Long:  "Output bash completion code.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("invalid argument")
+			}
+			return cmd.Parent().GenBashCompletion(os.Stdout)
+		},
+	}
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
+	rootCmd.AddCommand(completion)
 	return rootCmd, nil
 }
 
