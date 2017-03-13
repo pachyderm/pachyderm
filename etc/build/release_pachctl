@@ -59,7 +59,6 @@ git clone git@github.com:pachyderm/www
 cp /tmp/pachctl.deb www/pachctl.deb
 cd www 
     git add pachctl.deb
-    make # Cannot upload single file ... see: https://github.com/pachyderm/www/issues/9
     git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION"
     git pull origin master
     git push origin master
