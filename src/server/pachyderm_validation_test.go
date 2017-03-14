@@ -1,16 +1,8 @@
 package server
 
-import (
-	// "fmt"
+// "fmt"
 
-	"path"
-	// "strings"
-	"testing"
-
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-)
+// "strings"
 
 // func TestInvalidSimpleService(t *testing.T) {
 // 	t.Parallel()
@@ -74,127 +66,127 @@ import (
 // Make sure that pipeline validation requires:
 // - No dash in pipeline name
 // - Input must have branch and glob
-func TestInvalidCreatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
+//func TestInvalidCreatePipeline(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+//t.Parallel()
+//c := getPachClient(t)
 
-	// Set up repo
-	dataRepo := uniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+//// Set up repo
+//dataRepo := uniqueString("TestDuplicatedJob_data")
+//require.NoError(t, c.CreateRepo(dataRepo))
 
-	// Create pipeline with no name
-	pipelineName := uniqueString("pipeline")
-	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
-	err := c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{{
-			Repo:   &pfsclient.Repo{Name: dataRepo},
-			Branch: "master",
-			Glob:   "/*",
-		}},
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "name", err.Error())
+//// Create pipeline with no name
+//pipelineName := uniqueString("pipeline")
+//cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
+//err := c.CreatePipeline(
+//pipelineName,
+//"",
+//cmd,
+//nil,
+//&ppsclient.ParallelismSpec{
+//Strategy: ppsclient.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*ppsclient.PipelineInput{{
+//Repo:   &pfsclient.Repo{Name: dataRepo},
+//Branch: "master",
+//Glob:   "/*",
+//}},
+//false,
+//)
+//require.YesError(t, err)
+//require.Matches(t, "name", err.Error())
 
-	// Create pipeline named "out"
-	err = c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{{
-			Name:   "out",
-			Repo:   &pfsclient.Repo{Name: dataRepo},
-			Branch: "master",
-			Glob:   "/*",
-		}},
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "out", err.Error())
+//// Create pipeline named "out"
+//err = c.CreatePipeline(
+//pipelineName,
+//"",
+//cmd,
+//nil,
+//&ppsclient.ParallelismSpec{
+//Strategy: ppsclient.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*ppsclient.PipelineInput{{
+//Name:   "out",
+//Repo:   &pfsclient.Repo{Name: dataRepo},
+//Branch: "master",
+//Glob:   "/*",
+//}},
+//false,
+//)
+//require.YesError(t, err)
+//require.Matches(t, "out", err.Error())
 
-	// Create pipeline with no branch
-	err = c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{{
-			Name: "input",
-			Repo: &pfsclient.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "branch", err.Error())
+//// Create pipeline with no branch
+//err = c.CreatePipeline(
+//pipelineName,
+//"",
+//cmd,
+//nil,
+//&ppsclient.ParallelismSpec{
+//Strategy: ppsclient.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*ppsclient.PipelineInput{{
+//Name: "input",
+//Repo: &pfsclient.Repo{Name: dataRepo},
+//Glob: "/*",
+//}},
+//false,
+//)
+//require.YesError(t, err)
+//require.Matches(t, "branch", err.Error())
 
-	// Create pipeline with no glob
-	err = c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{{
-			Name:   "input",
-			Repo:   &pfsclient.Repo{Name: dataRepo},
-			Branch: "master",
-		}},
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "glob", err.Error())
-}
+//// Create pipeline with no glob
+//err = c.CreatePipeline(
+//pipelineName,
+//"",
+//cmd,
+//nil,
+//&ppsclient.ParallelismSpec{
+//Strategy: ppsclient.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*ppsclient.PipelineInput{{
+//Name:   "input",
+//Repo:   &pfsclient.Repo{Name: dataRepo},
+//Branch: "master",
+//}},
+//false,
+//)
+//require.YesError(t, err)
+//require.Matches(t, "glob", err.Error())
+//}
 
-// Make sure that pipeline validation checks that all inputs exist
-func TestPipelineThatUseNonexistentInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c := getPachClient(t)
+//// Make sure that pipeline validation checks that all inputs exist
+//func TestPipelineThatUseNonexistentInputs(t *testing.T) {
+//if testing.Short() {
+//t.Skip("Skipping integration tests in short mode")
+//}
+//t.Parallel()
+//c := getPachClient(t)
 
-	pipelineName := uniqueString("pipeline")
-	require.YesError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{""},
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*ppsclient.PipelineInput{
-			{
-				Name:   "whatever",
-				Branch: "master",
-				Glob:   "/*",
-				Repo:   &pfsclient.Repo{Name: "nonexistent"},
-			},
-		},
-		false,
-	))
-}
+//pipelineName := uniqueString("pipeline")
+//require.YesError(t, c.CreatePipeline(
+//pipelineName,
+//"",
+//[]string{"bash"},
+//[]string{""},
+//&ppsclient.ParallelismSpec{
+//Strategy: ppsclient.ParallelismSpec_CONSTANT,
+//Constant: 1,
+//},
+//[]*ppsclient.PipelineInput{
+//{
+//Name:   "whatever",
+//Branch: "master",
+//Glob:   "/*",
+//Repo:   &pfsclient.Repo{Name: "nonexistent"},
+//},
+//},
+//false,
+//))
+//}

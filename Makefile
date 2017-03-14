@@ -132,6 +132,36 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
+launch-dev-bench: docker-build install
+	@# Put it here so sudo can see it
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	make launch-bench
+
+launch-bench: docker-build-compile
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	etc/deploy/aws.sh
+	
+run-bench:
+	# We need the pachyderm_compile image to be up to date
+	docker tag pachyderm_compile pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	pachctl port-forward &
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
+	make clean-launch-bench
+
+clean-launch-bench:
+	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
+	@#Todo - remove the s3 bucket that served as a state store as well
+	@#which s3cmd
+	@#s3cmd del --recursive --force `cat tmp/current-benchmark-state-store.txt`
+	@# if the bucket is empty we need to do:
+	@#s3cmd rb s3://k8scom-state-store-pachyderm-4902
+
+bench: clean-launch-bench launch-bench run-bench
+
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
@@ -211,7 +241,9 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+
+test: docker-build clean-launch-dev launch-dev pfs-test pps-test
 
 pfs-test:
 	go test ./src/server/pfs/server
@@ -219,8 +251,8 @@ pfs-test:
 pps-test:
 	go test ./src/server/pachyderm_test.go
 
-bench:
-	go test ./src/server/pachyderm_bench_test.go -bench=.
+local-bench:
+	go test ./src/server -bench=. -run=XXX
 
 test-client:
 	rm -rf src/client/vendor
