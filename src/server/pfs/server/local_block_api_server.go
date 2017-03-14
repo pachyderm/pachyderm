@@ -197,15 +197,15 @@ func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServ
 func (s *localBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	offsetBytes := request.OffsetBytes
-	sizeBytes := request.SizeBytes
+	offsetBytes := int64(request.OffsetBytes)
+	sizeBytes := int64(request.SizeBytes)
 	for _, object := range request.Objects {
 		fileInfo, err := os.Stat(s.objectPath(object))
 		if err != nil {
 			return err
 		}
-		if uint64(fileInfo.Size()) < offsetBytes {
-			offsetBytes -= uint64(fileInfo.Size())
+		if fileInfo.Size() < offsetBytes {
+			offsetBytes -= fileInfo.Size()
 			continue
 		}
 		file, err := os.Open(s.objectPath(object))
@@ -217,12 +217,17 @@ func (s *localBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, g
 				retErr = err
 			}
 		}()
-		if err := grpcutil.WriteToStreamingBytesServer(io.NewSectionReader(file, int64(offsetBytes), int64(sizeBytes)), getObjectsServer); err != nil {
+		if request.SizeBytes == 0 {
+			sizeBytes = fileInfo.Size() - offsetBytes
+		}
+		if err := grpcutil.WriteToStreamingBytesServer(io.NewSectionReader(file, offsetBytes, sizeBytes), getObjectsServer); err != nil {
 			return err
 		}
-		sizeBytes -= (uint64(fileInfo.Size()) - offsetBytes)
-		if sizeBytes <= 0 && request.SizeBytes != 0 {
-			break
+		if request.SizeBytes != 0 {
+			sizeBytes -= (fileInfo.Size() - offsetBytes)
+			if sizeBytes <= 0 {
+				break
+			}
 		}
 		offsetBytes = 0
 	}
