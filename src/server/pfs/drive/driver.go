@@ -121,23 +121,6 @@ func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
 	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix)
 }
 
-func (d *driver) getBlockClient() (*client.APIClient, error) {
-	if d.pachConn == nil {
-		var onceErr error
-		d.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(d.address, grpc.WithInsecure())
-			if err != nil {
-				onceErr = err
-			}
-			d.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return nil, onceErr
-		}
-	}
-	return &client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(d.pachConn)}, nil
-}
-
 func (d *driver) getObjectClient() (*client.APIClient, error) {
 	if d.pachConn == nil {
 		var onceErr error
@@ -1056,12 +1039,12 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	// Put the tree into the blob store
-	blockClient, err := d.getBlockClient()
+	objClient, err := d.getObjectClient()
 	if err != nil {
 		return err
 	}
 	if delimiter == pfs.Delimiter_NONE {
-		object, size, err := blockClient.PutObject(reader)
+		object, size, err := objClient.PutObject(reader)
 		if err != nil {
 			return err
 		}
@@ -1122,7 +1105,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			_buffer := buffer
 			index := filesPut
 			eg.Go(func() error {
-				object, size, err := blockClient.PutObject(_buffer)
+				object, size, err := objClient.PutObject(_buffer)
 				if err != nil {
 					return err
 				}
@@ -1263,11 +1246,11 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
-	blockClient, err := d.getBlockClient()
+	objClient, err := d.getObjectClient()
 	if err != nil {
 		return nil, err
 	}
-	getObjectsClient, err := blockClient.ObjectAPIClient.GetObjects(ctx, &pfs.GetObjectsRequest{
+	getObjectsClient, err := objClient.ObjectAPIClient.GetObjects(ctx, &pfs.GetObjectsRequest{
 		Objects:     node.FileNode.Objects,
 		OffsetBytes: uint64(offset),
 		SizeBytes:   uint64(size),
