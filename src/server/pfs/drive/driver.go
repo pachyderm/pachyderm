@@ -18,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -1247,7 +1248,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
+func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1262,81 +1263,19 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
-	return d.newFileReader(nil, file, offset, size)
-}
-
-type fileReader struct {
-	blockClient *client.APIClient
-	reader      io.Reader
-	offset      int64
-	size        int64 // how much data to read
-	sizeRead    int64 // how much data has been read
-	blockRefs   []*pfs.BlockRef
-	file        *pfs.File
-}
-
-func (d *driver) newFileReader(blockRefs []*pfs.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return nil, err
 	}
-
-	return &fileReader{
-		blockClient: blockClient,
-		blockRefs:   blockRefs,
-		offset:      offset,
-		size:        size,
-		file:        file,
-	}, nil
-}
-
-func (r *fileReader) Read(data []byte) (int, error) {
-	var err error
-	if r.reader == nil {
-		var blockRef *pfs.BlockRef
-		for {
-			if len(r.blockRefs) == 0 {
-				return 0, io.EOF
-			}
-			blockRef = r.blockRefs[0]
-			r.blockRefs = r.blockRefs[1:]
-			blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
-			if r.offset >= blockSize {
-				r.offset -= blockSize
-				continue
-			}
-			break
-		}
-		sizeLeft := r.size
-		// e.g. sometimes a reader is constructed of size 0
-		if sizeLeft != 0 {
-			sizeLeft -= r.sizeRead
-		}
-		r.reader, err = r.blockClient.GetBlock(blockRef.Block.Hash, uint64(r.offset), uint64(sizeLeft))
-		if err != nil {
-			return 0, err
-		}
-		r.offset = 0
+	getObjectsClient, err := blockClient.ObjectAPIClient.GetObjects(ctx, &pfs.GetObjectsRequest{
+		Objects:     node.FileNode.Objects,
+		OffsetBytes: uint64(offset),
+		SizeBytes:   uint64(size),
+	})
+	if err != nil {
+		return nil, err
 	}
-	size, err := r.reader.Read(data)
-	if err != nil && err != io.EOF {
-		return size, err
-	}
-	if err == io.EOF {
-		r.reader = nil
-	}
-	r.sizeRead += int64(size)
-	if r.sizeRead == r.size {
-		return size, io.EOF
-	}
-	if r.size > 0 && r.sizeRead > r.size {
-		return 0, fmt.Errorf("read more than we need; this is likely a bug")
-	}
-	return size, nil
-}
-
-func (r *fileReader) Close() error {
-	return nil
+	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
 func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *pfs.FileInfo {
