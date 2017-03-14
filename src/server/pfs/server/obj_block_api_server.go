@@ -1,10 +1,7 @@
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -108,125 +105,6 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 		return nil, err
 	}
 	return newObjBlockAPIServer(dir, cacheBytes, objClient)
-}
-
-func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	result := &pfsclient.BlockRefs{}
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
-	defer drainBlockServer(putBlockServer)
-	putBlockRequest, err := putBlockServer.Recv()
-	if err != nil {
-		if err != io.EOF {
-			return err
-		}
-		return putBlockServer.SendAndClose(result)
-	}
-	reader := bufio.NewReader(&putBlockReader{
-		server: putBlockServer,
-		buffer: bytes.NewBuffer(putBlockRequest.Value),
-	})
-	var eg errgroup.Group
-	decoder := json.NewDecoder(reader)
-	for {
-		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader, decoder)
-		if err != nil {
-			return err
-		}
-		result.BlockRef = append(result.BlockRef, blockRef)
-		eg.Go(func() error {
-			var outerErr error
-			path := s.localServer.blockPath(blockRef.Block)
-			backoff.RetryNotify(func() error {
-				// We don't want to overwrite blocks that already exist, since:
-				// 1) blocks are content-addressable, so it will be the same block
-				// 2) we risk exceeding the object store's rate limit
-				if s.objClient.Exists(path) {
-					return nil
-				}
-				writer, err := s.objClient.Writer(path)
-				if err != nil {
-					outerErr = err
-					return nil
-				}
-				if _, err := writer.Write(data); err != nil {
-					outerErr = err
-					return nil
-				}
-				if err := writer.Close(); err != nil {
-					if s.objClient.IsRetryable(err) {
-						return err
-					}
-					outerErr = err
-					return nil
-				}
-				return nil
-			}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-				protolion.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
-					Err:               err.Error(),
-					TimeTillNextRetry: d.String(),
-				})
-			})
-			// Weird effects can happen with clients racing. Ultimately if the
-			// path exists then it doesn't make sense to consider this
-			// operation as having errored because we know that it contains the
-			// data we want thanks to content addressing.
-			if outerErr != nil && !s.objClient.Exists(path) {
-				return outerErr
-			}
-			return nil
-		})
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
-			break
-		}
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	return putBlockServer.SendAndClose(result)
-}
-
-func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	var data []byte
-	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.blockCache.Get(getBlockServer.Context(), request.Block.Hash, sink); err != nil {
-		return err
-	}
-	if request.SizeBytes != 0 && request.SizeBytes+request.OffsetBytes < uint64(len(data)) {
-		data = data[request.OffsetBytes : request.OffsetBytes+request.SizeBytes]
-	} else if request.OffsetBytes < uint64(len(data)) {
-		data = data[request.OffsetBytes:]
-	} else {
-		data = nil
-	}
-	return getBlockServer.Send(&types.BytesValue{Value: data})
-}
-
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	backoff.RetryNotify(func() error {
-		if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-		protolion.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
-			Err:               err.Error(),
-			TimeTillNextRetry: d.String(),
-		})
-	})
-	return &types.Empty{}, nil
-}
-
-func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	return nil, fmt.Errorf("not implemented")
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
