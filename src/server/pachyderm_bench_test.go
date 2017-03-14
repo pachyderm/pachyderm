@@ -33,55 +33,23 @@ func (w *countWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Distribution returns numbers that conform to some statistical distribution
-type distribution interface {
-	Get() int64
-}
-
-type uniformDistribution struct {
-	size int64
-}
-
-func (u *uniformDistribution) Get() int64 {
-	return u.size
-}
-
-type normalDistribution struct {
-	rand   *rand.Rand
-	stdDev float64
-	mean   float64
-}
-
-func (n *normalDistribution) Get() int64 {
-	return int64(rand.NormFloat64()*n.stdDev + n.mean)
-}
-
-func getRand(b *testing.B) *rand.Rand {
+func getRand() *rand.Rand {
 	source := rand.Int63()
-	// Log the source so we can reproduce results
-	b.Logf("Using rand source: %d", source)
 	return rand.New(rand.NewSource(source))
 }
 
 func BenchmarkManySmallFiles(b *testing.B) {
-	r := getRand(b)
-	benchmarkFiles(b, 1000000, r, &normalDistribution{
-		rand:   r,
-		stdDev: 500,
-		mean:   1 * KB,
-	})
+	benchmarkFiles(b, 1000000, 500, 1*KB)
 }
 
 func BenchmarkSomeLargeFiles(b *testing.B) {
-	r := getRand(b)
-	benchmarkFiles(b, 1000, r, &normalDistribution{
-		rand:   r,
-		stdDev: 500 * MB,
-		mean:   1 * GB,
-	})
+	benchmarkFiles(b, 1000, 500*MB, 1*GB)
 }
 
-func benchmarkFiles(b *testing.B, fileNum int, r *rand.Rand, d distribution) {
+// benchmarkFiles runs a benchmarks that uploads, downloads, and processes
+// fileNum files, whose sizes (in bytes) are produced by a normal
+// distribution with the given standard deviation and mean.
+func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64) {
 	repo := "BenchmarkPachyderm" + uuid.NewWithoutDashes()[0:12]
 	c, err := client.NewFromAddress("127.0.0.1:30650")
 	require.NoError(b, err)
@@ -95,7 +63,8 @@ func benchmarkFiles(b *testing.B, fileNum int, r *rand.Rand, d distribution) {
 		for k := 0; k < fileNum; k++ {
 			k := k
 			eg.Go(func() error {
-				fileSize := d.Get()
+				r := getRand()
+				fileSize := int64(r.NormFloat64()*float64(stdDev) + float64(mean))
 				atomic.AddInt64(&totalBytes, fileSize)
 				_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
 				return err
