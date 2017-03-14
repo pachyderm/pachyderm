@@ -161,7 +161,7 @@ func (h *hashtree) canonicalize(path string) error {
 		for _, object := range n.FileNode.Objects {
 			hash.Write([]byte(object.Hash))
 		}
-		size += n.FileNode.FileSize
+		size += n.SubtreeSize
 	default:
 		return errorf(Internal,
 			"malformed node at \"%s\" is neither a file nor a directory", path)
@@ -283,7 +283,7 @@ func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error
 		return err
 	}
 
-	// Get/Create file node to which we'll append 'blockRefs'
+	// Get/Create file node to which we'll append 'objects'
 	node, ok := h.fs[path]
 	if !ok {
 		node = &NodeProto{

@@ -113,19 +113,21 @@ func (s *localBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, g
 			offsetBytes -= fileInfo.Size()
 			continue
 		}
-		file, err := os.Open(s.objectPath(object))
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := file.Close(); err != nil && retErr == nil {
-				retErr = err
+		if err := func() error {
+			file, err := os.Open(s.objectPath(object))
+			if err != nil {
+				return err
 			}
-		}()
-		if request.SizeBytes == 0 {
-			sizeBytes = fileInfo.Size() - offsetBytes
-		}
-		if err := grpcutil.WriteToStreamingBytesServer(io.NewSectionReader(file, offsetBytes, sizeBytes), getObjectsServer); err != nil {
+			defer func() {
+				if err := file.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if request.SizeBytes == 0 {
+				sizeBytes = fileInfo.Size() - offsetBytes
+			}
+			return grpcutil.WriteToStreamingBytesServer(io.NewSectionReader(file, offsetBytes, sizeBytes), getObjectsServer)
+		}(); err != nil {
 			return err
 		}
 		if request.SizeBytes != 0 {
