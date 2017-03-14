@@ -1244,7 +1244,6 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	if ok {
 		h, ok := tree.(hashtree.HashTree)
 		if ok {
-			fmt.Println("using tree from cache")
 			return h, nil
 		}
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)

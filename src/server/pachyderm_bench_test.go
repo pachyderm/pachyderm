@@ -75,6 +75,9 @@ func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64, local b
 			eg.Go(func() error {
 				r := getRand()
 				fileSize := int64(r.NormFloat64()*float64(stdDev) + float64(mean))
+				if fileSize < 0 {
+					fileSize = -fileSize
+				}
 				atomic.AddInt64(&totalBytes, fileSize)
 				_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
 				return err
