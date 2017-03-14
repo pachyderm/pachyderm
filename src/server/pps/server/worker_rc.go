@@ -199,10 +199,6 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 }
 
 func (a *apiServer) createWorkerRc(options *workerOptions) error {
-	if options.parallelism != int32(1) {
-		return fmt.Errorf("pachyderm service only supports parallelism of 1, got %v",
-			options.parallelism)
-	}
 	rc := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
