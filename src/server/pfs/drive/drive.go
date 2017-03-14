@@ -77,7 +77,7 @@ type Driver interface {
 	PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 		targetFileDatums int64, targetFileBytes int64, reader io.Reader) error
 	MakeDirectory(ctx context.Context, file *pfs.File) error
-	GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error)
+	GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error)
 	InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error)
 	ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error)
 	GlobFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error)

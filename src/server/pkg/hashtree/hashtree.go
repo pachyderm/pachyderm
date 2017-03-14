@@ -153,23 +153,15 @@ func (h *hashtree) canonicalize(path string) error {
 					"updating hash of \"%s\"", join(path, child), path)
 			}
 			// append child.Name and child.Hash to b
-			if _, err := hash.Write([]byte(fmt.Sprintf("%s:%s:", n.Name, n.Hash))); err != nil {
-				return errorf(Internal, "error updating hash of file at \"%s\": %s",
-					path, err)
-			}
+			hash.Write([]byte(fmt.Sprintf("%s:%s:", n.Name, n.Hash)))
 			size += n.SubtreeSize
 		}
 	case file:
 		// Compute n.Hash by concatenating all BlockRef hashes in n.FileNode
-		for _, blockRef := range n.FileNode.BlockRefs {
-			_, err := hash.Write([]byte(fmt.Sprintf("%s:%d:%d:",
-				blockRef.Block.Hash, blockRef.Range.Lower, blockRef.Range.Upper)))
-			if err != nil {
-				return errorf(Internal, "error updating hash of dir at \"%s\": %s",
-					path, err)
-			}
-			size += int64(blockRef.Range.Upper - blockRef.Range.Lower)
+		for _, object := range n.FileNode.Objects {
+			hash.Write([]byte(object.Hash))
 		}
+		size += n.SubtreeSize
 	default:
 		return errorf(Internal,
 			"malformed node at \"%s\" is neither a file nor a directory", path)
@@ -283,7 +275,7 @@ func (h *hashtree) Finish() (HashTree, error) {
 }
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
+func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -291,7 +283,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 		return err
 	}
 
-	// Get/Create file node to which we'll append 'blockRefs'
+	// Get/Create file node to which we'll append 'objects'
 	node, ok := h.fs[path]
 	if !ok {
 		node = &NodeProto{
@@ -304,16 +296,11 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 			"type %s is already there", path, node.nodetype().tostring())
 	}
 
-	// Append new blocks
-	node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
+	// Append new object
+	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 	h.changed[path] = true
 
-	// Compute size growth of node (i.e. amount of data we're appending)
-	var sizeGrowth int64
-	for _, blockRef := range blockRefs {
-		sizeGrowth += int64(blockRef.Range.Upper - blockRef.Range.Lower)
-	}
-	node.SubtreeSize += sizeGrowth
+	node.SubtreeSize += size
 
 	// Add 'path' to parent & update hashes back to root
 	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
@@ -326,7 +313,7 @@ func (h *hashtree) PutFile(path string, blockRefs []*pfs.BlockRef) error {
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += sizeGrowth
+		node.SubtreeSize += size
 		h.changed[parent] = true
 		return nil
 	}); err != nil {
@@ -580,8 +567,8 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 				h.fs[path] = destNode
 			}
 			// Append new blocks
-			destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs,
-				n.FileNode.BlockRefs...)
+			destNode.FileNode.Objects = append(destNode.FileNode.Objects,
+				n.FileNode.Objects...)
 		default:
 			return errorf(Internal, "malformed node at \"%s\" in source "+
 				"hashtree is neither a file nor a directory", path)

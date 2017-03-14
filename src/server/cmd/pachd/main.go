@@ -59,7 +59,7 @@ type appEnv struct {
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes     string `env:"BLOCK_CACHE_BYTES,default=5G"`
+	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=5G"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
@@ -187,7 +187,6 @@ func do(appEnvObj interface{}) error {
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)

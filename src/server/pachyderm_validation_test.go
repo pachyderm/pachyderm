@@ -102,6 +102,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Branch: "master",
 			Glob:   "/*",
 		}},
+		"master",
 		false,
 	)
 	require.YesError(t, err)
@@ -123,6 +124,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Branch: "master",
 			Glob:   "/*",
 		}},
+		"master",
 		false,
 	)
 	require.YesError(t, err)
@@ -143,6 +145,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Repo: &pfsclient.Repo{Name: dataRepo},
 			Glob: "/*",
 		}},
+		"master",
 		false,
 	)
 	require.YesError(t, err)
@@ -163,6 +166,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Repo:   &pfsclient.Repo{Name: dataRepo},
 			Branch: "master",
 		}},
+		"master",
 		false,
 	)
 	require.YesError(t, err)
@@ -195,6 +199,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 				Repo:   &pfsclient.Repo{Name: "nonexistent"},
 			},
 		},
+		"master",
 		false,
 	))
 }
