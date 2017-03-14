@@ -263,17 +263,15 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		return err
 	}
 	var eg errgroup.Group
-	var blockRef *pfsclient.BlockRef
 	// Now that we have a hash of the object we can check if it already exists.
-	objectInfo, err := s.InspectObject(server.Context(), object)
+	_, err := s.InspectObject(server.Context(), object)
 	if err == nil {
 		// the object already exists so we delete the block we put
 		eg.Go(func() error {
 			return s.objClient.Delete(s.localServer.blockPath(block))
 		})
-		blockRef = objectInfo.BlockRef
 	} else {
-		blockRef = &pfsclient.BlockRef{
+		blockRef := &pfsclient.BlockRef{
 			Block: block,
 			Range: &pfsclient.ByteRange{
 				Lower: 0,
@@ -338,7 +336,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			continue
 		}
 		readSize := objectSize - offset
-		if size < readSize {
+		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
 		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
@@ -366,9 +364,11 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		// We've hit the offset so we set it to 0
 		offset = 0
-		size -= readSize
-		if size == 0 && request.SizeBytes != 0 {
-			break
+		if request.SizeBytes != 0 {
+			size -= readSize
+			if size == 0 {
+				break
+			}
 		}
 	}
 	return nil
