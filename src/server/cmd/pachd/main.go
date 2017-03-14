@@ -59,7 +59,8 @@ type appEnv struct {
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes     string `env:"BLOCK_CACHE_BYTES,default=5G"`
+	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=5G"`
+	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=1G"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
@@ -137,8 +138,11 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	driver, err := pfs_driver.NewDriver(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix)
-	//	driver, err := drive.NewDriver(address)
+	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	if err != nil {
+		return err
+	}
+	driver, err := pfs_driver.NewDriver(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
 	if err != nil {
 		return err
 	}

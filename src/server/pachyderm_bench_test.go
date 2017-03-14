@@ -39,19 +39,29 @@ func getRand() *rand.Rand {
 }
 
 func BenchmarkManySmallFiles(b *testing.B) {
-	benchmarkFiles(b, 1000000, 500, 1*KB)
+	benchmarkFiles(b, 1000000, 500, 1*KB, false)
 }
 
 func BenchmarkSomeLargeFiles(b *testing.B) {
-	benchmarkFiles(b, 1000, 500*MB, 1*GB)
+	benchmarkFiles(b, 1000, 500*MB, 1*GB, false)
+}
+
+func BenchmarkLocalSmallFiles(b *testing.B) {
+	benchmarkFiles(b, 20, 500, 1*KB, true)
 }
 
 // benchmarkFiles runs a benchmarks that uploads, downloads, and processes
 // fileNum files, whose sizes (in bytes) are produced by a normal
 // distribution with the given standard deviation and mean.
-func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64) {
-	repo := "BenchmarkPachyderm" + uuid.NewWithoutDashes()[0:12]
-	c, err := client.NewInCluster()
+func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64, local bool) {
+	repo := uniqueString("BenchmarkPachydermFiles")
+	var c *client.APIClient
+	var err error
+	if local {
+		c, err = client.NewFromAddress("localhost:30650")
+	} else {
+		c, err = client.NewInCluster()
+	}
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
