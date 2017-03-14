@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 )
@@ -446,11 +445,10 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				return err
 			}
 		} else {
-			fileNode := &hashtree.FileNodeProto{}
-			if err := proto.Unmarshal(kv.Value, fileNode); err != nil {
-				return err
-			}
-			if err := tree.PutFile(filePath, fileNode.Objects, fileNode.FileSize); err != nil {
+			var objectHash string
+			var size int64
+			fmt.Sscanf(string(kv.Value), "%d %s", &size, &objectHash)
+			if err := tree.PutFile(filePath, []*pfs.Object{{Hash: objectHash}}, size); err != nil {
 				return err
 			}
 		}
@@ -1051,14 +1049,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		if err != nil {
 			return err
 		}
-		fileNode, err := proto.Marshal(&hashtree.FileNodeProto{
-			Objects:  []*pfs.Object{object},
-			FileSize: size,
-		})
-		if err != nil {
-			return err
-		}
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(fileNode))
+		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), fmt.Sprintf("%d %s", size, object.Hash))
 		return err
 	}
 	commitInfo, err := d.InspectCommit(ctx, file.Commit)
@@ -1075,7 +1066,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToFileNodes := make(map[int]*hashtree.FileNodeProto)
+	indexToValue := make(map[int]string)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1114,10 +1105,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToFileNodes[index] = &hashtree.FileNodeProto{
-					Objects:  []*pfs.Object{object},
-					FileSize: size,
-				}
+				indexToValue[index] = fmt.Sprintf("%d %s", size, object.Hash)
 				return nil
 			})
 			datumsWritten = 0
@@ -1162,12 +1150,8 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		baseKey := "__" + prefix
 		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
 		ops := []etcd.Op{etcd.OpPut(baseKey, "")}
-		for index, fileNode := range indexToFileNodes {
-			fileNode, err := proto.Marshal(fileNode)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), string(fileNode)))
+		for index, value := range indexToValue {
+			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), value))
 		}
 		txnResp, err := txn.If(cmp).Then(ops...).Commit()
 		if err != nil {
