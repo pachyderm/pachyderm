@@ -51,7 +51,7 @@ func BenchmarkSomeLargeFiles(b *testing.B) {
 // distribution with the given standard deviation and mean.
 func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64) {
 	repo := "BenchmarkPachyderm" + uuid.NewWithoutDashes()[0:12]
-	c, err := client.NewFromAddress("127.0.0.1:30650")
+	c, err := client.NewInCluster()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
@@ -122,5 +122,20 @@ func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64) {
 		b.SetBytes(int64(repoInfo.SizeBytes))
 	}) {
 		return
+	}
+}
+
+func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
+	repo := uniqueString("BenchmarkDailyPutLargeFileViaS3")
+	c, err := client.NewInCluster()
+	require.NoError(b, err)
+	require.NoError(b, c.CreateRepo(repo))
+	for i := 0; i < b.N; i++ {
+		commit, err := c.StartCommit(repo, "")
+		require.NoError(b, err)
+		err = c.PutFileURL(repo, "master", "/", "s3://pachyderm-internal-benchmark/bigfiles/1gb.bytes", false)
+		require.NoError(b, err)
+		require.NoError(b, c.FinishCommit(repo, commit.ID))
+		b.SetBytes(int64(1024 * MB))
 	}
 }
