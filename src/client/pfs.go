@@ -782,11 +782,27 @@ func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWri
 }
 
 func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.putBlockClient.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+	bytesWritten := 0
+	for {
+		// Buffer the write so that we don't exceed the grpc
+		// MaxMsgSize. This value includes the whole payload
+		// including headers, so we're conservative and halve it
+		ceil := bytesWritten + MaxMsgSize/2
+		if ceil > len(p) {
+			ceil = len(p)
+		}
+		actualP := p[bytesWritten:ceil]
+		if len(actualP) == 0 {
+			break
+		}
+		w.request.Value = actualP
+		if err := w.putBlockClient.Send(w.request); err != nil {
+			return 0, sanitizeErr(err)
+		}
+		w.request.Value = nil
+		bytesWritten += len(actualP)
 	}
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 func (w *putBlockWriteCloser) Close() error {
@@ -819,12 +835,27 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.putObjectClient.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+	bytesWritten := 0
+	for {
+		// Buffer the write so that we don't exceed the grpc
+		// MaxMsgSize. This value includes the whole payload
+		// including headers, so we're conservative and halve it
+		ceil := bytesWritten + MaxMsgSize/2
+		if ceil > len(p) {
+			ceil = len(p)
+		}
+		actualP := p[bytesWritten:ceil]
+		if len(actualP) == 0 {
+			break
+		}
+		w.request.Value = actualP
+		if err := w.putObjectClient.Send(w.request); err != nil {
+			return 0, sanitizeErr(err)
+		}
+		w.request.Value = nil
+		bytesWritten += len(actualP)
 	}
-	w.request.Tags = nil
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 func (w *putObjectWriteCloser) Close() error {
