@@ -30,6 +30,57 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+func TestPipelineWithParallelism(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 1000
+	commit1, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
+
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 4,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	for i := 0; i < 1000; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
+		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
+	}
+}
+
 func TestDatumDedup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
