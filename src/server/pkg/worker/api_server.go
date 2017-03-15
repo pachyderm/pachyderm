@@ -34,8 +34,9 @@ type Input struct {
 
 // Options are the options used to initialize a worker.
 type Options struct {
-	Transform *pps.Transform
-	Inputs    []*Input
+	Transform  *pps.Transform
+	Inputs     []*Input
+	WorkerName string
 }
 
 // APIServer implements the worker API
@@ -209,6 +210,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return &ProcessResponse{
 			Tag: &pfs.Tag{tag},
 		}, nil
+	}
+
+	// Link /pfs to the hostpath volume
+	workerDir := filepath.Join(client.PPSHostPath, a.options.WorkerName)
+	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
+		return nil, err
 	}
 
 	if err := a.downloadData(ctx, req.Data); err != nil {
