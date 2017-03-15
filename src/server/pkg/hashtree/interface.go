@@ -85,7 +85,7 @@ type OpenHashTree interface {
 	GetOpen(path string) (*OpenNode, error)
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
-	PutFile(path string, blockRefs []*pfs.BlockRef) error
+	PutFile(path string, objects []*pfs.Object, size int64) error
 
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error

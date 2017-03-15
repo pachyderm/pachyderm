@@ -1086,6 +1086,8 @@ func TestPipelineState(t *testing.T) {
 		"",
 		false,
 	))
+	// Wait for pipeline to get picked up
+	time.Sleep(5 * time.Second)
 
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)

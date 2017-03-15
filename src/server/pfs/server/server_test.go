@@ -1825,30 +1825,6 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-func getBlockClient(t *testing.T) pfs.BlockAPIClient {
-	localPort := atomic.AddInt32(&port, 1)
-	address := fmt.Sprintf("localhost:%d", localPort)
-	root := uniqueString("/tmp/pach_test/run")
-	t.Logf("root %s", root)
-	blockAPIServer, err := NewLocalBlockAPIServer(root)
-	require.NoError(t, err)
-	ready := make(chan bool)
-	go func() {
-		err := grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfs.RegisterBlockAPIServer(s, blockAPIServer)
-				close(ready)
-			},
-			grpcutil.ServeOptions{Version: version.Version},
-			grpcutil.ServeEnv{GRPCPort: uint16(localPort)},
-		)
-		require.NoError(t, err)
-	}()
-	<-ready
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	return pfs.NewBlockAPIClient(clientConn)
-}
-
 func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	blockAPIServer BlockAPIServer) {
 	ready := make(chan bool)
@@ -1856,7 +1832,6 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
-				pfs.RegisterBlockAPIServer(s, blockAPIServer)
 				pfs.RegisterObjectAPIServer(s, blockAPIServer)
 				close(ready)
 			},

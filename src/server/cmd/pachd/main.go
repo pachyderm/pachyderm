@@ -191,7 +191,6 @@ func do(appEnvObj interface{}) error {
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			cache_pb.RegisterGroupCacheServer(s, cacheServer)

@@ -18,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -26,7 +27,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"google.golang.org/grpc"
 )
 
@@ -142,23 +142,6 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 // function is intended for testing purposes
 func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
 	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
-}
-
-func (d *driver) getBlockClient() (*client.APIClient, error) {
-	if d.pachConn == nil {
-		var onceErr error
-		d.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(d.address, grpc.WithInsecure())
-			if err != nil {
-				onceErr = err
-			}
-			d.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return nil, onceErr
-		}
-	}
-	return &client.APIClient{BlockAPIClient: pfs.NewBlockAPIClient(d.pachConn)}, nil
 }
 
 func (d *driver) getObjectClient() (*client.APIClient, error) {
@@ -486,27 +469,19 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				return err
 			}
 		} else {
-			// The serialized data contains multiple blockrefs; read them all
-			var blockRefs []*pfs.BlockRef
-			data := bytes.NewReader(kv.Value)
-			for {
-				blockRef := &pfs.BlockRef{}
-				if _, err := pbutil.ReadDelimited(data, blockRef); err != nil {
-					if err == io.EOF {
-						break
-					}
-					return err
-				}
-				blockRefs = append(blockRefs, blockRef)
-			}
-
-			if err := tree.PutFile(filePath, blockRefs); err != nil {
+			var objectHash string
+			var size int64
+			fmt.Sscanf(string(kv.Value), "%d %s", &size, &objectHash)
+			if err := tree.PutFile(filePath, []*pfs.Object{{Hash: objectHash}}, size); err != nil {
 				return err
 			}
 		}
 	}
 
 	finishedTree, err := tree.Finish()
+	if err != nil {
+		return err
+	}
 	// Serialize the tree
 	data, err := hashtree.Serialize(finishedTree)
 	if err != nil {
@@ -520,7 +495,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			return err
 		}
 
-		obj, err := objClient.PutObject(bytes.NewReader(data))
+		obj, _, err := objClient.PutObject(bytes.NewReader(data))
 		if err != nil {
 			return err
 		}
@@ -1086,28 +1061,16 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	// Put the tree into the blob store
-	blockClient, err := d.getBlockClient()
+	objClient, err := d.getObjectClient()
 	if err != nil {
 		return err
 	}
 	if delimiter == pfs.Delimiter_NONE {
-		blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, reader)
+		object, size, err := objClient.PutObject(reader)
 		if err != nil {
 			return err
 		}
-
-		// Serialize the blockrefs.
-		// Since we are serializing multiple blockrefs, we use WriteDelimited
-		// to write them into the same object, since protobuf messages are not
-		// self-delimiting.
-		var buffer bytes.Buffer
-		for _, blockRef := range blockRefs.BlockRef {
-			if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
-				return err
-			}
-		}
-
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), buffer.String())
+		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), fmt.Sprintf("%d %s", size, object.Hash))
 		return err
 	}
 	commitInfo, err := d.InspectCommit(ctx, file.Commit)
@@ -1124,7 +1087,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToBlockRefs := make(map[int]*pfs.BlockRefs)
+	indexToValue := make(map[int]string)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1157,13 +1120,13 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			_buffer := buffer
 			index := filesPut
 			eg.Go(func() error {
-				blockRefs, err := blockClient.PutBlock(pfs.Delimiter_NONE, _buffer)
+				object, size, err := objClient.PutObject(_buffer)
 				if err != nil {
 					return err
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToBlockRefs[index] = blockRefs
+				indexToValue[index] = fmt.Sprintf("%d %s", size, object.Hash)
 				return nil
 			})
 			datumsWritten = 0
@@ -1208,14 +1171,8 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		baseKey := "__" + prefix
 		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
 		ops := []etcd.Op{etcd.OpPut(baseKey, "")}
-		for index, blockRefs := range indexToBlockRefs {
-			var buffer bytes.Buffer
-			for _, blockRef := range blockRefs.BlockRef {
-				if _, err := pbutil.WriteDelimited(&buffer, blockRef); err != nil {
-					return err
-				}
-			}
-			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), buffer.String()))
+		for index, value := range indexToValue {
+			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), value))
 		}
 		txnResp, err := txn.If(cmp).Then(ops...).Commit()
 		if err != nil {
@@ -1292,7 +1249,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.ReadCloser, error) {
+func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1307,81 +1264,19 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
-	return d.newFileReader(node.FileNode.BlockRefs, file, offset, size)
-}
-
-type fileReader struct {
-	blockClient *client.APIClient
-	reader      io.Reader
-	offset      int64
-	size        int64 // how much data to read
-	sizeRead    int64 // how much data has been read
-	blockRefs   []*pfs.BlockRef
-	file        *pfs.File
-}
-
-func (d *driver) newFileReader(blockRefs []*pfs.BlockRef, file *pfs.File, offset int64, size int64) (*fileReader, error) {
-	blockClient, err := d.getBlockClient()
+	objClient, err := d.getObjectClient()
 	if err != nil {
 		return nil, err
 	}
-
-	return &fileReader{
-		blockClient: blockClient,
-		blockRefs:   blockRefs,
-		offset:      offset,
-		size:        size,
-		file:        file,
-	}, nil
-}
-
-func (r *fileReader) Read(data []byte) (int, error) {
-	var err error
-	if r.reader == nil {
-		var blockRef *pfs.BlockRef
-		for {
-			if len(r.blockRefs) == 0 {
-				return 0, io.EOF
-			}
-			blockRef = r.blockRefs[0]
-			r.blockRefs = r.blockRefs[1:]
-			blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
-			if r.offset >= blockSize {
-				r.offset -= blockSize
-				continue
-			}
-			break
-		}
-		sizeLeft := r.size
-		// e.g. sometimes a reader is constructed of size 0
-		if sizeLeft != 0 {
-			sizeLeft -= r.sizeRead
-		}
-		r.reader, err = r.blockClient.GetBlock(blockRef.Block.Hash, uint64(r.offset), uint64(sizeLeft))
-		if err != nil {
-			return 0, err
-		}
-		r.offset = 0
+	getObjectsClient, err := objClient.ObjectAPIClient.GetObjects(ctx, &pfs.GetObjectsRequest{
+		Objects:     node.FileNode.Objects,
+		OffsetBytes: uint64(offset),
+		SizeBytes:   uint64(size),
+	})
+	if err != nil {
+		return nil, err
 	}
-	size, err := r.reader.Read(data)
-	if err != nil && err != io.EOF {
-		return size, err
-	}
-	if err == io.EOF {
-		r.reader = nil
-	}
-	r.sizeRead += int64(size)
-	if r.sizeRead == r.size {
-		return size, io.EOF
-	}
-	if r.size > 0 && r.sizeRead > r.size {
-		return 0, fmt.Errorf("read more than we need; this is likely a bug")
-	}
-	return size, nil
-}
-
-func (r *fileReader) Close() error {
-	return nil
+	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
 func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *pfs.FileInfo {
