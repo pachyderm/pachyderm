@@ -585,18 +585,7 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
 	c.streamSemaphore <- struct{}{}
 	defer func() { <-c.streamSemaphore }()
-	return c.getFile(repoName, commitID, path, offset, size, writer)
-}
-
-func (c APIClient) getFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	apiGetFileClient, err := c.PfsAPIClient.GetFile(
-		c.ctx(),
-		&pfs.GetFileRequest{
-			File:        NewFile(repoName, commitID, path),
-			OffsetBytes: offset,
-			SizeBytes:   size,
-		},
-	)
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
 		return sanitizeErr(err)
 	}
@@ -604,6 +593,26 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 		return sanitizeErr(err)
 	}
 	return nil
+}
+
+func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
+}
+
+func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
+	size int64) (pfs.API_GetFileClient, error) {
+	return c.PfsAPIClient.GetFile(
+		c.ctx(),
+		&pfs.GetFileRequest{
+			File:        NewFile(repoName, commitID, path),
+			OffsetBytes: offset,
+			SizeBytes:   size,
+		},
+	)
 }
 
 // InspectFile returns info about a specific file.

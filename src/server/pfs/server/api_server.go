@@ -319,6 +319,8 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 					}
 				}()
 				r = resp.Body
+			case "pfs":
+				return a.putFilePfs(ctx, request, url)
 			default:
 				objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
 				if err != nil {
@@ -341,6 +343,40 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
+	pClient, err := client.NewFromAddress(url.Host)
+	if err != nil {
+		return err
+	}
+	put := func(outPath string, inRepo string, inCommit string, inFile string) (retErr error) {
+		r, err := pClient.GetFileReader(inRepo, inCommit, inFile, 0, 0)
+		if err != nil {
+			return err
+		}
+		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+	}
+	splitPath := strings.Split(url.Path, "/")
+	if len(splitPath) < 3 {
+		return fmt.Errorf("pfs put-file path must be of form repo/commit/path/to/file got: %s", url.Path)
+	}
+	repo := splitPath[0]
+	commit := splitPath[1]
+	file := filepath.Join(splitPath[2:]...)
+	if request.Recursive {
+		var eg errgroup.Group
+		if err := pClient.Walk(splitPath[0], commit, file, func(fileInfo *pfs.FileInfo) error {
+			eg.Go(func() error {
+				return put(filepath.Join(request.File.Path, strings.TrimPrefix(fileInfo.File.Path, file)), repo, commit, fileInfo.File.Path)
+			})
+			return nil
+		}); err != nil {
+			return err
+		}
+		return eg.Wait()
+	}
+	return put(filepath.Join(request.File.Path, file), repo, commit, file)
 }
 
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
