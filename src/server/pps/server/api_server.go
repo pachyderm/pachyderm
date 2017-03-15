@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	kube_labels "k8s.io/kubernetes/pkg/labels"
@@ -73,6 +74,15 @@ func newErrEmptyInput(commitID string) *errEmptyInput {
 
 func newErrParentInputsMismatch(parent string) error {
 	return fmt.Errorf("job does not have the same set of inputs as its parent %v", parent)
+}
+
+func NewBackOffFromContext(ctx context.Context) backoff.BackOff {
+	b := backoff.NewExponentialBackOff()
+	b.MaxInterval = 30 * time.Second // arbitrary, but probably shouldn't be infinity
+	if deadline, ok := ctx.Deadline(); ok {
+		b.MaxElapsedTime = deadline.Sub(time.Now())
+	}
+	return b
 }
 
 type ctxAndCancel struct {
@@ -297,6 +307,9 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	// No deadline in request, but we create one here, since we do expect the call
+	// to finish reasonably quickly
+	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 
 	// Validate request
 	if request.Pipeline == nil && request.Job == nil {
@@ -306,7 +319,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// Get list of pods containing logs we're interested in (based on pipeline and
 	// job filters)
 	var rcName string
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	if request.Pipeline != nil {
 		// If the user provides a pipeline, get logs from the pipeline RC directly
 		var err error
@@ -368,9 +380,21 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				defer close(locks[i+1])
 			}
 			// Get full set of logs from pod i
-			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
-			fullLogs, err := result.Raw()
+			var fullLogs []byte
+			b := NewBackOffFromContext(ctx)
+			err := backoff.RetryNotify(func() error {
+				var err error
+				result := a.kubeClient.Pods(a.namespace).GetLogs(
+					pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
+				fullLogs, err = result.Raw()
+				return err
+			}, b, func(err error, d time.Duration) error {
+				if apiStatus, ok := err.(errors.APIStatus); ok &&
+					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+					return nil // Retry
+				}
+				return err // Don't bother
+			})
 			if err != nil {
 				return err
 			}
@@ -881,7 +905,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	}()
 
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
+	err := backoff.RetryNotify(func() error {
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
@@ -995,7 +1019,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			protolion.Errorf("error updating pipeline state: %v", err)
 		}
 		return nil
-	}); err != nil && !isContextCancelledErr(err) {
+	})
+	if err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
 }
@@ -1333,9 +1358,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	fmt.Println("Getting parallelism")
 	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-	fmt.Println("parallelism: ", parallelism)
 	if err != nil {
 		return err
 	}
@@ -1343,7 +1366,6 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		pipelineInfo.Transform)
-	fmt.Printf("RC Options: %+v", options)
 	// Set the pipeline name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
 		Name:  client.PPSPipelineNameEnv,

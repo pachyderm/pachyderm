@@ -2405,6 +2405,11 @@ func TestGetLogs(t *testing.T) {
 	_, err = commitIter.Next()
 	require.NoError(t, err)
 
+	// List output commits, to make sure one exists?
+	commits, err := c.ListCommitByRepo(pipelineName)
+	require.NoError(t, err)
+	require.True(t, len(commits) == 1)
+
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil)
 	for iter.Next() {
@@ -2417,7 +2422,7 @@ func TestGetLogs(t *testing.T) {
 	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.Matches(t, "pipeline.*not.*exist", iter.Err().Error())
+	require.Matches(t, "no pods", iter.Err().Error())
 
 	// Get logs from pipeline, using job
 	// (1) Get job ID, from pipeline that just ran
@@ -2436,7 +2441,7 @@ func TestGetLogs(t *testing.T) {
 	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.Matches(t, "job.*not.*exist", iter.Err().Error())
+	require.Matches(t, "no pods", iter.Err().Error())
 
 	// Filter logs based on input (using file that exists)
 	// (1) Inspect repo/file to get hash, so we can compare hash to path

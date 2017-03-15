@@ -224,5 +224,6 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 		},
 	}
 	_, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
+	fmt.Println("Error from a.kubeClient.ReplicationControllers(a.namespace).Create(rc): ", err)
 	return err
 }
