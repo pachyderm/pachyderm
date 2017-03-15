@@ -151,6 +151,9 @@ func do(appEnvObj interface{}) error {
 	if err := os.Mkdir(workerDir, 0777); err != nil {
 		return err
 	}
+	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
+		return err
+	}
 
 	// Start worker api server
 	apiServer := worker.NewAPIServer(pachClient, &options)
