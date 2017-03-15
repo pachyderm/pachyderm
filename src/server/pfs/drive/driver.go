@@ -26,6 +26,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
 )
 
@@ -45,12 +46,25 @@ type driver struct {
 	branches      collectionFactory
 
 	// a cache for commit IDs that we know exist
-	commitCache      map[string]bool
-	commitCacheMutex sync.Mutex
+	commitCache *lru.Cache
+	// a cache for hashtrees
+	treeCache *lru.Cache
 }
 
 const (
 	tombstone = "delete"
+)
+
+// Instead of making the user specify the respective size for each cache,
+// we decide internally how to split cache space among different caches.
+//
+// Each value specifies a percentage of the total cache space to be used.
+const (
+	commitCachePercentage = 0.05
+	treeCachePercentage   = 0.95
+
+	// by default we use 1GB of RAM for cache
+	defaultCacheSize = 1024 * 1024
 )
 
 // collection prefixes
@@ -69,11 +83,20 @@ var (
 )
 
 // NewDriver is used to create a new Driver instance
-func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Driver, error) {
+func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (Driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialTimeout: 5 * time.Second,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	commitCache, err := lru.New(int(float64(cacheBytes) * commitCachePercentage))
+	if err != nil {
+		return nil, err
+	}
+	treeCache, err := lru.New(int(float64(cacheBytes) * treeCachePercentage))
 	if err != nil {
 		return nil, err
 	}
@@ -110,14 +133,15 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string) (Drive
 				&pfs.Commit{},
 			)
 		},
-		commitCache: make(map[string]bool),
+		commitCache: commitCache,
+		treeCache:   treeCache,
 	}, nil
 }
 
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
-	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix)
+	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
 }
 
 func (d *driver) getObjectClient() (*client.APIClient, error) {
@@ -1008,15 +1032,12 @@ func checkPath(path string) error {
 }
 
 func (d *driver) commitExists(commitID string) bool {
-	d.commitCacheMutex.Lock()
-	defer d.commitCacheMutex.Unlock()
-	return d.commitCache[commitID]
+	_, found := d.commitCache.Get(commitID)
+	return found
 }
 
 func (d *driver) setCommitExist(commitID string) {
-	d.commitCacheMutex.Lock()
-	defer d.commitCacheMutex.Unlock()
-	d.commitCache[commitID] = true
+	d.commitCache.Add(commitID, struct{}{})
 }
 
 func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
@@ -1176,11 +1197,19 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return t, nil
 	}
 
+	tree, ok := d.treeCache.Get(commit.ID)
+	if ok {
+		h, ok := tree.(hashtree.HashTree)
+		if ok {
+			return h, nil
+		}
+		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
+	}
+
 	if _, err := d.InspectCommit(ctx, commit); err != nil {
 		return nil, err
 	}
 
-	// TODO: get the tree from a cache
 	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
 	commitInfo := &pfs.CommitInfo{}
 	if err := commits.Get(commit.ID, commitInfo); err != nil {
@@ -1214,6 +1243,8 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	if err != nil {
 		return nil, err
 	}
+
+	d.treeCache.Add(commit.ID, h)
 
 	return h, nil
 }
