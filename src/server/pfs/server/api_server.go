@@ -357,13 +357,16 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		}
 		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
-	splitPath := strings.Split(url.Path, "/")
-	if len(splitPath) < 3 {
-		return fmt.Errorf("pfs put-file path must be of form repo/commit/path/to/file got: %s", url.Path)
+	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
+	if len(splitPath) < 2 {
+		return fmt.Errorf("pfs put-file path must be of form repo/commit[/path/to/file] got: %s", url.Path)
 	}
 	repo := splitPath[0]
 	commit := splitPath[1]
-	file := filepath.Join(splitPath[2:]...)
+	file := ""
+	if len(splitPath) >= 3 {
+		file = filepath.Join(splitPath[2:]...)
+	}
 	if request.Recursive {
 		var eg errgroup.Group
 		if err := pClient.Walk(splitPath[0], commit, file, func(fileInfo *pfs.FileInfo) error {
