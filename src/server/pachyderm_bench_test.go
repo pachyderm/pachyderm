@@ -39,21 +39,21 @@ func getRand() *rand.Rand {
 }
 
 func BenchmarkManySmallFiles(b *testing.B) {
-	benchmarkFiles(b, 1000000, 500, 1*KB, false)
+	benchmarkFiles(b, 1000000, 100, 10*KB, false)
 }
 
 func BenchmarkSomeLargeFiles(b *testing.B) {
-	benchmarkFiles(b, 1000, 500*MB, 1*GB, false)
+	benchmarkFiles(b, 1000, 100*MB, 30*GB, false)
 }
 
 func BenchmarkLocalSmallFiles(b *testing.B) {
-	benchmarkFiles(b, 20, 500, 1*KB, true)
+	benchmarkFiles(b, 1000, 100, 10*KB, true)
 }
 
 // benchmarkFiles runs a benchmarks that uploads, downloads, and processes
-// fileNum files, whose sizes (in bytes) are produced by a normal
-// distribution with the given standard deviation and mean.
-func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64, local bool) {
+// fileNum files, whose sizes (in bytes) are produced by a zipf
+// distribution with the given min and max.
+func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, local bool) {
 	repo := uniqueString("BenchmarkPachydermFiles")
 	var c *client.APIClient
 	var err error
@@ -70,16 +70,14 @@ func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64, local b
 	if !b.Run(fmt.Sprintf("Put%dFiles", fileNum), func(b *testing.B) {
 		var totalBytes int64
 		var eg errgroup.Group
+		r := getRand()
+		zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
 		for k := 0; k < fileNum; k++ {
 			k := k
+			fileSize := int64(zipf.Uint64() + minSize)
+			totalBytes += fileSize
 			eg.Go(func() error {
-				r := getRand()
-				fileSize := int64(r.NormFloat64()*float64(stdDev) + float64(mean))
-				if fileSize < 0 {
-					fileSize = -fileSize
-				}
-				atomic.AddInt64(&totalBytes, fileSize)
-				_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
+				_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(getRand(), fileSize))
 				return err
 			})
 		}
@@ -124,15 +122,17 @@ func benchmarkFiles(b *testing.B, fileNum int, stdDev int64, mean int64, local b
 			"",
 			false,
 		))
-		_, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, commit.ID)}, nil)
+		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, commit.ID)}, nil)
+		require.NoError(b, err)
+		_, err = commitIter.Next()
 		require.NoError(b, err)
 		b.StopTimer()
-		repoInfo, err := c.InspectRepo(repo)
+		inputRepoInfo, err := c.InspectRepo(repo)
 		require.NoError(b, err)
-		b.SetBytes(int64(repoInfo.SizeBytes))
-		repoInfo, err = c.InspectRepo(pipeline)
+		outputRepoInfo, err := c.InspectRepo(pipeline)
 		require.NoError(b, err)
-		b.SetBytes(int64(repoInfo.SizeBytes))
+		require.Equal(b, inputRepoInfo.SizeBytes, outputRepoInfo.SizeBytes)
+		b.SetBytes(int64(inputRepoInfo.SizeBytes + outputRepoInfo.SizeBytes))
 	}) {
 		return
 	}
