@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -154,6 +155,58 @@ func (c APIClient) DeleteJob(jobID string) error {
 		},
 	)
 	return sanitizeErr(err)
+}
+
+// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
+// be fetched with 'Next()'. The log message received can be examined with
+// 'Message()', and any errors can be examined with 'Err()'.
+type LogsIter struct {
+	logsClient pps.API_GetLogsClient
+	msg        *pps.LogMessage
+	err        error
+}
+
+func (l *LogsIter) Next() bool {
+	if l.err != nil {
+		return false
+	}
+	l.msg, l.err = l.logsClient.Recv()
+	if l.err != nil {
+		return false
+	}
+	return true
+}
+
+func (l *LogsIter) Message() *pps.LogMessage {
+	return l.msg
+}
+
+func (l *LogsIter) Err() error {
+	if l.err == io.EOF {
+		return nil
+	}
+	return l.err
+}
+
+// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobId', and 'data', are all filters. To forego any filter, simply pass an
+// empty value, though one of 'pipelineName' and 'jobId' must be set. Responses
+// are written to 'messages'
+func (c APIClient) GetLogs(
+	pipelineName string,
+	jobId string,
+	data []string,
+) *LogsIter {
+	request := pps.GetLogsRequest{}
+	resp := &LogsIter{}
+	if len(pipelineName) > 0 {
+		request.Pipeline = &pps.Pipeline{pipelineName}
+	}
+	if len(jobId) > 0 {
+		request.Job = &pps.Job{jobId}
+	}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.ctx(), &request)
+	return resp
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation

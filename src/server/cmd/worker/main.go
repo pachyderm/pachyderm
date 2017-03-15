@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"path"
 	"time"
 
@@ -89,7 +88,6 @@ func getJobInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.JobInfo, error) {
 }
 
 func do(appEnvObj interface{}) error {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*AppEnv)
 	if err := validateEnv(appEnv); err != nil {
 		return err
@@ -120,14 +118,14 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		apiServer := worker.NewPipelineAPIServer(pachClient, pipelineInfo)
+		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
 		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
-		apiServer := worker.NewJobAPIServer(pachClient, jobInfo)
+		apiServer = worker.NewJobAPIServer(pachClient, jobInfo)
 	}
 
 	// Start worker api server

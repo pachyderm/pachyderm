@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -17,11 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -36,34 +36,9 @@ type Input struct {
 	Lazy bool
 }
 
-// logInput contains metadata about job or pipeline's inputs, which this worker
-// uses to annotate its log lines
-type logInput struct {
-	source string
-	path   string
-	hash   string
-}
-
-// logInfo is a struct that attaches some metadata to log lines. We json-
-// encode this struct and then emit it to stdout, so that elasticsearch can
-// consume the metadata and make it searchable
-type logInfo struct {
-	// Either (PipelineName and PipelineID) or (JobID) will be set
-	PipelineName string
-	PipelineID   string
-	JobID        string
-
-	// These will be updated in each call to process
-	Inputs []logInput
-
-	// The message being logged with each call
-	Message string
-}
-
 // APIServer implements the worker API
 type APIServer struct {
 	sync.Mutex
-	protorpclog.Logger
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
@@ -71,86 +46,101 @@ type APIServer struct {
 	inputs    []*Input
 
 	// Information attached to log lines
-	logInfoTemplate logInfo
+	logMsgTemplate pps.LogMessage
 }
 
-func (a *APIServer) taggedLogger(req *ProcessRequest) logInfo {
-	result := a.logInfoTemplate // Copy struct, so we don't change the template
+type taggedLogger struct {
+	template  pps.LogMessage
+	stderrLog log.Logger
+	marshaler *jsonpb.Marshaler
+}
 
-	// Add inputs detauls to log metadata, so we can find these logs later
+func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
+	result := &taggedLogger{
+		template:  a.logMsgTemplate, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.stderrLog.SetOutput(os.Stderr)
+	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
+
+	// Add Job ID to log metadata
+	result.template.JobID = req.JobID
+
+	// Add inputs' details to log metadata, so we can find these logs later
+	result.template.Data = make([]*pps.LogMessage_Datum, 0, len(req.Data))
 	for i, d := range req.Data {
-		result.Inputs[i].hash = string(d.Hash)
-		result.Inputs[i].path = d.File.Path
+		result.template.Data = append(result.template.Data, new(pps.LogMessage_Datum))
+		result.template.Data[i].Path = d.File.Path
+		result.template.Data[i].Hash = d.Hash
 	}
 	return result
 }
 
-func (loginfo logInfo) Logf(formatString string, args ...interface{}) {
-	loginfo.Message = fmt.Sprintf(formatString, args)
-	bytes, err := json.Marshal(&loginfo)
-	if err != nil {
-		// log the struct anyway?
-		log.Printf("could not marshal %v for logging: %s", loginfo, err)
+// Logf logs the line Sprintf(formatString, args...), but formatted as a json
+// message and annotated with all of the metadata stored in 'loginfo'.
+//
+// Note: this is not thread-safe, as it modifies fields of 'logger.template'
+func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
+	logger.template.Message = fmt.Sprintf(formatString, args...)
+	if ts, err := types.TimestampProto(time.Now()); err == nil {
+		logger.template.Ts = ts
+	} else {
+		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
 		return
 	}
-	log.Println(bytes)
+	bytes, err := logger.marshaler.MarshalToString(&logger.template)
+	if err != nil {
+		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
+		return
+	}
+	fmt.Printf("%s\n", bytes)
 }
 
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
-	result := &APIServer{
+	server := &APIServer{
 		Mutex:      sync.Mutex{},
-		Logger:     protorpclog.NewLogger(""),
 		pachClient: pachClient,
 		transform:  pipelineInfo.Transform,
 		inputs:     make([]*Input, 0, len(pipelineInfo.Inputs)),
-		logInfoTemplate: logInfo{
+		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
-			Inputs:       make([]logInput, 0, len(pipelineInfo.Inputs)),
 		},
 	}
 	for _, input := range pipelineInfo.Inputs {
-		result.inputs = append(result.inputs, &Input{
+		server.inputs = append(server.inputs, &Input{
 			Name: input.Name,
 			Lazy: input.Lazy,
 		})
-		result.logInfoTemplate.Inputs = append(result.logInfoTemplate.Inputs, logInput{
-			source: input.Name,
-		})
 	}
-	return result
+	return server
 }
 
 // NewJobAPIServer creates an APIServer for a given pipeline
 func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo) *APIServer {
-	result := &APIServer{
-		Mutex:      sync.Mutex{},
-		Logger:     protorpclog.NewLogger(""),
-		pachClient: pachClient,
-		transform:  jobInfo.Transform,
-		inputs:     make([]*Input, 0, len(jobInfo.Inputs)),
-		logInfoTemplate: logInfo{
-			JobID:  jobInfo.Job.ID,
-			Inputs: make([]logInput, 0, len(jobInfo.Inputs)),
-		},
+	server := &APIServer{
+		Mutex:          sync.Mutex{},
+		pachClient:     pachClient,
+		transform:      jobInfo.Transform,
+		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
+		logMsgTemplate: pps.LogMessage{},
 	}
 	for _, input := range jobInfo.Inputs {
-		result.inputs = append(result.inputs, &Input{
+		server.inputs = append(server.inputs, &Input{
 			Name: input.Name,
 			Lazy: input.Lazy,
 		})
-		result.logInfoTemplate.Inputs = append(result.logInfoTemplate.Inputs, logInput{
-			source: input.Name,
-		})
 	}
-	return result
+	return server
 }
 
 func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) error {
 	for i, datum := range data {
 		input := a.inputs[i]
-		if err := filesync.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy); err != nil {
+		path := filepath.Join(client.PPSInputPrefix, input.Name)
+		if err := filesync.Pull(ctx, a.pachClient, path, datum, input.Lazy); err != nil {
 			return err
 		}
 	}
@@ -158,7 +148,7 @@ func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) erro
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, taggedLogger *logInfo) (string, error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (string, error) {
 	// Run user code
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
@@ -169,10 +159,10 @@ func (a *APIServer) runUserCode(ctx context.Context, taggedLogger *logInfo) (str
 	err := cmd.Run()
 
 	// Log output from user cmd, line-by-line, whether or not cmd errored
-	taggedLogger.Logf("running user code")
+	logger.Logf("running user code")
 	logscanner := bufio.NewScanner(&userlog)
 	for logscanner.Scan() {
-		taggedLogger.Logf(logscanner.Text())
+		logger.Logf(logscanner.Text())
 	}
 
 	// Return result
@@ -295,15 +285,13 @@ func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
 	a.Lock()
 	defer a.Unlock()
-	taggedLogger := a.taggedLogger(req)
-	taggedLogger.Logf("Recieved request")
+	logger := a.getTaggedLogger(req)
+	logger.Logf("Received request")
 
 	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
@@ -314,14 +302,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 		// We've already computed the output for these inputs. Return immediately
-		taggedLogger.Logf("skipping input, as it's already been processed")
+		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
 			Tag: &pfs.Tag{tag},
 		}, nil
 	}
 
 	// Download input data
-	taggedLogger.Logf("input has not been processed, downloading data")
+	logger.Logf("input has not been processed, downloading data")
 	if err := a.downloadData(ctx, req.Data); err != nil {
 		return nil, err
 	}
@@ -336,7 +324,9 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
-	userlog, err := a.runUserCode(ctx, &taggedLogger)
+	logger.Logf("beginning to process user input")
+	userlog, err := a.runUserCode(ctx, logger)
+	logger.Logf("finished processing user input")
 	if err != nil {
 		return &ProcessResponse{
 			Log: userlog,

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -19,10 +21,12 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -279,6 +283,141 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
+	var pipelineInfo pps.PipelineInfo
+	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
+	if err != nil {
+		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
+	}
+	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+}
+
+func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+
+	// Validate request
+	if request.Pipeline == nil && request.Job == nil {
+		return fmt.Errorf("must set either pipeline or job filter in call to GetLogs")
+	}
+
+	// Get list of pods containing logs we're interested in (based on pipeline and
+	// job filters)
+	var rcName string
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	if request.Pipeline != nil {
+		// If the user provides a pipeline, get logs from the pipeline RC directly
+		var err error
+		rcName, err = a.lookupRcNameForPipeline(ctx, request.Pipeline)
+		if err != nil {
+			return err
+		}
+	} else if request.Job != nil {
+		// If they only provided a job, get job info to see if it's an orphan job
+		var jobInfo pps.JobInfo
+		err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
+		if err != nil {
+			return fmt.Errorf("could not job information for %s: %s", request.Job.ID, err.Error())
+		}
+
+		// Get logs from either pipeline RC, or job RC if it's an orphan job
+		if jobInfo.Pipeline != nil {
+			var err error
+			rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
+			if err != nil {
+				return err
+			}
+		} else {
+			rcName = JobRcName(request.Job.ID)
+		}
+	} else {
+		return fmt.Errorf("must specify either pipeline or job")
+	}
+	pods, err := a.rcPods(rcName)
+	if err != nil {
+		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
+	}
+	if len(pods) == 0 {
+		return fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
+	}
+
+	// Spawn one goroutine per pod. Each goro writes its pod's logs directly to
+	// apiGetLogsServer, but writes are blocked until earlier pods are done
+	// writing (fetching logs from pods happens concurrently). This way, logs
+	// from the same pod are emitted together
+
+	// (sort the pods to make sure that the order of log lines is stable)
+	sort.Sort(podSlice(pods))
+	// (goro #i blocks writes on locks[i], so that logs from the same pod are
+	// emitted together)
+	locks := make([]chan struct{}, len(pods))
+	for i := 0; i < len(pods); i++ {
+		locks[i] = make(chan struct{})
+	}
+	// (let the first goroutine log immediately)
+	close(locks[0])
+	var eg errgroup.Group
+	for i, pod := range pods {
+		i := i
+		pod := pod
+		eg.Go(func() error {
+			// when we're done, release next goro to start writing
+			if (i + 1) < len(locks) {
+				defer close(locks[i+1])
+			}
+			// Get full set of logs from pod i
+			result := a.kubeClient.Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
+			fullLogs, err := result.Raw()
+			if err != nil {
+				return err
+			}
+
+			// Parse pods' log lines, and filter out irrelevant ones
+			scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+			for scanner.Scan() {
+				var msg pps.LogMessage
+				if err := jsonpb.Unmarshal(bytes.NewReader(scanner.Bytes()), &msg); err != nil {
+					return err
+				}
+
+				// Filter out log lines that don't match on pipeline or job
+				if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+					continue
+				}
+				if request.Job != nil && request.Job.ID != msg.JobID {
+					continue
+				}
+
+				// All paths in request.DataFilters must appear somewhere in the log
+				// line's inputs, or it's filtered
+				matchesData := true
+			dataFilters:
+				for _, dataFilter := range request.DataFilters {
+					for _, datum := range msg.Data {
+						if dataFilter == datum.Path || dataFilter == string(datum.Hash) {
+							continue dataFilters // Found, move to next filter
+						}
+					}
+					matchesData = false
+					break
+				}
+				if !matchesData {
+					continue
+				}
+
+				// Don't return any output until earlier pods are finished
+				<-locks[i]
+				if err := apiGetLogsServer.Send(&msg); err != nil {
+					return err // will propagate up through eg.Wait()
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
@@ -770,7 +909,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Create a k8s replication controller that runs the workers
+		fmt.Println("Calling createWorkersForPipeline(", pipelineInfo, ")")
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
+			fmt.Println("Create workers err: ", err.Error())
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
@@ -784,14 +925,14 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		var job *pps.Job
+	nextinput:
 		for {
 			// Block until new input commit comes in, then gather input branches for processing
 			branchSet, err := branchSets.Next()
 			if err != nil {
 				return err
 			}
-
-			// Create JobInput for new processing job
+			// (create JobInput for new processing job)
 			var jobInputs []*pps.JobInput
 			for _, pipelineInput := range pipelineInfo.Inputs {
 				for _, branch := range branchSet {
@@ -812,8 +953,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 
-			// Check if any of the jobs in jobIter have been run alrady
-			var jobExists bool
+			// Check if any of the jobs in jobIter have been run already. If so, skip
+			// this input.
 			for {
 				var jobID string
 				var jobInfo pps.JobInfo
@@ -825,24 +966,17 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 					return err
 				}
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
-					// TODO: we should check if the output commit exists.
-					// If the output commit has been deleted, we should
-					// re-run the job.
-					// Also,
-					jobExists = true
-					break
+					// TODO(derek): we should check if the output commit exists.  If the
+					// output commit has been deleted, we should re-run the job.
+					continue nextinput
 				}
-			}
-			if jobExists {
-				continue
 			}
 
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Inputs:   jobInputs,
-				// TODO
-				// Note that once the pipeline restarts, the `job` variable
-				// is lost and we don't know who is our parent job.
+				// TODO(derek): Note that once the pipeline restarts, the `job`
+				// variable is lost and we don't know who is our parent job.
 				ParentJob: job,
 			})
 			if err != nil {
@@ -932,7 +1066,29 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+
+		// Create workers and output repo if 'jobInfo' belongs to an orphan job
 		if jobInfo.Pipeline == nil {
+			// Create output repo for this job
+			var provenance []*pfs.Repo
+			for _, input := range jobInfo.Inputs {
+				provenance = append(provenance, input.Commit.Repo)
+			}
+			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+				Repo:       jobInfo.OutputRepo,
+				Provenance: provenance,
+			}); err != nil {
+				// (if output repo already exists, do nothing)
+				if !isAlreadyExistsErr(err) {
+					return err
+				}
+			}
+
+			// Create workers in kubernetes (i.e. create replication controller)
 			if err := a.createWorkersForOrphanJob(jobInfo); err != nil {
 				if !isAlreadyExistsErr(err) {
 					return err
@@ -948,28 +1104,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				protolion.Infof("deleted workers for job: %v", jobID)
 				a.delWorkerPool(rcName)
 			}()
-
-			// Create output repo for this job
-			var provenance []*pfs.Repo
-			for _, input := range jobInfo.Inputs {
-				provenance = append(provenance, input.Commit.Repo)
-			}
-
-			pfsClient, err := a.getPFSClient()
-			if err != nil {
-				return err
-			}
-			// Create the output repo; if it already exists, do nothing
-			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-				Repo:       jobInfo.OutputRepo,
-				Provenance: provenance,
-			}); err != nil {
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
 		}
-		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+
+		// Set the state of this job to 'RUNNING'
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
 			if err := jobs.Get(jobID, jobInfo); err != nil {
@@ -981,25 +1119,19 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
+		// Start worker pool
+		var wp WorkerPool
+		if jobInfo.Pipeline != nil {
+			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+		} else {
+			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
 		}
+
+		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
 		if err != nil {
 			return err
 		}
-		// TODO(msteffen): jobInfo may not have pipeline -- fix
-		var wp WorkerPool
-		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx,
-				PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
-		} else {
-			// Start worker pool
-			wp = a.workerPool(ctx,
-				JobRcName(jobInfo.Job.ID))
-		}
-		// process all datums
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
@@ -1201,7 +1333,9 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	fmt.Println("Getting parallelism")
 	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	fmt.Println("parallelism: ", parallelism)
 	if err != nil {
 		return err
 	}
@@ -1209,6 +1343,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		pipelineInfo.Transform)
+	fmt.Printf("RC Options: %+v", options)
 	// Set the pipeline name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
 		Name:  client.PPSPipelineNameEnv,
@@ -1315,13 +1450,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) jobPods(job *pps.Job) ([]api.Pod, error) {
+func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(job.ID)),
+		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
 	})
 	if err != nil {
 		return nil, err

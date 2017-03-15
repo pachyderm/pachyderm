@@ -86,6 +86,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 //
 // This is only exported for testing
 func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
+	fmt.Println("Getting expected num workers...")
 	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
 	if spec == nil {
 		// Unset ParallelismSpec is handled here. Currently we start one worker per
@@ -93,6 +94,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (
 		coefficient = 1.0
 	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
 		if spec.Constant > 0 {
+			fmt.Println("Returning constant: ", spec.Constant)
 			return spec.Constant, nil
 		}
 		// Zero-initialized ParallelismSpec is handled here. Currently we start one
@@ -109,6 +111,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (
 
 	// Start ('coefficient' * 'nodes') workers. Determine number of workers
 	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	fmt.Println("nodeList: %+v", nodeList)
 	if err != nil {
 		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
 	}
