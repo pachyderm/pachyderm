@@ -319,98 +319,11 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 	return &commitInfoIterator{stream, cancel}, nil
 }
 
-// PutBlock takes a reader and splits the data in it into blocks.
-// Blocks are guaranteed to be new line delimited.
-// Blocks are content addressed and are thus identified by hashes of the content.
-// NOTE: this is lower level function that's used internally and might not be
-// useful to users.
-func (c APIClient) PutBlock(delimiter pfs.Delimiter, reader io.Reader) (blockRefs *pfs.BlockRefs, retErr error) {
-	writer, err := c.newPutBlockWriteCloser(delimiter)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	defer func() {
-		err := writer.Close()
-		if err != nil && retErr == nil {
-			retErr = err
-		}
-		if retErr == nil {
-			blockRefs = writer.blockRefs
-		}
-	}()
-	if _, err := io.Copy(writer, reader); err != nil {
-		return nil, sanitizeErr(err)
-	}
-	// Return value gets set in deferred function
-	return nil, nil
-}
-
-// GetBlock returns the content of a block using it's hash.
-// offset specifies a number of bytes that should be skipped in the beginning of the block.
-// size limits the total amount of data returned, note you will get fewer bytes
-// than size if you pass a value larger than the size of the block.
-// If size is set to 0 then all of the data will be returned.
-// NOTE: this is lower level function that's used internally and might not be
-// useful to users.
-func (c APIClient) GetBlock(hash string, offset uint64, size uint64) (io.Reader, error) {
-	apiGetBlockClient, err := c.BlockAPIClient.GetBlock(
-		c.ctx(),
-		&pfs.GetBlockRequest{
-			Block:       NewBlock(hash),
-			OffsetBytes: offset,
-			SizeBytes:   size,
-		},
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return grpcutil.NewStreamingBytesReader(apiGetBlockClient), nil
-}
-
-// DeleteBlock deletes a block from the block store.
-// NOTE: this is lower level function that's used internally and might not be
-// useful to users.
-func (c APIClient) DeleteBlock(block *pfs.Block) error {
-	_, err := c.BlockAPIClient.DeleteBlock(
-		c.ctx(),
-		&pfs.DeleteBlockRequest{
-			Block: block,
-		},
-	)
-	return sanitizeErr(err)
-}
-
-// InspectBlock returns info about a specific Block.
-func (c APIClient) InspectBlock(hash string) (*pfs.BlockInfo, error) {
-	blockInfo, err := c.BlockAPIClient.InspectBlock(
-		c.ctx(),
-		&pfs.InspectBlockRequest{
-			Block: NewBlock(hash),
-		},
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return blockInfo, nil
-}
-
-// ListBlock returns info about all Blocks.
-func (c APIClient) ListBlock() ([]*pfs.BlockInfo, error) {
-	blockInfos, err := c.BlockAPIClient.ListBlock(
-		c.ctx(),
-		&pfs.ListBlockRequest{},
-	)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return blockInfos.BlockInfo, nil
-}
-
 // PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, retErr error) {
+func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
 	w, err := c.newPutObjectWriteCloser(tags...)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, 0, sanitizeErr(err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
@@ -420,11 +333,12 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, r
 			object = w.object
 		}
 	}()
-	if _, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2)); err != nil {
-		return nil, sanitizeErr(err)
+	written, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2))
+	if err != nil {
+		return nil, 0, sanitizeErr(err)
 	}
 	// return value set by deferred function
-	return nil, nil
+	return nil, written, nil
 }
 
 // GetObject gets an object out of the object store by hash.
@@ -446,6 +360,38 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 func (c APIClient) ReadObject(hash string) ([]byte, error) {
 	var buffer bytes.Buffer
 	if err := c.GetObject(hash, &buffer); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// GetObjects gets several objects out of the object store by hash.
+func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, writer io.Writer) error {
+	var objects []*pfs.Object
+	for _, hash := range hashes {
+		objects = append(objects, &pfs.Object{Hash: hash})
+	}
+	getObjectsClient, err := c.ObjectAPIClient.GetObjects(
+		c.ctx(),
+		&pfs.GetObjectsRequest{
+			Objects:     objects,
+			OffsetBytes: offset,
+			SizeBytes:   size,
+		},
+	)
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	if err := grpcutil.WriteFromStreamingBytesClient(getObjectsClient, writer); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
+// ReadObjects gets  several objects by hash and returns them directly as []byte.
+func (c APIClient) ReadObjects(hashes []string, offset uint64, size uint64) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := c.GetObjects(hashes, offset, size, &buffer); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
@@ -758,56 +704,6 @@ func (w *putFileWriteCloser) Close() error {
 		}
 	}
 	_, err := w.putFileClient.CloseAndRecv()
-	return sanitizeErr(err)
-}
-
-type putBlockWriteCloser struct {
-	request        *pfs.PutBlockRequest
-	putBlockClient pfs.BlockAPI_PutBlockClient
-	blockRefs      *pfs.BlockRefs
-}
-
-func (c APIClient) newPutBlockWriteCloser(delimiter pfs.Delimiter) (*putBlockWriteCloser, error) {
-	putBlockClient, err := c.BlockAPIClient.PutBlock(c.ctx())
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	return &putBlockWriteCloser{
-		request: &pfs.PutBlockRequest{
-			Delimiter: delimiter,
-		},
-		putBlockClient: putBlockClient,
-		blockRefs:      &pfs.BlockRefs{},
-	}, nil
-}
-
-func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
-	bytesWritten := 0
-	for {
-		// Buffer the write so that we don't exceed the grpc
-		// MaxMsgSize. This value includes the whole payload
-		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + MaxMsgSize/2
-		if ceil > len(p) {
-			ceil = len(p)
-		}
-		actualP := p[bytesWritten:ceil]
-		if len(actualP) == 0 {
-			break
-		}
-		w.request.Value = actualP
-		if err := w.putBlockClient.Send(w.request); err != nil {
-			return 0, sanitizeErr(err)
-		}
-		w.request.Value = nil
-		bytesWritten += len(actualP)
-	}
-	return bytesWritten, nil
-}
-
-func (w *putBlockWriteCloser) Close() error {
-	var err error
-	w.blockRefs, err = w.putBlockClient.CloseAndRecv()
 	return sanitizeErr(err)
 }
 

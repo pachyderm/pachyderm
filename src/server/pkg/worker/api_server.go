@@ -128,13 +128,13 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				}
 			}()
 
-			blockRefs, err := a.pachClient.PutBlock(pfs.Delimiter_NONE, f)
+			object, size, err := a.pachClient.PutObject(f)
 			if err != nil {
 				return err
 			}
 			lock.Lock()
 			defer lock.Unlock()
-			return tree.PutFile(relPath, blockRefs.BlockRef)
+			return tree.PutFile(relPath, []*pfs.Object{object}, size)
 		})
 		return nil
 	}); err != nil {
@@ -155,7 +155,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 		return err
 	}
 
-	if _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
+	if _, _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
 		return err
 	}
 
