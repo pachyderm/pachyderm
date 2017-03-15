@@ -20,7 +20,7 @@ This is the easiest method if you just have some local files (or dummy files) an
 
 Pachyderm allows you to mount data in the distributed file system locally using and explore it using FUSE.
 
-FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install [OSX FUSE](https://osxfuse.github.io/) 
+FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install `OSX FUSE <https://osxfuse.github.io/>`_ 
 
 First create the mount point:
 
