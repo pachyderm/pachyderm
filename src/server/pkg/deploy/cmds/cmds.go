@@ -146,6 +146,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[6])
 			}
 			manifest := &bytes.Buffer{}
+			if strings.Contains(args[2], "/") {
+				return fmt.Errorf("invalid Amazon secret access key; key cannot contain a slash '/'")
+			}
 			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeNames, volumeSize); err != nil {
 				return err
 			}

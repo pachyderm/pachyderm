@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"sync"
 	"testing"
 
@@ -93,4 +94,42 @@ func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue boo
 		}
 	}
 	require.Equal(t, true, foundPachdManifest)
+}
+
+func testBadAWSCredentialsDeploy(t *testing.T) {
+	// Setup user config prior to test
+	// So that stdout only contains JSON no warnings
+	_, err := config.Read()
+	require.NoError(t, err)
+	noMetrics := false
+
+	// pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
+	os.Args = []string{
+		"deploy",
+		"amazon",
+		"--dry-run",
+		"abucket",
+		"\"AKIASDLKJG346LK99JGA\"",                     // Not a real id
+		"\"2rDFgllkj445LK/SDFLjj345lkj57+4564LKsf82\"", // See that slash! It's bad!
+		"\" \"",
+		"us-west2",
+		"vol-2345436",
+		"100",
+	}
+	// This should exit 1
+	err = deploycmds.DeployCmd(&noMetrics).Execute()
+}
+
+func TestBadAWSCredentialsDeploy(t *testing.T) {
+	if os.Getenv("BE_CRASHER") == "1" {
+		testBadAWSCredentialsDeploy(t)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestBadAWSCredentialsDeploy")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
 }
