@@ -75,8 +75,9 @@ message CommitInfos {
 }
 
 enum FileType {
-  FILE = 0;
-  DIR = 1;
+  RESERVED = 0;
+  FILE = 1;
+  DIR = 2;
 }
 
 message FileInfo {
