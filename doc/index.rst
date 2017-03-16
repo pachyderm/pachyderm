@@ -33,6 +33,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     deployment/openshift
     deployment/on_premises
     deployment/custom_object_stores
+    deployment/migrations
 
 .. toctree::
     :maxdepth: 1
@@ -63,7 +64,6 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
     FAQ
     examples/readme
-    production/migration
     CHANGELOG  
 
 .. toctree::
