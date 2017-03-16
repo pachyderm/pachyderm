@@ -2361,6 +2361,35 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPfsPutFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	repo1 := uniqueString("TestPfsPutFile1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := uniqueString("TestPfsPutFile2")
+	require.NoError(t, c.CreateRepo(repo2))
+
+	commit1, err := c.StartCommit(repo1, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo1, commit1.ID))
+
+	commit2, err := c.StartCommit(repo2, "")
+	require.NoError(t, err)
+	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file", repo1, commit1.ID), false)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(repo2, commit2.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
