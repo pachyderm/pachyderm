@@ -288,12 +288,16 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 const letters = "abcdefghijklmnopqrstuvwxyz"
 const lettersAndSpaces = "abcdefghijklmnopqrstuvwxyz      "
 
-func (w *worker) randString(n int) string {
+func RandString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[w.rand.Intn(len(letters))]
+		b[i] = letters[r.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func (w *worker) randString(n int) string {
+	return RandString(w.rand, n)
 }
 
 func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {

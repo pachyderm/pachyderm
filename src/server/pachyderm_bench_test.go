@@ -1,8 +1,13 @@
 package server
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
 	"sync/atomic"
 	"testing"
@@ -46,7 +51,19 @@ func BenchmarkDailySomeLargeFiles(b *testing.B) {
 }
 
 func BenchmarkLocalSmallFiles(b *testing.B) {
-	benchmarkFiles(b, 1000, 100, 10*KB, true)
+	benchmarkFiles(b, 10000, 100, 10*KB, true)
+}
+
+// getClient returns a Pachyderm client that connects to either a
+// local cluster or a remote one, depending on the LOCAL env variable.
+func getClient() (*client.APIClient, error) {
+	if os.Getenv("LOCAL") != "" {
+		c, err := client.NewFromAddress("localhost:30650")
+		return c, err
+	} else {
+		c, err := client.NewInCluster()
+		return c, err
+	}
 }
 
 // benchmarkFiles runs a benchmarks that uploads, downloads, and processes
@@ -54,13 +71,7 @@ func BenchmarkLocalSmallFiles(b *testing.B) {
 // distribution with the given min and max.
 func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, local bool) {
 	repo := uniqueString("BenchmarkPachydermFiles")
-	var c *client.APIClient
-	var err error
-	if local {
-		c, err = client.NewFromAddress("localhost:30650")
-	} else {
-		c, err = client.NewInCluster()
-	}
+	c, err := getClient()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
@@ -161,7 +172,19 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 	}
 }
 
-// BenchmarkDailyDataShuffle consists of the following steps:
+func BenchmarkDailyDataShuffle(b *testing.B) {
+	// The following parameters, combined with the values given to the zipf
+	// function (which we use to generate file sizes), give us a workload
+	// with 1TB of data that consists of 20 tarballs, each of which has 10000
+	// files, whose sizes are between 1KB and 100MB.
+	benchmarkDataShuffle(b, 20, 10000, 1*KB, 100*MB)
+}
+
+func BenchmarkLocalDataShuffle(b *testing.B) {
+	benchmarkDataShuffle(b, 10, 100, 100, 10*MB)
+}
+
+// benchmarkDailyDataShuffle consists of the following steps:
 //
 // 1. Putting N tarballs into a Pachyderm cluster
 // 2. Extracting M files from these tarballs, where M > N
@@ -169,5 +192,76 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 // 4. Compressing the resulting files into K tarballs
 //
 // It's essentially a data shuffle.
-func BenchmarkDailyDataShuffle(b *testing.B) {
+func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64) {
+	dataRepo := uniqueString("BenchmarkDailyDataShuffle")
+	c, err := getClient()
+	require.NoError(b, err)
+	require.NoError(b, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(b, err)
+	// the group that generates data
+	// the group that writes data to pachd
+	var genEg errgroup.Group
+	var writeEg errgroup.Group
+	for i := 0; i < numTarballs; i++ {
+		tarName := fmt.Sprintf("tar-%d.tar.gz", i)
+		pr, pw := io.Pipe()
+		genEg.Go(func() (retErr error) {
+			defer func() {
+				if err := pw.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			gw := gzip.NewWriter(pw)
+			defer gw.Close()
+			defer func() {
+				if err := gw.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			tw := tar.NewWriter(gw)
+			defer tw.Close()
+			defer func() {
+				if err := tw.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r := getRand()
+			zipf := rand.NewZipf(r, 1.01, 1, maxFileSize-minFileSize)
+			for j := 0; j < numFilesPerTarball; j++ {
+				fileName := workload.RandString(r, 10)
+				fileSize := int64(zipf.Uint64() + minFileSize)
+				hdr := &tar.Header{
+					Name: fileName,
+					Mode: 0600,
+					Size: fileSize,
+				}
+				if err := tw.WriteHeader(hdr); err != nil {
+					return err
+				}
+				data, err := ioutil.ReadAll(workload.NewReader(r, fileSize))
+				if err != nil {
+					return err
+				}
+				if _, err := tw.Write(data); err != nil {
+					return err
+				}
+				fmt.Printf("wrote file %d\n", j)
+			}
+			fmt.Printf("finished writing %s\n", tarName)
+			return nil
+		})
+		writeEg.Go(func() error {
+			c, err := getClient()
+			if err != nil {
+				return err
+			}
+			_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
+			fmt.Println("BP2")
+			return err
+		})
+	}
+	require.NoError(b, genEg.Wait())
+	require.NoError(b, writeEg.Wait())
 }
