@@ -299,20 +299,32 @@ Examples:
 	}
 
 	var (
-		jobId       string
+		jobID       string
 		commaInputs string // comma-separated list of input files of interest
 	)
 	getLogs := &cobra.Command{
-		Use:   "get-logs",
+		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
 		Short: "Return logs from a job.",
-		Long:  "Return logs from a job.",
+		Long: `Return logs from a job.
+
+Examples:
+
+	# return logs emitted by recent jobs in the "filter" pipeline
+	$ pachctl get-logs --pipeline=filter
+
+	# return logs emitted by the job aedfa12aedf
+	$ pachctl get-logs --job=aedfa12aedf
+
+	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
+`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
 			}
 			// Validate flags
-			if len(jobId) == 0 && len(pipelineName) == 0 {
+			if len(jobID) == 0 && len(pipelineName) == 0 {
 				return fmt.Errorf("must set either --pipeline or --job (or both)")
 			}
 
@@ -331,7 +343,7 @@ Examples:
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobId, data)
+			iter := client.GetLogs(pipelineName, jobID, data)
 			for iter.Next() {
 				messageStr, err := marshaler.MarshalToString(iter.Message())
 				if err != nil {
@@ -344,7 +356,7 @@ Examples:
 	}
 	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
-	getLogs.Flags().StringVar(&jobId, "job", "", "Filter for log lines from "+
+	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
