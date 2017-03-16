@@ -569,6 +569,7 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) error {
 			// Append new blocks
 			destNode.FileNode.Objects = append(destNode.FileNode.Objects,
 				n.FileNode.Objects...)
+			destNode.SubtreeSize += n.SubtreeSize
 		default:
 			return errorf(Internal, "malformed node at \"%s\" in source "+
 				"hashtree is neither a file nor a directory", path)
