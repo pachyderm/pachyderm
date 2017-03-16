@@ -8,7 +8,7 @@ Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object
 * [OpenShift](http://pachyderm.readthedocs.io/en/stable/deployment/openshift.html)
 * [On Premises](http://pachyderm.readthedocs.io/en/stable/deployment/on_premises.html)
 * [Custom Object Stores](http://pachyderm.readthedocs.io/en/stable/deployment/custom_object_stores.html)
-* Migrations
+* [Migrations](http://pachyderm.readthedocs.io/en/stable/deployment/migrations.html)
 
 ## Usage Metrics
 
