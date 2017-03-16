@@ -38,7 +38,7 @@ func BenchmarkPutFile(b *testing.B) {
 		h := NewHashTree()
 		for i := 0; i < cnt; i++ {
 			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-				br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+				obj(fmt.Sprintf(`object{hash:"%x"}`, r.Uint32())), 1)
 		}
 		h.Finish()
 	}
@@ -65,7 +65,7 @@ func BenchmarkMerge(b *testing.B) {
 	for i := 0; i < cnt; i++ {
 		t := NewHashTree()
 		t.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+			obj(fmt.Sprintf(`object{hash:"%x"}`, r.Uint32())), 1)
 		trees[i], err = t.Finish()
 		if err != nil {
 			b.Fatal("could not run benchmark: " + err.Error())
@@ -99,7 +99,7 @@ func BenchmarkClone(b *testing.B) {
 	h := NewHashTree().(*hashtree)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+			obj(fmt.Sprintf(`object{hash:"%x"}`, r.Uint32())), 1)
 	}
 
 	b.ResetTimer()
@@ -126,7 +126,7 @@ func BenchmarkDelete(b *testing.B) {
 	h := NewHashTree().(*hashtree)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-			br(fmt.Sprintf(`block{hash:"%x"}`, r.Uint32())))
+			obj(fmt.Sprintf(`object{hash:"%x"}`, r.Uint32())), 1)
 	}
 
 	b.ResetTimer()
