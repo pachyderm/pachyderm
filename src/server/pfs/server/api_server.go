@@ -379,7 +379,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		}
 		return eg.Wait()
 	}
-	return put(filepath.Join(request.File.Path, file), repo, commit, file)
+	return put(request.File.Path, repo, commit, file)
 }
 
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
