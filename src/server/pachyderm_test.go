@@ -2376,18 +2376,32 @@ func TestPfsPutFile(t *testing.T) {
 
 	commit1, err := c.StartCommit(repo1, "")
 	require.NoError(t, err)
-	_, err = c.PutFile(repo1, commit1.ID, "file", strings.NewReader("foo\n"))
+	_, err = c.PutFile(repo1, commit1.ID, "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "file2", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo1, commit1.ID))
 
 	commit2, err := c.StartCommit(repo2, "")
 	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file", repo1, commit1.ID), false)
+	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(repo2, commit2.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo\n", buf.String())
+
+	commit3, err := c.StartCommit(repo2, "")
+	require.NoError(t, err)
+	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo2, commit3.ID))
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "file1", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "file2", 0, 0, &buf))
+	require.Equal(t, "bar\n", buf.String())
 }
 
 func restartAll(t *testing.T) {
