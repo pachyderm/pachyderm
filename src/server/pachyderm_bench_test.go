@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
@@ -38,12 +37,12 @@ func getRand() *rand.Rand {
 	return rand.New(rand.NewSource(source))
 }
 
-func BenchmarkManySmallFiles(b *testing.B) {
+func BenchmarkDailyManySmallFiles(b *testing.B) {
 	benchmarkFiles(b, 1000000, 100, 10*KB, false)
 }
 
-func BenchmarkSomeLargeFiles(b *testing.B) {
-	benchmarkFiles(b, 1000, 100*MB, 30*GB, false)
+func BenchmarkDailySomeLargeFiles(b *testing.B) {
+	benchmarkFiles(b, 100, 100*MB, 30*GB, false)
 }
 
 func BenchmarkLocalSmallFiles(b *testing.B) {
@@ -77,7 +76,12 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			fileSize := int64(zipf.Uint64() + minSize)
 			totalBytes += fileSize
 			eg.Go(func() error {
-				_, err := c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(getRand(), fileSize))
+				var err error
+				if k%10 == 0 {
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(getRand(), fileSize))
+				} else {
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(getRand(), fileSize))
+				}
 				return err
 			})
 		}
@@ -95,7 +99,11 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 		for k := 0; k < fileNum; k++ {
 			k := k
 			eg.Go(func() error {
-				return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
+				if k%10 == 0 {
+					return c.GetFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), 0, 0, w)
+				} else {
+					return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
+				}
 			})
 		}
 		require.NoError(b, eg.Wait())
@@ -105,7 +113,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	}
 
 	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", fileNum), func(b *testing.B) {
-		pipeline := "BenchmarkPachydermPipeline" + uuid.NewWithoutDashes()[0:12]
+		pipeline := uniqueString("BenchmarkPachydermPipeline")
 		require.NoError(b, c.CreatePipeline(
 			pipeline,
 			"",
@@ -151,4 +159,15 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 		require.NoError(b, c.FinishCommit(repo, commit.ID))
 		b.SetBytes(int64(1024 * MB))
 	}
+}
+
+// BenchmarkDailyDataShuffle consists of the following steps:
+//
+// 1. Putting N tarballs into a Pachyderm cluster
+// 2. Extracting M files from these tarballs, where M > N
+// 3. Processing those M files
+// 4. Compressing the resulting files into K tarballs
+//
+// It's essentially a data shuffle.
+func BenchmarkDailyDataShuffle(b *testing.B) {
 }
