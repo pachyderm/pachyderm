@@ -67,10 +67,11 @@ type HashTree interface {
 	Size() int64
 }
 
-// OpenNode is similar to NodeProto, except that it doesn't include the Hash or
-// Size fields (which are not generally meaningful in an OpenHashTree)
+// OpenNode is similar to NodeProto, except that it doesn't include the Hash
+// field (which is not generally meaningful in an OpenHashTree)
 type OpenNode struct {
 	Name string
+	Size int64
 
 	FileNode *FileNodeProto
 	DirNode  *DirectoryNodeProto
