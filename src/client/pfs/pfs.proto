@@ -127,8 +127,11 @@ message DeleteRepoRequest {
 }
 
 message StartCommitRequest {
+  // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
+  // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
   repeated Commit provenance = 2;
+  string branch = 3;
 }
 
 message BuildCommitRequest {
