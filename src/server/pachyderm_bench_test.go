@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	pps "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
 )
@@ -139,18 +139,18 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			"",
 			[]string{"bash"},
 			[]string{fmt.Sprintf("cp -R %s /pfs/out/", path.Join("/pfs", repo, "/*"))},
-			&ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*ppsclient.PipelineInput{{
+			[]*pps.PipelineInput{{
 				Repo: client.NewRepo(repo),
 				Glob: "/*",
 			}},
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(repo, commit.ID)}, nil)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(b, err)
 		_, err = commitIter.Next()
 		require.NoError(b, err)
@@ -205,17 +205,17 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	scalePachd(b)
 
 	numTotalFiles := numTarballs * numFilesPerTarball
-	dataRepo := uniqueString("BenchmarkDailyDataShuffle")
+	dataRepo := uniqueString("BenchmarkDataShuffle")
 	c, err := getClient()
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(dataRepo))
 
-	commit, err := c.StartCommit(dataRepo, "")
-	require.NoError(b, err)
-
-	var totalSize int64
-	if !b.Run(fmt.Sprintf("Put%dTarballs", numTarballs), func(b *testing.B) {
+	// addInputCommit adds an input commit to the data repo
+	addInputCommit := func(b *testing.B) *pfs.Commit {
 		b.N = 1
+		commit, err := c.StartCommit(dataRepo, "")
+		require.NoError(b, err)
+		var totalSize int64
 		// the group that generates data
 		// the group that writes data to pachd
 		var genEg errgroup.Group
@@ -278,12 +278,20 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		}
 		require.NoError(b, genEg.Wait())
 		require.NoError(b, writeEg.Wait())
-		b.SetBytes(totalSize)
+		require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
+		require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
+		commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
+		require.NoError(b, err)
+		b.SetBytes(int64(commitInfo.SizeBytes))
+		return commit
+	}
+
+	var commit *pfs.Commit
+	if !b.Run(fmt.Sprintf("Put%dTarballs", numTarballs), func(b *testing.B) {
+		commit = addInputCommit(b)
 	}) {
 		return
 	}
-	require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
-	require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
 
 	pipelineOne := uniqueString("BenchmarkDataShuffleStageOne")
 	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
@@ -298,18 +306,18 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				"  tar xzf \"$f\" -C /pfs/out",
 				"done",
 			},
-			&ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*ppsclient.PipelineInput{{
+			[]*pps.PipelineInput{{
 				Repo: client.NewRepo(dataRepo),
 				Glob: "/*",
 			}},
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
@@ -338,18 +346,18 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				"    mv \"$i\" \"/pfs/out/$LTR/$FILE\"",
 				"done",
 			},
-			&ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*ppsclient.PipelineInput{{
+			[]*pps.PipelineInput{{
 				Repo: client.NewRepo(pipelineOne),
 				Glob: "/*",
 			}},
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
@@ -375,23 +383,32 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				"    tar czf /pfs/out/$DIR.tar.gz $i",
 				"done",
 			},
-			&ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*ppsclient.PipelineInput{{
+			[]*pps.PipelineInput{{
 				Repo: client.NewRepo(pipelineTwo),
 				Glob: "/*",
 			}},
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
 		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+	}) {
+		return
+	}
+
+	if !b.Run("RunPipelinesEndToEnd", func(b *testing.B) {
+		commit := addInputCommit(b)
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(b, err)
+		collectCommitInfos(b, commitIter)
 	}) {
 		return
 	}
