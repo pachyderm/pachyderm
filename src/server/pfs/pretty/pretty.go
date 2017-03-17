@@ -138,22 +138,6 @@ Children: {{range .Children}} {{.Path}} {{end}}
 	return nil
 }
 
-// PrintBlockInfoHeader prints a block info header.
-func PrintBlockInfoHeader(w io.Writer) {
-	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
-}
-
-// PrintBlockInfo pretty-prints block info.
-func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
-	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
-	fmt.Fprintf(
-		w,
-		"%s\t",
-		pretty.Ago(blockInfo.Created),
-	)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
-}
-
 type uint64Slice []uint64
 
 func (s uint64Slice) Len() int           { return len(s) }

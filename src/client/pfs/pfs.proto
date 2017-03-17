@@ -104,20 +104,6 @@ message BlockRef {
   ByteRange range = 2;
 }
 
-message BlockRefs {
-  repeated BlockRef block_ref = 1;
-}
-
-message BlockInfo {
-  Block block = 1;
-  google.protobuf.Timestamp created = 2;
-  uint64 size_bytes = 3;
-}
-
-message BlockInfos {
-  repeated BlockInfo block_info = 1;
-}
-
 message ObjectInfo {
   Object object = 1;
   BlockRef block_ref = 2;
@@ -306,39 +292,15 @@ service API {
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
-message PutBlockRequest {
-  bytes value = 1;
-  Delimiter delimiter = 2;
-}
-
-message GetBlockRequest {
-  Block block = 1;
-  uint64 offset_bytes = 2;
-  uint64 size_bytes = 3;
-}
-
-message DeleteBlockRequest {
-  Block block = 1;
-}
-
-message InspectBlockRequest {
-  Block block = 1;
-}
-
-message ListBlockRequest {
-}
-
-service BlockAPI {
-  rpc PutBlock(stream PutBlockRequest) returns (BlockRefs) {}
-  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc DeleteBlock(DeleteBlockRequest) returns (google.protobuf.Empty) {}
-  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
-  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
-}
-
 message PutObjectRequest {
   bytes value = 1;
   repeated Tag tags = 2;
+}
+
+message GetObjectsRequest {
+  repeated Object objects = 1;
+  uint64 offset_bytes = 2;
+  uint64 size_bytes = 3;
 }
 
 message TagObjectRequest {
@@ -349,6 +311,7 @@ message TagObjectRequest {
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
+  rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}

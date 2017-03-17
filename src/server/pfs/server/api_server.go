@@ -426,11 +426,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := file.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
 	return grpcutil.WriteToStreamingBytesServer(file, apiGetFileServer)
 }
 
