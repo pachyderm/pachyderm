@@ -31,11 +31,11 @@ func BenchmarkManyObjects(b *testing.B) {
 					for j := 0; j < objectsPerClient; j++ {
 						r := workload.NewReader(rand, objectSize)
 						if n == 0 {
-							if _, err := c.PutObject(r, fmt.Sprintf("%d.%d", i, j)); err != nil {
+							if _, _, err := c.PutObject(r, fmt.Sprintf("%d.%d", i, j)); err != nil {
 								return err
 							}
 						} else {
-							if _, err := c.PutObject(r); err != nil {
+							if _, _, err := c.PutObject(r); err != nil {
 								return err
 							}
 						}
