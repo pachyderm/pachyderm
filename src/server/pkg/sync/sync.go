@@ -59,7 +59,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 	if err != nil {
 		return err
 	}
-
+	backoffConfig := obj.NewExponentialBackOffConfig()
 	var g errgroup.Group
 	sem := make(chan struct{}, 100)
 	for _, fileInfo := range fileInfos {
@@ -116,7 +116,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							return err
 						}
 						return nil
-					}, b.backoffConfig, func(err error, d time.Duration) {
+					}, backoffConfig, func(err error, d time.Duration) {
 						log.Infof("Error getting file; retrying in %s: %#v", d, RetryError{
 							Err:               err.Error(),
 							TimeTillNextRetry: d.String(),
