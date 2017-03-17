@@ -541,6 +541,11 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	return nil
 }
 
+// GetFileReader returns a reader for the contents of a file at a specific Commit.
+// offset specifies a number of bytes that should be skipped in the beginning of the file.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
 	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
