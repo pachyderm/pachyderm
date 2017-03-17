@@ -177,7 +177,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "NUM_SHARDS",
-									Value: strconv.FormatUint(shards, 10),
+									Value: strconv.FormatUint(shards, 32),
 								},
 								{
 									Name:  "STORAGE_BACKEND",

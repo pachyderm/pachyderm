@@ -42,16 +42,20 @@ func getRand() *rand.Rand {
 	return rand.New(rand.NewSource(source))
 }
 
-func BenchmarkDailyManySmallFiles(b *testing.B) {
+func BenchmarkDailySmallFiles(b *testing.B) {
 	benchmarkFiles(b, 1000000, 100, 10*KB, false)
 }
 
-func BenchmarkDailySomeLargeFiles(b *testing.B) {
+func BenchmarkDailyLargeFiles(b *testing.B) {
 	benchmarkFiles(b, 100, 100*MB, 30*GB, false)
 }
 
 func BenchmarkLocalSmallFiles(b *testing.B) {
-	benchmarkFiles(b, 10000, 100, 10*KB, true)
+	benchmarkFiles(b, 1000, 100, 10*KB, true)
+}
+
+func BenchmarkLocalBigFiles(b *testing.B) {
+	benchmarkFiles(b, 100, 1*MB, 10*MB, true)
 }
 
 // getClient returns a Pachyderm client that connects to either a
@@ -78,6 +82,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	commit, err := c.StartCommit(repo, "")
 	require.NoError(b, err)
 	if !b.Run(fmt.Sprintf("Put%dFiles", fileNum), func(b *testing.B) {
+		b.N = 1
 		var totalBytes int64
 		var eg errgroup.Group
 		r := getRand()
@@ -105,6 +110,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	require.NoError(b, c.SetBranch(repo, commit.ID, "master"))
 
 	if !b.Run(fmt.Sprintf("Get%dFiles", fileNum), func(b *testing.B) {
+		b.N = 1
 		w := &countWriter{}
 		var eg errgroup.Group
 		for k := 0; k < fileNum; k++ {
@@ -124,7 +130,8 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	}
 
 	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", fileNum), func(b *testing.B) {
-		pipeline := uniqueString("BenchmarkPachydermPipeline")
+		b.N = 1
+		pipeline := uniqueString("BenchmarkFilesPipeline")
 		require.NoError(b, c.CreatePipeline(
 			pipeline,
 			"",
@@ -193,6 +200,7 @@ func BenchmarkLocalDataShuffle(b *testing.B) {
 //
 // It's essentially a data shuffle.
 func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64) {
+	numTotalFiles := numTarballs * numFilesPerTarball
 	dataRepo := uniqueString("BenchmarkDailyDataShuffle")
 	c, err := getClient()
 	require.NoError(b, err)
@@ -200,68 +208,146 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 	commit, err := c.StartCommit(dataRepo, "")
 	require.NoError(b, err)
-	// the group that generates data
-	// the group that writes data to pachd
-	var genEg errgroup.Group
-	var writeEg errgroup.Group
-	for i := 0; i < numTarballs; i++ {
-		tarName := fmt.Sprintf("tar-%d.tar.gz", i)
-		pr, pw := io.Pipe()
-		genEg.Go(func() (retErr error) {
-			defer func() {
-				if err := pw.Close(); err != nil && retErr == nil {
-					retErr = err
+
+	var totalSize int64
+	if !b.Run(fmt.Sprintf("Put%dTarballs", numTarballs), func(b *testing.B) {
+		b.N = 1
+		// the group that generates data
+		// the group that writes data to pachd
+		var genEg errgroup.Group
+		var writeEg errgroup.Group
+		for i := 0; i < numTarballs; i++ {
+			tarName := fmt.Sprintf("tar-%d.tar.gz", i)
+			pr, pw := io.Pipe()
+			genEg.Go(func() (retErr error) {
+				defer func() {
+					if err := pw.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				gw := gzip.NewWriter(pw)
+				defer gw.Close()
+				defer func() {
+					if err := gw.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				tw := tar.NewWriter(gw)
+				defer tw.Close()
+				defer func() {
+					if err := tw.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				r := getRand()
+				zipf := rand.NewZipf(r, 1.01, 1, maxFileSize-minFileSize)
+				for j := 0; j < numFilesPerTarball; j++ {
+					fileName := workload.RandString(r, 10)
+					fileSize := int64(zipf.Uint64() + minFileSize)
+					atomic.AddInt64(&totalSize, fileSize)
+					hdr := &tar.Header{
+						Name: fileName,
+						Mode: 0600,
+						Size: fileSize,
+					}
+					if err := tw.WriteHeader(hdr); err != nil {
+						return err
+					}
+					data, err := ioutil.ReadAll(workload.NewReader(r, fileSize))
+					if err != nil {
+						return err
+					}
+					if _, err := tw.Write(data); err != nil {
+						return err
+					}
 				}
-			}()
-			gw := gzip.NewWriter(pw)
-			defer gw.Close()
-			defer func() {
-				if err := gw.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			tw := tar.NewWriter(gw)
-			defer tw.Close()
-			defer func() {
-				if err := tw.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			r := getRand()
-			zipf := rand.NewZipf(r, 1.01, 1, maxFileSize-minFileSize)
-			for j := 0; j < numFilesPerTarball; j++ {
-				fileName := workload.RandString(r, 10)
-				fileSize := int64(zipf.Uint64() + minFileSize)
-				hdr := &tar.Header{
-					Name: fileName,
-					Mode: 0600,
-					Size: fileSize,
-				}
-				if err := tw.WriteHeader(hdr); err != nil {
-					return err
-				}
-				data, err := ioutil.ReadAll(workload.NewReader(r, fileSize))
+				return nil
+			})
+			writeEg.Go(func() error {
+				c, err := getClient()
 				if err != nil {
 					return err
 				}
-				if _, err := tw.Write(data); err != nil {
-					return err
-				}
-				fmt.Printf("wrote file %d\n", j)
-			}
-			fmt.Printf("finished writing %s\n", tarName)
-			return nil
-		})
-		writeEg.Go(func() error {
-			c, err := getClient()
-			if err != nil {
+				_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
 				return err
-			}
-			_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
-			fmt.Println("BP2")
-			return err
-		})
+			})
+		}
+		require.NoError(b, genEg.Wait())
+		require.NoError(b, writeEg.Wait())
+		b.SetBytes(totalSize)
+	}) {
+		return
 	}
-	require.NoError(b, genEg.Wait())
-	require.NoError(b, writeEg.Wait())
+	require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
+
+	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
+		b.N = 1
+		pipeline := uniqueString("BenchmarkDataShuffleStageOne")
+		require.NoError(b, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("for f in /pfs/%s/*.tar.gz; do", dataRepo),
+				"  echo \"going to untar $f\"",
+				"  tar xzf \"$f\" -C /pfs/out",
+				"done",
+			},
+			&ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 4,
+			},
+			[]*ppsclient.PipelineInput{{
+				Repo: client.NewRepo(dataRepo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(b, err)
+		_, err = commitIter.Next()
+		require.NoError(b, err)
+		b.StopTimer()
+		outputRepoInfo, err := c.InspectRepo(pipeline)
+		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+	}) {
+		return
+	}
+
+	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
+		b.N = 1
+		pipeline := uniqueString("BenchmarkDataShuffleStageOne")
+		require.NoError(b, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("for f in /pfs/%s/*.tar.gz; do", dataRepo),
+				"  echo \"going to untar $f\"",
+				"  tar xzf \"$f\" -C /pfs/out",
+				"done",
+			},
+			&ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 4,
+			},
+			[]*ppsclient.PipelineInput{{
+				Repo: client.NewRepo(dataRepo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(b, err)
+		_, err = commitIter.Next()
+		require.NoError(b, err)
+		b.StopTimer()
+		outputRepoInfo, err := c.InspectRepo(pipeline)
+		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+	}) {
+		return
+	}
 }
