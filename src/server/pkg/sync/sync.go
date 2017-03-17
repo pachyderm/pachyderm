@@ -14,6 +14,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// RetryError is used to log retry attempts.
+type RetryError struct {
+	Err               string
+	TimeTillNextRetry string
+	Repo              string
+	CommitID          string
+	File              string
+}
+
 // Pull clones an entire repo at a certain commit
 //
 // root is the local path you want to clone to
@@ -97,7 +106,24 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							retErr = err
 						}
 					}()
-					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
+
+					backoff.RetryNotify(func() error {
+						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
+						if err != nil && isNetRetryable(err) {
+							return err
+						}
+						return nil
+					}, b.backoffConfig, func(err error, d time.Duration) {
+						log.Infof("Error getting file; retrying in %s: %#v", d, RetryError{
+							Err:               err.Error(),
+							TimeTillNextRetry: d.String(),
+							Repo:              commit.Repo.Name,
+							CommitID:          commit.ID,
+							File:              fileInfo.File.Path,
+						})
+					})
+
+					return err
 				}
 			case pfs.FileType_FILE_TYPE_DIR:
 				return pullDir(client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
@@ -106,6 +132,11 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 		})
 	}
 	return g.Wait()
+}
+
+func isNetRetryable(err error) bool {
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Temporary()
 }
 
 // Push puts files under root into an open commit.
