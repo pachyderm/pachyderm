@@ -2,6 +2,7 @@
 package sync
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -60,7 +61,6 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 	if err != nil {
 		return err
 	}
-	backoffConfig := obj.NewExponentialBackOffConfig()
 	var g errgroup.Group
 	sem := make(chan struct{}, 100)
 	for _, fileInfo := range fileInfos {
@@ -110,7 +110,8 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							retErr = err
 						}
 					}()
-
+					fmt.Printf("downloading %v\n", fileInfo.File.Path)
+					backoffConfig := obj.NewExponentialBackOffConfig()
 					backoff.RetryNotify(func() error {
 						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
 						if err != nil && isRetryable(err) {
@@ -126,6 +127,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							File:              fileInfo.File.Path,
 						})
 					})
+					fmt.Printf("downloaded %v w err %v\n", fileInfo.File.Path, err)
 
 					return err
 				}
@@ -135,7 +137,10 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 			return nil
 		})
 	}
-	return g.Wait()
+	finalErr := g.Wait()
+	fmt.Printf("Final sync.pullDir err for dir (%v): %v\n", dir, finalErr)
+
+	return finalErr
 }
 
 func isRetryable(err error) bool {
