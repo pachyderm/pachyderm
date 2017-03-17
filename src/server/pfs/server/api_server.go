@@ -355,7 +355,14 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 				defer func() {
 					<-sem
 				}()
-				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
+
+				if strings.HasSuffix(name, "/") {
+					// Amazon S3 supports objs w keys that end in a '/'
+					// PFS needs to treat these as a directory
+					return a.driver.MakeDirectory(request.File)
+				} else {
+					return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
+				}
 			})
 			return nil
 		})
