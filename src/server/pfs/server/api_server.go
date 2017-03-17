@@ -358,8 +358,10 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 
 				if strings.HasSuffix(name, "/") {
 					// Amazon S3 supports objs w keys that end in a '/'
-					// PFS needs to treat these as a directory
-					return a.driver.MakeDirectory(request.File)
+					// PFS needs to treat such a key as a directory.
+					// In this case, we rely on the driver PutFile to
+					// construct the 'directory' diffs from the file prefix
+					return nil
 				}
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
