@@ -816,12 +816,10 @@ func joinPaths(prefix, filePath string) string {
 			splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
 			if len(splitPath) < 3 {
 				return prefix
-			} else {
-				return filepath.Join(append([]string{prefix}, splitPath[2:]...)...)
 			}
-		} else {
-			return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
+			return filepath.Join(append([]string{prefix}, splitPath[2:]...)...)
 		}
+		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
 }
