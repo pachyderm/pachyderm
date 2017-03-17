@@ -2,15 +2,18 @@
 package sync
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/cenkalti/backoff"
 	"golang.org/x/sync/errgroup"
 )
 
