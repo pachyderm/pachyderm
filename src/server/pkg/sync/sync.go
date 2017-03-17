@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -112,7 +113,7 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 
 					backoff.RetryNotify(func() error {
 						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
-						if err != nil && isNetRetryable(err) {
+						if err != nil && isRetryable(err) {
 							return err
 						}
 						return nil
@@ -137,7 +138,10 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 	return g.Wait()
 }
 
-func isNetRetryable(err error) bool {
+func isRetryable(err error) bool {
+	if strings.Contains(err.Error(), "connection reset by peer") {
+		return true
+	}
 	netErr, ok := err.(net.Error)
 	return ok && netErr.Temporary()
 }
