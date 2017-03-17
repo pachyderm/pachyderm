@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1237,7 +1238,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
 		require.NoError(t, c.FinishCommit(repo, "master"))
-		scalePachd(t, up)
+		scalePachdRandom(t, up)
 		c = getUsablePachClient(t)
 		require.NoError(t, c.DeleteRepo(repo, false))
 	}
@@ -2253,7 +2254,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 }
 
-func collectCommitInfos(t *testing.T, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
+func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
@@ -2413,7 +2414,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 	return nil
 }
 
-func waitForReadiness(t *testing.T) {
+func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
 	rc := pachdRc(t)
 	for {
@@ -2452,7 +2453,7 @@ func waitForReadiness(t *testing.T) {
 	}
 }
 
-func pachdRc(t *testing.T) *api.ReplicationController {
+func pachdRc(t testing.TB) *api.ReplicationController {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
 	result, err := rc.Get("pachd")
@@ -2463,8 +2464,7 @@ func pachdRc(t *testing.T) *api.ReplicationController {
 // scalePachd scales the number of pachd nodes up or down.
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
-func scalePachd(t *testing.T, up bool) {
-	k := getKubeClient(t)
+func scalePachdRandom(t testing.TB, up bool) {
 	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
@@ -2478,8 +2478,16 @@ func scalePachd(t *testing.T, up bool) {
 			break
 		}
 	}
-	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	scalePachdN(t, int(pachdRc.Spec.Replicas))
+}
+
+// scalePachdN scales the number of pachd nodes to N
+func scalePachdN(t testing.TB, n int) {
+	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
+	fmt.Printf("scaling pachd to %d replicas\n", n)
+	pachdRc := pachdRc(t)
+	pachdRc.Spec.Replicas = int32(n)
 	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
 	waitForReadiness(t)
@@ -2489,7 +2497,19 @@ func scalePachd(t *testing.T, up bool) {
 	time.Sleep(15 * time.Second)
 }
 
-func getKubeClient(t *testing.T) *kube.Client {
+// scalePachd reads the number of pachd nodes from an env variable and
+// scales pachd accordingly.
+func scalePachd(t testing.TB) {
+	nStr := os.Getenv("PACHD")
+	if nStr == "" {
+		return
+	}
+	n, err := strconv.Atoi(nStr)
+	require.NoError(t, err)
+	scalePachdN(t, n)
+}
+
+func getKubeClient(t testing.TB) *kube.Client {
 	config := &kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
 		Insecure: false,

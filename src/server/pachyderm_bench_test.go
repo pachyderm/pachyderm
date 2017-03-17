@@ -74,6 +74,8 @@ func getClient() (*client.APIClient, error) {
 // fileNum files, whose sizes (in bytes) are produced by a zipf
 // distribution with the given min and max.
 func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, local bool) {
+	scalePachd(b)
+
 	repo := uniqueString("BenchmarkPachydermFiles")
 	c, err := getClient()
 	require.NoError(b, err)
@@ -200,6 +202,8 @@ func BenchmarkLocalDataShuffle(b *testing.B) {
 //
 // It's essentially a data shuffle.
 func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64) {
+	scalePachd(b)
+
 	numTotalFiles := numTarballs * numFilesPerTarball
 	dataRepo := uniqueString("BenchmarkDailyDataShuffle")
 	c, err := getClient()
@@ -281,11 +285,11 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
 	require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
 
+	pipelineOne := uniqueString("BenchmarkDataShuffleStageOne")
 	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
 		b.N = 1
-		pipeline := uniqueString("BenchmarkDataShuffleStageOne")
 		require.NoError(b, c.CreatePipeline(
-			pipeline,
+			pipelineOne,
 			"",
 			[]string{"bash"},
 			[]string{
@@ -307,26 +311,31 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		))
 		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
-		_, err = commitIter.Next()
-		require.NoError(b, err)
+		collectCommitInfos(b, commitIter)
 		b.StopTimer()
-		outputRepoInfo, err := c.InspectRepo(pipeline)
+		outputRepoInfo, err := c.InspectRepo(pipelineOne)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
 	}) {
 		return
 	}
 
-	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
+	pipelineTwo := uniqueString("BenchmarkDataShuffleStageTwo")
+	if !b.Run(fmt.Sprintf("Processing%dFiles", numTotalFiles), func(b *testing.B) {
 		b.N = 1
-		pipeline := uniqueString("BenchmarkDataShuffleStageOne")
 		require.NoError(b, c.CreatePipeline(
-			pipeline,
+			pipelineTwo,
 			"",
 			[]string{"bash"},
+			// This script computes the checksum for each file (to exercise
+			// CPU) and groups files into directories named after the first
+			// letter of the filename.
 			[]string{
-				fmt.Sprintf("for f in /pfs/%s/*.tar.gz; do", dataRepo),
-				"  echo \"going to untar $f\"",
-				"  tar xzf \"$f\" -C /pfs/out",
+				"mkdir -p /pfs/out/{a..z}",
+				fmt.Sprintf("for i in /pfs/%s/*; do", pipelineOne),
+				"    cksum $i",
+				"    FILE=$(basename \"$i\")",
+				"    LTR=$(echo \"${FILE:0:1}\")",
+				"    mv \"$i\" \"/pfs/out/$LTR/$FILE\"",
 				"done",
 			},
 			&ppsclient.ParallelismSpec{
@@ -334,7 +343,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				Constant: 4,
 			},
 			[]*ppsclient.PipelineInput{{
-				Repo: client.NewRepo(dataRepo),
+				Repo: client.NewRepo(pipelineOne),
 				Glob: "/*",
 			}},
 			"",
@@ -342,10 +351,46 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		))
 		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
-		_, err = commitIter.Next()
-		require.NoError(b, err)
+		collectCommitInfos(b, commitIter)
 		b.StopTimer()
-		outputRepoInfo, err := c.InspectRepo(pipeline)
+		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
+		b.SetBytes(int64(outputRepoInfo.SizeBytes))
+	}) {
+		return
+	}
+
+	pipelineThree := uniqueString("BenchmarkDataShuffleStageThree")
+	if !b.Run(fmt.Sprintf("Compressing%dFilesInto%dTarballs", numTotalFiles, numTarballs), func(b *testing.B) {
+		b.N = 1
+		require.NoError(b, c.CreatePipeline(
+			pipelineThree,
+			"",
+			[]string{"bash"},
+			// This script computes the checksum for each file (to exercise
+			// CPU) and groups files into directories named after the first
+			// letter of the filename.
+			[]string{
+				fmt.Sprintf("for i in /pfs/%s/*; do", pipelineTwo),
+				"    DIR=$(basename \"$i\")",
+				"    tar czf /pfs/out/$DIR.tar.gz $i",
+				"done",
+			},
+			&ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 4,
+			},
+			[]*ppsclient.PipelineInput{{
+				Repo: client.NewRepo(pipelineTwo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfsclient.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(b, err)
+		collectCommitInfos(b, commitIter)
+		b.StopTimer()
+		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
 	}) {
 		return
