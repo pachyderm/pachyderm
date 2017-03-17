@@ -360,9 +360,8 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 					// Amazon S3 supports objs w keys that end in a '/'
 					// PFS needs to treat these as a directory
 					return a.driver.MakeDirectory(request.File)
-				} else {
-					return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 				}
+				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
 		})
