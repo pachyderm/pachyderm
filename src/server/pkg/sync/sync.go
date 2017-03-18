@@ -114,7 +114,10 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 					backoffConfig := obj.NewExponentialBackOffConfig()
 					backoff.RetryNotify(func() error {
 						err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
-						fmt.Printf("get file %v had err: %v, is retryable?\n", fileInfo.File.Path, err, isRetryable(err))
+						fmt.Printf("get file %v had err: %v\n", fileInfo.File.Path, err)
+						if err != nil {
+							fmt.Printf("get file %v had err: %v, is retryable? %v\n", fileInfo.File.Path, err, isRetryable(err))
+						}
 						if err != nil && isRetryable(err) {
 							return err
 						}
