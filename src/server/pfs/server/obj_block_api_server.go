@@ -626,8 +626,8 @@ func (s *objBlockAPIServer) readBlockRef(blockRef *pfsclient.BlockRef, dest grou
 }
 
 func (s *objBlockAPIServer) getObjectIndex(prefix string) (*pfsclient.ObjectIndex, bool) {
-	s.objectIndexesLock.Lock()
-	defer s.objectIndexesLock.Unlock()
+	s.objectIndexesLock.RLock()
+	defer s.objectIndexesLock.RUnlock()
 	index, ok := s.objectIndexes[prefix]
 	return index, ok
 }
