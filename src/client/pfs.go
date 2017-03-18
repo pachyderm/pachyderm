@@ -107,17 +107,44 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // you can write to the Commit with PutFile and when all the data has been
 // written you must finish the Commit with FinishCommit. NOTE, data is not
 // persisted until FinishCommit is called.
-// parentCommit specifies the parent Commit, upon creation the new Commit will
-// appear identical to the parent Commit, data can safely be added to the new
-// commit without affecting the contents of the parent Commit. You may pass ""
-// as parentCommit in which case the new Commit will have no parent and will
-// initially appear empty.
 // branch is a more convenient way to build linear chains of commits. When a
 // commit is started with a non empty branch the value of branch becomes an
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commit, error) {
+func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, error) {
+	commit, err := c.PfsAPIClient.StartCommit(
+		c.ctx(),
+		&pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+			},
+			Branch: branch,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return commit, nil
+}
+
+// StartCommit begins the process of committing data to a Repo. Once started
+// you can write to the Commit with PutFile and when all the data has been
+// written you must finish the Commit with FinishCommit. NOTE, data is not
+// persisted until FinishCommit is called.
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+// parentCommit specifies the parent Commit, upon creation the new Commit will
+// appear identical to the parent Commit, data can safely be added to the new
+// commit without affecting the contents of the parent Commit. You may pass ""
+// as parentCommit in which case the new Commit will have no parent and will
+// initially appear empty.
+func (c APIClient) StartCommitParent(repoName string, branch string, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.ctx(),
 		&pfs.StartCommitRequest{
@@ -127,6 +154,7 @@ func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commi
 				},
 				ID: parentCommit,
 			},
+			Branch: branch,
 		},
 	)
 	if err != nil {
