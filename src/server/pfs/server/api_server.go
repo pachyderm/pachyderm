@@ -462,6 +462,7 @@ type putFileReader struct {
 func (r *putFileReader) Read(p []byte) (int, error) {
 	if r.buffer.Len() == 0 {
 		request, err := r.server.Recv()
+		fmt.Printf("receving PutFile req for file: %v\n", request)
 		if err != nil {
 			return 0, err
 		}

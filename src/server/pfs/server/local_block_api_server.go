@@ -246,6 +246,7 @@ func (r *putObjectReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		fmt.Printf("receiving %d bytes to object server\n", len(request.Value))
 		// buffer.Write cannot error
 		r.buffer.Write(request.Value)
 		r.tags = append(r.tags, request.Tags...)

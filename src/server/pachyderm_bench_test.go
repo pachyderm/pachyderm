@@ -11,6 +11,7 @@ import (
 	"path"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -38,8 +39,7 @@ func (w *countWriter) Write(p []byte) (int, error) {
 }
 
 func getRand() *rand.Rand {
-	source := rand.Int63()
-	return rand.New(rand.NewSource(source))
+	return rand.New(rand.NewSource(time.Now().Unix()))
 }
 
 func BenchmarkDailySmallFiles(b *testing.B) {
@@ -186,11 +186,11 @@ func BenchmarkDailyDataShuffle(b *testing.B) {
 	// function (which we use to generate file sizes), give us a workload
 	// with 1TB of data that consists of 20 tarballs, each of which has 10000
 	// files, whose sizes are between 1KB and 100MB.
-	benchmarkDataShuffle(b, 20, 10000, 1*KB, 100*MB)
+	benchmarkDataShuffle(b, 20, 1000, 1*KB, 100*MB, 10)
 }
 
 func BenchmarkLocalDataShuffle(b *testing.B) {
-	benchmarkDataShuffle(b, 10, 100, 100, 10*MB)
+	benchmarkDataShuffle(b, 10, 100, 100, 10*MB, 1)
 }
 
 // benchmarkDailyDataShuffle consists of the following steps:
@@ -201,7 +201,9 @@ func BenchmarkLocalDataShuffle(b *testing.B) {
 // 4. Compressing the resulting files into K tarballs
 //
 // It's essentially a data shuffle.
-func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64) {
+//
+// `round` specifies how many extra rounds the entire pipeline runs.
+func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64, round int) {
 	scalePachd(b)
 
 	numTotalFiles := numTarballs * numFilesPerTarball
@@ -404,12 +406,18 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		return
 	}
 
-	if !b.Run("RunPipelinesEndToEnd", func(b *testing.B) {
-		commit := addInputCommit(b)
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
-	}) {
-		return
+	for i := 0; i < round; i++ {
+		if !b.Run(fmt.Sprintf("RunPipelinesEndToEnd-Round%d", i), func(b *testing.B) {
+			commit := addInputCommit(b)
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+			require.NoError(b, err)
+			collectCommitInfos(b, commitIter)
+		}) {
+			return
+		}
 	}
+}
+
+func BenchmarkLocalMultipleInputs(b *testing.B) {
+
 }
