@@ -166,6 +166,7 @@ type LogsIter struct {
 	err        error
 }
 
+// Next retrieves the next relevant log message from pachd
 func (l *LogsIter) Next() bool {
 	if l.err != nil {
 		l.msg = nil
@@ -178,10 +179,13 @@ func (l *LogsIter) Next() bool {
 	return true
 }
 
+// Message returns the most recently retrieve log message (as an annotated log
+// line, in the form of a pps.LogMessage)
 func (l *LogsIter) Message() *pps.LogMessage {
 	return l.msg
 }
 
+// Err retrieves any errors encountered in the course of calling 'Next()'.
 func (l *LogsIter) Err() error {
 	if l.err == io.EOF {
 		return nil
@@ -190,12 +194,12 @@ func (l *LogsIter) Err() error {
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobId', and 'data', are all filters. To forego any filter, simply pass an
-// empty value, though one of 'pipelineName' and 'jobId' must be set. Responses
+// 'jobID', and 'data', are all filters. To forego any filter, simply pass an
+// empty value, though one of 'pipelineName' and 'jobID' must be set. Responses
 // are written to 'messages'
 func (c APIClient) GetLogs(
 	pipelineName string,
-	jobId string,
+	jobID string,
 	data []string,
 ) *LogsIter {
 	request := pps.GetLogsRequest{}
@@ -203,8 +207,8 @@ func (c APIClient) GetLogs(
 	if len(pipelineName) > 0 {
 		request.Pipeline = &pps.Pipeline{pipelineName}
 	}
-	if len(jobId) > 0 {
-		request.Job = &pps.Job{jobId}
+	if len(jobID) > 0 {
+		request.Job = &pps.Job{jobID}
 	}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.ctx(), &request)
 	return resp
