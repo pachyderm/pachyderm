@@ -208,7 +208,9 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if err != nil {
 			return err
 		}
+		fmt.Printf("objectInfo: %v\n", objectInfo)
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
+		fmt.Printf("objectSize: %d\n", objectSize)
 		if offset > objectSize {
 			offset -= objectSize
 			continue
@@ -217,7 +219,9 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
+		fmt.Printf("readSize: %d\n", readSize)
 		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+			fmt.Printf("writing object directly")
 			// The object is a substantial portion of the available cache space so
 			// we bypass the cache and stream it directly out of the underlying store.
 			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
@@ -225,10 +229,10 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err != nil {
 				return err
 			}
-			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
-				return err
-			}
+			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
 		}
+		fmt.Printf("getting object from cache\n")
+		fmt.Printf("objectCacheBytes: %d; maxCachedObjectDenom: %d\n", s.objectCacheBytes, maxCachedObjectDenom)
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
 		if err := s.objectCache.Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
@@ -237,6 +241,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if uint64(len(data)) < offset+readSize {
 			return fmt.Errorf("undersized object (this is likely a bug)")
 		}
+		fmt.Printf("sending object from cache\n")
 		if err := getObjectsServer.Send(&types.BytesValue{Value: data[offset : offset+readSize]}); err != nil {
 			return err
 		}

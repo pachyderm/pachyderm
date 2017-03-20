@@ -155,7 +155,7 @@ push-bench-images:
 	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	
-launch-bench: docker-build docker-build-test install
+launch-bench: docker-build docker-build-test
 	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
@@ -168,11 +168,8 @@ run-bench:
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
-	@#Todo - remove the s3 bucket that served as a state store as well
-	@#which s3cmd
-	@#s3cmd del --recursive --force `cat tmp/current-benchmark-state-store.txt`
-	@# if the bucket is empty we need to do:
-	@#s3cmd rb s3://k8scom-state-store-pachyderm-4902
+	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
+	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
 
 bench: clean-launch-bench push-bench-images launch-bench run-bench
 
