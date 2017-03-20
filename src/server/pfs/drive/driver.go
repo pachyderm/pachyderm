@@ -1264,11 +1264,6 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("%s is a directory", file.Path)
 	}
 
-	fmt.Printf("len(node.FileNode.Objects): %d\n", len(node.FileNode.Objects))
-	for _, object := range node.FileNode.Objects {
-		fmt.Printf("object: %v\n", object)
-	}
-
 	objClient, err := d.getObjectClient()
 	if err != nil {
 		return nil, err
