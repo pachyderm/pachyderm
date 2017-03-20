@@ -182,13 +182,13 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 }
 
 func BenchmarkDailyDataShuffle(b *testing.B) {
-	// The following workload consists of roughly 1TB of data
+	// The following workload consists of roughly 500GB of data
 	//benchmarkDataShuffle(b, 20, 1000, 1*KB, 100*MB, 10)
-	benchmarkDataShuffle(b, 10, 100, 1*KB, 100*MB, 10)
+	benchmarkDataShuffle(b, 10, 10000, 100, 10*MB, 10)
 }
 
 func BenchmarkLocalDataShuffle(b *testing.B) {
-	benchmarkDataShuffle(b, 10, 100, 100, 10*MB, 1)
+	benchmarkDataShuffle(b, 10, 100, 1*KB, 100*MB, 3)
 }
 
 // benchmarkDailyDataShuffle consists of the following steps:
