@@ -1377,7 +1377,6 @@ func TestRestartAll(t *testing.T) {
 	// Do first commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
