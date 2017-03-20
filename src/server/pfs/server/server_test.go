@@ -1235,7 +1235,7 @@ func TestDeleteFile(t *testing.T) {
 	require.Equal(t, 1, len(fileInfos))
 
 	// Empty commit
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
