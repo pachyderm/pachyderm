@@ -333,7 +333,7 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 			object = w.object
 		}
 	}()
-	written, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2))
+	written, err := io.CopyBuffer(w, r, make([]byte, grpcutil.MaxMsgSize/2))
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
 	}
@@ -674,7 +674,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		// Buffer the write so that we don't exceed the grpc
 		// MaxMsgSize. This value includes the whole payload
 		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + MaxMsgSize/2
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
 		if ceil > len(p) {
 			ceil = len(p)
 		}
@@ -736,7 +736,7 @@ func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
 		// Buffer the write so that we don't exceed the grpc
 		// MaxMsgSize. This value includes the whole payload
 		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + MaxMsgSize/2
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
 		if ceil > len(p) {
 			ceil = len(p)
 		}
