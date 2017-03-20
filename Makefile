@@ -257,16 +257,16 @@ pretest:
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-test: docker-build clean-launch-dev launch-dev pfs-test pps-test
+test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
-pfs-test:
+test-pfs:
 	go test ./src/server/pfs/server
 
-pps-test:
+test-pps:
 	go test ./src/server/pachyderm_test.go
 
-local-bench:
-	go test ./src/server -bench=. -run=XXX
+test-hashtree:
+	go test ./src/server/pkg/hashtree
 
 test-client:
 	rm -rf src/client/vendor
