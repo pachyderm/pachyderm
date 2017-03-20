@@ -148,6 +148,15 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 			},
 		},
 	})
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name: client.PPSPodNameEnv,
+		ValueFrom: &api.EnvVarSource{
+			FieldRef: &api.ObjectFieldSelector{
+				APIVersion: "v1",
+				FieldPath:  "metadata.name",
+			},
+		},
+	})
 	// Set the etcd prefix env
 	workerEnv = append(workerEnv, api.EnvVar{
 		Name:  client.PPSEtcdPrefixEnv,
@@ -181,6 +190,20 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 		Name:      "pach-bin",
 		MountPath: "/pach-bin",
 	})
+
+	volumes = append(volumes, api.Volume{
+		Name: client.PPSHostPathVolume,
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: client.PPSHostPath,
+			},
+		},
+	})
+	volumeMounts = append(volumeMounts, api.VolumeMount{
+		Name:      client.PPSHostPathVolume,
+		MountPath: client.PPSHostPath,
+	})
+
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})

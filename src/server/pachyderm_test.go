@@ -75,7 +75,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
 		require.Equal(t, fmt.Sprintf("%d", i), buf.String())

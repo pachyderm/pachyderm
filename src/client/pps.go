@@ -20,6 +20,10 @@ const (
 	// see its own IP.  The IP address is made available through the
 	// Kubernetes downward API.
 	PPSWorkerIPEnv = "PPS_WORKER_IP"
+	// PPSPodNameEnv is the environment variable that a pod can use to
+	// see its own name.  The pod name is made available through the
+	// Kubernetes downward API.
+	PPSPodNameEnv = "PPS_POD_NAME"
 	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
 	// that the workers are running.
 	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
@@ -35,6 +39,12 @@ const (
 	PPSOutputPath = "/pfs/out"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 30652
+	// PPSHostPath is the hostpath that a PPS worker uses to store
+	// input/output data.
+	PPSHostPath = "/var/pachyderm_worker"
+	// PPSHostPathVolume is the name of the volume that uses the
+	// aforementioned hostpath.
+	PPSHostPathVolume = "pachyderm-worker"
 )
 
 // NewJobInput creates a pps.JobInput.
