@@ -1066,9 +1066,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 	if delimiter == pfs.Delimiter_NONE {
-		fmt.Println("start putting object")
 		object, size, err := objClient.PutObject(reader)
-		fmt.Println("finish putting object: %v, %d, %v", object, size, err)
 		if err != nil {
 			return err
 		}

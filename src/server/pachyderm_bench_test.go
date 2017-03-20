@@ -182,11 +182,9 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 }
 
 func BenchmarkDailyDataShuffle(b *testing.B) {
-	// The following parameters, combined with the values given to the zipf
-	// function (which we use to generate file sizes), give us a workload
-	// with 1TB of data that consists of 20 tarballs, each of which has 10000
-	// files, whose sizes are between 1KB and 100MB.
-	benchmarkDataShuffle(b, 20, 1000, 1*KB, 100*MB, 10)
+	// The following workload consists of roughly 1TB of data
+	//benchmarkDataShuffle(b, 20, 1000, 1*KB, 100*MB, 10)
+	benchmarkDataShuffle(b, 10, 100, 1*KB, 100*MB, 10)
 }
 
 func BenchmarkLocalDataShuffle(b *testing.B) {
@@ -275,12 +273,15 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 					return err
 				}
 				_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
+				fmt.Printf("Finished putting file %s\n", tarName)
 				return err
 			})
 		}
 		require.NoError(b, genEg.Wait())
 		require.NoError(b, writeEg.Wait())
+		fmt.Println("Finished putting all files")
 		require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
+		fmt.Println("Finished commit")
 		require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
 		commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 		require.NoError(b, err)

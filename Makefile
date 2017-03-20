@@ -111,6 +111,14 @@ docker-clean-pachd:
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
+docker-clean-test:
+	docker stop test_compile || true
+	docker rm test_compile || true
+
+docker-build-test: docker-clean-test docker-build-compile
+	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
+	etc/compile/wait.sh test_compile
+
 docker-build-microsoft-vhd:
 	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
 
@@ -132,25 +140,31 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-dev-bench: docker-build install
+launch-dev-bench: docker-build docker-build-test install
 	@# Put it here so sudo can see it
 	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-launch-bench: docker-build-compile
+push-bench-images:
+	# We need the pachyderm_compile image to be up to date
+	docker tag pachyderm_pachd pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_worker pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	
+launch-bench: docker-build docker-build-test install
 	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
-	
-run-bench:
-	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_compile pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	pachctl port-forward &
-	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- go test -v ./src/server -bench=Daily -run=XXX
-	make clean-launch-bench
+
+run-bench:
+	kubectl scale --replicas=4 rc/pachd
+	echo "waiting for pachd to scale up" && sleep 10
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- -test.v -test.bench=BenchmarkDailyDataShuffle -test.run=XXX
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
@@ -160,7 +174,7 @@ clean-launch-bench:
 	@# if the bucket is empty we need to do:
 	@#s3cmd rb s3://k8scom-state-store-pachyderm-4902
 
-bench: clean-launch-bench launch-bench run-bench
+bench: clean-launch-bench push-bench-images launch-bench run-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
