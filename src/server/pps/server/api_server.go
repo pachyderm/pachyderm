@@ -950,9 +950,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Create a k8s replication controller that runs the workers
-		fmt.Println("Calling createWorkersForPipeline(", pipelineInfo, ")")
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
-			fmt.Println("Create workers err: ", err.Error())
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
