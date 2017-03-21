@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
@@ -440,8 +441,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				path = args[2]
 			}
 
-			// A semaphore used to limit parallelism
-			sem := make(chan struct{}, parallelism)
+			limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
 				var r io.Reader
@@ -489,19 +489,19 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, path, source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -742,7 +742,7 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, limiter limit.ConcurrencyLimiter, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
 	putFile := func(reader io.Reader) error {
 		if split == "" {
 			_, err := client.PutFile(repo, commit, path, reader)
@@ -763,14 +763,14 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	}
 
 	if source == "-" {
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		limiter.Acquire()
+		defer limiter.Release()
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		limiter.Acquire()
+		defer limiter.Release()
 		return client.PutFileURL(repo, commit, path, url.String(), recursive)
 	}
 	if recursive {
@@ -784,7 +784,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem, split, targetFileDatums, targetFileBytes)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, limiter, split, targetFileDatums, targetFileBytes)
 			})
 			return nil
 		}); err != nil {
@@ -792,10 +792,8 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 		}
 		return eg.Wait()
 	}
-	// use the semaphore here so that we don't even open the file until
-	// we are ready to upload it.
-	sem <- struct{}{}
-	defer func() { <-sem }()
+	limiter.Acquire()
+	defer limiter.Release()
 	f, err := os.Open(source)
 	if err != nil {
 		return err
