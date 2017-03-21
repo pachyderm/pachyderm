@@ -288,6 +288,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 const letters = "abcdefghijklmnopqrstuvwxyz"
 const lettersAndSpaces = "abcdefghijklmnopqrstuvwxyz      "
 
+// RandString returns a random alphabetical string of size n
 func RandString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
