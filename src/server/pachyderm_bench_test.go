@@ -185,7 +185,7 @@ func BenchmarkDailyDataShuffle(b *testing.B) {
 	// The following workload consists of roughly 500GB of data
 	//benchmarkDataShuffle(b, 20, 1000, 1*KB, 100*MB, 10)
 	//benchmarkDataShuffle(b, 10, 10000, 100, 10*MB, 10)
-	benchmarkDataShuffle(b, 1, 10000, 100, 10*MB, 10)
+	benchmarkDataShuffle(b, 1, 10000, 100, 10*MB, 9)
 }
 
 func BenchmarkLocalDataShuffle(b *testing.B) {
@@ -372,7 +372,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	}
 
 	pipelineThree := uniqueString("BenchmarkDataShuffleStageThree")
-	if !b.Run(fmt.Sprintf("Compressing%dFilesInto%dTarballs", numTotalFiles, numTarballs), func(b *testing.B) {
+	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles, numTarballs), func(b *testing.B) {
 		b.N = 1
 		require.NoError(b, c.CreatePipeline(
 			pipelineThree,
