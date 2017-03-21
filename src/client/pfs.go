@@ -478,8 +478,10 @@ func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path str
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
 	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
 }
 
@@ -529,8 +531,10 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
 	return c.getFile(repoName, commitID, path, offset, size, writer)
 }
 
