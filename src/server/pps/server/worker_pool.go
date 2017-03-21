@@ -23,11 +23,16 @@ const (
 	workerEtcdPrefix = "workers"
 )
 
-// WorkerPool represents a pool of workers that can be used to process datums.
-type WorkerPool interface {
-	DataCh() chan datumAndResp
+// datumAndResp models an input/output pair for a single datum. When a worker
+// has finished processing 'data', it writes the resulting hashtree to 'resp'
+// (each job has its own response channel)
+type datumAndResp struct {
+	datum  []*pfs.FileInfo
+	respCh chan hashtree.HashTree
+	errCh  chan string
 }
 
+// worker models a single pod processing data for a pipeline or orphan job
 type worker struct {
 	ctx          context.Context
 	addr         string
@@ -71,16 +76,15 @@ func (w *worker) run(dataCh chan datumAndResp) {
 	}
 }
 
-// An input/output pair for a single datum. When a worker has finished
-// processing 'data', it writes the resulting hashtree to 'resp' (each job has
-// its own response channel)
-type datumAndResp struct {
-	datum  []*pfs.FileInfo
-	respCh chan hashtree.HashTree
-	errCh  chan string
+// WorkerPool represents a pool of workers that can be used to process datums.
+type WorkerPool interface {
+	// DataCh returns the channel through which a worker pool receives work and
+	// returns results.
+	DataCh() chan datumAndResp
 }
 
 type workerPool struct {
+	// Worker pool recieves work via this channel
 	dataCh chan datumAndResp
 
 	// Parent of all worker contexts (see workersMap)
