@@ -408,7 +408,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if len(response.FileInfo) > maxListItemsLog {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
 			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
 			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
 		} else {
@@ -430,7 +430,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if len(response.FileInfo) > maxListItemsLog {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
 			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
 			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
 		} else {
