@@ -41,6 +41,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dev bool
 	var dryRun bool
 	var secure bool
+	var etcdNodes int
 	var logLevel string
 	var opts *assets.AssetOpts
 
@@ -185,11 +186,16 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				Version:     version.PrettyPrintVersion(version.Version),
 				LogLevel:    logLevel,
 				Metrics:     metrics,
+				EtcdNodes:   etcdNodes,
 			}
 			return nil
 		}),
 	}
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "Number of Pachd nodes (stateless Pachyderm API servers).")
+	deploy.PersistentFlags().IntVar(&etcdNodes, "etcd-nodes", 1, "Number of Etcd "+
+		"nodes. Note that setting this to a value larger than 1 will deploy "+
+		"etcd as a kubernetes StatefulSet, which is a beta kubernetes feature, and "+
+		"might be incompatible with kubernetes versions larger than 1.5.1")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.AddCommand(deployLocal)
