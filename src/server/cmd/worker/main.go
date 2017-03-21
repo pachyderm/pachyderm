@@ -109,7 +109,8 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 
-	// Construct worker API server
+	// Construct worker API server. Get relevant pipeline or job info, and then
+	// use that to create a worker.APIServer.
 	var workerRcName string
 	var apiServer *worker.APIServer
 	if appEnv.PPSPipelineName != "" {
