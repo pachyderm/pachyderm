@@ -1053,7 +1053,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				}
 			}
 		}
-		fmt.Println("finishing hashtree")
 
 		finishedTree, err := tree.Finish()
 		if err != nil {
@@ -1070,7 +1069,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		fmt.Println("putting finished hashtree")
 		putObjClient, err := objClient.PutObject(ctx)
 		if err != nil {
 			return err
