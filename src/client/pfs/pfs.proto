@@ -87,6 +87,7 @@ message FileInfo {
   // the children
   repeated string children = 6;
   bytes hash = 7;
+  repeated BlockRef block_refs = 8;
 }
 
 message FileInfos {
