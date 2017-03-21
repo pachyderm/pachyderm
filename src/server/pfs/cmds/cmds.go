@@ -395,6 +395,7 @@ $ pachctl set-branch foo test master
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
+	var putFileCommit bool
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name branch path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -435,10 +436,20 @@ pachctl put-file repo branch -i http://host/path
 				return err
 			}
 			repoName := args[0]
-			commitID := args[1]
+			branch := args[1]
 			var path string
 			if len(args) == 3 {
 				path = args[2]
+			}
+			if putFileCommit {
+				if _, err := client.StartCommit(repoName, branch); err != nil {
+					return err
+				}
+				defer func() {
+					if err := client.FinishCommit(repoName, branch); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 			}
 
 			// A semaphore used to limit parallelism
@@ -490,19 +501,19 @@ pachctl put-file repo branch -i http://host/path
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths("", source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, path, source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, path, source, recursive, sem, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths(path, source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -516,6 +527,7 @@ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "the target upper bound of the number of datums that each file contains; needs to be used with --split")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "the target upper bound of the number of bytes that each file contains; needs to be used with --split")
+	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
 
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
