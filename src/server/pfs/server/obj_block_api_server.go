@@ -221,7 +221,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		fmt.Printf("readSize: %d\n", readSize)
 		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
-			fmt.Printf("writing object directly")
+			fmt.Printf("writing object directly\n")
 			// The object is a substantial portion of the available cache space so
 			// we bypass the cache and stream it directly out of the underlying store.
 			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
