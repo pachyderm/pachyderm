@@ -849,6 +849,7 @@ func TestInspectFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
+	require.Equal(t, 1, len(fileInfo.BlockRefs))
 
 	fileContent2 := "barbar\n"
 	commit2, err := client.StartCommit(repo, commit1.ID)
@@ -861,6 +862,7 @@ func TestInspectFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pfs.FileType_FILE, fileInfo.FileType)
 	require.Equal(t, len(fileContent1+fileContent2), int(fileInfo.SizeBytes))
+	require.Equal(t, 2, len(fileInfo.BlockRefs))
 
 	fileInfo, err = client.InspectFile(repo, commit2.ID, "foo")
 	require.NoError(t, err)
