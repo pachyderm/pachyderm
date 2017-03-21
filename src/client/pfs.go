@@ -130,7 +130,7 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 	return commit, nil
 }
 
-// StartCommit begins the process of committing data to a Repo. Once started
+// StartCommitParent begins the process of committing data to a Repo. Once started
 // you can write to the Commit with PutFile and when all the data has been
 // written you must finish the Commit with FinishCommit. NOTE, data is not
 // persisted until FinishCommit is called.
