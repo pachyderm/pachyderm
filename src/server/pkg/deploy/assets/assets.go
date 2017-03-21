@@ -5,27 +5,33 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	api "k8s.io/kubernetes/pkg/api/v1"
 )
 
 var (
-	suite               = "pachyderm"
-	pachdImage          = "pachyderm/pachd"
-	etcdImage           = "quay.io/coreos/etcd:v3.1.2"
-	serviceAccountName  = "pachyderm"
-	etcdName            = "etcd"
-	pachdName           = "pachd"
-	minioSecretName     = "minio-secret"
-	amazonSecretName    = "amazon-secret"
-	googleSecretName    = "google-secret"
-	microsoftSecretName = "microsoft-secret"
-	trueVal             = true
-	jsonEncoderHandle   = &codec.JsonHandle{
+	suite                   = "pachyderm"
+	pachdImage              = "pachyderm/pachd"
+	etcdImage               = "quay.io/coreos/etcd:v3.1.2"
+	serviceAccountName      = "pachyderm"
+	etcdHeadlessServiceName = "etcd-headless"
+	etcdVolumeName          = "etcd-claim"
+	etcdVolumeClaimName     = "etcd-volume-claim"
+	etcdVolumeMountName     = "etcd-storage"
+	etcdName                = "etcd"
+	pachdName               = "pachd"
+	minioSecretName         = "minio-secret"
+	amazonSecretName        = "amazon-secret"
+	googleSecretName        = "google-secret"
+	microsoftSecretName     = "microsoft-secret"
+	trueVal                 = true
+	jsonEncoderHandle       = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
 			EncodeOptions: codec.EncodeOptions{Canonical: true},
 		},
@@ -328,8 +334,11 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 						{
 							Name: "etcd-storage",
 							VolumeSource: api.VolumeSource{
-								HostPath: &api.HostPathVolumeSource{
-									Path: filepath.Join(hostPath, "etcd"),
+								// HostPath: &api.HostPathVolumeSource{
+								// 	Path: filepath.Join(hostPath, "etcd"),
+								// },
+								PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
+									ClaimName: etcdVolumeClaimName,
 								},
 							},
 						},
@@ -340,8 +349,80 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 	}
 }
 
-// EtcdService returns an etcd service.
-func EtcdService(local bool) *api.Service {
+// WriteEtcdVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
+// or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
+func WriteEtcdVolumes(w io.Writer, persistentDiskBackend backend,
+	opts *AssetOpts, hostPath string, names []string,
+	size int) error {
+	if persistentDiskBackend != localBackend && len(names) < opts.EtcdNodes {
+		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", opts.EtcdNodes, len(names))
+	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	for i := 0; i < opts.EtcdNodes; i++ {
+		spec := &api.PersistentVolume{
+			TypeMeta: unversioned.TypeMeta{
+				Kind:       "PersistentVolume",
+				APIVersion: "v1",
+			},
+			ObjectMeta: api.ObjectMeta{
+				Name:   fmt.Sprintf("%s-%d", etcdVolumeName, i),
+				Labels: labels(etcdVolumeName),
+			},
+			Spec: api.PersistentVolumeSpec{
+				Capacity: map[api.ResourceName]resource.Quantity{
+					"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
+				},
+				AccessModes:                   []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+				PersistentVolumeReclaimPolicy: api.PersistentVolumeReclaimRetain,
+			},
+		}
+
+		switch persistentDiskBackend {
+		case amazonBackend:
+			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+				AWSElasticBlockStore: &api.AWSElasticBlockStoreVolumeSource{
+					FSType:   "ext4",
+					VolumeID: names[i],
+				},
+			}
+		case googleBackend:
+			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+				GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
+					FSType: "ext4",
+					PDName: names[i],
+				},
+			}
+		case microsoftBackend:
+			dataDiskURI := names[i]
+			split := strings.Split(names[i], "/")
+			diskName := split[len(split)-1]
+
+			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+				AzureDisk: &api.AzureDiskVolumeSource{
+					DiskName:    diskName,
+					DataDiskURI: dataDiskURI,
+				},
+			}
+		case minioBackend:
+			fallthrough
+		case localBackend:
+			spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
+				HostPath: &api.HostPathVolumeSource{
+					Path: filepath.Join(hostPath, fmt.Sprintf("etcd-%d", i)),
+				},
+			}
+		default:
+			return fmt.Errorf("cannot generate volume spec for unknown backend \"%v\"", persistentDiskBackend)
+		}
+		spec.CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
+	return nil
+}
+
+// EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
+// pods talk to etcd
+func EtcdNodePortService(local bool) *api.Service {
 	var clientNodePort int32
 	serviceType := api.ServiceTypeNodePort
 	if local {
@@ -371,6 +452,122 @@ func EtcdService(local bool) *api.Service {
 				{
 					Port: 2380,
 					Name: "peer-port",
+				},
+			},
+		},
+	}
+}
+
+// EtcdHeadlessService returns a headless etcd service, which is only for DNS
+// resolution.
+func EtcdHeadlessService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   etcdHeadlessServiceName,
+			Labels: labels(etcdName),
+		},
+		Spec: api.ServiceSpec{
+			Selector:  labels(etcdName),
+			ClusterIP: "None",
+			Ports: []api.ServicePort{
+				{
+					Port: 29015,
+					Name: "cluster-port",
+				},
+			},
+		},
+	}
+}
+
+// EtcdStatefulSet returns a stateful set that manages an etcd cluster
+func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
+	initialCluster := ""
+	for i := 0; i < opts.EtcdNodes; i++ {
+		initialCluster += fmt.Sprintf("http://etcd%d.etcd-headless.default.svc.cluster.local", i)
+		if (i + 1) < opts.EtcdNodes {
+			initialCluster += ","
+		}
+	}
+	// As of March 17, 2017, the Kubernetes client does not include structs for
+	// Stateful Set, so we generate the kubernetes manifest using raw json.
+	return map[string]interface{}{
+		"apiVersion": "apps/v1beta1",
+		"kind":       "StatefulSet",
+		"metadata": map[string]interface{}{
+			"name":   etcdName,
+			"labels": labels(etcdName),
+		},
+		"spec": map[string]interface{}{
+			// Effectively configures a RC
+			"serviceName": etcdHeadlessServiceName,
+			"replicas":    int(opts.EtcdNodes),
+			"selector": map[string]interface{}{
+				"matchLabels": labels(etcdName),
+			},
+
+			// pod template
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":   etcdName,
+					"labels": labels(etcdName),
+				},
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":    etcdName,
+							"image":   etcdImage,
+							"command": []string{"/usr/local/bin/etcd"},
+							"args": []string{
+								"--listen-client-urls=http://0.0.0.0:2379",
+								"--advertise-client-urls=http://0.0.0.0:2379",
+								"--data-dir=/var/data/etcd",
+								"--initial-cluster=" + initialCluster,
+								// TODO point this to other nodes in the cluster
+							},
+							"ports": []interface{}{
+								map[string]interface{}{
+									"containerPort": 2379,
+									"name":          "client-port",
+								},
+								map[string]interface{}{
+									"containerPort": 2380,
+									"name":          "peer-port",
+								},
+							},
+							"volumeMounts": []interface{}{
+								map[string]interface{}{
+									"name":      etcdVolumeMountName,
+									"mountPath": "/var/data/etcd",
+								},
+							},
+							"imagePullPolicy": "IfNotPresent",
+							"resources": map[string]interface{}{
+								"requests": map[string]interface{}{
+								// TODO figure out resource requirements
+								},
+							},
+						},
+					},
+				},
+			},
+			"volumeClaimTemplates": []interface{}{
+				map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":   etcdVolumeClaimName,
+						"labels": labels(etcdName),
+					},
+					"spec": map[string]interface{}{
+						"resources": map[string]interface{}{
+							"requests": map[string]interface{}{
+								"storage": resource.MustParse(fmt.Sprintf("%vGi", diskSpace)),
+							},
+						},
+						"accessModes": []string{"ReadWriteOnce"},
+					},
 				},
 			},
 		},
@@ -478,6 +675,7 @@ type AssetOpts struct {
 	Version     string
 	LogLevel    string
 	Metrics     bool
+	EtcdNodes   int
 }
 
 // WriteAssets writes the assets to w.
@@ -488,9 +686,17 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	EtcdRc(hostPath).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-	EtcdService(backend == localBackend).CodecEncodeSelf(encoder)
+	WriteEtcdVolumes(w, backend, opts, hostPath, volumeNames, volumeSize)
+	if opts.EtcdNodes > 1 {
+		EtcdHeadlessService().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		encoder.Encode(EtcdStatefulSet(opts, volumeSize))
+		fmt.Fprintf(w, "\n")
+	} else {
+		EtcdRc(hostPath).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
+	EtcdNodePortService(backend == localBackend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
