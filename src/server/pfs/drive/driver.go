@@ -1279,7 +1279,7 @@ func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size
 	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
-func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *pfs.FileInfo {
+func (d *driver) nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) (*pfs.FileInfo, error) {
 	fileInfo := &pfs.FileInfo{
 		File: &pfs.File{
 			Commit: commit,
@@ -1290,11 +1290,22 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *
 	}
 	if node.FileNode != nil {
 		fileInfo.FileType = pfs.FileType_FILE
+		objClient, err := d.getObjectClient()
+		if err != nil {
+			return nil, err
+		}
+		for _, object := range node.FileNode.Objects {
+			objectInfo, err := objClient.InspectObject(object.Hash)
+			if err != nil {
+				return nil, err
+			}
+			fileInfo.BlockRefs = append(fileInfo.BlockRefs, objectInfo.BlockRef)
+		}
 	} else if node.DirNode != nil {
 		fileInfo.FileType = pfs.FileType_DIR
 		fileInfo.Children = node.DirNode.Children
 	}
-	return fileInfo
+	return fileInfo, nil
 }
 
 func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
@@ -1308,7 +1319,7 @@ func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 
-	return nodeToFileInfo(file.Commit, file.Path, node), nil
+	return d.nodeToFileInfo(file.Commit, file.Path, node)
 }
 
 func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
@@ -1324,7 +1335,11 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node))
+		fileInfo, err := d.nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node)
+		if err != nil {
+			return nil, err
+		}
+		fileInfos = append(fileInfos, fileInfo)
 	}
 	return fileInfos, nil
 }
@@ -1342,7 +1357,11 @@ func (d *driver) GlobFile(ctx context.Context, commit *pfs.Commit, pattern strin
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node))
+		fileInfo, err := d.nodeToFileInfo(commit, node.Name, node)
+		if err != nil {
+			return nil, err
+		}
+		fileInfos = append(fileInfos, fileInfo)
 	}
 	return fileInfos, nil
 }
