@@ -3,7 +3,7 @@
 If you're contributing to pachyderm, you may need the following additional setup.
 
 1. General Requirements
-  - golang version 1.6
+  - golang version 1.7
   - docker
   - FUSE
 2. bash helpers
@@ -19,7 +19,7 @@ If you're contributing to pachyderm, you may need the following additional setup
 
 Install:
 
-- golang 1.6 (we need 1.6 for vendoring support)
+- golang 1.7
 - docker
 - FUSE
 
@@ -68,8 +68,8 @@ Internally we develop using containerized kubernetes using GKE. The following in
 
 Setup Google Cloud Platform via the web
 
-- login w your gmail account
-  - click the silhouette in the upper right to make sure you're logged in w the right account
+- login with your Gmail or G Suite account
+  - click the silhouette in the upper right to make sure you're logged in with the right account
 - get your owner/admin to setup a project for you (e.g. YOURNAME-dev)
 - then they need to go into the project > settings > permissions and add you
   - hint to owner/admin: its the permissions button in one of the left hand popin menus (GKE UI can be confusing)
@@ -77,7 +77,7 @@ Setup Google Cloud Platform via the web
 - click 'use google APIS' (or something along the lines of enable/manage APIs)
 - click through to google compute engine API and enable it or click the 'get started' button to make it provision
 
-Then do:
+Then, locally, run the following commands one at a time:
 
     gcloud auth login
     gcloud init
@@ -154,7 +154,7 @@ And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 
 ### File Descriptor Limit
 
-If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit w sudo privileges:
+If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
     sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
 

@@ -107,6 +107,9 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
+{{ if .Resources }}Resources:
+	CPU: {{ .Resources.Cpu }}
+	Memory: {{ .Resources.Memory }} {{end}}
 Inputs:
 {{jobInputs .}}Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}

@@ -183,15 +183,15 @@ launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -290,6 +290,28 @@ doc: install-doc
 	./pachctl
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
+
+clean-launch-monitoring:
+	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
+
+launch-monitoring:
+	kubectl create -f ./etc/plugin/monitoring
+	@echo "Waiting for services to spin up ..."
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=heapster kube-system; do sleep 5; done
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=influxdb kube-system; do sleep 5; done
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=grafana kube-system; do sleep 5; done
+	@echo "All services up. Now port forwarding grafana to localhost:3000"
+	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
+
+clean-launch-logging: check-kubectl check-kubectl-connection
+	git submodule update --init
+	cd etc/plugin/logging && ./undeploy.sh
+
+launch-logging: check-kubectl check-kubectl-connection
+	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
+	git submodule update --init
+	cd etc/plugin/logging && ./deploy.sh
+	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt
