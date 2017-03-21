@@ -64,10 +64,9 @@ func getClient() (*client.APIClient, error) {
 	if os.Getenv("LOCAL") != "" {
 		c, err := client.NewFromAddress("localhost:30650")
 		return c, err
-	} else {
-		c, err := client.NewInCluster()
-		return c, err
 	}
+	c, err := client.NewInCluster()
+	return c, err
 }
 
 // benchmarkFiles runs a benchmarks that uploads, downloads, and processes
@@ -120,9 +119,8 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			eg.Go(func() error {
 				if k%10 == 0 {
 					return c.GetFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), 0, 0, w)
-				} else {
-					return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
 				}
+				return c.GetFile(repo, commit.ID, fmt.Sprintf("file%d", k), 0, 0, w)
 			})
 		}
 		require.NoError(b, eg.Wait())
