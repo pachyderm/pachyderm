@@ -39,14 +39,14 @@ func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := ""
-	if size == 0 {
-		byteRange = fmt.Sprintf("%d-", offset)
+	byteRange := byteRange(offset, size)
+	var reader io.ReadCloser
+	var err error
+	if byteRange == "" {
+		reader, err = c.blobClient.GetBlob(c.container, name)
 	} else {
-		byteRange = fmt.Sprintf("%d-%d", offset, offset+size-1)
+		reader, err = c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
 	}
-
-	reader, err := c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
 
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (c *microsoftClient) Exists(name string) bool {
 	return exists
 }
 
-func (c *microsoftClient) IsRetryable(err error) (ret bool) {
+func (c *microsoftClient) isRetryable(err error) (ret bool) {
 	microsoftErr, ok := err.(storage.AzureStorageServiceError)
 	if !ok {
 		return false
