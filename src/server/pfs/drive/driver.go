@@ -297,7 +297,11 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		}
 		for _, prov := range repoInfo.Provenance {
 			if err := repoRefCounts.Decrement(prov.Name); err != nil {
-				return err
+				// Skip NotFound error, because it's possible that the
+				// provenance repo has been deleted via --force.
+				if _, ok := err.(col.ErrNotFound); !ok {
+					return err
+				}
 			}
 		}
 

@@ -10,7 +10,41 @@
         "done"
     ]
   },
-  "inputs":[
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "resources" : {
+    "cpu": 1.5,
+    "memory": "4G"
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "data"
+      },
+      "method": "map"
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "sum"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "for fruit in apple orange banana; do",
+        "   { cat /pfs/prev/$fruit || echo 0; cat /pfs/filter/$fruit; } | awk '{s+=$1} END {print s}' > /pfs/out/$fruit",
+        "done"
+    ],
+    "overwrite": true
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": 1
+  },
+  "inputs": [
     {
       "name": "d",
       "repo": { "name": "data" },
