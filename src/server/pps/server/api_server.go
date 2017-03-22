@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -74,6 +75,44 @@ func newErrParentInputsMismatch(parent string) error {
 type ctxAndCancel struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+// GetExpectedNumWorkers computes the expected number of workers that pachyderm
+// will start given the ParallelismSpec 'spec'.
+//
+// This is only exported for testing
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
+	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
+	if spec == nil {
+		// Unset ParallelismSpec is handled here. Currently we start one worker per
+		// node
+		coefficient = 1.0
+	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
+		if spec.Constant > 0 {
+			return spec.Constant, nil
+		}
+		// Zero-initialized ParallelismSpec is handled here. Currently we start one
+		// worker per node
+		coefficient = 1
+	} else if spec.Strategy == pps.ParallelismSpec_COEFFICIENT {
+		coefficient = spec.Coefficient
+	} else {
+		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
+	}
+	if coefficient == 0.0 {
+		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
+	}
+
+	// Start ('coefficient' * 'nodes') workers. Determine number of workers
+	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
+	}
+	if len(nodeList.Items) == 0 {
+		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
+	}
+	result := math.Floor(coefficient * float64(len(nodeList.Items)))
+	return uint64(math.Max(result, 1)), nil
 }
 
 type apiServer struct {
