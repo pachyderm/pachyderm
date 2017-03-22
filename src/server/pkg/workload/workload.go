@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -112,7 +111,7 @@ func (w *worker) createRepo(c *client.APIClient) error {
 	// Start the first commit in the repo (no parent). This is critical to
 	// advanceCommit(), which will try to finish a commit the first time it's
 	// called, and therefore must have an open commit to finish.
-	commit, err := c.StartCommit(repoName, uuid.NewWithoutDashes())
+	commit, err := c.StartCommit(repoName, "")
 	if err != nil {
 		return err
 	}
@@ -145,7 +144,7 @@ func (w *worker) advanceCommit(c *client.APIClient) error {
 	} else {
 		// Start a new commmit (parented off of a commit that we've finished)
 		commit := w.finished[w.rand.Intn(len(w.finished))]
-		commit, err := c.StartCommit(commit.Repo.Name, commit.ID)
+		commit, err := c.StartCommitParent(commit.Repo.Name, "", commit.ID)
 		if err != nil {
 			return err
 		}

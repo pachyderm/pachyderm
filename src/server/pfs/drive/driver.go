@@ -318,15 +318,15 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	return err
 }
 
-func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, provenance, nil)
+func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, branch, provenance, nil)
 }
 
-func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, provenance, tree)
+func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, branch, provenance, tree)
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
 	}
@@ -389,21 +389,25 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, provenance 
 			commitInfo.Provenance = append(commitInfo.Provenance, c)
 		}
 
-		if parent.ID != "" {
-			head := new(pfs.Commit)
-			// See if we are given a branch
-			if err := branches.Get(parent.ID, head); err != nil {
-				if _, ok := err.(col.ErrNotFound); !ok {
-					return err
+		if branch != "" {
+			// If we don't have an explicit parent we use the previous head of
+			// branch as the parent, if it exists.
+			if parent.ID == "" {
+				head := new(pfs.Commit)
+				if err := branches.Get(branch, head); err != nil {
+					if _, ok := err.(col.ErrNotFound); !ok {
+						return err
+					}
+				} else {
+					parent.ID = head.ID
 				}
-			} else {
-				// if parent.ID is a branch, make myself the head
-				branches.Put(parent.ID, commit)
-				parent.ID = head.ID
 			}
-			// Check that the parent commit exists
-			parentCommitInfo := new(pfs.CommitInfo)
-			if err := commits.Get(parent.ID, parentCommitInfo); err != nil {
+			// Make commit the new head of the branch
+			branches.Put(branch, commit)
+		}
+		if parent.ID != "" {
+			parentCommitInfo, err := d.InspectCommit(ctx, parent)
+			if err != nil {
 				return err
 			}
 			// fail if the parent commit has not been finished
