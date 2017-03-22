@@ -118,16 +118,17 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Short: "Docs for commits.",
 		Long: `Commits are atomic transactions on the content of a repo.
 
-	Creating a commit is a multistep process:
-	- start a new commit with start-commit
-	- write files to it through fuse or with put-file
-	- finish the new commit with finish-commit
+Creating a commit is a multistep process:
+- start a new commit with start-commit
+- write files to it through fuse or with put-file
+- finish the new commit with finish-commit
 
-	Commits that have been started but not finished are NOT durable storage.
-	Commits become reliable (and immutable) when they are finished.
+Commits that have been started but not finished are NOT durable storage.
+Commits become reliable (and immutable) when they are finished.
 
-	Commits can be created with another commit as a parent.
-	This layers the data in the commit over the data in the parent.`,
+Commits can be created with another commit as a parent.
+This layers the data in the commit over the data in the parent.
+`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return nil
 		}),
@@ -139,20 +140,20 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Short: "Start a new commit.",
 		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
 
-	Examples:
+Examples:
 
-	# Start a new commit in repo "test" that's not on any branch
-	$ pachctl start-commit test
+# Start a new commit in repo "test" that's not on any branch
+$ pachctl start-commit test
 
-	# Start a commit in repo "test" on branch "master"
-	$ pachctl start-commit test master
+# Start a commit in repo "test" on branch "master"
+$ pachctl start-commit test master
 
-	# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-	$ pachctl start-commit test patch -p master
+# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
+$ pachctl start-commit test patch -p master
 
-	# Start a commit with XXX as the parent in repo "test", not on any branch
-	$ pachctl start-commit test -p XXX
-	`,
+# Start a commit with XXX as the parent in repo "test", not on any branch
+$ pachctl start-commit test -p XXX
+`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -212,23 +213,23 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Short: "Return all commits on a set of repos.",
 		Long: `Return all commits on a set of repos.
 
-	Examples:
+Examples:
 
-	# return commits in repo "foo"
-	$ pachctl list-commit foo
+# return commits in repo "foo"
+$ pachctl list-commit foo
 
-	# return commits in repo "foo" on branch "master"
-	$ pachctl list-commit foo master
+# return commits in repo "foo" on branch "master"
+$ pachctl list-commit foo master
 
-	# return the last 20 commits in repo "foo" on branch "master"
-	$ pachctl list-commit foo master -n 20
+# return the last 20 commits in repo "foo" on branch "master"
+$ pachctl list-commit foo master -n 20
 
-	# return commits that are the ancestors of XXX
-	$ pachctl list-commit foo XXX
+# return commits that are the ancestors of XXX
+$ pachctl list-commit foo XXX
 
-	# return commits in repo "foo" since commit XXX
-	$ pachctl list-commit foo master --from XXX
-	`,
+# return commits in repo "foo" since commit XXX
+$ pachctl list-commit foo master --from XXX
+`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
 			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -262,14 +263,14 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Short: "Wait for all commits caused by the specified commits to finish and return them.",
 		Long: `Wait for all commits caused by the specified commits to finish and return them.
 
-	Examples:
+Examples:
 
-	# return commits caused by foo/XXX and bar/YYY
-	$ pachctl flush-commit foo/XXX bar/YYY
+# return commits caused by foo/XXX and bar/YYY
+$ pachctl flush-commit foo/XXX bar/YYY
 
-	# return commits caused by foo/XXX leading to repos bar and baz
-	$ pachctl flush-commit foo/XXX -r bar -r baz
-	`,
+# return commits caused by foo/XXX leading to repos bar and baz
+$ pachctl flush-commit foo/XXX -r bar -r baz
+`,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
@@ -335,15 +336,15 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		Short: "Set a commit and its ancestors to a branch",
 		Long: `Set a commit and its ancestors to a branch.
 
-	Examples:
+Examples:
 
-	# Set commit XXX and its ancestors as branch master in repo foo.
-	$ pachctl set-branch foo XXX master
+# Set commit XXX and its ancestors as branch master in repo foo.
+$ pachctl set-branch foo XXX master
 
-	# Set the head of branch test as branch master in repo foo.
-	# After running this command, "test" and "master" both point to the
-	# same commit.
-	$ pachctl set-branch foo test master
+# Set the head of branch test as branch master in repo foo.
+# After running this command, "test" and "master" both point to the
+# same commit.
+$ pachctl set-branch foo test master
 	`,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
@@ -386,50 +387,64 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
+	var putFileCommit bool
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name commit-id path/to/file/in/pfs",
+		Use:   "put-file repo-name branch path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
-	Put data from stdin as repo/commit/path:
-	echo "data" | pachctl put-file repo commit path
+Put data from stdin as repo/branch/path:
+echo "data" | pachctl put-file repo branch path
 
-	Put a file from the local filesystem as repo/commit/path:
-	pachctl put-file repo commit path -f file
+Put data from stding as repo/branch/path and start / finish a new commit on the branch.
+echo "data" | pachctl put-file -c repo branch path
 
-	Put a file from the local filesystem as repo/commit/file:
-	pachctl put-file repo commit -f file
+Put a file from the local filesystem as repo/branch/path:
+pachctl put-file repo branch path -f file
 
-	Put the contents of a directory as repo/commit/path/dir/file:
-	pachctl put-file -r repo commit path -f dir
+Put a file from the local filesystem as repo/branch/file:
+pachctl put-file repo branch -f file
 
-	Put the contents of a directory as repo/commit/dir/file:
-	pachctl put-file -r repo commit -f dir
+Put the contents of a directory as repo/branch/path/dir/file:
+pachctl put-file -r repo branch path -f dir
 
-	Put the data from a URL as repo/commit/path:
-	pachctl put-file repo commit path -f http://host/path
+Put the contents of a directory as repo/branch/dir/file:
+pachctl put-file -r repo branch -f dir
 
-	Put the data from a URL as repo/commit/path:
-	pachctl put-file repo commit -f http://host/path
+Put the data from a URL as repo/branch/path:
+pachctl put-file repo branch path -f http://host/path
 
-	Put several files or URLs that are listed in file.
-	Files and URLs should be newline delimited.
-	pachctl put-file repo commit -i file
+Put the data from a URL as repo/branch/path:
+pachctl put-file repo branch -f http://host/path
 
-	Put several files or URLs that are listed at URL.
-	NOTE this URL can reference local files, so it could cause you to put sensitive
-	files into your Pachyderm cluster.
-	pachctl put-file repo commit -i http://host/path
-	`,
+Put several files or URLs that are listed in file.
+Files and URLs should be newline delimited.
+pachctl put-file repo branch -i file
+
+Put several files or URLs that are listed at URL.
+NOTE this URL can reference local files, so it could cause you to put sensitive
+files into your Pachyderm cluster.
+pachctl put-file repo branch -i http://host/path
+`,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
 				return err
 			}
 			repoName := args[0]
-			commitID := args[1]
+			branch := args[1]
 			var path string
 			if len(args) == 3 {
 				path = args[2]
+			}
+			if putFileCommit {
+				if _, err := client.StartCommit(repoName, branch); err != nil {
+					return err
+				}
+				defer func() {
+					if err := client.FinishCommit(repoName, branch); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 			}
 
 			limiter := limit.New(int(parallelism))
@@ -480,19 +495,19 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths("", source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths(path, source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -506,6 +521,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "the target upper bound of the number of datums that each file contains; needs to be used with --split")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "the target upper bound of the number of bytes that each file contains; needs to be used with --split")
+	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
 
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
