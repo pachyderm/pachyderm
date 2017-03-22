@@ -133,53 +133,44 @@ This layers the data in the commit over the data in the parent.
 		}),
 	}
 
-	var branch string
+	var parent string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [parent-commit | branch]",
+		Use:   "start-commit repo-name [branch]",
 		Short: "Start a new commit.",
 		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
 
 Examples:
 
-# Start a new commit in repo "test"
+# Start a new commit in repo "test" that's not on any branch
 $ pachctl start-commit test
 
-# Start a new commit in repo "test", on a new branch "master"
-$ pachctl start-commit test -b master
-
-# Start a commit in repo "test" on an existing branch "master"
+# Start a commit in repo "test" on branch "master"
 $ pachctl start-commit test master
 
 # Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-$ pachctl start-commit test master -b patch
+$ pachctl start-commit test patch -p master
 
-# Start a commit with XXX as the parent in repo "test"
-$ pachctl start-commit test XXX
+# Start a commit with XXX as the parent in repo "test", not on any branch
+$ pachctl start-commit test -p XXX
 `,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			var parent string
+			var branch string
 			if len(args) == 2 {
-				parent = args[1]
+				branch = args[1]
 			}
-			commit, err := client.StartCommit(args[0], parent)
+			commit, err := client.StartCommitParent(args[0], branch, parent)
 			if err != nil {
 				return err
 			}
 			fmt.Println(commit.ID)
-
-			if branch != "" {
-				if err := client.SetBranch(args[0], commit.ID, branch); err != nil {
-					return err
-				}
-			}
 			return nil
 		}),
 	}
-	startCommit.Flags().StringVarP(&branch, "branch", "b", "", "create a new branch, or move an existing branch to point to this commit")
+	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
