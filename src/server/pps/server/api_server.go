@@ -1127,6 +1127,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			client := client.APIClient{
 				PfsAPIClient: pfsClient,
 			}
+			client.SetMaxConcurrentStreams(100)
 			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
