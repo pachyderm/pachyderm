@@ -186,7 +186,7 @@ func BenchmarkDailyDataShuffle(b *testing.B) {
 }
 
 func BenchmarkLocalDataShuffle(b *testing.B) {
-	benchmarkDataShuffle(b, 10, 100, 1*KB, 100*MB, 3)
+	benchmarkDataShuffle(b, 1, 100, 1*KB, 100*MB, 3)
 }
 
 // benchmarkDailyDataShuffle consists of the following steps:
@@ -208,6 +208,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(dataRepo))
 
+	var lastIndex int
 	// addInputCommit adds an input commit to the data repo
 	addInputCommit := func(b *testing.B) *pfs.Commit {
 		b.N = 1
@@ -218,7 +219,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		// the group that writes data to pachd
 		var genEg errgroup.Group
 		var writeEg errgroup.Group
-		for i := 0; i < numTarballs; i++ {
+		for i := lastIndex; i < lastIndex+numTarballs; i++ {
 			tarName := fmt.Sprintf("tar-%d.tar.gz", i)
 			pr, pw := io.Pipe()
 			genEg.Go(func() (retErr error) {
@@ -275,6 +276,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				return err
 			})
 		}
+		lastIndex += numTarballs
 		require.NoError(b, genEg.Wait())
 		require.NoError(b, writeEg.Wait())
 		fmt.Println("Finished putting all files")
