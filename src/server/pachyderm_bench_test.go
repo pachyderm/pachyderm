@@ -340,11 +340,11 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			// CPU) and groups files into directories named after the first
 			// letter of the filename.
 			[]string{
-				"mkdir -p /pfs/out/{a..z}",
 				fmt.Sprintf("for i in /pfs/%s/*; do", pipelineOne),
 				"    cksum $i",
 				"    FILE=$(basename \"$i\")",
 				"    LTR=$(echo \"${FILE:0:1}\")",
+				"	 mkdir -p /pfs/out/$LTR",
 				"    mv \"$i\" \"/pfs/out/$LTR/$FILE\"",
 				"done",
 			},
