@@ -80,7 +80,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(b, err)
 	if !b.Run(fmt.Sprintf("Put%dFiles", fileNum), func(b *testing.B) {
 		b.N = 1
@@ -108,7 +108,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 		return
 	}
 	require.NoError(b, c.FinishCommit(repo, commit.ID))
-	require.NoError(b, c.SetBranch(repo, commit.ID, "master"))
 
 	if !b.Run(fmt.Sprintf("Get%dFiles", fileNum), func(b *testing.B) {
 		b.N = 1
@@ -212,7 +211,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	// addInputCommit adds an input commit to the data repo
 	addInputCommit := func(b *testing.B) *pfs.Commit {
 		b.N = 1
-		commit, err := c.StartCommit(dataRepo, "")
+		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		var totalSize int64
 		// the group that generates data
@@ -281,7 +280,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		fmt.Println("Finished putting all files")
 		require.NoError(b, c.FinishCommit(dataRepo, commit.ID))
 		fmt.Println("Finished commit")
-		require.NoError(b, c.SetBranch(dataRepo, commit.ID, "master"))
 		commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 		require.NoError(b, err)
 		b.SetBytes(int64(commitInfo.SizeBytes))
