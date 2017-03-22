@@ -111,6 +111,14 @@ docker-clean-pachd:
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
+docker-clean-test:
+	docker stop test_compile || true
+	docker rm test_compile || true
+
+docker-build-test: docker-clean-test docker-build-compile
+	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
+	etc/compile/wait.sh test_compile
+
 docker-build-microsoft-vhd:
 	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
 
@@ -132,6 +140,39 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
+launch-dev-bench: docker-build docker-build-test install
+	@# Put it here so sudo can see it
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	make launch-bench
+
+push-bench-images:
+	# We need the pachyderm_compile image to be up to date
+	docker tag pachyderm_pachd pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_worker pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	
+launch-bench: docker-build docker-build-test
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	etc/deploy/aws.sh
+	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+
+run-bench:
+	kubectl scale --replicas=4 rc/pachd
+	echo "waiting for pachd to scale up" && sleep 10
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- -test.v -test.bench=BenchmarkDaily -test.run=XXX
+
+clean-launch-bench:
+	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
+	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
+	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
+
+bench: clean-launch-bench push-bench-images launch-bench run-bench
+
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
 
@@ -142,15 +183,15 @@ launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
+	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -211,16 +252,18 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-pfs-test:
+test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
+
+test-pfs:
 	go test ./src/server/pfs/server
 
-pps-test:
-	go test ./src/server/pachyderm_test.go
+test-pps:
+	go test ./src/server/
 
-bench:
-	go test ./src/server -run=XXX -bench=.
+test-hashtree:
+	go test ./src/server/pkg/hashtree
 
 test-client:
 	rm -rf src/client/vendor
@@ -247,6 +290,28 @@ doc: install-doc
 	./pachctl
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
+
+clean-launch-monitoring:
+	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
+
+launch-monitoring:
+	kubectl create -f ./etc/plugin/monitoring
+	@echo "Waiting for services to spin up ..."
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=heapster kube-system; do sleep 5; done
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=influxdb kube-system; do sleep 5; done
+	until timeout 5s ./etc/kube/check_ready.sh k8s-app=grafana kube-system; do sleep 5; done
+	@echo "All services up. Now port forwarding grafana to localhost:3000"
+	kubectl --namespace=kube-system port-forward `kubectl --namespace=kube-system get pods -l k8s-app=grafana -o json | jq '.items[0].metadata.name' -r` 3000:3000 &
+
+clean-launch-logging: check-kubectl check-kubectl-connection
+	git submodule update --init
+	cd etc/plugin/logging && ./undeploy.sh
+
+launch-logging: check-kubectl check-kubectl-connection
+	@# Creates Fluentd / Elasticsearch / Kibana services for logging under --namespace=monitoring
+	git submodule update --init
+	cd etc/plugin/logging && ./deploy.sh
+	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
 
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt

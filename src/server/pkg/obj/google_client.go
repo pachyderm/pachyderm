@@ -73,7 +73,7 @@ func (c *googleClient) Delete(name string) error {
 	return c.bucket.Object(name).Delete(c.ctx)
 }
 
-func (c *googleClient) IsRetryable(err error) (ret bool) {
+func (c *googleClient) isRetryable(err error) (ret bool) {
 	googleErr, ok := err.(*googleapi.Error)
 	if !ok {
 		return false

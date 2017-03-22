@@ -107,17 +107,44 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 // you can write to the Commit with PutFile and when all the data has been
 // written you must finish the Commit with FinishCommit. NOTE, data is not
 // persisted until FinishCommit is called.
-// parentCommit specifies the parent Commit, upon creation the new Commit will
-// appear identical to the parent Commit, data can safely be added to the new
-// commit without affecting the contents of the parent Commit. You may pass ""
-// as parentCommit in which case the new Commit will have no parent and will
-// initially appear empty.
 // branch is a more convenient way to build linear chains of commits. When a
 // commit is started with a non empty branch the value of branch becomes an
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
-func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commit, error) {
+func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, error) {
+	commit, err := c.PfsAPIClient.StartCommit(
+		c.ctx(),
+		&pfs.StartCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+			},
+			Branch: branch,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return commit, nil
+}
+
+// StartCommitParent begins the process of committing data to a Repo. Once started
+// you can write to the Commit with PutFile and when all the data has been
+// written you must finish the Commit with FinishCommit. NOTE, data is not
+// persisted until FinishCommit is called.
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+// parentCommit specifies the parent Commit, upon creation the new Commit will
+// appear identical to the parent Commit, data can safely be added to the new
+// commit without affecting the contents of the parent Commit. You may pass ""
+// as parentCommit in which case the new Commit will have no parent and will
+// initially appear empty.
+func (c APIClient) StartCommitParent(repoName string, branch string, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.ctx(),
 		&pfs.StartCommitRequest{
@@ -127,6 +154,7 @@ func (c APIClient) StartCommit(repoName string, parentCommit string) (*pfs.Commi
 				},
 				ID: parentCommit,
 			},
+			Branch: branch,
 		},
 	)
 	if err != nil {
@@ -333,7 +361,7 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 			object = w.object
 		}
 	}()
-	written, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2))
+	written, err := io.CopyBuffer(w, r, make([]byte, grpcutil.MaxMsgSize/2))
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
 	}
@@ -478,8 +506,10 @@ func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path str
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
 	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
 }
 
@@ -529,20 +559,11 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
-	return c.getFile(repoName, commitID, path, offset, size, writer)
-}
-
-func (c APIClient) getFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	apiGetFileClient, err := c.PfsAPIClient.GetFile(
-		c.ctx(),
-		&pfs.GetFileRequest{
-			File:        NewFile(repoName, commitID, path),
-			OffsetBytes: offset,
-			SizeBytes:   size,
-		},
-	)
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
 		return sanitizeErr(err)
 	}
@@ -550,6 +571,31 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 		return sanitizeErr(err)
 	}
 	return nil
+}
+
+// GetFileReader returns a reader for the contents of a file at a specific Commit.
+// offset specifies a number of bytes that should be skipped in the beginning of the file.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
+func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
+}
+
+func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
+	size int64) (pfs.API_GetFileClient, error) {
+	return c.PfsAPIClient.GetFile(
+		c.ctx(),
+		&pfs.GetFileRequest{
+			File:        NewFile(repoName, commitID, path),
+			OffsetBytes: offset,
+			SizeBytes:   size,
+		},
+	)
 }
 
 // InspectFile returns info about a specific file.
@@ -674,7 +720,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		// Buffer the write so that we don't exceed the grpc
 		// MaxMsgSize. This value includes the whole payload
 		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + MaxMsgSize/2
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
 		if ceil > len(p) {
 			ceil = len(p)
 		}
@@ -731,12 +777,27 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.putObjectClient.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+	bytesWritten := 0
+	for {
+		// Buffer the write so that we don't exceed the grpc
+		// MaxMsgSize. This value includes the whole payload
+		// including headers, so we're conservative and halve it
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
+		if ceil > len(p) {
+			ceil = len(p)
+		}
+		actualP := p[bytesWritten:ceil]
+		if len(actualP) == 0 {
+			break
+		}
+		w.request.Value = actualP
+		if err := w.putObjectClient.Send(w.request); err != nil {
+			return 0, sanitizeErr(err)
+		}
+		w.request.Value = nil
+		bytesWritten += len(actualP)
 	}
-	w.request.Tags = nil
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 func (w *putObjectWriteCloser) Close() error {

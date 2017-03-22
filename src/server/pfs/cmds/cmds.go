@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
@@ -132,53 +133,44 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
-	var branch string
+	var parent string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [parent-commit | branch]",
+		Use:   "start-commit repo-name [branch]",
 		Short: "Start a new commit.",
 		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
 
 	Examples:
 
-	# Start a new commit in repo "test"
+	# Start a new commit in repo "test" that's not on any branch
 	$ pachctl start-commit test
 
-	# Start a new commit in repo "test", on a new branch "master"
-	$ pachctl start-commit test -b master
-
-	# Start a commit in repo "test" on an existing branch "master"
+	# Start a commit in repo "test" on branch "master"
 	$ pachctl start-commit test master
 
 	# Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-	$ pachctl start-commit test master -b patch
+	$ pachctl start-commit test patch -p master
 
-	# Start a commit with XXX as the parent in repo "test"
-	$ pachctl start-commit test XXX
+	# Start a commit with XXX as the parent in repo "test", not on any branch
+	$ pachctl start-commit test -p XXX
 	`,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			var parent string
+			var branch string
 			if len(args) == 2 {
-				parent = args[1]
+				branch = args[1]
 			}
-			commit, err := client.StartCommit(args[0], parent)
+			commit, err := client.StartCommitParent(args[0], branch, parent)
 			if err != nil {
 				return err
 			}
 			fmt.Println(commit.ID)
-
-			if branch != "" {
-				if err := client.SetBranch(args[0], commit.ID, branch); err != nil {
-					return err
-				}
-			}
 			return nil
 		}),
 	}
-	startCommit.Flags().StringVarP(&branch, "branch", "b", "", "create a new branch, or move an existing branch to point to this commit")
+	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
@@ -440,8 +432,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				path = args[2]
 			}
 
-			// A semaphore used to limit parallelism
-			sem := make(chan struct{}, parallelism)
+			limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
 				var r io.Reader
@@ -484,24 +475,24 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			for _, source := range sources {
 				source := source
 				if len(args) == 2 {
-					// The user has not specific a path so we use source as path.
+					// The user has not specified a path so we use source as path.
 					if source == "-" {
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, joinPaths("", source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
-					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
+					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, path, source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, sem, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, commitID, joinPaths(path, source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -742,7 +733,7 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, sem chan struct{}, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, limiter limit.ConcurrencyLimiter, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
 	putFile := func(reader io.Reader) error {
 		if split == "" {
 			_, err := client.PutFile(repo, commit, path, reader)
@@ -763,14 +754,14 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	}
 
 	if source == "-" {
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		limiter.Acquire()
+		defer limiter.Release()
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
-		sem <- struct{}{}
-		defer func() { <-sem }()
+		limiter.Acquire()
+		defer limiter.Release()
 		return client.PutFileURL(repo, commit, path, url.String(), recursive)
 	}
 	if recursive {
@@ -784,7 +775,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, sem, split, targetFileDatums, targetFileBytes)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, limiter, split, targetFileDatums, targetFileBytes)
 			})
 			return nil
 		}); err != nil {
@@ -792,10 +783,8 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 		}
 		return eg.Wait()
 	}
-	// use the semaphore here so that we don't even open the file until
-	// we are ready to upload it.
-	sem <- struct{}{}
-	defer func() { <-sem }()
+	limiter.Acquire()
+	defer limiter.Release()
 	f, err := os.Open(source)
 	if err != nil {
 		return err
@@ -810,6 +799,15 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 
 func joinPaths(prefix, filePath string) string {
 	if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+		if url.Scheme == "pfs" {
+			// pfs paths are of the form pfs://host/repo/branch/path we don't
+			// want to prefix every file with host/repo so we remove those
+			splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
+			if len(splitPath) < 3 {
+				return prefix
+			}
+			return filepath.Join(append([]string{prefix}, splitPath[2:]...)...)
+		}
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)

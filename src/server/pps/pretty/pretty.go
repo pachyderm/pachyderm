@@ -97,7 +97,8 @@ func PrintJobCountsHeader(w io.Writer) {
 // PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
-		`ID: {{.Job.ID}} {{if .ParentJob}}
+		`ID: {{.Job.ID}} {{if .Pipeline}}
+Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
 Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}

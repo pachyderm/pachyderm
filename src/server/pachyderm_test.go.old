@@ -626,7 +626,7 @@ func TestPipelineOverwrite(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 
 	// Do second commit to repo
-	commit2, err := c.StartCommit(dataRepo, commit1.ID)
+	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
@@ -1053,7 +1053,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	// Make another empty commit in the input repo
 	// The output commit should have the previous output commit as its parent
 	parentOutputCommit := outCommits[0].Commit
-	commit2, err := c.StartCommit(dataRepo, commit1.ID)
+	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 	listCommitRequest = &pfsclient.ListCommitRequest{
@@ -1631,7 +1631,7 @@ func TestFromCommit(t *testing.T) {
 	require.NoError(t, err)
 	err = c.FinishCommit(repo, commit1.ID)
 	require.NoError(t, err)
-	commit2, err := c.StartCommit(repo, commit1.ID)
+	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, commit2.ID, "file", workload.NewReader(rand, KB))
 	require.NoError(t, err)
@@ -1664,7 +1664,7 @@ func TestSimple(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(repo, commit1.ID, "foo", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	commit2, err := c.StartCommit(repo, commit1.ID)
+	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -1795,7 +1795,7 @@ done
 		require.Equal(t, len(content)*2, len(line))
 	}
 
-	commit3, err := c.StartCommit(inputRepo1, commit1.ID)
+	commit3, err := c.StartCommit(inputRepo1, "master")
 	for i := 0; i < numfiles; i++ {
 		_, err = c.PutFile(inputRepo1, commit3.ID, fmt.Sprintf("file2-%d", i), strings.NewReader(content))
 		require.NoError(t, err)
@@ -1823,7 +1823,7 @@ done
 		require.Equal(t, len(content)*2, len(line))
 	}
 
-	commit4, err := c.StartCommit(inputRepo2, commit2.ID)
+	commit4, err := c.StartCommit(inputRepo2, "master")
 	for i := 0; i < numfiles; i++ {
 		_, err = c.PutFile(inputRepo2, commit4.ID, fmt.Sprintf("file2-%d", i), strings.NewReader(content))
 		require.NoError(t, err)
@@ -1949,7 +1949,7 @@ done
 		require.Equal(t, len(content)*2, len(line))
 	}
 
-	commit3, err := c.StartCommit(inputRepo1, commit1.ID)
+	commit3, err := c.StartCommit(inputRepo1, "master")
 	for i := 0; i < numfiles; i++ {
 		_, err = c.PutFile(inputRepo1, commit3.ID, fmt.Sprintf("file2-%d", i), strings.NewReader(content))
 		require.NoError(t, err)
@@ -2115,7 +2115,7 @@ fi
 	require.Equal(t, 1, len(lines))
 	require.Equal(t, "foo", lines[0])
 
-	commit2, err := c.StartCommit(repo, commit1.ID)
+	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, c.FinishCommit(repo, commit2.ID))
@@ -2446,7 +2446,7 @@ func TestFlushCommit(t *testing.T) {
 	}
 
 	test := func(parent string) string {
-		commit, err := c.StartCommit(sourceRepo, parent)
+		commit, err := c.StartCommitParent(sourceRepo, "", parent)
 		require.NoError(t, err)
 		_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
@@ -3567,7 +3567,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, "", false, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
-	commit2, err := c.StartCommit(dataRepo, commit1.ID)
+	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)

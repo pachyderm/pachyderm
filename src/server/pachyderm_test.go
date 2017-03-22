@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -41,13 +42,12 @@ func TestPipelineWithParallelism(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 1000
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -74,7 +74,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
 		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
@@ -91,11 +91,10 @@ func TestDatumDedup(t *testing.T) {
 	dataRepo := uniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 
 	pipeline := uniqueString("pipeline")
 	// This pipeline sleeps for 10 secs per datum
@@ -147,11 +146,10 @@ func TestPipelineInputDataModification(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -230,14 +228,13 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	dirA := "dirA"
 	dirB := "dirB"
 
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "dirB/file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -319,19 +316,17 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 	branchA := "branchA"
 	branchB := "branchB"
 
-	commitA1, err := c.StartCommit(dataRepo, "")
+	commitA1, err := c.StartCommit(dataRepo, branchA)
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commitA1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commitA1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commitA1.ID, branchA))
 
-	commitB1, err := c.StartCommit(dataRepo, "")
+	commitB1, err := c.StartCommit(dataRepo, branchB)
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commitB1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commitB1.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commitB1.ID, branchB))
 
 	pipeline := uniqueString("pipeline")
 	// Creating this pipeline should error, because the two inputs are
@@ -498,9 +493,7 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 //// Create repo, commit, and branch
 //dataRepo := uniqueString("TestJob_data")
 //require.NoError(t, c.CreateRepo(dataRepo))
-//commit, err := c.StartCommit(dataRepo, "")
-//require.NoError(t, err)
-//err = c.SetBranch(dataRepo, commit.ID, "master")
+//commit, err := c.StartCommit(dataRepo, "master")
 //require.NoError(t, err)
 
 //fileContent := "foo\n"
@@ -591,17 +584,14 @@ func TestPipelineFailure(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit := new(pfs.Commit)
-	var err error
 	numCommits := 10
 	for i := 0; i < numCommits; i++ {
-		commit, err = c.StartCommit(dataRepo, commit.ID)
+		commit, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 	}
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 
 	pipeline := uniqueString("pipeline")
 	errMsg := "error message"
@@ -690,9 +680,8 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		false,
 	))
 
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
@@ -742,9 +731,8 @@ func TestLazyPipeline(t *testing.T) {
 		})
 	require.NoError(t, err)
 	// Do a commit
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	// We put 2 files, 1 of which will never be touched by the pipeline code.
@@ -818,9 +806,8 @@ func TestProvenance(t *testing.T) {
 		false,
 	))
 	// commit to aRepo
-	commit1, err := c.StartCommit(aRepo, "")
+	commit1, err := c.StartCommit(aRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(aRepo, commit1.ID, "master"))
 	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
@@ -949,16 +936,8 @@ func TestFlushCommit(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		var commit *pfs.Commit
-		var err error
-		if i == 0 {
-			commit, err = c.StartCommit(sourceRepo, "")
-			require.NoError(t, err)
-			c.SetBranch(sourceRepo, commit.ID, "master")
-		} else {
-			commit, err = c.StartCommit(sourceRepo, "master")
-			require.NoError(t, err)
-		}
+		commit, err := c.StartCommit(sourceRepo, "master")
+		require.NoError(t, err)
 		_, err = c.PutFile(sourceRepo, commit.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(sourceRepo, commit.ID))
@@ -1022,9 +1001,8 @@ func TestRecreatePipeline(t *testing.T) {
 	c := getPachClient(t)
 	repo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
 	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -1136,9 +1114,8 @@ func TestPipelineJobCounts(t *testing.T) {
 	))
 
 	// Trigger a job by creating a commit
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
 	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -1233,11 +1210,10 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 		repo := uniqueString("TestDeleteAfterMembershipChange")
 		c := getPachClient(t)
 		require.NoError(t, c.CreateRepo(repo))
-		commit, err := c.StartCommit(repo, "")
+		_, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, c.SetBranch(repo, commit.ID, "master"))
 		require.NoError(t, c.FinishCommit(repo, "master"))
-		scalePachd(t, up)
+		scalePachdRandom(t, up)
 		c = getUsablePachClient(t)
 		require.NoError(t, c.DeleteRepo(repo, false))
 	}
@@ -1338,9 +1314,8 @@ func TestAcceptReturnCode(t *testing.T) {
 	dataRepo := uniqueString("TestAcceptReturnCode")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -1401,9 +1376,8 @@ func TestRestartAll(t *testing.T) {
 		false,
 	))
 	// Do first commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -1455,9 +1429,8 @@ func TestRestartOne(t *testing.T) {
 		false,
 	))
 	// Do first commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -1507,9 +1480,8 @@ func TestPrettyPrinting(t *testing.T) {
 		false,
 	))
 	// Do a commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -1563,9 +1535,8 @@ func TestDeleteAll(t *testing.T) {
 		false,
 	))
 	// Do commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -1616,9 +1587,8 @@ func TestRecursiveCp(t *testing.T) {
 		false,
 	))
 	// Do commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	for i := 0; i < 100; i++ {
 		_, err = c.PutFile(
 			dataRepo,
@@ -1740,9 +1710,8 @@ func TestPipelineUniqueness(t *testing.T) {
 //var err error
 //for i := 0; i < 2; i++ {
 //if i == 0 {
-//commit, err = c.StartCommit(dataRepo, "")
+//commit, err = c.StartCommit(dataRepo, "master")
 //require.NoError(t, err)
-//require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 //} else {
 //commit, err = c.StartCommit(dataRepo, "master")
 //require.NoError(t, err)
@@ -1921,9 +1890,8 @@ func TestStopPipeline(t *testing.T) {
 	))
 	require.NoError(t, c.StopPipeline(pipelineName))
 	// Do first commit to repo
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
@@ -1998,9 +1966,8 @@ func TestPipelineEnv(t *testing.T) {
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
@@ -2046,9 +2013,8 @@ func TestPipelineWithFullObjects(t *testing.T) {
 		false,
 	))
 	// Do first commit to repo
-	commit1, err := c.StartCommit(dataRepo, "")
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dataRepo, commit1.ID, "master"))
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
@@ -2087,16 +2053,14 @@ func TestChainedPipelines(t *testing.T) {
 	dRepo := uniqueString("D")
 	require.NoError(t, c.CreateRepo(dRepo))
 
-	aCommit, err := c.StartCommit(aRepo, "")
+	aCommit, err := c.StartCommit(aRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(aRepo, aCommit.ID, "master"))
 	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, "master"))
 
-	dCommit, err := c.StartCommit(dRepo, "")
+	dCommit, err := c.StartCommit(dRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(dRepo, dCommit.ID, "master"))
 	_, err = c.PutFile(dRepo, "master", "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dRepo, "master"))
@@ -2158,16 +2122,14 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	eRepo := uniqueString("E")
 	require.NoError(t, c.CreateRepo(eRepo))
 
-	aCommit, err := c.StartCommit(aRepo, "")
+	aCommit, err := c.StartCommit(aRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(aRepo, aCommit.ID, "master"))
 	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, "master"))
 
-	eCommit, err := c.StartCommit(eRepo, "")
+	eCommit, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.SetBranch(eRepo, eCommit.ID, "master"))
 	_, err = c.PutFile(eRepo, "master", "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(eRepo, "master"))
@@ -2253,7 +2215,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 }
 
-func collectCommitInfos(t *testing.T, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
+func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) []*pfs.CommitInfo {
 	var commitInfos []*pfs.CommitInfo
 	for {
 		commitInfo, err := commitInfoIter.Next()
@@ -2342,12 +2304,11 @@ func TestPipelineJobDeletion(t *testing.T) {
 		false,
 	))
 
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
@@ -2387,7 +2348,7 @@ func TestGetLogs(t *testing.T) {
 		[]*pps.PipelineInput{{
 			Name: dataRepo,
 			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
+			Glob: "/*",
 		}},
 		"",
 		false,
@@ -2430,10 +2391,16 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) == 1)
 	// (2) Get logs using extracted job ID
+	// wait for logs to be collected
+	time.Sleep(10 * time.Second)
 	iter = c.GetLogs("", jobInfos[0].Job.ID, nil)
+	var numLogs int
 	for iter.Next() {
+		numLogs++
 		require.True(t, iter.Message().Message != "")
 	}
+	// Make sure that we've seen some logs
+	require.True(t, numLogs > 0)
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
@@ -2449,17 +2416,19 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, err)
 	// (2) Get logs using both file path and hash, and make sure you get the same
 	//     log lines
-	fmt.Println("hash: ", string(fileInfo.Hash))
 	iter1 := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
 	iter2 := c.GetLogs("", jobInfos[0].Job.ID, []string{string(fileInfo.Hash)})
+	numLogs = 0
 	for {
 		l, r := iter1.Next(), iter2.Next()
 		require.True(t, l == r)
 		if !l {
 			break
 		}
+		numLogs++
 		require.True(t, iter1.Message().Message == iter2.Message().Message)
 	}
+	require.True(t, numLogs > 0)
 	require.NoError(t, iter1.Err())
 	require.NoError(t, iter2.Err())
 
@@ -2468,6 +2437,63 @@ func TestGetLogs(t *testing.T) {
 	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"})
 	require.False(t, iter.Next())
 	require.NoError(t, iter.Err())
+}
+
+func TestPfsPutFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	repo1 := uniqueString("TestPfsPutFile1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := uniqueString("TestPfsPutFile2")
+	require.NoError(t, c.CreateRepo(repo2))
+
+	commit1, err := c.StartCommit(repo1, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "file2", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "dir1/file3", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = c.PutFile(repo1, commit1.ID, fmt.Sprintf("dir1/dir2/file%d", i), strings.NewReader(fmt.Sprintf("content%d\n", i)))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(repo1, commit1.ID))
+
+	commit2, err := c.StartCommit(repo2, "")
+	require.NoError(t, err)
+	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(repo2, commit2.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+
+	commit3, err := c.StartCommit(repo2, "")
+	require.NoError(t, err)
+	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo2, commit3.ID))
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "file1", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "file2", 0, 0, &buf))
+	require.Equal(t, "bar\n", buf.String())
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "dir1/file3", 0, 0, &buf))
+	require.Equal(t, "fizz\n", buf.String())
+	for i := 0; i < 100; i++ {
+		buf = bytes.Buffer{}
+		require.NoError(t, c.GetFile(repo2, commit3.ID, fmt.Sprintf("dir1/dir2/file%d", i), 0, 0, &buf))
+		require.Equal(t, fmt.Sprintf("content%d\n", i), buf.String())
+	}
 }
 
 func restartAll(t *testing.T) {
@@ -2520,7 +2546,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 	return nil
 }
 
-func waitForReadiness(t *testing.T) {
+func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
 	rc := pachdRc(t)
 	for {
@@ -2559,7 +2585,7 @@ func waitForReadiness(t *testing.T) {
 	}
 }
 
-func pachdRc(t *testing.T) *api.ReplicationController {
+func pachdRc(t testing.TB) *api.ReplicationController {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
 	result, err := rc.Get("pachd")
@@ -2570,8 +2596,7 @@ func pachdRc(t *testing.T) *api.ReplicationController {
 // scalePachd scales the number of pachd nodes up or down.
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
-func scalePachd(t *testing.T, up bool) {
-	k := getKubeClient(t)
+func scalePachdRandom(t testing.TB, up bool) {
 	pachdRc := pachdRc(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
@@ -2585,8 +2610,16 @@ func scalePachd(t *testing.T, up bool) {
 			break
 		}
 	}
-	fmt.Printf("scaling pachd to %d replicas\n", pachdRc.Spec.Replicas)
+	scalePachdN(t, int(pachdRc.Spec.Replicas))
+}
+
+// scalePachdN scales the number of pachd nodes to N
+func scalePachdN(t testing.TB, n int) {
+	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
+	fmt.Printf("scaling pachd to %d replicas\n", n)
+	pachdRc := pachdRc(t)
+	pachdRc.Spec.Replicas = int32(n)
 	_, err := rc.Update(pachdRc)
 	require.NoError(t, err)
 	waitForReadiness(t)
@@ -2596,7 +2629,19 @@ func scalePachd(t *testing.T, up bool) {
 	time.Sleep(15 * time.Second)
 }
 
-func getKubeClient(t *testing.T) *kube.Client {
+// scalePachd reads the number of pachd nodes from an env variable and
+// scales pachd accordingly.
+func scalePachd(t testing.TB) {
+	nStr := os.Getenv("PACHD")
+	if nStr == "" {
+		return
+	}
+	n, err := strconv.Atoi(nStr)
+	require.NoError(t, err)
+	scalePachdN(t, n)
+}
+
+func getKubeClient(t testing.TB) *kube.Client {
 	config := &kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
 		Insecure: false,
