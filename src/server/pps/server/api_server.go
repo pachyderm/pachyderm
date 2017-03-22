@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +19,8 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
@@ -86,7 +89,6 @@ type ctxAndCancel struct {
 //
 // This is only exported for testing
 func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
-	fmt.Println("Getting expected num workers...")
 	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
 	if spec == nil {
 		// Unset ParallelismSpec is handled here. Currently we start one worker per
@@ -391,6 +393,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
 	logChs := make([]chan *pps.LogMessage, len(pods))
+	errCh := make(chan error)
+	done := make(chan struct{})
+	defer close(done)
 	for i := 0; i < len(pods); i++ {
 		logChs[i] = make(chan *pps.LogMessage)
 	}
@@ -408,16 +413,23 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
 					return // No logs to collect from this node, just skip it
 				}
-				retErr = err
+				select {
+				case errCh <- err:
+				case <-done:
+				}
 				return
 			}
 
 			// Parse pods' log lines, and filter out irrelevant ones
 			scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
 			for scanner.Scan() {
+				logBytes := scanner.Bytes()
 				msg := new(pps.LogMessage)
-				if err := jsonpb.Unmarshal(bytes.NewReader(scanner.Bytes()), msg); err != nil {
-					retErr = err
+				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+					select {
+					case errCh <- err:
+					case <-done:
+					}
 					return
 				}
 
@@ -447,13 +459,25 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				}
 
 				// Log message passes all filters -- return it
-				logChs[i] <- msg
+				select {
+				case logChs[i] <- msg:
+				case <-done:
+				}
 			}
 		}()
 	}
+nextLogCh:
 	for _, logCh := range logChs {
-		for msg := range logCh {
-			if err := apiGetLogsServer.Send(msg); err != nil {
+		for {
+			select {
+			case msg, ok := <-logCh:
+				if !ok {
+					continue nextLogCh
+				}
+				if err := apiGetLogsServer.Send(msg); err != nil {
+					return err
+				}
+			case err := <-errCh:
 				return err
 			}
 		}
@@ -1186,6 +1210,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					datum:  datum,
 					respCh: respCh,
 					errCh:  errCh,
+					jobID:  jobID,
 				}:
 					datum = df.Next()
 					numData++
@@ -1250,7 +1275,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}); err != nil {
 			return err
 		}
-		obj, err := putObjClient.CloseAndRecv()
+		object, err := putObjClient.CloseAndRecv()
 		if err != nil {
 			return err
 		}
@@ -1275,41 +1300,29 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
-		var outputCommit *pfs.Commit
-		// If the branch does not exist, create it
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
+		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Parent: &pfs.Commit{
 				Repo: jobInfo.OutputRepo,
-				ID:   jobInfo.OutputBranch,
 			},
+			Branch:     jobInfo.OutputBranch,
+			Provenance: provenance,
+			Tree:       object,
 		})
-		if isNotFoundErr(err) {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-				},
-				Provenance: provenance,
-				Tree:       obj,
-			})
+
+		if jobInfo.Egress != nil {
+			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
 			if err != nil {
 				return err
 			}
-			if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
-				Commit: outputCommit,
-				Branch: jobInfo.OutputBranch,
-			}); err != nil {
+			url, err := url.Parse(jobInfo.Egress.URL)
+			if err != nil {
 				return err
 			}
-		} else {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-					ID:   jobInfo.OutputBranch,
-				},
-				Provenance: provenance,
-				Tree:       obj,
-			})
-			if err != nil {
+			client := client.APIClient{
+				PfsAPIClient: pfsClient,
+			}
+			client.SetMaxConcurrentStreams(100)
+			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
 		}

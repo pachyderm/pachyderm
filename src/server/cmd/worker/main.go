@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -20,8 +23,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// AppEnv stores the environment variables that this worker needs
-type AppEnv struct {
+// appEnv stores the environment variables that this worker needs
+type appEnv struct {
 	// Address of etcd, so that worker can write its own IP there for discoverh
 	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 
@@ -38,13 +41,14 @@ type AppEnv struct {
 	// Either pipeline name or job name must be set
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
 	PPSJobID        string `env:"PPS_JOB_ID"`
+	PodName         string `env:"PPS_POD_NAME,required"`
 }
 
 func main() {
-	cmdutil.Main(do, &AppEnv{})
+	cmdutil.Main(do, &appEnv{})
 }
 
-func validateEnv(appEnv *AppEnv) error {
+func validateEnv(appEnv *appEnv) error {
 	if appEnv.PPSPipelineName == "" && appEnv.PPSJobID == "" {
 		return fmt.Errorf("worker must recieve either pipeline name or job ID, but got neither")
 	} else if appEnv.PPSPipelineName != "" && appEnv.PPSJobID != "" {
@@ -55,7 +59,7 @@ func validateEnv(appEnv *AppEnv) error {
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
-func getPipelineInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
 	if err != nil {
@@ -71,7 +75,7 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.PipelineInfo
 	return pipelineInfo, nil
 }
 
-func getJobInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.JobInfo, error) {
+func getJobInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.JobInfo, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", appEnv.PPSJobID))
 	if err != nil {
@@ -88,7 +92,8 @@ func getJobInfo(etcdClient *etcd.Client, appEnv *AppEnv) (*pps.JobInfo, error) {
 }
 
 func do(appEnvObj interface{}) error {
-	appEnv := appEnvObj.(*AppEnv)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	appEnv := appEnvObj.(*appEnv)
 	if err := validateEnv(appEnv); err != nil {
 		return err
 	}
@@ -119,14 +124,23 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo)
+		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
 		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
-		apiServer = worker.NewJobAPIServer(pachClient, jobInfo)
+		apiServer = worker.NewJobAPIServer(pachClient, jobInfo, appEnv.PodName)
+	}
+
+	// Setup the hostPath mount to use a unique directory for this worker
+	workerDir := filepath.Join(client.PPSHostPath, appEnv.PodName)
+	if err := os.Mkdir(workerDir, 0777); err != nil {
+		return err
+	}
+	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
+		return err
 	}
 
 	// Start worker api server
@@ -140,7 +154,7 @@ func do(appEnvObj interface{}) error {
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: client.MaxMsgSize,
+				MaxMsgSize: grpcutil.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{
 				GRPCPort: client.PPSWorkerPort,

@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -21,7 +22,8 @@ import (
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool) (retErr error) {
+func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool, concurrency int) (retErr error) {
+	limiter := limit.New(concurrency)
 	commit := fileInfo.File.Commit
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE:
@@ -39,6 +41,8 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 			// user's code. Waiting for this goro to return would
 			// produce a deadlock.
 			go func() {
+				limiter.Acquire()
+				defer limiter.Release()
 				f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 				if err != nil {
 					log.Printf("error opening %s: %s", path, err)
@@ -56,6 +60,8 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 				}
 			}()
 		} else {
+			limiter.Acquire()
+			defer limiter.Release()
 			f, err := os.Create(path)
 			if err != nil {
 				return err
@@ -85,7 +91,7 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 		for _, fileInfo := range fileInfos {
 			fileInfo := fileInfo
 			g.Go(func() error {
-				return Pull(ctx, client, root, fileInfo, pipes)
+				return Pull(ctx, client, root, fileInfo, pipes, concurrency)
 			})
 		}
 

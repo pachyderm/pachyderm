@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -23,10 +24,16 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+)
+
+const (
+	// The maximum number of concurrent download/upload operations
+	concurrency = 100
 )
 
 // Input is a generic input object that can either be a pipeline input or
@@ -47,6 +54,9 @@ type APIServer struct {
 
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
+
+	// The k8s pod name of this worker
+	workerName string
 }
 
 type taggedLogger struct {
@@ -98,7 +108,7 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 }
 
 // NewPipelineAPIServer creates an APIServer for a given pipeline
-func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) *APIServer {
+func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
 		Mutex:      sync.Mutex{},
 		pachClient: pachClient,
@@ -108,6 +118,7 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
 		},
+		workerName: workerName,
 	}
 	for _, input := range pipelineInfo.Inputs {
 		server.inputs = append(server.inputs, &Input{
@@ -119,13 +130,14 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 }
 
 // NewJobAPIServer creates an APIServer for a given pipeline
-func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo) *APIServer {
+func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerName string) *APIServer {
 	server := &APIServer{
 		Mutex:          sync.Mutex{},
 		pachClient:     pachClient,
 		transform:      jobInfo.Transform,
 		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
 		logMsgTemplate: pps.LogMessage{},
+		workerName:     workerName,
 	}
 	for _, input := range jobInfo.Inputs {
 		server.inputs = append(server.inputs, &Input{
@@ -139,8 +151,7 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo) *APISer
 func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) error {
 	for i, datum := range data {
 		input := a.inputs[i]
-		path := filepath.Join(client.PPSInputPrefix, input.Name)
-		if err := filesync.Pull(ctx, a.pachClient, path, datum, input.Lazy); err != nil {
+		if err := filesync.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -190,8 +201,11 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 
 	// Upload all files in output directory
 	var g errgroup.Group
+	limiter := limit.New(concurrency)
 	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
+			limiter.Acquire()
+			defer limiter.Release()
 			if path == client.PPSOutputPath {
 				return nil
 			}
@@ -256,6 +270,67 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 	return nil
 }
 
+// cleanUpData removes everything under /pfs
+//
+// The reason we don't want to just os.RemoveAll(/pfs) is that we don't
+// want to remove /pfs itself, since it's a symlink to the hostpath volume.
+// We also don't want to remove /pfs and re-create the symlink, because for
+// some reason that results in extremely pool performance.
+//
+// Most of the code is copied from os.RemoveAll().
+func (a *APIServer) cleanUpData() error {
+	path := filepath.Join(client.PPSHostPath, a.workerName)
+	// Otherwise, is this a directory we need to recurse into?
+	dir, serr := os.Lstat(path)
+	if serr != nil {
+		if serr, ok := serr.(*os.PathError); ok && (os.IsNotExist(serr.Err) || serr.Err == syscall.ENOTDIR) {
+			return nil
+		}
+		return serr
+	}
+	if !dir.IsDir() {
+		// Not a directory; return the error from Remove.
+		return fmt.Errorf("%s is not a directory", path)
+	}
+
+	// Directory.
+	fd, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Race. It was deleted between the Lstat and Open.
+			// Return nil per RemoveAll's docs.
+			return nil
+		}
+		return err
+	}
+
+	// Remove contents & return first error.
+	err = nil
+	for {
+		names, err1 := fd.Readdirnames(100)
+		for _, name := range names {
+			err1 := os.RemoveAll(path + string(os.PathSeparator) + name)
+			if err == nil {
+				err = err1
+			}
+		}
+		if err1 == io.EOF {
+			break
+		}
+		// If Readdirnames returned an error, use it.
+		if err == nil {
+			err = err1
+		}
+		if len(names) == 0 {
+			break
+		}
+	}
+
+	// Close directory, because windows won't remove opened directory.
+	fd.Close()
+	return err
+}
+
 // HashDatum computes and returns the hash of a datum + pipeline.
 func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
 	hash := sha256.New()
@@ -314,7 +389,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	defer func() {
-		if err := os.RemoveAll(client.PPSInputPrefix); retErr == nil && err != nil {
+		if err := a.cleanUpData(); retErr == nil && err != nil {
 			retErr = err
 			return
 		}

@@ -424,7 +424,7 @@ func TestCleanPath(t *testing.T) {
 	c := getClient(t)
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, commit.ID, "./././file", strings.NewReader("foo"))
 	require.NoError(t, err)
@@ -462,7 +462,7 @@ func TestSimpleFile(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -470,7 +470,7 @@ func TestSimpleFile(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -491,14 +491,14 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.StartCommit(repo, commit1.ID)
+	_, err = client.StartCommit(repo, "master")
 	// fails because the parent commit has not been finished
 	require.YesError(t, err)
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	_, err = client.StartCommit(repo, commit1.ID)
+	_, err = client.StartCommit(repo, "master")
 	require.NoError(t, err)
 }
 
@@ -574,7 +574,7 @@ func TestSimple(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -585,7 +585,7 @@ func TestSimple(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -605,9 +605,8 @@ func TestBranch1(t *testing.T) {
 	repo := "test"
 
 	require.NoError(t, client.CreateRepo(repo))
-	commit, err := client.StartCommit(repo, "")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
@@ -697,7 +696,7 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommitParent(repo, "", commit1.ID)
 	require.NoError(t, err)
 	// file conflicts with the previous commit
 	_, err = client.PutFile(repo, commit2.ID, "foo/bar", strings.NewReader("foo\n"))
@@ -706,19 +705,19 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, err)
 	require.YesError(t, client.FinishCommit(repo, commit2.ID))
 
-	commit2, err = client.StartCommit(repo, commit1.ID)
+	commit2, err = client.StartCommitParent(repo, "", commit1.ID)
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "/bar", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommitParent(repo, "", commit2.ID)
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit3.ID, "dir1/foo", strings.NewReader("foo\n"))
 	require.NoError(t, err) // because the directory dir does not exist
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
-	commit4, err := client.StartCommit(repo, commit3.ID)
+	commit4, err := client.StartCommitParent(repo, "", commit3.ID)
 	require.NoError(t, err)
 	require.NoError(t, client.MakeDirectory(repo, commit4.ID, "dir2"))
 	_, err = client.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n"))
@@ -737,9 +736,8 @@ func TestPutFile2(t *testing.T) {
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("bar\n"))
@@ -774,7 +772,7 @@ func TestPutFile2(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, buffer))
 	require.Equal(t, expected, buffer.String())
 
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.SetBranch(repo, commit3.ID, "foo"))
 	_, err = client.PutFile(repo, "foo", "file", strings.NewReader("foo\nbar\nbuzz\n"))
@@ -839,7 +837,7 @@ func TestInspectFile(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 
 	fileContent1 := "foo\n"
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent1))
 	require.NoError(t, err)
@@ -851,7 +849,7 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 
 	fileContent2 := "barbar\n"
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader(fileContent2))
 	require.NoError(t, err)
@@ -868,7 +866,7 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, len(fileContent1)+len(fileContent2), int(fileInfo.SizeBytes))
 
 	fileContent3 := "bar\n"
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit3.ID, "bar", strings.NewReader(fileContent3))
 	require.NoError(t, err)
@@ -888,9 +886,8 @@ func TestInspectFile2(t *testing.T) {
 	fileContent1 := "foo\n"
 	fileContent2 := "buzz\n"
 
-	commit, err := client.StartCommit(repo, "")
+	_, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	_, err = client.PutFile(repo, "master", "file", strings.NewReader(fileContent1))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
@@ -965,9 +962,8 @@ func TestInspectDir2(t *testing.T) {
 
 	fileContent := "foo\n"
 
-	commit, err := client.StartCommit(repo, "")
+	_, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
@@ -1010,7 +1006,7 @@ func TestListFileTwoCommits(t *testing.T) {
 
 	numFiles := 5
 
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	for i := 0; i < numFiles; i++ {
@@ -1020,7 +1016,7 @@ func TestListFileTwoCommits(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	for i := 0; i < numFiles; i++ {
@@ -1077,9 +1073,8 @@ func TestListFile2(t *testing.T) {
 
 	fileContent := "foo\n"
 
-	commit, err := client.StartCommit(repo, "")
+	_, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
@@ -1119,9 +1114,8 @@ func TestListFile3(t *testing.T) {
 
 	fileContent := "foo\n"
 
-	commit, err := client.StartCommit(repo, "")
+	_, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	_, err = client.PutFile(repo, "master", "dir/1", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, "master", "dir/2", strings.NewReader(fileContent))
@@ -1175,13 +1169,13 @@ func TestPutFileTypeConflict(t *testing.T) {
 
 	fileContent := "foo\n"
 
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "dir/1", strings.NewReader(fileContent))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "dir", strings.NewReader(fileContent))
 	require.NoError(t, err)
@@ -1215,7 +1209,7 @@ func TestDeleteFile(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 
 	// Commit 1: Add two files; delete one file within the commit
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
@@ -1241,7 +1235,7 @@ func TestDeleteFile(t *testing.T) {
 	require.Equal(t, 1, len(fileInfos))
 
 	// Empty commit
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
@@ -1251,7 +1245,7 @@ func TestDeleteFile(t *testing.T) {
 	require.Equal(t, 1, len(fileInfos))
 
 	// Delete bar
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, client.DeleteFile(repo, commit3.ID, "bar"))
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
@@ -1273,7 +1267,7 @@ func TestDeleteDir(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 
 	// Commit 1: Add two files into the same directory; delete the directory
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	_, err = client.PutFile(repo, commit1.ID, "dir/foo", strings.NewReader("foo1"))
@@ -1296,7 +1290,7 @@ func TestDeleteDir(t *testing.T) {
 
 	// Commit 2: Delete the directory and add the same two files
 	// The two files should reflect the new content
-	commit2, err := client.StartCommit(repo, commit1.ID)
+	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	_, err = client.PutFile(repo, commit2.ID, "dir/foo", strings.NewReader("foo2"))
@@ -1321,7 +1315,7 @@ func TestDeleteDir(t *testing.T) {
 	require.Equal(t, "bar2", buffer2.String())
 
 	// Commit 3: delete the directory
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	require.NoError(t, client.DeleteFile(repo, commit3.ID, "dir"))
@@ -1342,12 +1336,11 @@ func TestDeleteFile2(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -1362,7 +1355,7 @@ func TestDeleteFile2(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, "master", "file", 0, 0, &buffer))
 	require.Equal(t, expected, buffer.String())
 
-	commit3, err := client.StartCommit(repo, commit2.ID)
+	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit3.ID, "file", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
@@ -1385,15 +1378,11 @@ func TestListCommit(t *testing.T) {
 
 	numCommits := 10
 
-	var commit *pfs.Commit
-	var err error
-	var parentID string
 	var midCommitID string
 	for i := 0; i < numCommits; i++ {
-		commit, err = client.StartCommit(repo, parentID)
+		commit, err := client.StartCommit(repo, "master")
 		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit(repo, commit.ID))
-		parentID = commit.ID
+		require.NoError(t, client.FinishCommit(repo, "master"))
 		if i == numCommits/2 {
 			midCommitID = commit.ID
 		}
@@ -1410,7 +1399,7 @@ func TestListCommit(t *testing.T) {
 	}
 
 	// Now list all commits up to the last commit
-	commitInfos, err = client.ListCommit(repo, commit.ID, "", 0)
+	commitInfos, err = client.ListCommit(repo, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(commitInfos))
 
@@ -1421,7 +1410,7 @@ func TestListCommit(t *testing.T) {
 
 	// Now list all commits up to the mid commit, excluding the mid commit
 	// itself
-	commitInfos, err = client.ListCommit(repo, commit.ID, midCommitID, 0)
+	commitInfos, err = client.ListCommit(repo, "master", midCommitID, 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits-numCommits/2-1, len(commitInfos))
 
@@ -1431,7 +1420,6 @@ func TestListCommit(t *testing.T) {
 	}
 
 	// list commits by branch
-	require.NoError(t, client.SetBranch(repo, commit.ID, "master"))
 	commitInfos, err = client.ListCommit(repo, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(commitInfos))
@@ -1512,16 +1500,12 @@ func TestSubscribeCommit(t *testing.T) {
 	numCommits := 10
 
 	var commits []*pfs.Commit
-	var parentID string
 	for i := 0; i < numCommits; i++ {
-		commit, err := client.StartCommit(repo, parentID)
+		commit, err := client.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
-		parentID = commit.ID
 		commits = append(commits, commit)
 	}
-
-	client.SetBranch(repo, commits[len(commits)-1].ID, "master")
 
 	commitIter, err := client.SubscribeCommit(repo, "master", "")
 	require.NoError(t, err)
@@ -1729,7 +1713,7 @@ func TestPutFileURL(t *testing.T) {
 	c := getClient(t)
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFileURL(repo, commit.ID, "readme", "https://raw.githubusercontent.com/pachyderm/pachyderm/master/README.md", false))
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -1773,9 +1757,8 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit1, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, client.SetBranch(repo, commit1.ID, "master"))
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	commit2, err := client.StartCommit(repo, "master")
@@ -1837,7 +1820,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
-				MaxMsgSize: pclient.MaxMsgSize,
+				MaxMsgSize: grpcutil.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{GRPCPort: uint16(port)},
 		)
@@ -2015,7 +1998,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 	c := getClient(t)
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit(repo, commit.ID)}, nil)
@@ -2093,7 +2076,7 @@ func TestPutFileSplit(t *testing.T) {
 	// create repos
 	repo := uniqueString("TestPutFileSplit")
 	require.NoError(t, c.CreateRepo(repo))
-	commit, err := c.StartCommit(repo, "")
+	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
@@ -2114,7 +2097,7 @@ func TestPutFileSplit(t *testing.T) {
 	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, strings.NewReader("{}{}{}{}"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	commit2, err := c.StartCommit(repo, commit.ID)
+	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
