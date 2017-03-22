@@ -394,6 +394,9 @@ $ pachctl set-branch foo test master
 Put data from stdin as repo/branch/path:
 echo "data" | pachctl put-file repo branch path
 
+Put data from stding as repo/branch/path and start / finish a new commit on the branch.
+echo "data" | pachctl put-file -c repo branch path
+
 Put a file from the local filesystem as repo/branch/path:
 pachctl put-file repo branch path -f file
 
