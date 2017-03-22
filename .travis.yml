@@ -28,6 +28,6 @@ before_script:
 - docker version
 script:
 - make lint
-- make docker-build clean-launch-dev launch-dev pfs-test pps-test
+- make docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

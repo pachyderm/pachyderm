@@ -95,7 +95,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.StartCommit(ctx, request.Parent, request.Provenance)
+	commit, err := a.driver.StartCommit(ctx, request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Provenance, request.Tree)
+	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
