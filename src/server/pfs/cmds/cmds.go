@@ -475,7 +475,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			for _, source := range sources {
 				source := source
 				if len(args) == 2 {
-					// The user has not specific a path so we use source as path.
+					// The user has not specified a path so we use source as path.
 					if source == "-" {
 						return fmt.Errorf("no filename specified")
 					}
@@ -484,7 +484,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
-					// we use the path and ignore source (in terms of nasrc/server/pps/cmds/cmds.goming the file).
+					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
 						return putFileHelper(client, repoName, commitID, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
 					})
@@ -799,6 +799,15 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 
 func joinPaths(prefix, filePath string) string {
 	if url, err := url.Parse(filePath); err == nil && url.Scheme != "" {
+		if url.Scheme == "pfs" {
+			// pfs paths are of the form pfs://host/repo/branch/path we don't
+			// want to prefix every file with host/repo so we remove those
+			splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
+			if len(splitPath) < 3 {
+				return prefix
+			}
+			return filepath.Join(append([]string{prefix}, splitPath[2:]...)...)
+		}
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)

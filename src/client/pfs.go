@@ -563,18 +563,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 		c.streamSemaphore <- struct{}{}
 		defer func() { <-c.streamSemaphore }()
 	}
-	return c.getFile(repoName, commitID, path, offset, size, writer)
-}
-
-func (c APIClient) getFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	apiGetFileClient, err := c.PfsAPIClient.GetFile(
-		c.ctx(),
-		&pfs.GetFileRequest{
-			File:        NewFile(repoName, commitID, path),
-			OffsetBytes: offset,
-			SizeBytes:   size,
-		},
-	)
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
 		return sanitizeErr(err)
 	}
@@ -582,6 +571,31 @@ func (c APIClient) getFile(repoName string, commitID string, path string, offset
 		return sanitizeErr(err)
 	}
 	return nil
+}
+
+// GetFileReader returns a reader for the contents of a file at a specific Commit.
+// offset specifies a number of bytes that should be skipped in the beginning of the file.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
+func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
+}
+
+func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
+	size int64) (pfs.API_GetFileClient, error) {
+	return c.PfsAPIClient.GetFile(
+		c.ctx(),
+		&pfs.GetFileRequest{
+			File:        NewFile(repoName, commitID, path),
+			OffsetBytes: offset,
+			SizeBytes:   size,
+		},
+	)
 }
 
 // InspectFile returns info about a specific file.
