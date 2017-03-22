@@ -2382,6 +2382,12 @@ func TestPfsPutFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFile(repo1, commit1.ID, "file2", strings.NewReader("bar\n"))
 	require.NoError(t, err)
+	_, err = c.PutFile(repo1, commit1.ID, "dir1/file3", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = c.PutFile(repo1, commit1.ID, fmt.Sprintf("dir1/dir2/file%d", i), strings.NewReader(fmt.Sprintf("content%d\n", i)))
+		require.NoError(t, err)
+	}
 	require.NoError(t, c.FinishCommit(repo1, commit1.ID))
 
 	commit2, err := c.StartCommit(repo2, "")
@@ -2404,6 +2410,14 @@ func TestPfsPutFile(t *testing.T) {
 	buf = bytes.Buffer{}
 	require.NoError(t, c.GetFile(repo2, commit3.ID, "file2", 0, 0, &buf))
 	require.Equal(t, "bar\n", buf.String())
+	buf = bytes.Buffer{}
+	require.NoError(t, c.GetFile(repo2, commit3.ID, "dir1/file3", 0, 0, &buf))
+	require.Equal(t, "fizz\n", buf.String())
+	for i := 0; i < 100; i++ {
+		buf = bytes.Buffer{}
+		require.NoError(t, c.GetFile(repo2, commit3.ID, fmt.Sprintf("dir1/dir2/file%d", i), 0, 0, &buf))
+		require.Equal(t, fmt.Sprintf("content%d\n", i), buf.String())
+	}
 }
 
 func restartAll(t *testing.T) {
