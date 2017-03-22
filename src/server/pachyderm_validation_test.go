@@ -23,31 +23,11 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	dataRepo := uniqueString("TestDuplicatedJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// Create pipeline with no name
 	pipelineName := uniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
-	err := c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*pps.PipelineInput{{
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: "master",
-			Glob:   "/*",
-		}},
-		"master",
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "name", err.Error())
 
 	// Create pipeline named "out"
-	err = c.CreatePipeline(
+	err := c.CreatePipeline(
 		pipelineName,
 		"",
 		cmd,
@@ -67,27 +47,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "out", err.Error())
-
-	// Create pipeline with no branch
-	err = c.CreatePipeline(
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*pps.PipelineInput{{
-			Name: "input",
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
-		"master",
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "branch", err.Error())
 
 	// Create pipeline with no glob
 	err = c.CreatePipeline(

@@ -260,7 +260,7 @@ test-pfs:
 	go test ./src/server/pfs/server
 
 test-pps:
-	go test ./src/server/pachyderm_test.go
+	go test ./src/server/
 
 test-hashtree:
 	go test ./src/server/pkg/hashtree
