@@ -370,6 +370,9 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 	if request.Recursive {
 		var eg errgroup.Group
 		if err := pClient.Walk(splitPath[0], commit, file, func(fileInfo *pfs.FileInfo) error {
+			if fileInfo.FileType != pfs.FileType_FILE {
+				return nil
+			}
 			eg.Go(func() error {
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(fileInfo.File.Path, file)), repo, commit, fileInfo.File.Path)
 			})
