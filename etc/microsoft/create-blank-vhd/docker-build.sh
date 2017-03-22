@@ -3,11 +3,11 @@
 apk add --update --no-cache \
     git \
     ntfs-3g-progs \
-    e2fsprogs
+    e2fsprogs \
+    qemu-img
 
-apk add qemu-img --update-cache --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/main/ --allow-untrusted
-
-## Install go dependencies
+# Install go dependencies
 go get github.com/docopt/docopt-go
-go get github.com/Microsoft/azure-vhd-utils-for-go
-go install github.com/Microsoft/azure-vhd-utils-for-go
+go get github.com/Microsoft/azure-vhd-utils
+go install github.com/Microsoft/azure-vhd-utils
+go get github.com/Azure/azure-sdk-for-go/storage

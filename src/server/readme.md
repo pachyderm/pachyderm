@@ -27,7 +27,7 @@ To update existing packages, read on ...
 
 Don't add things there manually.
 
-The only package that isn't in there is he symlink to the client library.
+The only package that isn't in there is the symlink to the client library.
 
 2) To check the state of the world:
 
