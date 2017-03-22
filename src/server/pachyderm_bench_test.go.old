@@ -136,7 +136,7 @@ func BenchmarkBigPFSWorkload(b *testing.B) {
 	}
 	require.NoError(b, c.FinishCommit(repo, commit1.ID))
 
-	commit2, err := c.StartCommit(repo, commit1.ID)
+	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(b, err)
 	numDirs := 10
 	numDeepFiles := 1000
