@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -49,6 +50,11 @@ type APIServer struct {
 	options    *Options
 }
 
+const (
+	// the number of files that can be downloaded/uploaded at the same time
+	parallelism = 100
+)
+
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, options *Options) *APIServer {
 	return &APIServer{
@@ -62,7 +68,7 @@ func NewAPIServer(pachClient *client.APIClient, options *Options) *APIServer {
 func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo) error {
 	for i, datum := range data {
 		input := a.options.Inputs[i]
-		if err := filesync.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy); err != nil {
+		if err := filesync.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy, parallelism); err != nil {
 			return err
 		}
 	}
@@ -99,8 +105,11 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 
 	// Upload all files in output directory
 	var g errgroup.Group
+	limiter := limit.New(parallelism)
 	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
+			limiter.Acquire()
+			defer limiter.Release()
 			if path == client.PPSOutputPath {
 				return nil
 			}
