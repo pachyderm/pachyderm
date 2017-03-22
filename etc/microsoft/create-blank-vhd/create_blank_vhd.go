@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"log"
 	"os/exec"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/docopt/docopt-go"
+	docopt "github.com/docopt/docopt-go"
 )
 
 var isVerbose = false
@@ -53,25 +53,25 @@ Options:
 	cmdName = "qemu-img"
 	cmdArgs = []string{"create", "-f", "raw", "image.raw", vhdSize.(string)}
 	if _, err = execCommand("Create raw disk", cmdName, cmdArgs); err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// Format disk as ext4
 	cmdName = "mkfs.ext4"
-	cmdArgs = []string{"./image.raw"}
+	cmdArgs = []string{"-F", "./image.raw"}
 	if _, err = execCommand("Format disk", cmdName, cmdArgs); err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// Convert to vhd
 	cmdName = "qemu-img"
 	cmdArgs = []string{"convert", "-f", "raw", "-o", "subformat=fixed,force_size", "-O", "vpc", "image.raw", "image.vhd"}
 	if _, err = execCommand("Convert to vhd", cmdName, cmdArgs); err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// Upload
-	cmdName = "azure-vhd-utils-for-go"
+	cmdName = "azure-vhd-utils"
 	cmdArgs = []string{
 		"upload",
 		"--localvhdpath=image.vhd",
@@ -81,14 +81,14 @@ Options:
 		"--blobname=" + vhdName,
 	}
 	if _, err = execCommand("Upload", cmdName, cmdArgs); err != nil {
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// Get Blob Url
 	client, err := storage.NewBasicClient(strgAccountName, strgAccountKey)
 	if err != nil {
 		print(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	url := client.GetBlobService().GetBlobURL(containerName, vhdName)

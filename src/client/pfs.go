@@ -361,7 +361,7 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 			object = w.object
 		}
 	}()
-	written, err := io.CopyBuffer(w, r, make([]byte, MaxMsgSize/2))
+	written, err := io.CopyBuffer(w, r, make([]byte, grpcutil.MaxMsgSize/2))
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
 	}
@@ -506,8 +506,10 @@ func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path str
 
 // PutFile writes a file to PFS from a reader.
 func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
 	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
 }
 
@@ -557,8 +559,10 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFile(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	c.streamSemaphore <- struct{}{}
-	defer func() { <-c.streamSemaphore }()
+	if c.streamSemaphore != nil {
+		c.streamSemaphore <- struct{}{}
+		defer func() { <-c.streamSemaphore }()
+	}
 	return c.getFile(repoName, commitID, path, offset, size, writer)
 }
 
@@ -702,7 +706,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		// Buffer the write so that we don't exceed the grpc
 		// MaxMsgSize. This value includes the whole payload
 		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + MaxMsgSize/2
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
 		if ceil > len(p) {
 			ceil = len(p)
 		}
@@ -759,12 +763,27 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	w.request.Value = p
-	if err := w.putObjectClient.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+	bytesWritten := 0
+	for {
+		// Buffer the write so that we don't exceed the grpc
+		// MaxMsgSize. This value includes the whole payload
+		// including headers, so we're conservative and halve it
+		ceil := bytesWritten + grpcutil.MaxMsgSize/2
+		if ceil > len(p) {
+			ceil = len(p)
+		}
+		actualP := p[bytesWritten:ceil]
+		if len(actualP) == 0 {
+			break
+		}
+		w.request.Value = actualP
+		if err := w.putObjectClient.Send(w.request); err != nil {
+			return 0, sanitizeErr(err)
+		}
+		w.request.Value = nil
+		bytesWritten += len(actualP)
 	}
-	w.request.Tags = nil
-	return len(p), nil
+	return bytesWritten, nil
 }
 
 func (w *putObjectWriteCloser) Close() error {

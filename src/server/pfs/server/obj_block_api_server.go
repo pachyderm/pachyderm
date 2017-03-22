@@ -225,9 +225,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err != nil {
 				return err
 			}
-			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
-				return err
-			}
+			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
@@ -596,7 +594,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 	var err error
 	backoff.RetryNotify(func() error {
 		reader, err = s.objClient.Reader(path, offset, size)
-		if err != nil && s.objClient.IsRetryable(err) {
+		if err != nil && obj.IsRetryable(s.objClient, err) {
 			return err
 		}
 		return nil

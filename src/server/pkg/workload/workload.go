@@ -7,7 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 // RunWorkload runs a test workload against a Pachyderm cluster.
@@ -27,7 +27,7 @@ func RunWorkload(
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != ppsclient.JobState_JOB_SUCCESS {
+		if jobInfo.State != pps.JobState_JOB_SUCCESS {
 			return fmt.Errorf("job %s failed", job.ID)
 		}
 	}
@@ -61,13 +61,13 @@ type worker struct {
 
 	// Jobs that the worker has started (but may not have finished). Guaranteed to
 	// be mutually exclusive with 'jobs'.
-	startedJobs []*ppsclient.Job
+	startedJobs []*pps.Job
 
 	// Worker jobs that have definitely finished. Modified by 'job'.
-	finishedJobs []*ppsclient.Job
+	finishedJobs []*pps.Job
 
 	// Pipelines that the worker has created. Modified by 'pipeline'.
-	pipelines []*ppsclient.Pipeline
+	pipelines []*pps.Pipeline
 
 	// PRNG used to pick each operation
 	rand *rand.Rand
@@ -182,7 +182,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != ppsclient.JobState_JOB_SUCCESS {
+		if jobInfo.State != pps.JobState_JOB_SUCCESS {
 			return fmt.Errorf("job %s failed", job.ID)
 		}
 		w.startedJobs = append(w.startedJobs, job)
@@ -199,7 +199,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 		// inputs. Store the repo names in 'inputs' to generate the 'grep' command
 		// that the job will run.
 		inputs := [5]string{}
-		var jobInputs []*ppsclient.JobInput
+		var jobInputs []*pps.JobInput
 		repoSet := make(map[string]bool)
 		for i := range inputs {
 			commit := w.finished[w.rand.Intn(len(w.finished))]
@@ -210,7 +210,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 			}
 			repoSet[commit.Repo.Name] = true
 			inputs[i] = commit.Repo.Name
-			jobInputs = append(jobInputs, &ppsclient.JobInput{Commit: commit})
+			jobInputs = append(jobInputs, &pps.JobInput{Commit: commit})
 		}
 		outFilename := w.randString(10)
 
@@ -220,8 +220,8 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 			"", // Image (use default)
 			[]string{"bash"},
 			w.grepCmd(inputs, outFilename),
-			&ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			jobInputs,
@@ -247,7 +247,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 	// names in 'inputs' to generate the 'grep' command that the pipeline's jobs
 	// will run.
 	inputs := [5]string{}
-	var pipelineInputs []*ppsclient.PipelineInput
+	var pipelineInputs []*pps.PipelineInput
 	repoSet := make(map[string]bool)
 	for i := range inputs {
 		repo := w.repos[w.rand.Intn(len(w.repos))]
@@ -258,7 +258,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		}
 		repoSet[repo.Name] = true
 		inputs[i] = repo.Name
-		pipelineInputs = append(pipelineInputs, &ppsclient.PipelineInput{Repo: repo})
+		pipelineInputs = append(pipelineInputs, &pps.PipelineInput{Repo: repo})
 	}
 
 	// Create a pipeline to grep for a random string in the input files, and write
@@ -270,8 +270,8 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		"",
 		[]string{"bash"},
 		w.grepCmd(inputs, outFilename),
-		&ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		pipelineInputs,
@@ -287,50 +287,17 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 const letters = "abcdefghijklmnopqrstuvwxyz"
 const lettersAndSpaces = "abcdefghijklmnopqrstuvwxyz      "
 
-func (w *worker) randString(n int) string {
+// RandString returns a random alphabetical string of size n
+func RandString(r *rand.Rand, n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[w.rand.Intn(len(letters))]
+		b[i] = letters[r.Intn(len(letters))]
 	}
 	return string(b)
 }
 
-type reader struct {
-	rand      *rand.Rand
-	bytes     int
-	bytesRead int
-}
-
-// NewReader returns a Reader which generates strings of characters.
-func NewReader(rand *rand.Rand, bytes int) io.Reader {
-	return &reader{
-		rand:  rand,
-		bytes: bytes,
-	}
-}
-
-func (r *reader) Read(p []byte) (int, error) {
-	var bytesReadThisTime int
-	for i := range p {
-		if r.bytesRead+bytesReadThisTime == r.bytes {
-			break
-		}
-		if i%128 == 127 {
-			p[i] = '\n'
-		} else {
-			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
-		}
-		bytesReadThisTime++
-	}
-	r.bytesRead += bytesReadThisTime
-	if r.bytesRead == r.bytes {
-		return bytesReadThisTime, io.EOF
-	}
-	return bytesReadThisTime, nil
-}
-
-func (w *worker) reader() io.Reader {
-	return NewReader(w.rand, 1000)
+func (w *worker) randString(n int) string {
+	return RandString(w.rand, n)
 }
 
 func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {
@@ -346,4 +313,42 @@ func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {
 			outFilename,
 		),
 	}
+}
+
+func (w *worker) reader() io.Reader {
+	return NewReader(w.rand, 1000)
+}
+
+type reader struct {
+	rand      *rand.Rand
+	bytes     int64
+	bytesRead int64
+}
+
+// NewReader returns a Reader which generates strings of characters.
+func NewReader(rand *rand.Rand, bytes int64) io.Reader {
+	return &reader{
+		rand:  rand,
+		bytes: bytes,
+	}
+}
+
+func (r *reader) Read(p []byte) (int, error) {
+	var bytesReadThisTime int
+	for i := range p {
+		if r.bytesRead+int64(bytesReadThisTime) == r.bytes {
+			break
+		}
+		if i%128 == 127 {
+			p[i] = '\n'
+		} else {
+			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
+		}
+		bytesReadThisTime++
+	}
+	r.bytesRead += int64(bytesReadThisTime)
+	if r.bytesRead == r.bytes {
+		return bytesReadThisTime, io.EOF
+	}
+	return bytesReadThisTime, nil
 }
