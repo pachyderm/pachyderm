@@ -119,8 +119,10 @@ func pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diff
 							fmt.Printf("get file %v had err: %v, is retryable? %v\n", fileInfo.File.Path, err, isRetryable(err))
 						}
 						if err != nil && isRetryable(err) {
+							fmt.Printf("this is a retryable error (%v), returning err so backoff retries\n", fileInfo.File.Path)
 							return err
 						}
+						fmt.Printf("no retryable error, either getfile completed or err not retryable %v, %v\n", fileInfo.File.Path, err)
 						return nil
 					}, backoffConfig, func(err error, d time.Duration) {
 						fmt.Printf("retrying get file %v\n", fileInfo.File.Path)
