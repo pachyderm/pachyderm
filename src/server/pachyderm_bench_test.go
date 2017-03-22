@@ -370,7 +370,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	}
 
 	pipelineThree := uniqueString("BenchmarkDataShuffleStageThree")
-	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles, numTarballs), func(b *testing.B) {
+	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles), func(b *testing.B) {
 		b.N = 1
 		require.NoError(b, c.CreatePipeline(
 			pipelineThree,
