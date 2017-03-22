@@ -1106,44 +1106,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
-		var outputCommit *pfs.Commit
-		// If the branch does not exist, create it
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
+		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Parent: &pfs.Commit{
 				Repo: jobInfo.OutputRepo,
-				ID:   jobInfo.OutputBranch,
 			},
+			Branch:     jobInfo.OutputBranch,
+			Provenance: provenance,
+			Tree:       object,
 		})
-		if isNotFoundErr(err) {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-				},
-				Provenance: provenance,
-				Tree:       object,
-			})
-			if err != nil {
-				return err
-			}
-			if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
-				Commit: outputCommit,
-				Branch: jobInfo.OutputBranch,
-			}); err != nil {
-				return err
-			}
-		} else {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-					ID:   jobInfo.OutputBranch,
-				},
-				Provenance: provenance,
-				Tree:       object,
-			})
-			if err != nil {
-				return err
-			}
-		}
 
 		if jobInfo.Egress != nil {
 			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
