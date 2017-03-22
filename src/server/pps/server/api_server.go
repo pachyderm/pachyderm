@@ -462,6 +462,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				select {
 				case logChs[i] <- msg:
 				case <-done:
+					return
 				}
 			}
 		}()
