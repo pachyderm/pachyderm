@@ -6,10 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
+	"github.com/cenkalti/backoff"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -60,22 +63,35 @@ func testBadJSON(t *testing.T, testName string, inputFile string, inputFileValue
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], fmt.Sprintf("-test.run=%v", testName))
-	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
-	out, err := cmd.CombinedOutput()
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 120 * time.Second
+	var actualOutput []byte
+	backoff.RetryNotify(func() error {
 
-	// Do our cleanup here, since we have an exit 1 in the actual run:
-	wd, _ := os.Getwd()
-	fileName := filepath.Join(wd, inputFile)
-	os.Remove(fileName)
+		cmd := exec.Command(os.Args[0], fmt.Sprintf("-test.run=%v", testName))
+		cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+		out, err := cmd.CombinedOutput()
 
-	require.YesError(t, err)
-	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
-		require.Equal(t, expectedOutput, string(out))
-		return
-	}
-	t.Fatalf("process ran with err %v, want exit status 1", err)
+		// Do our cleanup here, since we have an exit 1 in the actual run:
+		wd, _ := os.Getwd()
+		fileName := filepath.Join(wd, inputFile)
+		os.Remove(fileName)
 
+		require.YesError(t, err)
+		if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+			if strings.Contains(string(out), "connection error") {
+				return fmt.Errorf("grpc connection error (probably intermittent): %v", err)
+			}
+			actualOutput = out
+			return nil
+		}
+		t.Fatalf("process ran with err %v, want exit status 1", err)
+
+		return nil
+	}, b, func(err error, d time.Duration) {
+		fmt.Printf("error waiting on job state: %v; retrying in %v\n", err, d)
+	})
+	require.Equal(t, expectedOutput, string(actualOutput))
 }
 
 func TestJSONSyntaxErrorsReportedCreateJob(t *testing.T) {

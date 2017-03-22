@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	protolion "go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -29,6 +30,11 @@ import (
 
 var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
+)
+
+const (
+	// The maximum number of items we log in response to a List* API
+	maxListItemsLog = 10
 )
 
 type apiServer struct {
@@ -387,6 +393,19 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) error {
+		logRequest := &pfs.PutFileRequest{
+			FileType:  request.FileType,
+			Delimiter: request.Delimiter,
+			Url:       objPath,
+			File: &pfs.File{
+				Path: filePath,
+			},
+			Recursive: request.Recursive,
+		}
+		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		defer func(start time.Time) {
+			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+		}(time.Now())
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
 			return err
@@ -443,7 +462,14 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
+			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -458,7 +484,14 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
+			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GlobFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 

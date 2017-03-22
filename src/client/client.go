@@ -48,11 +48,6 @@ type APIClient struct {
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
-var (
-	// MaxMsgSize is used to define the GRPC frame size
-	MaxMsgSize = 20 * 1024 * 1024
-)
-
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
 func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
 	return NewMetricsClientFromAddressWithConcurrency(addr, metrics, prefix,
@@ -149,6 +144,13 @@ func (c APIClient) DeleteAll() error {
 		return sanitizeErr(err)
 	}
 	return nil
+}
+
+// SetMaxConcurrentStreams Sets the maximum number of concurrent streams the
+// client can have. It is not safe to call this operations while operations are
+// outstanding.
+func (c APIClient) SetMaxConcurrentStreams(n int) {
+	c.streamSemaphore = make(chan struct{}, n)
 }
 
 func (c *APIClient) connect() error {
