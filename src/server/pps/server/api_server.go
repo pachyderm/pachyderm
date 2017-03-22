@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +16,8 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
@@ -1078,7 +1081,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}); err != nil {
 			return err
 		}
-		obj, err := putObjClient.CloseAndRecv()
+		object, err := putObjClient.CloseAndRecv()
 		if err != nil {
 			return err
 		}
@@ -1109,8 +1112,26 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			},
 			Branch:     jobInfo.OutputBranch,
 			Provenance: provenance,
-			Tree:       obj,
+			Tree:       object,
 		})
+
+		if jobInfo.Egress != nil {
+			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
+			if err != nil {
+				return err
+			}
+			url, err := url.Parse(jobInfo.Egress.URL)
+			if err != nil {
+				return err
+			}
+			client := client.APIClient{
+				PfsAPIClient: pfsClient,
+			}
+			client.SetMaxConcurrentStreams(100)
+			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
+				return err
+			}
+		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
