@@ -58,13 +58,9 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 }
 
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := ""
-	if size == 0 {
-		byteRange = fmt.Sprintf("bytes=%d-", offset)
-	} else {
-		// we substract 1 one from the right bound because http byte ranges are
-		// inclusive rather than clopen
-		byteRange = fmt.Sprintf("bytes=%d-%d", offset, offset+size-1)
+	byteRange := byteRange(offset, size)
+	if byteRange != "" {
+		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
 	getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
@@ -94,7 +90,7 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *amazonClient) IsRetryable(err error) bool {
+func (c *amazonClient) isRetryable(err error) bool {
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false

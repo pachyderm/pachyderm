@@ -41,7 +41,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dev bool
 	var dryRun bool
 	var secure bool
+	var blockCacheSize string
 	var logLevel string
+	var persistentDiskBackend string
+	var objectStoreBackend string
 	var opts *assets.AssetOpts
 
 	deployLocal := &cobra.Command{
@@ -92,27 +95,32 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 
-	deployMinio := &cobra.Command{
-		Use:   "minio [-s] <S3 bucket> <id> <secret> <endpoint>",
-		Short: "Deploy a Pachyderm cluster running locally.",
-		Long: "Deploy a Pachyderm cluster running locally. Arguments are:\n" +
-			"  <Minio bucket>: A Minio bucket where Pachyderm will store PFS data.\n" +
-			"  <id>, <secret>, <endpoint>: Access credentials.\n" +
-			"  <secure>: Secure connection.\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 4}, func(args []string) (retErr error) {
+	deployCustom := &cobra.Command{
+		Use:   "custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
+		Short: "(in progress) Deploy a custom Pachyderm cluster configuration",
+		Long: "(in progress) Deploy a custom Pachyderm cluster configuration.\n" +
+			"If <object store backend> is \"s3\", then the arguments are:\n" +
+			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
 			manifest := &bytes.Buffer{}
-			err := assets.WriteMinioAssets(manifest, opts, hostPath, args[0], args[1], args[2], args[3], secure)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure)
 			if err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
-	deployMinio.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to Minio server.")
+	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
+	deployCustom.Flags().StringVar(&persistentDiskBackend, "persistent-disk", "aws",
+		"(required) Backend providing persistent local volumes to stateful pods. "+
+			"One of: aws, google, or azure.")
+	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
+		"(required) Backend providing an object-storage API to pachyderm. One of: "+
+			"s3, gcs, or azure-blob.")
 
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
@@ -175,16 +183,18 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
+
 	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|basic",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
-				PachdShards: uint64(pachdShards),
-				Version:     version.PrettyPrintVersion(version.Version),
-				LogLevel:    logLevel,
-				Metrics:     metrics,
+				PachdShards:    uint64(pachdShards),
+				Version:        version.PrettyPrintVersion(version.Version),
+				LogLevel:       logLevel,
+				Metrics:        metrics,
+				BlockCacheSize: blockCacheSize,
 			}
 			return nil
 		}),
@@ -192,11 +202,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "Number of Pachd nodes (stateless Pachyderm API servers).")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
+		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
-	deploy.AddCommand(deployMinio)
+	deploy.AddCommand(deployCustom)
 	return deploy
 }
 
