@@ -1,17 +1,15 @@
 # Deploying Pachyderm - Azure
 
-## Microsoft Azure
-
-### Prerequisites
+## Prerequisites
 
 * Install [Azure CLI](https://azure.microsoft.com/documentation/articles/xplat-cli-install/) >= 0.10.6
 * Install [jq](https://stedolan.github.io/jq/download/)
 
-### Deploy Kubernetes
+## Deploy Kubernetes
 
 The easiest way to deploy a Kubernetes cluster is to use the [official Kubernetes guide](http://kubernetes.io/docs/getting-started-guides/azure/).
 
-### Deploy Pachyderm
+## Deploy Pachyderm
 
 To deploy Pachyderm we will need to:
 
@@ -19,7 +17,7 @@ To deploy Pachyderm we will need to:
 2. Install the Pachyderm CLI tool, `pachctl`, and
 3. Deploy Pachyderm on top of the storage resources.
 
-#### Set up the Storage Resources
+### Set up the Storage Resources
 
 Pachyderm requires an object store ([Azure Storage](https://azure.microsoft.com/documentation/articles/storage-introduction/)) and a [data disk](https://azure.microsoft.com/documentation/articles/virtual-machines-windows-about-disks-vhds/#data-disk) to function correctly.
 
@@ -70,7 +68,7 @@ $ azure storage blob list --account-name ${AZURE_STORAGE_NAME} --account-key ${_
 # should see a disk with the name ${STORAGE_NAME}
 ```
 
-#### Install `pachctl`
+### Install `pachctl`
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
@@ -91,7 +89,7 @@ pachctl             1.4.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
-#### Deploy Pachyderm
+### Deploy Pachyderm
 
 Now we're ready to boot up Pachyderm:
 
