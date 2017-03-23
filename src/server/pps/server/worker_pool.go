@@ -46,7 +46,7 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 		})
 		if err != nil {
 			dr.retCh <- dr
-			if err == context.Canceled {
+			if isContextCancelledErr(err) {
 				return
 			} else if err != nil {
 				protolion.Errorf("worker request to %s failed with error %s", w.addr, err)
