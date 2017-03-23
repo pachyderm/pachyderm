@@ -448,10 +448,6 @@ func EtcdNodePortService(local bool) *api.Service {
 					Name:     "client-port",
 					NodePort: clientNodePort,
 				},
-				{
-					Port: 2380,
-					Name: "peer-port",
-				},
 			},
 		},
 	}
@@ -470,12 +466,15 @@ func EtcdHeadlessService() *api.Service {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ServiceSpec{
-			Selector:  labels(etcdName),
 			ClusterIP: "None",
+			Selector: map[string]string{
+				"app": etcdName,
+			},
+			Type: api.ServiceTypeClusterIP,
 			Ports: []api.ServicePort{
 				{
-					Port: 29015,
-					Name: "cluster-port",
+					Name: "peer-port",
+					Port: 2380,
 				},
 			},
 		},
@@ -486,7 +485,7 @@ func EtcdHeadlessService() *api.Service {
 func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 	initialCluster := ""
 	for i := 0; i < opts.EtcdNodes; i++ {
-		initialCluster += fmt.Sprintf("http://etcd%d.etcd-headless.default.svc.cluster.local", i)
+		initialCluster += fmt.Sprintf("http://etcd%d.etcd-headless.default.svc.cluster.local:2380", i)
 		if (i + 1) < opts.EtcdNodes {
 			initialCluster += ","
 		}
