@@ -21,9 +21,9 @@ var (
 	etcdImage               = "quay.io/coreos/etcd:v3.1.2"
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
-	etcdVolumeName          = "etcd-claim"
-	etcdVolumeClaimName     = "etcd-storage"
 	etcdName                = "etcd"
+	etcdVolumeName          = "etcd-volume"
+	etcdVolumeClaimName     = "etcd-storage"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -345,6 +345,31 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 	}
 }
 
+// EtcdVolumeClaim creates a persistent volume claim of 'size' GB.
+//
+// Note that if you're controlling EtcdDB with a Stateful Set, this is
+// unneccessary (the stateful set controller will create PVCs automatically).
+func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
+	return &api.PersistentVolumeClaim{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   etcdVolumeClaimName,
+			Labels: labels(etcdName),
+		},
+		Spec: api.PersistentVolumeClaimSpec{
+			Resources: api.ResourceRequirements{
+				Requests: map[api.ResourceName]resource.Quantity{
+					"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
+				},
+			},
+			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+		},
+	}
+}
+
 // WriteEtcdVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
 // or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
 func WriteEtcdVolumes(w io.Writer, persistentDiskBackend backend,
@@ -362,7 +387,7 @@ func WriteEtcdVolumes(w io.Writer, persistentDiskBackend backend,
 			},
 			ObjectMeta: api.ObjectMeta{
 				Name:   fmt.Sprintf("%s-%d", etcdVolumeName, i),
-				Labels: labels(etcdVolumeName),
+				Labels: labels(etcdName),
 			},
 			Spec: api.PersistentVolumeSpec{
 				Capacity: map[api.ResourceName]resource.Quantity{
@@ -711,6 +736,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 		encoder.Encode(EtcdStatefulSet(opts, volumeSize))
 		fmt.Fprintf(w, "\n")
 	} else {
+		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		EtcdRc(hostPath).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
