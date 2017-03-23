@@ -1,7 +1,11 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -15,10 +19,13 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
@@ -26,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	kube_labels "k8s.io/kubernetes/pkg/labels"
@@ -74,6 +82,45 @@ func newErrParentInputsMismatch(parent string) error {
 type ctxAndCancel struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+// GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
+// the ParallelismSpec 'spec'.
+//
+// This is only exported for testing
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
+	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
+	if spec == nil {
+		// Unset ParallelismSpec is handled here. Currently we start one worker per
+		// node
+		coefficient = 1.0
+	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
+		if spec.Constant > 0 {
+			fmt.Println("Returning constant: ", spec.Constant)
+			return spec.Constant, nil
+		}
+		// Zero-initialized ParallelismSpec is handled here. Currently we start one
+		// worker per node
+		coefficient = 1
+	} else if spec.Strategy == pps.ParallelismSpec_COEFFICIENT {
+		coefficient = spec.Coefficient
+	} else {
+		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
+	}
+	if coefficient == 0.0 {
+		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
+	}
+
+	// Start ('coefficient' * 'nodes') workers. Determine number of workers
+	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
+	}
+	if len(nodeList.Items) == 0 {
+		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
+	}
+	result := math.Floor(coefficient * float64(len(nodeList.Items)))
+	return uint64(math.Max(result, 1)), nil
 }
 
 type apiServer struct {
@@ -279,6 +326,164 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
+	var pipelineInfo pps.PipelineInfo
+	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
+	if err != nil {
+		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
+	}
+	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+}
+
+func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	// No deadline in request, but we create one here, since we do expect the call
+	// to finish reasonably quickly
+	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+
+	// Validate request
+	if request.Pipeline == nil && request.Job == nil {
+		return fmt.Errorf("must set either pipeline or job filter in call to GetLogs")
+	}
+
+	// Get list of pods containing logs we're interested in (based on pipeline and
+	// job filters)
+	var rcName string
+	if request.Pipeline != nil {
+		// If the user provides a pipeline, get logs from the pipeline RC directly
+		var err error
+		rcName, err = a.lookupRcNameForPipeline(ctx, request.Pipeline)
+		if err != nil {
+			return err
+		}
+	} else if request.Job != nil {
+		// If they only provided a job, get job info to see if it's an orphan job
+		var jobInfo pps.JobInfo
+		err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
+		if err != nil {
+			return fmt.Errorf("could not get job information for %s: %s", request.Job.ID, err.Error())
+		}
+
+		// Get logs from either pipeline RC, or job RC if it's an orphan job
+		if jobInfo.Pipeline != nil {
+			var err error
+			rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
+			if err != nil {
+				return err
+			}
+		} else {
+			rcName = JobRcName(request.Job.ID)
+		}
+	} else {
+		return fmt.Errorf("must specify either pipeline or job")
+	}
+	pods, err := a.rcPods(rcName)
+	if err != nil {
+		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
+	}
+	if len(pods) == 0 {
+		return fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
+	}
+
+	// Spawn one goroutine per pod. Each goro writes its pod's logs to a channel
+	// and channels are read into the output server in a stable order.
+	// (sort the pods to make sure that the order of log lines is stable)
+	sort.Sort(podSlice(pods))
+	logChs := make([]chan *pps.LogMessage, len(pods))
+	errCh := make(chan error)
+	done := make(chan struct{})
+	defer close(done)
+	for i := 0; i < len(pods); i++ {
+		logChs[i] = make(chan *pps.LogMessage)
+	}
+	for i, pod := range pods {
+		i := i
+		pod := pod
+		go func() {
+			defer close(logChs[i]) // Main thread reads from here, so must close
+			// Get full set of logs from pod i
+			result := a.kubeClient.Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
+			fullLogs, err := result.Raw()
+			if err != nil {
+				if apiStatus, ok := err.(errors.APIStatus); ok &&
+					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+					return // No logs to collect from this node, just skip it
+				}
+				select {
+				case errCh <- err:
+				case <-done:
+				}
+				return
+			}
+
+			// Parse pods' log lines, and filter out irrelevant ones
+			scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+			for scanner.Scan() {
+				logBytes := scanner.Bytes()
+				msg := new(pps.LogMessage)
+				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+					select {
+					case errCh <- err:
+					case <-done:
+					}
+					return
+				}
+
+				// Filter out log lines that don't match on pipeline or job
+				if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+					continue
+				}
+				if request.Job != nil && request.Job.ID != msg.JobID {
+					continue
+				}
+
+				// All paths in request.DataFilters must appear somewhere in the log
+				// line's inputs, or it's filtered
+				matchesData := true
+			dataFilters:
+				for _, dataFilter := range request.DataFilters {
+					for _, datum := range msg.Data {
+						if dataFilter == datum.Path || dataFilter == string(datum.Hash) {
+							continue dataFilters // Found, move to next filter
+						}
+					}
+					matchesData = false
+					break
+				}
+				if !matchesData {
+					continue
+				}
+
+				// Log message passes all filters -- return it
+				select {
+				case logChs[i] <- msg:
+				case <-done:
+					return
+				}
+			}
+		}()
+	}
+nextLogCh:
+	for _, logCh := range logChs {
+		for {
+			select {
+			case msg, ok := <-logCh:
+				if !ok {
+					continue nextLogCh
+				}
+				if err := apiGetLogsServer.Send(msg); err != nil {
+					return err
+				}
+			case err := <-errCh:
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
@@ -742,7 +947,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	}()
 
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
+	err := backoff.RetryNotify(func() error {
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
@@ -784,14 +989,14 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		var job *pps.Job
+	nextinput:
 		for {
 			// Block until new input commit comes in, then gather input branches for processing
 			branchSet, err := branchSets.Next()
 			if err != nil {
 				return err
 			}
-
-			// Create JobInput for new processing job
+			// (create JobInput for new processing job)
 			var jobInputs []*pps.JobInput
 			for _, pipelineInput := range pipelineInfo.Inputs {
 				for _, branch := range branchSet {
@@ -812,8 +1017,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 
-			// Check if any of the jobs in jobIter have been run alrady
-			var jobExists bool
+			// Check if any of the jobs in jobIter have been run already. If so, skip
+			// this input.
 			for {
 				var jobID string
 				var jobInfo pps.JobInfo
@@ -825,24 +1030,17 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 					return err
 				}
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
-					// TODO: we should check if the output commit exists.
-					// If the output commit has been deleted, we should
-					// re-run the job.
-					// Also,
-					jobExists = true
-					break
+					// TODO(derek): we should check if the output commit exists.  If the
+					// output commit has been deleted, we should re-run the job.
+					continue nextinput
 				}
-			}
-			if jobExists {
-				continue
 			}
 
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Inputs:   jobInputs,
-				// TODO
-				// Note that once the pipeline restarts, the `job` variable
-				// is lost and we don't know who is our parent job.
+				// TODO(derek): Note that once the pipeline restarts, the `job`
+				// variable is lost and we don't know who is our parent job.
 				ParentJob: job,
 			})
 			if err != nil {
@@ -861,7 +1059,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			protolion.Errorf("error updating pipeline state: %v", err)
 		}
 		return nil
-	}); err != nil && !isContextCancelledErr(err) {
+	})
+	if err != nil && !isContextCancelledErr(err) {
 		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
 	}
 }
@@ -932,7 +1131,29 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	if err := backoff.RetryNotify(func() error {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+
+		// Create workers and output repo if 'jobInfo' belongs to an orphan job
 		if jobInfo.Pipeline == nil {
+			// Create output repo for this job
+			var provenance []*pfs.Repo
+			for _, input := range jobInfo.Inputs {
+				provenance = append(provenance, input.Commit.Repo)
+			}
+			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+				Repo:       jobInfo.OutputRepo,
+				Provenance: provenance,
+			}); err != nil {
+				// (if output repo already exists, do nothing)
+				if !isAlreadyExistsErr(err) {
+					return err
+				}
+			}
+
+			// Create workers in kubernetes (i.e. create replication controller)
 			if err := a.createWorkersForOrphanJob(jobInfo); err != nil {
 				if !isAlreadyExistsErr(err) {
 					return err
@@ -948,28 +1169,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				protolion.Infof("deleted workers for job: %v", jobID)
 				a.delWorkerPool(rcName)
 			}()
-
-			// Create output repo for this job
-			var provenance []*pfs.Repo
-			for _, input := range jobInfo.Inputs {
-				provenance = append(provenance, input.Commit.Repo)
-			}
-
-			pfsClient, err := a.getPFSClient()
-			if err != nil {
-				return err
-			}
-			// Create the output repo; if it already exists, do nothing
-			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-				Repo:       jobInfo.OutputRepo,
-				Provenance: provenance,
-			}); err != nil {
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
 		}
-		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+
+		// Set the state of this job to 'RUNNING'
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
 			if err := jobs.Get(jobID, jobInfo); err != nil {
@@ -981,25 +1184,47 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
+		// Start worker pool
+		var wp WorkerPool
+		if jobInfo.Pipeline != nil {
+			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+		} else {
+			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
 		}
+
+		// We have a goroutine that receives the datums that fail to
+		// be processed, and put them back onto the datum queue.
+		retCh := make(chan *datumAndResp)
+		retDone := make(chan struct{})
+		defer close(retDone)
+		go func() {
+			var drs []*datumAndResp
+			for {
+				if len(drs) > 0 {
+					select {
+					case wp.DataCh() <- drs[0]:
+						drs = drs[1:]
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
+				} else {
+					select {
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
+				}
+			}
+		}()
+
+		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
 		if err != nil {
 			return err
 		}
-		// TODO(msteffen): jobInfo may not have pipeline -- fix
-		var wp WorkerPool
-		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx,
-				PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
-		} else {
-			// Start worker pool
-			wp = a.workerPool(ctx,
-				JobRcName(jobInfo.Job.ID))
-		}
-		// process all datums
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
@@ -1010,10 +1235,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			var datumErr string
 			if datum != nil {
 				select {
-				case wp.DataCh() <- datumAndResp{
+				case wp.DataCh() <- &datumAndResp{
 					datum:  datum,
 					respCh: respCh,
 					errCh:  errCh,
+					jobID:  jobID,
+					retCh:  retCh,
 				}:
 					datum = df.Next()
 					numData++
@@ -1078,7 +1305,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}); err != nil {
 			return err
 		}
-		obj, err := putObjClient.CloseAndRecv()
+		object, err := putObjClient.CloseAndRecv()
 		if err != nil {
 			return err
 		}
@@ -1103,41 +1330,29 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
-		var outputCommit *pfs.Commit
-		// If the branch does not exist, create it
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
+		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Parent: &pfs.Commit{
 				Repo: jobInfo.OutputRepo,
-				ID:   jobInfo.OutputBranch,
 			},
+			Branch:     jobInfo.OutputBranch,
+			Provenance: provenance,
+			Tree:       object,
 		})
-		if isNotFoundErr(err) {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-				},
-				Provenance: provenance,
-				Tree:       obj,
-			})
+
+		if jobInfo.Egress != nil {
+			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
 			if err != nil {
 				return err
 			}
-			if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
-				Commit: outputCommit,
-				Branch: jobInfo.OutputBranch,
-			}); err != nil {
+			url, err := url.Parse(jobInfo.Egress.URL)
+			if err != nil {
 				return err
 			}
-		} else {
-			outputCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-					ID:   jobInfo.OutputBranch,
-				},
-				Provenance: provenance,
-				Tree:       obj,
-			})
-			if err != nil {
+			client := client.APIClient{
+				PfsAPIClient: pfsClient,
+			}
+			client.SetMaxConcurrentStreams(100)
+			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
 		}
@@ -1315,13 +1530,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) jobPods(job *pps.Job) ([]api.Pod, error) {
+func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(job.ID)),
+		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
 	})
 	if err != nil {
 		return nil, err

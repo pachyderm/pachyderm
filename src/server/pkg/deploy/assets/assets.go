@@ -46,7 +46,20 @@ const (
 	googleBackend
 	microsoftBackend
 	minioBackend
+	s3CustomArgs = 6
 )
+
+// AssetOpts are options that are applicable to all the asset types.
+type AssetOpts struct {
+	PachdShards uint64
+	Version     string
+	LogLevel    string
+	Metrics     bool
+	EtcdNodes   int
+	// BlockCacheSize is the amount of memory each PachD node allocates towards
+	// its cache of PFS blocks.
+	BlockCacheSize string
+}
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
 func ServiceAccount() *api.ServiceAccount {
@@ -63,15 +76,15 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, version string, metrics bool) *api.ReplicationController {
+func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
 	image := pachdImage
-	if version != "" {
-		image += ":" + version
+	if opts.Version != "" {
+		image += ":" + opts.Version
 	}
 	// we turn metrics off if we dont have a static version
 	// this prevents dev clusters from reporting metrics
-	if version == deploy.DevVersionTag {
-		metrics = false
+	if opts.Version == deploy.DevVersionTag {
+		opts.Metrics = false
 	}
 	volumes := []api.Volume{
 		{
@@ -85,7 +98,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 		},
 	}
 	var backendEnvVar string
-	switch backend {
+	switch objectStoreBackend {
 	case localBackend:
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: filepath.Join(hostPath, "pachd"),
@@ -182,7 +195,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "NUM_SHARDS",
-									Value: strconv.FormatUint(shards, 10),
+									Value: fmt.Sprintf("%d", opts.PachdShards),
 								},
 								{
 									Name:  "STORAGE_BACKEND",
@@ -199,7 +212,7 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "WORKER_IMAGE",
-									Value: fmt.Sprintf("pachyderm/worker:%s", version),
+									Value: fmt.Sprintf("pachyderm/worker:%s", opts.Version),
 								},
 								{
 									Name:  "WORKER_IMAGE_PULL_POLICY",
@@ -207,15 +220,19 @@ func PachdRc(shards uint64, backend backend, hostPath string, logLevel string, v
 								},
 								{
 									Name:  "PACHD_VERSION",
-									Value: version,
+									Value: opts.Version,
 								},
 								{
 									Name:  "METRICS",
-									Value: strconv.FormatBool(metrics),
+									Value: strconv.FormatBool(opts.Metrics),
 								},
 								{
 									Name:  "LOG_LEVEL",
-									Value: logLevel,
+									Value: opts.LogLevel,
+								},
+								{
+									Name:  "BLOCK_CACHE_BYTES",
+									Value: opts.BlockCacheSize,
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -347,7 +364,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 
 // EtcdVolumeClaim creates a persistent volume claim of 'size' GB.
 //
-// Note that if you're controlling EtcdDB with a Stateful Set, this is
+// Note that if you're controlling Etcd with a Stateful Set, this is
 // unneccessary (the stateful set controller will create PVCs automatically).
 func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 	return &api.PersistentVolumeClaim{
@@ -370,13 +387,15 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 	}
 }
 
-// WriteEtcdVolumes creates 'shards' persistent volumes, either backed by IAAS persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc)
-// or local volumes (if 'backend' == 'local'). All volumes are created with size 'size'.
+// WriteEtcdVolumes creates 'shards' persistent volumes, either backed by IAAS
+// persistent volumes (EBS volumes for amazon, GCP volumes for Google, etc) or
+// local volumes (if 'backend' == 'local'). All volumes are created with size
+// 'size'.
 func WriteEtcdVolumes(w io.Writer, persistentDiskBackend backend,
 	opts *AssetOpts, hostPath string, names []string,
 	size int) error {
 	if persistentDiskBackend != localBackend && len(names) < opts.EtcdNodes {
-		return fmt.Errorf("could not create non-local rethink cluster with %d shards, as there are only %d external volumes", opts.EtcdNodes, len(names))
+		return fmt.Errorf("could not create non-local etcd cluster with %d shards, as there are only %d external volumes", opts.EtcdNodes, len(names))
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	for i := 0; i < opts.EtcdNodes; i++ {
@@ -445,10 +464,8 @@ func WriteEtcdVolumes(w io.Writer, persistentDiskBackend backend,
 // pods talk to etcd
 func EtcdNodePortService(local bool) *api.Service {
 	var clientNodePort int32
-	serviceType := api.ServiceTypeNodePort
 	if local {
 		clientNodePort = 32379
-		serviceType = api.ServiceTypeNodePort
 	}
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
@@ -460,7 +477,7 @@ func EtcdNodePortService(local bool) *api.Service {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ServiceSpec{
-			Type: serviceType,
+			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
@@ -507,12 +524,8 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
 		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
-		// TODO(msteffen): give each node a name using the downward API, and use it
-		// here instead of "default"
 		initialCluster = append(initialCluster, fmt.Sprintf("etcd-%d=%s", i, url))
 	}
-	fmt.Println("opts.EtcdNodes: ", opts.EtcdNodes)
-	fmt.Println("initialCluster: ", initialCluster)
 	// Because we need to refer to some environment variables set the by the
 	// k8s downward API, we define the command for running etcd here, and then
 	// actually run it below via '/bin/sh -c ${CMD}'
@@ -527,7 +540,7 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
 	}
 	for i, str := range etcdCmd {
-		etcdCmd[i] = fmt.Sprintf("\"%s\"", str)
+		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
 	}
 
 	// As of March 17, 2017, the Kubernetes client does not include structs for
@@ -588,11 +601,6 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 								},
 							},
 							"imagePullPolicy": "IfNotPresent",
-							"resources": map[string]interface{}{
-								"requests": map[string]interface{}{
-								// TODO figure out resource requirements
-								},
-							},
 						},
 					},
 				},
@@ -712,24 +720,23 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 	}
 }
 
-// AssetOpts are options that are applicable to all the asset types.
-type AssetOpts struct {
-	PachdShards uint64
-	Version     string
-	LogLevel    string
-	Metrics     bool
-	EtcdNodes   int
-}
-
 // WriteAssets writes the assets to w.
-func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
-	volumeNames []string, volumeSize int, hostPath string) error {
+func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
+	persistentDiskBackend backend, volumeNames []string, volumeSize int,
+	hostPath string) error {
+	// If either backend is "local", both must be "local"
+	if (persistentDiskBackend == localBackend || objectStoreBackend == localBackend) &&
+		persistentDiskBackend != objectStoreBackend {
+		return fmt.Errorf("if either persistentDiskBackend or objectStoreBackend "+
+			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
+			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
+	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	WriteEtcdVolumes(w, backend, opts, hostPath, volumeNames, volumeSize)
+	WriteEtcdVolumes(w, persistentDiskBackend, opts, hostPath, volumeNames, volumeSize)
 	if opts.EtcdNodes > 1 {
 		EtcdHeadlessService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
@@ -737,40 +744,66 @@ func WriteAssets(w io.Writer, opts *AssetOpts, backend backend,
 		fmt.Fprintf(w, "\n")
 	} else {
 		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
 		EtcdRc(hostPath).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
-	EtcdNodePortService(backend == localBackend).CodecEncodeSelf(encoder)
+	EtcdNodePortService(objectStoreBackend == localBackend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts.PachdShards, backend, hostPath, opts.LogLevel, opts.Version, opts.Metrics).CodecEncodeSelf(encoder)
+	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }
 
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
-	return WriteAssets(w, opts, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
+	return WriteAssets(w, opts, localBackend, localBackend, nil, 1 /* = volume size (gb) */, hostPath)
 }
 
-// WriteMinioAssets writes assets to an s3 backend.
-func WriteMinioAssets(w io.Writer, opts *AssetOpts, hostPath string, bucket string, id string,
-	secret string, endpoint string, secure bool) error {
-	if err := WriteAssets(w, opts, minioBackend, nil, 1 /* = volume size (gb) */, hostPath); err != nil {
-		return err
+// WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
+func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreBackend string,
+	persistentDiskBackend string, secure bool) error {
+	switch objectStoreBackend {
+	case "s3":
+		if len(args) != s3CustomArgs {
+			return fmt.Errorf("Expected %d arguments for disk+s3 backend", s3CustomArgs)
+		}
+		volumeSize, err := strconv.Atoi(args[1])
+		if err != nil {
+			return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
+		}
+		switch persistentDiskBackend {
+		case "aws":
+			if err := WriteAssets(w, opts, minioBackend, amazonBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "google":
+			if err := WriteAssets(w, opts, minioBackend, googleBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		case "azure":
+			if err := WriteAssets(w, opts, minioBackend, microsoftBackend, strings.Split(args[0], ","), volumeSize, ""); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Did not recognize the choice of persistent-disk")
+		}
+		encoder := codec.NewEncoder(w, jsonEncoderHandle)
+		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		return nil
+	default:
+		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	MinioSecret(bucket, id, secret, endpoint, secure).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-	return nil
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
 	token string, region string, volumeNames []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, amazonBackend, volumeNames, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -781,7 +814,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 
 // WriteGoogleAssets writes assets to a google backend.
 func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, googleBackend, volumeNames, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeNames, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
@@ -792,7 +825,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeNames 
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
 func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeURIs []string, volumeSize int) error {
-	if err := WriteAssets(w, opts, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
+	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeURIs, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
