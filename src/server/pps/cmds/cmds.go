@@ -298,6 +298,69 @@ Examples:
 		}),
 	}
 
+	var (
+		jobID       string
+		commaInputs string // comma-separated list of input files of interest
+	)
+	getLogs := &cobra.Command{
+		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
+		Short: "Return logs from a job.",
+		Long: `Return logs from a job.
+
+Examples:
+
+	# return logs emitted by recent jobs in the "filter" pipeline
+	$ pachctl get-logs --pipeline=filter
+
+	# return logs emitted by the job aedfa12aedf
+	$ pachctl get-logs --job=aedfa12aedf
+
+	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+			}
+			// Validate flags
+			if len(jobID) == 0 && len(pipelineName) == 0 {
+				return fmt.Errorf("must set either --pipeline or --job (or both)")
+			}
+
+			// Break up comma-separated input paths, and filter out empty entries
+			data := strings.Split(commaInputs, ",")
+			for i := 0; i < len(data); {
+				if len(data[i]) == 0 {
+					if i+1 < len(data) {
+						copy(data[i:], data[i+1:])
+					}
+					data = data[:len(data)-1]
+				} else {
+					i++
+				}
+			}
+
+			// Issue RPC
+			marshaler := &jsonpb.Marshaler{}
+			iter := client.GetLogs(pipelineName, jobID, data)
+			for iter.Next() {
+				messageStr, err := marshaler.MarshalToString(iter.Message())
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error unmarshalling \"%v\": %s\n", iter.Message(), err)
+				}
+				fmt.Println(messageStr)
+			}
+			return iter.Err()
+		}),
+	}
+	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
+		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
+		"this job (accepts job ID)")
+	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
+		"generated while processing these files (accepts PFS paths or file hashes)")
+
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Docs for pipelines.",
@@ -552,6 +615,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
 	result = append(result, updatePipeline)
