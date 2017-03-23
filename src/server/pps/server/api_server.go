@@ -1006,12 +1006,24 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		retDone := make(chan struct{})
 		defer close(retDone)
 		go func() {
+			var drs []*datumAndResp
 			for {
-				select {
-				case dr := <-retCh:
-					wp.DataCh() <- dr
-				case <-retDone:
-					return
+				if len(drs) > 0 {
+					select {
+					case wp.DataCh() <- drs[0]:
+						drs = drs[1:]
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
+				} else {
+					select {
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
 				}
 			}
 		}()
