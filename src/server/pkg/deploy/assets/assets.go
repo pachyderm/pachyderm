@@ -22,8 +22,7 @@ var (
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdVolumeName          = "etcd-claim"
-	etcdVolumeClaimName     = "etcd-volume-claim"
-	etcdVolumeMountName     = "etcd-storage"
+	etcdVolumeClaimName     = "etcd-storage"
 	etcdName                = "etcd"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
@@ -492,6 +491,8 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 			initialCluster += ","
 		}
 	}
+	fmt.Println("opts.EtcdNodes: ", opts.EtcdNodes)
+	fmt.Println("initialCluster: ", initialCluster)
 	// As of March 17, 2017, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	return map[string]interface{}{
@@ -524,8 +525,9 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 							"args": []string{
 								"--listen-client-urls=http://0.0.0.0:2379",
 								"--advertise-client-urls=http://0.0.0.0:2379",
+								"--listen-peer-urls=http://0.0.0.0:2380",
 								"--data-dir=/var/data/etcd",
-								"--initial-cluster=" + initialCluster,
+								"--initial-advertise-peer-urls=" + initialCluster,
 								// TODO point this to other nodes in the cluster
 							},
 							"ports": []interface{}{
@@ -540,7 +542,7 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 							},
 							"volumeMounts": []interface{}{
 								map[string]interface{}{
-									"name":      etcdVolumeMountName,
+									"name":      etcdVolumeClaimName,
 									"mountPath": "/var/data/etcd",
 								},
 							},
