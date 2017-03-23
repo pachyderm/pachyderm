@@ -536,7 +536,7 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 						map[string]interface{}{
 							"name":    etcdName,
 							"image":   etcdImage,
-							"command": []string{"bash", "-c"},
+							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
 							// the etcd-internal name of each node to its pod name.
