@@ -1002,6 +1002,35 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			wp = a.workerPool(ctx,
 				JobRcName(jobInfo.Job.ID))
 		}
+
+		// We have a goroutine that receives the datums that fail to
+		// be processed, and put them back onto the datum queue.
+		retCh := make(chan *datumAndResp)
+		retDone := make(chan struct{})
+		defer close(retDone)
+		go func() {
+			var drs []*datumAndResp
+			for {
+				if len(drs) > 0 {
+					select {
+					case wp.DataCh() <- drs[0]:
+						drs = drs[1:]
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
+				} else {
+					select {
+					case dr := <-retCh:
+						drs = append(drs, dr)
+					case <-retDone:
+						return
+					}
+				}
+			}
+		}()
+
 		// process all datums
 		var numData int
 		tree := hashtree.NewHashTree()
@@ -1013,10 +1042,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			var datumErr string
 			if datum != nil {
 				select {
-				case wp.DataCh() <- datumAndResp{
+				case wp.DataCh() <- &datumAndResp{
 					datum:  datum,
 					respCh: respCh,
 					errCh:  errCh,
+					retCh:  retCh,
 				}:
 					datum = df.Next()
 					numData++
