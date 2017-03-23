@@ -466,11 +466,10 @@ func EtcdHeadlessService() *api.Service {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ServiceSpec{
-			ClusterIP: "None",
 			Selector: map[string]string{
 				"app": etcdName,
 			},
-			Type: api.ServiceTypeClusterIP,
+			ClusterIP: "None",
 			Ports: []api.ServicePort{
 				{
 					Name: "peer-port",
@@ -483,15 +482,32 @@ func EtcdHeadlessService() *api.Service {
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
 func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
-	initialCluster := ""
+	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
-		initialCluster += fmt.Sprintf("http://etcd%d.etcd-headless.default.svc.cluster.local:2380", i)
-		if (i + 1) < opts.EtcdNodes {
-			initialCluster += ","
-		}
+		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
+		// TODO(msteffen): give each node a name using the downward API, and use it
+		// here instead of "default"
+		initialCluster = append(initialCluster, fmt.Sprintf("etcd-%d=%s", i, url))
 	}
 	fmt.Println("opts.EtcdNodes: ", opts.EtcdNodes)
 	fmt.Println("initialCluster: ", initialCluster)
+	// Because we need to refer to some environment variables set the by the
+	// k8s downward API, we define the command for running etcd here, and then
+	// actually run it below via '/bin/sh -c ${CMD}'
+	etcdCmd := []string{
+		"/usr/local/bin/etcd",
+		"--listen-client-urls=http://0.0.0.0:2379",
+		"--advertise-client-urls=http://0.0.0.0:2379",
+		"--listen-peer-urls=http://0.0.0.0:2380",
+		"--data-dir=/var/data/etcd",
+		"--initial-cluster-token=pach-cluster", // unique ID
+		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.default.svc.cluster.local:2380",
+		"--initial-cluster=" + strings.Join(initialCluster, ","),
+	}
+	for i, str := range etcdCmd {
+		etcdCmd[i] = fmt.Sprintf("\"%s\"", str)
+	}
+
 	// As of March 17, 2017, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	return map[string]interface{}{
@@ -520,15 +536,19 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 						map[string]interface{}{
 							"name":    etcdName,
 							"image":   etcdImage,
-							"command": []string{"/usr/local/bin/etcd"},
-							"args": []string{
-								"--listen-client-urls=http://0.0.0.0:2379",
-								"--advertise-client-urls=http://0.0.0.0:2379",
-								"--listen-peer-urls=http://0.0.0.0:2380",
-								"--data-dir=/var/data/etcd",
-								"--initial-advertise-peer-urls=" + initialCluster,
-								// TODO point this to other nodes in the cluster
-							},
+							"command": []string{"bash", "-c"},
+							"args":    []string{strings.Join(etcdCmd, " ")},
+							// Use the downward API to pass the pod name to etcd. This sets
+							// the etcd-internal name of each node to its pod name.
+							"env": []map[string]interface{}{{
+								"name": "ETCD_NAME",
+								"valueFrom": map[string]interface{}{
+									"fieldRef": map[string]interface{}{
+										"apiVersion": "v1",
+										"fieldPath":  "metadata.name",
+									},
+								},
+							}},
 							"ports": []interface{}{
 								map[string]interface{}{
 									"containerPort": 2379,
