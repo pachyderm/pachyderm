@@ -532,7 +532,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	pipelineInfo := &pps.PipelineInfo{
 		ID:              uuid.NewWithoutDashes(),
 		Pipeline:        request.Pipeline,
@@ -557,6 +556,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
+	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
