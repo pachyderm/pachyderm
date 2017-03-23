@@ -124,15 +124,16 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	var port int
+	var kubeCtlFlags string
 	portForward := &cobra.Command{
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl port-forward "$pod" %d:650
-`, port))
+pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl %v port-forward "$pod" %d:650
+`, kubeCtlFlags, kubeCtlFlags, port))
 			fmt.Println("Port forwarded, CTRL-C to exit.")
 			return cmdutil.RunIO(cmdutil.IO{
 				Stdin:  stdin,
@@ -141,6 +142,7 @@ kubectl port-forward "$pod" %d:650
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
+	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)

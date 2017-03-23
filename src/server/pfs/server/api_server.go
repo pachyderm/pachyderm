@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	protolion "go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -29,6 +30,11 @@ import (
 
 var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
+)
+
+const (
+	// The maximum number of items we log in response to a List* API
+	maxListItemsLog = 10
 )
 
 type apiServer struct {
@@ -95,7 +101,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.StartCommit(ctx, request.Parent, request.Provenance)
+	commit, err := a.driver.StartCommit(ctx, request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +114,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Provenance, request.Tree)
+	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
@@ -319,6 +325,8 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 					}
 				}()
 				r = resp.Body
+			case "pfs":
+				return a.putFilePfs(ctx, request, url)
 			default:
 				objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
 				if err != nil {
@@ -343,8 +351,61 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return nil
 }
 
+func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
+	pClient, err := client.NewFromAddress(url.Host)
+	if err != nil {
+		return err
+	}
+	put := func(outPath string, inRepo string, inCommit string, inFile string) (retErr error) {
+		r, err := pClient.GetFileReader(inRepo, inCommit, inFile, 0, 0)
+		if err != nil {
+			return err
+		}
+		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+	}
+	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
+	if len(splitPath) < 2 {
+		return fmt.Errorf("pfs put-file path must be of form repo/commit[/path/to/file] got: %s", url.Path)
+	}
+	repo := splitPath[0]
+	commit := splitPath[1]
+	file := ""
+	if len(splitPath) >= 3 {
+		file = filepath.Join(splitPath[2:]...)
+	}
+	if request.Recursive {
+		var eg errgroup.Group
+		if err := pClient.Walk(splitPath[0], commit, file, func(fileInfo *pfs.FileInfo) error {
+			if fileInfo.FileType != pfs.FileType_FILE {
+				return nil
+			}
+			eg.Go(func() error {
+				return put(filepath.Join(request.File.Path, strings.TrimPrefix(fileInfo.File.Path, file)), repo, commit, fileInfo.File.Path)
+			})
+			return nil
+		}); err != nil {
+			return err
+		}
+		return eg.Wait()
+	}
+	return put(request.File.Path, repo, commit, file)
+}
+
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) error {
+		logRequest := &pfs.PutFileRequest{
+			FileType:  request.FileType,
+			Delimiter: request.Delimiter,
+			Url:       objPath,
+			File: &pfs.File{
+				Path: filePath,
+			},
+			Recursive: request.Recursive,
+		}
+		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		defer func(start time.Time) {
+			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+		}(time.Now())
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
 			return err
@@ -401,7 +462,14 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
+			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
@@ -416,7 +484,14 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.FileInfo) > maxListItemsLog {
+			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GlobFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 

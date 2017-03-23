@@ -379,7 +379,7 @@ func (h *hashtree) DeleteFile(path string) error {
 	}
 	if node.DirNode == nil {
 		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
-			"under it (likely an uncaught PathConflict in prior PutFile or Merge)")
+			"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
 	}
 	if !removeStr(&node.DirNode.Children, child) {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)

@@ -1,11 +1,15 @@
 package grpcutil
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 
 	"github.com/gogo/protobuf/types"
+)
+
+var (
+	// MaxMsgSize is used to define the GRPC frame size
+	MaxMsgSize = 20 * 1024 * 1024
 )
 
 // StreamingBytesServer represents a server for an rpc method of the form:
@@ -65,7 +69,7 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
 func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer StreamingBytesServer) error {
-	_, err := bufio.NewReader(reader).WriteTo(NewStreamingBytesWriter(streamingBytesServer))
+	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), reader, make([]byte, MaxMsgSize/2))
 	return err
 }
 

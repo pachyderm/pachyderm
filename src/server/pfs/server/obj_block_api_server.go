@@ -225,9 +225,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err != nil {
 				return err
 			}
-			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
-				return err
-			}
+			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
@@ -497,15 +495,16 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	updated := false
 	// First check if we already have the index for this Tag in memory, if
 	// not read it for the first time.
-	if _, ok := s.objectIndexes[prefix]; !ok {
+	if _, ok := s.getObjectIndex(prefix); !ok {
 		updated = true
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
 	}
+	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains the tag we're looking for, if so read
 	// it into the cache and return
-	if object, ok := s.objectIndexes[prefix].Tags[tag.Name]; ok {
+	if object, ok := objectIndex.Tags[tag.Name]; ok {
 		dest.SetProto(object)
 		return nil
 	}
@@ -513,7 +512,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// written tags that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
+	objectIndex = &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	} else if err == nil {
@@ -528,7 +527,8 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
-		if object, ok := s.objectIndexes[prefix].Tags[tag.Name]; ok {
+		objectIndex, _ = s.getObjectIndex(prefix)
+		if object, ok := objectIndex.Tags[tag.Name]; ok {
 			dest.SetProto(object)
 			return nil
 		}
@@ -547,15 +547,16 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	updated := false
 	// First check if we already have the index for this Object in memory, if
 	// not read it for the first time.
-	if _, ok := s.objectIndexes[prefix]; !ok {
+	if _, ok := s.getObjectIndex(prefix); !ok {
 		updated = true
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
 	}
+	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains a the object we're looking for, if so read
 	// it into the cache and return
-	if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+	if blockRef, ok := objectIndex.Objects[object.Hash]; ok {
 		result.BlockRef = blockRef
 		dest.SetProto(result)
 		return nil
@@ -578,7 +579,8 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
-		if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+		objectIndex, _ := s.getObjectIndex(prefix)
+		if blockRef, ok := objectIndex.Objects[object.Hash]; ok {
 			result.BlockRef = blockRef
 			dest.SetProto(result)
 			return nil
@@ -592,7 +594,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 	var err error
 	backoff.RetryNotify(func() error {
 		reader, err = s.objClient.Reader(path, offset, size)
-		if err != nil && s.objClient.IsRetryable(err) {
+		if err != nil && obj.IsRetryable(s.objClient, err) {
 			return err
 		}
 		return nil
@@ -621,6 +623,19 @@ func (s *objBlockAPIServer) readBlockRef(blockRef *pfsclient.BlockRef, dest grou
 	return s.readObj(s.localServer.blockPath(blockRef.Block), blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower, dest)
 }
 
+func (s *objBlockAPIServer) getObjectIndex(prefix string) (*pfsclient.ObjectIndex, bool) {
+	s.objectIndexesLock.RLock()
+	defer s.objectIndexesLock.RUnlock()
+	index, ok := s.objectIndexes[prefix]
+	return index, ok
+}
+
+func (s *objBlockAPIServer) setObjectIndex(prefix string, index *pfsclient.ObjectIndex) {
+	s.objectIndexesLock.Lock()
+	defer s.objectIndexesLock.Unlock()
+	s.objectIndexes[prefix] = index
+}
+
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
@@ -630,9 +645,7 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	// NonExist error, in the case of a NonExist error we'll put a blank index
 	// in the map. This prevents us from having requesting an index that
 	// doesn't exist everytime a request tries to access it.
-	s.objectIndexesLock.Lock()
-	defer s.objectIndexesLock.Unlock()
-	s.objectIndexes[prefix] = objectIndex
+	s.setObjectIndex(prefix, objectIndex)
 	return nil
 }
 

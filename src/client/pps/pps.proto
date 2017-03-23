@@ -4,7 +4,6 @@ package pps;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
@@ -189,6 +188,7 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
+  // next field value: 12
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
@@ -216,6 +216,46 @@ message ListJobRequest {
 
 message DeleteJobRequest {
   Job job = 1;
+}
+
+message GetLogsRequest {
+  // The pipeline from which we want to get logs (required if the job in 'job'
+  // was created as part of a pipeline. To get logs from a non-orphan job
+  // without the pipeline that created it, you need to use ElasticSearch).
+  Pipeline pipeline = 2;
+
+  // The job from which we want to get logs.
+  Job job = 1;
+
+  // Names of input files from which we want processing logs. This may contain
+  // multiple files, to query pipelines that contain multiple inputs. Each
+  // filter may be an absolute path of a file within a pps repo, or it may be
+  // a hash for that file (to search for files at specific versions)
+  repeated string data_filters = 3;
+}
+
+// LogMessage is a log line from a PPS worker, annotated with metadata
+// indicating when and why the line was logged.
+message LogMessage {
+  // The job and pipeline for which a PFS file is being processed (if the job
+  // is an orphan job, pipeline name and ID will be unset)
+	string pipeline_name = 1;
+	string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
+	string job_id = 3 [(gogoproto.customname) = "JobID"];
+
+	// The PFS files being processed (one per pipeline/job input)
+  message Datum {
+    // This file's absolute path within its pfs repo.
+	  string path = 4;
+
+    // This file's hash
+    bytes hash = 5;
+  }
+  repeated Datum data = 4;
+
+	// The message logged, and the time at which it was logged
+  google.protobuf.Timestamp ts = 5;
+	string message = 6;
 }
 
 message CreatePipelineRequest {
@@ -271,4 +311,5 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 }
