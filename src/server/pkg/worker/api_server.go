@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	protolion "go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +27,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+)
+
+var (
+	maxLogItems = 10
 )
 
 // Input is a generic input object that can either be a pipeline input or
@@ -264,7 +269,14 @@ func HashDatum(data []*pfs.FileInfo, options *Options) (string, error) {
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if req != nil && len(req.Data) > maxLogItems {
+			protolion.Infof("Request contains %d objects; logging the first %d", len(req.Data), maxLogItems)
+			a.Log(&ProcessRequest{req.Data[:maxLogItems]}, resp, retErr, time.Since(start))
+		} else {
+			a.Log(req, resp, retErr, time.Since(start))
+		}
+	}(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
