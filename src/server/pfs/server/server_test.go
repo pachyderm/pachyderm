@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -3532,9 +3533,9 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir2, commit1, nil, nil, false))
+	require.NoError(t, puller.Pull(&client, tmpDir2, commit1, nil, nil, true))
 
-	data, err := ioutil.ReadFile("dir/bar")
+	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
 	require.Equal(t, "bar\n", string(data))
 
