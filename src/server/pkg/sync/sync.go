@@ -16,8 +16,11 @@ import (
 
 // Puller as a struct for managing a Pull operation.
 type Puller struct {
-	errCh   chan error
-	pipes   map[string]bool
+	// errCh contains an error from the pipe goros
+	errCh chan error
+	// pipes is a set containing all pipes that are currently blocking
+	pipes map[string]bool
+	// pipesMu is a mutex to synchronize access to pipes
 	pipesMu sync.Mutex
 }
 
