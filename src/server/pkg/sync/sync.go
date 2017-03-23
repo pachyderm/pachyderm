@@ -14,12 +14,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Puller as a struct for managing a Pull operation.
 type Puller struct {
 	errCh   chan error
 	pipes   map[string]bool
 	pipesMu sync.Mutex
 }
 
+// NewPuller creates a new Puller struct.
 func NewPuller() *Puller {
 	return &Puller{
 		errCh: make(chan error, 1),
