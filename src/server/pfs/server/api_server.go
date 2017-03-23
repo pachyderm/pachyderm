@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	"go.pedge.io/lion"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -361,6 +362,7 @@ func (a *apiServer) putFileObj(objClient obj.Client, request *pfs.PutFileRequest
 					// PFS needs to treat such a key as a directory.
 					// In this case, we rely on the driver PutFile to
 					// construct the 'directory' diffs from the file prefix
+					lion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
