@@ -41,7 +41,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     :maxdepth: 1
     :caption: FAQ, Troubleshooting
 
-    faq/faq_PLACEHOLDER
+    faq/FAQ
     faq/troubleshooting_PLACEHOLDER
 
 .. toctree::
@@ -81,6 +81,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     reference/pipeline_specification_PLACEHOLDER
     reference/pachyderm_file_system_PLACEHOLDER
     reference/pachyderm_pipeline_system_PLACEHOLDER
+    reference/pachyderm_clients_PLACEHOLDER
     pachctl/pachctl
     CHANGELOG
     
