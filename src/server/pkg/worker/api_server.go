@@ -34,6 +34,7 @@ import (
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 100
+	maxLogItems = 10
 )
 
 // Input is a generic input object that can either be a pipeline input or
