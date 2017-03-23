@@ -31,6 +31,12 @@ type datumAndResp struct {
 	datum  []*pfs.FileInfo
 	respCh chan hashtree.HashTree
 	errCh  chan string
+	retCh  chan *datumAndResp
+}
+
+// WorkerPool represents a pool of workers that can be used to process datums.
+type WorkerPool interface {
+	DataCh() chan *datumAndResp
 }
 
 type worker struct {
@@ -40,7 +46,7 @@ type worker struct {
 	pachClient   *client.APIClient
 }
 
-func (w *worker) run(dataCh chan datumAndResp) {
+func (w *worker) run(dataCh chan *datumAndResp) {
 	for {
 		dr, ok := <-dataCh
 		if !ok {
@@ -51,7 +57,7 @@ func (w *worker) run(dataCh chan datumAndResp) {
 			Data:  dr.datum,
 		})
 		if err != nil {
-			dataCh <- dr
+			dr.retCh <- dr
 			if err == context.Canceled {
 				return
 			} else if err != nil {
@@ -77,14 +83,9 @@ func (w *worker) run(dataCh chan datumAndResp) {
 	}
 }
 
-// WorkerPool represents a pool of workers that can be used to process datums.
-type WorkerPool interface {
-	DataCh() chan datumAndResp
-}
-
 type workerPool struct {
 	// Worker pool recieves work via this channel
-	dataCh chan datumAndResp
+	dataCh chan *datumAndResp
 
 	// Parent of all worker contexts (see workersMap)
 	ctx context.Context
@@ -199,7 +200,7 @@ func (w *workerPool) delWorker(addr string) error {
 	return nil
 }
 
-func (w *workerPool) DataCh() chan datumAndResp {
+func (w *workerPool) DataCh() chan *datumAndResp {
 	return w.dataCh
 }
 
@@ -223,7 +224,7 @@ func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
 func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,
-		dataCh:     make(chan datumAndResp),
+		dataCh:     make(chan *datumAndResp),
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
 		workersMap: make(map[string]context.CancelFunc),
 		etcdClient: a.etcdClient,
