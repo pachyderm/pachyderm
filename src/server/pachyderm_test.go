@@ -2324,6 +2324,121 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGetLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Name: dataRepo,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	// Commit data to repo and flush commit
+	commit, err := c.StartCommit(dataRepo, "")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	_, err = commitIter.Next()
+	require.NoError(t, err)
+
+	// List output commits, to make sure one exists?
+	commits, err := c.ListCommitByRepo(pipelineName)
+	require.NoError(t, err)
+	require.True(t, len(commits) == 1)
+
+	// Get logs from pipeline, using pipeline
+	iter := c.GetLogs(pipelineName, "", nil)
+	for iter.Next() {
+		require.True(t, iter.Message().Message != "")
+	}
+	require.NoError(t, iter.Err())
+
+	// Get logs from pipeline, using a pipeline that doesn't exist. There should
+	// be an error
+	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+	require.Matches(t, "could not get", iter.Err().Error())
+
+	// Get logs from pipeline, using job
+	// (1) Get job ID, from pipeline that just ran
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.True(t, len(jobInfos) == 1)
+	// (2) Get logs using extracted job ID
+	// wait for logs to be collected
+	time.Sleep(10 * time.Second)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, nil)
+	var numLogs int
+	for iter.Next() {
+		numLogs++
+		require.True(t, iter.Message().Message != "")
+	}
+	// Make sure that we've seen some logs
+	require.True(t, numLogs > 0)
+	require.NoError(t, iter.Err())
+
+	// Get logs from pipeline, using a job that doesn't exist. There should
+	// be an error
+	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+	require.Matches(t, "could not get", iter.Err().Error())
+
+	// Filter logs based on input (using file that exists)
+	// (1) Inspect repo/file to get hash, so we can compare hash to path
+	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
+	require.NoError(t, err)
+	// (2) Get logs using both file path and hash, and make sure you get the same
+	//     log lines
+	iter1 := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
+	iter2 := c.GetLogs("", jobInfos[0].Job.ID, []string{string(fileInfo.Hash)})
+	numLogs = 0
+	for {
+		l, r := iter1.Next(), iter2.Next()
+		require.True(t, l == r)
+		if !l {
+			break
+		}
+		numLogs++
+		require.True(t, iter1.Message().Message == iter2.Message().Message)
+	}
+	require.True(t, numLogs > 0)
+	require.NoError(t, iter1.Err())
+	require.NoError(t, iter2.Err())
+
+	// Filter logs based on input (using file that doesn't exist). There should
+	// be no logs
+	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"})
+	require.False(t, iter.Next())
+	require.NoError(t, iter.Err())
+}
+
 func TestPfsPutFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

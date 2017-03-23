@@ -23,6 +23,17 @@ const (
 	workerEtcdPrefix = "workers"
 )
 
+// An input/output pair for a single datum. When a worker has finished
+// processing 'data', it writes the resulting hashtree to 'resp' (each job has
+// its own response channel)
+type datumAndResp struct {
+	jobID  string // This is passed to workers, so they can annotate their logs
+	datum  []*pfs.FileInfo
+	respCh chan hashtree.HashTree
+	errCh  chan string
+	retCh  chan *datumAndResp
+}
+
 // WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
@@ -42,7 +53,8 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 			return
 		}
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
-			Data: dr.datum,
+			JobID: dr.jobID,
+			Data:  dr.datum,
 		})
 		if err != nil {
 			dr.retCh <- dr
@@ -71,17 +83,8 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 	}
 }
 
-// An input/output pair for a single datum. When a worker has finished
-// processing 'data', it writes the resulting hashtree to 'resp' (each job has
-// its own response channel)
-type datumAndResp struct {
-	datum  []*pfs.FileInfo
-	respCh chan hashtree.HashTree
-	errCh  chan string
-	retCh  chan *datumAndResp
-}
-
 type workerPool struct {
+	// Worker pool recieves work via this channel
 	dataCh chan *datumAndResp
 
 	// Parent of all worker contexts (see workersMap)
