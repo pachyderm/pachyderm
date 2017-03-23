@@ -333,9 +333,6 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 						{
 							Name: "etcd-storage",
 							VolumeSource: api.VolumeSource{
-								// HostPath: &api.HostPathVolumeSource{
-								// 	Path: filepath.Join(hostPath, "etcd"),
-								// },
 								PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
 									ClaimName: etcdVolumeClaimName,
 								},
