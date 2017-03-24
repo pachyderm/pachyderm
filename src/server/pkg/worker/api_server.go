@@ -149,10 +149,11 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 	return server
 }
 
-func (a *APIServer) downloadData(ctx context.Context, data []*pfs.FileInfo, puller *filesync.Puller) error {
+func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) error {
 	for i, datum := range data {
 		input := a.inputs[i]
-		if err := puller.Pull(ctx, a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name), datum, input.Lazy, concurrency); err != nil {
+		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name),
+			datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -387,7 +388,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
-	if err := a.downloadData(ctx, req.Data, puller); err != nil {
+	if err := a.downloadData(req.Data, puller); err != nil {
 		return nil, err
 	}
 	defer func() {

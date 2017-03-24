@@ -54,7 +54,7 @@ func downloadInput(puller *sync.Puller, c *client.APIClient, commitMounts []*fus
 		}
 		g.Go(func() error {
 			return puller.Pull(c, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
-				commitMount.Commit, commitMount.DiffMethod, commitMount.Shard, commitMount.Lazy)
+				commitMount.Commit.Repo.Name, commitMount.Commit.ID, "", commitMount.Lazy, 100)
 		})
 	}
 	return g.Wait()
