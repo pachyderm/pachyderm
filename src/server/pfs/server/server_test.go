@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1797,6 +1799,20 @@ func TestSetBranchTwice(t *testing.T) {
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
 	require.Equal(t, commit2.ID, branches[0].Head.ID)
+	require.Equal(t, 2, len(fileInfos))
+
+	// Test Lazy files
+	tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
+	require.NoError(t, err)
+
+	puller = pfssync.NewPuller()
+	require.NoError(t, puller.Pull(&client, tmpDir2, commit1, nil, nil, true))
+
+	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
+	require.NoError(t, err)
+	require.Equal(t, "bar\n", string(data))
+
+	require.NoError(t, puller.CleanUp())
 }
 
 func generateRandomString(n int) string {

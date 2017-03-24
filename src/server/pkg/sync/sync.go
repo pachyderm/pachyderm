@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -12,17 +13,33 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
+// Puller as a struct for managing a Pull operation.
+type Puller struct {
+	// errCh contains an error from the pipe goros
+	errCh chan error
+	// pipes is a set containing all pipes that are currently blocking
+	pipes map[string]bool
+	// pipesMu is a mutex to synchronize access to pipes
+	pipesMu sync.Mutex
+}
+
+// NewPuller creates a new Puller struct.
+func NewPuller() *Puller {
+	return &Puller{
+		errCh: make(chan error, 1),
+		pipes: make(map[string]bool),
+	}
+}
+
 // Pull clones an entire repo at a certain commit.
-//
 // root is the local path you want to clone to.
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool, concurrency int) (retErr error) {
+func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool, concurrency int) (retErr error) {
 	limiter := limit.New(concurrency)
 	commit := fileInfo.File.Commit
 	switch fileInfo.FileType {
@@ -35,28 +52,39 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 			if err := syscall.Mkfifo(path, 0666); err != nil {
 				return err
 			}
+			p.pipesMu.Lock()
+			pipesMu[path] = true
+			p.pipes.Unlock()
 			// This goro will block until the user's code opens the
 			// fifo.  That means we need to "abandon" this goro so that
 			// the function can return and the caller can execute the
 			// user's code. Waiting for this goro to return would
 			// produce a deadlock.
 			go func() {
-				limiter.Acquire()
-				defer limiter.Release()
-				f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-				if err != nil {
-					log.Printf("error opening %s: %s", path, err)
-					return
-				}
-				defer func() {
-					if err := f.Close(); err != nil {
-						log.Printf("error closing %s: %s", path, err)
+				if err := func() (retErr error) {
+					limiter.Acquire()
+					defer limiter.Release()
+					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
+					p.pipesMu.Lock()
+					delete(pipesMu, path)
+					p.pipes.Unlock()
+					if err != nil {
+						return err
 					}
-				}()
-				err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
-				if err != nil {
-					log.Printf("error from GetFile: %s", err)
-					return
+					defer func() {
+						if err := f.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+					err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
+					if err != nil {
+						return err
+					}
+				}(); err != nil {
+					select {
+					case p.errCh <- err:
+					default:
+					}
 				}
 			}()
 		} else {
@@ -91,13 +119,38 @@ func Pull(ctx context.Context, client *pachclient.APIClient, root string, fileIn
 		for _, fileInfo := range fileInfos {
 			fileInfo := fileInfo
 			g.Go(func() error {
-				return Pull(ctx, client, root, fileInfo, pipes, concurrency)
+				return p.Pull(ctx, client, root, fileInfo, pipes, concurrency)
 			})
 		}
 
 		return g.Wait()
 	}
 	return nil
+}
+
+// CleanUp cleans up blocked syscalls for pipes that were never opened. It also
+// returns any errors that might have been encountered while trying to read
+// data for the pipes. CleanUp should be called after all code that might
+// access pipes has completed running, it should not be called concurrently.
+func (p *Puller) CleanUp() error {
+	var result error
+	select {
+	case result = <-p.errCh:
+	default:
+	}
+	p.pipesMu.Lock()
+	defer p.pipesMu.Unlock()
+	for path := range p.pipes {
+		f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
+		if err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+	}
+	p.pipes = make(map[string]bool)
+	return result
 }
 
 // Push puts files under root into an open commit.
