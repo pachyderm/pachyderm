@@ -1230,6 +1230,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		respCh := make(chan hashtree.HashTree)
 		errCh := make(chan string)
 		datum := df.Next()
+		protolion.Printf("Got datum %+v", datum)
 		for {
 			var resp hashtree.HashTree
 			var datumErr string
