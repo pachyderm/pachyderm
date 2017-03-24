@@ -38,15 +38,15 @@ func NewPuller() *Puller {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func (p *Puller) Pull(client *pachclient.APIClient, root string, file *pfs.File, pipes bool, concurrency int) error {
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	if err := client.Walk(file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fileInfo *pfs.FileInfo) error {
+	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
 		path := filepath.Join(root, fileInfo.File.Path)
-		if err := os.MkdirAll(filepath.Dir(path), 0666); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			return err
 		}
 		if pipes {
@@ -78,7 +78,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, file *pfs.File,
 							retErr = err
 						}
 					}()
-					err = client.GetFile(file.Commit.Repo.Name, file.Commit.ID, fileInfo.File.Path, 0, 0, f)
+					err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
 					if err != nil {
 						return err
 					}
@@ -103,7 +103,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, file *pfs.File,
 						retErr = err
 					}
 				}()
-				return client.GetFile(file.Commit.Repo.Name, file.Commit.ID, fileInfo.File.Path, 0, 0, f)
+				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
 			})
 		}
 		return nil
