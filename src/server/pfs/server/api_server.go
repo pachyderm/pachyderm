@@ -434,7 +434,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 					// PFS needs to treat such a key as a directory.
 					// In this case, we rely on the driver PutFile to
 					// construct the 'directory' diffs from the file prefix
-					lion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+					protolion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
 				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)

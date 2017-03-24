@@ -53,8 +53,8 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 				return err
 			}
 			p.pipesMu.Lock()
-			pipesMu[path] = true
-			p.pipes.Unlock()
+			p.pipes[path] = true
+			p.pipesMu.Unlock()
 			// This goro will block until the user's code opens the
 			// fifo.  That means we need to "abandon" this goro so that
 			// the function can return and the caller can execute the
@@ -66,8 +66,8 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 					defer limiter.Release()
 					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 					p.pipesMu.Lock()
-					delete(pipesMu, path)
-					p.pipes.Unlock()
+					delete(p.pipes, path)
+					p.pipesMu.Unlock()
 					if err != nil {
 						return err
 					}
@@ -80,6 +80,7 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 					if err != nil {
 						return err
 					}
+					return nil
 				}(); err != nil {
 					select {
 					case p.errCh <- err:
