@@ -10,6 +10,8 @@ fi
 
 echo "--- Releasing pachctl w version: $VERSION"
 
+MAJOR_MINOR=`echo $VERSION | cut -f -2 -d "."`
+
 set +e
 which goxc
 
@@ -53,16 +55,17 @@ cd homebrew-tap
 cd ..
 rm -rf homebrew-tap
 
-rm -rf www || true
+rm -rf pachyderm.github.io || true
 curl -o /tmp/pachctl.deb -L "https://github.com/pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
-git clone git@github.com:pachyderm/www
-cp /tmp/pachctl.deb www/pachctl.deb
-cd www 
-    git add pachctl.deb
+git clone git@github.com:pachyderm/pachyderm.github.io
+cp /tmp/pachctl.deb pachyderm.github.io/downloads/$MAJOR_MINOR/pachctl.deb
+cd pachyderm.github.io 
+    mkdir -p downloads/$MAJOR_MINOR
+    git add downloads/$MAJOR_MINOR/pachctl.deb
     git commit -a -m "[Automated] Update pachctl.deb to release version $VERSION"
     git pull origin master
     git push origin master
 cd ..
-rm -rf www
+rm -rf pachyderm.github.io
 
 echo "--- Successfully released pachctl"
