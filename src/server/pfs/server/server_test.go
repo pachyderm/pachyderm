@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -1799,14 +1800,81 @@ func TestSetBranchTwice(t *testing.T) {
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
 	require.Equal(t, commit2.ID, branches[0].Head.ID)
+}
+
+func TestSyncPullPush(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo1 := "repo1"
+	require.NoError(t, client.CreateRepo(repo1))
+
+	commit1, err := client.StartCommit(repo1, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo1, commit1.ID, "dir/bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo1, commit1.ID))
+
+	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
+	require.NoError(t, err)
+
+	fileInfo, err := client.InspectFile(repo1, "master", "/")
+	require.NoError(t, err)
+	puller := pfssync.NewPuller()
+	require.NoError(t, puller.Pull(context.Background(), &client, tmpDir, fileInfo, false, 2))
+	require.NoError(t, puller.CleanUp())
+
+	repo2 := "repo2"
+	require.NoError(t, client.CreateRepo(repo2))
+
+	commit2, err := client.StartCommit(repo2, "master")
+	require.NoError(t, err)
+
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit2, false))
+	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo2, commit2.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit2.ID, "dir/bar", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+
+	fileInfos, err := client.ListFile(repo2, commit2.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	commit3, err := client.StartCommit(repo2, "master")
+	require.NoError(t, err)
+
+	// Test the overwrite flag.
+	// After this Push operation, all files should still look the same, since
+	// the old files were overwritten.
+	require.NoError(t, pfssync.Push(&client, tmpDir, commit3, true))
+	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit3.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo2, commit3.ID, "dir/bar", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+
+	fileInfos, err = client.ListFile(repo2, commit3.ID, "")
+	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
 	// Test Lazy files
 	tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
+	fileInfo, err = client.InspectFile(repo1, "master", "/")
+	require.NoError(t, err)
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir2, commit1, nil, nil, true))
+	require.NoError(t, puller.Pull(context.Background(), &client, tmpDir, fileInfo, true, 2))
+	require.NoError(t, puller.CleanUp())
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
