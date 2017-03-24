@@ -45,7 +45,7 @@ func main() {
 	cmdutil.Main(do, &appEnv{})
 }
 
-func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error {
+func downloadInput(puller *sync.Puller, c *client.APIClient, commitMounts []*fuse.CommitMount) error {
 	var g errgroup.Group
 	for _, commitMount := range commitMounts {
 		commitMount := commitMount
@@ -53,7 +53,7 @@ func downloadInput(c *client.APIClient, commitMounts []*fuse.CommitMount) error 
 			continue
 		}
 		g.Go(func() error {
-			return sync.Pull(c, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
+			return puller.Pull(c, filepath.Join(PFSInputPrefix, commitMount.Commit.Repo.Name),
 				commitMount.Commit, commitMount.DiffMethod, commitMount.Shard, commitMount.Lazy)
 		})
 	}
@@ -184,7 +184,13 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 
-			if err := downloadInput(c, response.CommitMounts); err != nil {
+			puller := sync.NewPuller()
+			defer func() {
+				if err := puller.CleanUp(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if err := downloadInput(puller, c, response.CommitMounts); err != nil {
 				return err
 			}
 
