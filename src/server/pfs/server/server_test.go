@@ -1820,10 +1820,8 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	fileInfo, err := client.InspectFile(repo1, "master", "/")
-	require.NoError(t, err)
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(context.Background(), &client, tmpDir, fileInfo, false, 2))
+	require.NoError(t, puller.Pull(&client, tmpDir, repo1, commit1.ID, "", false, 2))
 	require.NoError(t, puller.CleanUp())
 
 	repo2 := "repo2"
@@ -1870,10 +1868,8 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	fileInfo, err = client.InspectFile(repo1, "master", "/")
-	require.NoError(t, err)
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(context.Background(), &client, tmpDir, fileInfo, true, 2))
+	require.NoError(t, puller.Pull(&client, tmpDir2, repo1, "master", "", true, 2))
 	require.NoError(t, puller.CleanUp())
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
