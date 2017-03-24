@@ -2,7 +2,6 @@
 package sync
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -39,11 +38,13 @@ func NewPuller() *Puller {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root string, fileInfo *pfs.FileInfo, pipes bool, concurrency int) (retErr error) {
+func (p *Puller) Pull(client *pachclient.APIClient, root string, file *pfs.File, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
-	commit := fileInfo.File.Commit
-	switch fileInfo.FileType {
-	case pfs.FileType_FILE:
+	var eg errgroup.Group
+	if err := client.Walk(file.Commit.Repo.Name, file.Commit.ID, file.Path, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE {
+			return nil
+		}
 		path := filepath.Join(root, fileInfo.File.Path)
 		if err := os.MkdirAll(filepath.Dir(path), 0666); err != nil {
 			return err
@@ -59,7 +60,8 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 			// fifo.  That means we need to "abandon" this goro so that
 			// the function can return and the caller can execute the
 			// user's code. Waiting for this goro to return would
-			// produce a deadlock.
+			// produce a deadlock. This goro will exit (if it hasn't already)
+			// when CleanUp is called.
 			go func() {
 				if err := func() (retErr error) {
 					limiter.Acquire()
@@ -76,7 +78,7 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 							retErr = err
 						}
 					}()
-					err = client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
+					err = client.GetFile(file.Commit.Repo.Name, file.Commit.ID, fileInfo.File.Path, 0, 0, f)
 					if err != nil {
 						return err
 					}
@@ -89,44 +91,26 @@ func (p *Puller) Pull(ctx context.Context, client *pachclient.APIClient, root st
 				}
 			}()
 		} else {
-			limiter.Acquire()
-			defer limiter.Release()
-			f, err := os.Create(path)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
+			eg.Go(func() (retErr error) {
+				limiter.Acquire()
+				defer limiter.Release()
+				f, err := os.Create(path)
+				if err != nil {
+					return err
 				}
-			}()
-			return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, f)
-		}
-	case pfs.FileType_DIR:
-		if err := os.MkdirAll(filepath.Join(root, fileInfo.File.Path), 0666); err != nil {
-			return err
-		}
-
-		fileInfos, err := client.ListFile(
-			commit.Repo.Name,
-			commit.ID,
-			fileInfo.File.Path,
-		)
-		if err != nil {
-			return err
-		}
-
-		var g errgroup.Group
-		for _, fileInfo := range fileInfos {
-			fileInfo := fileInfo
-			g.Go(func() error {
-				return p.Pull(ctx, client, root, fileInfo, pipes, concurrency)
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				return client.GetFile(file.Commit.Repo.Name, file.Commit.ID, fileInfo.File.Path, 0, 0, f)
 			})
 		}
-
-		return g.Wait()
+		return nil
+	}); err != nil {
+		return err
 	}
-	return nil
+	return eg.Wait()
 }
 
 // CleanUp cleans up blocked syscalls for pipes that were never opened. It also
