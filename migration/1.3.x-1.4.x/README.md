@@ -38,13 +38,56 @@ Note that now is the time that you need to think about how you want to
 parallelize over your data. If your repo contains large files which were
 processed in 1.3 with `BLOCK` or `MAP` pipelines then you should use the
 `--split` flag in your `put-file` invocation to split the data up now.
-Refer to the [`put-file` docs]() to learn more about `--split` works.
+Refer to the [`put-file` docs](PLACEHOLDER) to learn more about `--split` works.
 
 After data has been migrated you can safely turn down the 1.3 cluster.
 
 ## Pipelines
 
-There are 2 major differences between pipelines in 1.3 and pipelines in
-1.4:
+### Inputs
 
-- Incrementality happens automatically 
+By far the biggest change to the Pipeline Spec is to the `inputs` field. Inputs
+no longer have a `method` field, instead they specify how their inputs can be
+parallelized using a glob pattern. [Read more about glob patterns
+here](PLACEHOLDER).
+
+The Partitions available in 1.3 match to glob patterns like so:
+
+| Partition | Glob |
+| `BLOCK`   | /*/* |
+| `FILE`    | /*   |
+| `REPO`    | /    |
+
+Note that to get the equivalent of `BLOCK` partition you should have put
+your files with `--split` in the step above. If your files are in a more
+deeply nested directory structure you'll need more layers of `*`s in your
+glob pattern. I.e. if you put the file `dir/foo` using `--split` rather
+than the file `foo` then you'll want to use `/*/*/*`.
+
+In 1.3 it wasn't possible to do `FILE` partitioning below the root layer
+of directories, in 1.4 this is possible with glob patterns. I.e. in the
+above example where a file is put to `dir/foo` with `--split` you could
+process all the pieces of the file together by passing `/*/*`.
+
+1.4 currently does not have a notion of incrementality, much of the
+incremental functionality present in 1.3 currently happens automatically.
+We'll be introducing a more advanced form of incrementality in a later
+version of 1.4 for incremental workloads like sum operations.
+
+In 1.4 `input`s are targeted at specific branches rather than all branches
+in a repo, this field defaults to master if left blank.
+
+### Output
+
+In 1.4 the `output` field has been renamed to `egress` to avoid confusion
+with the pfs output repo, the semantics are unchanged.
+
+Pipelines in 1.4 output to a specific branch, rather than uuid branches.
+As with `input`s the output branch can be left blank in which case it will
+default to `master`.
+
+### GC POLICY
+
+The `gc_policy` field is no longer necessary in 1.4 because the processing
+containers for pipelines are left running between jobs. This results in
+lower latency for jobs and less load put on kubernetes.
