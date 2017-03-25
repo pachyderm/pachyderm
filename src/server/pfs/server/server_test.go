@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -3483,7 +3484,9 @@ func TestSyncPullPush(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Pull(&client, tmpDir, commit1, nil, nil, false))
+	puller := pfssync.NewPuller()
+	require.NoError(t, puller.Pull(&client, tmpDir, commit1, nil, nil, false))
+	require.NoError(t, puller.CleanUp())
 
 	repo2 := "repo2"
 	require.NoError(t, client.CreateRepo(repo2))
@@ -3524,6 +3527,19 @@ func TestSyncPullPush(t *testing.T) {
 	fileInfos, err = client.ListFile(repo2, commit3.ID, "", "", false, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
+
+	// Test Lazy files
+	tmpDir2, err := ioutil.TempDir("/tmp", "pfs")
+	require.NoError(t, err)
+
+	puller = pfssync.NewPuller()
+	require.NoError(t, puller.Pull(&client, tmpDir2, commit1, nil, nil, true))
+
+	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
+	require.NoError(t, err)
+	require.Equal(t, "bar\n", string(data))
+
+	require.NoError(t, puller.CleanUp())
 }
 
 func generateRandomString(n int) string {
