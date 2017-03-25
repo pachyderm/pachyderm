@@ -17,7 +17,6 @@ Regardless of the method you use to get data into Pachyderm, the mechanism that 
 In terms of actually getting data into Pachyderm via "commits," there are a couple of options:
 
 - The `pachctl` CLI tool: This is the great option for testing and for users who prefer to input data scripting.
-
 - One of the Pachyderm language clients: This option is ideal for Go, Python, or Scala users who want to push data to Pachyderm from services or applications writtern in those languages. Actually, even if you don't use Go, Python, or Scala, Pachyderm uses a protobuf API which supports many other languages, we just haven’t built the full clients yet.
 
 ### `pachctl`
