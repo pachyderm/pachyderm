@@ -54,6 +54,7 @@ here](PLACEHOLDER).
 The Partitions available in 1.3 match to glob patterns like so:
 
 | Partition | Glob |
+| --------- | ---- |
 | `BLOCK`   | /*/* |
 | `FILE`    | /*   |
 | `REPO`    | /    |
