@@ -645,10 +645,10 @@
 			"revisionTime": "2016-08-17T17:41:13Z"
 		},
 		{
-			"checksumSHA1": "kVJ5YScYaDWw6iotbpZwQJ6xCGM=",
+			"checksumSHA1": "kBeNcaKk56FguvPSUCEaH6AxpRc=",
 			"path": "github.com/golang/protobuf/proto",
-			"revision": "0c1f6d65b5a189c2250d10e71a5506f06f9fa0a0",
-			"revisionTime": "2016-06-14T22:31:40Z"
+			"revision": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317",
+			"revisionTime": "2017-03-07T00:15:33Z"
 		},
 		{
 			"checksumSHA1": "+cT5a/FtqhkUAnVuajBTUAS2iHU=",
@@ -1394,6 +1394,12 @@
 			"path": "google.golang.org/cloud/storage",
 			"revision": "20e786f4db50de279a834da101b142620cfb2a41",
 			"revisionTime": "2016-06-06T05:38:51Z"
+		},
+		{
+			"checksumSHA1": "kGGAT2jr6A8fgFrrpP3c3BYmnpY=",
+			"path": "google.golang.org/genproto/googleapis/api/annotations",
+			"revision": "de9f5e90fe9b278809363f08c2072d2f2a429de7",
+			"revisionTime": "2017-03-17T11:18:29Z"
 		},
 		{
 			"checksumSHA1": "mEyChIkG797MtkrJQXW8X/qZ0l0=",
