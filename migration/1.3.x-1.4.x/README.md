@@ -53,11 +53,11 @@ here](PLACEHOLDER).
 
 The Partitions available in 1.3 match to glob patterns like so:
 
-| Partition | Glob |
-| --------- | ---- |
-| `BLOCK`   | /*/* |
-| `FILE`    | /*   |
-| `REPO`    | /    |
+| Partition | Glob   |
+| --------- | ------ |
+| `BLOCK`   | `/*/*` |
+| `FILE`    | `/*`   |
+| `REPO`    | `/`    |
 
 Note that to get the equivalent of `BLOCK` partition you should have put
 your files with `--split` in the step above. If your files are in a more
