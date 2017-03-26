@@ -467,9 +467,6 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 		ObjectMeta: api.ObjectMeta{
 			Name:   etcdVolumeClaimName,
 			Labels: labels(etcdName),
-			Annotations: map[string]string{
-				"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
-			},
 		},
 		Spec: api.PersistentVolumeClaimSpec{
 			Resources: api.ResourceRequirements{
@@ -777,7 +774,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		fmt.Fprintf(w, "\n")
 		encoder.Encode(EtcdStatefulSet(opts, volumeSize))
 		fmt.Fprintf(w, "\n")
-	} else if opts.EtcdVolume != "" {
+	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdVolume, volumeSize)
 		if err != nil {
 			return err
