@@ -230,7 +230,8 @@ commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
 
-Are you sure you want to proceed? yN`)
+Are you sure you want to proceed? yN
+`)
 				r := bufio.NewReader(os.Stdin)
 				bytes, err := r.ReadBytes('\n')
 				if err != nil {
