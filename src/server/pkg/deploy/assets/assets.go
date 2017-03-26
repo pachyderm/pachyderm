@@ -478,6 +478,7 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 				},
 			},
 			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+			VolumeName:  etcdVolumeName,
 		},
 	}
 }
