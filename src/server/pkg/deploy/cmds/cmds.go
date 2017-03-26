@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -42,6 +41,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dryRun bool
 	var secure bool
 	var etcdNodes int
+	var etcdVolume string
 	var blockCacheSize string
 	var logLevel string
 	var persistentDiskBackend string
@@ -71,25 +71,24 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
 
 	deployGoogle := &cobra.Command{
-		Use:   "google <GCS bucket> <GCE persistent disks> <size of disks (in GB)>",
+		Use:   "google <GCS bucket> <size of disk(s) (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on GCP.",
 		Long: "Deploy a Pachyderm cluster running on GCP.\n" +
 			"Arguments are:\n" +
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(3, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
-			volumeNames := strings.Split(args[1], ",")
-			volumeSize, err := strconv.Atoi(args[2])
+			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeNames, volumeSize); err != nil {
+			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
@@ -124,26 +123,24 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"s3, gcs, or azure-blob.")
 
 	deployAmazon := &cobra.Command{
-		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <EBS volume names> <size of volumes (in GB)>",
+		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long: "Deploy a Pachyderm cluster running on AWS. Arguments are:\n" +
 			"  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.\n" +
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
-			"  <EBS volume names>: A comma-separated list of EBS volumes, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(7, 7, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(6, 6, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
-			volumeNames := strings.Split(args[5], ",")
-			volumeSize, err := strconv.Atoi(args[6])
+			volumeSize, err := strconv.Atoi(args[5])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[6])
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeNames, volumeSize); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
@@ -155,9 +152,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
-			"  <volume URIs>: A comma-separated list of persistent volumes, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(5, 5, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(4, 4, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -165,20 +161,17 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
-			volumeURIs := strings.Split(args[3], ",")
-			for i, uri := range volumeURIs {
-				tempURI, err := url.ParseRequestURI(uri)
-				if err != nil {
-					return fmt.Errorf("All volume-uris needs to be a well-formed URI; instead got '%v'", uri)
-				}
-				volumeURIs[i] = tempURI.String()
-			}
-			volumeSize, err := strconv.Atoi(args[4])
+			tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[4])
+				return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+			}
+			opts.EtcdVolume = tempURI.String()
+			volumeSize, err := strconv.Atoi(args[3])
+			if err != nil {
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeURIs, volumeSize); err != nil {
+			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
@@ -186,7 +179,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deploy := &cobra.Command{
-		Use:   "deploy amazon|google|microsoft|basic",
+		Use:   "deploy amazon|google|microsoft|local|custom",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
@@ -197,15 +190,14 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				Metrics:        metrics,
 				BlockCacheSize: blockCacheSize,
 				EtcdNodes:      etcdNodes,
+				EtcdVolume:     etcdVolume,
 			}
 			return nil
 		}),
 	}
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "Number of Pachd nodes (stateless Pachyderm API servers).")
-	deploy.PersistentFlags().IntVar(&etcdNodes, "etcd-nodes", 1, "Number of Etcd "+
-		"nodes. Note that setting this to a value larger than 1 will deploy "+
-		"etcd as a kubernetes StatefulSet, which is a beta kubernetes feature, and "+
-		"might be incompatible with kubernetes versions larger than 1.5.1")
+	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in order versions of kubernetes.")
+	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
