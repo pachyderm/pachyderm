@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"fmt"
@@ -213,11 +214,23 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 // Cmds returns a cobra commands for deploying Pachyderm clusters.
 func Cmds(noMetrics *bool) []*cobra.Command {
 	deploy := DeployCmd(noMetrics)
+	var all bool
 	undeploy := &cobra.Command{
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+			if all {
+				fmt.Printf("By using the --all flag, you are going to delete everything, including the persistent volumes where metadata is stored.  All repos, commits, pipelines, and jobs will be permanently deleted.  Are you sure you want to proceed? yN\n")
+				r := bufio.NewReader(os.Stdin)
+				bytes, err := r.ReadBytes('\n')
+				if err != nil {
+					return err
+				}
+				if !(bytes[0] == 'y' || bytes[0] == 'Y') {
+					return nil
+				}
+			}
 			io := cmdutil.IO{
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
@@ -228,20 +241,26 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err := cmdutil.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
-				return err
-			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
-				return err
-			}
 			if err := cmdutil.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
 			if err := cmdutil.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
 				return err
 			}
+			if all {
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "storageclass", "-l", "suite=pachyderm"); err != nil {
+					return err
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
+					return err
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
+					return err
+				}
+			}
 			return nil
 		}),
 	}
+	undeploy.Flags().BoolVarP(&all, "all", "a", false, "Delete everything, including the persistent volumes where metadata is stored.  All repos, commits, pipelines, and jobs will be permanently deleted.")
 	return []*cobra.Command{deploy, undeploy}
 }
