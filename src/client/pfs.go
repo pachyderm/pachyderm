@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"path/filepath"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -638,18 +639,16 @@ type WalkFn func(*pfs.FileInfo) error
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
 // file found under path, this includes both regular files and directories.
 func (c APIClient) Walk(repoName string, commitID string, path string, walkFn WalkFn) error {
-	fileInfos, err := c.ListFile(repoName, commitID, path)
+	fileInfo, err := c.InspectFile(repoName, commitID, path)
 	if err != nil {
 		return err
 	}
-	for _, fileInfo := range fileInfos {
-		if err := walkFn(fileInfo); err != nil {
+	if err := walkFn(fileInfo); err != nil {
+		return err
+	}
+	for _, childPath := range fileInfo.Children {
+		if err := c.Walk(repoName, commitID, filepath.Join(path, childPath), walkFn); err != nil {
 			return err
-		}
-		if fileInfo.FileType == pfs.FileType_DIR {
-			if err := c.Walk(repoName, commitID, fileInfo.File.Path, walkFn); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
