@@ -394,6 +394,7 @@ func EtcdStorageClass(backend backend) (interface{}, error) {
 	return sc, nil
 }
 
+// EtcdVolume creates a persistent volume backed by a volume with name "name"
 func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	hostPath string, name string, size int) (*api.PersistentVolume, error) {
 	spec := &api.PersistentVolume{
