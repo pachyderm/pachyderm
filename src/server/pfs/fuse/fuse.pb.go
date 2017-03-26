@@ -33,7 +33,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
-import google_protobuf2 "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -98,7 +98,7 @@ type Node struct {
 	File      *pfs.File                   `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	RepoAlias string                      `protobuf:"bytes,2,opt,name=repo_alias,json=repoAlias,proto3" json:"repo_alias,omitempty"`
 	Write     bool                        `protobuf:"varint,3,opt,name=write,proto3" json:"write,omitempty"`
-	Modified  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
+	Modified  *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
 }
 
 func (m *Node) Reset()                    { *m = Node{} }
@@ -127,7 +127,7 @@ func (m *Node) GetWrite() bool {
 	return false
 }
 
-func (m *Node) GetModified() *google_protobuf2.Timestamp {
+func (m *Node) GetModified() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Modified
 	}
