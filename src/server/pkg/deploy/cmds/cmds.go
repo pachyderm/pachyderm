@@ -221,7 +221,16 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Long:  "Tear down a deployed Pachyderm cluster.",
 		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
 			if all {
-				fmt.Printf("By using the --all flag, you are going to delete everything, including the persistent volumes where metadata is stored.  All repos, commits, pipelines, and jobs will be permanently deleted.  Are you sure you want to proceed? yN\n")
+				fmt.Printf(`
+By using the --all flag, you are going to delete everything, including the
+persistent volumes where metadata is stored.  If your persistent volumes
+were dynamically provisioned (i.e. if you used the "--dynamic-etcd-nodes"
+flag), the underlying volumes will be removed, making metadata such repos,
+commits, pipelines, and jobs unrecoverable. If your persistent volume was
+manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
+underlying volume will not be removed.
+
+Are you sure you want to proceed? yN`)
 				r := bufio.NewReader(os.Stdin)
 				bytes, err := r.ReadBytes('\n')
 				if err != nil {
@@ -261,6 +270,13 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	undeploy.Flags().BoolVarP(&all, "all", "a", false, "Delete everything, including the persistent volumes where metadata is stored.  All repos, commits, pipelines, and jobs will be permanently deleted.")
+	undeploy.Flags().BoolVarP(&all, "all", "a", false, `
+Delete everything, including the persistent volumes where metadata
+is stored.  If your persistent volumes were dynamically provisioned (i.e. if
+you used the "--dynamic-etcd-nodes" flag), the underlying volumes will be
+removed, making metadata such repos, commits, pipelines, and jobs
+unrecoverable. If your persistent volume was manually provisioned (i.e. if
+you used the "--static-etcd-volume" flag), the underlying volume will not be
+removed.`)
 	return []*cobra.Command{deploy, undeploy}
 }
