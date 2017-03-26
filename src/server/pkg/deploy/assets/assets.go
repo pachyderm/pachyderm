@@ -764,7 +764,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
 	if opts.EtcdNodes > 0 {
-		sc, err := EtcdStorageClass(objectStoreBackend)
+		sc, err := EtcdStorageClass(persistentDiskBackend)
 		if err != nil {
 			return err
 		}
