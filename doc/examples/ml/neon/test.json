@@ -1,0 +1,33 @@
+{
+  "pipeline": {
+    "name": "test12"
+  },
+  "transform": {
+    "image": "dwhitena/neon-inference",
+    "cmd": [ 
+	"/bin/bash"
+    ],
+    "stdin": [
+	    "echo $(ls /pfs/model/) > /pfs/out/model_contents.txt",
+	    "echo $(ls /pfs/reviews/) > /pfs/out/reviews_contents.txt"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "reviews"
+      },
+      "glob": "/*"
+    },
+    {
+      "repo": {
+	"name": "model"
+      },
+      "glob": "/"
+    }
+  ]
+}
