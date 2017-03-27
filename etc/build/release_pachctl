@@ -56,7 +56,7 @@ cd homebrew-tap
 cd ..
 rm -rf homebrew-tap
 
-NEW_DEB_URL="pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
+NEW_DEB_URL="pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
 sed -i'' 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_amd64.deb@'"$NEW_DEB_URL"'@g' doc/getting_started/local_installation.md
 
 echo "--- Successfully released pachctl"
