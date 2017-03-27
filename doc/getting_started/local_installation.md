@@ -11,6 +11,9 @@ If you hit any errors not covered in this guide, check our [troubleshooting](htt
 
 Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikibe, and Kubectl. Then come back here to install Pachyderm.
 
+.. note::
+ Any time you want to stop and restart Pachyderm, you should start fresh with `minikube delete` and `minikube start`. Minikube isn't meant to be a production environment and doesn't handle being restarted well without a full wipe. 
+
 ### Pachctl
 
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
