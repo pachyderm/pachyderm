@@ -169,7 +169,7 @@ func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
 	require.NoError(b, err)
 	require.NoError(b, c.CreateRepo(repo))
 	for i := 0; i < b.N; i++ {
-		commit, err := c.StartCommit(repo, "")
+		commit, err := c.StartCommit(repo, "master")
 		require.NoError(b, err)
 		err = c.PutFileURL(repo, "master", "/", "s3://pachyderm-internal-benchmark/bigfiles/1gb.bytes", false)
 		require.NoError(b, err)
