@@ -5,8 +5,8 @@ Welcome to the beginner tutorial for Pachyderm. If you've already got Pachyderm 
 Image processing with OpenCV
 ----------------------------
 
-In this guide we're going to create a Pachyderm pipeline to do some simple edge detection on a few images. Thanks to Pachyderm's processing system, we'll be able to run the pipeline in a distributed, streaming fashion. As new data is
-added, the pipeline will automatically process it and materialize the results.
+In this guide we're going to create a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's processing system, we'll be able to run the pipeline in a distributed, streaming fashion. As new data is
+added, the pipeline will automatically process it and output the results.
 
 If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, join our `users channel on Slack <http://slack.pachyderm.io>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_ and we can help you right away.
 
@@ -19,7 +19,7 @@ This guide assumes that you already have Pachyderm running locally. Check out ou
 Create a Repo
 ^^^^^^^^^^^^^
 
-A ``repo`` is the highest level primitive in the Pachyderm file system (pfs). Like all primitives in pfs, it shares it's name with a primitive in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
+A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares it's name with primitives in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
 
 For this demo, we'll simply create a repo called
 "images" to hold the data we want to process:
@@ -45,7 +45,7 @@ We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner.
 
-We also specify the repo name "images", the branch name "master", and what we want to name the file, "liberty,png".
+We also specify the repo name "images", the branch name "master", and what we want to name the file, "liberty.png".
 
 .. code-block:: shell
 
@@ -84,17 +84,13 @@ $ pachctl get-file images master liberty.png | open -f -a /Applications/Preview.
 Create a Pipeline
 ^^^^^^^^^^^^^^^^^
 
-Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core primitive for Pachyderm's processing system (pps) and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/opencv>`_. 
+Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/opencv>`_. 
 
 When you want to create your own pipelines later, you can refer to the full :doc:`../reference/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of the pre-built Docker image we'll be using here.
 
 For now, we're going to create a single pipeline that takes in images and does some simple edge detection.
 
-.. code-block:: shell
-
- +----------+     +--------------+     +-------------+
- |input data| --> |edge detection| --> | output data |
- +----------+     +--------------+     +-------------+
+.. image:: opencv-liberty.jpg
 
 Below is the pipeline spec and python code we're using. Let's walk through the details. 
 
@@ -123,7 +119,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
 
 Our pipeline spec contains a few simple sections. First is the pipeline `name`, edges. Then we have the `transform` which specifies the docker image we want to use, `pachyderm/opencv` (defaults to Dockerhub as the registry), and the entry point `edges.py`. Lastly, we specify the inputs, our images repo and a glob pattern. 
 
-The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. `/*` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../fundamentals/pipelines#glob_patterns` docs. PLACEHOLDER!
+The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. `/*` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
 .. code-block:: python
 
@@ -156,7 +152,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
- $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.4.0/doc/examples/opencv/edges2.json PLACEHOLDER -- AND need to change over edges2 to edges 
+ $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.4.0/doc/examples/opencv/edges.json
 
 
 
@@ -240,24 +236,6 @@ $ pachctl get-file edges master kitten.png | open -f -a /Applications/Preview.ap
  $ pachctl get-file edges master kitten.png | display
  ...
 
-We can view the parental structure of the commits we just created.
-
-.. code-block:: shell
-
-# List the inputs commits
-$ pachctl list-commit images
-REPO                ID                                 PARENT                             STARTED            DURATION             SIZE
-images              d86dfa815a26419db2dd0f55ae9bed8a   b22e3d89461f4161abf8d671919c2597   2 minutes ago      Less than a second   238.3 KiB
-images              b22e3d89461f4161abf8d671919c2597   634aa3728141442f8537a7b1bb6aefbf   2 minutes ago      Less than a second   136 KiB
-images              634aa3728141442f8537a7b1bb6aefbf   <none>                             13 minutes ago     Less than a second   57.27 KiB
-
-# List the output commits
-$ pachctl list-commit edges
-REPO                ID                                 PARENT                             STARTED            DURATION             SIZE
-edges               8848e11056c04518a8d128b6939d9985   da51395708cb4812bc8695bb151b69e3   2 minutes ago      Less than a second   133.6 KiB
-edges               da51395708cb4812bc8695bb151b69e3   4dd2459531414d80936814b13b1a3442   2 minutes ago      Less than a second   59.38 KiB
-edges               4dd2459531414d80936814b13b1a3442   <none>                             5 minutes ago      Less than a second   22.22 KiB
-
 Exploring the File System (optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Another nifty feature of Pachyderm is that you can mount the file system locally to poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install `OSX FUSE <https://osxfuse.github.io/>`_. This is just an optional step if you want another view of your data and system and can be useful for local development. 
@@ -294,8 +272,8 @@ Next Steps
 ^^^^^^^^^^
 We've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, you can  use what you've learned to build on or change this pipeline. You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
-- :doc:`../deployment/deploying_on_the_cloud` PLACEHOLDER
-- :doc:`../deployment/inputing_your_data` from other sources PLACEHOLDER
-- :doc:`../deployment/custom_pipelines` using your own code  PLACEHOLDER
+- :doc:`../deployment/deploy_intro` 
+- :doc:`../fundamentals/getting_data_into_pachyderm`
+- :doc:`../fundamentals/creating_analysis_pipelines`
 
 We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
