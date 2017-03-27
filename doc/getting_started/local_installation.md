@@ -18,10 +18,10 @@ Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/d
 
 ```shell
 # For OSX:
-$ brew tap pachyderm/tap && brew install pachctl
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.3
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.3.16/pachctl_1.3.16_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.3.17/pachctl_1.3.17_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
