@@ -1887,10 +1887,21 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		return err
 	}
 
+	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+		Job: job,
+	})
+	if err != nil {
+		return err
+	}
+
+	numChunks, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
+
 	// a set that stores the chunk IDs that we've seen
 	var podCommits []*pfsclient.Commit
 	var failed bool
-	var totalChunks int
 	// ready is used to indicate if we've already received all chunks.
 	// This is to prevent a scenario where we receive 1 chunk, see that
 	// it's a SUCCESS, and be like, oh we are done!, without knowing that
@@ -1910,11 +1921,7 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 		if chunk != nil {
 			switch chunkChange.Type {
 			case persist.ChangeType_DELETE:
-				totalChunks--
 			case persist.ChangeType_CREATE, persist.ChangeType_UPDATE:
-				if chunkChange.Type == persist.ChangeType_CREATE {
-					totalChunks++
-				}
 				switch chunk.State {
 				case persist.ChunkState_SUCCESS:
 					lm.Return(chunk.ID)
@@ -1946,12 +1953,12 @@ func (a *apiServer) jobManager(ctx context.Context, job *ppsclient.Job) error {
 			}
 		}
 
-		if ready && totalChunks == len(podCommits) {
+		if ready && int(numChunks) == len(podCommits) {
 			break
 		}
 	}
 
-	jobInfo, err := persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
+	jobInfo, err = persistClient.InspectJob(ctx, &ppsclient.InspectJobRequest{
 		Job: job,
 	})
 	if err != nil {
