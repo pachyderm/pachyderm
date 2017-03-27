@@ -57,26 +57,21 @@ To deploy Pachyderm we will need to:
 
 #### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
-
-To create these resources, first define a few environmental variables:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  The persistent disk will be created dynamically when we deploy Pachyderm, but we will need to specify the size:
 
 ```shell
-# BUCKET_NAME needs to be globally unique across the entire GCP region
-$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored]
-
-# Name this whatever you want, we chose pach-disk as a default
-$ STORAGE_NAME=pach-disk
-
 # For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
 # should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
 ```
 
-And then run:
+Then we need to specify the bucket name and create the bucket:
 ```shell
+# BUCKET_NAME needs to be globally unique across the entire GCP region.
+$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored]
+
+# Create the bucket.
 $ gsutil mb gs://${BUCKET_NAME}
-$ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 ```
 To check that everything has been set up correctly, try:
 
@@ -86,9 +81,6 @@ $ gcloud compute instances list
 
 $ gsutil ls
 # should see a bucket
-
-$ gcloud compute disks list
-# should see a number of disks, including the one you specified
 ```
 
 #### Install `pachctl`
@@ -108,16 +100,19 @@ You can try running `pachctl version` to check that this worked correctly, but P
 
 ```sh
 $ pachctl version
-COMPONENT           VERSION
-pachctl             1.3.2
-pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+COMPONENT           VERSION             
+pachctl             1.4.0           
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded
+
+please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 ```
 
 #### Deploy Pachyderm
 
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
-```
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_NAME} ${STORAGE_SIZE}
+
+```sh
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
 ```
 
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
