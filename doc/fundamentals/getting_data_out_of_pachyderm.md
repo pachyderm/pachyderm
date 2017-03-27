@@ -6,20 +6,20 @@ Here's what our pipeline and the corresponding data repositories look like:
 
 ![alt tag](opencv.jpg)
 
-Every commit of new images into the "images" data repository results in output commits of results into the "edges" data repository. But how do we get our results out of Pachyderm?  Moreover, how would we get the particular result corresponding to a particular input image?  That's what we will explore here.
+Every commit of new images into the "images" data repository results in a corresponding output commit of results into the "edges" data repository. But how do we get our results out of Pachyderm?  Moreover, how would we get the particular result corresponding to a particular input image?  That's what we will explore here.
 
 ## Getting files with `pachctl`
 
 The `pachctl` CLI tool [command `get-file`](../pachctl/pachctl_get-file) can be used to get versioned data out of any data repository:
 
 ```sh
-pachctl get-file <repo> <commit-id> path/to/file
+pachctl get-file <repo> <commit-id or branch> path/to/file
 ```
 
 In the case of the OpenCV pipeline, we could get out an image named `example_pic.jpg`:
 
 ```sh
-pachctl get-file edges master /example_pic.jpg
+pachctl get-file edges master example_pic.jpg
 ```
 
 But how do we know which files to get?  Of course we can use the `pachctl list-file` command to see what files are available.  But how do we know which results are the latest, came from certain input, etc.?  In this case, we would like to know which edge detected images in the `edges` repo come from which input images in the `images` repo.  This is where provenance and the `flush-commit` command come in handy.
@@ -46,7 +46,7 @@ BRANCH                             REPO/ID                                    PA
 $ 
 ```
 
-In this case, we have one output commit per one input commit on our one input repo.  However, this might get more complicated for pipelines with multiple branches, multiple inputs, etc.  To confirm which commits correspond to which outputs, we can use `flush-commit`.  In particular, we can call `flush-commit` on any one of our commits into `images` to see which output came from this particular commmit:
+In this case, we have one output commit per input commit on `images`.  However, this might get more complicated for pipelines with multiple branches, multiple inputs, etc.  To confirm which commits correspond to which outputs, we can use `flush-commit`.  In particular, we can call `flush-commit` on any one of our commits into `images` to see which output came from this particular commmit:
 
 ```sh
 $ pachctl flush-commit images/master/1
@@ -55,9 +55,9 @@ master                             images/master/1                            ma
 5a57c906fdf14616a559c1aa74b19bac   edges/5a57c906fdf14616a559c1aa74b19bac/1   5a57c906fdf14616a559c1aa74b19bac/0   About an hour ago   3 seconds            111.4 KiB
 ```
 
-## Exporting data via `output`
+## Exporting data via `egress`
 
-In addition to getting data out of Pachyderm with `pachctl get-file`, you can add an optional `output` field to your [pipeline specification](../reference/pipeline_spec).  `output` allows you to push the results of a Pipeline to an external data store such as S3, Google Cloud Storage or Azure Blob Storage. Data will be pushed after the user code has finished running but before the job is marked as successful.
+In addition to getting data out of Pachyderm with `pachctl get-file`, you can add an optional `egress` field to your [pipeline specification](../reference/pipeline_spec).  `egress` allows you to push the results of a Pipeline to an external data store such as S3, Google Cloud Storage or Azure Blob Storage. Data will be pushed after the user code has finished running but before the job is marked as successful.
 
 ## Other ways to view, interact with, or export data in Pachyderm
 
