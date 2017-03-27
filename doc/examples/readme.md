@@ -1,33 +1,29 @@
 # Examples
 
-## Fruit Stand
+## OpenCV Edge Detection
 
-This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
+This example does edge detection using OpenCV. This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
 
-[Fruit Stand](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html)
+[Open CV](http://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html)
 
-## Open CV
-
-Edge detection using OpenCV on whatever images you want. More interesting than the beginner tutorial, but still great for running locally in minikube and understanding intermediate-level Pachyderm topics.
-
-[Open CV](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/opencv)
-
-## Web Scraper
-
-Using ``wget`` to build a distributed web scraper. Scraping is such a common task that we wanted to give you a simple example just in Shell.
-
-[Web Scraper](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/scraper)
-
-## Word Count
+## Word Count (Map/Reduce)
 
 Word count is basically the "hello world" of distributed computation. This example is great for benchmarking in distributed deployments on large swaths of text data.
 
 [Word Count](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/word_count)
 
+## Machine Learning
 
-## Tensor Flow
+### Sentiment analysis with Neon
 
-Use Tensorflow to build a neural net that analyzes Game of Thrones scripts and produces new lines for characters. This is a great advanced example if you want to learn about the intricacies of Pachyderm and ML workflows -- and you get a really cool output!
+This example implements the machine learning template pipeline discussed in [this blog post](https://medium.com/pachyderm-data/sustainable-machine-learning-workflows-8c617dd5506d#.hhkbsj1dn).  It trains and utilizes a neural network (implemented in Python using Nervana Neon) to infer the sentiment of movie reviews based on data from IMDB. 
 
-[Tensor Flow](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/tensor_flow)
+[Neon - Sentiment Analysis](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/neon)
+
+### pix2pix with TensorFlow
+
+If you haven't seen pix2pix, check out this great demo (https://affinelayer.com/pixsrv/).  In this example, we implement the training and image translation of the pix2pix model in Pachyderm, so you can generate cat images from edge drawings, day time photos from night time photos, etc.
+
+[TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow)
+
 
