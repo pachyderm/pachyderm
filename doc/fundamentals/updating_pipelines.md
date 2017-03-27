@@ -38,3 +38,4 @@ Changing your pipeline code implies that your previously computed results aren't
 
 In some cases, such as changing parallelism, you don't want to archive previous data and re-compute results.  Or maybe you want to only utilize your new code for new input data (that that point on).  If so, you can specify the "from-commit" field in your pipeline specification with a commit ID.  Pachyderm will then only process new data from that commit ID on with the new code.
 
+Note that `from-commit` can take a branch name.  As such, you can just specify `"from-commit": "master"` to process only the new data with the updated pipeline (because `master` points to the latest commit).
