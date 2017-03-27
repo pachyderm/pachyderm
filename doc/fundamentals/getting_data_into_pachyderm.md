@@ -1,119 +1,98 @@
 # Getting Your Data into Pachyderm
 
-Data that you put (or "commit") into Pachyderm ultimately lives in an object store of your choice (S3, Minio, GCS, etc.).  This data is content-addressed as part of how we buid our version control semantics and are therefore is not "human-readable" directly in the object store.  That being said, Pachyderm allow you and your pipeline stages to interact with your versioned files like you would in a normal file system. interact with versioned data in pachyderm like you interact with any other files in a filesystem.  
+Data that you put (or "commit") into Pachyderm ultimately lives in an object store of your choice (S3, Minio, GCS, etc.).  This data is content-addressed by Pachyderm to buid our version control semantics and are therefore is not "human-readable" directly in the object store.  That being said, Pachyderm allows you and your pipeline stages to interact with versioned files like you would in a normal file system.   
 
-There a bunch of different ways to get your data into Pachyderm.
+## Jargon associated with putting data in Pachyderm
 
-`PFS Mount`_: This is a "toy" method for getting data into Pachyderm if you just have some local files (or dummy files) and you just want to test things out.
+### "Data Repositories"
 
-`Pachctl CLI`_: This is the best option for real use cases and scripting the input process.
+Versioned data in Pachyderm lives in repositories (again think about something similar to "git for data").  Each data "repository" can contain one file, multiple files, multiple files arranged in directories, etc.  Regardless of the structure, Pachyderm will version the state of each data repository as it changes over time.
 
-`Golang Client`_: Ideal for Golang users who want to script the file input process.
+### "Commits"
 
-`Other Language Clients`_: Pachyderm uses a protobuf API which supports many other languages, we just haven't built full clients yet. 
+Regardless of the method you use to get data into Pachyderm, the mechanism that is used to get data into Pachyderm is a "commit" of data into a data repository. In order to put data into Pachyderm a commit must be "started" (aka an "open commit").  Then the data put into Pachyderm in that open commit will only be available once the commit is "finished" (aka a "closed commit"). Although you have to do this opening, putting, and closing for all data that is committed into Pachyderm, we provide some convient ways to do that with our CLI tool and clients (see below). 
 
+## How to get data into Pachyderm
 
-PFS Mount
-----------
-This is the easiest method if you just have some local files (or dummy files) and you just want to test things out in Pachyderm. This is NOT a production method for getting data into Pachyderm. 
+In terms of actually getting data into Pachyderm via "commits," there are a couple of options:
 
-Pachyderm allows you to mount data in the distributed file system locally using and explore it using FUSE.
+- The `pachctl` CLI tool: This is the great option for testing and for users who prefer to input data scripting.
+- One of the Pachyderm language clients: This option is ideal for Go, Python, or Scala users who want to push data to Pachyderm from services or applications writtern in those languages. Actually, even if you don't use Go, Python, or Scala, Pachyderm uses a protobuf API which supports many other languages, we just haven’t built the full clients yet.
 
-FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install [OSX FUSE](https://osxfuse.github.io/) 
+### `pachctl`
 
-First create the mount point:
+To get data into Pachyderm using `pachctl`, you first need to create one or more data repositories to hold your data:
 
-.. code-block:: shell
+```sh
+$ pachctl create-repo <repo name>
+```
 
-    $ mkdir ~/pfs
+Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
 
+Add a single file to a new branch:
 
-And then mount it:
+```sh
+# first start a commit
+$ pachctl start-commit <repo> -b <branch>
 
-.. code-block:: shell
+# then utilize the returned <commit-id> in the put-file request
+# to put <file> at <path> in the <repo>
+$ pachctl put-file <repo> <commit-id> </path/to/file> -f <file>
 
- # We background this process because it blocks.
- $ pachctl mount ~/pfs &
+# then finish the commit
+$ pachctl finish-commit <repo> <commit-id>
+```
 
+Start and finish a commit while adding a file using `-c`:
 
-This will mount pfs on ``~/pfs`` you can inspect the filesystem like you would any
-other local filesystem using ``ls`` or a web browser. 
-
-Once you have pfs mounted, you can add files to Pachyderm via whatever method you prefer to manipulate a local file system:  ``mv``, ``cp``, ``>``, ``|``, etc.
-
-Don't forget, you'll need create a repo and commit in Pachyderm first with:
-
-.. code-block:: shell
-
- # Create a repo called "data"
- $ pachctl create-repo data
-
- # Start a commit on repo "data"
- $ pachctl start-commit data
-
-
-
- Now add whatever files you want to ``~/pfs/<repo_name>/<commit_ID>/<file_name>``.
-
-
-Pachctl CLI
------------
-
-The pachctl CLI is the primary method of interaction with Pachyderm. To get data into Pachyderm, you should use the ``put-file`` command. Below are a example uses of ``put-file``. Go to :doc:`../pachctl/pachctl_put-file` for complete documentation. 
-
-.. note:: Commits in Pachyderm must be explicitly started and finished so ``put-file`` can only be called on an open commit (started, but not finished). The ``-c`` option allows you to start and finish the commit in addition to putting data as a one-line command. 
-
-
-Add a single file:
-
-.. code-block:: shell
-
- $ pachctl put-file <repo> <branch> -f <file>
-
-Start and finish the commit while adding a file using ``-c``:
-
-.. code-block:: shell
-
- $ pachctl put-file -c <repo> <branch> -f <file> 
+```sh
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f <file> 
+```
 
 Put data from a URL:
 
-.. code-block:: shell
+```sh
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f http://url_path
+```
 
- $ pachctl put-file <repo> <branch> -f http://url_path
+Put data directly from an object store:
 
-Add multiple files at once by using the ``-i`` option. The target file should be a list of files, paths, or URLs that you want to input all at once:
+```sh
+# here you can use s3://, gcs://, or as://
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f s3://object_store_url
+``
 
-.. code-block:: shell
+Put data directly from another location within Pachyderm:
 
- $ pachctl put-file <repo> <branch> -i <file>
+```sh
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f pfs://pachyderm_location
+``
 
-Pipe data from stdin into a file:
+Add multiple files at once by using the `-i` option or multiple `-f` flags. In the case of `-i`, the target file should be a list of files, paths, or URLs that you want to input all at once:
 
-.. code-block:: shell
+```sh
+$ pachctl put-file <repo> <branch> -c -i <file containing list of files, paths, or URLs>
+```
 
- $ echo "data" | pachctl put-file <repo> <branch> <path>
+Pipe data from stdin into a data repository:
 
-Add an entire directory by using the recursive flag, ``-r``:
+```sh
+$ echo "data" | pachctl put-file <repo> <branch> </path/to/file> -c
+```
 
-.. code-block:: shell
+Add an entire directory by using the recursive flag, `-r`:
 
- $ pachctl put-file -r <repo> <branch> -f <dir>
+```sh
+$ pachctl put-file <repo> <branch> -c -r <dir>
+```
 
+### Pachyderm language clients
 
+- Go: We have a complete Golang client that will let you easily integrate pushing data to Pachyderm into your Go programs.  Check out the [godocs for put-file](https://godoc.org/github.com/pachyderm/pachyderm/src/client#APIClient.PutFile).
 
-Golang Client
--------------
+- Python: Our great community of users have created a [Python client for Pachyderm](https://github.com/kalugny/pypachy).  See the [included instructions](https://github.com/kalugny/pypachy#instructions) to see how you can put data into Pachyderm from Python. **Note** - for now, the Python client only works with Pachyderm 1.3. Updates are in progress.  
 
-.. _autogenerated godocs: https://godoc.org/github.com/pachyderm/pachyderm/src/client#APIClient.PutFile
+- Scala: Our users are currently working on a Scala client for Pachyderm.  Please contact us if you are interested in helping with this or testing it out.
 
-For any Go users, we've built a Golang client so you can easily script Pachyderm commands. Check out the `autogenerated godocs`_ on ``put-file``. 
-
-Other Language Clients
-----------------------
-.. _protocol buffer API: https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto
-
-.. _other languages: https://developers.google.com/protocol-buffers/
-
-Pachyderm uses a simple `protocol buffer API`_. Protobufs support a bunch of `other languages`_, any of which can be used to programatically use Pachyderm. We haven't built clients for them yet, but it's not too hard. It's an easy way to contribute to Pachyderm if you're looking to get involved. 
+- Other languages: Pachyderm uses a simple [protocol buffer API](https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto). Protobufs support a bunch of [other languages](https://developers.google.com/protocol-buffers/), any of which can be used to programatically use Pachyderm. We haven't built clients for them yet, but it's not too hard. It's an easy way to contribute to Pachyderm if you're looking to get involved. 
 
