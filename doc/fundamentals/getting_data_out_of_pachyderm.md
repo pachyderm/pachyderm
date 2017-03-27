@@ -34,25 +34,23 @@ Let's demonstrate a typical workflow using `flush-commit`. First, we'll make a f
 
 ```sh
 $ pachctl list-commit images
-BRANCH              REPO/ID             PARENT              STARTED             DURATION             SIZE                
-master              images/master/0     <none>              About an hour ago   Less than a second   57.27 KiB           
-master              images/master/1     master/0            About an hour ago   Less than a second   181.1 KiB           
-master              images/master/2     master/1            About an hour ago   Less than a second   693.8 KiB           
+REPO                ID                                 PARENT                             STARTED              DURATION             SIZE                
+images              c721c4bb9a8046f3a7319ed97d256bb9   a9678d2a439648c59636688945f3c6b5   About a minute ago   1 seconds            932.2 KiB           
+images              a9678d2a439648c59636688945f3c6b5   87f5266ef44f4510a7c5e046d77984a6   About a minute ago   Less than a second   238.3 KiB           
+images              87f5266ef44f4510a7c5e046d77984a6   <none>                             10 minutes ago       Less than a second   57.27 KiB           
 $ pachctl list-commit edges
-BRANCH                             REPO/ID                                    PARENT                               STARTED             DURATION            SIZE                
-5a57c906fdf14616a559c1aa74b19bac   edges/5a57c906fdf14616a559c1aa74b19bac/0   <none>                               About an hour ago   10 minutes          22.22 KiB           
-5a57c906fdf14616a559c1aa74b19bac   edges/5a57c906fdf14616a559c1aa74b19bac/1   5a57c906fdf14616a559c1aa74b19bac/0   About an hour ago   3 seconds           111.4 KiB           
-5a57c906fdf14616a559c1aa74b19bac   edges/5a57c906fdf14616a559c1aa74b19bac/2   5a57c906fdf14616a559c1aa74b19bac/1   About an hour ago   3 seconds           100.1 KiB           
-$ 
+REPO                ID                                 PARENT                             STARTED              DURATION             SIZE                
+edges               f716eabf95854be285c3ef23570bd836   026536b547a44a8daa2db9d25bf88b79   About a minute ago   Less than a second   233.7 KiB           
+edges               026536b547a44a8daa2db9d25bf88b79   754542b89c1c47a5b657e60381c06c71   About a minute ago   Less than a second   133.6 KiB           
+edges               754542b89c1c47a5b657e60381c06c71   <none>                             2 minutes ago        Less than a second   22.22 KiB
 ```
 
 In this case, we have one output commit per input commit on `images`.  However, this might get more complicated for pipelines with multiple branches, multiple inputs, etc.  To confirm which commits correspond to which outputs, we can use `flush-commit`.  In particular, we can call `flush-commit` on any one of our commits into `images` to see which output came from this particular commmit:
 
 ```sh
-$ pachctl flush-commit images/master/1
-BRANCH                             REPO/ID                                    PARENT                               STARTED             DURATION             SIZE                
-master                             images/master/1                            master/0                             About an hour ago   Less than a second   181.1 KiB           
-5a57c906fdf14616a559c1aa74b19bac   edges/5a57c906fdf14616a559c1aa74b19bac/1   5a57c906fdf14616a559c1aa74b19bac/0   About an hour ago   3 seconds            111.4 KiB
+$ pachctl flush-commit images/a9678d2a439648c59636688945f3c6b5
+REPO                ID                                 PARENT                             STARTED             DURATION             SIZE                
+edges               026536b547a44a8daa2db9d25bf88b79   754542b89c1c47a5b657e60381c06c71   3 minutes ago       Less than a second   133.6 KiB
 ```
 
 ## Exporting data via `egress`
