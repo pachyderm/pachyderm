@@ -29,15 +29,15 @@ $ pachctl create-repo <repo name>
 
 Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
 
-Add a single file:
+Add a single file to a new branch:
 
 ```sh
 # first start a commit
-$ pachctl start-commit <repo>
+$ pachctl start-commit <repo> -b <branch>
 
 # then utilize the returned <commit-id> in the put-file request
 # to put <file> at <path> in the <repo>
-$ pachctl put-file <repo> <commit-id> <path> -f <file>
+$ pachctl put-file <repo> <commit-id> </path/to/file> -f <file>
 
 # then finish the commit
 $ pachctl finish-commit <repo> <commit-id>
@@ -46,23 +46,29 @@ $ pachctl finish-commit <repo> <commit-id>
 Start and finish a commit while adding a file using `-c`:
 
 ```sh
-$ pachctl put-file <repo> <branch> <path> -c -f <file> 
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f <file> 
 ```
 
 Put data from a URL:
 
 ```sh
-$ pachctl put-file <repo> <branch> <path> -c -f http://url_path
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f http://url_path
 ```
 
 Put data directly from an object store:
 
 ```sh
 # here you can use s3://, gcs://, or as://
-$ pachctl put-file <repo> <branch> <path> -c -f s3://object_store_url
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f s3://object_store_url
 ``
 
-Add multiple files at once by using the `-i` option. The target file should be a list of files, paths, or URLs that you want to input all at once:
+Put data directly from another location within Pachyderm:
+
+```sh
+$ pachctl put-file <repo> <branch> </path/to/file> -c -f pfs://pachyderm_location
+``
+
+Add multiple files at once by using the `-i` option or multiple `-f` flags. In the case of `-i`, the target file should be a list of files, paths, or URLs that you want to input all at once:
 
 ```sh
 $ pachctl put-file <repo> <branch> -c -i <file containing list of files, paths, or URLs>
@@ -71,7 +77,7 @@ $ pachctl put-file <repo> <branch> -c -i <file containing list of files, paths, 
 Pipe data from stdin into a data repository:
 
 ```sh
-$ echo "data" | pachctl put-file <repo> <branch> <path> -c
+$ echo "data" | pachctl put-file <repo> <branch> </path/to/file> -c
 ```
 
 Add an entire directory by using the recursive flag, `-r`:
@@ -84,7 +90,7 @@ $ pachctl put-file <repo> <branch> -c -r <dir>
 
 - Go: We have a complete Golang client that will let you easily integrate pushing data to Pachyderm into your Go programs.  Check out the [godocs for put-file](https://godoc.org/github.com/pachyderm/pachyderm/src/client#APIClient.PutFile).
 
-- Python: Our great community of users have created a [Python client for Pachyderm](https://github.com/kalugny/pypachy).  See the [included instructions](https://github.com/kalugny/pypachy#instructions) to see how you can put data into Pachyderm from Python.
+- Python: Our great community of users have created a [Python client for Pachyderm](https://github.com/kalugny/pypachy).  See the [included instructions](https://github.com/kalugny/pypachy#instructions) to see how you can put data into Pachyderm from Python. **Note** - for now, the Python client only works with Pachyderm 1.3. Updates are in progress.  
 
 - Scala: Our users are currently working on a Scala client for Pachyderm.  Please contact us if you are interested in helping with this or testing it out.
 
