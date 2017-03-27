@@ -24,6 +24,9 @@ $ brew tap pachyderm/tap && brew install pachctl
 $ curl -o /tmp/pachctl.deb -L https://pachyderm.io/pachctl.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
+.. note::
+ To install an older version of Pachyderm, navigate to that version using the menu in the bottom left. 
+
 To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
 
 ## Deploy Pachyderm
