@@ -25,11 +25,10 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     :maxdepth: 1
     :caption: Pachyderm Fundamentals
 
-    fundamentals/getting_data_into_pachyderm_PLACEHOLDER
-    fundamentals/creating_analysis_pipelines_PLACEHOLDER
-    fundamentals/getting_data_out_of_pachyderm_PLACEHOLDER
-    fundamentals/updating_pipelines_PLACEHOLDER
-    fundamentals/serving_data_from_pachyderm_PLACEHOLDER
+    fundamentals/getting_data_into_pachyderm
+    fundamentals/creating_analysis_pipelines
+    fundamentals/getting_data_out_of_pachyderm
+    fundamentals/updating_pipelines
 
 .. toctree::
     :maxdepth: 1
@@ -62,6 +61,7 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     :caption: Pachyderm Cookbook
 
     cookbook/how_to_utilize_data_provenance_PLACEHOLDER
+    cookbook/how_to_run_services_in_pachyderm_PLACEHOLDER
     cookbook/how_to_create_incremental_pipelines_PLACEHOLDER
     cookbook/how_to_compose_complex_pipelines_PLACEHOLDER
     cookbook/how_to_compose_ML_pipelines_PLACEHOLDER
