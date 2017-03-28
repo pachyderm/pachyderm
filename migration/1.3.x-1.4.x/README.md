@@ -34,6 +34,17 @@ contents of the branch rather than just putting a single file, you can
 also migrate one file at a time by specifying it after the branch
 parameter in the address.
 
+Note that this command doesn't migrate commit history but just puts files from
+the head of a branch into a single commit. If you'd like to migrate commit
+history you should send multiple put-files like so:
+
+```
+pachctl put-file <1.4 repo> <1.4 branch> -f <1.3 ip address>:30650/<1.3 repo>/<1.3 branch>/0 -r
+pachctl put-file <1.4 repo> <1.4 branch> -f <1.3 ip address>:30650/<1.3 repo>/<1.3 branch>/1 -r
+pachctl put-file <1.4 repo> <1.4 branch> -f <1.3 ip address>:30650/<1.3 repo>/<1.3 branch>/2 -r
+etc.
+```
+
 Note that now is the time that you need to think about how you want to
 parallelize over your data. If your repo contains large files which were
 processed in 1.3 with `BLOCK` or `MAP` pipelines then you should use the
@@ -70,13 +81,14 @@ of directories, in 1.4 this is possible with glob patterns. I.e. in the
 above example where a file is put to `dir/foo` with `--split` you could
 process all the pieces of the file together by passing `/*/*`.
 
-1.4 currently does not have a notion of incrementality, much of the
-incremental functionality present in 1.3 currently happens automatically.
-We'll be introducing a more advanced form of incrementality in a later
-version of 1.4 for incremental workloads like sum operations.
+1.4 currently does not have a notion of incrementality, much of the incremental
+functionality present in 1.3 currently happens automatically.  We'll be
+introducing a more advanced form of incrementality in a later version of 1.4
+for incremental workloads like sum operations. This will be similar to how
+`/prev` works in 1.3.
 
 In 1.4 `input`s are targeted at specific branches rather than all branches
-in a repo, this field defaults to master if left blank.
+in a repo, via the `branch` field. `branch` defaults to master if left blank.
 
 ### Output
 
