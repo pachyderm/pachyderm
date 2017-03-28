@@ -257,13 +257,13 @@ pretest:
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
 test-pfs:
-	go test -v ./src/server/pfs/server
+	go test ./src/server/pfs/server
 
 test-pps:
 	go test -v ./src/server/
 
 test-hashtree:
-	go test -v ./src/server/pkg/hashtree
+	go test ./src/server/pkg/hashtree
 
 test-client:
 	rm -rf src/client/vendor
