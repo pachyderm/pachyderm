@@ -38,13 +38,6 @@ If you can't find what you're looking for or have a an issue not mentioned here,
 
 .. toctree::
     :maxdepth: 1
-    :caption: FAQ, Troubleshooting
-
-    faq/FAQ
-    faq/troubleshooting_PLACEHOLDER
-
-.. toctree::
-    :maxdepth: 1
     :caption: Deploy Pachyderm
 
     deployment/deploy_intro
@@ -57,31 +50,12 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     deployment/migrations
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Pachyderm Cookbook
-
-    cookbook/how_to_utilize_data_provenance_PLACEHOLDER
-    cookbook/how_to_run_services_in_pachyderm_PLACEHOLDER
-    cookbook/how_to_create_incremental_pipelines_PLACEHOLDER
-    cookbook/how_to_compose_complex_pipelines_PLACEHOLDER
-    cookbook/how_to_compose_ML_pipelines_PLACEHOLDER
-    cookbook/how_to_utilize_jupyter_with_pachyderm_PLACEHOLDER
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Scaling and Best Practices
-
-    production/scaling_PLACEHOLDER
-    production/best_practices_PLACEHOLDER
-
-.. toctree::
     :maxdepth: 2
     :caption: Reference
 
-    reference/pipeline_specification_PLACEHOLDER
-    reference/pachyderm_file_system_PLACEHOLDER
-    reference/pachyderm_pipeline_system_PLACEHOLDER
-    reference/pachyderm_clients_PLACEHOLDER
+    reference/pipeline_spec
+    reference/pachyderm_file_system
+    reference/pachyderm_pipeline_system
     pachctl/pachctl
     CHANGELOG
     
