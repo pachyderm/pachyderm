@@ -10,11 +10,11 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit. 
 
-- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the glob doc for details.
+- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://pachyderm.readthedocs.io/en/stable/reference/pipeline_spec.html#input-glob-pattern) for details.
 
 - Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed indepedently of commits.
 
-- Simplified commit states.  In prior versions, commits can be in many states including `open`, `closed`, `cancelled`, and `archived`.  In particular, `closed` and `archived` have confusing semantics that routinely trip up users.  In 1.4, `closed` and `archived` have been removed.
+- Simplified commit states.  In prior versions, commits can be in many states including `started`, `finished`, `cancelled`, and `archived`.  In particular, `cancelled` and `archived` have confusing semantics that routinely trip up users.  In 1.4, `cancelled` and `archived` have been removed.
 
 - Flexible pipeline updates.  In prior versions, pipeline updates are all-or-nothing.  That is, an updated pipeline either processes all commits from scratch, or it processes only new commits.  In 1.4, it's possible to have the updated pipeline start processing from any given commit.
 
@@ -22,7 +22,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - Simplified deployment dependencies.  In prior versions, Pachyderm depends on RethinkDB and etcd to function.  In 1.4, Pachyderm no longer depends on RethinkDB.
 
-- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.  See the deployment doc for details.
+- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.  See the [deployment doc](http://pachyderm.readthedocs.io/en/stable/deployment/deploy_intro.html) for details.
 
 Removed features:
 
