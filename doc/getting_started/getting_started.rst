@@ -14,8 +14,8 @@ If you'd like to read about the technical concepts in Pachyderm before actually 
 
 * :doc:`../reference/pachyderm_file_system` 
 * :doc:`../reference/pachyderm_pipeline_system` 
-* :doc:`../reference/pachctl/pachctl` 
-* :doc:`../reference/FAQ` 
+* :doc:`../pachctl/pachctl` 
+* :doc:`../FAQ` 
 * `Use Cases <http://pachyderm.io/use_cases.html>`_
 
 ---
