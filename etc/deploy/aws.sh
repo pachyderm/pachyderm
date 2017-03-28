@@ -163,7 +163,6 @@ deploy_pachyderm_on_aws() {
 
     # Omit token since im using my personal creds
     pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
-
 }
 
 if [ "$EUID" -ne 0 ]; then
