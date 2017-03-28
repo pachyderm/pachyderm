@@ -1,3 +1,5 @@
+**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+
 # Quick Start Guide: Web Scraper
 In this guide you're going to create a Pachyderm pipeline to scrape web pages. 
 We'll use a standard unix tool, `wget`, to do our scraping.

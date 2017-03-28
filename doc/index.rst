@@ -20,48 +20,70 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     getting_started/getting_started
     getting_started/local_installation
     getting_started/beginner_tutorial
-    getting_started/troubleshooting
 
 .. toctree::
     :maxdepth: 1
-    :caption: Analyze Your Data
+    :caption: Pachyderm Fundamentals
 
-    deployment/analyze_your_data
-    deployment/deploying_on_the_cloud
-    deployment/deploying_on_premises
-    deployment/inputing_your_data
-    deployment/custom_pipelines
-    deployment/pipeline_spec
-    deployment/getting_your_results
-    deployment/updating_pipelines
-    deployment/serving_data_from_pachyderm
+    fundamentals/getting_data_into_pachyderm
+    fundamentals/creating_analysis_pipelines
+    fundamentals/getting_data_out_of_pachyderm
+    fundamentals/updating_pipelines
 
 .. toctree::
     :maxdepth: 1
-    :caption: Advanced Workflows
+    :caption: Full Examples
 
-    advanced/advanced
-    advanced/provenance
-    advanced/incrementality
-    advanced/composing_pipelines
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Misc
-
-    FAQ
     examples/readme
-    production/migration
-    CHANGELOG  
+
+.. toctree::
+    :maxdepth: 1
+    :caption: FAQ, Troubleshooting
+
+    faq/FAQ
+    faq/troubleshooting_PLACEHOLDER
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Deploy Pachyderm
+
+    deployment/deploy_intro
+    deployment/google_cloud_platform
+    deployment/amazon_web_services
+    deployment/azure
+    deployment/openshift
+    deployment/on_premises
+    deployment/custom_object_stores
+    deployment/migrations
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Pachyderm Cookbook
+
+    cookbook/how_to_utilize_data_provenance_PLACEHOLDER
+    cookbook/how_to_run_services_in_pachyderm_PLACEHOLDER
+    cookbook/how_to_create_incremental_pipelines_PLACEHOLDER
+    cookbook/how_to_compose_complex_pipelines_PLACEHOLDER
+    cookbook/how_to_compose_ML_pipelines_PLACEHOLDER
+    cookbook/how_to_utilize_jupyter_with_pachyderm_PLACEHOLDER
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Scaling and Best Practices
+
+    production/scaling_PLACEHOLDER
+    production/best_practices_PLACEHOLDER
 
 .. toctree::
     :maxdepth: 2
-    :caption: Reference By Feature
+    :caption: Reference
 
-    pachyderm_file_system
-    pachyderm_pipeline_system
-    golang_client/golang_client
+    reference/pipeline_specification_PLACEHOLDER
+    reference/pachyderm_file_system_PLACEHOLDER
+    reference/pachyderm_pipeline_system_PLACEHOLDER
+    reference/pachyderm_clients_PLACEHOLDER
     pachctl/pachctl
+    CHANGELOG
     
 
 

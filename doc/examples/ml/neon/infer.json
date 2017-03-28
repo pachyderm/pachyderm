@@ -1,0 +1,38 @@
+{
+  "pipeline": {
+    "name": "inference"
+  },
+  "transform": {
+    "image": "dwhitena/neon-inference",
+    "cmd": [ 
+	"python",
+	"examples/imdb/auto_inference.py",
+	"--model_weights",
+	"/pfs/model/imdb.p",
+	"--vocab_file",
+	"/pfs/model/imdb.vocab",
+	"--review_files",
+	"/pfs/reviews",
+	"--output_dir",
+	"/pfs/out"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "2"
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "reviews"
+      },
+      "glob": "/*"
+    },
+    {
+      "repo": {
+	"name": "model"
+      },
+      "glob": "/"
+    }
+  ]
+}
