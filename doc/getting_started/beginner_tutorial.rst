@@ -30,8 +30,8 @@ For this demo, we'll simply create a repo called
 
  # See the repo we just created
  $ pachctl list-repo
-NAME                CREATED             SIZE
-images              2 minutes ago       0 B
+ NAME                CREATED             SIZE
+ images              2 minutes ago       0 B
 
 
 Adding Data to Pachyderm

@@ -11,8 +11,7 @@ If you hit any errors not covered in this guide, check our [troubleshooting](htt
 
 Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikibe, and Kubectl. Then come back here to install Pachyderm.
 
-.. note::
- Any time you want to stop and restart Pachyderm, you should start fresh with `minikube delete` and `minikube start`. Minikube isn't meant to be a production environment and doesn't handle being restarted well without a full wipe. 
+Note: Any time you want to stop and restart Pachyderm, you should start fresh with `minikube delete` and `minikube start`. Minikube isn't meant to be a production environment and doesn't handle being restarted well without a full wipe. 
 
 ### Pachctl
 
@@ -27,8 +26,8 @@ $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.0/pachctl_1.4.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
-.. note::
- To install an older version of Pachyderm, navigate to that version using the menu in the bottom left. 
+
+Note: To install an older version of Pachyderm, navigate to that version using the menu in the bottom left. 
 
 To check that installation was successful, you can try running `pachctl help`, which should return a list of Pachyderm commands.
 
