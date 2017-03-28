@@ -57,26 +57,26 @@ To deploy Pachyderm we will need to:
 
 #### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.
-
-To create these resources, first define a few environmental variables:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  The create the persistent disk:
 
 ```shell
-# BUCKET_NAME needs to be globally unique across the entire GCP region
-$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored]
+# For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
+# should work for 1000 commits on 1000 files.
+$ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
 
 # Name this whatever you want, we chose pach-disk as a default
 $ STORAGE_NAME=pach-disk
 
-# For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
-# should work for 1000 commits on 1000 files.
-$ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
+$ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 ```
 
-And then run:
+Then we need to specify the bucket name and create the bucket:
 ```shell
+# BUCKET_NAME needs to be globally unique across the entire GCP region.
+$ BUCKET_NAME=[The name of the GCS bucket where your data will be stored]
+
+# Create the bucket.
 $ gsutil mb gs://${BUCKET_NAME}
-$ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 ```
 To check that everything has been set up correctly, try:
 
@@ -108,41 +108,39 @@ You can try running `pachctl version` to check that this worked correctly, but P
 
 ```sh
 $ pachctl version
-COMPONENT           VERSION
-pachctl             1.3.2
-pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+COMPONENT           VERSION             
+pachctl             1.4.0           
+pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded
+
+please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 ```
 
 #### Deploy Pachyderm
 
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
-```
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_NAME} ${STORAGE_SIZE}
+
+```sh
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
 ```
 
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
 
 ```sh
 $ kubectl get all
-NAME               READY     STATUS    RESTARTS   AGE
-po/etcd-xzc0d      1/1       Running   0          55s
-po/pachd-6m6wm     1/1       Running   0          55s
-po/rethink-388b3   1/1       Running   0          55s
+NAME             READY     STATUS    RESTARTS   AGE
+po/etcd-wn317    1/1       Running   0          5m
+po/pachd-mljp6   1/1       Running   3          5m
 
-NAME         DESIRED   CURRENT   READY     AGE
-rc/etcd      1         1         1         55s
-rc/pachd     1         1         1         55s
-rc/rethink   1         1         1         55s
+NAME       DESIRED   CURRENT   READY     AGE
+rc/etcd    1         1         1         5m
+rc/pachd   1         1         1         5m
 
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
-svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
-svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
-svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
-
-NAME              DESIRED   SUCCESSFUL   AGE
-jobs/pachd-init   1         1            55s
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                         AGE
+svc/etcd         10.0.0.165   <nodes>       2379:32379/TCP,2380:32686/TCP   5m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                         5m
+svc/pachd        10.0.0.214   <nodes>       650:30650/TCP,651:30651/TCP     5m
 ```
+
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before other components were ready so it restarted them.
 
 Finally, assuming your `pachd` is running as shown above, we need to set up forward a port so that `pachctl` can talk to the cluster.
@@ -157,6 +155,6 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.3.2
-pachd               1.3.2
+pachctl             1.4.0
+pachd               1.4.0
 ```
