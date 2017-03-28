@@ -16,7 +16,7 @@ Pachyderm is:
 For more details, see [what's new about Pachyderm](https://github.com/pachyderm/pachyderm/#whats-new-about-pachyderm-how-is-it-different-from-hadoop).
 
 ## Getting Started
-[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/deployment/deploying_on_the_cloud.html) in about 5 minutes. 
+[Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) in about 5 minutes. 
 
 You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
@@ -38,12 +38,12 @@ There are two bold new ideas in Pachyderm:
 
 These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html)).
+To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed image processing](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html)).
 
 Pachyderm also version controls all data using a commit-based distributed
 filesystem (PFS), similar to what git does with code. Version control for data
 has far reaching consequences in a distributed filesystem. You get the full
-history of your data, can track changes and _diffs_, collaborate with teammates, and if
+history of your data, can track changes, collaborate with teammates, and if
 anything goes wrong you can revert _the entire cluster_ with one click!
 
 Version control is also very synergistic with our containerized processing
@@ -60,6 +60,8 @@ Keep up to date and get Pachyderm support via:
 ### Contributing
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
+
+You should also check out our [contributing guide](./contributing).
 
 Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "noob-friendly" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know. 
 
