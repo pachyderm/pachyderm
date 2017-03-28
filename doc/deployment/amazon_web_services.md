@@ -35,7 +35,7 @@ pachd               (version unknown) : error connecting to pachd server at addr
 The easiest way to deploy a Pachyderm cluster on AWS is with our deploy script. Once you have the prerequisites mentioned above, dowload and run our AWS deploy script by running:
 
 ```
-curl -o aws.sh https://dl.github.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
+curl -o aws.sh https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/aws.sh
 chmod +x aws.sh
 sudo -E ./aws.sh
 ```
