@@ -61,12 +61,17 @@ type HashTree interface {
 
 	// Glob returns a list of files and directories that match 'pattern'.
 	Glob(pattern string) ([]*NodeProto, error)
+
+	// Size gets the size of the file system that this tree represents.
+	// It's essentially a helper around h.Get("/").SubtreeBytes
+	Size() int64
 }
 
-// OpenNode is similar to NodeProto, except that it doesn't include the Hash or
-// Size fields (which are not generally meaningful in an OpenHashTree)
+// OpenNode is similar to NodeProto, except that it doesn't include the Hash
+// field (which is not generally meaningful in an OpenHashTree)
 type OpenNode struct {
 	Name string
+	Size int64
 
 	FileNode *FileNodeProto
 	DirNode  *DirectoryNodeProto
@@ -81,7 +86,7 @@ type OpenHashTree interface {
 	GetOpen(path string) (*OpenNode, error)
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
-	PutFile(path string, blockRefs []*pfs.BlockRef) error
+	PutFile(path string, objects []*pfs.Object, size int64) error
 
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
@@ -91,7 +96,7 @@ type OpenHashTree interface {
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
 	// this tree.
-	Merge(trees []HashTree) error
+	Merge(trees ...HashTree) error
 
 	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
 	// node size metadata in the copy, and returns the copy

@@ -1,61 +1,99 @@
 package server
 
 import (
+	"path"
 	"sync"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/proto/rpclog"
+	"golang.org/x/net/context"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 // APIServer represents an api server.
 type APIServer interface {
 	ppsclient.APIServer
-	ppsserver.InternalPodAPIServer
 	shard.Frontend
 	shard.Server
 }
 
+const (
+	pipelinesPrefix = "/pipelines"
+	jobsPrefix      = "/jobs"
+)
+
+var (
+	// Index mapping pipeline to jobs started by the pipeline
+	jobsPipelineIndex = col.Index{"Pipeline", false}
+
+	// Index mapping job inputs (repos + pipeline version) to output commit. This
+	// is how we know if we need to start a job
+	jobsInputsIndex = col.Index{"Inputs", false}
+
+	// Index of pipelines and jobs that have been stopped (state is "success" or
+	// "failure" for jobs, or "stopped" or "failure" for pipelines). See
+	// (Job|Pipeline)StateToStopped in s/s/pps/server/api_server.go
+	stoppedIndex = col.Index{"Stopped", false}
+)
+
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
+	etcdAddress string,
+	etcdPrefix string,
 	hasher *ppsserver.Hasher,
 	address string,
 	kubeClient *kube.Client,
 	namespace string,
-	jobShimImage string,
-	jobImagePullPolicy string,
+	workerImage string,
+	workerImagePullPolicy string,
 	reporter *metrics.Reporter,
-	leasePeriodSecs string,
-	heartbeatSecs string,
-	maxHeartbeatRetries string,
-) APIServer {
-	return &apiServer{
-		Logger:                  protorpclog.NewLogger("pps.API"),
-		hasher:                  hasher,
-		address:                 address,
-		pfsAPIClient:            nil,
-		pfsClientOnce:           sync.Once{},
-		persistAPIClient:        nil,
-		persistClientOnce:       sync.Once{},
-		kubeClient:              kubeClient,
-		shardCancelFuncs:        make(map[uint64]func()),
-		shardCancelFuncsLock:    sync.Mutex{},
-		pipelineCancelFuncs:     make(map[string]func()),
-		pipelineCancelFuncsLock: sync.Mutex{},
-		jobCancelFuncs:          make(map[string]func()),
-		jobCancelFuncsLock:      sync.Mutex{},
-		version:                 shard.InvalidVersion,
-		versionLock:             sync.RWMutex{},
-		namespace:               namespace,
-		jobShimImage:            jobShimImage,
-		jobImagePullPolicy:      jobImagePullPolicy,
-		reporter:                reporter,
-		leasePeriodSecs:         leasePeriodSecs,
-		heartbeatSecs:           heartbeatSecs,
-		maxHeartbeatRetries:     maxHeartbeatRetries,
+) (APIServer, error) {
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	apiServer := &apiServer{
+		Logger:                protorpclog.NewLogger("pps.API"),
+		etcdPrefix:            etcdPrefix,
+		hasher:                hasher,
+		address:               address,
+		etcdClient:            etcdClient,
+		pachConnOnce:          sync.Once{},
+		kubeClient:            kubeClient,
+		version:               shard.InvalidVersion,
+		shardCtxs:             make(map[uint64]*ctxAndCancel),
+		pipelineCancels:       make(map[string]context.CancelFunc),
+		jobCancels:            make(map[string]context.CancelFunc),
+		workerPools:           make(map[string]WorkerPool),
+		namespace:             namespace,
+		workerImage:           workerImage,
+		workerImagePullPolicy: workerImagePullPolicy,
+		reporter:              reporter,
+		pipelines: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, pipelinesPrefix),
+			[]col.Index{stoppedIndex},
+			&ppsclient.PipelineInfo{},
+		),
+		jobs: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, jobsPrefix),
+			[]col.Index{jobsPipelineIndex, stoppedIndex, jobsInputsIndex},
+			&ppsclient.JobInfo{},
+		),
+	}
+	go apiServer.pipelineWatcher()
+	go apiServer.jobWatcher()
+	return apiServer, nil
 }

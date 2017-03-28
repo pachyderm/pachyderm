@@ -26,9 +26,6 @@ type PfsAPIClient pfs.APIClient
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
 
-// BlockAPIClient is an alias for pfs.BlockAPIClient.
-type BlockAPIClient pfs.BlockAPIClient
-
 // ObjectAPIClient is an alias for pfs.ObjectAPIClient
 type ObjectAPIClient pfs.ObjectAPIClient
 
@@ -36,7 +33,6 @@ type ObjectAPIClient pfs.ObjectAPIClient
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
-	BlockAPIClient
 	ObjectAPIClient
 	addr              string
 	clientConn        *grpc.ClientConn
@@ -51,11 +47,6 @@ type APIClient struct {
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
-
-var (
-	// MaxMsgSize is used to define the GRPC frame size
-	MaxMsgSize = 20 * 1024 * 1024
-)
 
 // NewMetricsClientFromAddress Creates a client that will report a user's Metrics
 func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
@@ -171,7 +162,6 @@ func (c *APIClient) connect() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
-	c.BlockAPIClient = pfs.NewBlockAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)

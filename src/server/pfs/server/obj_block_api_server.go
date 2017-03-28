@@ -1,10 +1,7 @@
 package server
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -110,128 +107,6 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServe
 	return newObjBlockAPIServer(dir, cacheBytes, objClient)
 }
 
-func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	result := &pfsclient.BlockRefs{}
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
-	defer drainBlockServer(putBlockServer)
-	putBlockRequest, err := putBlockServer.Recv()
-	if err != nil {
-		if err != io.EOF {
-			return err
-		}
-		return putBlockServer.SendAndClose(result)
-	}
-	reader := bufio.NewReader(&putBlockReader{
-		server: putBlockServer,
-		buffer: bytes.NewBuffer(putBlockRequest.Value),
-	})
-	var eg errgroup.Group
-	decoder := json.NewDecoder(reader)
-	for {
-		blockRef, data, err := readBlock(putBlockRequest.Delimiter, reader, decoder)
-		if err != nil {
-			return err
-		}
-		result.BlockRef = append(result.BlockRef, blockRef)
-		eg.Go(func() error {
-			var outerErr error
-			path := s.localServer.blockPath(blockRef.Block)
-			backoff.RetryNotify(func() error {
-				if err := func() error {
-					// We don't want to overwrite blocks that already exist, since:
-					// 1) blocks are content-addressable, so it will be the same block
-					// 2) we risk exceeding the object store's rate limit
-					if s.objClient.Exists(path) {
-						return nil
-					}
-					writer, err := s.objClient.Writer(path)
-					if err != nil {
-						return err
-					}
-					if _, err := writer.Write(data); err != nil {
-						return err
-					}
-					if err := writer.Close(); err != nil {
-						return err
-					}
-					return nil
-				}(); err != nil {
-					if obj.IsRetryable(s.objClient, err) {
-						return err
-					}
-					outerErr = err
-					return nil
-				}
-				return nil
-			}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-				protolion.Infof("Error writing; retrying in %s: %#v", d, obj.RetryError{
-					Err:               err.Error(),
-					TimeTillNextRetry: d.String(),
-				})
-			})
-			// Weird effects can happen with clients racing. Ultimately if the
-			// path exists then it doesn't make sense to consider this
-			// operation as having errored because we know that it contains the
-			// data we want thanks to content addressing.
-			if outerErr != nil && !s.objClient.Exists(path) {
-				return outerErr
-			}
-			return nil
-		})
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
-			break
-		}
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	return putBlockServer.SendAndClose(result)
-}
-
-func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	var data []byte
-	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.blockCache.Get(getBlockServer.Context(), request.Block.Hash, sink); err != nil {
-		return err
-	}
-	if request.SizeBytes != 0 && request.SizeBytes+request.OffsetBytes < uint64(len(data)) {
-		data = data[request.OffsetBytes : request.OffsetBytes+request.SizeBytes]
-	} else if request.OffsetBytes < uint64(len(data)) {
-		data = data[request.OffsetBytes:]
-	} else {
-		data = nil
-	}
-	return getBlockServer.Send(&types.BytesValue{Value: data})
-}
-
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	backoff.RetryNotify(func() error {
-		if err := s.objClient.Delete(s.localServer.blockPath(request.Block)); err != nil && !s.objClient.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
-		protolion.Infof("Error deleting block; retrying in %s: %#v", d, obj.RetryError{
-			Err:               err.Error(),
-			TimeTillNextRetry: d.String(),
-		})
-	})
-	return &types.Empty{}, nil
-}
-
-func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsclient.BlockInfo, retErr error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsclient.BlockInfos, retErr error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -266,17 +141,15 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		return err
 	}
 	var eg errgroup.Group
-	var blockRef *pfsclient.BlockRef
 	// Now that we have a hash of the object we can check if it already exists.
-	objectInfo, err := s.InspectObject(server.Context(), object)
+	_, err := s.InspectObject(server.Context(), object)
 	if err == nil {
 		// the object already exists so we delete the block we put
 		eg.Go(func() error {
 			return s.objClient.Delete(s.localServer.blockPath(block))
 		})
-		blockRef = objectInfo.BlockRef
 	} else {
-		blockRef = &pfsclient.BlockRef{
+		blockRef := &pfsclient.BlockRef{
 			Block: block,
 			Range: &pfsclient.ByteRange{
 				Lower: 0,
@@ -322,6 +195,59 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 		return err
 	}
 	return getObjectServer.Send(&types.BytesValue{Value: data})
+}
+
+func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	offset := request.OffsetBytes
+	size := request.SizeBytes
+	for _, object := range request.Objects {
+		// First we inspect the object to see how big it is.
+		objectInfo, err := s.InspectObject(getObjectsServer.Context(), object)
+		if err != nil {
+			return err
+		}
+		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
+		if offset > objectSize {
+			offset -= objectSize
+			continue
+		}
+		readSize := objectSize - offset
+		if size < readSize && request.SizeBytes != 0 {
+			readSize = size
+		}
+		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+			// The object is a substantial portion of the available cache space so
+			// we bypass the cache and stream it directly out of the underlying store.
+			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+			r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower+offset, readSize)
+			if err != nil {
+				return err
+			}
+			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
+		}
+		var data []byte
+		sink := groupcache.AllocatingByteSliceSink(&data)
+		if err := s.objectCache.Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
+			return err
+		}
+		if uint64(len(data)) < offset+readSize {
+			return fmt.Errorf("undersized object (this is likely a bug)")
+		}
+		if err := getObjectsServer.Send(&types.BytesValue{Value: data[offset : offset+readSize]}); err != nil {
+			return err
+		}
+		// We've hit the offset so we set it to 0
+		offset = 0
+		if request.SizeBytes != 0 {
+			size -= readSize
+			if size == 0 {
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.TagObjectRequest) (response *types.Empty, retErr error) {
@@ -569,15 +495,16 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	updated := false
 	// First check if we already have the index for this Tag in memory, if
 	// not read it for the first time.
-	if _, ok := s.objectIndexes[prefix]; !ok {
+	if _, ok := s.getObjectIndex(prefix); !ok {
 		updated = true
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
 	}
+	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains the tag we're looking for, if so read
 	// it into the cache and return
-	if object, ok := s.objectIndexes[prefix].Tags[tag.Name]; ok {
+	if object, ok := objectIndex.Tags[tag.Name]; ok {
 		dest.SetProto(object)
 		return nil
 	}
@@ -585,7 +512,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// written tags that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
+	objectIndex = &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
 		return err
 	} else if err == nil {
@@ -600,7 +527,8 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
-		if object, ok := s.objectIndexes[prefix].Tags[tag.Name]; ok {
+		objectIndex, _ = s.getObjectIndex(prefix)
+		if object, ok := objectIndex.Tags[tag.Name]; ok {
 			dest.SetProto(object)
 			return nil
 		}
@@ -619,15 +547,16 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	updated := false
 	// First check if we already have the index for this Object in memory, if
 	// not read it for the first time.
-	if _, ok := s.objectIndexes[prefix]; !ok {
+	if _, ok := s.getObjectIndex(prefix); !ok {
 		updated = true
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
 	}
+	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains a the object we're looking for, if so read
 	// it into the cache and return
-	if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+	if blockRef, ok := objectIndex.Objects[object.Hash]; ok {
 		result.BlockRef = blockRef
 		dest.SetProto(result)
 		return nil
@@ -650,7 +579,8 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
-		if blockRef, ok := s.objectIndexes[prefix].Objects[object.Hash]; ok {
+		objectIndex, _ := s.getObjectIndex(prefix)
+		if blockRef, ok := objectIndex.Objects[object.Hash]; ok {
 			result.BlockRef = blockRef
 			dest.SetProto(result)
 			return nil
@@ -693,6 +623,19 @@ func (s *objBlockAPIServer) readBlockRef(blockRef *pfsclient.BlockRef, dest grou
 	return s.readObj(s.localServer.blockPath(blockRef.Block), blockRef.Range.Lower, blockRef.Range.Upper-blockRef.Range.Lower, dest)
 }
 
+func (s *objBlockAPIServer) getObjectIndex(prefix string) (*pfsclient.ObjectIndex, bool) {
+	s.objectIndexesLock.RLock()
+	defer s.objectIndexesLock.RUnlock()
+	index, ok := s.objectIndexes[prefix]
+	return index, ok
+}
+
+func (s *objBlockAPIServer) setObjectIndex(prefix string, index *pfsclient.ObjectIndex) {
+	s.objectIndexesLock.Lock()
+	defer s.objectIndexesLock.Unlock()
+	s.objectIndexes[prefix] = index
+}
+
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
@@ -702,9 +645,7 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	// NonExist error, in the case of a NonExist error we'll put a blank index
 	// in the map. This prevents us from having requesting an index that
 	// doesn't exist everytime a request tries to access it.
-	s.objectIndexesLock.Lock()
-	defer s.objectIndexesLock.Unlock()
-	s.objectIndexes[prefix] = objectIndex
+	s.setObjectIndex(prefix, objectIndex)
 	return nil
 }
 

@@ -157,17 +157,12 @@ deploy_pachyderm_on_aws() {
     
     aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
     
-    STORAGE_NAME=`aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2 | grep VolumeId | cut -d "\"" -f 4`
-    
-    echo "volume storage: ${STORAGE_NAME}"
-    
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
-    pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
-
+    pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
 }
 
 if [ "$EUID" -ne 0 ]; then

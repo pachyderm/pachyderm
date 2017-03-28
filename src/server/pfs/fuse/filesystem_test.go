@@ -20,7 +20,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	persist "github.com/pachyderm/pachyderm/src/server/pfs/db"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"google.golang.org/grpc"
@@ -369,7 +368,7 @@ func Test296Appends(t *testing.T) {
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >>%s", path))
 		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID)
+		commit2, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >>%s", path))
@@ -397,7 +396,7 @@ func Test296(t *testing.T) {
 		stdin = strings.NewReader(fmt.Sprintf("echo 2 >%s", path))
 		require.NoError(t, cmdutil.RunStdin(stdin, "sh"))
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit2, err := c.StartCommit(repo, commit.ID)
+		commit2, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		path = filepath.Join(mountpoint, repo, commitIDToPath(commit2.ID), "file")
 		stdin = strings.NewReader(fmt.Sprintf("echo 3 >%s", path))
@@ -551,7 +550,7 @@ func TestOverwriteFile(t *testing.T) {
 		_, err = c.PutFile("repo", commit1.ID, "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("repo", commit1.ID))
-		commit2, err := c.StartCommit("repo", commit1.ID)
+		commit2, err := c.StartCommit("repo", "master")
 		require.NoError(t, err)
 		path := filepath.Join(mountpoint, "repo", commitIDToPath(commit2.ID), "file")
 		stdin := strings.NewReader(fmt.Sprintf("echo bar >%s", path))
