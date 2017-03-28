@@ -41,6 +41,6 @@ before_script:
 - sudo apt-get install uuid
 script:
 - make lint
-- ./etc/build/travis.sh
+- travis_wait 30 ./etc/build/travis.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
