@@ -1,3 +1,5 @@
+**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+
 # Jupyter Notebook using versioned Pachyderm Data
 
 In the following example, we will attach a Jupyter server to Pachyderm such that we can manipulate versioned data sets interactively.  Specifically, we will attach our Jupyter server to three different repositories used in an example Pachyderm pipeline:

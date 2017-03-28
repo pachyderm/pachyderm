@@ -10,7 +10,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 const (
@@ -32,26 +31,22 @@ func newMounter(address string, apiClient *client.APIClient) Mounter {
 
 func (m *mounter) MountAndCreate(
 	mountPoint string,
-	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	ready chan bool,
 	debug bool,
-	allCommits bool,
 	oneMount bool,
 ) error {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	return m.Mount(mountPoint, shard, commitMounts, ready, debug, allCommits, oneMount)
+	return m.Mount(mountPoint, commitMounts, ready, debug, oneMount)
 }
 
 func (m *mounter) Mount(
 	mountPoint string,
-	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	ready chan bool,
 	debug bool,
-	allCommits bool,
 	oneMount bool,
 ) (retErr error) {
 	var once sync.Once
@@ -100,9 +95,9 @@ func (m *mounter) Mount(
 		if len(commitMounts) != 1 {
 			return fmt.Errorf("expect 1 CommitMount, got %d", len(commitMounts))
 		}
-		filesystem = newRepoFilesystem(m.apiClient, shard, commitMounts[0], allCommits)
+		filesystem = newRepoFilesystem(m.apiClient, commitMounts[0])
 	} else {
-		filesystem = newFilesystem(m.apiClient, shard, commitMounts, allCommits)
+		filesystem = newFilesystem(m.apiClient, commitMounts)
 	}
 	if err := fs.New(conn, config).Serve(filesystem); err != nil {
 		return err

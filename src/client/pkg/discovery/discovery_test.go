@@ -10,7 +10,6 @@ import (
 )
 
 func TestEtcdClient(t *testing.T) {
-
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
 	}
@@ -22,7 +21,6 @@ func TestEtcdClient(t *testing.T) {
 }
 
 func TestEtcdWatch(t *testing.T) {
-
 	if os.Getenv("ETCD_PORT_2379_TCP_ADDR") == "" {
 		t.Skip("skipping test; $ETCD_PORT_2379_TCP_ADDR not set")
 	}
@@ -88,7 +86,7 @@ func getEtcdClient() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEtcdClient(etcdAddress), nil
+	return NewEtcdClient(etcdAddress)
 }
 
 func getEtcdAddress() (string, error) {

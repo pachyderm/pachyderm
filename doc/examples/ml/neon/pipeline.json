@@ -1,0 +1,68 @@
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "kaixhin/neon",
+    "cmd": [ 
+	"python", 
+	"examples/imdb/train.py", 
+	"-f", 
+	"/pfs/training/labeledTrainData.tsv", 
+	"-e", 
+	"2", 
+	"-eval", 
+	"1", 
+	"-s", 
+	"/pfs/out/imdb.p", 
+	"--vocab_file", 
+	"/pfs/out/imdb.vocab" 
+    ]
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "training"
+      },
+      "glob": "/"
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "inference"
+  },
+  "transform": {
+    "image": "dwhitena/neon-inference",
+    "cmd": [ 
+	"python",
+	"examples/imdb/auto_inference.py",
+	"--model_weights",
+	"/pfs/model/imdb.p",
+	"--vocab_file",
+	"/pfs/model/imdb.vocab",
+	"--review_files",
+	"/pfs/reviews",
+	"--output_dir",
+	"/pfs/out"
+    ]
+  },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
+  "inputs": [
+    {
+      "repo": {
+        "name": "reviews"
+      },
+      "glob": "/*"
+    },
+    {
+      "repo": {
+	"name": "model"
+      },
+      "glob": "/"
+    }
+  ]
+}

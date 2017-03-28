@@ -4,7 +4,6 @@ package pps;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
@@ -27,12 +26,9 @@ message Transform {
   repeated string stdin = 5;
   repeated int64 accept_return_code = 6;
   bool debug = 7;
-  // If set to true, writing to a file overwrites the original file, as opposed to
-  // appending to it.
-  bool overwrite = 8;
 }
 
-message Output {
+message Egress {
   string URL = 1;
 }
 
@@ -41,14 +37,10 @@ message Job {
 }
 
 enum JobState {
-  JOB_CREATING = 0;
+  JOB_STARTING = 0;
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  // An empty job is a job that hasn't actually been run.
-  // It's a result of empty input commits.
-  JOB_EMPTY = 4;
-  JOB_OUTPUTTING = 5;
 }
 
 message Service {
@@ -56,30 +48,11 @@ message Service {
   int32 external_port = 2;
 };
 
-enum Partition {
-  BLOCK = 0;
-  FILE = 1;
-  REPO = 2;
-}
-
-enum Incremental {
-    NONE = 0; // all data will be shown
-    DIFF = 1; // a minimal diff is shown
-    FULL = 2; // full objects will be shown (granularity is specified by partition)
-}
-
-message Method {
-  Partition partition = 1;
-  Incremental incremental = 2;
-}
-
 message JobInput {
+  string name = 4;
   pfs.Commit commit = 1;
-  Method method = 2;
-  // This flag specifies whether the pipeline should be triggered
-  // when this input gets an empty commit.
-  bool run_empty = 3;
-  bool lazy = 4;
+  string glob = 2;
+  bool lazy = 3;
 }
 
 message ParallelismSpec {
@@ -116,45 +89,34 @@ message JobInfo {
   reserved 4;
   Job job = 1;
   Transform transform = 2;
+  string pipeline_id = 19 [(gogoproto.customname) = "PipelineID"];
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
   repeated JobInput inputs = 5;
-  Output output = 15;
+  Egress egress = 15;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
-  repeated Chunk chunks = 11;
   Service service = 14;
-  Resources resources = 16;
+  bool stopped = 16;
+  pfs.Repo outputRepo = 18;
+  string outputBranch = 17;
+  // The log of stdout+stderr of the most recent datum that failed
+  string error = 20;
 }
 
-enum ChunkState {
-  CHUNK_UNASSIGNED = 0;
-  CHUNK_ASSIGNED = 1;
-  CHUNK_SUCCESS = 2;
-  CHUNK_FAILURE = 3;
-}
-
-message Chunk {
-  string id = 1 [(gogoproto.customname) = "ID"];
-  // A series of pods, in chronological order, that have processed this shard
-  repeated Pod pods = 2;
-  ChunkState state = 3;
-}
-
-enum PodState {
+enum WorkerState {
   POD_RUNNING = 0;
   POD_SUCCESS = 1;
   POD_FAILED = 2;
 }
 
-message Pod {
+message Worker {
   string name = 1;
-  pfs.Commit output_commit = 2;
-  PodState state = 3;
+  WorkerState state = 2;
 }
 
 message JobInfos {
@@ -166,25 +128,26 @@ message Pipeline {
 }
 
 message PipelineInput {
+  string name = 5;
   pfs.Repo repo = 1;
-  Method method = 2;
-  // This flag specifies whether the pipeline should be triggered
-  // when this input gets an empty commit.
-  bool run_empty = 3;
+  string branch = 2;
+  string glob = 3;
   bool lazy = 4;
+  pfs.Commit from = 6;
 }
 
 enum PipelineState {
     // When the pipeline is not ready to be triggered by commits.
-    // This happens when either 1) a pipeline has been created but not yet picked
-    // up by a PPS server, or 2) the pipeline does not have any inputs and is meant
-    // to be triggered manually
-    PIPELINE_IDLE = 0;
+    // This happens when either 1) a pipeline has been created but not
+    // yet picked up by a PPS server, or 2) the pipeline does not have
+    // any inputs and is meant to be triggered manually
+    PIPELINE_STARTING = 0;
     // After this pipeline is picked up by a pachd node.  This is the normal
     // state of a pipeline.
     PIPELINE_RUNNING = 1;
-    // After some error caused runPipeline to exit, but before the pipeline is
-    // re-run.  This is when the exponential backoff is in effect.
+    // After some error caused runPipeline to exit, but before the
+    // pipeline is re-run.  This is when the exponential backoff is
+    // in effect.
     PIPELINE_RESTARTING = 2;
     // We have retried too many times and we have given up on this pipeline.
     PIPELINE_FAILURE = 3;
@@ -204,19 +167,20 @@ message GCPolicy {
 
 message PipelineInfo {
   reserved 3;
+  string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
   repeated PipelineInput inputs = 4;
-  Output output = 15;
-  pfs.Repo output_repo = 5;
+  Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
   GCPolicy gc_policy = 12;
-  Resources resources = 16;
+  bool stopped = 13;
+  string outputBranch = 16;
 }
 
 message PipelineInfos {
@@ -231,16 +195,13 @@ message CreateJobRequest {
   uint64 pipeline_version = 10;
   ParallelismSpec parallelism_spec = 7;
   repeated JobInput inputs = 4;
-  Output output = 9;
-
-  // The compute resources that should be allocated to each worker in this
-  // job. If unset, pachyderm will generate a default resource request.
-  Resources resources = 11;
-  Job parent_job = 5;
-  bool force = 6;
+  Egress egress = 9;
   // When service is defined, we create a long running job
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
+  pfs.Repo outputRepo = 12;
+  string outputBranch = 11;
+  Job parent_job = 13;
 }
 
 message InspectJobRequest {
@@ -258,18 +219,43 @@ message DeleteJobRequest {
 }
 
 message GetLogsRequest {
-    Job job = 1;
+  // The pipeline from which we want to get logs (required if the job in 'job'
+  // was created as part of a pipeline. To get logs from a non-orphan job
+  // without the pipeline that created it, you need to use ElasticSearch).
+  Pipeline pipeline = 2;
+
+  // The job from which we want to get logs.
+  Job job = 1;
+
+  // Names of input files from which we want processing logs. This may contain
+  // multiple files, to query pipelines that contain multiple inputs. Each
+  // filter may be an absolute path of a file within a pps repo, or it may be
+  // a hash for that file (to search for files at specific versions)
+  repeated string data_filters = 3;
 }
 
-message Resources {
-  // The amount of cpu that each worker in a pipeline should be allocated,
-  // in cores. Partial cores are allowed (and encouraged).
-  float cpu = 1;
+// LogMessage is a log line from a PPS worker, annotated with metadata
+// indicating when and why the line was logged.
+message LogMessage {
+  // The job and pipeline for which a PFS file is being processed (if the job
+  // is an orphan job, pipeline name and ID will be unset)
+	string pipeline_name = 1;
+	string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
+	string job_id = 3 [(gogoproto.customname) = "JobID"];
 
-  // The amount of memory that each worker in a pipeline should be allocated,
-  // in bytes. This should be a number, with allowed SI suffixes (M, K, G, Mi,
-  // Ki, Gi, etc)
-  string memory = 2;
+	// The PFS files being processed (one per pipeline/job input)
+  message Datum {
+    // This file's absolute path within its pfs repo.
+	  string path = 4;
+
+    // This file's hash
+    bytes hash = 5;
+  }
+  repeated Datum data = 4;
+
+	// The message logged, and the time at which it was logged
+  google.protobuf.Timestamp ts = 5;
+	string message = 6;
 }
 
 message CreatePipelineRequest {
@@ -278,14 +264,10 @@ message CreatePipelineRequest {
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
   repeated PipelineInput inputs = 4;
-  Output output = 9;
-
-  // The compute resources that should be allocated to each worker in this
-  // pipeline. If unset, pachyderm will generate a default resource request.
-  Resources resources = 10;
+  Egress egress = 9;
   bool update = 5;
-  bool no_archive = 6; // don't archive previously processed data, meaningful only if update is true
   GCPolicy gc_policy = 8;
+  string outputBranch = 10;
 }
 
 message InspectPipelineRequest {
@@ -318,7 +300,6 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
-  rpc GetLogs(GetLogsRequest) returns (stream google.protobuf.BytesValue) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
@@ -330,4 +311,5 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 }
