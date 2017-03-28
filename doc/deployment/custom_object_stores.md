@@ -34,7 +34,7 @@ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 Then we can deploy Pachyderm:
 
 ```sh
-pachctl deploy custom --persistent-disk google --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint>
+pachctl deploy custom --persistent-disk google --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME}
 ```
 
 ## AWS + Custom Object Store
@@ -65,24 +65,27 @@ $ STORAGE_NAME=[volume id]
 The we can deploy Pachyderm:
 
 ```sh
-pachctl deploy custom --persistent-disk aws --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint>
+pachctl deploy custom --persistent-disk aws --object-store s3 ${STORAGE_NAME} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME}
 ```
 
 ## Azure + Custom Object Store
 
 Additional prerequisites:
 
-- Install [Azure CLI](https://azure.microsoft.com/documentation/articles/xplat-cli-install/) >= 0.10.6
+- Install [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) >= 2.0.1
 - Install [jq](https://stedolan.github.io/jq/download/)
 - Clone github.com/pachyderm/pachyderm and work from the root of that project.
 
 First, we need to create a persistent disk for Pachyderm's metadata. To do this, start by declaring some environmental variables:
 
 ```sh
-# Needs to be globally unique across the entire Azure location.
-$ AZURE_RESOURCE_GROUP=[The name of the resource group where the Azure resources will be organized]
+# Needs to be globally unique across the entire Azure location
+$ RESOURCE_GROUP=[The name of the resource group where the Azure resources will be organized]
 
-$ AZURE_LOCATION=[The Azure region of your Kubernetes cluster. e.g. "West US2"]
+$ LOCATION=[The Azure region of your Kubernetes cluster. e.g. "West US2"]
+
+# Needs to be globally unique across the entire Azure location
+$ STORAGE_ACCOUNT=[The name of the storage account where your data will be stored]
 
 # Needs to end in a ".vhd" extension
 $ STORAGE_NAME=pach-disk.vhd
@@ -95,31 +98,42 @@ $ STORAGE_SIZE=[the size of the data disk volume that you are going to create, i
 And then run:
 
 ```sh
-$ azure group create --name ${AZURE_RESOURCE_GROUP} --location ${AZURE_LOCATION}
-$ azure storage account create ${AZURE_STORAGE_NAME} --location ${AZURE_LOCATION} --resource-group ${AZURE_RESOURCE_GROUP} --sku-name LRS --kind Storage
+# Create a resource group
+$ az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
 
-# Retrieve the Azure Storage Account Key
-$ AZURE_STORAGE_KEY=`azure storage account keys list ${AZURE_STORAGE_NAME} --resource-group ${AZURE_RESOURCE_GROUP} --json | jq .[0].value -r`
+# Create azure storage account
+az storage account create \
+  --resource-group="${RESOURCE_GROUP}" \
+  --location="${LOCATION}" \
+  --sku=Standard_LRS \
+  --name="${STORAGE_ACCOUNT}" \
+  --kind=Storage
 
-# Build the microsoft_vhd container.
-$ make docker-build-microsoft-vhd
-
-# Create an empty data disk in the "disks" container
-$ STORAGE_VOLUME_URI=`docker run -it microsoft_vhd ${AZURE_STORAGE_NAME} ${AZURE_STORAGE_KEY} "disks" ${STORAGE_NAME} ${STORAGE_SIZE}G`
+# Build microsoft tool for creating Azure VMs from an image
+$ STORAGE_KEY="$(az storage account keys list \
+                 --account-name="${STORAGE_ACCOUNT}" \
+                 --resource-group="${RESOURCE_GROUP}" \
+                 --output=json \
+                 | jq .[0].value -r
+              )"
+$ make docker-build-microsoft-vhd 
+$ VOLUME_URI="$(docker run -it microsoft_vhd \
+                "${STORAGE_ACCOUNT}" \
+                "${STORAGE_KEY}" \
+                "${CONTAINER_NAME}" \
+                "${STORAGE_NAME}" \
+                "${STORAGE_SIZE}G"
+             )"
 ```
 
 To check that everything has been setup correctly, try:
 
 ```sh
-$ azure storage account list
-# should see a number of storage accounts, including the one specified with ${AZURE_STORAGE_NAME}
-
-$ azure storage blob list --account-name ${AZURE_STORAGE_NAME} --account-key ${_AZURE_STORAGE_KEY}
-# should see a disk with the name ${STORAGE_NAME}
+$ az storage account list | jq '.[].name'
 ```
 
 The we can deploy Pachyderm:
 
 ```sh
-pachctl deploy custom --persistent-disk azure --object-store s3 ${STORAGE_VOLUME_URI} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint>
+pachctl deploy custom --persistent-disk azure --object-store s3 ${VOLUME_URI} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${VOLUME_URI}
 ```
