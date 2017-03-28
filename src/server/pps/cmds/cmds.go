@@ -142,7 +142,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/deployment/pipeline_spec.md"))
+	pipelineSpec := string(pachyderm.MustAsset("doc/reference/pipeline_spec.md"))
 
 	var jobPath string
 	var pushImages bool
