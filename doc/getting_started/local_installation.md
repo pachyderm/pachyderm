@@ -21,10 +21,10 @@ Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/d
 
 ```shell
 # For OSX:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.3
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.3.18/pachctl_1.3.18_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.0/pachctl_1.4.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 .. note::
