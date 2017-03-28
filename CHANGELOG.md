@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.4.0
+
+Features/improvements:
+
+- Correct processing of modifications and deletions.  In prior versions, Pachyderm pipelines can only process data additions; data that are removed or modified are effectively ignored.  In 1.4, when certain input data are removed (or modified), downstream pipelines know to remove (or modify) the output that were produced as a result of processing the said input data.
+
+As a consequence of this change, a user can now fix a pipeline that has processed erroneous data by simply making a new commit that fixes the said erroneous data, as opposed to having to create a new pipeline.
+
+- Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit. 
+
+- A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the glob doc for details.
+
+- Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed indepedently of commits.
+
+- Simplified commit states.  In prior versions, commits can be in many states including `open`, `closed`, `cancelled`, and `archived`.  In particular, `closed` and `archived` have confusing semantics that routinely trip up users.  In 1.4, `closed` and `archived` have been removed.
+
+- Flexible pipeline updates.  In prior versions, pipeline updates are all-or-nothing.  That is, an updated pipeline either processes all commits from scratch, or it processes only new commits.  In 1.4, it's possible to have the updated pipeline start processing from any given commit.
+
+- Reduced cluster resource consumption.  In prior versions, each Pachyderm job spawns up a Kubernetes job which in turn spawns up N pods, where N is the user-specified parallelism.  In 1.4, all jobs from a pipeline share N pods.  As a result, a cluster running 1.4 will likely spawn up way fewer pods and use fewer resources in total.
+
+- Simplified deployment dependencies.  In prior versions, Pachyderm depends on RethinkDB and etcd to function.  In 1.4, Pachyderm no longer depends on RethinkDB.
+
+- Dynamic volume provisioning.  GCE and AWS users (Azure support is coming soon) no longer have to manually provision persistent volumes for deploying Pachyderm.  `pachctl deploy` is now able to dynamically provision persistent volumes.  See the deployment doc for details.
+
+Removed features:
+
+A handful of APIs have been removed because they no longer make sense in 1.4.  They include:
+
+- ForkCommit (no longer necessary given the new branch APIs)
+- ArchiveCommit (the `archived` commit state has been removed)
+- ArchiveAll (same as above)
+- DeleteCommit (the original implementation of DeleteCommit is very limiting: only open head commits may be removed.  An improved version of DeleteCommit is coming soon)
+- SquashCommit (was only necessary due to the way PPS worked in prior versions)
+- ReplayCommit (same as above)
+
 ## 1.3.0
 
 Features:
