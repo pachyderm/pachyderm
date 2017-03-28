@@ -54,30 +54,29 @@ We also specify the repo name "images", the branch name "master", and what we wa
 Finally, we check to make sure the data we just added is in Pachyderm.
 
 .. code-block:: shell
+ # If we list the repos, we can see that there is now data
+ $ pachctl list-repo
+ NAME                CREATED             SIZE
+ images              5 minutes ago   57.27 KiB
 
-# If we list the repos, we can see that there is now data
-$ pachctl list-repo
-NAME                CREATED             SIZE
-images              5 minutes ago   57.27 KiB
-
-# We can view the commit we just created
-$ pachctl list-commit images
-REPO                ID                                 PARENT              STARTED            DURATION            SIZE
-images              7162f5301e494ec8820012576476326c   <none>              2 minutes ago      38 seconds          57.27 KiB
-# And view the file in that commit
-$ pachctl list-file images master
-NAME                TYPE                SIZE
-liberty.png         file                57.27 KiB
+ # We can view the commit we just created
+ $ pachctl list-commit images
+ REPO                ID                                 PARENT              STARTED            DURATION            SIZE
+ images              7162f5301e494ec8820012576476326c   <none>              2 minutes ago      38 seconds          57.27 KiB
+ # And view the file in that commit
+ $ pachctl list-file images master
+ NAME                TYPE                SIZE
+ liberty.png         file                57.27 KiB
  ...
 
 Finally, we can view the file we just added to Pachyderm. Since this is an image, we can't just print it out in the terminal, but the following commands will let you view it easily.
 
 .. code-block:: shell
  
-# on OSX
-$ pachctl get-file images master liberty.png | open -f -a /Applications/Preview.app
+ # on OSX
+ $ pachctl get-file images master liberty.png | open -f -a /Applications/Preview.app
 
-# on Linux
+ # on Linux
  $ pachctl get-file images master liberty.png | display
  ...
 
@@ -96,25 +95,25 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
 
 .. code-block:: json
 
-# edges.json
-{
-  "pipeline": {
-    "name": "edges"
-  },
-  "transform": {
-    "cmd": [ "python3", "/edges.py" ],
-    "image": "pachyderm/opencv"
-  },
-"inputs": [
-    {
-      "name": "images",
-      "repo": {
-        "name": "images"
-      },
-      "glob": "/*"
-    }
-  ]
-}
+ # edges.json
+ {
+   "pipeline": {
+     "name": "edges"
+   },
+   "transform": {
+     "cmd": [ "python3", "/edges.py" ],
+     "image": "pachyderm/opencv"
+   },
+ "inputs": [
+     {
+       "name": "images",
+       "repo": {
+         "name": "images"
+       },
+       "glob": "/*"
+     }
+   ]
+ }
  ...
 
 Our pipeline spec contains a few simple sections. First is the pipeline `name`, edges. Then we have the `transform` which specifies the docker image we want to use, `pachyderm/opencv` (defaults to Dockerhub as the registry), and the entry point `edges.py`. Lastly, we specify the inputs, our images repo and a glob pattern. 
