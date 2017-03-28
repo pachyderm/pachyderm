@@ -553,11 +553,11 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 //}
 //}
 
-// This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
+// This test fails if you updated some static assets (such as doc/reference/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
 func TestAssets(t *testing.T) {
-	assetPaths := []string{"doc/deployment/pipeline_spec.md"}
+	assetPaths := []string{"doc/reference/pipeline_spec.md"}
 
 	for _, path := range assetPaths {
 		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))

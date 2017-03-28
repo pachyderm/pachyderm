@@ -1,3 +1,5 @@
+**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+
 # Game of Thrones / Tensor Flow Example
 
 Adapted from the tensor flow LSTM example [here](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#recurrent-neural-networks)

@@ -6,15 +6,13 @@
     "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv"
   },
-  "parallelism_spec": {
-    "strategy": "CONSTANT",
-    "constant": "1"
-  },
-  "inputs": [
+"inputs": [
     {
+      "name": "images",
       "repo": {
         "name": "images"
-      }
+      },
+      "glob": "/*"
     }
   ]
 }

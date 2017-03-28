@@ -41,6 +41,8 @@ Options
     pachctl_fork-commit
     pachctl_get-file
     pachctl_get-logs
+    pachctl_get-object
+    pachctl_get-tag
     pachctl_inspect-commit
     pachctl_inspect-file
     pachctl_inspect-job
@@ -59,6 +61,7 @@ Options
     pachctl_put-file
     pachctl_replay-commit
     pachctl_repo
+    pachctl_rerun-pipeline
     pachctl_run-pipeline
     pachctl_squash-commit
     pachctl_start-commit
