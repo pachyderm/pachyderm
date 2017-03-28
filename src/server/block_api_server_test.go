@@ -16,7 +16,7 @@ func TestPutGet(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	object, err := c.PutObject(strings.NewReader("foo"))
+	object, _, err := c.PutObject(strings.NewReader("foo"))
 	require.NoError(t, err)
 	value, err := c.ReadObject(object.Hash)
 	require.NoError(t, err)
@@ -31,10 +31,10 @@ func TestTags(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	object, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
+	object, _, err := c.PutObject(strings.NewReader("foo"), "bar", "fizz")
 	require.NoError(t, err)
 	require.NoError(t, c.TagObject(object.Hash, "buzz"))
-	_, err = c.PutObject(strings.NewReader("foo"), "quux")
+	_, _, err = c.PutObject(strings.NewReader("foo"), "quux")
 	require.NoError(t, err)
 	value, err := c.ReadTag("bar")
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestManyObjects(t *testing.T) {
 	c := getPachClient(t)
 	var objects []string
 	for i := 0; i < 25; i++ {
-		object, err := c.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
+		object, _, err := c.PutObject(strings.NewReader(string(i)), fmt.Sprint(i))
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}
@@ -78,7 +78,7 @@ func TestBigObject(t *testing.T) {
 	}
 	c := getPachClient(t)
 	r := workload.NewReader(rand.New(rand.NewSource(time.Now().UnixNano())), 50*1024*1024)
-	object, err := c.PutObject(r)
+	object, _, err := c.PutObject(r)
 	require.NoError(t, err)
 	value, err := c.ReadObject(object.Hash)
 	require.NoError(t, err)
@@ -86,4 +86,30 @@ func TestBigObject(t *testing.T) {
 	value, err = c.ReadObject(object.Hash)
 	require.NoError(t, err)
 	require.Equal(t, 50*1024*1024, len(value))
+}
+
+func TestReadObjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	fooObject, _, err := c.PutObject(strings.NewReader("foo"))
+	require.NoError(t, err)
+	barObject, _, err := c.PutObject(strings.NewReader("bar"))
+	require.NoError(t, err)
+	value, err := c.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte("foobar"), value)
+	value, err = c.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 0, 2)
+	require.NoError(t, err)
+	require.Equal(t, []byte("fo"), value)
+	value, err = c.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 0, 4)
+	require.NoError(t, err)
+	require.Equal(t, []byte("foob"), value)
+	value, err = c.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 2, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte("obar"), value)
+	value, err = c.ReadObjects([]string{fooObject.Hash, barObject.Hash}, 4, 0)
+	require.NoError(t, err)
+	require.Equal(t, []byte("ar"), value)
 }

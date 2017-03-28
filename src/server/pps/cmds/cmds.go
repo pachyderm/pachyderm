@@ -15,12 +15,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/Jeffail/gabs"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -95,14 +93,7 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 
 func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
-	s, err := replaceMethodAliases(r.decoder)
-	if err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, describeSyntaxError(err, r.buf)
-	}
-	if err := jsonpb.UnmarshalString(s, &result); err != nil {
+	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -188,11 +179,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			}
 			var request ppsclient.CreateJobRequest
 			decoder := json.NewDecoder(jobReader)
-			s, err := replaceMethodAliases(decoder)
-			if err != nil {
-				return describeSyntaxError(err, buf)
-			}
-			if err := jsonpb.UnmarshalString(s, &request); err != nil {
+			if err := jsonpb.UnmarshalNext(decoder, &request); err != nil {
 				return sanitizeErr(err)
 			}
 			if pushImages {
@@ -255,11 +242,11 @@ Examples:
 	# return all jobs in pipeline foo
 	$ pachctl list-job -p foo
 
-	# return all jobs whose input commits include foo/master/1 and bar/master/2
-	$ pachctl list-job foo/master/1 bar/master/2
+	# return all jobs whose input commits include foo/XXX and bar/YYY
+	$ pachctl list-job foo/XXX bar/YYY
 
-	# return all jobs in pipeline foo and whose input commits include bar/master/2
-	$ pachctl list-job -p foo bar/master/2
+	# return all jobs in pipeline foo and whose input commits include bar/YYY
+	$ pachctl list-job -p foo bar/YYY
 
 `,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -311,18 +298,68 @@ Examples:
 		}),
 	}
 
+	var (
+		jobID       string
+		commaInputs string // comma-separated list of input files of interest
+	)
 	getLogs := &cobra.Command{
-		Use:   "get-logs job-id",
+		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
 		Short: "Return logs from a job.",
-		Long:  "Return logs from a job.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Long: `Return logs from a job.
+
+Examples:
+
+	# return logs emitted by recent jobs in the "filter" pipeline
+	$ pachctl get-logs --pipeline=filter
+
+	# return logs emitted by the job aedfa12aedf
+	$ pachctl get-logs --job=aedfa12aedf
+
+	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
-				return err
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
 			}
-			return client.GetLogs(args[0], os.Stdout)
+			// Validate flags
+			if len(jobID) == 0 && len(pipelineName) == 0 {
+				return fmt.Errorf("must set either --pipeline or --job (or both)")
+			}
+
+			// Break up comma-separated input paths, and filter out empty entries
+			data := strings.Split(commaInputs, ",")
+			for i := 0; i < len(data); {
+				if len(data[i]) == 0 {
+					if i+1 < len(data) {
+						copy(data[i:], data[i+1:])
+					}
+					data = data[:len(data)-1]
+				} else {
+					i++
+				}
+			}
+
+			// Issue RPC
+			marshaler := &jsonpb.Marshaler{}
+			iter := client.GetLogs(pipelineName, jobID, data)
+			for iter.Next() {
+				messageStr, err := marshaler.MarshalToString(iter.Message())
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "error unmarshalling \"%v\": %s\n", iter.Message(), err)
+				}
+				fmt.Println(messageStr)
+			}
+			return iter.Err()
 		}),
 	}
+	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
+		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
+		"this job (accepts job ID)")
+	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
+		"generated while processing these files (accepts PFS paths or file hashes)")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
@@ -384,7 +421,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
-	var archive bool
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
@@ -406,7 +442,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				request.Update = true
-				request.NoArchive = !archive
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -425,7 +460,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	updatePipeline.Flags().BoolVar(&archive, "archive", true, "Whether or not to archive existing commits in this pipeline's output repo.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
@@ -521,43 +555,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var rerunPipelineExclude cmdutil.RepeatedStringArg
-	rerunPipeline := &cobra.Command{
-		Use:   "rerun-pipeline pipeline-name commit",
-		Short: "Rerun part of a pipeline.",
-		Long: `Rerun part of a pipeline.
-Examples:
-
-	# Rerun pipeline foo on commits from branch/n to branch/m
-	pachctl rerun-pipeline foo branch/n -x branch/m
-
-Arguments the commit arguments have similar meaning to those in list-commit,
-you can use list-commit to see which output commits will be recomputed without
-actually rerunning the pipeline.
-`,
-		Run: cmdutil.Run(func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-			if len(args) == 0 {
-				return fmt.Errorf("expected at least 1 argument, got 0")
-			}
-			pipeline := args[0]
-			var include []*pfsclient.Commit
-			for _, commit := range args[1:] {
-				include = append(include, pach.NewCommit(pipeline, commit))
-			}
-			var exclude []*pfsclient.Commit
-			for _, commit := range rerunPipelineExclude {
-				exclude = append(exclude, pach.NewCommit(pipeline, commit))
-			}
-			return client.RerunPipeline(pipeline, include, exclude)
-		}),
-	}
-	rerunPipeline.Flags().VarP(&rerunPipelineExclude, "exclude", "x",
-		"exclude the ancestors of this commit, or exclude the commits on this branch")
-
 	var specPath string
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
@@ -573,7 +570,6 @@ actually rerunning the pipeline.
 				Pipeline: &ppsclient.Pipeline{
 					Name: args[0],
 				},
-				Force: true,
 			}
 
 			var buf bytes.Buffer
@@ -595,12 +591,7 @@ actually rerunning the pipeline.
 
 				specReader = io.TeeReader(specFile, &buf)
 				decoder := json.NewDecoder(specReader)
-				s, err := replaceMethodAliases(decoder)
-				if err != nil {
-					return describeSyntaxError(err, buf)
-				}
-
-				if err := jsonpb.UnmarshalString(s, request); err != nil {
+				if err := jsonpb.UnmarshalNext(decoder, request); err != nil {
 					return err
 				}
 			}
@@ -622,9 +613,9 @@ actually rerunning the pipeline.
 	result = append(result, job)
 	result = append(result, createJob)
 	result = append(result, inspectJob)
-	result = append(result, getLogs)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
 	result = append(result, updatePipeline)
@@ -633,7 +624,6 @@ actually rerunning the pipeline.
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
-	result = append(result, rerunPipeline)
 	result = append(result, runPipeline)
 	return result, nil
 }
@@ -664,45 +654,6 @@ func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
 	)
 
 	return errors.New(descriptiveErrorString)
-}
-
-func replaceMethodAliases(decoder *json.Decoder) (string, error) {
-	// We want to allow for a syntactic suger where the user
-	// can specify a method with a string such as "map" or "reduce".
-	// To that end, we check for the "method" field and replace
-	// the string with an actual method object before we unmarshal
-	// the json spec into a protobuf message
-	pipeline, err := gabs.ParseJSONDecoder(decoder)
-	if err != nil {
-		return "", err
-	}
-
-	// No need to do anything if the pipeline does not specify inputs
-	if !pipeline.ExistsP("inputs") {
-		return pipeline.String(), nil
-	}
-
-	inputs := pipeline.S("inputs")
-	children, err := inputs.Children()
-	if err != nil {
-		return "", err
-	}
-	for _, input := range children {
-		if !input.ExistsP("method") {
-			continue
-		}
-		methodAlias, ok := input.S("method").Data().(string)
-		if ok {
-			strat, ok := pach.MethodAliasMap[methodAlias]
-			if ok {
-				input.Set(strat, "method")
-			} else {
-				return "", fmt.Errorf("unrecognized input alias: %s", methodAlias)
-			}
-		}
-	}
-
-	return pipeline.String(), nil
 }
 
 func sanitizeErr(err error) error {

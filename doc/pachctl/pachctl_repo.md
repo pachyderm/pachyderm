@@ -7,7 +7,7 @@ Docs for repos.
 
 Repos, short for repository, are the top level data object in Pachyderm.
 
-Repos are created with create-repo.
+	Repos are created with create-repo.
 
 ```
 ./pachctl repo

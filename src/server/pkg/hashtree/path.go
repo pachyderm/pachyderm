@@ -1,6 +1,6 @@
 // This is a library that provides some path-cleaning and path manipulation
 // functions for hashtree.go. The functions it defines are very similar to the
-// function in go's "path" library.
+// functions in go's "path" library.
 
 // In both, a canonicalized path has a leading slash and no trailing slash in
 // general. The difference is:

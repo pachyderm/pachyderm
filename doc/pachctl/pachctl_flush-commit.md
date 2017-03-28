@@ -9,12 +9,11 @@ Wait for all commits caused by the specified commits to finish and return them.
 
 Examples:
 
-	# return commits caused by foo/master/1 and bar/master/2
-	$ pachctl flush-commit foo/master/1 bar/master/2
+# return commits caused by foo/XXX and bar/YYY
+$ pachctl flush-commit foo/XXX bar/YYY
 
-	# return commits caused by foo/master/1 leading to repos bar and baz
-	$ pachctl flush-commit foo/master/1 -r bar -r baz
-
+# return commits caused by foo/XXX leading to repos bar and baz
+$ pachctl flush-commit foo/XXX -r bar -r baz
 
 
 ```

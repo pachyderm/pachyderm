@@ -11,19 +11,6 @@ Return the files in a directory.
 ./pachctl list-file repo-name commit-id path/to/dir
 ```
 
-### Options
-
-```
-  -n, --block-modulus int   modulus of block shard (default 1)
-  -b, --block-shard int     block shard to read
-      --fast                if fast is true, don't compute the sizes of files; this makes list-file faster
-  -m, --file-modulus int    modulus of file shard (default 1)
-  -s, --file-shard int      file shard to read
-  -f, --from string         only consider data written since this commit
-      --full-file           if there has been data since the from commit return the full file
-      --recurse             if recurse is true, compute and display the sizes of directories
-```
-
 ### Options inherited from parent commands
 
 ```

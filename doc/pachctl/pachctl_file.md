@@ -7,8 +7,8 @@ Docs for files.
 
 Files are the lowest level data object in Pachyderm.
 
-Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.
+	Files can be written to started (but not finished) commits with put-file.
+	Files can be read from finished commits with get-file.
 
 ```
 ./pachctl file

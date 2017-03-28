@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -32,92 +33,43 @@ func NewPuller() *Puller {
 	}
 }
 
-// Pull clones an entire repo at a certain commit
-//
-// root is the local path you want to clone to
-// commit is the commit you want to clone
-// shard and diffMethod get passed to ListFile and GetFile. See documentations
-// for those functions for details on these arguments.
+// Pull clones an entire repo at a certain commit.
+// root is the local path you want to clone to.
+// fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
-// lazily downloading the data as it's needed
-func (p *Puller) Pull(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, pipes bool) error {
-	return p.pullDir(client, root, commit, diffMethod, shard, "/", pipes)
-}
-
-func (p *Puller) pullDir(client *pachclient.APIClient, root string, commit *pfs.Commit, diffMethod *pfs.DiffMethod, shard *pfs.Shard, dir string, pipes bool) error {
-	fromCommit := ""
-	fullFile := false
-	if diffMethod != nil {
-		if diffMethod.FromCommit != nil {
-			fromCommit = diffMethod.FromCommit.ID
+// lazily downloading the data as it's needed.
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
+	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE {
+			return nil
 		}
-		fullFile = diffMethod.FullFile
-	}
-	fileInfos, err := client.ListFile(
-		commit.Repo.Name,
-		commit.ID,
-		dir,
-		fromCommit,
-		fullFile,
-		shard,
-		false,
-	)
-	if err != nil {
-		return err
-	}
-
-	var g errgroup.Group
-	sem := make(chan struct{}, 100)
-	for _, fileInfo := range fileInfos {
-		fileInfo := fileInfo
-		sem <- struct{}{}
-		g.Go(func() (retErr error) {
-			defer func() { <-sem }()
-			switch fileInfo.FileType {
-			case pfs.FileType_FILE_TYPE_REGULAR:
-				path := filepath.Join(root, fileInfo.File.Path)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-					return err
-				}
-				if pipes {
-					if err := syscall.Mkfifo(path, 0666); err != nil {
-						return err
-					}
+		path := filepath.Join(root, fileInfo.File.Path)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			return err
+		}
+		if pipes {
+			if err := syscall.Mkfifo(path, 0666); err != nil {
+				return err
+			}
+			p.pipesMu.Lock()
+			p.pipes[path] = true
+			p.pipesMu.Unlock()
+			// This goro will block until the user's code opens the
+			// fifo.  That means we need to "abandon" this goro so that
+			// the function can return and the caller can execute the
+			// user's code. Waiting for this goro to return would
+			// produce a deadlock. This goro will exit (if it hasn't already)
+			// when CleanUp is called.
+			go func() {
+				if err := func() (retErr error) {
+					limiter.Acquire()
+					defer limiter.Release()
+					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 					p.pipesMu.Lock()
-					p.pipes[path] = true
+					delete(p.pipes, path)
 					p.pipesMu.Unlock()
-					// This goro will block until the user's code opens the
-					// fifo.  That means we need to "abandon" this goro so that
-					// the function can return and the caller can execute the
-					// user's code. Waiting for this goro to return would
-					// produce a deadlock.
-					go func() {
-						if err := func() (retErr error) {
-							f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-							p.pipesMu.Lock()
-							delete(p.pipes, path)
-							p.pipesMu.Unlock()
-							if err != nil {
-								return err
-							}
-							defer func() {
-								if err := f.Close(); err != nil && retErr == nil {
-									retErr = err
-								}
-							}()
-							if err := client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f); err != nil {
-								return err
-							}
-							return nil
-						}(); err != nil {
-							select {
-							case p.errCh <- err:
-							default:
-							}
-						}
-					}()
-				} else {
-					f, err := os.Create(path)
 					if err != nil {
 						return err
 					}
@@ -126,15 +78,39 @@ func (p *Puller) pullDir(client *pachclient.APIClient, root string, commit *pfs.
 							retErr = err
 						}
 					}()
-					return client.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, fromCommit, fullFile, shard, f)
+					err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
+					if err != nil {
+						return err
+					}
+					return nil
+				}(); err != nil {
+					select {
+					case p.errCh <- err:
+					default:
+					}
 				}
-			case pfs.FileType_FILE_TYPE_DIR:
-				return p.pullDir(client, root, commit, diffMethod, shard, fileInfo.File.Path, pipes)
-			}
-			return nil
-		})
+			}()
+		} else {
+			eg.Go(func() (retErr error) {
+				limiter.Acquire()
+				defer limiter.Release()
+				f, err := os.Create(path)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
+			})
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
-	return g.Wait()
+	return eg.Wait()
 }
 
 // CleanUp cleans up blocked syscalls for pipes that were never opened. It also
@@ -206,8 +182,8 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
-	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", "", false, nil, func(fileInfo *pfs.FileInfo) error {
-		if fileInfo.FileType != pfs.FileType_FILE_TYPE_REGULAR {
+	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
 		eg.Go(func() (retErr error) {
@@ -220,7 +196,7 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 					retErr = err
 				}
 			}()
-			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, "", false, nil, w)
+			pachClient.GetFile(commit.Repo.Name, commit.ID, fileInfo.File.Path, 0, 0, w)
 			return nil
 		})
 		return nil

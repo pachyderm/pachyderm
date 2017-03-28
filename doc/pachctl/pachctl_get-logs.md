@@ -7,8 +7,28 @@ Return logs from a job.
 
 Return logs from a job.
 
+Examples:
+
+	# return logs emitted by recent jobs in the "filter" pipeline
+	$ pachctl get-logs --pipeline=filter
+
+	# return logs emitted by the job aedfa12aedf
+	$ pachctl get-logs --job=aedfa12aedf
+
+	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
+
+
 ```
-./pachctl get-logs job-id
+./pachctl get-logs [--pipeline=<pipeline>|--job=<job id>]
+```
+
+### Options
+
+```
+      --inputs string     Filter for log lines generated while processing these files (accepts PFS paths or file hashes)
+      --job string        Filter for log lines from this job (accepts job ID)
+      --pipeline string   Filter the log for lines from this pipeline (accepts pipeline name)
 ```
 
 ### Options inherited from parent commands

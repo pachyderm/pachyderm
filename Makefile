@@ -72,7 +72,7 @@ point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-job-shim release-pachctl doc
+release: release-version release-pachd release-worker release-pachctl doc
 	@rm VERSION
 	@echo "Release completed"
 
@@ -85,8 +85,8 @@ release-version:
 release-pachd:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachd
 
-release-job-shim:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_job_shim
+release-worker:
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
 
 release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
@@ -94,15 +94,15 @@ release-pachctl:
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
-docker-clean-job-shim:
-	docker stop job_shim_compile || true
-	docker rm job_shim_compile || true
+docker-clean-worker:
+	docker stop worker_compile || true
+	docker rm worker_compile || true
 
-docker-build-job-shim: docker-clean-job-shim docker-build-compile
-	docker run --name job_shim_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim "$(LD_FLAGS)"
+docker-build-worker: docker-clean-worker docker-build-compile
+	docker run --name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh worker "$(LD_FLAGS)"
 
-docker-wait-job-shim:
-	etc/compile/wait.sh job_shim_compile
+docker-wait-worker:
+	etc/compile/wait.sh worker_compile
 
 docker-clean-pachd:
 	docker stop pachd_compile || true
@@ -111,13 +111,21 @@ docker-clean-pachd:
 docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
+docker-clean-test:
+	docker stop test_compile || true
+	docker rm test_compile || true
+
+docker-build-test: docker-clean-test docker-build-compile
+	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
+	etc/compile/wait.sh test_compile
+
 docker-build-microsoft-vhd:
 	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
 
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-job-shim docker-build-pachd docker-wait-job-shim docker-wait-pachd
+docker-build: docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -131,6 +139,39 @@ check-kubectl:
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
+
+launch-dev-bench: docker-build docker-build-test install
+	@# Put it here so sudo can see it
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	make launch-bench
+
+push-bench-images:
+	# We need the pachyderm_compile image to be up to date
+	docker tag pachyderm_pachd pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/pachd:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_worker pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/worker:1.4.0-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
+	
+launch-bench: docker-build docker-build-test
+	rm /usr/local/bin/pachctl || true
+	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	etc/deploy/aws.sh
+	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+
+run-bench:
+	kubectl scale --replicas=4 rc/pachd
+	echo "waiting for pachd to scale up" && sleep 10
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- -test.v -test.bench=BenchmarkDaily -test.run=XXX
+
+clean-launch-bench:
+	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
+	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
+	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
+
+bench: clean-launch-bench push-bench-images launch-bench run-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
@@ -157,6 +198,7 @@ clean-launch: check-kubectl
 
 clean-launch-dev: check-kubectl
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
+	kubectl $(KUBECTLFLAGS) delete rc -l suite=pachyderm
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -210,10 +252,18 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-bench:
-	go test ./src/server -run=XXX -bench=.
+test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
+
+test-pfs:
+	go test ./src/server/pfs/server
+
+test-pps:
+	go test ./src/server/
+
+test-hashtree:
+	go test ./src/server/pkg/hashtree
 
 test-client:
 	rm -rf src/client/vendor
@@ -384,17 +434,17 @@ goxc-build:
 	install-doc \
 	homebrew \
 	release \
-	release-job-shim \
+	release-worker \
 	release-manifest \
 	release-pachd \
 	release-version \
 	docker-build \
 	docker-build-compile \
-	docker-build-job-shim \
+	docker-build-worker \
 	docker-build-microsoft-vhd \
 	docker-build-pachd \
 	docker-build-proto \
-	docker-push-job-shim \
+	docker-push-worker \
 	docker-push-pachd \
 	docker-push \
 	launch-kube \

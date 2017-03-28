@@ -19,13 +19,12 @@ Environment variables:
 ```
 
 ### SEE ALSO
-* [./pachctl archive-all](./pachctl_archive-all.md)	 - Archives all commits in all repos.
 * [./pachctl commit](./pachctl_commit.md)	 - Docs for commits.
 * [./pachctl create-job](./pachctl_create-job.md)	 - Create a new job. Returns the id of the created job.
 * [./pachctl create-pipeline](./pachctl_create-pipeline.md)	 - Create a new pipeline.
 * [./pachctl create-repo](./pachctl_create-repo.md)	 - Create a new repo.
 * [./pachctl delete-all](./pachctl_delete-all.md)	 - Delete everything.
-* [./pachctl delete-commit](./pachctl_delete-commit.md)	 - Delete a commit.
+* [./pachctl delete-branch](./pachctl_delete-branch.md)	 - Delete a branch
 * [./pachctl delete-file](./pachctl_delete-file.md)	 - Delete a file.
 * [./pachctl delete-job](./pachctl_delete-job.md)	 - Delete a job.
 * [./pachctl delete-pipeline](./pachctl_delete-pipeline.md)	 - Delete a pipeline.
@@ -34,7 +33,6 @@ Environment variables:
 * [./pachctl file](./pachctl_file.md)	 - Docs for files.
 * [./pachctl finish-commit](./pachctl_finish-commit.md)	 - Finish a started commit.
 * [./pachctl flush-commit](./pachctl_flush-commit.md)	 - Wait for all commits caused by the specified commits to finish and return them.
-* [./pachctl fork-commit](./pachctl_fork-commit.md)	 - Start a new commit with a given parent on a new branch.
 * [./pachctl get-file](./pachctl_get-file.md)	 - Return the contents of a file.
 * [./pachctl get-logs](./pachctl_get-logs.md)	 - Return logs from a job.
 * [./pachctl get-object](./pachctl_get-object.md)	 - Return the contents of an object
@@ -55,11 +53,9 @@ Environment variables:
 * [./pachctl pipeline](./pachctl_pipeline.md)	 - Docs for pipelines.
 * [./pachctl port-forward](./pachctl_port-forward.md)	 - Forward a port on the local machine to pachd. This command blocks.
 * [./pachctl put-file](./pachctl_put-file.md)	 - Put a file into the filesystem.
-* [./pachctl replay-commit](./pachctl_replay-commit.md)	 - Replay a number of commits onto a branch.
 * [./pachctl repo](./pachctl_repo.md)	 - Docs for repos.
-* [./pachctl rerun-pipeline](./pachctl_rerun-pipeline.md)	 - Rerun part of a pipeline.
 * [./pachctl run-pipeline](./pachctl_run-pipeline.md)	 - Run a pipeline once.
-* [./pachctl squash-commit](./pachctl_squash-commit.md)	 - Squash a number of commits into a single commit.
+* [./pachctl set-branch](./pachctl_set-branch.md)	 - Set a commit and its ancestors to a branch
 * [./pachctl start-commit](./pachctl_start-commit.md)	 - Start a new commit.
 * [./pachctl start-pipeline](./pachctl_start-pipeline.md)	 - Restart a stopped pipeline.
 * [./pachctl stop-pipeline](./pachctl_stop-pipeline.md)	 - Stop a running pipeline.

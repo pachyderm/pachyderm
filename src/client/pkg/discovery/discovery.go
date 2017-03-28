@@ -44,22 +44,3 @@ type Client interface {
 func NewEtcdClient(addresses ...string) Client {
 	return newEtcdClient(addresses...)
 }
-
-// Registry is an object that allows a value to be registered as
-// valid for the lifetime of a process, and allows all values
-// registered to be retrieved.
-type Registry interface {
-	// Register registers the value. This will start a goroutine
-	// that will constantly set the value as valid until the
-	// process stops. If an error occurs, it will be returned on
-	// the channel.
-	Register(value string) <-chan error
-	// GetAll gets all valid values.
-	GetAll() ([]string, error)
-}
-
-// NewRegistry returns a new Registry using the given Client.
-// All values will be placed inside the given directory.
-func NewRegistry(client Client, directory string) Registry {
-	return newRegistry(client, directory)
-}
