@@ -57,12 +57,17 @@ To deploy Pachyderm we will need to:
 
 #### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  The persistent disk will be created dynamically when we deploy Pachyderm, but we will need to specify the size:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  The create the persistent disk:
 
 ```shell
 # For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
 # should work for 1000 commits on 1000 files.
 $ STORAGE_SIZE=[the size of the volume that you are going to create, in GBs. e.g. "10"]
+
+# Name this whatever you want, we chose pach-disk as a default
+$ STORAGE_NAME=pach-disk
+
+$ gcloud compute disks create --size=${STORAGE_SIZE}GB ${STORAGE_NAME}
 ```
 
 Then we need to specify the bucket name and create the bucket:
@@ -81,6 +86,9 @@ $ gcloud compute instances list
 
 $ gsutil ls
 # should see a bucket
+
+$ gcloud compute disks list
+# should see a number of disks, including the one you specified
 ```
 
 #### Install `pachctl`
@@ -112,7 +120,7 @@ please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 
 ```sh
-pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
 ```
 
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
