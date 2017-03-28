@@ -159,7 +159,7 @@ launch-bench: docker-build docker-build-test
 	rm /usr/local/bin/pachctl || true
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
-	until timeout 1s ./etc/kube/check_pachd_ready.sh; do sleep 1; done
+	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 
 run-bench:
 	kubectl scale --replicas=4 rc/pachd
@@ -257,13 +257,13 @@ pretest:
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
 test-pfs:
-	go test ./src/server/pfs/server
+	go test -v ./src/server/pfs/server
 
 test-pps:
-	go test ./src/server/
+	go test -v ./src/server/
 
 test-hashtree:
-	go test ./src/server/pkg/hashtree
+	go test -v ./src/server/pkg/hashtree
 
 test-client:
 	rm -rf src/client/vendor
