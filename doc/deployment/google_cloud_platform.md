@@ -119,25 +119,20 @@ It may take a few minutes for the pachd nodes to be running because it's pulling
 
 ```sh
 $ kubectl get all
-NAME               READY     STATUS    RESTARTS   AGE
-po/etcd-xzc0d      1/1       Running   0          55s
-po/pachd-6m6wm     1/1       Running   0          55s
-po/rethink-388b3   1/1       Running   0          55s
+NAME             READY     STATUS    RESTARTS   AGE
+po/etcd-wn317    1/1       Running   0          5m
+po/pachd-mljp6   1/1       Running   3          5m
 
-NAME         DESIRED   CURRENT   READY     AGE
-rc/etcd      1         1         1         55s
-rc/pachd     1         1         1         55s
-rc/rethink   1         1         1         55s
+NAME       DESIRED   CURRENT   READY     AGE
+rc/etcd    1         1         1         5m
+rc/pachd   1         1         1         5m
 
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                          AGE
-svc/etcd         10.0.0.92    <none>        2379/TCP,2380/TCP                                55s
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                          9m
-svc/pachd        10.0.0.61    <nodes>       650:30650/TCP,651:30651/TCP                      55s
-svc/rethink      10.0.0.87    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:32085/TCP   55s
-
-NAME              DESIRED   SUCCESSFUL   AGE
-jobs/pachd-init   1         1            55s
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                         AGE
+svc/etcd         10.0.0.165   <nodes>       2379:32379/TCP,2380:32686/TCP   5m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                         5m
+svc/pachd        10.0.0.214   <nodes>       650:30650/TCP,651:30651/TCP     5m
 ```
+
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before other components were ready so it restarted them.
 
 Finally, assuming your `pachd` is running as shown above, we need to set up forward a port so that `pachctl` can talk to the cluster.
@@ -152,6 +147,6 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.3.2
-pachd               1.3.2
+pachctl             1.4.0
+pachd               1.4.0
 ```
