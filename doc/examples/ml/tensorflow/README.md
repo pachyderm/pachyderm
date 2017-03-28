@@ -20,7 +20,7 @@ The cylinders represent data “repositories” in which Pachyderm will version 
 
 ## Getting up and running with Pachyderm
 
-You can experiment with this pipeline locally using a quick [local installation of Pachyderm](http://docs.pachyderm.io/en/v1.4.0-rc4/getting_started/local_installation.html).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](http://docs.pachyderm.io/en/v1.4.0-rc4/deployment/deploy_intro.html) for more details on deployment.
+You can experiment with this pipeline locally using a quick [local installation of Pachyderm](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](http://docs.pachyderm.io/en/latest/deployment/deploy_intro.html) for more details on deployment.
 
 Once deployed, you will be able to use the Pachyderm’s `pachctl` CLI tool to create data repositories and start our deep learning pipeline.
 
@@ -39,6 +39,8 @@ We can deploy this part of the pipeline in two quick steps:
 
 1. Create the initial “training” data repository with `pachctl create-repo training`.
 2. Supply Pachyderm with a JSON specification, `training_and_export.json`, telling Pachyderm to: (i) run Chris’s `pix2pix.py` script in “train” mode on the data in the “training” repository outputting a checkpoint to the “checkpoint” repository, and (ii) run the `pix2pix.py` script in “export” mode on the data in the “checkpoint” repository outputting a persisted model to the “model” repository. This can be done by running `pachctl create-pipeline -f training_and_export.json`.
+
+(training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script)
 
 ## Preparing the pre-processing and image generation stages
 

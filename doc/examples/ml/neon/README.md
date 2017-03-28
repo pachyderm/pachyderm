@@ -4,6 +4,11 @@
 
 This machine learning pipeline integrates Nervana Neon training and inference into a production scale pipeline using Pachyderm.  In particular, this pipeline trains and utilizes a model that predicts the sentiment of movie reviews, based on data from IMDB.
 
+## Getting Started
+
+- Clone this repo or download the files for the example.
+- Download the training data [here](https://www.kaggle.com/c/word2vec-nlp-tutorial/data).
+
 ## Deploying Pachyderm
 
 See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note, this demo requires `pachctl` 1.4.0+.  
@@ -30,6 +35,8 @@ Because we have already deployed the pipeline, the training portion of the pipel
 ```sh
 $ pachctl put-file training master labeledTrainData.tsv -c -f labeledTrainData.tsv
 ```
+
+The training should take about 10-15 minutes depending on your environment.
 
 ## Running model inference
 
