@@ -8,7 +8,7 @@ Deploy a Pachyderm cluster running on GCP.
 Deploy a Pachyderm cluster running on GCP.
 Arguments are:
   <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.
-  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per rethink shard (see --rethink-shards).
+  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).
   <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).
 
 
@@ -19,16 +19,12 @@ Arguments are:
 ### Options inherited from parent commands
 
 ```
-      --block-cache-size string          Size of in-memory cache to use for blocks. Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). (default "5G")
-      --deploy-rethink-as-rc             Defunct flag (does nothing). The default behavior since Pachyderm 1.3.2 is to manage RethinkDB with a Kubernetes Replication Controller.
-      --deploy-rethink-as-stateful-set   Deploy RethinkDB as a multi-node cluster controlled by kubernetes StatefulSet, instead of a single-node instance controlled by a Kubernetes Replication Controller. Note that both your local kubectl binary and the kubernetes server must be at least version 1.5.
-      --dry-run                          Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.
-      --log-level string                 The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
-      --no-metrics                       Don't report user metrics for this command
-      --rethink-cache-size string        Size of in-memory cache to use for Pachyderm's RethinkDB instance, e.g. "2G". Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). (default "768M")
-      --rethink-shards int               Number of RethinkDB shards (for pfs metadata storage) if --deploy-rethink-as-stateful-set is used. (default 1)
-      --shards int                       Number of Pachd nodes (stateless Pachyderm API servers). (default 16)
-  -v, --verbose                          Output verbose logs
+      --block-cache-size string   Size of in-memory cache to use for blocks. Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). (default "5G")
+      --dry-run                   Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.
+      --log-level string          The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
+      --no-metrics                Don't report user metrics for this command
+      --shards int                Number of Pachd nodes (stateless Pachyderm API servers). (default 16)
+  -v, --verbose                   Output verbose logs
 ```
 
 ### SEE ALSO

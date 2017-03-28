@@ -14,12 +14,8 @@ Mount pfs locally. This command blocks.
 ### Options
 
 ```
-  -a, --all-commits         Show archived and cancelled commits.
-  -n, --block-modulus int   modulus of block shard (default 1)
-  -b, --block-shard int     block shard to read
-  -d, --debug               Turn on debug messages.
-  -m, --file-modulus int    modulus of file shard (default 1)
-  -s, --file-shard int      file shard to read
+  -a, --all-commits   Show archived and cancelled commits.
+  -d, --debug         Turn on debug messages.
 ```
 
 ### Options inherited from parent commands

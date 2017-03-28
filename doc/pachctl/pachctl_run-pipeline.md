@@ -18,9 +18,7 @@ Run a pipeline once, optionally overriding some pipeline options by providing a 
         },
         "id": "10cf676b626044f9a405235bf7660959"
       },
-      "method": {
-        "partition": "REPO"
-      }
+      "glob": "*"
     }
   ]
 }

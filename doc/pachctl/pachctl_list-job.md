@@ -15,11 +15,11 @@ Examples:
 	# return all jobs in pipeline foo
 	$ pachctl list-job -p foo
 
-	# return all jobs whose input commits include foo/master/1 and bar/master/2
-	$ pachctl list-job foo/master/1 bar/master/2
+	# return all jobs whose input commits include foo/XXX and bar/YYY
+	$ pachctl list-job foo/XXX bar/YYY
 
-	# return all jobs in pipeline foo and whose input commits include bar/master/2
-	$ pachctl list-job -p foo bar/master/2
+	# return all jobs in pipeline foo and whose input commits include bar/YYY
+	$ pachctl list-job -p foo bar/YYY
 
 
 

@@ -11,12 +11,6 @@ Finish a started commit. Commit-id must be a writeable commit.
 ./pachctl finish-commit repo-name commit-id
 ```
 
-### Options
-
-```
-  -c, --cancel   cancel the commit
-```
-
 ### Options inherited from parent commands
 
 ```

@@ -11,17 +11,6 @@ Return info about a file.
 ./pachctl inspect-file repo-name commit-id path/to/file
 ```
 
-### Options
-
-```
-  -n, --block-modulus int   modulus of block shard (default 1)
-  -b, --block-shard int     block shard to read
-  -m, --file-modulus int    modulus of file shard (default 1)
-  -s, --file-shard int      file shard to read
-  -f, --from string         only consider data written since this commit
-      --full-file           if there has been data since the from commit return the full file
-```
-
 ### Options inherited from parent commands
 
 ```

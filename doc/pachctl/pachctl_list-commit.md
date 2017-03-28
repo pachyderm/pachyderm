@@ -9,19 +9,20 @@ Return all commits on a set of repos.
 
 Examples:
 
-	# return commits in repo "foo" and repo "bar"
-	$ pachctl list-commit foo bar
+# return commits in repo "foo"
+$ pachctl list-commit foo
 
-	# return commits in repo "foo" on branch "master"
-	$ pachctl list-commit foo/master
+# return commits in repo "foo" on branch "master"
+$ pachctl list-commit foo master
 
-	# return commits in repo "foo" since commit master/2
-	$ pachctl list-commit foo/master -e foo/master/2
+# return the last 20 commits in repo "foo" on branch "master"
+$ pachctl list-commit foo master -n 20
 
-	# return commits in repo "foo" that have commits
-	# "bar/master/3" and "baz/master/5" as provenance
-	$ pachctl list-commit foo -p bar/master/3 -p baz/master/5
+# return commits that are the ancestors of XXX
+$ pachctl list-commit foo XXX
 
+# return commits in repo "foo" since commit XXX
+$ pachctl list-commit foo master --from XXX
 
 
 ```
@@ -31,10 +32,8 @@ Examples:
 ### Options
 
 ```
-  -a, --all                 list all commits including cancelled and archived ones
-  -b, --block               block until there are new commits since the from commits
-  -x, --exclude value       exclude the ancestors of this commit, or exclude the commits on this branch (default [])
-  -p, --provenance commit   list only commits with the specified commits provenance, commits are specified as RepoName/CommitID (default [])
+  -f, --from string   list all commits since this commit
+  -n, --number int    list only this many commits; if set to zero, list all commits
 ```
 
 ### Options inherited from parent commands

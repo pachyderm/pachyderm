@@ -1,7 +1,6 @@
 package example
 
 import (
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -33,12 +32,9 @@ var (
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
-				Method: client.MapMethod,
-				Lazy:   true,
+				Glob: "*",
+				Lazy: true,
 			},
-		},
-		ParentJob: &ppsclient.Job{
-			ID: "a951ca06cfda4377b8ffaa050d1074df",
 		},
 	}
 	// CreatePipelineRequest example
@@ -53,8 +49,8 @@ var (
 		},
 		Inputs: []*ppsclient.PipelineInput{
 			{
-				Repo:   &pfs.Repo{Name: "in_repo"},
-				Method: client.ReduceMethod,
+				Repo: &pfs.Repo{Name: "in_repo"},
+				Glob: "*",
 			},
 		},
 	}
@@ -66,7 +62,7 @@ var (
 					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
-				Method: client.GlobalMethod,
+				Glob: "*",
 			},
 		},
 		ParallelismSpec: &ppsclient.ParallelismSpec{

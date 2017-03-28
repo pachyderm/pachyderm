@@ -8,13 +8,7 @@ Return all branches on a repo.
 Return all branches on a repo.
 
 ```
-./pachctl list-branch repo-name
-```
-
-### Options
-
-```
-  -a, --all   list all branches including cancelled and archived ones
+./pachctl list-branch <repo-name>
 ```
 
 ### Options inherited from parent commands
