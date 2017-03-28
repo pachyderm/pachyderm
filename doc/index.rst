@@ -8,10 +8,11 @@
 Pachyderm Developer Documentation
 =================================
 
-Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs and an FAQ. 
+Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs. 
 
 If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on `GitHub <https://github.com/pachyderm/pachyderm>`_, our `Users Slack channel <https://pachyderm-users.slack.com/shared_invite/MTQwMzA4OTU1NzY2LTE0ODY2ODk4NjUtMjNhMGRmM2NmZQ>`_, or email us at support@pachyderm.io. 
 
+Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `here <http://docs.pachyderm.io/en/v1.3.17/>`_.
 
 .. toctree::
     :maxdepth: 1
