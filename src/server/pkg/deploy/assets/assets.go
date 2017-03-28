@@ -389,7 +389,7 @@ func EtcdStorageClass(backend backend) (interface{}, error) {
 			"type": "gp2",
 		}
 	default:
-		return nil, fmt.Errorf("cannot generate storage class for backend: %d", backend)
+		return nil, nil
 	}
 	return sc, nil
 }
@@ -541,7 +541,7 @@ func EtcdHeadlessService() *api.Service {
 }
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
-func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
+func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{} {
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
 		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
@@ -562,6 +562,47 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 	}
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
+	}
+
+	var pvcTemplates []interface{}
+	switch backend {
+	case googleBackend, amazonBackend:
+		pvcTemplates = []interface{}{
+			map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":   etcdVolumeClaimName,
+					"labels": labels(etcdName),
+					"annotations": map[string]string{
+						"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
+					},
+				},
+				"spec": map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"storage": resource.MustParse(fmt.Sprintf("%vGi", diskSpace)),
+						},
+					},
+					"accessModes": []string{"ReadWriteOnce"},
+				},
+			},
+		}
+	default:
+		pvcTemplates = []interface{}{
+			map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":   etcdVolumeClaimName,
+					"labels": labels(etcdName),
+				},
+				"spec": map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"storage": resource.MustParse(fmt.Sprintf("%vGi", diskSpace)),
+						},
+					},
+					"accessModes": []string{"ReadWriteOnce"},
+				},
+			},
+		}
 	}
 
 	// As of March 17, 2017, the Kubernetes client does not include structs for
@@ -626,25 +667,7 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 					},
 				},
 			},
-			"volumeClaimTemplates": []interface{}{
-				map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"name":   etcdVolumeClaimName,
-						"labels": labels(etcdName),
-						"annotations": map[string]string{
-							"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
-						},
-					},
-					"spec": map[string]interface{}{
-						"resources": map[string]interface{}{
-							"requests": map[string]interface{}{
-								"storage": resource.MustParse(fmt.Sprintf("%vGi", diskSpace)),
-							},
-						},
-						"accessModes": []string{"ReadWriteOnce"},
-					},
-				},
-			},
+			"volumeClaimTemplates": pvcTemplates,
 		},
 	}
 }
@@ -769,11 +792,13 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		if err != nil {
 			return err
 		}
-		encoder.Encode(sc)
-		fmt.Fprintf(w, "\n")
+		if sc != nil {
+			encoder.Encode(sc)
+			fmt.Fprintf(w, "\n")
+		}
 		EtcdHeadlessService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		encoder.Encode(EtcdStatefulSet(opts, volumeSize))
+		encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize))
 		fmt.Fprintf(w, "\n")
 	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdVolume, volumeSize)
