@@ -5,7 +5,7 @@ There are three steps to running an analysis in a Pachyderm "pipeline":
 2. Build a [Docker](https://docs.docker.com/engine/getstarted/step_four/) image that includes your code and dependencies.
 3. Create a Pachyderm "pipeline" referencing that Docker image.
 
-Multi-stage pipelines (e.g., parsing -> modeling -> output) can be created by repeating these three steps to build up a graph of processing steps.  For more tips on composing pipelines see ["Composing More Complicated Pipelines"](../cookbook/composing_pipelines_PLACEHOLDER).
+Multi-stage pipelines (e.g., parsing -> modeling -> output) can be created by repeating these three steps to build up a graph of processing steps.  For more tips on composing pipelines see ["Composing Pipelines"](https://github.com/pachyderm/pachyderm/tree/master/doc/old/advanced/composing_pipelines.rst).
 
 ## 1. Writing your analysis code
 
