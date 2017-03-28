@@ -45,15 +45,26 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 	return nil
 }
 
+// PrintBranchHeader prints a branch header.
+func PrintBranchHeader(w io.Writer) {
+	fmt.Fprint(w, "BRANCH\tHEAD\t\n")
+}
+
+// PrintBranch pretty-prints a Branch.
+func PrintBranch(w io.Writer, branch *pfs.Branch) {
+	fmt.Fprintf(w, "%s\t", branch.Name)
+	fmt.Fprintf(w, "%s\t\n", branch.Head.ID)
+}
+
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "BRANCH\tREPO/ID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")
+	fmt.Fprint(w, "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")
 }
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
-	fmt.Fprintf(w, "%s/%s\t", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
 		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
 	} else {
@@ -76,13 +87,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}} {{end}} {{if .Branch}}
-Branch: {{.Branch}} {{end}}
+Parent: {{.ParentCommit.ID}} {{end}}
 Started: {{prettyAgo .Started}}{{if .Finished}}
 Finished: {{prettyAgo .Finished}} {{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}{{if .Cancelled}}
-CANCELLED {{end}}
+Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -96,39 +105,20 @@ CANCELLED {{end}}
 
 // PrintFileInfoHeader prints a file info header.
 func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\t\n")
+	fmt.Fprint(w, "NAME\tTYPE\tSIZE\t\n")
 }
 
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, recurse bool, fast bool) {
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	fmt.Fprintf(
-		w,
-		"%s\t",
-		pretty.Ago(fileInfo.Modified),
-	)
-	fmt.Fprintf(w, "%s\t", fileInfo.CommitModified.ID)
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		if !recurse && int(fileInfo.SizeBytes) == 0 {
-			fmt.Fprintf(w, "-\t\n")
-		} else {
-			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
-		}
-	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-		if fast && fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && int(fileInfo.SizeBytes) == 0 {
-			fmt.Fprintf(w, "-\t\n")
-		} else {
-			fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
-		}
-	}
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.
@@ -136,10 +126,8 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 	template, err := template.New("FileInfo").Funcs(funcMap).Parse(
 		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
-Modifed: {{prettyAgo .Modified}}
 Size: {{prettySize .SizeBytes}}
-Commit Modified: {{.CommitModified.Repo.Name}}/{{.CommitModified.ID}}{{if .Children}}
-Children: {{range .Children}} {{.Path}} {{end}} {{end}}
+Children: {{range .Children}} {{.Path}} {{end}}
 `)
 	if err != nil {
 		return err
@@ -150,22 +138,6 @@ Children: {{range .Children}} {{.Path}} {{end}} {{end}}
 	return nil
 }
 
-// PrintBlockInfoHeader prints a block info header.
-func PrintBlockInfoHeader(w io.Writer) {
-	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
-}
-
-// PrintBlockInfo pretty-prints block info.
-func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
-	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
-	fmt.Fprintf(
-		w,
-		"%s\t",
-		pretty.Ago(blockInfo.Created),
-	)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
-}
-
 type uint64Slice []uint64
 
 func (s uint64Slice) Len() int           { return len(s) }
@@ -173,7 +145,7 @@ func (s uint64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s uint64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
 func fileType(fileType pfs.FileType) string {
-	if fileType == pfs.FileType_FILE_TYPE_REGULAR {
+	if fileType == pfs.FileType_FILE {
 		return "file"
 	}
 	return "dir"

@@ -7,15 +7,11 @@ package fuse;
 
 message CommitMount {
     pfs.Commit commit = 1;
-    pfs.DiffMethod diff_method = 2;
-    bool full_file = 3;
     string alias = 4;
-    pfs.Shard shard = 5;
     bool lazy = 6;
 }
 
 message Filesystem {
-  pfs.Shard shard = 1;
   repeated CommitMount commit_mounts = 2;
 }
 
@@ -23,7 +19,6 @@ message Node {
   pfs.File file = 1;
   string repo_alias = 2;
   bool write = 3;
-  pfs.Shard shard = 4;
   google.protobuf.Timestamp modified = 5;
 }
 

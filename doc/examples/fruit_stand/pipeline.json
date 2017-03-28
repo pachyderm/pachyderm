@@ -6,7 +6,7 @@
     "cmd": [ "sh" ],
     "stdin": [
         "for fruit in apple orange banana; do",
-        "   grep $fruit /pfs/data/sales | awk '{print $2}' >>/pfs/out/$fruit",
+        "   grep $fruit /pfs/d/sales | awk '{print $2}' >>/pfs/out/$fruit",
         "done"
     ]
   },
@@ -46,13 +46,10 @@
   },
   "inputs": [
     {
-      "repo": {
-        "name": "filter"
-      },
-      "method": {
-        "partition": "FILE",
-        "incremental": "DIFF"
-      }
+      "name": "d",
+      "repo": { "name": "data" },
+      "branch": "master",
+      "glob": "/*"
     }
   ]
 }

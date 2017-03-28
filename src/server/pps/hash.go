@@ -2,8 +2,6 @@ package pps
 
 import (
 	"hash/adler32"
-
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 // A Hasher represents a job/pipeline hasher.
@@ -20,12 +18,12 @@ func NewHasher(jobModulus uint64, pipelineModulus uint64) *Hasher {
 	}
 }
 
-// HashJob computes and returns a hash of a job.
-func (s *Hasher) HashJob(job *ppsclient.Job) uint64 {
-	return uint64(adler32.Checksum([]byte(job.ID))) % s.PipelineModulus
+// HashJob computes and returns the hash of a job.
+func (s *Hasher) HashJob(jobID string) uint64 {
+	return uint64(adler32.Checksum([]byte(jobID))) % s.PipelineModulus
 }
 
-// HashPipeline computes and returns a hash of a pipeline.
-func (s *Hasher) HashPipeline(pipeline *ppsclient.Pipeline) uint64 {
-	return uint64(adler32.Checksum([]byte(pipeline.Name))) % s.JobModulus
+// HashPipeline computes and returns the hash of a pipeline.
+func (s *Hasher) HashPipeline(pipelineName string) uint64 {
+	return uint64(adler32.Checksum([]byte(pipelineName))) % s.JobModulus
 }
