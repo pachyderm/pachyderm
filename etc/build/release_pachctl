@@ -49,14 +49,18 @@ rm -rf homebrew-tap || true
 git clone git@github.com:pachyderm/homebrew-tap
 cd homebrew-tap
     VERSION=$VERSION ./update-formula.sh
-    git add pachctl@$(MAJOR_MINOR).rb
+    git add pachctl@$MAJOR_MINOR.rb
     git commit -a -m "[Automated] Update formula to release version $VERSION"
     git pull origin master
     git push origin master
 cd ..
 rm -rf homebrew-tap
 
-NEW_DEB_URL="pachyderm/pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
+# Update deb URL
+NEW_DEB_URL="pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
 sed -i'' 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_amd64.deb@'"$NEW_DEB_URL"'@g' doc/getting_started/local_installation.md
+
+# Update brew formula (only needed when MAJOR_MINOR changes)
+sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$MAJOR_MINOR"'#g' doc/getting_started/local_installation.md
 
 echo "--- Successfully released pachctl"
