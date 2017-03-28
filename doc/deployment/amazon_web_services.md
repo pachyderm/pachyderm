@@ -45,24 +45,18 @@ This script will use kops to deploy Kubernetes and Pachyderm in AWS.  The script
 The script will take a few minutes, and Pachyderm will take an addition couple of minutes to spin up.  Once it is up, `kubectl get all` should return something like:
 
 ```
-NAME               READY     STATUS    RESTARTS   AGE
-po/etcd-kdk8v      1/1       Running   0          9m
-po/pachd-czr11     1/1       Running   3          9m
-po/rethink-j6ffz   1/1       Running   0          9m
+NAME             READY     STATUS    RESTARTS   AGE
+po/etcd-wn317    1/1       Running   0          5m
+po/pachd-mljp6   1/1       Running   3          5m
 
-NAME         DESIRED   CURRENT   READY     AGE
-rc/etcd      1         1         1         9m
-rc/pachd     1         1         1         9m
-rc/rethink   1         1         1         9m
+NAME       DESIRED   CURRENT   READY     AGE
+rc/etcd    1         1         1         5m
+rc/pachd   1         1         1         5m
 
-NAME             CLUSTER-IP       EXTERNAL-IP   PORT(S)                                          AGE
-svc/etcd         100.68.140.100   <none>        2379/TCP,2380/TCP                                9m
-svc/kubernetes   100.64.0.1       <none>        443/TCP                                          11m
-svc/pachd        100.71.7.243     <nodes>       650:30650/TCP,651:30651/TCP                      9m
-svc/rethink      100.69.181.63    <nodes>       8080:32080/TCP,28015:32081/TCP,29015:31406/TCP   9m
-
-NAME              DESIRED   SUCCESSFUL   AGE
-jobs/pachd-init   1         1            9m
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                         AGE
+svc/etcd         10.0.0.165   <nodes>       2379:32379/TCP,2380:32686/TCP   5m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                         5m
+svc/pachd        10.0.0.214   <nodes>       650:30650/TCP,651:30651/TCP     5m
 ```
 
 Finally, we need to set up forward a port so that pachctl can talk to the cluster.
