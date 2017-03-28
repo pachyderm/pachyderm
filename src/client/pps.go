@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -15,67 +14,45 @@ func NewJob(jobID string) *pps.Job {
 }
 
 const (
+	// PPSEtcdPrefixEnv is the environment variable that specifies the etcd
+	// prefix that PPS uses.
+	PPSEtcdPrefixEnv = "PPS_ETCD_PREFIX"
+	// PPSWorkerIPEnv is the environment variable that a worker can use to
+	// see its own IP.  The IP address is made available through the
+	// Kubernetes downward API.
+	PPSWorkerIPEnv = "PPS_WORKER_IP"
 	// PPSPodNameEnv is the environment variable that a pod can use to
-	// see its own name.  The pod name is made available through the Kubernetes
-	// downward API.
+	// see its own name.  The pod name is made available through the
+	// Kubernetes downward API.
 	PPSPodNameEnv = "PPS_POD_NAME"
-	// PPSLeasePeriodSecsEnv is the amount of time for a lease on a chunk
-	// to expire.
-	// That is, a pod needs to send ContinueJob to PPS at lease once every this
-	// amount of time in order to keep owning a chunk.  In reality, pods send
-	// ContinueJob more often than that because they need to account for network
-	// latency.
-	PPSLeasePeriodSecsEnv = "PPS_LEASE_PERIOD_SECS"
-	// PPSHeartbeatSecsEnv controls how many seconds before a pod sends
-	// a heartbeat again.
-	PPSHeartbeatSecsEnv = "PPS_HEARTBEAT_SECS"
-	// PPSMaxHeartbeatRetriesEnv controls how many times a pod can fail
-	// to send heartbeats before it decides to shut itself down.
-	PPSMaxHeartbeatRetriesEnv = "PPS_MAX_HEARTBEAT_RETRIES"
-)
-
-var (
-	// MapMethod defines a pps.Method for mapper pipelines.
-	MapMethod = &pps.Method{
-		Partition:   pps.Partition_BLOCK,
-		Incremental: pps.Incremental_DIFF,
-	}
-	// ReduceMethod defines a pps.Method for non-incremental reducer pipelines.
-	ReduceMethod = &pps.Method{
-		Partition:   pps.Partition_FILE,
-		Incremental: pps.Incremental_NONE,
-	}
-	// IncrementalReduceMethod defines a pps.Method for incremental reducer pipelines.
-	IncrementalReduceMethod = &pps.Method{
-		Partition:   pps.Partition_FILE,
-		Incremental: pps.Incremental_DIFF,
-	}
-	// GlobalMethod defines a pps.Method for non-incremental, non-partitioned pipelines.
-	GlobalMethod = &pps.Method{
-		Partition:   pps.Partition_REPO,
-		Incremental: pps.Incremental_NONE,
-	}
-	// DefaultMethod defines the default pps.Method for a pipeline.
-	DefaultMethod = MapMethod
-	// MethodAliasMap maps a string to a pps.Method for JSON decoding.
-	MethodAliasMap = map[string]*pps.Method{
-		"map":                MapMethod,
-		"reduce":             ReduceMethod,
-		"incremental_reduce": IncrementalReduceMethod,
-		"global":             GlobalMethod,
-	}
-	// ReservedRepoNames defines a set of reserved repo names for internal use.
-	ReservedRepoNames = map[string]bool{
-		"out":  true,
-		"prev": true,
-	}
+	// PPSPipelineNameEnv is the env var that sets the name of the pipeline
+	// that the workers are running.
+	PPSPipelineNameEnv = "PPS_PIPELINE_NAME"
+	// PPSJobIDEnv is the env var that sets the ID of the job that the
+	// workers are running (if the workers belong to an orphan job, rather than a
+	// pipeline).
+	PPSJobIDEnv = "PPS_JOB_ID"
+	// PPSInputPrefix is the prefix of the path where datums are downloaded
+	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
+	PPSInputPrefix = "/pfs"
+	// PPSOutputPath is the path where the user code is
+	// expected to write its output to.
+	PPSOutputPath = "/pfs/out"
+	// PPSWorkerPort is the port that workers use for their gRPC server
+	PPSWorkerPort = 30652
+	// PPSHostPath is the hostpath that a PPS worker uses to store
+	// input/output data.
+	PPSHostPath = "/var/pachyderm_worker"
+	// PPSHostPathVolume is the name of the volume that uses the
+	// aforementioned hostpath.
+	PPSHostPathVolume = "pachyderm-worker"
 )
 
 // NewJobInput creates a pps.JobInput.
-func NewJobInput(repoName string, commitID string, method *pps.Method) *pps.JobInput {
+func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{
 		Commit: NewCommit(repoName, commitID),
-		Method: method,
+		Glob:   glob,
 	}
 }
 
@@ -85,10 +62,10 @@ func NewPipeline(pipelineName string) *pps.Pipeline {
 }
 
 // NewPipelineInput creates a new pps.PipelineInput
-func NewPipelineInput(repoName string, method *pps.Method) *pps.PipelineInput {
+func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 	return &pps.PipelineInput{
-		Repo:   NewRepo(repoName),
-		Method: method,
+		Repo: NewRepo(repoName),
+		Glob: glob,
 	}
 }
 
@@ -114,11 +91,9 @@ func (c APIClient) CreateJob(
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.JobInput,
-	parentJobID string,
 	internalPort int32,
 	externalPort int32,
 ) (*pps.Job, error) {
-	var parentJob *pps.Job
 	var service *pps.Service
 	if internalPort != 0 {
 		service = &pps.Service{
@@ -131,9 +106,6 @@ func (c APIClient) CreateJob(
 		}
 		service.ExternalPort = externalPort
 	}
-	if parentJobID != "" {
-		parentJob = NewJob(parentJobID)
-	}
 	job, err := c.PpsAPIClient.CreateJob(
 		c.ctx(),
 		&pps.CreateJobRequest{
@@ -144,7 +116,6 @@ func (c APIClient) CreateJob(
 			},
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
-			ParentJob:       parentJob,
 			Service:         service,
 		},
 	)
@@ -196,21 +167,62 @@ func (c APIClient) DeleteJob(jobID string) error {
 	return sanitizeErr(err)
 }
 
-// GetLogs gets logs from a job (logs includes stdout and stderr).
-func (c APIClient) GetLogs(
-	jobID string,
-	writer io.Writer,
-) error {
-	getLogsClient, err := c.PpsAPIClient.GetLogs(
-		c.ctx(),
-		&pps.GetLogsRequest{
-			Job: NewJob(jobID),
-		},
-	)
-	if err != nil {
-		return sanitizeErr(err)
+// LogsIter iterates through log messages returned from pps.GetLogs. Logs can
+// be fetched with 'Next()'. The log message received can be examined with
+// 'Message()', and any errors can be examined with 'Err()'.
+type LogsIter struct {
+	logsClient pps.API_GetLogsClient
+	msg        *pps.LogMessage
+	err        error
+}
+
+// Next retrieves the next relevant log message from pachd
+func (l *LogsIter) Next() bool {
+	if l.err != nil {
+		l.msg = nil
+		return false
 	}
-	return sanitizeErr(grpcutil.WriteFromStreamingBytesClient(getLogsClient, writer))
+	l.msg, l.err = l.logsClient.Recv()
+	if l.err != nil {
+		return false
+	}
+	return true
+}
+
+// Message returns the most recently retrieve log message (as an annotated log
+// line, in the form of a pps.LogMessage)
+func (l *LogsIter) Message() *pps.LogMessage {
+	return l.msg
+}
+
+// Err retrieves any errors encountered in the course of calling 'Next()'.
+func (l *LogsIter) Err() error {
+	if l.err == io.EOF {
+		return nil
+	}
+	return l.err
+}
+
+// GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
+// 'jobID', and 'data', are all filters. To forego any filter, simply pass an
+// empty value, though one of 'pipelineName' and 'jobID' must be set. Responses
+// are written to 'messages'
+func (c APIClient) GetLogs(
+	pipelineName string,
+	jobID string,
+	data []string,
+) *LogsIter {
+	request := pps.GetLogsRequest{}
+	resp := &LogsIter{}
+	if pipelineName != "" {
+		request.Pipeline = &pps.Pipeline{pipelineName}
+	}
+	if jobID != "" {
+		request.Job = &pps.Job{jobID}
+	}
+	request.DataFilters = data
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.ctx(), &request)
+	return resp
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
@@ -239,6 +251,7 @@ func (c APIClient) CreatePipeline(
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
 	inputs []*pps.PipelineInput,
+	outputBranch string,
 	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -252,6 +265,7 @@ func (c APIClient) CreatePipeline(
 			},
 			ParallelismSpec: parallelismSpec,
 			Inputs:          inputs,
+			OutputBranch:    outputBranch,
 			Update:          update,
 		},
 	)
