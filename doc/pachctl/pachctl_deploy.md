@@ -12,7 +12,7 @@ Deploy a Pachyderm cluster.
 ```
       --block-cache-size string     Size of in-memory cache to use for blocks. Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). (default "5G")
       --dry-run                     Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.
-      --dynamic-etcd-nodes int      Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in order versions of kubernetes.
+      --dynamic-etcd-nodes int      Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.
       --log-level string            The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
       --shards int                  Number of Pachd nodes (stateless Pachyderm API servers). (default 16)
       --static-etcd-volume string   Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.
