@@ -55,10 +55,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :caption: Reference
 
     reference/pipeline_spec
-    reference/pachyderm_file_system
-    reference/pachyderm_pipeline_system
     pachctl/pachctl
-    CHANGELOG
     
 
 

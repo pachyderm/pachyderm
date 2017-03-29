@@ -24,7 +24,6 @@ Options
     :maxdepth: 1
     :caption: pachctl CLI
 
-    pachctl_archive-all
     pachctl_commit
     pachctl_create-job
     pachctl_create-pipeline
@@ -38,7 +37,6 @@ Options
     pachctl_file
     pachctl_finish-commit
     pachctl_flush-commit
-    pachctl_fork-commit
     pachctl_get-file
     pachctl_get-logs
     pachctl_get-object
@@ -59,11 +57,8 @@ Options
     pachctl_pipeline
     pachctl_port-forward
     pachctl_put-file
-    pachctl_replay-commit
     pachctl_repo
-    pachctl_rerun-pipeline
     pachctl_run-pipeline
-    pachctl_squash-commit
     pachctl_start-commit
     pachctl_start-pipeline
     pachctl_stop-pipeline

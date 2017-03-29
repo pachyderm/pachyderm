@@ -94,7 +94,7 @@ For now, we're going to create a single pipeline that takes in images and does s
 
 Below is the pipeline spec and python code we're using. Let's walk through the details. 
 
-.. code-block:: json
+.. code-block:: shell
 
   # edges.json
   {
@@ -121,7 +121,7 @@ Our pipeline spec contains a few simple sections. First is the pipeline `name`, 
 
 The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. `/*` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
-.. code-block::
+.. code-block:: shell
 
   # edges.py
   import cv2
@@ -237,7 +237,7 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
   ...
 
 Exploring the File System (optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Another nifty feature of Pachyderm is that you can mount the file system locally to poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install `OSX FUSE <https://osxfuse.github.io/>`_. This is just an optional step if you want another view of your data and system and can be useful for local development. 
 
 
