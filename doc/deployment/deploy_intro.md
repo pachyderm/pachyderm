@@ -1,4 +1,4 @@
-# Deploying Pachyderm - Intro
+# Intro
 
 Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object store of your choice.  As such, Pachyderm can run on any platform that supports Kubernetes and an object store. These docs cover the following commonly used deployments:
 

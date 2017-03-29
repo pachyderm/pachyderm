@@ -1,4 +1,4 @@
-# Deploying Pachyderm - Google Cloud Platform
+# Google Cloud Platform
 
 Google Cloud Platform has excellent support for Kubernetes through the [Google Container Engine](https://cloud.google.com/container-engine/).
 

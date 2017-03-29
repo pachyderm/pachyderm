@@ -1,4 +1,4 @@
-# Deploying Pachyderm - OpenShift
+# OpenShift
 
 [OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  Pachyderm can run on OpenShift with two additional steps:
 
