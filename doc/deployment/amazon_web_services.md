@@ -108,7 +108,7 @@ $ AWS_KEY=[secret access key]
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ID} ${AWS_KEY} " " ${AWS_REGION} ${STORAGE_NAME} ${STORAGE_SIZE}
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ID} ${AWS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
 ```
 
 (Note, the `" "` in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
