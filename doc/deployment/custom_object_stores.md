@@ -1,4 +1,4 @@
-# Deploying Pachyderm - Custom Object Stores
+# Custom Object Stores
 
 In other sections of this guide was have demonstrated how to deploy Pachyderm in a single cloud using that cloud's object store offering.  However, Pachyderm can be backed by any object store, and you are not restricted to the object store service provided by the cloud in which you are deploying.
 

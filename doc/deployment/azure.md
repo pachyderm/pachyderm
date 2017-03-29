@@ -1,4 +1,4 @@
-# Deploying Pachyderm - Azure
+# Azure
 
 ## Prerequisites
 
