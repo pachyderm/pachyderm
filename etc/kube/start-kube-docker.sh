@@ -13,7 +13,7 @@ docker run \
     --net=host \
     --pid=host \
     --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.5.1 \
+    gcr.io/google_containers/hyperkube:v1.6.0 \
     /hyperkube kubelet \
         --containerized \
         --hostname-override="127.0.0.1" \
@@ -21,6 +21,6 @@ docker run \
         --api-servers=http://localhost:8080 \
         --cluster_dns=10.0.0.10 \
         --cluster_domain=cluster.local \
-        --config=/etc/kubernetes/manifests \
+        --pod-manifest-path=/etc/kubernetes/manifests \
         --allow-privileged=true
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done
