@@ -1,4 +1,4 @@
-# Deploying Pachyderm - On Premises
+# On Premises
 
 Pachyderm is built on [Kubernetes](https://kubernetes.io/) and can be backed by an object store of your choice. As such, Pachyderm can run on any on premise platforms/frameworks that support Kubernetes, a persistent disk/volume, and an object store.
 

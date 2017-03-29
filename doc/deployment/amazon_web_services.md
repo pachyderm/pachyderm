@@ -1,4 +1,4 @@
-# Deploying Pachyderm - Amazon Web Services
+# Amazon Web Services
 
 ### Prerequisites
 
