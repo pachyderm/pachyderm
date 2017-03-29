@@ -146,7 +146,7 @@ pachctl             1.4.0
 pachd               1.4.0
 ```
 
-## Scrited Pachyderm Deploy
+## Scripted Pachyderm Deploy
 
 **Warning** - this is a work in progress and the script may need to be modified for your environment.  To be updated soon.
 
