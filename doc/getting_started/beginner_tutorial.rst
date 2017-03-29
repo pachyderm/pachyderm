@@ -54,6 +54,7 @@ We also specify the repo name "images", the branch name "master", and what we wa
 Finally, we check to make sure the data we just added is in Pachyderm.
 
 .. code-block:: shell
+
  # If we list the repos, we can see that there is now data
  $ pachctl list-repo
  NAME                CREATED             SIZE
@@ -122,23 +123,23 @@ The glob pattern defines how the input data can be broken up if we wanted to dis
 
 .. code-block:: python
 
-# edges.py
-import cv2
-import numpy as np
-from matplotlib import pyplot as plt
-import os
+ # edges.py
+ import cv2
+ import numpy as np
+ from matplotlib import pyplot as plt
+ import os
  
-# make_edges reads an image from /pfs/images and outputs the result of running
-# edge detection on that image to /pfs/out. Note that /pfs/images and
-# /pfs/out are special directories that Pachyderm injects into the container.
-def make_edges(image):
+ # make_edges reads an image from /pfs/images and outputs the result of running
+ # edge detection on that image to /pfs/out. Note that /pfs/images and
+ # /pfs/out are special directories that Pachyderm injects into the container.
+ def make_edges(image):
     img = cv2.imread(image)
     tail = os.path.split(image)[1]
     edges = cv2.Canny(img,100,200)
     plt.imsave(os.path.join("/pfs/out", os.path.splitext(tail)[0]+'.png'), edges, cmap = 'gray')
 
-# walk /pfs/images and call make_edges on every file found
-for dirpath, dirs, files in os.walk("/pfs/images"):
+ # walk /pfs/images and call make_edges on every file found
+ for dirpath, dirs, files in os.walk("/pfs/images"):
     for file in files:
         make_edges(os.path.join(dirpath, file))
  ...
@@ -167,17 +168,17 @@ You can view the job with:
 .. code-block:: shell
 
  $ pachctl list-job
-ID                                     OUTPUT COMMIT                            STARTED             DURATION            STATE
-a6c70aa5-9f0c-4e36-b30a-4387fac54eac   edges/1a9c76a2cd154e6e90f200fb80c46d2f   2 minutes ago      About a minute      success
+ ID                                     OUTPUT COMMIT                            STARTED             DURATION            STATE
+ a6c70aa5-9f0c-4e36-b30a-4387fac54eac   edges/1a9c76a2cd154e6e90f200fb80c46d2f   2 minutes ago      About a minute      success
 
 Every pipeline creates a corresponding repo with the same name where it stores its output results. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
 
 .. code-block:: shell
 
  $ pachctl list-repo
-NAME                CREATED            SIZE
-edges               2 minutes ago      22.22 KiB
-images              10 minutes ago     57.27 KiB
+ NAME                CREATED            SIZE
+ edges               2 minutes ago      22.22 KiB
+ images              10 minutes ago     57.27 KiB
 
 
 Reading the Output
@@ -187,10 +188,10 @@ Reading the Output
 
 .. code-block:: shell
  
-# on OSX
-$ pachctl get-file edges master liberty.png | open -f -a /Applications/Preview.app
+ # on OSX
+ $ pachctl get-file edges master liberty.png | open -f -a /Applications/Preview.app
 
-# on Linux
+ # on Linux
  $ pachctl get-file edges master liberty.png | display
  ...
 
@@ -212,24 +213,24 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 
 .. code-block:: shell
 
-# view the jobs that were kicked off
-$ pachctl list-job
-ID                                     OUTPUT COMMIT                            STARTED             DURATION             STATE
-7395c7c9-df0e-4ea8-8202-ec846970b982   edges/8848e11056c04518a8d128b6939d9985   2 minutes ago      Less than a second   success
-b90afeb1-c12b-4ca5-a4f4-50c50efb20bb   edges/da51395708cb4812bc8695bb151b69e3   2 minutes ago      1 seconds            success
-9182d65e-ea36-4b98-bb07-ebf40fefcce5   edges/4dd2459531414d80936814b13b1a3442   5 minutes ago      3 seconds            success
+ # view the jobs that were kicked off
+ $ pachctl list-job
+ ID                                     OUTPUT COMMIT                            STARTED             DURATION             STATE
+ 7395c7c9-df0e-4ea8-8202-ec846970b982   edges/8848e11056c04518a8d128b6939d9985   2 minutes ago      Less than a second   success
+ b90afeb1-c12b-4ca5-a4f4-50c50efb20bb   edges/da51395708cb4812bc8695bb151b69e3   2 minutes ago      1 seconds            success
+ 9182d65e-ea36-4b98-bb07-ebf40fefcce5   edges/4dd2459531414d80936814b13b1a3442   5 minutes ago      3 seconds            success
  ...
 
 .. code-block:: shell
 
-# View the output data
+ # View the output data
 
-# on OSX
-$ pachctl get-file edges master AT-AT.png | open -f -a /Applications/Preview.app
+ # on OSX
+ $ pachctl get-file edges master AT-AT.png | open -f -a /Applications/Preview.app
 
-$ pachctl get-file edges master kitten.png | open -f -a /Applications/Preview.app
+ $ pachctl get-file edges master kitten.png | open -f -a /Applications/Preview.app
 
-# on Linux
+ # on Linux
  $ pachctl get-file edges master AT-AT.png | display
 
  $ pachctl get-file edges master kitten.png | display
@@ -246,7 +247,7 @@ First create the mount point:
 
 .. code-block:: shell
 
-    $ mkdir ~/pfs
+ $ mkdir ~/pfs
 
 
 And then mount it:
