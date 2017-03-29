@@ -17,7 +17,7 @@ Similar to `create-pipeline`, `update-pipeline` with the `-f` flag can also take
 You can also use `update-pipeline` to update the code you are using in one or more of your piplines.  To update the code in your pipeline:
 
 1. Make the code changes.
-2. Re-build you Docker image.
+2. Re-build your Docker image.
 3. Call `update-pipeline` with the `--push-images` flag.
 
 You need to call `update-pipeline` with the `--push-images` flag because, if you have already run your pipeline, Pachyderm has already pulled the specified images.  It won't re-pull new versions of the images, unless we tell it to (which ensures that we don't waste time pulling images when we don't need to).  When `--push-images` is specified, Pachyderm will do the following:
