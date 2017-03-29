@@ -60,13 +60,13 @@ Put data directly from an object store:
 ```sh
 # here you can use s3://, gcs://, or as://
 $ pachctl put-file <repo> <branch> </path/to/file> -c -f s3://object_store_url
-``
+```
 
 Put data directly from another location within Pachyderm:
 
 ```sh
 $ pachctl put-file <repo> <branch> </path/to/file> -c -f pfs://pachyderm_location
-``
+```
 
 Add multiple files at once by using the `-i` option or multiple `-f` flags. In the case of `-i`, the target file should be a list of files, paths, or URLs that you want to input all at once:
 
