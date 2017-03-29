@@ -22,7 +22,7 @@ This example implements the machine learning template pipeline discussed in [thi
 
 ### pix2pix with TensorFlow
 
-If you haven't seen pix2pix, check out this great demo (https://affinelayer.com/pixsrv/).  In this example, we implement the training and image translation of the pix2pix model in Pachyderm, so you can generate cat images from edge drawings, day time photos from night time photos, etc.
+If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com/pixsrv/).  In this example, we implement the training and image translation of the pix2pix model in Pachyderm, so you can generate cat images from edge drawings, day time photos from night time photos, etc.
 
 [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow)
 
