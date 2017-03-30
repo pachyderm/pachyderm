@@ -1260,6 +1260,12 @@ func TestDeleteFile(t *testing.T) {
 
 	_, err = client.InspectFile(repo, commit3.ID, "bar")
 	require.YesError(t, err)
+
+	// Delete a nonexistent file; it should be no-op
+	commit4, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, client.DeleteFile(repo, commit4.ID, "nonexistent"))
+	require.NoError(t, client.FinishCommit(repo, commit4.ID))
 }
 
 func TestDeleteDir(t *testing.T) {
