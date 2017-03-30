@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -39,11 +38,11 @@ const (
 
 type apiServer struct {
 	protorpclog.Logger
-	driver   drive.Driver
+	driver   *driver
 	reporter *metrics.Reporter
 }
 
-func newAPIServer(driver drive.Driver, reporter *metrics.Reporter) *apiServer {
+func newAPIServer(driver *driver, reporter *metrics.Reporter) *apiServer {
 	return &apiServer{
 		Logger:   protorpclog.NewLogger("pfs.API"),
 		driver:   driver,

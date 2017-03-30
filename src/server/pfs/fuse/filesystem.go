@@ -14,7 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -189,7 +189,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	}
 	if err := localResult.touch(); err != nil {
 		// Check if its a write on a finished commit:
-		if drive.IsPermissionError(err) {
+		if pfs_server.IsPermissionError(err) {
 			err = fuse.EPERM
 		}
 		return nil, 0, err

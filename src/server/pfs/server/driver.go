@@ -1,4 +1,4 @@
-package drive
+package server
 
 import (
 	"bufio"
@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,46 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
 )
+
+// ValidateRepoName determines if a repo name is valid
+func ValidateRepoName(name string) error {
+	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
+
+	if !match {
+		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
+	}
+
+	return nil
+}
+
+// ListFileMode specifies how ListFile executes.
+type ListFileMode int
+
+const (
+	// ListFileNORMAL computes sizes for files but not for directories
+	ListFileNORMAL ListFileMode = iota
+	// ListFileFAST does not compute sizes for files or directories
+	ListFileFAST
+	// ListFileRECURSE computes sizes for files and directories
+	ListFileRECURSE
+)
+
+// IsPermissionError returns true if a given error is a permission error.
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already finished")
+}
+
+// CommitEvent is an event that contains a CommitInfo or an error
+type CommitEvent struct {
+	Err   error
+	Value *pfs.CommitInfo
+}
+
+// CommitStream is a stream of CommitInfos
+type CommitStream interface {
+	Stream() <-chan CommitEvent
+	Close()
+}
 
 type collectionFactory func(string) col.Collection
 
@@ -83,7 +124,7 @@ var (
 )
 
 // NewDriver is used to create a new Driver instance
-func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (Driver, error) {
+func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialTimeout: 5 * time.Second,
@@ -140,7 +181,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
-func NewLocalDriver(blockAddress string, etcdPrefix string) (Driver, error) {
+func NewLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
 }
 
