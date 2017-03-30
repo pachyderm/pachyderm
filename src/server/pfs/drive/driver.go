@@ -474,7 +474,11 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		if string(kv.Value) == tombstone {
 			if err := tree.DeleteFile(filePath); err != nil {
-				return err
+				// Deleting a non-existent file in an open commit should
+				// be a no-op
+				if !(hashtree.Code(err) == hashtree.PathNotFound) {
+					return err
+				}
 			}
 		} else {
 			var objectHash string
