@@ -149,7 +149,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "microsoft <container> <storage account name> <storage account key> <volume URIs> <size of volumes (in GB)>",
+		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
