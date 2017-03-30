@@ -301,6 +301,7 @@ Examples:
 	var (
 		jobID       string
 		commaInputs string // comma-separated list of input files of interest
+		raw         bool
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
@@ -345,9 +346,15 @@ Examples:
 			marshaler := &jsonpb.Marshaler{}
 			iter := client.GetLogs(pipelineName, jobID, data)
 			for iter.Next() {
-				messageStr, err := marshaler.MarshalToString(iter.Message())
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "error unmarshalling \"%v\": %s\n", iter.Message(), err)
+				var messageStr string
+				if raw {
+					messageStr = iter.Message().Message
+				} else {
+					var err error
+					messageStr, err = marshaler.MarshalToString(iter.Message())
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
+					}
 				}
 				fmt.Println(messageStr)
 			}
@@ -360,6 +367,8 @@ Examples:
 		"this job (accepts job ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
+	getLogs.Flags().BoolVar(&raw, "raw", false, "Return just the log messages without "+
+		"added information like timestampes")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
