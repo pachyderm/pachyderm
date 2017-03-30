@@ -182,11 +182,14 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 // PushObj pushes data from commit to an object store.
 func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.Client, root string) error {
 	var eg errgroup.Group
+	sem := make(chan struct{}, 200)
 	if err := pachClient.Walk(commit.Repo.Name, commit.ID, "", func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
 		eg.Go(func() (retErr error) {
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			w, err := objClient.Writer(filepath.Join(root, fileInfo.File.Path))
 			if err != nil {
 				return err
