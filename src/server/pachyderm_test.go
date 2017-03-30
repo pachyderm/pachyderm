@@ -2339,8 +2339,12 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+			"echo foo",
+			"echo foo",
+		},
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
