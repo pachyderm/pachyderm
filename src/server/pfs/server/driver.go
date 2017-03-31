@@ -528,7 +528,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 					return err
 				}
 			} else {
-				nodes, err := _tree.List(filePath)
+				nodes, err := tree.List(filePath)
 				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 					return err
 				}
