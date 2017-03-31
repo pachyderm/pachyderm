@@ -1275,9 +1275,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					jobInfo.Finished = now()
 					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
 				})
-				if err != nil {
-					return err
-				}
+				return err
 			}
 		}
 
