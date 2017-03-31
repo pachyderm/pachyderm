@@ -484,7 +484,6 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	}
 
 	// Read everything under the scratch space for this commit
-	// TODO: lock the scratch space to prevent concurrent PutFile
 	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 	if err != nil {
 		return err
@@ -512,7 +511,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 			if err := tree.DeleteFile(filePath); err != nil {
 				// Deleting a non-existent file in an open commit should
 				// be a no-op
-				if !(hashtree.Code(err) == hashtree.PathNotFound) {
+				if hashtree.Code(err) != hashtree.PathNotFound {
 					return err
 				}
 			}
@@ -530,7 +529,7 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				}
 			} else {
 				nodes, err := _tree.List(filePath)
-				if err != nil {
+				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 					return err
 				}
 				for i, record := range records.Records {
