@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	"golang.org/x/net/context"
@@ -1932,7 +1931,7 @@ func getClient(t *testing.T) pclient.APIClient {
 	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := drive.NewLocalDriver(address, prefix)
+		driver, err := NewLocalDriver(address, prefix)
 		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
@@ -2238,6 +2237,34 @@ func TestPutFileSplit(t *testing.T) {
 	files, err = c.ListFile(repo, commit.ID, "json3")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+}
+
+func TestPutFileSplitBig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	// create repos
+	repo := uniqueString("TestPutFileSplit")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		_, err = w.Write([]byte("foo\n"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	files, err := c.ListFile(repo, commit.ID, "line")
+	require.NoError(t, err)
+	require.Equal(t, 100, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	}

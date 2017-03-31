@@ -10,7 +10,6 @@ import (
 	"math"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
@@ -473,7 +473,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 }
 
 func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
-	if _, err := d.InspectCommit(ctx, commit); err != nil {
+	commitInfo, err := d.InspectCommit(ctx, commit)
+	if err != nil {
 		return err
 	}
 
@@ -486,12 +487,6 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	// TODO: lock the scratch space to prevent concurrent PutFile
 	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 	if err != nil {
-		return err
-	}
-
-	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-	commitInfo := new(pfs.CommitInfo)
-	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return err
 	}
 
@@ -522,11 +517,27 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				}
 			}
 		} else {
-			var objectHash string
-			var size int64
-			fmt.Sscanf(string(kv.Value), "%d %s", &size, &objectHash)
-			if err := tree.PutFile(filePath, []*pfs.Object{{Hash: objectHash}}, size); err != nil {
+			records := &PutFileRecords{}
+			if err := proto.Unmarshal(kv.Value, records); err != nil {
 				return err
+			}
+			if !records.Split {
+				if len(records.Records) != 1 {
+					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
+				}
+				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
+					return err
+				}
+			} else {
+				nodes, err := _tree.List(filePath)
+				if err != nil {
+					return err
+				}
+				for i, record := range records.Records {
+					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf("%016x", i+len(nodes))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
@@ -1097,6 +1108,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
+	records := &PutFileRecords{}
 	if !d.commitExists(file.Commit.ID) {
 		_, err := d.InspectCommit(ctx, file.Commit)
 		if err != nil {
@@ -1123,14 +1135,17 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		if err != nil {
 			return err
 		}
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), fmt.Sprintf("%d %s", size, object.Hash))
+		records.Records = append(records.Records, &PutFileRecord{
+			SizeBytes:  size,
+			ObjectHash: object.Hash,
+		})
+		marshalledRecords, err := proto.Marshal(records)
+		if err != nil {
+			return err
+		}
+		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
 		return err
 	}
-	commitInfo, err := d.InspectCommit(ctx, file.Commit)
-	if err != nil {
-		return err
-	}
-	parentCommit := commitInfo.ParentCommit
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
 	var bytesWritten int64
@@ -1140,7 +1155,7 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToValue := make(map[int]string)
+	indexToRecord := make(map[int]*PutFileRecord)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1179,7 +1194,10 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToValue[index] = fmt.Sprintf("%d %s", size, object.Hash)
+				indexToRecord[index] = &PutFileRecord{
+					SizeBytes:  size,
+					ObjectHash: object.Hash,
+				}
 				return nil
 			})
 			datumsWritten = 0
@@ -1192,50 +1210,16 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 
-	var indexOffset int64
-	if parentCommit != nil {
-		fileInfos, err := d.ListFile(ctx, client.NewFile(parentCommit.Repo.Name, parentCommit.ID, file.Path))
-		if err != nil {
-			return err
-		}
-		for _, fileInfo := range fileInfos {
-			i, err := strconv.ParseInt(path.Base(string(fileInfo.File.Path)), 16, 64)
-			if err != nil {
-				return err
-			}
-			if i+1 > indexOffset {
-				indexOffset = i + 1
-			}
-		}
+	records.Split = true
+	for i := 0; i < len(indexToRecord); i++ {
+		records.Records = append(records.Records, indexToRecord[i])
 	}
-	for {
-		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithLastKey()...)
-		if err != nil {
-			return err
-		}
-		if len(resp.Kvs) != 0 {
-			i, err := strconv.ParseInt(path.Base(path.Dir(string(resp.Kvs[0].Key))), 16, 64)
-			if err != nil {
-				return err
-			}
-			indexOffset = i + 1
-		}
-		txn := d.etcdClient.Txn(ctx)
-		baseKey := "__" + prefix
-		cmp := etcd.Compare(etcd.ModRevision(baseKey), "<", resp.Header.Revision+1)
-		ops := []etcd.Op{etcd.OpPut(baseKey, "")}
-		for index, value := range indexToValue {
-			ops = append(ops, etcd.OpPut(path.Join(prefix, fmt.Sprintf("%016x", int64(index)+indexOffset), uuid.NewWithoutDashes()), value))
-		}
-		txnResp, err := txn.If(cmp).Then(ops...).Commit()
-		if err != nil {
-			return err
-		}
-		if txnResp.Succeeded {
-			break
-		}
+	marshalledRecords, err := proto.Marshal(records)
+	if err != nil {
+		return err
 	}
-	return nil
+	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
+	return err
 }
 func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
 	return nil
