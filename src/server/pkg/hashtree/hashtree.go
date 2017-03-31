@@ -93,23 +93,25 @@ func (h *HashTreeProto) Open() OpenHashTree {
 	return h3
 }
 
-// Get retrieves the contents of a file.
-func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
+func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
 	path = clean(path)
 
-	node, ok := h.Fs[path]
+	node, ok := fs[path]
 	if !ok {
 		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
 	}
 	return node, nil
 }
 
-// List retrieves the list of files and subdirectories of the directory at
-// 'path'.
-func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
+// Get retrieves the contents of a file.
+func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
+	return get(h.Fs, path)
+}
+
+func list(fs map[string]*NodeProto, path string) ([]*NodeProto, error) {
 	path = clean(path)
 
-	node, err := h.Get(path)
+	node, err := get(fs, path)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +123,7 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 	var ok bool
 	result := make([]*NodeProto, len(d.Children))
 	for i, child := range d.Children {
-		result[i], ok = h.Fs[join(path, child)]
+		result[i], ok = fs[join(path, child)]
 		if !ok {
 			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
 				"while listing \"%s\"", join(path, child), path)
@@ -130,15 +132,19 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
-// Glob returns a list of files and directories that match 'pattern'.
-// The nodes returned have their 'Name' field set to their full paths.
-func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
+func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
+	return list(h.Fs, path)
+}
+
+func glob(fs map[string]*NodeProto, pattern string) ([]*NodeProto, error) {
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
 	pattern = clean(pattern)
 
 	var res []*NodeProto
-	for path, node := range h.Fs {
+	for path, node := range fs {
 		matched, err := pathlib.Match(pattern, path)
 		if err != nil {
 			if err == pathlib.ErrBadPattern {
@@ -156,13 +162,23 @@ func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
 	return res, nil
 }
 
-// Size returns the size of the file system that the hashtree represents.
-func (h *HashTreeProto) Size() int64 {
-	rootNode, ok := h.Fs[clean("/")]
+// Glob returns a list of files and directories that match 'pattern'.
+// The nodes returned have their 'Name' field set to their full paths.
+func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
+	return glob(h.Fs, pattern)
+}
+
+func size(fs map[string]*NodeProto) int64 {
+	rootNode, ok := fs[clean("/")]
 	if !ok {
 		return 0
 	}
 	return rootNode.SubtreeSize
+}
+
+// Size returns the size of the file system that the hashtree represents.
+func (h *HashTreeProto) Size() int64 {
+	return size(h.Fs)
 }
 
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
@@ -175,6 +191,33 @@ type hashtree struct {
 	// changed maps a path P to 'true' if P or one of its children has been
 	// modified in 'fs', and its hash needs to be updated.
 	changed map[string]bool
+}
+
+// Open returns the hashtree since it's already an OpenHashTree
+func (h *hashtree) Open() OpenHashTree {
+	return h
+}
+
+// Get retrieves the contents of a file.
+func (h *hashtree) Get(path string) (*NodeProto, error) {
+	return get(h.fs, path)
+}
+
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
+func (h *hashtree) List(path string) ([]*NodeProto, error) {
+	return list(h.fs, path)
+}
+
+// Glob returns a list of files and directories that match 'pattern'.
+// The nodes returned have their 'Name' field set to their full paths.
+func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
+	return glob(h.fs, pattern)
+}
+
+// Size returns the size of the file system that the hashtree represents.
+func (h *hashtree) Size() int64 {
+	return size(h.fs)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
