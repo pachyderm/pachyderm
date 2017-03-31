@@ -2264,7 +2264,7 @@ func TestPutFileSplitBig(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	files, err := c.ListFile(repo, commit.ID, "line")
 	require.NoError(t, err)
-	require.Equal(t, 100, len(files))
+	require.Equal(t, 1000, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	}
