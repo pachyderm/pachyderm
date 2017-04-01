@@ -2242,6 +2242,35 @@ func TestPutFileSplit(t *testing.T) {
 	}
 }
 
+func TestPutFileSplitDelete(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	// create repos
+	repo := uniqueString("TestPutFileSplitDelete")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit.ID, fmt.Sprintf("line/%016x", 0)))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit.ID, fmt.Sprintf("line/%016x", 5)))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	files, err := c.ListFile(repo, commit.ID, "line")
+	require.NoError(t, err)
+	require.Equal(t, 7, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+}
+
 func TestPutFileSplitBig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2250,7 +2279,7 @@ func TestPutFileSplitBig(t *testing.T) {
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplit")
+	repo := uniqueString("TestPutFileSplitBig")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
