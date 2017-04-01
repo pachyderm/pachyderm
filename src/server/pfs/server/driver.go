@@ -10,6 +10,7 @@ import (
 	"math"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -532,8 +533,18 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 					return err
 				}
+				var indexOffset int64
+				if len(nodes) > 0 {
+					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), 16, 64)
+					if err != nil {
+						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+							"using split on a directory which contains other data that wasn't put with split",
+							path.Base(nodes[len(nodes)-1].Name))
+					}
+					indexOffset++ // start writing to the file after the last file
+				}
 				for i, record := range records.Records {
-					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf("%016x", i+len(nodes))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf("%016x", i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 						return err
 					}
 				}
