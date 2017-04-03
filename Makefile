@@ -172,7 +172,7 @@ clean-launch-bench:
 	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
 	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
 
-bench: clean-launch-bench push-bench-images launch-bench run-bench
+bench: clean-launch-bench launch-bench run-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
