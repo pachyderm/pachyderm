@@ -68,7 +68,7 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 			var buffer bytes.Buffer
 			if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
 				protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v", w.addr, dr.datum)
-				dataCh <- dr
+				dr.retCh <- dr
 				continue
 			}
 			tree, err := hashtree.Deserialize(buffer.Bytes())
