@@ -165,7 +165,7 @@ launch-bench: docker-build docker-build-test push-bench-images
 run-bench:
 	kubectl scale --replicas=4 rc/pachd
 	echo "waiting for pachd to scale up" && sleep 10
-	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- -test.v -test.bench=BenchmarkDaily -test.run=XXX
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
 
 clean-launch-bench:
 	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
