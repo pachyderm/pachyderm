@@ -31,7 +31,7 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(driver *driver, reporter *metrics.Reporter) APIServer {
+func NewAPIServer(driver *Driver, reporter *metrics.Reporter) APIServer {
 	return newAPIServer(driver, reporter)
 }
 

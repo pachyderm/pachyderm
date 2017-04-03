@@ -74,7 +74,8 @@ type CommitStream interface {
 
 type collectionFactory func(string) col.Collection
 
-type driver struct {
+// Driver implements the underlying pfs semantics.
+type Driver struct {
 	address      string
 	pachConnOnce sync.Once
 	pachConn     *grpc.ClientConn
@@ -125,7 +126,7 @@ var (
 )
 
 // NewDriver is used to create a new Driver instance
-func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
+func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*Driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialTimeout: 5 * time.Second,
@@ -143,7 +144,7 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		return nil, err
 	}
 
-	return &driver{
+	return &Driver{
 		address:    address,
 		etcdClient: etcdClient,
 		prefix:     etcdPrefix,
@@ -182,11 +183,11 @@ func NewDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 
 // NewLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
-func NewLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
+func NewLocalDriver(blockAddress string, etcdPrefix string) (*Driver, error) {
 	return NewDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
 }
 
-func (d *driver) getObjectClient() (*client.APIClient, error) {
+func (d *Driver) getObjectClient() (*client.APIClient, error) {
 	if d.pachConn == nil {
 		var onceErr error
 		d.pachConnOnce.Do(func() {
@@ -219,7 +220,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
+func (d *Driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -264,7 +265,7 @@ func (d *driver) CreateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	return err
 }
 
-func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
+func (d *Driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
 	repoInfo := new(pfs.RepoInfo)
 	if err := d.repos.ReadOnly(ctx).Get(repo.Name, repoInfo); err != nil {
 		return nil, err
@@ -272,7 +273,7 @@ func (d *driver) InspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 	return repoInfo, nil
 }
 
-func (d *driver) ListRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
+func (d *Driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
 	var result []*pfs.RepoInfo
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
@@ -315,7 +316,7 @@ nextRepo:
 	return result, nil
 }
 
-func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
+func (d *Driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
@@ -360,15 +361,15 @@ func (d *driver) DeleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	return err
 }
 
-func (d *driver) StartCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
+func (d *Driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
 	return d.makeCommit(ctx, parent, branch, provenance, nil)
 }
 
-func (d *driver) BuildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *Driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
 	return d.makeCommit(ctx, parent, branch, provenance, tree)
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
+func (d *Driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
 	}
@@ -448,7 +449,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			branches.Put(branch, commit)
 		}
 		if parent.ID != "" {
-			parentCommitInfo, err := d.InspectCommit(ctx, parent)
+			parentCommitInfo, err := d.inspectCommit(ctx, parent)
 			if err != nil {
 				return err
 			}
@@ -473,8 +474,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	return commit, nil
 }
 
-func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
-	commitInfo, err := d.InspectCommit(ctx, commit)
+func (d *Driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
+	commitInfo, err := d.inspectCommit(ctx, commit)
 	if err != nil {
 		return err
 	}
@@ -597,14 +598,14 @@ func (d *driver) FinishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-// InspectCommit takes a Commit and returns the corresponding CommitInfo.
+// inspectCommit takes a Commit and returns the corresponding CommitInfo.
 //
 // As a side effect, it sets the commit ID to the real commit ID, if the
 // original commit ID is actually a branch.
 //
 // This side effect is used internally by other APIs to resolve branch
 // names to real commit IDs.
-func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *Driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
@@ -635,25 +636,25 @@ func (d *driver) InspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	return commitInfo, nil
 }
 
-func (d *driver) ListCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (d *Driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
 		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
 	// Make sure that the repo exists
-	_, err := d.InspectRepo(ctx, repo)
+	_, err := d.inspectRepo(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.InspectCommit(ctx, from); err != nil {
+		if _, err := d.inspectCommit(ctx, from); err != nil {
 			return nil, err
 		}
 	}
 	if to != nil {
-		if _, err := d.InspectCommit(ctx, to); err != nil {
+		if _, err := d.inspectCommit(ctx, to); err != nil {
 			return nil, err
 		}
 	}
@@ -715,7 +716,7 @@ func (c *commitStream) Close() {
 	close(c.done)
 }
 
-func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error) {
+func (d *Driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error) {
 	if from != nil && from.Repo.Name != repo.Name {
 		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
@@ -748,7 +749,7 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		seen := make(map[string]bool)
 		// include all commits that are currently on the given branch,
 		// but only the ones that have been finished
-		commitInfos, err := d.ListCommit(ctx, repo, &pfs.Commit{
+		commitInfos, err := d.listCommit(ctx, repo, &pfs.Commit{
 			Repo: repo,
 			ID:   branch,
 		}, from, 0)
@@ -846,13 +847,13 @@ func (d *driver) SubscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	}, nil
 }
 
-func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitStream, error) {
+func (d *Driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo) (CommitStream, error) {
 	if len(fromCommits) == 0 {
 		return nil, fmt.Errorf("fromCommits cannot be empty")
 	}
 
 	for _, commit := range fromCommits {
-		if _, err := d.InspectCommit(ctx, commit); err != nil {
+		if _, err := d.inspectCommit(ctx, commit); err != nil {
 			return nil, err
 		}
 	}
@@ -1001,7 +1002,7 @@ func (d *driver) FlushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	}, nil
 }
 
-func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
+func (d *Driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
 	iter, err := d.repos.ReadOnly(ctx).GetByIndex(provenanceIndex, repo)
 	if err != nil {
 		return nil, err
@@ -1022,11 +1023,11 @@ func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo
 	panic("unreachable")
 }
 
-func (d *driver) DeleteCommit(ctx context.Context, commit *pfs.Commit) error {
+func (d *Driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return nil
 }
 
-func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
+func (d *Driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
 	branches := d.branches(repo.Name).ReadOnly(ctx)
 	iterator, err := branches.List()
 	if err != nil {
@@ -1052,8 +1053,8 @@ func (d *driver) ListBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 	return res, nil
 }
 
-func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	if _, err := d.InspectCommit(ctx, commit); err != nil {
+func (d *Driver) setBranch(ctx context.Context, commit *pfs.Commit, name string) error {
+	if _, err := d.inspectCommit(ctx, commit); err != nil {
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -1072,7 +1073,7 @@ func (d *driver) SetBranch(ctx context.Context, commit *pfs.Commit, name string)
 	return err
 }
 
-func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
+func (d *Driver) deleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(repo.Name).ReadWrite(stm)
 		return branches.Delete(name)
@@ -1083,8 +1084,8 @@ func (d *driver) DeleteBranch(ctx context.Context, repo *pfs.Repo, name string) 
 // scratchCommitPrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
-func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
-	if _, err := d.InspectCommit(ctx, commit); err != nil {
+func (d *Driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
+	if _, err := d.inspectCommit(ctx, commit); err != nil {
 		return "", err
 	}
 	return path.Join(d.prefix, "scratch", commit.Repo.Name, commit.ID), nil
@@ -1093,7 +1094,7 @@ func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (s
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
-func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
+func (d *Driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
 	return path.Join(d.prefix, "scratch", file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
 }
 
@@ -1105,22 +1106,22 @@ func checkPath(path string) error {
 	return nil
 }
 
-func (d *driver) commitExists(commitID string) bool {
+func (d *Driver) commitExists(commitID string) bool {
 	_, found := d.commitCache.Get(commitID)
 	return found
 }
 
-func (d *driver) setCommitExist(commitID string) {
+func (d *Driver) setCommitExist(commitID string) {
 	d.commitCache.Add(commitID, struct{}{})
 }
 
-func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
+func (d *Driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
 	records := &PutFileRecords{}
 	if !d.commitExists(file.Commit.ID) {
-		_, err := d.InspectCommit(ctx, file.Commit)
+		_, err := d.inspectCommit(ctx, file.Commit)
 		if err != nil {
 			return err
 		}
@@ -1231,11 +1232,8 @@ func (d *driver) PutFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
 	return err
 }
-func (d *driver) MakeDirectory(ctx context.Context, file *pfs.File) error {
-	return nil
-}
 
-func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
+func (d *Driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil {
 		t, err := hashtree.NewHashTree().Finish()
 		if err != nil {
@@ -1253,7 +1251,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	if _, err := d.InspectCommit(ctx, commit); err != nil {
+	if _, err := d.inspectCommit(ctx, commit); err != nil {
 		return nil, err
 	}
 
@@ -1296,7 +1294,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) GetFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
+func (d *Driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1344,7 +1342,7 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *
 	return fileInfo
 }
 
-func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
+func (d *Driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1358,7 +1356,7 @@ func (d *driver) InspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node), nil
 }
 
-func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+func (d *Driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
@@ -1376,7 +1374,7 @@ func (d *driver) ListFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 	return fileInfos, nil
 }
 
-func (d *driver) GlobFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
+func (d *Driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
 	tree, err := d.getTreeForCommit(ctx, commit)
 	if err != nil {
 		return nil, err
@@ -1394,8 +1392,8 @@ func (d *driver) GlobFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	return fileInfos, nil
 }
 
-func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
-	if _, err := d.InspectCommit(ctx, file.Commit); err != nil {
+func (d *Driver) deleteFile(ctx context.Context, file *pfs.File) error {
+	if _, err := d.inspectCommit(ctx, file.Commit); err != nil {
 		return err
 	}
 
@@ -1408,20 +1406,17 @@ func (d *driver) DeleteFile(ctx context.Context, file *pfs.File) error {
 	return err
 }
 
-func (d *driver) DeleteAll(ctx context.Context) error {
-	repoInfos, err := d.ListRepo(ctx, nil)
+func (d *Driver) deleteAll(ctx context.Context) error {
+	repoInfos, err := d.listRepo(ctx, nil)
 	if err != nil {
 		return err
 	}
 	for _, repoInfo := range repoInfos {
-		if err := d.DeleteRepo(ctx, repoInfo.Repo, true); err != nil {
+		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (d *driver) Dump(ctx context.Context) {
 }
 
 func isNotFoundErr(err error) bool {
