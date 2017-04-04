@@ -4,6 +4,8 @@ Occationally, Pachyderm introduces changes that are backward-incompatible: repos
 
 To upgrade from version X to version Y, look under the directory named `migration/X-Y`. For instance, to upgrade from 1.3.12 to 1.4.0, look under `migration/1.3.12-1.4.0`.
 
+**Note** - If you are migrating from Pachyderm <= 1.3 to 1.4+, you should read [this guide](https://github.com/pachyderm/pachyderm/tree/master/migration/1.3.x-1.4.x). In this particular case, a migration script is NOT provided due to significant changes in our processing and metadata structures. 
+
 ## Backup
 
 It’s paramount that you backup your data before running a migration script. While we’ve tested the scripts extensively, it’s still possible that they contain bugs, or that you accidentally use them in a wrong way.

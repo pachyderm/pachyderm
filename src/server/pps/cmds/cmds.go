@@ -17,7 +17,6 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -27,6 +26,11 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+)
+
+const (
+	codestart = "```sh"
+	codeend   = "```"
 )
 
 // ByCreationTime is an implementation of sort.Interface which
@@ -133,7 +137,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/reference/pipeline_spec.md"))
+	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
 	var jobPath string
 	var pushImages bool
@@ -236,7 +240,7 @@ The increase the throughput of a job increase the Shard paremeter.
 
 Examples:
 
-	# return all jobs
+	` + codestart + `# return all jobs
 	$ pachctl list-job
 
 	# return all jobs in pipeline foo
@@ -247,8 +251,7 @@ Examples:
 
 	# return all jobs in pipeline foo and whose input commits include bar/YYY
 	$ pachctl list-job -p foo bar/YYY
-
-`,
+` + codeend,
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -309,7 +312,7 @@ Examples:
 
 Examples:
 
-	# return logs emitted by recent jobs in the "filter" pipeline
+	` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
 	$ pachctl get-logs --pipeline=filter
 
 	# return logs emitted by the job aedfa12aedf
@@ -317,7 +320,7 @@ Examples:
 
 	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
-`,
+` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -381,7 +384,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
+		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
@@ -424,7 +427,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new spec\n\n%s", pipelineSpec),
+		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
