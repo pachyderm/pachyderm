@@ -54,6 +54,10 @@ type objBlockAPIServer struct {
 }
 
 func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
+	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
+	if err := obj.TestIsNotExist(objClient); err != nil {
+		return nil, err
+	}
 	localServer, err := newLocalBlockAPIServer(dir)
 	if err != nil {
 		return nil, err
