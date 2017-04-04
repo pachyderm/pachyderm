@@ -45,7 +45,11 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
-		path := filepath.Join(root, fileInfo.File.Path)
+		basepath, err := filepath.Rel(file, fileInfo.File.Path)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(root, basepath)
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			return err
 		}
