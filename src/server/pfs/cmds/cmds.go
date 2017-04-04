@@ -536,25 +536,24 @@ pachctl put-file repo branch -i http://host/path
 			}
 			if recursive {
 				if outputPath == "" {
-					return fmt.Errorf("An output path needs to be specified when using the --recursive flag.")
+					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
 				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism))
-			} else {
-				var w io.Writer
-				// If an output path is given, print the output to stdout
-				if outputPath == "" {
-					w = os.Stdout
-				} else {
-					f, err := os.Create(outputPath)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					w = f
-				}
-				return client.GetFile(args[0], args[1], args[2], 0, 0, w)
 			}
+			var w io.Writer
+			// If an output path is given, print the output to stdout
+			if outputPath == "" {
+				w = os.Stdout
+			} else {
+				f, err := os.Create(outputPath)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				w = f
+			}
+			return client.GetFile(args[0], args[1], args[2], 0, 0, w)
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
