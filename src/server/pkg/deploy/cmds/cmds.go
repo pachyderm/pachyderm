@@ -53,7 +53,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -79,7 +79,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -131,7 +131,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(6, 6, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -154,7 +154,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(4, 4, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
