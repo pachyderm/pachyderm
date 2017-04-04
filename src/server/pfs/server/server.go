@@ -31,8 +31,8 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(driver *Driver, reporter *metrics.Reporter) APIServer {
-	return newAPIServer(driver, reporter)
+func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64, reporter *metrics.Reporter) (APIServer, error) {
+	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheBytes, reporter)
 }
 
 // NewLocalBlockAPIServer creates a BlockAPIServer.

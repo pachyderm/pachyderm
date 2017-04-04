@@ -38,16 +38,32 @@ const (
 
 type apiServer struct {
 	protorpclog.Logger
-	driver   *Driver
+	driver   *driver
 	reporter *metrics.Reporter
 }
 
-func newAPIServer(driver *Driver, reporter *metrics.Reporter) *apiServer {
+func newLocalAPIServer(address string, etcdPrefix string, reporter *metrics.Reporter) (*apiServer, error) {
+	d, err := newLocalDriver(address, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
 	return &apiServer{
 		Logger:   protorpclog.NewLogger("pfs.API"),
-		driver:   driver,
+		driver:   d,
 		reporter: reporter,
+	}, nil
+}
+
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64, reporter *metrics.Reporter) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+	if err != nil {
+		return nil, err
 	}
+	return &apiServer{
+		Logger:   protorpclog.NewLogger("pfs.API"),
+		driver:   d,
+		reporter: reporter,
+	}, nil
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
