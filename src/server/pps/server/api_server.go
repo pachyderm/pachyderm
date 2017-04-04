@@ -517,9 +517,6 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			return fmt.Errorf("repo %s not found: %s", in.Repo.Name, err)
 		}
 	}
-	if strings.Contains(pipelineInfo.Pipeline.Name, "_") {
-		return fmt.Errorf("pipeline name %s may not contain underscore", pipelineInfo.Pipeline.Name)
-	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
