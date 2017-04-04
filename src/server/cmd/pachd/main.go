@@ -141,10 +141,6 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	driver, err := pfs_server.NewDriver(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
-	if err != nil {
-		return err
-	}
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -153,7 +149,10 @@ func do(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer := pfs_server.NewAPIServer(driver, reporter)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes, reporter)
+	if err != nil {
+		return err
+	}
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
