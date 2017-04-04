@@ -1336,6 +1336,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			Provenance: provenance,
 			Tree:       object,
 		})
+		if err != nil {
+			return err
+		}
 
 		if jobInfo.Egress != nil {
 			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
