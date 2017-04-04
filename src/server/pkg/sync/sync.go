@@ -38,14 +38,23 @@ func NewPuller() *Puller {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int, preservePrefix bool) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
 		}
-		path := filepath.Join(root, fileInfo.File.Path)
+		var path string
+		if preservePrefix {
+			path = filepath.Join(root, fileInfo.File.Path)
+		} else {
+			basepath, err := filepath.Rel(file, fileInfo.File.Path)
+			if err != nil {
+				return err
+			}
+			path = filepath.Join(root, basepath)
+		}
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			return err
 		}
