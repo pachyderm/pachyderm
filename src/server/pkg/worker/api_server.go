@@ -185,8 +185,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (stri
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
 	logscanner := bufio.NewScanner(&userlog)
+	userLogger := logger.userLogger()
 	for logscanner.Scan() {
-		logger.Logf(logscanner.Text())
+		userLogger.Logf(logscanner.Text())
 	}
 
 	// Return result
