@@ -210,9 +210,7 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	if d.File.Commit.ID == "" {
 		return nil, fuse.EPERM
 	}
-	if err := d.fs.apiClient.MakeDirectory(d.File.Commit.Repo.Name, d.File.Commit.ID, path.Join(d.File.Path, request.Name)); err != nil {
-		return nil, err
-	}
+	// Server has no concept of empty directories.
 	localResult := d.copy()
 	localResult.File.Path = path.Join(localResult.File.Path, request.Name)
 	return localResult, nil
