@@ -312,9 +312,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	// not cleaning the path can result in weird effects like files called
 	// ./foo which won't display correctly when the filesystem is mounted
 	request.File.Path = path.Clean(request.File.Path)
-	if request.FileType == pfs.FileType_DIR {
-		return fmt.Errorf("PutFileRequest shouldn't have type dir, there's no need to explicitly create directories in pfs")
-	}
 	var r io.Reader
 	if request.Url != "" {
 		url, err := url.Parse(request.Url)
@@ -403,7 +400,6 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
-			FileType:  request.FileType,
 			Delimiter: request.Delimiter,
 			Url:       objPath,
 			File: &pfs.File{

@@ -721,7 +721,6 @@ func TestPutFile(t *testing.T) {
 
 	commit4, err := client.StartCommitParent(repo, "", commit3.ID)
 	require.NoError(t, err)
-	require.NoError(t, client.MakeDirectory(repo, commit4.ID, "dir2"))
 	_, err = client.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit4.ID))
