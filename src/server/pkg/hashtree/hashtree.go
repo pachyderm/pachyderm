@@ -57,6 +57,130 @@ func (n nodetype) tostring() string {
 	}
 }
 
+// Serialize serializes a HashTree so that it can be persisted. Also see
+// Deserialize(bytes).
+func Serialize(h HashTree) ([]byte, error) {
+	tree, ok := h.(*HashTreeProto)
+	if !ok {
+		return nil, fmt.Errorf("HashTree is of the wrong concrete type")
+	}
+	return proto.Marshal(tree)
+}
+
+// Deserialize deserializes a hash tree so that it can be read or modified.
+func Deserialize(serialized []byte) (HashTree, error) {
+	h := &HashTreeProto{}
+	proto.Unmarshal(serialized, h)
+	if h.Version != 1 {
+		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
+			"version %d", h.Version)
+	}
+	return h, nil
+}
+
+// Open makes a deep copy of the HashTree and returns the copy
+func (h *HashTreeProto) Open() OpenHashTree {
+	// create a deep copy of 'h' with proto.Clone
+	h2 := proto.Clone(h).(*HashTreeProto)
+	// make a shallow copy of 'innerh' (effectively) and return that
+	h3 := &hashtree{
+		fs:      h2.Fs,
+		changed: make(map[string]bool),
+	}
+	if h3.fs == nil {
+		h3.fs = make(map[string]*NodeProto)
+	}
+	return h3
+}
+
+func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
+	path = clean(path)
+
+	node, ok := fs[path]
+	if !ok {
+		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+	}
+	return node, nil
+}
+
+// Get retrieves the contents of a file.
+func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
+	return get(h.Fs, path)
+}
+
+func list(fs map[string]*NodeProto, path string) ([]*NodeProto, error) {
+	path = clean(path)
+
+	node, err := get(fs, path)
+	if err != nil {
+		return nil, err
+	}
+	d := node.DirNode
+	if d == nil {
+		return nil, errorf(PathConflict, "the file at \"%s\" is not a directory",
+			path)
+	}
+	var ok bool
+	result := make([]*NodeProto, len(d.Children))
+	for i, child := range d.Children {
+		result[i], ok = fs[join(path, child)]
+		if !ok {
+			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
+				"while listing \"%s\"", join(path, child), path)
+		}
+	}
+	return result, nil
+}
+
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
+func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
+	return list(h.Fs, path)
+}
+
+func glob(fs map[string]*NodeProto, pattern string) ([]*NodeProto, error) {
+	// "*" should be an allowed pattern, but our paths always start with "/", so
+	// modify the pattern to fit our path structure.
+	pattern = clean(pattern)
+
+	var res []*NodeProto
+	for path, node := range fs {
+		matched, err := pathlib.Match(pattern, path)
+		if err != nil {
+			if err == pathlib.ErrBadPattern {
+				return nil, errorf(MalformedGlob, "glob \"%s\" is malformed", pattern)
+			}
+			return nil, err
+		}
+		if matched {
+			nodeCopy := new(NodeProto)
+			*nodeCopy = *node
+			nodeCopy.Name = path
+			res = append(res, nodeCopy)
+		}
+	}
+	return res, nil
+}
+
+// Glob returns a list of files and directories that match 'pattern'.
+// The nodes returned have their 'Name' field set to their full paths.
+func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
+	return glob(h.Fs, pattern)
+}
+
+func size(fs map[string]*NodeProto) int64 {
+	rootNode, ok := fs[clean("/")]
+	if !ok {
+		return 0
+	}
+	return rootNode.SubtreeSize
+}
+
+// Size returns the size of the file system that the hashtree represents.
+func (h *HashTreeProto) Size() int64 {
+	return size(h.Fs)
+}
+
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
 // It's intended to describe the state of a single commit C, in a repo R.
 type hashtree struct {
@@ -67,6 +191,33 @@ type hashtree struct {
 	// changed maps a path P to 'true' if P or one of its children has been
 	// modified in 'fs', and its hash needs to be updated.
 	changed map[string]bool
+}
+
+// Open returns the hashtree since it's already an OpenHashTree
+func (h *hashtree) Open() OpenHashTree {
+	return h
+}
+
+// Get retrieves the contents of a file.
+func (h *hashtree) Get(path string) (*NodeProto, error) {
+	return get(h.fs, path)
+}
+
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
+func (h *hashtree) List(path string) ([]*NodeProto, error) {
+	return list(h.fs, path)
+}
+
+// Glob returns a list of files and directories that match 'pattern'.
+// The nodes returned have their 'Name' field set to their full paths.
+func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
+	return glob(h.fs, pattern)
+}
+
+// Size returns the size of the file system that the hashtree represents.
+func (h *hashtree) Size() int64 {
+	return size(h.fs)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
@@ -90,27 +241,6 @@ func (h *hashtree) clone() (*hashtree, error) {
 		result.fs = make(map[string]*NodeProto)
 	}
 	return result, nil
-}
-
-// Serialize serializes a HashTree so that it can be persisted. Also see
-// Deserialize(bytes).
-func Serialize(h HashTree) ([]byte, error) {
-	tree, ok := h.(*HashTreeProto)
-	if !ok {
-		return nil, fmt.Errorf("HashTree is of the wrong concrete type")
-	}
-	return proto.Marshal(tree)
-}
-
-// Deserialize deserializes a hash tree so that it can be read or modified.
-func Deserialize(serialized []byte) (HashTree, error) {
-	h := &HashTreeProto{}
-	proto.Unmarshal(serialized, h)
-	if h.Version != 1 {
-		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
-			"version %d", h.Version)
-	}
-	return h, nil
 }
 
 // NewHashTree creates a new hash tree implementing Interface.
@@ -239,21 +369,6 @@ func (h *hashtree) removeFromMap(path string) error {
 			"malformed node at \"%s\": it's neither a file nor a directory", path)
 	}
 	return nil
-}
-
-// Open makes a deep copy of the HashTree and returns the copy
-func (h *HashTreeProto) Open() OpenHashTree {
-	// create a deep copy of 'h' with proto.Clone
-	h2 := proto.Clone(h).(*HashTreeProto)
-	// make a shallow copy of 'innerh' (effectively) and return that
-	h3 := &hashtree{
-		fs:      h2.Fs,
-		changed: make(map[string]bool),
-	}
-	if h3.fs == nil {
-		h3.fs = make(map[string]*NodeProto)
-	}
-	return h3
 }
 
 // Finish makes a deep copy of the OpenHashTree, updates all of the hashes in
@@ -400,17 +515,6 @@ func (h *hashtree) DeleteFile(path string) error {
 	return nil
 }
 
-// Get retrieves the contents of a file.
-func (h *HashTreeProto) Get(path string) (*NodeProto, error) {
-	path = clean(path)
-
-	node, ok := h.Fs[path]
-	if !ok {
-		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
-	}
-	return node, nil
-}
-
 // GetOpen retrieves a file.
 func (h *hashtree) GetOpen(path string) (*OpenNode, error) {
 	path = clean(path)
@@ -424,67 +528,6 @@ func (h *hashtree) GetOpen(path string) (*OpenNode, error) {
 		FileNode: np.FileNode,
 		DirNode:  np.DirNode,
 	}, nil
-}
-
-// List retrieves the list of files and subdirectories of the directory at
-// 'path'.
-func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
-	path = clean(path)
-
-	node, err := h.Get(path)
-	if err != nil {
-		return nil, err
-	}
-	d := node.DirNode
-	if d == nil {
-		return nil, errorf(PathConflict, "the file at \"%s\" is not a directory",
-			path)
-	}
-	var ok bool
-	result := make([]*NodeProto, len(d.Children))
-	for i, child := range d.Children {
-		result[i], ok = h.Fs[join(path, child)]
-		if !ok {
-			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
-				"while listing \"%s\"", join(path, child), path)
-		}
-	}
-	return result, nil
-}
-
-// Glob returns a list of files and directories that match 'pattern'.
-// The nodes returned have their 'Name' field set to their full paths.
-func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
-	// "*" should be an allowed pattern, but our paths always start with "/", so
-	// modify the pattern to fit our path structure.
-	pattern = clean(pattern)
-
-	var res []*NodeProto
-	for path, node := range h.Fs {
-		matched, err := pathlib.Match(pattern, path)
-		if err != nil {
-			if err == pathlib.ErrBadPattern {
-				return nil, errorf(MalformedGlob, "glob \"%s\" is malformed", pattern)
-			}
-			return nil, err
-		}
-		if matched {
-			nodeCopy := new(NodeProto)
-			*nodeCopy = *node
-			nodeCopy.Name = path
-			res = append(res, nodeCopy)
-		}
-	}
-	return res, nil
-}
-
-// Size returns the size of the file system that the hashtree represents.
-func (h *HashTreeProto) Size() int64 {
-	rootNode, ok := h.Fs[clean("/")]
-	if !ok {
-		return 0
-	}
-	return rootNode.SubtreeSize
 }
 
 // mergeNode merges the node at 'path' from the trees in 'srcs' into 'h'.
