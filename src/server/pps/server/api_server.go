@@ -189,7 +189,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
+	sort.SliceStable(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
 			Job:             job,
@@ -553,7 +553,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
-	sort.Slice(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
+	sort.SliceStable(pipelineInfo.Inputs, func(i, j int) bool { return pipelineInfo.Inputs[i].Name < pipelineInfo.Inputs[j].Name })
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
