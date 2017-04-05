@@ -348,15 +348,19 @@ Examples:
 			for iter.Next() {
 				var messageStr string
 				if raw {
-					messageStr = iter.Message().Message
-				} else {
 					var err error
 					messageStr, err = marshaler.MarshalToString(iter.Message())
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
+				} else {
+					if iter.Message().User {
+						messageStr = iter.Message().Message
+					}
 				}
-				fmt.Println(messageStr)
+				if messageStr != "" {
+					fmt.Println(messageStr)
+				}
 			}
 			return iter.Err()
 		}),
@@ -367,8 +371,7 @@ Examples:
 		"this job (accepts job ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
-	getLogs.Flags().BoolVar(&raw, "raw", false, "Return just the log messages without "+
-		"added information like timestampes")
+	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
