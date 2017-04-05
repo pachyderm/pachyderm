@@ -18,7 +18,7 @@ Once you have Kubernetes up and running, deploying Pachyderm is a matter of supp
 For on premise deployments, we recommend using [Minio](https://minio.io/) as a backing object store.  However, at this point, you could utilize any backing object store that has an S3 compatible API.  To create a manifest template for your on premise deployment, run:
 
 ```sh
-pachctl deploy custom --persistent-disk google --object-store s3 <persistent disk name> <persistent disk size> <object store bucket> <object store id> <object store secret> <object store endpoint> --dry-run > deployment.json
+pachctl deploy custom --persistent-disk google --object-store s3 <persistent disk name> <persistent disk size> <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${STORAGE_NAME} --dry-run > deployment.json
 ```
 
 Then you can modify `deployment.json` to fit your environment and kubernetes deployment.  Once, you have your manifest ready, deploying Pachyderm is as simple as:
