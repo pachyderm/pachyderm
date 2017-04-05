@@ -199,8 +199,8 @@ enum Delimiter {
 }
 
 message PutFileRequest {
+  reserved 2;
   File file = 1;
-  FileType file_type = 2;
   bytes value = 3;
   string url = 5;
   // applies only to URLs that can be recursively walked, for example s3:// URLs
