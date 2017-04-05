@@ -11,6 +11,14 @@ Return the contents of a file.
 ./pachctl get-file repo-name commit-id path/to/file
 ```
 
+### Options
+
+```
+  -o, --output string      The path where data will be downloaded.
+  -p, --parallelism uint   The maximum number of files that can be downloaded in parallel (default 100)
+  -r, --recursive          Recursively download a directory.
+```
+
 ### Options inherited from parent commands
 
 ```
