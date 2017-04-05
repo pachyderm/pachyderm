@@ -64,11 +64,11 @@ Finally, we check to make sure the data we just added is in Pachyderm.
   $ pachctl list-commit images
   REPO                ID                                 PARENT              STARTED            DURATION            SIZE
   images              7162f5301e494ec8820012576476326c   <none>              2 minutes ago      38 seconds          57.27 KiB
+  
   # And view the file in that commit
   $ pachctl list-file images master
   NAME                TYPE                SIZE
   liberty.png         file                57.27 KiB
-  ...
 
 We can view the file we just added to Pachyderm. Since this is an image, we can't just print it out in the terminal, but the following commands will let you view it easily.
 
@@ -79,7 +79,6 @@ We can view the file we just added to Pachyderm. Since this is an image, we can'
 
   # on Linux
   $ pachctl get-file images master liberty.png | display
-  ...
 
 Create a Pipeline
 ^^^^^^^^^^^^^^^^^
@@ -115,13 +114,12 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
       }
     ]
   }
-  ...
 
-Our pipeline spec contains a few simple sections. First is the pipeline `name`, edges. Then we have the `transform` which specifies the docker image we want to use, `pachyderm/opencv` (defaults to Dockerhub as the registry), and the entry point `edges.py`. Lastly, we specify the inputs, our images repo and a glob pattern. 
+Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to Dockerhub as the registry), and the entry point ``edges.py``. Lastly, we specify the inputs, our images repo and a glob pattern. 
 
-The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. `/*` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
+The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. ``/*`` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
-.. code-block:: shell
+.. code-block:: python
 
   # edges.py
   import cv2
@@ -142,11 +140,10 @@ The glob pattern defines how the input data can be broken up if we wanted to dis
   for dirpath, dirs, files in os.walk("/pfs/images"):
      for file in files:
          make_edges(os.path.join(dirpath, file))
-  ...
 
-Our python code is really straight forward. We're simply walking over all the images in `/pfs/images`, do our edge detection and write to `/pfs/out`. 
+Our python code is really straight forward. We're simply walking over all the images in ``/pfs/images``, do our edge detection and write to ``/pfs/out``. 
 
-`/pfs/images` and `/pfs/out` are special local directories that Pachyderm creates within the container for you. All the input data for a pipeline will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``.
+``/pfs/images`` and ``/pfs/out`` are special local directories that Pachyderm creates within the container for you. All the input data for a pipeline will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``.
 
 Now let's create the pipeline in Pachyderm:
 
@@ -184,7 +181,7 @@ Every pipeline creates a corresponding repo with the same name where it stores i
 Reading the Output
 ^^^^^^^^^^^^^^^^^^
 
- We can view the output data from the "edges" repo in the same fashion that we viewed the input data.
+We can view the output data from the "edges" repo in the same fashion that we viewed the input data.
 
 .. code-block:: shell
  
@@ -193,7 +190,6 @@ Reading the Output
 
   # on Linux
   $ pachctl get-file edges master liberty.png | display
- ...
 
 
 Processing More Data
@@ -201,7 +197,7 @@ Processing More Data
 
 Pipelines will also automatically process the data from new commits as they are created. Think of pipelines as being subscribed to any new commits on their input repo(s). Also similar to Git, commits have a parental structure that tracks which files have changed. In this case we're going to be adding more images.
 
-Let's create two new commits in a parental structure. To do this we will simply do two more `put-file` commands with `-c` and by specifying `master` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
+Let's create two new commits in a parental structure. To do this we will simply do two more ``put-file`` commands with ``-c`` and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
 
 .. code-block:: shell
 
@@ -219,7 +215,6 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
   7395c7c9-df0e-4ea8-8202-ec846970b982   edges/8848e11056c04518a8d128b6939d9985   2 minutes ago      Less than a second   success
   b90afeb1-c12b-4ca5-a4f4-50c50efb20bb   edges/da51395708cb4812bc8695bb151b69e3   2 minutes ago      1 seconds            success
   9182d65e-ea36-4b98-bb07-ebf40fefcce5   edges/4dd2459531414d80936814b13b1a3442   5 minutes ago      3 seconds            success
-  ...
 
 .. code-block:: shell
 
@@ -234,7 +229,6 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
   $ pachctl get-file edges master AT-AT.png | display
 
   $ pachctl get-file edges master kitten.png | display
-  ...
 
 Exploring the File System (optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -276,4 +270,4 @@ We've now got Pachyderm running locally with data and a pipeline! If you want to
 - :doc:`../fundamentals/getting_data_into_pachyderm`
 - :doc:`../fundamentals/creating_analysis_pipelines`
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
+We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at support@pachyderm.io if you want to show off anything nifty you've created!

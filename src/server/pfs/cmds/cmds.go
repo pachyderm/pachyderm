@@ -27,6 +27,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	codestart = "```sh"
+	codeend   = "```"
+)
+
 // Cmds returns a slice containing pfs commands.
 func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
@@ -143,7 +148,7 @@ This layers the data in the commit over the data in the parent.
 
 Examples:
 
-# Start a new commit in repo "test" that's not on any branch
+` + codestart + `# Start a new commit in repo "test" that's not on any branch
 $ pachctl start-commit test
 
 # Start a commit in repo "test" on branch "master"
@@ -154,7 +159,7 @@ $ pachctl start-commit test patch -p master
 
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ pachctl start-commit test -p XXX
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -216,7 +221,7 @@ $ pachctl start-commit test -p XXX
 
 Examples:
 
-# return commits in repo "foo"
+` + codestart + `# return commits in repo "foo"
 $ pachctl list-commit foo
 
 # return commits in repo "foo" on branch "master"
@@ -230,7 +235,7 @@ $ pachctl list-commit foo XXX
 
 # return commits in repo "foo" since commit XXX
 $ pachctl list-commit foo master --from XXX
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
 			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -266,12 +271,12 @@ $ pachctl list-commit foo master --from XXX
 
 Examples:
 
-# return commits caused by foo/XXX and bar/YYY
+` + codestart + `# return commits caused by foo/XXX and bar/YYY
 $ pachctl flush-commit foo/XXX bar/YYY
 
 # return commits caused by foo/XXX leading to repos bar and baz
 $ pachctl flush-commit foo/XXX -r bar -r baz
-`,
+` + codeend,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
@@ -339,14 +344,13 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 
 Examples:
 
-# Set commit XXX and its ancestors as branch master in repo foo.
+` + codestart + `# Set commit XXX and its ancestors as branch master in repo foo.
 $ pachctl set-branch foo XXX master
 
 # Set the head of branch test as branch master in repo foo.
 # After running this command, "test" and "master" both point to the
 # same commit.
-$ pachctl set-branch foo test master
-	`,
+$ pachctl set-branch foo test master` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -393,39 +397,39 @@ $ pachctl set-branch foo test master
 		Use:   "put-file repo-name branch path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
-Put data from stdin as repo/branch/path:
+` + codestart + `# Put data from stdin as repo/branch/path:
 echo "data" | pachctl put-file repo branch path
 
-Put data from stding as repo/branch/path and start / finish a new commit on the branch.
+# Put data from stding as repo/branch/path and start / finish a new commit on the branch.
 echo "data" | pachctl put-file -c repo branch path
 
-Put a file from the local filesystem as repo/branch/path:
+# Put a file from the local filesystem as repo/branch/path:
 pachctl put-file repo branch path -f file
 
-Put a file from the local filesystem as repo/branch/file:
+# Put a file from the local filesystem as repo/branch/file:
 pachctl put-file repo branch -f file
 
-Put the contents of a directory as repo/branch/path/dir/file:
+# Put the contents of a directory as repo/branch/path/dir/file:
 pachctl put-file -r repo branch path -f dir
 
-Put the contents of a directory as repo/branch/dir/file:
+# Put the contents of a directory as repo/branch/dir/file:
 pachctl put-file -r repo branch -f dir
 
-Put the data from a URL as repo/branch/path:
+# Put the data from a URL as repo/branch/path:
 pachctl put-file repo branch path -f http://host/path
 
-Put the data from a URL as repo/branch/path:
+# Put the data from a URL as repo/branch/path:
 pachctl put-file repo branch -f http://host/path
 
-Put several files or URLs that are listed in file.
-Files and URLs should be newline delimited.
+# Put several files or URLs that are listed in file.
+# Files and URLs should be newline delimited.
 pachctl put-file repo branch -i file
 
-Put several files or URLs that are listed at URL.
-NOTE this URL can reference local files, so it could cause you to put sensitive
-files into your Pachyderm cluster.
+# Put several files or URLs that are listed at URL.
+# NOTE this URL can reference local files, so it could cause you to put sensitive
+# files into your Pachyderm cluster.
 pachctl put-file repo branch -i http://host/path
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
