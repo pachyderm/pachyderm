@@ -32,6 +32,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	splitSuffixBase  = 16
+	splitSuffixWidth = 64
+	splitSuffixFmt   = "%016x"
+)
+
 // ValidateRepoName determines if a repo name is valid
 func ValidateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
@@ -535,7 +541,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 				}
 				var indexOffset int64
 				if len(nodes) > 0 {
-					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), 16, 64)
+					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
 					if err != nil {
 						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
 							"using split on a directory which contains other data that wasn't put with split",
@@ -544,7 +550,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 					indexOffset++ // start writing to the file after the last file
 				}
 				for i, record := range records.Records {
-					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf("%016x", i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 						return err
 					}
 				}
