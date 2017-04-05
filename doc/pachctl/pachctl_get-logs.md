@@ -29,6 +29,7 @@ Examples:
       --inputs string     Filter for log lines generated while processing these files (accepts PFS paths or file hashes)
       --job string        Filter for log lines from this job (accepts job ID)
       --pipeline string   Filter the log for lines from this pipeline (accepts pipeline name)
+      --raw               Return log messages verbatim from server.
 ```
 
 ### Options inherited from parent commands

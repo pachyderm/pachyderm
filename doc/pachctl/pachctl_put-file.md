@@ -50,7 +50,7 @@ pachctl put-file repo branch -i http://host/path
   -c, --commit                    Put file(s) in a new commit.
   -f, --file value                The file to be put, it can be a local file or a URL. (default [-])
   -i, --input-file string         Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.
-  -p, --parallelism uint          The number of files that can be uploaded in parallel (default 100)
+  -p, --parallelism uint          The maximum number of files that can be uploaded in parallel (default 100)
   -r, --recursive                 Recursively put the files in a directory.
       --split string              Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes
       --target-file-bytes uint    the target upper bound of the number of bytes that each file contains; needs to be used with --split
