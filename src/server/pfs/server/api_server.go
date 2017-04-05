@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -39,16 +38,32 @@ const (
 
 type apiServer struct {
 	protorpclog.Logger
-	driver   drive.Driver
+	driver   *driver
 	reporter *metrics.Reporter
 }
 
-func newAPIServer(driver drive.Driver, reporter *metrics.Reporter) *apiServer {
+func newLocalAPIServer(address string, etcdPrefix string, reporter *metrics.Reporter) (*apiServer, error) {
+	d, err := newLocalDriver(address, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
 	return &apiServer{
 		Logger:   protorpclog.NewLogger("pfs.API"),
-		driver:   driver,
+		driver:   d,
 		reporter: reporter,
+	}, nil
+}
+
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64, reporter *metrics.Reporter) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+	if err != nil {
+		return nil, err
 	}
+	return &apiServer{
+		Logger:   protorpclog.NewLogger("pfs.API"),
+		driver:   d,
+		reporter: reporter,
+	}, nil
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
@@ -57,7 +72,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.CreateRepo(ctx, request.Repo, request.Provenance); err != nil {
+	if err := a.driver.createRepo(ctx, request.Repo, request.Provenance); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -69,7 +84,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return a.driver.InspectRepo(ctx, request.Repo)
+	return a.driver.inspectRepo(ctx, request.Repo)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
@@ -78,7 +93,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	repoInfos, err := a.driver.ListRepo(ctx, request.Provenance)
+	repoInfos, err := a.driver.listRepo(ctx, request.Provenance)
 	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 }
 
@@ -88,7 +103,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	err := a.driver.DeleteRepo(ctx, request.Repo, request.Force)
+	err := a.driver.deleteRepo(ctx, request.Repo, request.Force)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +116,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.StartCommit(ctx, request.Parent, request.Branch, request.Provenance)
+	commit, err := a.driver.startCommit(ctx, request.Parent, request.Branch, request.Provenance)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +129,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commit, err := a.driver.BuildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
+	commit, err := a.driver.buildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +142,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FinishCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.FinishCommit(ctx, request.Commit); err != nil {
+	if err := a.driver.finishCommit(ctx, request.Commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -139,7 +154,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return a.driver.InspectCommit(ctx, request.Commit)
+	return a.driver.inspectCommit(ctx, request.Commit)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
@@ -148,7 +163,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitInfos, err := a.driver.ListCommit(ctx, request.Repo, request.To, request.From, request.Number)
+	commitInfos, err := a.driver.listCommit(ctx, request.Repo, request.To, request.From, request.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +178,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	branches, err := a.driver.ListBranch(ctx, request.Repo)
+	branches, err := a.driver.listBranch(ctx, request.Repo)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +191,7 @@ func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.SetBranch(ctx, request.Commit, request.Branch); err != nil {
+	if err := a.driver.setBranch(ctx, request.Commit, request.Branch); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -188,7 +203,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListBranch")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.DeleteBranch(ctx, request.Repo, request.Branch); err != nil {
+	if err := a.driver.deleteBranch(ctx, request.Repo, request.Branch); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -200,7 +215,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.DeleteCommit(ctx, request.Commit); err != nil {
+	if err := a.driver.deleteCommit(ctx, request.Commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -213,7 +228,7 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitStream, err := a.driver.FlushCommit(ctx, request.Commits, request.ToRepos)
+	commitStream, err := a.driver.flushCommit(ctx, request.Commits, request.ToRepos)
 	if err != nil {
 		return err
 	}
@@ -242,7 +257,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitStream, err := a.driver.SubscribeCommit(ctx, request.Repo, request.Branch, request.From)
+	commitStream, err := a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From)
 	if err != nil {
 		return err
 	}
@@ -297,56 +312,47 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	// not cleaning the path can result in weird effects like files called
 	// ./foo which won't display correctly when the filesystem is mounted
 	request.File.Path = path.Clean(request.File.Path)
-	if request.FileType == pfs.FileType_DIR {
-		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
-		}
-		if err := a.driver.MakeDirectory(ctx, request.File); err != nil {
+	var r io.Reader
+	if request.Url != "" {
+		url, err := url.Parse(request.Url)
+		if err != nil {
 			return err
+		}
+		switch url.Scheme {
+		case "http":
+			fallthrough
+		case "https":
+			resp, err := http.Get(request.Url)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+		case "pfs":
+			return a.putFilePfs(ctx, request, url)
+		default:
+			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
+			if err != nil {
+				return err
+			}
+			return a.putFileObj(ctx, objClient, request, url)
 		}
 	} else {
-		var r io.Reader
-		if request.Url != "" {
-			url, err := url.Parse(request.Url)
-			if err != nil {
-				return err
-			}
-			switch url.Scheme {
-			case "http":
-				fallthrough
-			case "https":
-				resp, err := http.Get(request.Url)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := resp.Body.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				r = resp.Body
-			case "pfs":
-				return a.putFilePfs(ctx, request, url)
-			default:
-				objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
-				if err != nil {
-					return err
-				}
-				return a.putFileObj(ctx, objClient, request, url)
-			}
-		} else {
-			reader := putFileReader{
-				server: putFileServer,
-			}
-			_, err = reader.buffer.Write(request.Value)
-			if err != nil {
-				return err
-			}
-			r = &reader
+		reader := putFileReader{
+			server: putFileServer,
 		}
-		if err := a.driver.PutFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
+		_, err = reader.buffer.Write(request.Value)
+		if err != nil {
 			return err
 		}
+		r = &reader
+	}
+	if err := a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
+		return err
 	}
 	return nil
 }
@@ -361,7 +367,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		if err != nil {
 			return err
 		}
-		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
 	if len(splitPath) < 2 {
@@ -394,7 +400,6 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
 	put := func(filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
-			FileType:  request.FileType,
 			Delimiter: request.Delimiter,
 			Url:       objPath,
 			File: &pfs.File{
@@ -415,7 +420,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 				retErr = err
 			}
 		}()
-		return a.driver.PutFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
+		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
 			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	if request.Recursive {
@@ -453,7 +458,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	metricsFn := metrics.ReportUserAction(apiGetFileServer.Context(), a.reporter, "GetFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	file, err := a.driver.GetFile(ctx, request.File, request.OffsetBytes, request.SizeBytes)
+	file, err := a.driver.getFile(ctx, request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}
@@ -466,7 +471,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	return a.driver.InspectFile(ctx, request.File)
+	return a.driver.inspectFile(ctx, request.File)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -482,7 +487,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	fileInfos, err := a.driver.ListFile(ctx, request.File)
+	fileInfos, err := a.driver.listFile(ctx, request.File)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +509,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GlobFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	fileInfos, err := a.driver.GlobFile(ctx, request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(ctx, request.Commit, request.Pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +524,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteFile")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	err := a.driver.DeleteFile(ctx, request.File)
+	err := a.driver.deleteFile(ctx, request.File)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +537,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PFSDeleteAll")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.DeleteAll(ctx); err != nil {
+	if err := a.driver.deleteAll(ctx); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -1,0 +1,13 @@
+syntax = "proto3";
+package server;
+
+// PutFileRecord is used to record PutFile requests in etcd temporarily.
+message PutFileRecord {
+  int64 size_bytes = 1;
+  string objectHash = 2;
+}
+
+message PutFileRecords {
+  bool split = 1;
+  repeated PutFileRecord records = 2;
+}
