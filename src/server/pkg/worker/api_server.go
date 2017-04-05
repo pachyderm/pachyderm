@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -335,9 +334,6 @@ func (a *APIServer) cleanUpData() error {
 // HashDatum computes and returns the hash of a datum + pipeline.
 func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
 	hash := sha256.New()
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].File.Path < data[j].File.Path
-	})
 	for i, fileInfo := range data {
 		if _, err := hash.Write([]byte(a.inputs[i].Name)); err != nil {
 			return "", err
