@@ -245,10 +245,12 @@ func (h *hashtree) clone() (*hashtree, error) {
 
 // NewHashTree creates a new hash tree implementing Interface.
 func NewHashTree() OpenHashTree {
-	return &hashtree{
+	result := &hashtree{
 		fs:      make(map[string]*NodeProto),
 		changed: make(map[string]bool),
 	}
+	result.PutDir("/")
+	return result
 }
 
 // canonicalize updates the hash of the node N at 'path'. If N is a directory
