@@ -107,6 +107,16 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	fmt.Printf("%s\n", bytes)
 }
 
+func (logger *taggedLogger) userLogger() *taggedLogger {
+	result := &taggedLogger{
+		template:  logger.template, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.template.User = true
+	return result
+}
+
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
@@ -117,6 +127,7 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
+			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
 	}
@@ -172,8 +183,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (stri
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
 	logscanner := bufio.NewScanner(&userlog)
+	userLogger := logger.userLogger()
 	for logscanner.Scan() {
-		logger.Logf(logscanner.Text())
+		userLogger.Logf(logscanner.Text())
 	}
 
 	// Return result
