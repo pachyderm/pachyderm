@@ -717,7 +717,12 @@ func TestLazyPipeline(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
-				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+				Cmd: []string{"sh"},
+				// Copy the same file twice to make sure pipes can be double opened.
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file2", dataRepo),
+				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Strategy: pps.ParallelismSpec_CONSTANT,
@@ -748,6 +753,9 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file2", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
 
