@@ -1256,7 +1256,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	time.Sleep(5)
+	time.Sleep(5 * time.Second)
 
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
