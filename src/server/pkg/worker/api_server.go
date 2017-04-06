@@ -419,7 +419,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return &ProcessResponse{
 			Log: userlog,
-		}, err
+		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err
