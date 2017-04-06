@@ -68,8 +68,6 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			// when CleanUp is called.
 			go func() {
 				if err := func() (retErr error) {
-					limiter.Acquire()
-					defer limiter.Release()
 					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 					p.pipesMu.Lock()
 					delete(p.pipes, path)
@@ -77,6 +75,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 					if err != nil {
 						return err
 					}
+					limiter.Acquire()
+					defer limiter.Release()
 					defer func() {
 						if err := f.Close(); err != nil && retErr == nil {
 							retErr = err
