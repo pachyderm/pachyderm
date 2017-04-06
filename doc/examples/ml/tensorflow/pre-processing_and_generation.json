@@ -13,9 +13,9 @@
     {
       "repo": {
         "name": "input_images"
-      }
-    },
-    "glob": "/*"
+      },
+      "glob": "/*"
+    }
   ]
 }
 {
