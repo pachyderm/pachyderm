@@ -4,7 +4,6 @@ package sync
 import (
 	"os"
 	"path/filepath"
-	"sync"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -19,17 +18,16 @@ import (
 type Puller struct {
 	// errCh contains an error from the pipe goros
 	errCh chan error
-	// pipes is a set containing all pipes that are currently blocking
-	pipes map[string]bool
-	// pipesMu is a mutex to synchronize access to pipes
-	pipesMu sync.Mutex
+	// pipes is a set containing all pipes created
+	pipes []string
+	// cleaningUp is true if Puller is in the middle of a cleanUp process
+	cleaningUp bool
 }
 
 // NewPuller creates a new Puller struct.
 func NewPuller() *Puller {
 	return &Puller{
 		errCh: make(chan error, 1),
-		pipes: make(map[string]bool),
 	}
 }
 
@@ -57,9 +55,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			if err := syscall.Mkfifo(path, 0666); err != nil {
 				return err
 			}
-			p.pipesMu.Lock()
-			p.pipes[path] = true
-			p.pipesMu.Unlock()
+			p.pipes = append(p.pipes, path)
 			// This goro will block until the user's code opens the
 			// fifo.  That means we need to "abandon" this goro so that
 			// the function can return and the caller can execute the
@@ -67,30 +63,32 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			// produce a deadlock. This goro will exit (if it hasn't already)
 			// when CleanUp is called.
 			go func() {
-				if err := func() (retErr error) {
-					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-					p.pipesMu.Lock()
-					delete(p.pipes, path)
-					p.pipesMu.Unlock()
-					if err != nil {
-						return err
-					}
-					limiter.Acquire()
-					defer limiter.Release()
-					defer func() {
-						if err := f.Close(); err != nil && retErr == nil {
-							retErr = err
+				for {
+					if err := func() (retErr error) {
+						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
+						if p.cleaningUp {
+							return nil
 						}
-					}()
-					err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
-					if err != nil {
-						return err
-					}
-					return nil
-				}(); err != nil {
-					select {
-					case p.errCh <- err:
-					default:
+						if err != nil {
+							return err
+						}
+						limiter.Acquire()
+						defer limiter.Release()
+						defer func() {
+							if err := f.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
+						if err != nil {
+							return err
+						}
+						return nil
+					}(); err != nil {
+						select {
+						case p.errCh <- err:
+						default:
+						}
 					}
 				}
 			}()
@@ -122,14 +120,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // data for the pipes. CleanUp should be called after all code that might
 // access pipes has completed running, it should not be called concurrently.
 func (p *Puller) CleanUp() error {
-	var result error
-	select {
-	case result = <-p.errCh:
-	default:
-	}
-	p.pipesMu.Lock()
-	defer p.pipesMu.Unlock()
-	for path := range p.pipes {
+	p.cleaningUp = true
+	for _, path := range p.pipes {
 		f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
 		if err != nil {
 			return err
@@ -138,8 +130,14 @@ func (p *Puller) CleanUp() error {
 			return err
 		}
 	}
-	p.pipes = make(map[string]bool)
-	return result
+	p.pipes = nil
+	p.cleaningUp = false
+	select {
+	case err := <-p.errCh:
+		return err
+	default:
+		return nil
+	}
 }
 
 // Push puts files under root into an open commit.
