@@ -623,6 +623,7 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(jobInfos))
 
+	var failed bool
 	for _, jobInfo := range jobInfos {
 		// Wait for the job to finish
 		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
@@ -630,9 +631,11 @@ func TestPipelineFailure(t *testing.T) {
 
 		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
 		if jobInfo.State == pps.JobState_JOB_FAILURE {
-			require.Equal(t, errMsg+"\n", jobInfo.Error)
+			failed = true
 		}
 	}
+	// Some of the jobs should've failed
+	require.True(t, failed)
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {

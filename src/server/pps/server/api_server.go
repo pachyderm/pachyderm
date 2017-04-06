@@ -858,8 +858,9 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
-			protolion.Infof("stop watching pipelines for shard %d", shard)
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
@@ -912,8 +913,9 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
-			protolion.Infof("stop watching jobs for shard %d", shard)
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
@@ -927,10 +929,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func isContextCancelledErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), context.Canceled.Error())
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
@@ -948,7 +946,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	}()
 
 	b := backoff.NewInfiniteBackOff()
-	err := backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error {
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
@@ -1052,7 +1050,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		panic("unreachable")
 		return nil
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
@@ -1061,9 +1061,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if err != nil && !isContextCancelledErr(err) {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
 }
 
 // pipelineStateToStopped defines what pipeline states are "stopped"
@@ -1131,7 +1128,7 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error {
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1229,11 +1226,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
-		errCh := make(chan string)
+		// This channel is closed when the user program fails to process
+		// any datum.
+		// TODO: we shouldn't give up as soon as the user program fails;
+		// we should retry somehow.
+		errCh := make(chan struct{})
 		datum := df.Next()
 		for {
 			var resp hashtree.HashTree
-			var datumErr string
+			var failed bool
 			if datum != nil {
 				select {
 				case wp.DataCh() <- &datumAndResp{
@@ -1247,7 +1248,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					numData++
 				case resp = <-respCh:
 					numData--
-				case datumErr = <-errCh:
+				case <-errCh:
+					failed = true
 					numData--
 				}
 			} else {
@@ -1256,7 +1258,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				}
 				select {
 				case resp = <-respCh:
-				case datumErr = <-errCh:
+				case <-errCh:
+					failed = true
 				}
 				numData--
 			}
@@ -1265,14 +1268,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					return err
 				}
 			}
-			if datumErr != "" {
+			if failed {
 				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
 					}
-					jobInfo.Error = datumErr
 					jobInfo.Finished = now()
 					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
 				})
@@ -1373,14 +1375,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		})
 		return err
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
 		return nil
-	}); err != nil && !isContextCancelledErr(err) {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
+	})
 }
 
 // jobStateToStopped defines what job states are "stopped" states,
