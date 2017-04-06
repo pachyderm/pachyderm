@@ -26,7 +26,7 @@ But how do we know which files to get?  Of course we can use the `pachctl list-f
 
 ## Examining file provenance with flush-commit 
 
-Generally, `flush-commit` will let our process block on an input commit until all of the output results are ready to read. In other words, `flush-commit` lets you view a consistent global snapshot of all your data at a given commit. You can read about other advanced features of Provenance, such as data lineage, in our ["How to leverage provenance"](../cookbook/how_to_leverage_provenance) Guide, but we're just going to cover a few aspects of `flush-commit` here. 
+Generally, `flush-commit` will let our process block on an input commit until all of the output results are ready to read. In other words, `flush-commit` lets you view a consistent global snapshot of all your data at a given commit. Note, we are just going to cover a few aspects of `flush-commit` here. 
 
 Let's demonstrate a typical workflow using `flush-commit`. First, we'll make a few commits of data into the `images` repo on the `master` branch.  That will then trigger our `edges` pipeline and generate three output commits in our `edges` repo:
 
