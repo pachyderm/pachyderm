@@ -25,6 +25,8 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	} else if jobInfo.Pipeline != nil {
+		fmt.Fprintf(w, "%s/-\t", jobInfo.Pipeline.Name)
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
