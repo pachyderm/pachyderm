@@ -60,6 +60,7 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 			if isContextCancelledErr(err) {
 				return
 			}
+
 			dr.retCh <- dr
 			protolion.Errorf("worker %s failed to process datum %v with error %s", w.addr, dr.datum, err)
 			continue

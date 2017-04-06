@@ -24,7 +24,7 @@ package deploy
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import _ "google/api"
 import google_protobuf1 "github.com/gogo/protobuf/types"
 
 import (
