@@ -925,10 +925,6 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-func isContextCancelledErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), context.Canceled.Error())
-}
-
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
@@ -944,7 +940,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	}()
 
 	b := backoff.NewInfiniteBackOff()
-	err := backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error {
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
@@ -1048,7 +1044,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		panic("unreachable")
 		return nil
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
@@ -1057,9 +1055,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		return nil
 	})
-	if err != nil && !isContextCancelledErr(err) {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
 }
 
 // pipelineStateToStopped defines what pipeline states are "stopped"
@@ -1127,7 +1122,7 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error {
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1374,14 +1369,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		})
 		return err
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
 		return nil
-	}); err != nil && !isContextCancelledErr(err) {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
+	})
 }
 
 // jobStateToStopped defines what job states are "stopped" states,

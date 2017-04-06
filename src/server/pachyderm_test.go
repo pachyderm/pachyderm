@@ -632,7 +632,6 @@ func TestPipelineFailure(t *testing.T) {
 		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
 		if jobInfo.State == pps.JobState_JOB_FAILURE {
 			failed = true
-			require.Equal(t, errMsg+"\n", jobInfo.Error)
 		}
 	}
 	// Some of the jobs should've failed
