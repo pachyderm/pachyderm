@@ -62,34 +62,33 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			// user's code. Waiting for this goro to return would
 			// produce a deadlock. This goro will exit (if it hasn't already)
 			// when CleanUp is called.
+			returnErr := func(err error) {
+				select {
+				case p.errCh <- err:
+				default:
+				}
+			}
 			go func() {
 				for {
-					if err := func() (retErr error) {
-						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-						if p.cleaningUp {
-							return nil
-						}
-						if err != nil {
-							return err
-						}
-						limiter.Acquire()
-						defer limiter.Release()
+					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
+					if p.cleaningUp {
+						return
+					}
+					if err != nil {
+						returnErr(err)
+						return
+					}
+					go func() {
 						defer func() {
-							if err := f.Close(); err != nil && retErr == nil {
-								retErr = err
+							if err := f.Close(); err != nil {
+								returnErr(err)
 							}
 						}()
-						err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
-						if err != nil {
-							return err
+						if err := client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f); err != nil {
+							returnErr(err)
+							return
 						}
-						return nil
-					}(); err != nil {
-						select {
-						case p.errCh <- err:
-						default:
-						}
-					}
+					}()
 				}
 			}()
 		} else {
@@ -130,8 +129,6 @@ func (p *Puller) CleanUp() error {
 			return err
 		}
 	}
-	p.pipes = nil
-	p.cleaningUp = false
 	select {
 	case err := <-p.errCh:
 		return err
