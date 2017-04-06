@@ -1225,11 +1225,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var numData int
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
-		errCh := make(chan string)
+		// This channel is closed when the user program fails to process
+		// any datum.
+		// TODO: we shouldn't give up as soon as the user program fails;
+		// we should retry somehow.
+		errCh := make(chan struct{})
 		datum := df.Next()
 		for {
 			var resp hashtree.HashTree
-			var datumErr string
+			var failed bool
 			if datum != nil {
 				select {
 				case wp.DataCh() <- &datumAndResp{
@@ -1243,7 +1247,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					numData++
 				case resp = <-respCh:
 					numData--
-				case datumErr = <-errCh:
+				case <-errCh:
+					failed = true
 					numData--
 				}
 			} else {
@@ -1252,7 +1257,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				}
 				select {
 				case resp = <-respCh:
-				case datumErr = <-errCh:
+				case <-errCh:
+					failed = true
 				}
 				numData--
 			}
@@ -1261,14 +1267,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					return err
 				}
 			}
-			if datumErr != "" {
+			if failed {
 				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
 					}
-					jobInfo.Error = datumErr
 					jobInfo.Finished = now()
 					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
 				})
