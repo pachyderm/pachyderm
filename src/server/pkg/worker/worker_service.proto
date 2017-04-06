@@ -19,6 +19,8 @@ message ProcessRequest {
 // TODO: allow for capturing logs even if processing was successful.
 message ProcessResponse {
   pfs.Tag tag = 1;
+  // If true, the user program has errored
+  bool failed = 2;
 }
 
 service Worker {

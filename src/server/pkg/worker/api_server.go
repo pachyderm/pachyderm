@@ -414,7 +414,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	err := a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger)
 	logger.Logf("finished processing user input")
 	if err != nil {
 		return nil, err

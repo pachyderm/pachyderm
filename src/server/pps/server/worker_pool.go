@@ -30,7 +30,7 @@ type datumAndResp struct {
 	jobID  string // This is passed to workers, so they can annotate their logs
 	datum  []*pfs.FileInfo
 	respCh chan hashtree.HashTree
-	errCh  chan string
+	errCh  chan struct{}
 	retCh  chan *datumAndResp
 }
 
@@ -74,11 +74,17 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 			}
 			tree, err := hashtree.Deserialize(buffer.Bytes())
 			if err != nil {
-				panic(err)
+				protolion.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug", w.addr, dr.datum)
+				dr.retCh <- dr
+				continue
 			}
 			dr.respCh <- tree
+		} else if resp.Failed {
+			close(dr.errCh)
 		} else {
-			dr.errCh <- resp.Log
+			protolion.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", w.addr, dr.datum)
+			dr.retCh <- dr
+			continue
 		}
 	}
 }
