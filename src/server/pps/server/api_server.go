@@ -818,10 +818,10 @@ func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
 // pipelineWatcher watches for pipelines and launch pipelineManager
 // when it gets a pipeline that falls into a shard assigned to the
 // API server.
-func (a *apiServer) pipelineWatcher() {
+func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		pipelineWatcher, err := a.pipelines.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchByIndex(stoppedIndex, false)
 		if err != nil {
 			return err
 		}
@@ -831,9 +831,8 @@ func (a *apiServer) pipelineWatcher() {
 				return event.Err
 			}
 			pipelineName := string(event.Key)
-			shardCtx := a.getShardCtx(a.hasher.HashPipeline(pipelineName))
-			if shardCtx == nil {
-				// Skip pipelines that don't fall into my shards
+			if a.hasher.HashPipeline(pipelineName) != shard {
+				// Skip pipelines that don't fall into my shard
 				continue
 			}
 			switch event.Type {
@@ -847,7 +846,7 @@ func (a *apiServer) pipelineWatcher() {
 					protolion.Infof("cancelling pipeline: %s", pipelineName)
 					cancel()
 				}
-				pipelineCtx, cancel := context.WithCancel(shardCtx)
+				pipelineCtx, cancel := context.WithCancel(ctx)
 				a.setPipelineCancel(pipelineName, cancel)
 				protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
 				go a.pipelineManager(pipelineCtx, &pipelineInfo)
@@ -859,20 +858,23 @@ func (a *apiServer) pipelineWatcher() {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
+		if isContextCancelledErr(err) {
+			protolion.Infof("stop watching pipelines for shard %d", shard)
+			return err
+		}
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
 		return nil
 	})
-	panic("pipelineWatcher should never exit")
 }
 
 // jobWatcher watches for unfinished jobs and launches jobManagers for
 // the jobs that fall into this server's shards
-func (a *apiServer) jobWatcher() {
+func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		// Wait for job events where JobInfo.Stopped is set to "false", and then
 		// start JobManagers for those jobs
-		jobWatcher, err := a.jobs.ReadOnly(context.Background()).WatchByIndex(stoppedIndex, false)
+		jobWatcher, err := a.jobs.ReadOnly(ctx).WatchByIndex(stoppedIndex, false)
 		if err != nil {
 			return err
 		}
@@ -883,9 +885,8 @@ func (a *apiServer) jobWatcher() {
 				return event.Err
 			}
 			jobID := string(event.Key)
-			shardCtx := a.getShardCtx(a.hasher.HashJob(jobID))
-			if shardCtx == nil {
-				// Skip jobs that don't fall into my shards
+			if a.hasher.HashJob(jobID) != shard {
+				// Skip jobs that don't fall into my shard
 				continue
 			}
 			switch event.Type {
@@ -899,7 +900,7 @@ func (a *apiServer) jobWatcher() {
 					protolion.Infof("cancelling job: %s", jobID)
 					cancel()
 				}
-				jobCtx, cancel := context.WithCancel(shardCtx)
+				jobCtx, cancel := context.WithCancel(ctx)
 				a.setJobCancel(jobID, cancel)
 				protolion.Infof("launching job manager for job %s", jobInfo.Job.ID)
 				go a.jobManager(jobCtx, &jobInfo)
@@ -911,10 +912,13 @@ func (a *apiServer) jobWatcher() {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
+		if isContextCancelledErr(err) {
+			protolion.Infof("stop watching jobs for shard %d", shard)
+			return err
+		}
 		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
 		return nil
 	})
-	panic("jobWatcher should never exit")
 }
 
 func isAlreadyExistsErr(err error) bool {
@@ -1447,19 +1451,6 @@ func (a *apiServer) deleteWorkers(rcName string) error {
 	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 
-// getShardCtx returns the context associated with a shard that this server
-// manages.  It can also be used to determine if a shard is managed by this
-// server
-func (a *apiServer) getShardCtx(shard uint64) context.Context {
-	a.shardLock.RLock()
-	defer a.shardLock.RUnlock()
-	ctxAndCancel := a.shardCtxs[shard]
-	if ctxAndCancel != nil {
-		return ctxAndCancel.ctx
-	}
-	return nil
-}
-
 func (a *apiServer) AddShard(shard uint64) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.shardLock.Lock()
@@ -1472,6 +1463,8 @@ func (a *apiServer) AddShard(shard uint64) error {
 		cancel: cancel,
 	}
 	protolion.Infof("adding shard %d", shard)
+	go a.jobWatcher(ctx, shard)
+	go a.pipelineWatcher(ctx, shard)
 	return nil
 }
 
