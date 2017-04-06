@@ -858,8 +858,9 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
-			protolion.Infof("stop watching pipelines for shard %d", shard)
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
@@ -912,8 +913,9 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		if isContextCancelledErr(err) {
-			protolion.Infof("stop watching jobs for shard %d", shard)
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
 		}
 		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
