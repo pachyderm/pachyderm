@@ -63,6 +63,9 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+	if _, err := c.StatObject(c.bucket, name); err != nil {
+		return nil, err
+	}
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
 		return nil, err
