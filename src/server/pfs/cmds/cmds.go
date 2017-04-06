@@ -30,6 +30,8 @@ import (
 const (
 	codestart = "```sh"
 	codeend   = "```"
+
+	DefaultParallelism = 10
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -522,7 +524,7 @@ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The maximum number of files that can be uploaded in parallel")
+	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "the target upper bound of the number of datums that each file contains; needs to be used with --split")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "the target upper bound of the number of bytes that each file contains; needs to be used with --split")
@@ -562,7 +564,7 @@ pachctl put-file repo branch -i http://host/path
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The maximum number of files that can be downloaded in parallel")
+	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
