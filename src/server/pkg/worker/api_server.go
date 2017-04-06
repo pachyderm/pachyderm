@@ -417,6 +417,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	userlog, err := a.runUserCode(ctx, logger)
 	logger.Logf("finished processing user input")
 	if err != nil {
+		// The error is ignored because we use `Log` to signal that the
+		// code has failed
 		return &ProcessResponse{
 			Log: userlog,
 		}, nil
