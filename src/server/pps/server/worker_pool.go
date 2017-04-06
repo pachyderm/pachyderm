@@ -48,8 +48,10 @@ type worker struct {
 
 func (w *worker) run(dataCh chan *datumAndResp) {
 	for {
-		dr, ok := <-dataCh
-		if !ok {
+		var dr *datumAndResp
+		select {
+		case dr = <-dataCh:
+		case <-w.ctx.Done():
 			return
 		}
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
@@ -57,10 +59,6 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 			Data:  dr.datum,
 		})
 		if err != nil {
-			if isContextCancelledErr(err) {
-				return
-			}
-
 			dr.retCh <- dr
 			protolion.Errorf("worker %s failed to process datum %v with error %s", w.addr, dr.datum, err)
 			continue
