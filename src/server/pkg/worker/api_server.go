@@ -170,7 +170,7 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (string, error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error {
 	// Run user code
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
@@ -190,19 +190,19 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (stri
 
 	// Return result
 	if err == nil {
-		return userlog.String(), nil
+		return nil
 	}
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 			for _, returnCode := range transform.AcceptReturnCode {
 				if int(returnCode) == status.ExitStatus() {
-					return userlog.String(), nil
+					return nil
 				}
 			}
 		}
 	}
-	return userlog.String(), err
+	return err
 
 }
 
@@ -414,14 +414,10 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	userlog, err := a.runUserCode(ctx, logger)
+	err := a.runUserCode(ctx, logger)
 	logger.Logf("finished processing user input")
 	if err != nil {
-		// The error is ignored because we use `Log` to signal that the
-		// code has failed
-		return &ProcessResponse{
-			Log: userlog,
-		}, nil
+		return nil, err
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
 		return nil, err
