@@ -31,6 +31,8 @@ const (
 	codestart = "```sh"
 	codeend   = "```"
 
+	// DefaultParallelism is the default parallelism used by get-file
+	// and put-file.
 	DefaultParallelism = 10
 )
 
