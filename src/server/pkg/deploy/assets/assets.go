@@ -27,6 +27,9 @@ var (
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
 	dashName                = "dash"
+	dashImage               = "pachyderm/dash"
+	grpcProxyName           = "grpc-proxy"
+	grpcProxyImage          = "grpc-proxy-image"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -664,6 +667,7 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 	}
 }
 
+// DashDeployment creates a Deployment for the pachyderm dashboard.
 func DashDeployment() *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
@@ -678,7 +682,7 @@ func DashDeployment() *extensions.Deployment {
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(dashName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   dashName,
 					Labels: labels(dashName),
@@ -691,7 +695,7 @@ func DashDeployment() *extensions.Deployment {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8080,
-									Name:          "http",
+									Name:          "dash-http",
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
@@ -702,12 +706,42 @@ func DashDeployment() *extensions.Deployment {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8081,
-									Name:          "http",
+									Name:          "grpc-proxy-http",
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+// DashService creates a Service for the pachyderm dashboard.
+func DashService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: api.ServiceSpec{
+			Type:     api.ServiceTypeNodePort,
+			Selector: labels(dashName),
+			Ports: []api.ServicePort{
+				{
+					Port:     8080,
+					Name:     "dash-http",
+					NodePort: 38080,
+				},
+				{
+					Port:     8081,
+					Name:     "grpc-proxy-http",
+					NodePort: 38081,
 				},
 			},
 		},
