@@ -10,9 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
+	api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	api "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
+	dashName                = "dash"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -166,7 +168,6 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -177,7 +178,7 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
+			Replicas: 1,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
@@ -322,7 +323,6 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			},
 		}
 	}
-	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -333,7 +333,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
+			Replicas: 1,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
@@ -657,6 +657,56 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 							},
 						},
 						"accessModes": []string{"ReadWriteOnce"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func DashDeployment() *extensions.Deployment {
+	return &extensions.Deployment{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: extensions.DeploymentSpec{
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(dashName),
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   dashName,
+					Labels: labels(dashName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  dashName,
+							Image: dashImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8080,
+									Name:          "http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+						{
+							Name:  grpcProxyName,
+							Image: grpcProxyImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8081,
+									Name:          "http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
 					},
 				},
 			},
