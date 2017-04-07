@@ -272,7 +272,7 @@ Examples:
 			// Display newest jobs first
 			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
