@@ -85,6 +85,14 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
+message Datum {
+  // This file's absolute path within its pfs repo.
+  string path = 4;
+
+  // This file's hash
+  bytes hash = 5;
+}
+
 message JobInfo {
   reserved 4;
   Job job = 1;
@@ -105,6 +113,9 @@ message JobInfo {
   pfs.Repo outputRepo = 18;
   string outputBranch = 17;
   uint64 restart = 20;
+  map<string, Datum> worker_to_datum = 21;
+  int64 datums_processed = 22;
+  int64 datums_total = 23;
 }
 
 enum WorkerState {
@@ -244,13 +255,6 @@ message LogMessage {
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
 
   // The PFS files being processed (one per pipeline/job input)
-  message Datum {
-    // This file's absolute path within its pfs repo.
-	  string path = 4;
-
-    // This file's hash
-    bytes hash = 5;
-  }
   repeated Datum data = 4;
 
   // User is true if log message comes from the users code.
