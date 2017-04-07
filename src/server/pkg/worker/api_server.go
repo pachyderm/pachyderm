@@ -78,9 +78,9 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = make([]*pps.LogMessage_Datum, 0, len(req.Data))
+	result.template.Data = make([]*pps.Datum, 0, len(req.Data))
 	for i, d := range req.Data {
-		result.template.Data = append(result.template.Data, new(pps.LogMessage_Datum))
+		result.template.Data = append(result.template.Data, new(pps.Datum))
 		result.template.Data[i].Path = d.File.Path
 		result.template.Data[i].Hash = d.Hash
 	}
