@@ -10,9 +10,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
-	api "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	// k8s.io/kubernetes/pkg/api/v1 is very similar to
+	// "k8s.io/kubernetes/pkg/api" above, we import both because services need
+	// to use v1 otherwise they get empty fields that make them invalid to
+	// kubectl, we need the api version to interact correctly with deployments
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
@@ -270,22 +275,22 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *exte
 }
 
 // PachdService returns a pachd service.
-func PachdService() *api.Service {
-	return &api.Service{
+func PachdService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     650,
 					Name:     "api-grpc-port",
@@ -502,26 +507,26 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
 // pods talk to etcd
-func EtcdNodePortService(local bool) *api.Service {
+func EtcdNodePortService(local bool) *v1.Service {
 	var clientNodePort int32
 	if local {
 		clientNodePort = 32379
 	}
-	return &api.Service{
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     2379,
 					Name:     "client-port",
@@ -534,22 +539,22 @@ func EtcdNodePortService(local bool) *api.Service {
 
 // EtcdHeadlessService returns a headless etcd service, which is only for DNS
 // resolution.
-func EtcdHeadlessService() *api.Service {
-	return &api.Service{
+func EtcdHeadlessService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdHeadlessServiceName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
+		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app": etcdName,
 			},
 			ClusterIP: "None",
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Name: "peer-port",
 					Port: 2380,
@@ -720,20 +725,20 @@ func DashDeployment() *extensions.Deployment {
 }
 
 // DashService creates a Service for the pachyderm dashboard.
-func DashService() *api.Service {
-	return &api.Service{
+func DashService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   dashName,
 			Labels: labels(dashName),
 		},
-		Spec: api.ServiceSpec{
-			Type:     api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeNodePort,
 			Selector: labels(dashName),
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     8080,
 					Name:     "dash-http",
