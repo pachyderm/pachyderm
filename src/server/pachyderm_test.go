@@ -437,7 +437,7 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 
 	// Now we delete the pipeline and re-create it.  The pipeline should
 	// only process the heads of the branches.
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, true))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 
 	require.NoError(t, c.CreatePipeline(
@@ -1036,9 +1036,67 @@ func TestRecreatePipeline(t *testing.T) {
 	createPipeline()
 	time.Sleep(5 * time.Second)
 	require.NoError(t, c.DeleteRepo(pipeline, false))
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
 	createPipeline()
+}
+
+func TestDeletePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	repo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	pipeline := uniqueString("pipeline")
+	createPipeline := func() {
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			nil,
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			[]*pps.PipelineInput{{
+				Repo: client.NewRepo(repo),
+				Glob: "/*",
+			}},
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
+	}
+
+	createPipeline()
+	require.NoError(t, c.DeleteRepo(pipeline, false))
+	require.NoError(t, c.DeletePipeline(pipeline, true))
+	time.Sleep(5 * time.Second)
+
+	// Jobs should be gone
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, len(jobs), 0)
+
+	createPipeline()
+	require.NoError(t, c.DeleteRepo(pipeline, false))
+	require.NoError(t, c.DeletePipeline(pipeline, false))
+	time.Sleep(5 * time.Second)
+
+	// Jobs should still be there
+	jobs, err = c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, len(jobs), 1)
 }
 
 func TestPipelineState(t *testing.T) {
