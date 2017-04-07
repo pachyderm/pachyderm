@@ -1,12 +1,41 @@
 # Amazon Web Services
 
+Below, we show how to deploy Pachyderm on AWS in a couple of different ways:
+
+1. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
+2. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
+
+If you already have a Kubernetes deployment or would like to customize the types of instances, size of volumes, etc. in your Kubernetes cluster, you should follow option (1).  If you just want a quick deploy to experiment with Pachyderm in AWS or would just like to use our default configuration, you might want to try option (2)
+
 ## Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
 
-## Install `pachctl`
+## Manual Pachyderm Deploy
+
+### Deploy Kubernetes
+
+The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.  
+
+Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
+
+```shell
+$ kubectl get all
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+svc/kubernetes   10.0.0.1     <none>        443/TCP   22s
+```
+
+### Deploy Pachyderm
+
+To deploy Pachyderm we will need to:
+
+1. Install the `pachctl` CLI tool,
+2. Add some storage resources on AWS, 
+3. Deploy Pachyderm on top of the storage resources.
+
+#### Install `pachctl`
 
 To deploy and interact with Pachyderm, you will need `pachctl`, a command-line utility used for Pachyderm. To install `pachctl` run one of the following:
 
@@ -27,28 +56,6 @@ COMPONENT           VERSION
 pachctl             1.4.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
-
-## Manual Pachyderm Deploy
-
-### Deploy Kubernetes
-
-The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.  
-
-Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
-
-```shell
-$ kubectl get all
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-svc/kubernetes   10.0.0.1     <none>        443/TCP   22s
-```
-
-### Deploy Pachyderm
-
-To deploy Pachyderm we will need to:
-
-1. Add some storage resources on AWS, 
-2. Install the Pachyderm CLI tool, `pachctl`, and
-3. Deploy Pachyderm on top of the storage resources.
 
 #### Set up the Storage Resources
 
@@ -146,11 +153,18 @@ pachctl             1.4.0
 pachd               1.4.0
 ```
 
-## Scripted Pachyderm Deploy
+## One Shot Script
 
-**Warning** - this is a work in progress and the script may need to be modified for your environment.  To be updated soon.
+### Install additional prerequisites
 
-You can also deploy a Pachyderm cluster on AWS with our deploy script. Once you have the prerequisites mentioned above, download and run our AWS deploy script by running:
+This scripted deploy requires a couple of prerequisites in addition to the ones listed under [Prerequisites](amazon_web_services.md#prerequisites):
+
+- [jq](https://stedolan.github.io/jq/download/)
+- [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
+
+### Run the deploy script
+
+Once you have the prerequisites mentioned above, download and run our AWS deploy script by running:
 
 ```
 curl -o aws.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
@@ -176,6 +190,8 @@ svc/etcd         10.0.0.165   <nodes>       2379:32379/TCP,2380:32686/TCP   5m
 svc/kubernetes   10.0.0.1     <none>        443/TCP                         5m
 svc/pachd        10.0.0.214   <nodes>       650:30650/TCP,651:30651/TCP     5m
 ```
+
+### Connect `pachctl`
 
 Finally, we need to set up forward a port so that pachctl can talk to the cluster.
 
