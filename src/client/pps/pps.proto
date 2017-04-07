@@ -283,7 +283,7 @@ message ListPipelineRequest {
 
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
-  bool delete_job = 2;
+  bool delete_jobs = 2;
 }
 
 message StartPipelineRequest {
