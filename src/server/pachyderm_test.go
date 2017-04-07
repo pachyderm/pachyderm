@@ -2559,6 +2559,66 @@ func TestPfsPutFile(t *testing.T) {
 	}
 }
 
+func TestAllDatumsAreProcessed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo1 := uniqueString("TestAllDatumsAreProcessed_data1")
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	dataRepo2 := uniqueString("TestAllDatumsAreProcessed_data2")
+	require.NoError(t, c.CreateRepo(dataRepo2))
+
+	commit1, err := c.StartCommit(dataRepo1, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo1, "master", "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo1, "master", "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo1, "master"))
+
+	commit2, err := c.StartCommit(dataRepo2, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo2, "master"))
+
+	require.NoError(t, c.CreatePipeline(
+		uniqueString("TestAllDatumsAreProcessed_pipelines"),
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/%s/* /pfs/%s/* > /pfs/out/file", dataRepo1, dataRepo2),
+		},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo:   &pfs.Repo{Name: dataRepo1},
+			Branch: "master",
+			Glob:   "/*",
+		}, {
+			Repo:   &pfs.Repo{Name: dataRepo2},
+			Branch: "master",
+			Glob:   "/*",
+		}},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1, commit2}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	// should be 8 because each file gets copied twice due to cross product
+	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
