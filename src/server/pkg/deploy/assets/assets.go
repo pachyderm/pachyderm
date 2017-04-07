@@ -10,10 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
+	api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	api "k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
@@ -85,7 +85,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
+func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
@@ -172,22 +172,21 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": pachdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(pachdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   pachdName,
 					Labels: labels(pachdName),
@@ -303,7 +302,7 @@ func PachdService() *api.Service {
 }
 
 // EtcdRc returns an etcd replication controller.
-func EtcdRc(hostPath string) *api.ReplicationController {
+func EtcdRc(hostPath string) *extensions.Deployment {
 	var volumes []api.Volume
 	if hostPath == "" {
 		volumes = []api.Volume{
@@ -328,22 +327,21 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			},
 		}
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": etcdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(etcdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   etcdName,
 					Labels: labels(etcdName),
@@ -671,8 +669,8 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment() *v1beta1.Deployment {
-	return &v1beta1.Deployment{
+func DashDeployment() *extensions.Deployment {
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: "extensions/v1beta1",
@@ -681,8 +679,8 @@ func DashDeployment() *v1beta1.Deployment {
 			Name:   dashName,
 			Labels: labels(dashName),
 		},
-		Spec: v1beta1.DeploymentSpec{
-			Selector: &v1beta1.LabelSelector{
+		Spec: extensions.DeploymentSpec{
+			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(dashName),
 			},
 			Template: api.PodTemplateSpec{
