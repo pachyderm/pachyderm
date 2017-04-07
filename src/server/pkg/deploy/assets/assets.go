@@ -67,6 +67,7 @@ type AssetOpts struct {
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks.
 	BlockCacheSize string
+	noDash         bool
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -898,6 +899,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	if !opts.noDash {
+		DashService().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		DashDeployment().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
 	return nil
 }
 
