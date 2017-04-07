@@ -1380,7 +1380,24 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			// Exit the retry loop if context got cancelled
 			return err
 		}
+
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
+
+		// Increment the job's restart count
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobID, jobInfo); err != nil {
+				return err
+			}
+			jobInfo.Restart++
+			jobs.Put(jobInfo.Job.ID, jobInfo)
+			return nil
+		})
+		if err != nil {
+			protolion.Errorf("error incrementing job %s's restart count", jobInfo.Job.ID)
+		}
+
 		return nil
 	})
 }

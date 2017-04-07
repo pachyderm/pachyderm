@@ -104,6 +104,7 @@ message JobInfo {
   bool stopped = 16;
   pfs.Repo outputRepo = 18;
   string outputBranch = 17;
+  uint64 restart = 20;
 }
 
 enum WorkerState {
