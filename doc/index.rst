@@ -8,10 +8,11 @@
 Pachyderm Developer Documentation
 =================================
 
-Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs and an FAQ. 
+Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs. 
 
-If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on `GitHub <https://github.com/pachyderm/pachyderm>`_, our `Users Slack channel <https://pachyderm-users.slack.com/shared_invite/MTQwMzA4OTU1NzY2LTE0ODY2ODk4NjUtMjNhMGRmM2NmZQ>`_, or email us at support@pachyderm.io. 
+If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on `GitHub <https://github.com/pachyderm/pachyderm>`_, our `Users Slack channel <http://slack.pachyderm.io/>`_, or email us at support@pachyderm.io. 
 
+Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `here <http://docs.pachyderm.io/en/v1.3.18/>`_.
 
 .. toctree::
     :maxdepth: 1
@@ -20,47 +21,40 @@ If you can't find what you're looking for or have a an issue not mentioned here,
     getting_started/getting_started
     getting_started/local_installation
     getting_started/beginner_tutorial
-    getting_started/troubleshooting
 
 .. toctree::
     :maxdepth: 1
-    :caption: Analyze Your Data
+    :caption: Pachyderm Fundamentals
 
-    deployment/analyze_your_data
-    deployment/deploying_on_the_cloud
-    deployment/deploying_on_premises
-    deployment/inputing_your_data
-    deployment/custom_pipelines
-    deployment/pipeline_spec
-    deployment/getting_your_results
-    deployment/updating_pipelines
-    deployment/serving_data_from_pachyderm
+    fundamentals/getting_data_into_pachyderm
+    fundamentals/creating_analysis_pipelines
+    fundamentals/getting_data_out_of_pachyderm
+    fundamentals/updating_pipelines
 
 .. toctree::
     :maxdepth: 1
-    :caption: Advanced Workflows
+    :caption: Full Examples
 
-    advanced/advanced
-    advanced/provenance
-    advanced/incrementality
-    advanced/composing_pipelines
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Misc
-
-    FAQ
     examples/readme
-    production/migration
-    CHANGELOG  
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Deploy Pachyderm
+
+    deployment/deploy_intro
+    deployment/google_cloud_platform
+    deployment/amazon_web_services
+    deployment/azure
+    deployment/openshift
+    deployment/on_premises
+    deployment/custom_object_stores
+    deployment/migrations
 
 .. toctree::
     :maxdepth: 2
-    :caption: Reference By Feature
+    :caption: Reference
 
-    pachyderm_file_system
-    pachyderm_pipeline_system
-    golang_client/golang_client
+    reference/pipeline_spec
     pachctl/pachctl
     
 

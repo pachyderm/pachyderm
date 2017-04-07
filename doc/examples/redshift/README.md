@@ -1,3 +1,5 @@
+**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+
 # Exporting Pachyderm Data with SQL
 
 ## This tutorial is incomplete

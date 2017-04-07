@@ -257,13 +257,13 @@ pretest:
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
 test-pfs:
-	go test ./src/server/pfs/server
+	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pps:
-	go test ./src/server/
+	go test -v ./src/server/ -timeout $(TIMEOUT)
 
 test-hashtree:
-	go test ./src/server/pkg/hashtree
+	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -290,6 +290,7 @@ doc: install-doc
 	./pachctl
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
+	etc/build/release_doc
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring

@@ -99,3 +99,53 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		false,
 	))
 }
+
+// Make sure that pipeline validation checks that all inputs exist
+func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	require.NoError(t, c.CreatePipeline(
+		uniqueString("pipeline-hyphen"),
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{
+			{
+				Glob: "/*",
+				Repo: &pfs.Repo{Name: dataRepo},
+			},
+		},
+		"",
+		false,
+	))
+
+	require.NoError(t, c.CreatePipeline(
+		uniqueString("pipeline_underscore"),
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{
+			{
+				Glob: "/*",
+				Repo: &pfs.Repo{Name: dataRepo},
+			},
+		},
+		"",
+		false,
+	))
+}

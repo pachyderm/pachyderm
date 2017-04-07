@@ -17,7 +17,7 @@ import (
 
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tSTATE\t\n")
+	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tSTATE\t\n")
 }
 
 // PrintJobInfo pretty-prints job info.
@@ -25,6 +25,8 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	} else if jobInfo.Pipeline != nil {
+		fmt.Fprintf(w, "%s/-\t", jobInfo.Pipeline.Name)
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
@@ -34,6 +36,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
+	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
 	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
@@ -103,6 +106,7 @@ Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
+Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
@@ -112,10 +116,6 @@ Inputs:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
-{{ if .Error }}
-Error:
-{{.Error}}
-{{end}}
 `)
 	if err != nil {
 		return err

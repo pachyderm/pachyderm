@@ -103,13 +103,20 @@ injected into the container
 secrets by name and specify a path that the secrets should be mounted to.
 Secrets are useful for embedding sensitive data such as credentials. Read more
 about secrets in Kubernetes
-[here](http://kubernetes.io/docs/user-guide/secrets/).
+[here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.imagePullSecrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they're mounted before the
 containers are created so they can be used to provide credentials for image
-pulling. Read more about image pull secrets
-[here](http://kubernetes.io/docs/user-guide/images/#specifying-imagepullsecrets-on-a-pod).
+pulling. For example, if you are using a private Docker registry for your
+images, you can specify it via:
+
+```sh
+$ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
+```
+
+And then tell your pipeline about it via `"imagePullSecrets": [ "myregistrykey" ]`. Read more about image pull secrets
+[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
 
 `transform.acceptReturnCode` is an array of return codes (i.e. exit codes)
 from your docker command that are considered acceptable, which means that
@@ -137,7 +144,7 @@ Kubernetes node).
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.
 
-### Inputs (optional)
+#### Inputs (optional)
 
 `inputs` specifies a set of Repos that will be visible to the jobs during
 runtime. Commits to these repos will automatically trigger the pipeline to
@@ -294,6 +301,4 @@ The root mount point is at `/pfs`, which contains:
 
 ### Output Formats
 
-PFS supports data to be delimited by line, JSON, or binary blobs. [Refer here
-for more information on
-delimiters](../pachyderm_file_system.html#block-delimiters)
+PFS supports data to be delimited by line, JSON, or binary blobs.

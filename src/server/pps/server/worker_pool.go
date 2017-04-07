@@ -30,7 +30,7 @@ type datumAndResp struct {
 	jobID  string // This is passed to workers, so they can annotate their logs
 	datum  []*pfs.FileInfo
 	respCh chan hashtree.HashTree
-	errCh  chan string
+	errCh  chan struct{}
 	retCh  chan *datumAndResp
 }
 
@@ -48,8 +48,10 @@ type worker struct {
 
 func (w *worker) run(dataCh chan *datumAndResp) {
 	for {
-		dr, ok := <-dataCh
-		if !ok {
+		var dr *datumAndResp
+		select {
+		case dr = <-dataCh:
+		case <-w.ctx.Done():
 			return
 		}
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
@@ -58,27 +60,29 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 		})
 		if err != nil {
 			dr.retCh <- dr
-			if isContextCancelledErr(err) {
-				return
-			} else if err != nil {
-				protolion.Errorf("worker request to %s failed with error %s", w.addr, err)
-			}
+			protolion.Errorf("worker %s failed to process datum %v with error %s", w.addr, dr.datum, err)
 			continue
 		}
 		if resp.Tag != nil {
 			var buffer bytes.Buffer
 			if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
 				protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v", w.addr, dr.datum)
-				dataCh <- dr
+				dr.retCh <- dr
 				continue
 			}
 			tree, err := hashtree.Deserialize(buffer.Bytes())
 			if err != nil {
-				panic(err)
+				protolion.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug", w.addr, dr.datum)
+				dr.retCh <- dr
+				continue
 			}
 			dr.respCh <- tree
+		} else if resp.Failed {
+			close(dr.errCh)
 		} else {
-			dr.errCh <- resp.Log
+			protolion.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", w.addr, dr.datum)
+			dr.retCh <- dr
+			continue
 		}
 	}
 }

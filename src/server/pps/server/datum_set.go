@@ -68,6 +68,10 @@ func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps
 		if len(fileInfos.FileInfo) > 0 {
 			df.datumLists = append(df.datumLists, fileInfos.FileInfo)
 			df.indexes = append(df.indexes, 0)
+		} else {
+			// If any input is empty, we don't return any datums
+			df.done = true
+			break
 		}
 	}
 	if indexes != nil {

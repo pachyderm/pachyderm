@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	"golang.org/x/net/context"
@@ -722,7 +721,6 @@ func TestPutFile(t *testing.T) {
 
 	commit4, err := client.StartCommitParent(repo, "", commit3.ID)
 	require.NoError(t, err)
-	require.NoError(t, client.MakeDirectory(repo, commit4.ID, "dir2"))
 	_, err = client.PutFile(repo, commit4.ID, "dir2/bar", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit4.ID))
@@ -1260,6 +1258,12 @@ func TestDeleteFile(t *testing.T) {
 
 	_, err = client.InspectFile(repo, commit3.ID, "bar")
 	require.YesError(t, err)
+
+	// Delete a nonexistent file; it should be no-op
+	commit4, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, client.DeleteFile(repo, commit4.ID, "nonexistent"))
+	require.NoError(t, client.FinishCommit(repo, commit4.ID))
 }
 
 func TestDeleteDir(t *testing.T) {
@@ -1926,11 +1930,10 @@ func getClient(t *testing.T) pclient.APIClient {
 	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		driver, err := drive.NewLocalDriver(address, prefix)
-		require.NoError(t, err)
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
-		apiServer := newAPIServer(driver, nil)
+		apiServer, err := newLocalAPIServer(address, prefix, nil)
+		require.NoError(t, err)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
 	c, err := pclient.NewFromAddress(addresses[0])
@@ -2232,6 +2235,63 @@ func TestPutFileSplit(t *testing.T) {
 	files, err = c.ListFile(repo, commit.ID, "json3")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+}
+
+func TestPutFileSplitDelete(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	// create repos
+	repo := uniqueString("TestPutFileSplitDelete")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit.ID, fmt.Sprintf("line/%016x", 0)))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit.ID, fmt.Sprintf("line/%016x", 5)))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	files, err := c.ListFile(repo, commit.ID, "line")
+	require.NoError(t, err)
+	require.Equal(t, 7, len(files))
+	for _, fileInfo := range files {
+		require.Equal(t, uint64(4), fileInfo.SizeBytes)
+	}
+}
+
+func TestPutFileSplitBig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	// create repos
+	repo := uniqueString("TestPutFileSplitBig")
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		_, err = w.Write([]byte("foo\n"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	files, err := c.ListFile(repo, commit.ID, "line")
+	require.NoError(t, err)
+	require.Equal(t, 1000, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	}

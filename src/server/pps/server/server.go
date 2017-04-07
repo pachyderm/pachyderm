@@ -93,7 +93,5 @@ func NewAPIServer(
 			&ppsclient.JobInfo{},
 		),
 	}
-	go apiServer.pipelineWatcher()
-	go apiServer.jobWatcher()
 	return apiServer, nil
 }
