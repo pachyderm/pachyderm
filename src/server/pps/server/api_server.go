@@ -711,7 +711,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 			if !ok {
 				break
 			}
-			if request.DeleteJob {
+			if request.DeleteJobs {
 				if err := a.jobs.ReadWrite(stm).Delete(jobID); err != nil {
 					return err
 				}

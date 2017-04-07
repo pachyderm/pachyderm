@@ -296,12 +296,12 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, deleteJob bool) error {
+func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.ctx(),
 		&pps.DeletePipelineRequest{
-			Pipeline:  NewPipeline(name),
-			DeleteJob: deleteJob,
+			Pipeline:   NewPipeline(name),
+			DeleteJobs: deleteJobs,
 		},
 	)
 	return sanitizeErr(err)
