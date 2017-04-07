@@ -2615,8 +2615,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	// should be 8x because each file gets copied twice due to cross product
-	require.Equal(t, 8*len("foo\n"), buf.String())
+	// should be 8 because each file gets copied twice due to cross product
+	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
 }
 
 func restartAll(t *testing.T) {
