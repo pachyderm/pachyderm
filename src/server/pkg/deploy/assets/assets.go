@@ -298,6 +298,30 @@ func PachdService() *api.Service {
 
 // EtcdRc returns an etcd replication controller.
 func EtcdRc(hostPath string) *api.ReplicationController {
+	var volumes []api.Volume
+	if hostPath == "" {
+		volumes = []api.Volume{
+			{
+				Name: "etcd-storage",
+				VolumeSource: api.VolumeSource{
+					PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
+						ClaimName: etcdVolumeClaimName,
+					},
+				},
+			},
+		}
+	} else {
+		volumes = []api.Volume{
+			{
+				Name: "etcd-storage",
+				VolumeSource: api.VolumeSource{
+					HostPath: &api.HostPathVolumeSource{
+						Path: filepath.Join(hostPath, "etcd"),
+					},
+				},
+			},
+		}
+	}
 	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -349,16 +373,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
-					Volumes: []api.Volume{
-						{
-							Name: "etcd-storage",
-							VolumeSource: api.VolumeSource{
-								PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
-									ClaimName: etcdVolumeClaimName,
-								},
-							},
-						},
-					},
+					Volumes: volumes,
 				},
 			},
 		},
@@ -787,7 +802,10 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// provisions volumes, and run etcd as a statful set.
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
-	if opts.EtcdNodes > 0 {
+	if objectStoreBackend == localBackend {
+		EtcdRc(hostPath).CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	} else if opts.EtcdNodes > 0 {
 		sc, err := EtcdStorageClass(persistentDiskBackend)
 		if err != nil {
 			return err
@@ -809,10 +827,10 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		fmt.Fprintf(w, "\n")
 		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		EtcdRc(hostPath).CodecEncodeSelf(encoder)
+		EtcdRc("").CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else {
-		return fmt.Errorf("either --etcd-nodes or --etcd-volume needs to be provided")
+		return fmt.Errorf("unless deploying locally, either --etcd-nodes or --etcd-volume needs to be provided")
 	}
 	EtcdNodePortService(objectStoreBackend == localBackend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")

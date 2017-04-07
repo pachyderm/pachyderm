@@ -22,8 +22,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	"github.com/spf13/cobra"
+)
+
+const (
+	codestart = "```sh"
+	codeend   = "```"
+
+	// DefaultParallelism is the default parallelism used by get-file
+	// and put-file.
+	DefaultParallelism = 10
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -142,7 +152,7 @@ This layers the data in the commit over the data in the parent.
 
 Examples:
 
-# Start a new commit in repo "test" that's not on any branch
+` + codestart + `# Start a new commit in repo "test" that's not on any branch
 $ pachctl start-commit test
 
 # Start a commit in repo "test" on branch "master"
@@ -153,7 +163,7 @@ $ pachctl start-commit test patch -p master
 
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ pachctl start-commit test -p XXX
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -215,7 +225,7 @@ $ pachctl start-commit test -p XXX
 
 Examples:
 
-# return commits in repo "foo"
+` + codestart + `# return commits in repo "foo"
 $ pachctl list-commit foo
 
 # return commits in repo "foo" on branch "master"
@@ -229,7 +239,7 @@ $ pachctl list-commit foo XXX
 
 # return commits in repo "foo" since commit XXX
 $ pachctl list-commit foo master --from XXX
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
 			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -265,12 +275,12 @@ $ pachctl list-commit foo master --from XXX
 
 Examples:
 
-# return commits caused by foo/XXX and bar/YYY
+` + codestart + `# return commits caused by foo/XXX and bar/YYY
 $ pachctl flush-commit foo/XXX bar/YYY
 
 # return commits caused by foo/XXX leading to repos bar and baz
 $ pachctl flush-commit foo/XXX -r bar -r baz
-`,
+` + codeend,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
@@ -338,14 +348,13 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 
 Examples:
 
-# Set commit XXX and its ancestors as branch master in repo foo.
+` + codestart + `# Set commit XXX and its ancestors as branch master in repo foo.
 $ pachctl set-branch foo XXX master
 
 # Set the head of branch test as branch master in repo foo.
 # After running this command, "test" and "master" both point to the
 # same commit.
-$ pachctl set-branch foo test master
-	`,
+$ pachctl set-branch foo test master` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -392,39 +401,39 @@ $ pachctl set-branch foo test master
 		Use:   "put-file repo-name branch path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
-Put data from stdin as repo/branch/path:
+` + codestart + `# Put data from stdin as repo/branch/path:
 echo "data" | pachctl put-file repo branch path
 
-Put data from stding as repo/branch/path and start / finish a new commit on the branch.
+# Put data from stding as repo/branch/path and start / finish a new commit on the branch.
 echo "data" | pachctl put-file -c repo branch path
 
-Put a file from the local filesystem as repo/branch/path:
+# Put a file from the local filesystem as repo/branch/path:
 pachctl put-file repo branch path -f file
 
-Put a file from the local filesystem as repo/branch/file:
+# Put a file from the local filesystem as repo/branch/file:
 pachctl put-file repo branch -f file
 
-Put the contents of a directory as repo/branch/path/dir/file:
+# Put the contents of a directory as repo/branch/path/dir/file:
 pachctl put-file -r repo branch path -f dir
 
-Put the contents of a directory as repo/branch/dir/file:
+# Put the contents of a directory as repo/branch/dir/file:
 pachctl put-file -r repo branch -f dir
 
-Put the data from a URL as repo/branch/path:
+# Put the data from a URL as repo/branch/path:
 pachctl put-file repo branch path -f http://host/path
 
-Put the data from a URL as repo/branch/path:
+# Put the data from a URL as repo/branch/path:
 pachctl put-file repo branch -f http://host/path
 
-Put several files or URLs that are listed in file.
-Files and URLs should be newline delimited.
+# Put several files or URLs that are listed in file.
+# Files and URLs should be newline delimited.
 pachctl put-file repo branch -i file
 
-Put several files or URLs that are listed at URL.
-NOTE this URL can reference local files, so it could cause you to put sensitive
-files into your Pachyderm cluster.
+# Put several files or URLs that are listed at URL.
+# NOTE this URL can reference local files, so it could cause you to put sensitive
+# files into your Pachyderm cluster.
 pachctl put-file repo branch -i http://host/path
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewMetricsClientFromAddressWithConcurrency(address, metrics, "user", parallelism)
 			if err != nil {
@@ -517,12 +526,13 @@ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", client.DefaultMaxConcurrentStreams, "The number of files that can be uploaded in parallel")
+	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "the target upper bound of the number of datums that each file contains; needs to be used with --split")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "the target upper bound of the number of bytes that each file contains; needs to be used with --split")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
 
+	var outputPath string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
@@ -532,9 +542,31 @@ pachctl put-file repo branch -i http://host/path
 			if err != nil {
 				return err
 			}
-			return client.GetFile(args[0], args[1], args[2], 0, 0, os.Stdout)
+			if recursive {
+				if outputPath == "" {
+					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
+				}
+				puller := sync.NewPuller()
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism))
+			}
+			var w io.Writer
+			// If an output path is given, print the output to stdout
+			if outputPath == "" {
+				w = os.Stdout
+			} else {
+				f, err := os.Create(outputPath)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				w = f
+			}
+			return client.GetFile(args[0], args[1], args[2], 0, 0, w)
 		}),
 	}
+	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
+	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
+	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",

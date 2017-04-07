@@ -53,7 +53,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -79,7 +79,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -131,7 +131,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(6, 6, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -149,12 +149,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "microsoft <container> <storage account name> <storage account key> <volume URIs> <size of volumes (in GB)>",
+		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(4, 4, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -199,7 +199,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "Number of Pachd nodes (stateless Pachyderm API servers).")
-	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in order versions of kubernetes.")
+	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
@@ -221,7 +221,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all {
 				fmt.Printf(`
 By using the --all flag, you are going to delete everything, including the

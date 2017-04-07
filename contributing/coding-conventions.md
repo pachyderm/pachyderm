@@ -56,5 +56,9 @@ for more info.
 
 ### Docs
 
-- PRs should update docs to make them reflect the code that's being merged in
+- PRs for code should update docs to make them reflect the code that's being merged in
 rather than be done in separate PRs.
+
+- Docs-only PRs (such as typos) of course a great place to start and we welcome your help!
+
+- For most docs PRs, you'll need to `make assets` and push the new assets.go file as well. 

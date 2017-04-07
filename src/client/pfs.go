@@ -545,7 +545,6 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 	}()
 	if err := putFileClient.Send(&pfs.PutFileRequest{
 		File:      NewFile(repoName, commitID, path),
-		FileType:  pfs.FileType_FILE,
 		Url:       url,
 		Recursive: recursive,
 	}); err != nil {
@@ -669,27 +668,6 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 	return err
 }
 
-// MakeDirectory creates a directory in PFS.
-// Note directories are created implicitly by PutFile, so you technically never
-// need this function unless you want to create an empty directory.
-func (c APIClient) MakeDirectory(repoName string, commitID string, path string) (retErr error) {
-	putFileClient, err := c.PfsAPIClient.PutFile(c.ctx())
-	if err != nil {
-		return sanitizeErr(err)
-	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = sanitizeErr(err)
-		}
-	}()
-	return sanitizeErr(putFileClient.Send(
-		&pfs.PutFileRequest{
-			File:     NewFile(repoName, commitID, path),
-			FileType: pfs.FileType_DIR,
-		},
-	))
-}
-
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient
@@ -704,7 +682,6 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
 			File:             NewFile(repoName, commitID, path),
-			FileType:         pfs.FileType_FILE,
 			Delimiter:        delimiter,
 			TargetFileDatums: targetFileDatums,
 			TargetFileBytes:  targetFileBytes,

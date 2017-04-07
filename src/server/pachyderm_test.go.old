@@ -4267,7 +4267,6 @@ func TestListFileWithSharding(t *testing.T) {
 		bytes.NewReader([]byte("foo contents")))
 	c.PutFile(dataRepo, commit.ID, "/Data/dir/bar.txt",
 		bytes.NewReader([]byte("bar contents")))
-	c.MakeDirectory(dataRepo, commit.ID, "/Data/empty_dir")
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	// For many different sharding modulii, iterate through each shard, and check

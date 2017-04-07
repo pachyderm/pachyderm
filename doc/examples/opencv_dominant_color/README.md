@@ -1,3 +1,5 @@
+**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+
 # Quick Start Guide: OpenCV Dominant Color Example
 In this guide you're going to create a Pachyderm pipeline to run a dominant color algorithm is written in the popular computer vision library OpenCV. The algorithm is written in C++, compiled and statically linked in order for easy distribution throughout the containers that run the Pachyderm pipeline. If you are interested in the implementation of the [k-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) based algorithm, please refer to [the OpenCV source code](https://github.com/SoheilSalehian/CVSearchEngine/tree/master/src/cpp). We are also going to run the algorithm on 1000 images from the Flikr dataset which are stored in an S3 bucket.
  

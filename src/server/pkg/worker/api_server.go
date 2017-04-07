@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -108,6 +107,16 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	fmt.Printf("%s\n", bytes)
 }
 
+func (logger *taggedLogger) userLogger() *taggedLogger {
+	result := &taggedLogger{
+		template:  logger.template, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.template.User = true
+	return result
+}
+
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
@@ -118,6 +127,7 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
+			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
 	}
@@ -152,8 +162,7 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) error {
 	for i, datum := range data {
 		input := a.inputs[i]
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name),
-			datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
+		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, datum.File.Path), datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -161,7 +170,7 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (string, error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error {
 	// Run user code
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
@@ -174,25 +183,26 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (stri
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
 	logscanner := bufio.NewScanner(&userlog)
+	userLogger := logger.userLogger()
 	for logscanner.Scan() {
-		logger.Logf(logscanner.Text())
+		userLogger.Logf(logscanner.Text())
 	}
 
 	// Return result
 	if err == nil {
-		return userlog.String(), nil
+		return nil
 	}
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 			for _, returnCode := range transform.AcceptReturnCode {
 				if int(returnCode) == status.ExitStatus() {
-					return userlog.String(), nil
+					return nil
 				}
 			}
 		}
 	}
-	return userlog.String(), err
+	return err
 
 }
 
@@ -336,9 +346,6 @@ func (a *APIServer) cleanUpData() error {
 // HashDatum computes and returns the hash of a datum + pipeline.
 func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
 	hash := sha256.New()
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].File.Path < data[j].File.Path
-	})
 	for i, fileInfo := range data {
 		if _, err := hash.Write([]byte(a.inputs[i].Name)); err != nil {
 			return "", err
@@ -407,11 +414,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	userlog, err := a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger)
 	logger.Logf("finished processing user input")
 	if err != nil {
 		return &ProcessResponse{
-			Log: userlog,
+			Failed: true,
 		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {

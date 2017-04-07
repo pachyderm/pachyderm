@@ -553,11 +553,11 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 //}
 //}
 
-// This test fails if you updated some static assets (such as doc/deployment/pipeline_spec.md)
+// This test fails if you updated some static assets (such as doc/reference/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
 func TestAssets(t *testing.T) {
-	assetPaths := []string{"doc/deployment/pipeline_spec.md"}
+	assetPaths := []string{"doc/reference/pipeline_spec.md"}
 
 	for _, path := range assetPaths {
 		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
@@ -623,6 +623,7 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numCommits, len(jobInfos))
 
+	var failed bool
 	for _, jobInfo := range jobInfos {
 		// Wait for the job to finish
 		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
@@ -630,9 +631,11 @@ func TestPipelineFailure(t *testing.T) {
 
 		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
 		if jobInfo.State == pps.JobState_JOB_FAILURE {
-			require.Equal(t, errMsg+"\n", jobInfo.Error)
+			failed = true
 		}
 	}
+	// Some of the jobs should've failed
+	require.True(t, failed)
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
@@ -1219,6 +1222,62 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	}
 	test(true)
 	test(false)
+}
+
+func TestPachdRestartResumesRunningJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// this test cannot be run in parallel because it restarts everything which breaks other tests.
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPachdRestartPickUpRunningJobs")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	time.Sleep(5 * time.Second)
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+
+	restartOne(t)
+	// need a new client because the old one will have a defunct connection
+	c = getUsablePachClient(t)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, commitIter)
+
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
 }
 
 //func TestScrubbedErrors(t *testing.T) {
@@ -2339,8 +2398,12 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+			"echo foo",
+			"echo foo",
+		},
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
