@@ -522,6 +522,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var deleteJob bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -531,12 +532,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			if err := client.DeletePipeline(args[0]); err != nil {
+			if err := client.DeletePipeline(args[0], deleteJob); err != nil {
 				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
 	}
+	createJob.Flags().BoolVar(&deleteJobs, "delete-job", false, "delete the jobs in this pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
