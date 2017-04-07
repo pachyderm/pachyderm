@@ -10,10 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
-	api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	api "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 var (
@@ -172,6 +172,7 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -182,7 +183,7 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
@@ -327,6 +328,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			},
 		}
 	}
+	replicas := int32(1)
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -337,7 +339,7 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			Labels: labels(etcdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
+			Replicas: &replicas,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
@@ -669,18 +671,18 @@ func EtcdStatefulSet(opts *AssetOpts, diskSpace int) interface{} {
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment() *extensions.Deployment {
-	return &extensions.Deployment{
+func DashDeployment() *v1beta1.Deployment {
+	return &v1beta1.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "v1",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   dashName,
 			Labels: labels(dashName),
 		},
-		Spec: extensions.DeploymentSpec{
-			Selector: &unversioned.LabelSelector{
+		Spec: v1beta1.DeploymentSpec{
+			Selector: &v1beta1.LabelSelector{
 				MatchLabels: labels(dashName),
 			},
 			Template: api.PodTemplateSpec{
@@ -737,12 +739,12 @@ func DashService() *api.Service {
 				{
 					Port:     8080,
 					Name:     "dash-http",
-					NodePort: 38080,
+					NodePort: 30080,
 				},
 				{
 					Port:     8081,
 					Name:     "grpc-proxy-http",
-					NodePort: 38081,
+					NodePort: 30081,
 				},
 			},
 		},
