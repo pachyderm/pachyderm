@@ -798,6 +798,10 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
+	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
+		return fmt.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
+	}
+
 	// In the dynamic route, we create a storage class which dynamically
 	// provisions volumes, and run etcd as a statful set.
 	// In the static route, we create a single volume, a single volume
