@@ -1052,7 +1052,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+	_, err = c.PutFile(repo, commit.ID, uuid.NewWithoutDashes(), strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	pipeline := uniqueString("pipeline")
@@ -1060,7 +1060,7 @@ func TestDeletePipeline(t *testing.T) {
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
-			[]string{"sleep", "10"},
+			[]string{"sleep", "20"},
 			nil,
 			&pps.ParallelismSpec{
 				Strategy: pps.ParallelismSpec_CONSTANT,
@@ -1073,12 +1073,11 @@ func TestDeletePipeline(t *testing.T) {
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
 	}
 
 	createPipeline()
+	// Wait for the job to start running
+	time.Sleep(5 * time.Second)
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
