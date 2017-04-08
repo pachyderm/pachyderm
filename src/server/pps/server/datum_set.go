@@ -30,6 +30,7 @@ func (d *datumFactoryImpl) Next() []*pfs.FileInfo {
 		// Increment the indexes
 		for i := 0; i < len(d.datumLists); i++ {
 			if d.indexes[i] == len(d.datumLists[i])-1 {
+				d.indexes[i] = 0
 				continue
 			}
 			d.indexes[i]++

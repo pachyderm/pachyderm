@@ -41,6 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
+  JOB_STOPPED = 4;
 }
 
 message Service {
@@ -282,6 +283,7 @@ message ListPipelineRequest {
 
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
+  bool delete_jobs = 2;
 }
 
 message StartPipelineRequest {
