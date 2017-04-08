@@ -1464,6 +1464,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
