@@ -63,6 +63,7 @@ type taggedLogger struct {
 	template  pps.LogMessage
 	stderrLog log.Logger
 	marshaler *jsonpb.Marshaler
+	buffer    bytes.Buffer
 }
 
 func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
@@ -105,6 +106,25 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		return
 	}
 	fmt.Printf("%s\n", bytes)
+}
+
+func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
+	// never errors
+	logger.buffer.Write(p)
+	r := bufio.NewReader(&logger.buffer)
+	for {
+		message, err := r.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				logger.buffer.Write([]byte(message))
+				return len(p), nil
+			}
+			// this shouldn't technically be possible to hit io.EOF should be
+			// the only error bufio.Reader can return when using a buffer.
+			return 0, err
+		}
+		logger.Logf(message)
+	}
 }
 
 func (logger *taggedLogger) userLogger() *taggedLogger {
@@ -175,19 +195,12 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
-	var userlog bytes.Buffer
-	cmd.Stdout = &userlog
-	cmd.Stderr = &userlog
+	cmd.Stdout = logger.userLogger()
+	cmd.Stderr = logger.userLogger()
 	err := cmd.Run()
 
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
-	logscanner := bufio.NewScanner(&userlog)
-	userLogger := logger.userLogger()
-	for logscanner.Scan() {
-		userLogger.Logf(logscanner.Text())
-	}
-
 	// Return result
 	if err == nil {
 		return nil
