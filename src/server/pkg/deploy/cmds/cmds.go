@@ -162,11 +162,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
-			tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
-			if err != nil {
-				return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+			if opts.EtcdVolume != "" {
+				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
+				if err != nil {
+					return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+				}
+				opts.EtcdVolume = tempURI.String()
 			}
-			opts.EtcdVolume = tempURI.String()
 			volumeSize, err := strconv.Atoi(args[3])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
