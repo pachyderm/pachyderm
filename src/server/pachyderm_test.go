@@ -1060,7 +1060,7 @@ func TestDeletePipeline(t *testing.T) {
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
-			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
+			[]string{"sleep", "10"},
 			nil,
 			&pps.ParallelismSpec{
 				Strategy: pps.ParallelismSpec_CONSTANT,
@@ -1083,20 +1083,23 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
 
-	// Jobs should be gone
+	// The job should be gone
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
 
 	createPipeline()
+	// Wait for the job to start running
+	time.Sleep(5 * time.Second)
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	time.Sleep(5 * time.Second)
 
-	// Jobs should still be there
+	// The job should still be there, and its state should be "STOPPED"
 	jobs, err = c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
 }
 
 func TestPipelineState(t *testing.T) {
