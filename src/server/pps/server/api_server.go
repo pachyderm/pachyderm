@@ -696,6 +696,33 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		iter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsPipelineIndex, request.Pipeline)
+		if err != nil {
+			return err
+		}
+
+		for {
+			var jobID string
+			var jobInfo pps.JobInfo
+			ok, err := iter.Next(&jobID, &jobInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			if request.DeleteJobs {
+				if err := a.jobs.ReadWrite(stm).Delete(jobID); err != nil {
+					return err
+				}
+			} else {
+				if jobInfo.State == pps.JobState_JOB_RUNNING {
+					jobInfo.State = pps.JobState_JOB_STOPPED
+				}
+				a.jobs.ReadWrite(stm).Put(jobID, &jobInfo)
+			}
+		}
+
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	})
 	if err != nil {
@@ -749,7 +776,9 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{pipelineInfo.Pipeline}); err != nil {
+		if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{
+			Pipeline: pipelineInfo.Pipeline,
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -1201,8 +1230,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				if len(drs) > 0 {
 					select {
 					case wp.DataCh() <- drs[0]:
+						protolion.Infof("retrying datum %v", drs[0].datum)
 						drs = drs[1:]
 					case dr := <-retCh:
+						protolion.Infof("datum %v is queued up for retry", dr.datum)
 						drs = append(drs, dr)
 					case <-retDone:
 						return
@@ -1210,6 +1241,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				} else {
 					select {
 					case dr := <-retCh:
+						protolion.Infof("datum %v is queued up for retry", dr.datum)
 						drs = append(drs, dr)
 					case <-retDone:
 						return
@@ -1466,6 +1498,8 @@ func jobStateToStopped(state pps.JobState) bool {
 	case pps.JobState_JOB_SUCCESS:
 		return true
 	case pps.JobState_JOB_FAILURE:
+		return true
+	case pps.JobState_JOB_STOPPED:
 		return true
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
