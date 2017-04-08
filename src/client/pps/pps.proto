@@ -114,8 +114,8 @@ message JobInfo {
   string outputBranch = 17;
   uint64 restart = 20;
   map<string, Datum> worker_to_datum = 21;
-  int64 datums_processed = 22;
-  int64 datums_total = 23;
+  int64 data_processed = 22;
+  int64 data_total = 23;
 }
 
 enum WorkerState {

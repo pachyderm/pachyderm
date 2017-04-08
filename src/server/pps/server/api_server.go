@@ -1223,7 +1223,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		var numData int
+		var inflightData int
+		var processedData int
+		var etcdProcessedData int // the value of processedData we've sent to etcd
+		totalData := df.Len()
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
 		// This channel is closed when the user program fails to process
@@ -1245,15 +1248,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					retCh:  retCh,
 				}:
 					datum = df.Next()
-					numData++
+					inflightData++
 				case resp = <-respCh:
-					numData--
+					inflightData--
 				case <-errCh:
 					failed = true
-					numData--
+					inflightData--
 				}
 			} else {
-				if numData == 0 {
+				if inflightData == 0 {
 					break
 				}
 				select {
@@ -1261,11 +1264,33 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				case <-errCh:
 					failed = true
 				}
-				numData--
+				inflightData--
 			}
 			if resp != nil {
 				if err := tree.Merge(resp); err != nil {
 					return err
+				}
+				processedData++
+				protolion.Printf("Completed datum, processedData: %d, totalData: %d, etcdProcessedData: %d", processedData, totalData, etcdProcessedData)
+				// so as not to overwhelm etcd we update at most 100 times per job
+				if processedData == totalData || (float64(processedData-etcdProcessedData)/float64(totalData)) > .01 {
+					etcdProcessedData = processedData
+					processedData := processedData
+					go func() {
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							jobs := a.jobs.ReadWrite(stm)
+							jobInfo := new(pps.JobInfo)
+							if err := jobs.Get(jobID, jobInfo); err != nil {
+								return err
+							}
+							jobInfo.DataProcessed = int64(processedData)
+							jobInfo.DataTotal = int64(totalData)
+							jobs.Put(jobInfo.Job.ID, jobInfo)
+							return nil
+						}); err != nil {
+							protolion.Errorf("error updating job progress: %+v", err)
+						}
+					}()
 				}
 			}
 			if failed {
