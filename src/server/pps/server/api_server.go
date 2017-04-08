@@ -1230,8 +1230,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				if len(drs) > 0 {
 					select {
 					case wp.DataCh() <- drs[0]:
+						protolion.Infof("retrying datum %v", drs[0].datum)
 						drs = drs[1:]
 					case dr := <-retCh:
+						protolion.Infof("datum %v is queued up for retry", dr.datum)
 						drs = append(drs, dr)
 					case <-retDone:
 						return
@@ -1239,6 +1241,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				} else {
 					select {
 					case dr := <-retCh:
+						protolion.Infof("datum %v is queued up for retry", dr.datum)
 						drs = append(drs, dr)
 					case <-retDone:
 						return
