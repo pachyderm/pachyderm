@@ -275,6 +275,17 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
+	var wp WorkerPool
+	if jobInfo.Pipeline != nil {
+		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+	} else {
+		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+	}
+	workerStatus, err := wp.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	jobInfo.WorkerStatus = workerStatus
 	return jobInfo, nil
 }
 

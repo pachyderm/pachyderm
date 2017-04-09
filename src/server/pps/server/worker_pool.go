@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -39,7 +40,7 @@ type datumAndResp struct {
 // WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
-	Status() map[string]*pps.WorkerStatus
+	Status(context.Context) ([]*pps.WorkerStatus, error)
 }
 
 type worker struct {
@@ -226,8 +227,18 @@ func (w *workerPool) DataCh() chan *datumAndResp {
 	return w.dataCh
 }
 
-func (w *workerPool) Status() map[string]*pps.WorkerStatus {
-	return nil
+func (w *workerPool) Status(ctx context.Context) ([]*pps.WorkerStatus, error) {
+	var result []*pps.WorkerStatus
+	w.workersMapMu.Lock()
+	defer w.workersMapMu.Unlock()
+	for _, worker := range w.workersMap {
+		status, err := worker.workerClient.Status(ctx, &types.Empty{})
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, status)
+	}
+	return result, nil
 }
 
 // workerPool fetches the worker pool associated with 'id', or creates one if
