@@ -45,7 +45,7 @@ type Input struct {
 
 // APIServer implements the worker API
 type APIServer struct {
-	sync.Mutex
+	processMu  sync.Mutex
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
@@ -55,6 +55,11 @@ type APIServer struct {
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
 
+	statusMu sync.Mutex
+	// The currently running job ID
+	jobID string
+	// The currently running data
+	data []*pfs.FileInfo
 	// The k8s pod name of this worker
 	workerName string
 }
@@ -140,7 +145,6 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:      sync.Mutex{},
 		pachClient: pachClient,
 		transform:  pipelineInfo.Transform,
 		inputs:     make([]*Input, 0, len(pipelineInfo.Inputs)),
@@ -163,7 +167,6 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 // NewJobAPIServer creates an APIServer for a given pipeline
 func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:          sync.Mutex{},
 		pachClient:     pachClient,
 		transform:      jobInfo.Transform,
 		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
@@ -385,8 +388,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
-	a.Lock()
-	defer a.Unlock()
+	a.processMu.Lock()
+	defer a.processMu.Unlock()
+	a.statusMu.Lock()
+	a.jobID = req.JobID
+	a.data = req.Data
+	a.statusMu.Unlock()
 	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
 
@@ -439,5 +446,16 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
+	}, nil
+}
+
+// Process processes a datum.
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *StatusResponse, retErr error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	return &StatusResponse{
+		JobID:    a.jobID,
+		WorkerID: a.workerName,
+		Data:     a.data,
 	}, nil
 }

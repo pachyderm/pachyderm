@@ -23,8 +23,8 @@ message ProcessResponse {
 
 message StatusResponse {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
-  repeated pfs.FileInfo data = 2;
+  string worker_id = 2 [(gogoproto.customname) = "WorkerID"];
+  repeated pfs.FileInfo data = 3;
 }
 
 service Worker {
