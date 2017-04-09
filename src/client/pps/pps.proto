@@ -95,8 +95,8 @@ message Datum {
 }
 
 message WorkerStatus {
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string worker_id = 2 [(gogoproto.customname) = "WorkerID"];
+  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
   repeated pps.Datum data = 3;
   google.protobuf.Timestamp started = 4;
 }
