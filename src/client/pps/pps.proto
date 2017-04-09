@@ -85,13 +85,19 @@ message ParallelismSpec {
   // 'coefficient' to 0.5.
   double coefficient = 3;
 }
-
+ 
 message Datum {
   // This file's absolute path within its pfs repo.
   string path = 4;
 
   // This file's hash
   bytes hash = 5;
+}
+
+message WorkerStatus {
+  Job job = 1;
+  repeated Datum data = 2;
+  google.protobuf.Timestamp started = 3;
 }
 
 message JobInfo {
@@ -116,6 +122,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
+  map<string, WorkerStatus> worker_status = 24;
 }
 
 enum WorkerState {

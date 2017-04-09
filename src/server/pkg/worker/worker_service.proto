@@ -1,9 +1,11 @@
 syntax = "proto3";
 package worker;
 
-import "gogoproto/gogo.proto";
 import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 message ProcessRequest {
   // ID of the job for which we're processing 'data'. This is attached to logs
@@ -24,7 +26,8 @@ message ProcessResponse {
 message StatusResponse {
   string job_id = 1 [(gogoproto.customname) = "JobID"];
   string worker_id = 2 [(gogoproto.customname) = "WorkerID"];
-  repeated pfs.FileInfo data = 3;
+  repeated pps.Datum data = 3;
+  google.protobuf.Timestamp started = 4;
 }
 
 service Worker {
