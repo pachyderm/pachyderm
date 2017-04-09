@@ -283,9 +283,10 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	workerStatus, err := wp.Status(ctx)
 	if err != nil {
-		return nil, err
+		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+	} else {
+		jobInfo.WorkerStatus = workerStatus
 	}
-	jobInfo.WorkerStatus = workerStatus
 	return jobInfo, nil
 }
 
