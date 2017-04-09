@@ -84,11 +84,11 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = make([]*pps.Datum, 0, len(req.Data))
-	for i, d := range req.Data {
-		result.template.Data = append(result.template.Data, new(pps.Datum))
-		result.template.Data[i].Path = d.File.Path
-		result.template.Data[i].Hash = d.Hash
+	for _, d := range req.Data {
+		result.template.Data = append(result.template.Data, &pps.Datum{
+			Path: d.File.Path,
+			Hash: d.Hash,
+		})
 	}
 	return result
 }
@@ -147,7 +147,6 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 	server := &APIServer{
 		pachClient: pachClient,
 		transform:  pipelineInfo.Transform,
-		inputs:     make([]*Input, 0, len(pipelineInfo.Inputs)),
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
@@ -169,7 +168,6 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 	server := &APIServer{
 		pachClient:     pachClient,
 		transform:      jobInfo.Transform,
-		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
