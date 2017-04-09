@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
@@ -37,10 +39,12 @@ type datumAndResp struct {
 // WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
+	Status() map[string]*pps.WorkerStatus
 }
 
 type worker struct {
 	ctx          context.Context
+	cancel       func()
 	addr         string
 	workerClient workerpkg.WorkerClient
 	pachClient   *client.APIClient
@@ -99,16 +103,14 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 type workerPool struct {
 	// Worker pool recieves work via this channel
 	dataCh chan *datumAndResp
-
 	// Parent of all worker contexts (see workersMap)
 	ctx context.Context
-
 	// The prefix in etcd where new workers can be discovered
 	workerDir string
-
-	// Map of worker address to cancel fn -- call fn to kill worker goroutine
-	workersMap map[string]context.CancelFunc
-
+	// Map of worker address to workers
+	workersMap map[string]*worker
+	// RWMutex to protect workersMap
+	workersMapMu sync.RWMutex
 	// Used to check for workers added/deleted in etcd
 	etcdClient *etcd.Client
 }
@@ -177,16 +179,17 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 }
 
 func (w *workerPool) addWorker(addr string) error {
-	if cancel, ok := w.workersMap[addr]; ok {
-		cancel()
+	w.workersMapMu.RLock()
+	if worker, ok := w.workersMap[addr]; ok {
+		worker.cancel()
 	}
+	w.workersMapMu.RUnlock()
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
 	if err != nil {
 		return err
 	}
 	childCtx, cancelFn := context.WithCancel(w.ctx)
-	w.workersMap[addr] = cancelFn
 
 	pachClient, err := client.NewInCluster()
 	if err != nil {
@@ -195,26 +198,36 @@ func (w *workerPool) addWorker(addr string) error {
 
 	wr := &worker{
 		ctx:          childCtx,
+		cancel:       cancelFn,
 		addr:         addr,
 		workerClient: workerpkg.NewWorkerClient(conn),
 		pachClient:   pachClient,
 	}
+	w.workersMapMu.Lock()
+	w.workersMap[addr] = wr
+	w.workersMapMu.Unlock()
 	protolion.Infof("launching new worker at %v", addr)
 	go wr.run(w.dataCh)
 	return nil
 }
 
 func (w *workerPool) delWorker(addr string) error {
-	cancel, ok := w.workersMap[addr]
+	w.workersMapMu.RLock()
+	defer w.workersMapMu.RUnlock()
+	worker, ok := w.workersMap[addr]
 	if !ok {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
-	cancel()
+	worker.cancel()
 	return nil
 }
 
 func (w *workerPool) DataCh() chan *datumAndResp {
 	return w.dataCh
+}
+
+func (w *workerPool) Status() map[string]*pps.WorkerStatus {
+	return nil
 }
 
 // workerPool fetches the worker pool associated with 'id', or creates one if
@@ -239,7 +252,7 @@ func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 		ctx:        ctx,
 		dataCh:     make(chan *datumAndResp),
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
-		workersMap: make(map[string]context.CancelFunc),
+		workersMap: make(map[string]*worker),
 		etcdClient: a.etcdClient,
 	}
 	// We need to make sure that the prefix ends with the trailing slash,
