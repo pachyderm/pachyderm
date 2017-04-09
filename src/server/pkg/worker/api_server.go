@@ -462,14 +462,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 }
 
 // Process processes a datum.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *StatusResponse, retErr error) {
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *pps.WorkerStatus, retErr error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
 	if err != nil {
 		return nil, err
 	}
-	result := &StatusResponse{
+	result := &pps.WorkerStatus{
 		JobID:    a.jobID,
 		WorkerID: a.workerName,
 		Started:  started,
