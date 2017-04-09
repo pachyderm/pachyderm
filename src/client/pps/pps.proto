@@ -95,9 +95,10 @@ message Datum {
 }
 
 message WorkerStatus {
-  Job job = 1;
-  repeated Datum data = 2;
-  google.protobuf.Timestamp started = 3;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  string worker_id = 2 [(gogoproto.customname) = "WorkerID"];
+  repeated pps.Datum data = 3;
+  google.protobuf.Timestamp started = 4;
 }
 
 message JobInfo {
@@ -122,7 +123,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
-  map<string, WorkerStatus> worker_status = 24;
+  repeated WorkerStatus worker_status = 24;
 }
 
 enum WorkerState {

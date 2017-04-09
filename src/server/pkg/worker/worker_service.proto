@@ -23,14 +23,7 @@ message ProcessResponse {
   bool failed = 2;
 }
 
-message StatusResponse {
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string worker_id = 2 [(gogoproto.customname) = "WorkerID"];
-  repeated pps.Datum data = 3;
-  google.protobuf.Timestamp started = 4;
-}
-
 service Worker {
   rpc Process(ProcessRequest) returns (ProcessResponse) {}
-  rpc Status(google.protobuf.Empty) returns (StatusResponse) {}
+  rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
 }
