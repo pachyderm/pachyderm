@@ -60,6 +60,8 @@ type APIServer struct {
 	jobID string
 	// The currently running data
 	data []*pfs.FileInfo
+	// The time we started the currently running
+	started time.Time
 	// The k8s pod name of this worker
 	workerName string
 }
@@ -388,10 +390,22 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// user process runs at a time.
 	a.processMu.Lock()
 	defer a.processMu.Unlock()
-	a.statusMu.Lock()
-	a.jobID = req.JobID
-	a.data = req.Data
-	a.statusMu.Unlock()
+	// set the status for the datum
+	func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = req.JobID
+		a.data = req.Data
+		a.started = time.Now()
+	}()
+	// unset the status when this function exits
+	defer func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = ""
+		a.data = nil
+		a.started = time.Time{}
+	}()
 	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
 
@@ -451,9 +465,20 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *StatusResponse, retErr error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
-	return &StatusResponse{
+	started, err := types.TimestampProto(a.started)
+	if err != nil {
+		return nil, err
+	}
+	result := &StatusResponse{
 		JobID:    a.jobID,
 		WorkerID: a.workerName,
-		Data:     a.data,
-	}, nil
+		Started:  started,
+	}
+	for _, fileInfo := range a.data {
+		result.Data = append(result.Data, &pps.Datum{
+			Path: fileInfo.File.Path,
+			Hash: fileInfo.Hash,
+		})
+	}
+	return result, nil
 }
