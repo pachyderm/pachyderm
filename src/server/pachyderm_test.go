@@ -2679,6 +2679,59 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
 }
 
+func TestDatumStatus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestDatumDedup_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+		},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	started := time.Now()
+	for {
+		if time.Since(started) > time.Second*30 {
+			t.Errorf("failed to find status in time")
+		}
+		jobs, err := c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobs) == 0 {
+			continue
+		}
+		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+		require.NoError(t, err)
+		if len(jobInfo.WorkerStatus) == 0 {
+			continue
+		}
+		if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
+			break
+		}
+	}
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
