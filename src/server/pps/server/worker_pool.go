@@ -41,6 +41,7 @@ type datumAndResp struct {
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
 	Status(context.Context) ([]*pps.WorkerStatus, error)
+	Cancel(ctx context.Context, dataFilter []string) error
 }
 
 type worker struct {
@@ -239,6 +240,22 @@ func (w *workerPool) Status(ctx context.Context) ([]*pps.WorkerStatus, error) {
 		result = append(result, status)
 	}
 	return result, nil
+}
+
+func (w *workerPool) Cancel(ctx context.Context, dataFilter []string) error {
+	for _, worker := range w.workersMap {
+		status, err := worker.workerClient.Status(ctx, &types.Empty{})
+		if err != nil {
+			return err
+		}
+		if workerpkg.MatchDatum(dataFilter, status.Data) {
+			_, err := worker.workerClient.Cancel(ctx, &workerpkg.CancelRequest{
+				DataFilters: dataFilter,
+			})
+			return err
+		}
+	}
+	return nil
 }
 
 // workerPool fetches the worker pool associated with 'id', or creates one if

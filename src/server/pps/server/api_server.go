@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -340,6 +341,30 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: request.Job,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var wp WorkerPool
+	if jobInfo.Pipeline != nil {
+		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+	} else {
+		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+	}
+	if err := wp.Cancel(ctx, request.DataFilters); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
 	var pipelineInfo pps.PipelineInfo
 	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
@@ -453,20 +478,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					continue
 				}
 
-				// All paths in request.DataFilters must appear somewhere in the log
-				// line's inputs, or it's filtered
-				matchesData := true
-			dataFilters:
-				for _, dataFilter := range request.DataFilters {
-					for _, datum := range msg.Data {
-						if dataFilter == datum.Path || dataFilter == string(datum.Hash) {
-							continue dataFilters // Found, move to next filter
-						}
-					}
-					matchesData = false
-					break
-				}
-				if !matchesData {
+				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 
