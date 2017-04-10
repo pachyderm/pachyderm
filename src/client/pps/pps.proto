@@ -85,7 +85,7 @@ message ParallelismSpec {
   // 'coefficient' to 0.5.
   double coefficient = 3;
 }
- 
+
 message Datum {
   // This file's absolute path within its pfs repo.
   string path = 4;
