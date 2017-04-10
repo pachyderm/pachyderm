@@ -1423,6 +1423,63 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 //require.Equal(t, initialCount, len(repoInfos))
 //}
 
+// TestUpdatePipelineThatHasNoOutput tracks #1637
+func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestUpdatePipelineThatHasNoOutput")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"sh"},
+		[]string{"exit 1"},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+
+	// Wait for job to spawn
+	time.Sleep(5 * time.Second)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+
+	// Now we update the pipeline
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"sh"},
+		[]string{"exit 1"},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		true,
+	))
+}
+
 func TestAcceptReturnCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
