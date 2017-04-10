@@ -54,7 +54,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			return err
 		}
 		if pipes {
-			if err := syscall.Mkfifo(path, 0666); err != nil {
+
+			if err := mkfifo(path, 0666); err != nil {
 				return err
 			}
 			p.pipesMu.Lock()

@@ -2,16 +2,13 @@ package cmds
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 
 	"golang.org/x/sync/errgroup"
@@ -19,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -653,87 +649,7 @@ pachctl put-file repo branch -i http://host/path
 		}),
 	}
 
-	var debug bool
-	var allCommits bool
-	mount := &cobra.Command{
-		Use:   "mount path/to/mount/point",
-		Short: "Mount pfs locally. This command blocks.",
-		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "fuse")
-			if err != nil {
-				return err
-			}
-			go func() { client.KeepConnected(nil) }()
-			mounter := fuse.NewMounter(address, client)
-			mountPoint := args[0]
-			ready := make(chan bool)
-			go func() {
-				<-ready
-				fmt.Println("Filesystem mounted, CTRL-C to exit.")
-			}()
-			err = mounter.Mount(mountPoint, nil, ready, debug, false)
-			if err != nil {
-				return err
-			}
-			return nil
-		}),
-	}
-	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
-
-	var all bool
-	unmount := &cobra.Command{
-		Use:   "unmount path/to/mount/point",
-		Short: "Unmount pfs.",
-		Long:  "Unmount pfs.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			if len(args) == 1 {
-				return syscall.Unmount(args[0], 0)
-			}
-
-			if all {
-				stdin := strings.NewReader(`
-	mount | grep pfs:// | cut -f 3 -d " "
-	`)
-				var stdout bytes.Buffer
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stdout: &stdout,
-					Stderr: os.Stderr,
-				}, "sh"); err != nil {
-					return err
-				}
-				scanner := bufio.NewScanner(&stdout)
-				var mounts []string
-				for scanner.Scan() {
-					mounts = append(mounts, scanner.Text())
-				}
-				if len(mounts) == 0 {
-					fmt.Println("No mounts found.")
-					return nil
-				}
-				fmt.Printf("Unmount the following filesystems? yN\n")
-				for _, mount := range mounts {
-					fmt.Printf("%s\n", mount)
-				}
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
-				if err != nil {
-					return err
-				}
-				if bytes[0] == 'y' || bytes[0] == 'Y' {
-					for _, mount := range mounts {
-						if err := syscall.Unmount(mount, 0); err != nil {
-							return err
-						}
-					}
-				}
-			}
-			return nil
-		}),
-	}
-	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
+	mountUnmount := loadMountCommands(address, metrics)
 
 	var result []*cobra.Command
 	result = append(result, repo)
@@ -758,26 +674,7 @@ pachctl put-file repo branch -i http://host/path
 	result = append(result, deleteFile)
 	result = append(result, getObject)
 	result = append(result, getTag)
-	result = append(result, mount)
-	result = append(result, unmount)
-	return result
-}
-
-func parseCommitMounts(args []string) []*fuse.CommitMount {
-	var result []*fuse.CommitMount
-	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
-		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = path.Clean(repo)
-		split := strings.Split(commitAlias, ":")
-		if len(split) > 0 {
-			commitMount.Commit.ID = split[0]
-		}
-		if len(split) > 1 {
-			commitMount.Alias = split[1]
-		}
-		result = append(result, commitMount)
-	}
+	result = append(result, mountUnmount...)
 	return result
 }
 
