@@ -5,7 +5,7 @@ and as such, it's not possible to map 1.3 data and pipelines 1-to-1 with
 equivalents in 1.4. The biggest change between 1.3 and 1.4 concerns large
 files. In 1.3, it was possible to store very large files and parallelize
 directly over them. While this was convenient for a number of cases, it
-wound up iteracting in confusing ways with the filesystem layouts we use
+wound up interacting in confusing ways with the filesystem layouts we use
 for data processing and with our incrementality features. It also felt
 a little too magical because it abstracted key details of how computations
 would be parallelized away from the user. In 1.4, files can still be large,
