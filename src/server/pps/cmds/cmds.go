@@ -538,7 +538,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return nil
 		}),
 	}
-	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-job", false, "delete the jobs in this pipeline as well")
+	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
