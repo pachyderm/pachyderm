@@ -23,7 +23,12 @@ message ProcessResponse {
   bool failed = 2;
 }
 
+message CancelRequest {
+  repeated string data_filters = 1;
+}
+
 service Worker {
   rpc Process(ProcessRequest) returns (ProcessResponse) {}
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
+  rpc Cancel(CancelRequest) returns (google.protobuf.Empty) {}
 }
