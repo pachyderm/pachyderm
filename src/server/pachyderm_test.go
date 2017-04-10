@@ -1330,14 +1330,9 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	// need a new client because the old one will have a defunct connection
 	c = getUsablePachClient(t)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
-	collectCommitInfos(t, commitIter)
-
-	jobInfos, err = c.ListJob(pipelineName, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo)
 }
 
 //func TestScrubbedErrors(t *testing.T) {
