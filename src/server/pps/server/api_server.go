@@ -715,7 +715,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				return nil, err
 			}
 		} else {
-			if jobInfo.State == pps.JobState_JOB_RUNNING || jobInfo.State == pps.JobState_JOB_STARTING {
+			if !jobStateToStopped(jobInfo.State) {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					var jobInfo pps.JobInfo
@@ -724,7 +724,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 					}
 					// We need to check again here because the job's state
 					// might've changed since we first retrieved it
-					if jobInfo.State == pps.JobState_JOB_RUNNING || jobInfo.State == pps.JobState_JOB_STARTING {
+					if !jobStateToStopped(jobInfo.State) {
 						jobInfo.State = pps.JobState_JOB_STOPPED
 					}
 					jobs.Put(jobID, &jobInfo)
