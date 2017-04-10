@@ -82,7 +82,7 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
 func PrintWorkerStatusHeader(w io.Writer) {
-	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tDURATION\t\n")
+	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\t\n")
 }
 
 // PrintWorkerStatus pretty prints a worker status.
@@ -264,6 +264,7 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 var funcMap = template.FuncMap{
 	"pipelineState":   pipelineState,
 	"jobState":        jobState,
+	"workerStatus":    workerStatus,
 	"pipelineInputs":  pipelineInputs,
 	"jobInputs":       jobInputs,
 	"prettyAgo":       pretty.Ago,
