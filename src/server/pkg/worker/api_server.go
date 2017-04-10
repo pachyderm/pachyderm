@@ -62,6 +62,8 @@ type APIServer struct {
 	data []*pfs.FileInfo
 	// The time we started the currently running
 	started time.Time
+	// Func to cancel the currently running datum
+	cancel func()
 	// The k8s pod name of this worker
 	workerName string
 }
@@ -196,7 +198,7 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error {
 	// Run user code
 	transform := a.transform
-	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
+	cmd := exec.CommandContext(ctx, transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
@@ -391,12 +393,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	a.processMu.Lock()
 	defer a.processMu.Unlock()
 	// set the status for the datum
+	ctx, cancel := context.WithCancel(ctx)
 	func() {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
 		a.jobID = req.JobID
 		a.data = req.Data
 		a.started = time.Now()
+		a.cancel = cancel
 	}()
 	// unset the status when this function exits
 	defer func() {
@@ -405,6 +409,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.jobID = ""
 		a.data = nil
 		a.started = time.Time{}
+		a.cancel = nil
 	}()
 	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
@@ -461,8 +466,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}, nil
 }
 
-// Process processes a datum.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *pps.WorkerStatus, retErr error) {
+// Status returns the status of the current worker.
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
@@ -473,12 +478,29 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (resp *pps.Worke
 		JobID:    a.jobID,
 		WorkerID: a.workerName,
 		Started:  started,
+		Data:     a.datum(),
 	}
+	return result, nil
+}
+
+// Cancel cancels the currently running datum
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*types.Empty, error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	if !MatchDatum(request.DataFilters, a.datum()) {
+		return nil, fmt.Errorf("datum not found")
+	}
+	a.cancel()
+	return &types.Empty{}, nil
+}
+
+func (a *APIServer) datum() []*pps.Datum {
+	var result []*pps.Datum
 	for _, fileInfo := range a.data {
-		result.Data = append(result.Data, &pps.Datum{
+		result = append(result, &pps.Datum{
 			Path: fileInfo.File.Path,
 			Hash: fileInfo.Hash,
 		})
 	}
-	return result, nil
+	return result
 }
