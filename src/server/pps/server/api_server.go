@@ -715,10 +715,19 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 				return nil, err
 			}
 		} else {
-			if jobInfo.State == pps.JobState_JOB_RUNNING {
-				jobInfo.State = pps.JobState_JOB_STOPPED
+			if jobInfo.State == pps.JobState_JOB_RUNNING || jobInfo.State == pps.JobState_JOB_STARTING {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					a.jobs.ReadWrite(stm).Put(jobID, &jobInfo)
+					jobs := a.jobs.ReadWrite(stm)
+					var jobInfo pps.JobInfo
+					if err := jobs.Get(jobID, &jobInfo); err != nil {
+						return err
+					}
+					// We need to check again here because the job's state
+					// might've changed since we first retrieved it
+					if jobInfo.State == pps.JobState_JOB_RUNNING || jobInfo.State == pps.JobState_JOB_STARTING {
+						jobInfo.State = pps.JobState_JOB_STOPPED
+					}
+					jobs.Put(jobID, &jobInfo)
 					return nil
 				}); err != nil {
 					return nil, err
