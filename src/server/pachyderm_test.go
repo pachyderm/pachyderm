@@ -1332,7 +1332,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 //func TestScrubbedErrors(t *testing.T) {
