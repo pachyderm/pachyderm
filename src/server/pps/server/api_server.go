@@ -695,37 +695,41 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		iter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsPipelineIndex, request.Pipeline)
-		if err != nil {
-			return err
-		}
-
-		for {
-			var jobID string
-			var jobInfo pps.JobInfo
-			ok, err := iter.Next(&jobID, &jobInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			if request.DeleteJobs {
-				if err := a.jobs.ReadWrite(stm).Delete(jobID); err != nil {
-					return err
-				}
-			} else {
-				if jobInfo.State == pps.JobState_JOB_RUNNING {
-					jobInfo.State = pps.JobState_JOB_STOPPED
-				}
-				a.jobs.ReadWrite(stm).Put(jobID, &jobInfo)
-			}
-		}
-
-		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-	})
+	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsPipelineIndex, request.Pipeline)
 	if err != nil {
+		return nil, err
+	}
+
+	for {
+		var jobID string
+		var jobInfo pps.JobInfo
+		ok, err := iter.Next(&jobID, &jobInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		if request.DeleteJobs {
+			if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}}); err != nil {
+				return nil, err
+			}
+		} else {
+			if jobInfo.State == pps.JobState_JOB_RUNNING {
+				jobInfo.State = pps.JobState_JOB_STOPPED
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					a.jobs.ReadWrite(stm).Put(jobID, &jobInfo)
+					return nil
+				}); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
