@@ -190,15 +190,15 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
+	cmd.Env = environ
 	err := cmd.Run()
-
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
 	// Return result
@@ -422,12 +422,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 	}()
 
+	environ := a.userCodeEnviron(req)
+
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	err = a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger, environ)
 	logger.Logf("finished processing user input")
 	if err != nil {
 		return &ProcessResponse{
@@ -440,4 +442,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
+}
+
+func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
+	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }
