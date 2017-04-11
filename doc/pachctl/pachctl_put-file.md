@@ -6,7 +6,8 @@ Put a file into the filesystem.
 
 
 Put-file supports a number of ways to insert data into pfs:
-```sh# Put data from stdin as repo/branch/path:
+```sh
+# Put data from stdin as repo/branch/path:
 echo "data" | pachctl put-file repo branch path
 
 # Put data from stding as repo/branch/path and start / finish a new commit on the branch.
