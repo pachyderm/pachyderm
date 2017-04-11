@@ -278,6 +278,11 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
+	// If the job is running we fill in WorkerStatus field, otherwise we just
+	// return the jobInfo.
+	if jobInfo.State != pps.JobState_JOB_RUNNING {
+		return jobInfo, nil
+	}
 	var wp WorkerPool
 	if jobInfo.Pipeline != nil {
 		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
@@ -288,7 +293,14 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
-		jobInfo.WorkerStatus = workerStatus
+		// It's possible that the workers might be working on datums for other
+		// jobs, we omit those since they're not part of the status for this
+		// job.
+		for _, status := range workerStatus {
+			if status.JobID == jobInfo.Job.ID {
+				jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+			}
+		}
 	}
 	return jobInfo, nil
 }
@@ -361,7 +373,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	} else {
 		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
 	}
-	if err := wp.Cancel(ctx, request.DataFilters); err != nil {
+	if err := wp.Cancel(ctx, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -42,7 +42,7 @@ type datumAndResp struct {
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
 	Status(context.Context) ([]*pps.WorkerStatus, error)
-	Cancel(ctx context.Context, dataFilter []string) error
+	Cancel(ctx context.Context, jobID string, dataFilter []string) error
 }
 
 type worker struct {
@@ -250,13 +250,13 @@ func (w *workerPool) Status(ctx context.Context) ([]*pps.WorkerStatus, error) {
 	return result, nil
 }
 
-func (w *workerPool) Cancel(ctx context.Context, dataFilter []string) error {
+func (w *workerPool) Cancel(ctx context.Context, jobID string, dataFilter []string) error {
 	for _, worker := range w.workersMap {
 		status, err := worker.workerClient.Status(ctx, &types.Empty{})
 		if err != nil {
 			return err
 		}
-		if workerpkg.MatchDatum(dataFilter, status.Data) {
+		if jobID == status.JobID && workerpkg.MatchDatum(dataFilter, status.Data) {
 			_, err := worker.workerClient.Cancel(ctx, &workerpkg.CancelRequest{
 				DataFilters: dataFilter,
 			})
