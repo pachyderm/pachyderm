@@ -10,13 +10,13 @@ Distributing computation across multiple workers is a fundamental part of proces
 
 Before we dive into the above questions, there are a few details you should understand about Pachyderm workers. 
 
-Every worker for a given pipeline is an identical pod running the Docker image you specified in the [pipeline spec](../reference/pipline_spec.html). Your analysis code does not need do anything special to run in a distributed fashion. Instead, Pachyderm will spread out the data that needs to be processed across the various workers and make that data available for your code. 
+Every worker for a given pipeline is an identical pod running the Docker image you specified in the [pipeline spec](../reference/pipeline_spec.html). Your analysis code does not need do anything special to run in a distributed fashion. Instead, Pachyderm will spread out the data that needs to be processed across the various workers and make that data available for your code. 
 
 Pachyderm workers are spun up when you create the pipeline and are left running in the cluster waiting for new jobs (data) to be available for processing (committed). This saves having to recreate and schedule the worker for every new job.
 
 ## Controlling the Number of Workers (Parallelism)
 
-The number of workers that are used for a given pipeline is controlled by the `parallelism_spec` defined in the [pipeline specification](../reference/pipline_spec.html).
+The number of workers that are used for a given pipeline is controlled by the `parallelism_spec` defined in the [pipeline specification](../reference/pipeline_spec.html).
 
 ```
   "parallelism_spec": {
