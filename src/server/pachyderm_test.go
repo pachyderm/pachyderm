@@ -2739,8 +2739,10 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
 	checkStatus()
 
-	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 func restartAll(t *testing.T) {
