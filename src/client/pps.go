@@ -167,6 +167,18 @@ func (c APIClient) DeleteJob(jobID string) error {
 	return sanitizeErr(err)
 }
 
+// RestartDatum restarts a datum that's being processed as part of a job.
+func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
+	_, err := c.PpsAPIClient.RestartDatum(
+		c.ctx(),
+		&pps.RestartDatumRequest{
+			Job:         NewJob(jobID),
+			DataFilters: datumFilter,
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // LogsIter iterates through log messages returned from pps.GetLogs. Logs can
 // be fetched with 'Next()'. The log message received can be examined with
 // 'Message()', and any errors can be examined with 'Err()'.

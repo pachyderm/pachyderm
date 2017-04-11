@@ -2679,7 +2679,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
 }
 
-func TestDatumStatus(t *testing.T) {
+func TestDatumStatusRestart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2701,7 +2701,7 @@ func TestDatumStatus(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 10",
+			"sleep 20",
 		},
 		nil,
 		[]*pps.PipelineInput{{
@@ -2711,25 +2711,36 @@ func TestDatumStatus(t *testing.T) {
 		"",
 		false,
 	))
-	started := time.Now()
-	for {
-		if time.Since(started) > time.Second*30 {
-			t.Errorf("failed to find status in time")
-		}
-		jobs, err := c.ListJob(pipeline, nil)
-		require.NoError(t, err)
-		if len(jobs) == 0 {
-			continue
-		}
-		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
-		require.NoError(t, err)
-		if len(jobInfo.WorkerStatus) == 0 {
-			continue
-		}
-		if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
-			break
+	var jobID string
+	checkStatus := func() {
+		started := time.Now()
+		for {
+			time.Sleep(time.Second)
+			if time.Since(started) > time.Second*30 {
+				t.Errorf("failed to find status in time")
+			}
+			jobs, err := c.ListJob(pipeline, nil)
+			require.NoError(t, err)
+			if len(jobs) == 0 {
+				continue
+			}
+			jobID = jobs[0].Job.ID
+			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+			require.NoError(t, err)
+			if len(jobInfo.WorkerStatus) == 0 {
+				continue
+			}
+			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
+				break
+			}
 		}
 	}
+	checkStatus()
+	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
+	checkStatus()
+
+	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
 }
 
 func restartAll(t *testing.T) {

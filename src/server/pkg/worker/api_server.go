@@ -202,10 +202,14 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
-	err := cmd.Run()
-
-	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
+	err := cmd.Run()
+	if err != nil {
+		logger.Logf("user code finished, err: %+v", err)
+	} else {
+		logger.Logf("user code finished", err)
+	}
+
 	// Return result
 	if err == nil {
 		return nil
