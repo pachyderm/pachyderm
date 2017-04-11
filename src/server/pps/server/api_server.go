@@ -904,6 +904,7 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
 		return nil
@@ -959,6 +960,7 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
 		return nil
@@ -1096,6 +1098,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RESTARTING); err != nil {
@@ -1477,6 +1480,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
