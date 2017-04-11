@@ -574,20 +574,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Rename the original output branch to `outputBranch-vN`, where N
 		// is the previous version number of the pipeline.
+		// We ignore NotFound errors because this pipeline might not have
+		// even output anything yet, in which case the output branch
+		// may not actually exist.
 		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
 			Commit: &pfs.Commit{
 				Repo: &pfs.Repo{pipelineName},
 				ID:   oldPipelineInfo.OutputBranch,
 			},
 			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
-		}); err != nil {
+		}); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
 
 		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
 			Repo:   &pfs.Repo{pipelineName},
 			Branch: oldPipelineInfo.OutputBranch,
-		}); err != nil {
+		}); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
 
