@@ -458,6 +458,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	err = a.runUserCode(ctx, logger)
 	logger.Logf("finished processing user input")
 	if err != nil {
+		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
 			Failed: true,
 		}, nil
