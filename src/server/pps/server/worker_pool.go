@@ -30,11 +30,12 @@ const (
 // processing 'data', it writes the resulting hashtree to 'resp' (each job has
 // its own response channel)
 type datumAndResp struct {
-	jobID  string // This is passed to workers, so they can annotate their logs
-	datum  []*pfs.FileInfo
-	respCh chan hashtree.HashTree
-	errCh  chan struct{}
-	retCh  chan *datumAndResp
+	jobID   string // This is passed to workers, so they can annotate their logs
+	datum   []*pfs.FileInfo
+	respCh  chan hashtree.HashTree
+	errCh   chan struct{}
+	retCh   chan *datumAndResp
+	retries int
 }
 
 // WorkerPool represents a pool of workers that can be used to process datums.
@@ -50,6 +51,7 @@ type worker struct {
 	addr         string
 	workerClient workerpkg.WorkerClient
 	pachClient   *client.APIClient
+	retries      int
 }
 
 func (w *worker) run(dataCh chan *datumAndResp) {
@@ -57,6 +59,7 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 		protolion.Infof("goro for worker %s is exiting", w.addr)
 	}()
 	returnDatum := func(dr *datumAndResp) {
+		dr.retries++
 		select {
 		case dr.retCh <- dr:
 		case <-w.ctx.Done():
@@ -69,11 +72,15 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 		case <-w.ctx.Done():
 			return
 		}
+		if dr.retries > w.retries {
+			close(dr.errCh)
+			continue
+		}
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			JobID: dr.jobID,
 			Data:  dr.datum,
 		})
-		if err != nil {
+		if err != nil || resp.Failed {
 			protolion.Errorf("worker %s failed to process datum %v with error %s", w.addr, dr.datum, err)
 			returnDatum(dr)
 			continue
@@ -92,8 +99,6 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 				continue
 			}
 			dr.respCh <- tree
-		} else if resp.Failed {
-			close(dr.errCh)
 		} else {
 			protolion.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", w.addr, dr.datum)
 			returnDatum(dr)
@@ -115,6 +120,8 @@ type workerPool struct {
 	workersMapMu sync.RWMutex
 	// Used to check for workers added/deleted in etcd
 	etcdClient *etcd.Client
+	// The number of times to retry failures
+	retries int
 }
 
 func (w *workerPool) discoverWorkers(ctx context.Context) {
@@ -204,6 +211,7 @@ func (w *workerPool) addWorker(addr string) error {
 		addr:         addr,
 		workerClient: workerpkg.NewWorkerClient(conn),
 		pachClient:   pachClient,
+		retries:      w.retries,
 	}
 	w.workersMapMu.Lock()
 	w.workersMap[addr] = wr
@@ -260,12 +268,12 @@ func (w *workerPool) Cancel(ctx context.Context, dataFilter []string) error {
 
 // workerPool fetches the worker pool associated with 'id', or creates one if
 // none exists.
-func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
+func (a *apiServer) workerPool(ctx context.Context, id string, retries int) WorkerPool {
 	a.workerPoolsLock.Lock()
 	defer a.workerPoolsLock.Unlock()
 	workerPool, ok := a.workerPools[id]
 	if !ok {
-		workerPool = a.newWorkerPool(ctx, id)
+		workerPool = a.newWorkerPool(ctx, id, retries)
 		a.workerPools[id] = workerPool
 	}
 	return workerPool
@@ -275,13 +283,14 @@ func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
 // with 'id'.  Each 'id' used to create a new worker pool must correspond to
 // a unique binary (in other words, all workers in the worker pool for 'id'
 // will be running the same user binary)
-func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
+func (a *apiServer) newWorkerPool(ctx context.Context, id string, retries int) WorkerPool {
 	wp := &workerPool{
 		ctx:        ctx,
 		dataCh:     make(chan *datumAndResp),
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
 		workersMap: make(map[string]*worker),
 		etcdClient: a.etcdClient,
+		retries:    retries,
 	}
 	// We need to make sure that the prefix ends with the trailing slash,
 	// because

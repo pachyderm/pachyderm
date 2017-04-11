@@ -47,6 +47,8 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// RetriesPerDatum is the number of times each datum can be retried
+	RetriesPerDatum = 5
 )
 
 var (
@@ -278,9 +280,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var wp WorkerPool
 	if jobInfo.Pipeline != nil {
-		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
 	} else {
-		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
 	}
 	workerStatus, err := wp.Status(ctx)
 	if err != nil {
@@ -355,9 +357,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var wp WorkerPool
 	if jobInfo.Pipeline != nil {
-		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
 	} else {
-		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
 	}
 	if err := wp.Cancel(ctx, request.DataFilters); err != nil {
 		return nil, err
@@ -1005,7 +1007,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version), RetriesPerDatum)
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -1238,9 +1240,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Start worker pool
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
 		} else {
-			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
 		}
 
 		// We have a goroutine that receives the datums that fail to
