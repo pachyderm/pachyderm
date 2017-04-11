@@ -733,37 +733,50 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		iter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsPipelineIndex, request.Pipeline)
-		if err != nil {
-			return err
-		}
-
-		for {
-			var jobID string
-			var jobInfo pps.JobInfo
-			ok, err := iter.Next(&jobID, &jobInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			if request.DeleteJobs {
-				if err := a.jobs.ReadWrite(stm).Delete(jobID); err != nil {
-					return err
-				}
-			} else {
-				if jobInfo.State == pps.JobState_JOB_RUNNING {
-					jobInfo.State = pps.JobState_JOB_STOPPED
-				}
-				a.jobs.ReadWrite(stm).Put(jobID, &jobInfo)
-			}
-		}
-
-		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
-	})
+	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsPipelineIndex, request.Pipeline)
 	if err != nil {
+		return nil, err
+	}
+
+	for {
+		var jobID string
+		var jobInfo pps.JobInfo
+		ok, err := iter.Next(&jobID, &jobInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		if request.DeleteJobs {
+			if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}}); err != nil {
+				return nil, err
+			}
+		} else {
+			if !jobStateToStopped(jobInfo.State) {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					var jobInfo pps.JobInfo
+					if err := jobs.Get(jobID, &jobInfo); err != nil {
+						return err
+					}
+					// We need to check again here because the job's state
+					// might've changed since we first retrieved it
+					if !jobStateToStopped(jobInfo.State) {
+						jobInfo.State = pps.JobState_JOB_STOPPED
+					}
+					jobs.Put(jobID, &jobInfo)
+					return nil
+				}); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -929,6 +942,7 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
 		return nil
@@ -984,6 +998,7 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error receiving job updates: %v; retrying in %v", err, d)
 		return nil
@@ -1121,6 +1136,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RESTARTING); err != nil {
@@ -1502,6 +1518,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		case <-ctx.Done():
 			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
 
 		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
