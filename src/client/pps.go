@@ -168,6 +168,8 @@ func (c APIClient) DeleteJob(jobID string) error {
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
+// datumFilter is a slice of strings which are matched against either the Path
+// or Hash of the datum, the order of the strings in datumFilter is irrelevant.
 func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
 		c.ctx(),

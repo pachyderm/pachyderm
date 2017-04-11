@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -2672,7 +2673,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	pipeline := uniqueString("pipeline")
-	// This pipeline sleeps for 10 secs per datum
+	// This pipeline sleeps for 20 secs per datum
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -2689,6 +2690,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		false,
 	))
 	var jobID string
+	var datumStarted time.Time
 	checkStatus := func() {
 		started := time.Now()
 		for {
@@ -2708,6 +2710,15 @@ func TestDatumStatusRestart(t *testing.T) {
 				continue
 			}
 			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
+				// This method is called before and after the datum is
+				// restarted, this makes sure that the restart actually did
+				// something.
+				// The first time this function is called, datumStarted is zero
+				// so `Before` is true for any non-zero time.
+				_datumStarted, err := types.TimestampFromProto(jobInfo.WorkerStatus[0].Started)
+				require.NoError(t, err)
+				require.True(t, datumStarted.Before(_datumStarted))
+				datumStarted = _datumStarted
 				break
 			}
 		}
