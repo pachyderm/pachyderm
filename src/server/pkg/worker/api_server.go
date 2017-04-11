@@ -195,7 +195,7 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
 	transform := a.transform
 	cmd := exec.CommandContext(ctx, transform.Cmd[0], transform.Cmd[1:]...)
@@ -203,6 +203,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) error
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	logger.Logf("running user code")
+	cmd.Env = environ
 	err := cmd.Run()
 	if err != nil {
 		logger.Logf("user code finished, err: %+v", err)
@@ -450,12 +451,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 	}()
 
+	environ := a.userCodeEnviron(req)
+
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	err = a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger, environ)
 	logger.Logf("finished processing user input")
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
@@ -508,4 +511,8 @@ func (a *APIServer) datum() []*pps.Datum {
 		})
 	}
 	return result
+}
+
+func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
+	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }
