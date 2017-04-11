@@ -98,6 +98,7 @@ message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
   repeated pps.Datum data = 3;
+  // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
 }
 
