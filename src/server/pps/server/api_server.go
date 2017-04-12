@@ -283,13 +283,13 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
 		return jobInfo, nil
 	}
-	var wp WorkerPool
+	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
-	workerStatus, err := wp.Status(ctx)
+	workerStatus, err := Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -367,13 +367,13 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	var wp WorkerPool
+	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), RetriesPerDatum)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID), RetriesPerDatum)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
-	if err := wp.Cancel(ctx, request.Job.ID, request.DataFilters); err != nil {
+	if err := Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
