@@ -58,13 +58,12 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 		}
 	}
 	for {
-		var dr *datumAndResp
-		select {
-		case dr = <-dataCh:
-		case <-dr.ctx.Done():
-			continue
+		dr, ok := <-dataCh
+		if !ok {
+			protolion.Errorf("worker %s exiting", w.addr)
+			return
 		}
-		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
+		resp, err := w.workerClient.Process(dr.ctx, &workerpkg.ProcessRequest{
 			JobID: dr.jobID,
 			Data:  dr.datum,
 		})
