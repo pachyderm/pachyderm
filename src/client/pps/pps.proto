@@ -165,16 +165,6 @@ enum PipelineState {
     PIPELINE_STOPPED = 4;
 }
 
-// GCPolicy describes when jobs can be garbage-collected.
-message GCPolicy {
-  // The amount of time that needs to pass before a successful job
-  // can be GC-ed.
-  google.protobuf.Duration success = 1;
-  // The amount of time that needs to pass before a failed job
-  // can be GC-ed.
-  google.protobuf.Duration failure = 2;
-}
-
 message PipelineInfo {
   reserved 3;
   string id = 17 [(gogoproto.customname) = "ID"];
@@ -188,9 +178,9 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
-  GCPolicy gc_policy = 12;
   bool stopped = 13;
   string outputBranch = 16;
+  google.protobuf.Duration scaleDownThreshold = 18;
 }
 
 message PipelineInfos {
@@ -273,7 +263,6 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   Egress egress = 9;
   bool update = 5;
-  GCPolicy gc_policy = 8;
   string outputBranch = 10;
 }
 
