@@ -41,8 +41,6 @@ type datumAndResp struct {
 // WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
 	DataCh() chan *datumAndResp
-	Status(context.Context) ([]*pps.WorkerStatus, error)
-	Cancel(ctx context.Context, jobID string, dataFilter []string) error
 }
 
 type worker struct {
@@ -236,12 +234,14 @@ func (w *workerPool) DataCh() chan *datumAndResp {
 	return w.dataCh
 }
 
-func (w *workerPool) Status(ctx context.Context) ([]*pps.WorkerStatus, error) {
+func Status(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix string) ([]*pps.WorkerStatus, error) {
+	workerClients, err := workerClients(ctx, id, etcdClient, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
 	var result []*pps.WorkerStatus
-	w.workersMapMu.Lock()
-	defer w.workersMapMu.Unlock()
-	for _, worker := range w.workersMap {
-		status, err := worker.workerClient.Status(ctx, &types.Empty{})
+	for _, workerClient := range workerClients {
+		status, err := workerClient.Status(ctx, &types.Empty{})
 		if err != nil {
 			return nil, err
 		}
@@ -250,14 +250,19 @@ func (w *workerPool) Status(ctx context.Context) ([]*pps.WorkerStatus, error) {
 	return result, nil
 }
 
-func (w *workerPool) Cancel(ctx context.Context, jobID string, dataFilter []string) error {
-	for _, worker := range w.workersMap {
-		status, err := worker.workerClient.Status(ctx, &types.Empty{})
+func Cancel(ctx context.Context, id string, etcdClient *etcd.Client,
+	etcdPrefix string, jobID string, dataFilter []string) error {
+	workerClients, err := workerClients(ctx, id, etcdClient, etcdPrefix)
+	if err != nil {
+		return err
+	}
+	for _, workerClient := range workerClients {
+		status, err := workerClient.Status(ctx, &types.Empty{})
 		if err != nil {
 			return err
 		}
 		if jobID == status.JobID && workerpkg.MatchDatum(dataFilter, status.Data) {
-			_, err := worker.workerClient.Cancel(ctx, &workerpkg.CancelRequest{
+			_, err := workerClient.Cancel(ctx, &workerpkg.CancelRequest{
 				DataFilters: dataFilter,
 			})
 			return err
@@ -308,7 +313,7 @@ func (a *apiServer) delWorkerPool(id string) {
 	delete(a.workerPools, id)
 }
 
-func workerClients(ctx context.Context, id string, etcdClient etcd.Client, etcdPrefix string) ([]workerpkg.WorkerClient, error) {
+func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix string) ([]workerpkg.WorkerClient, error) {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, workerEtcdPrefix, id), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
