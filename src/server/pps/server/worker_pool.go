@@ -27,6 +27,7 @@ const (
 // processing 'data', it writes the resulting hashtree to 'resp' (each job has
 // its own response channel)
 type datumAndResp struct {
+	ctx    context.Context
 	jobID  string // This is passed to workers, so they can annotate their logs
 	datum  []*pfs.FileInfo
 	respCh chan hashtree.HashTree
@@ -53,15 +54,15 @@ func (w *worker) run(dataCh chan *datumAndResp) {
 	returnDatum := func(dr *datumAndResp) {
 		select {
 		case dr.retCh <- dr:
-		case <-w.ctx.Done():
+		case <-dr.ctx.Done():
 		}
 	}
 	for {
 		var dr *datumAndResp
 		select {
 		case dr = <-dataCh:
-		case <-w.ctx.Done():
-			return
+		case <-dr.ctx.Done():
+			continue
 		}
 		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
 			JobID: dr.jobID,
@@ -178,7 +179,7 @@ func (w *workerPool) addWorker(addr string) error {
 		workerClient: workerpkg.NewWorkerClient(conn),
 		pachClient:   pachClient,
 	}
-	protolion.Infof("launching new worker at %v", addr)
+	protolion.Infof("launching new worker for %s at %v", w.workerDir, addr)
 	go wr.run(w.dataCh)
 	return nil
 }
@@ -189,6 +190,7 @@ func (w *workerPool) delWorker(addr string) error {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
 	cancel()
+	protolion.Infof("deleting worker for %s at %v", w.workerDir, addr)
 	return nil
 }
 
