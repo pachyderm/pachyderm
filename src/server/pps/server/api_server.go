@@ -537,7 +537,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ParallelismSpec: request.ParallelismSpec,
 		Inputs:          request.Inputs,
 		OutputBranch:    request.OutputBranch,
-		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
 		CreatedAt:       now(),
 	}
@@ -975,6 +974,64 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
+func (a *apiServer) getRunningJobsForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]*pps.JobInfo, error) {
+	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(stoppedIndex, false)
+	if err != nil {
+		return nil, err
+	}
+	var jobInfos []*pps.JobInfo
+	for {
+		var jobID string
+		var jobInfo pps.JobInfo
+		ok, err := iter.Next(&jobID, &jobInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			break
+		}
+		if jobInfo.PipelineID == pipelineInfo.ID {
+			jobInfos = append(jobInfos, &jobInfo)
+		}
+	}
+	return jobInfos, nil
+}
+
+// signalJobCompletion waits for a job to complete and then sends the job back on jobCompletionCh.
+func (a *apiServer) signalJobCompletion(ctx context.Context, job *pps.Job, jobCompletionCh chan *pps.Job) {
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+			Job:        job,
+			BlockState: true,
+		}); err != nil {
+			// If a job has been deleted, it's also "completed" for
+			// our purposes.
+			if strings.Contains(err.Error(), "deleted") {
+				select {
+				case <-ctx.Done():
+				case jobCompletionCh <- job:
+				}
+				return nil
+			}
+			return err
+		}
+		select {
+		case <-ctx.Done():
+		case jobCompletionCh <- job:
+		}
+		return nil
+	}, b, func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
+			return err
+		default:
+		}
+		return nil
+	})
+}
+
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
@@ -1024,21 +1081,71 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 		}
 
-		branchSetCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Inputs)
+		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Inputs)
+		if err != nil {
+			return err
+		}
+		defer branchSetFactory.Close()
+
+		runningJobList, err := a.getRunningJobsForPipeline(ctx, pipelineInfo)
 		if err != nil {
 			return err
 		}
 
+		jobCompletionCh := make(chan *pps.Job)
+		runningJobSet := make(map[string]bool)
+		for _, job := range runningJobList {
+			go a.signalJobCompletion(ctx, job.Job, jobCompletionCh)
+			runningJobSet[job.Job.ID] = true
+		}
+
+		scaleDownCh := make(chan struct{})
+		var scaleDownTimer *time.Timer
 		var job *pps.Job
-	nextinput:
+	nextInput:
 		for {
-			// Block until new input commit comes in, then gather input branches for processing
-			branchSet, err := branchSets.Next()
-			if err != nil {
+			var branchSet branchSet
+			select {
+			case branchSet = <-branchSetFactory.Chan():
+			case completedJob := <-jobCompletionCh:
+				delete(runningJobSet, completedJob)
+				if len(runningJobSet) == 0 {
+					scaleDownThreshold, err := types.DurationFromProto(pipelineInfo.ScaleDownThreshold)
+					if err != nil {
+						return err
+					}
+					// We want the timer goro's lifetime to be tied to
+					// the lifetime of this particular run of the retry
+					// loop
+					ctx, cancel := context.WithCancel(ctx)
+					defer cancel()
+					scaleDownTimer = time.AfterFunc(scaleDownThreshold, func() {
+						// We want the scaledown to happen synchronously
+						// in pipelineManager, as opposed to asynchronously
+						// in a separate goroutine, in other to prevent
+						// potential races.
+						select {
+						case <-ctx.Done():
+						case scaleDownCh <- struct{}{}:
+						}
+					})
+				}
+				continue nextInput
+			case <-scaleDownCh:
+				// We need to check if there's indeed no running job,
+				// because it might happen that the timer expired while
+				// we were creating a job.
+				if len(runningJobSet) == 0 {
+					if err := a.scaleDownWorkers(ctx, pipelineInfo); err != nil {
+						return err
+					}
+				}
+				continue nextInput
+			}
+			if branchSet.Err != nil {
 				return err
 			}
+
 			// (create JobInput for new processing job)
 			var jobInputs []*pps.JobInput
 			for _, pipelineInput := range pipelineInfo.Inputs {
@@ -1075,10 +1182,14 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO(derek): we should check if the output commit exists.  If the
 					// output commit has been deleted, we should re-run the job.
-					continue nextinput
+					continue nextInput
 				}
 			}
 
+			// We scale up the workers before we create a job, to ensure
+			// that the job will have workers to use.  Note that scaling
+			// a RC is idempotent: nothing happens if the workers have
+			// already been scaled.
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Inputs:   jobInputs,
@@ -1089,6 +1200,12 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			if err != nil {
 				return err
 			}
+			scaleDownTimer.Stop()
+			if err := a.scaleUpWorkers(ctx, pipelineInfo); err != nil {
+				return err
+			}
+			runningJobSet[job.ID] = true
+			go a.signalJobCompletion(ctx, job.ID, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
 		}
 		panic("unreachable")
