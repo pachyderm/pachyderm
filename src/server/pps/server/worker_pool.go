@@ -307,3 +307,20 @@ func (a *apiServer) delWorkerPool(id string) {
 	defer a.workerPoolsLock.Unlock()
 	delete(a.workerPools, id)
 }
+
+func workerClients(ctx context.Context, id string, etcdClient etcd.Client, etcdPrefix string) ([]workerpkg.WorkerClient, error) {
+	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, workerEtcdPrefix, id), etcd.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	var result []workerpkg.WorkerClient
+	for _, kv := range resp.Kvs {
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", string(kv.Key), client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, workerpkg.NewWorkerClient(conn))
+	}
+	return result, nil
+}
