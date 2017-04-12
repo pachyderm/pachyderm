@@ -870,6 +870,7 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 		if err != nil {
 			return err
 		}
+		defer pipelineWatcher.Close()
 		for {
 			event, ok := <-pipelineWatcher.Watch()
 			if !ok {
@@ -928,7 +929,7 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 		if err != nil {
 			return err
 		}
-
+		defer jobWatcher.Close()
 		for {
 			event, ok := <-jobWatcher.Watch()
 			if !ok {
