@@ -871,7 +871,10 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 			return err
 		}
 		for {
-			event := <-pipelineWatcher.Watch()
+			event, ok := <-pipelineWatcher.Watch()
+			if !ok {
+				return fmt.Errorf("pipelineWatcher closed unexpectedly")
+			}
 			if event.Err != nil {
 				return event.Err
 			}
@@ -927,7 +930,10 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 		}
 
 		for {
-			event := <-jobWatcher.Watch()
+			event, ok := <-jobWatcher.Watch()
+			if !ok {
+				return fmt.Errorf("jobWatcher closed unexpectedly")
+			}
 			if event.Err != nil {
 				return event.Err
 			}
