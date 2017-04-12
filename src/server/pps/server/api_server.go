@@ -48,7 +48,7 @@ const (
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
 	// RetriesPerDatum is the number of times each datum can be retried
-	RetriesPerDatum = 5
+	RetriesPerDatum = 3
 )
 
 var (
