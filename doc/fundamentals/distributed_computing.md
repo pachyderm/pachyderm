@@ -38,7 +38,7 @@ Defining how your data is spread out among workers is arguably the most importan
 
 Instead of confining users to just data-distribution patterns such as Map (split everything as much as possible) and Reduce (_all_ the data must be grouped together), Pachyderm uses [Glob Patterns](https://en.wikipedia.org/wiki/Glob_(programming)) to offer incredible flexibility in defining your data distribution. 
 
- Glob patterns are defined by the user for each input of a pipeline and tell Pachyderm how to divide the input data into individual "datums" that can be proccessed independently. 
+ Glob patterns are defined by the user for each input of a pipeline and tell Pachyderm how to divide the input data into individual "datums" that can be processed independently. 
 
 ```
 "inputs": [
@@ -81,7 +81,7 @@ But Pachyderm can do anything in between too. If you have a directory structure 
 ```
 And you need to process all the data for a given state together, `/*` would also be the desired glob pattern. You'd have one datum per state, meaning all the cities for a given state would be processed together by a single worker, but each state can be processed independently. 
 
-If we instead used the glob pattern `/*/*` for the states example above, each `city.json` would be it's own datum. 
+If we instead used the glob pattern `/*/*` for the states example above, each `<city>.json` would be it's own datum. 
 
 Glob patterns also let you take only a particular directory (or subset of directories) as inputs instead of the whole input repo. If we create a pipeline that is specifically only for California, we can use a glob pattern of `/California/*` to only use the data in that directory as input to our pipeline. 
 
