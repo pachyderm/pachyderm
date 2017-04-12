@@ -225,7 +225,7 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	commitStream, err := a.driver.flushCommit(ctx, request.Commits, request.ToRepos)
@@ -254,7 +254,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GetFile")
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "SubscribeCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	commitStream, err := a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From)
