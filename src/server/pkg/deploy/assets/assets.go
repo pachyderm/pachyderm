@@ -32,7 +32,6 @@ var (
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
 	dashName                = "dash"
-	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
 	grpcProxyImage          = "grpc-proxy-image"
 	pachdName               = "pachd"
@@ -73,6 +72,7 @@ type AssetOpts struct {
 	// its cache of PFS blocks.
 	BlockCacheSize string
 	noDash         bool
+	DashImage      string
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -697,7 +697,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment() *extensions.Deployment {
+func DashDeployment(dashImage string) *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -936,7 +936,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	if !opts.noDash {
 		DashService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		DashDeployment().CodecEncodeSelf(encoder)
+		DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
 	return nil
