@@ -11,10 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/mirror"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
 )
@@ -115,65 +115,44 @@ type workerPool struct {
 
 func (w *workerPool) discoverWorkers(ctx context.Context) {
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
-		syncer := mirror.NewSyncer(w.etcdClient, w.workerDir, 0)
-		respCh, errCh := syncer.SyncBase(ctx)
-	getBaseWorkers:
-		for {
-			select {
-			case resp, ok := <-respCh:
-				if !ok {
-					if err := <-errCh; err != nil {
-						return err
-					}
-					break getBaseWorkers
-				}
-				for _, kv := range resp.Kvs {
-					addr := path.Base(string(kv.Key))
-					if err := w.addWorker(addr); err != nil {
-						return err
-					}
-				}
-			case err := <-errCh:
-				if err != nil {
-					return err
-				}
-			}
-		}
-		watchCh := syncer.SyncUpdates(ctx)
+	backoff.RetryNotify(func() error {
 		protolion.Infof("watching `%s` for workers", w.workerDir)
+		watcher, err := watch.NewWatcher(ctx, w.etcdClient, w.workerDir)
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
 		for {
-			resp, ok := <-watchCh
+			resp, ok := <-watcher.Watch()
 			if !ok {
-				return fmt.Errorf("watcher for prefix %s closed for unknown reasons", w.workerDir)
+				return fmt.Errorf("watcher closed for unknown reasons")
 			}
-			if err := resp.Err(); err != nil {
+			if err := resp.Err; err != nil {
 				return err
 			}
-			for _, event := range resp.Events {
-				addr := path.Base(string(event.Kv.Key))
-				switch event.Type {
-				case etcd.EventTypePut:
-					if err := w.addWorker(addr); err != nil {
-						return err
-					}
-				case etcd.EventTypeDelete:
-					if err := w.delWorker(addr); err != nil {
-						return err
-					}
+			addr := path.Base(string(resp.Key))
+			switch resp.Type {
+			case watch.EventPut:
+				if err := w.addWorker(addr); err != nil {
+					return err
+				}
+			case watch.EventDelete:
+				if err := w.delWorker(addr); err != nil {
+					return err
 				}
 			}
 		}
 		panic("unreachable")
 	}, b, func(err error, d time.Duration) error {
-		if err == context.Canceled {
+		select {
+		case <-ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
-		protolion.Errorf("error discovering workers: %v; retrying in %v", err, d)
+		protolion.Errorf("error discovering workers for %v: %v; retrying in %v", w.workerDir, err, d)
 		return nil
-	}); err != context.Canceled {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
+	})
 }
 
 func (w *workerPool) addWorker(addr string) error {
