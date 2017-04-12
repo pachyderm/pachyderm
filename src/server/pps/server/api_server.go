@@ -1335,6 +1335,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			if datum != nil {
 				select {
 				case wp.DataCh() <- &datumAndResp{
+					ctx:    ctx,
 					datum:  datum,
 					respCh: respCh,
 					errCh:  errCh,
