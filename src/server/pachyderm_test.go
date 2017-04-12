@@ -26,6 +26,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
@@ -2783,7 +2784,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 
 func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
-	rc := pachdRc(t)
+	deployment := pachdDeployment(t)
 	for {
 		// This code is taken from
 		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
@@ -2791,9 +2792,9 @@ func waitForReadiness(t testing.TB) {
 		// broke it due to a type error.  We should see if we can go back to
 		// using that code but I(jdoliner) couldn't figure out how to fanagle
 		// the types into compiling.
-		newRc, err := k.ReplicationControllers(api.NamespaceDefault).Get(rc.Name)
+		newDeployment, err := k.Extensions().Deployments(api.NamespaceDefault).Get(deployment.Name)
 		require.NoError(t, err)
-		if newRc.Status.ObservedGeneration >= rc.Generation && newRc.Status.Replicas == newRc.Spec.Replicas {
+		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == newDeployment.Spec.Replicas {
 			break
 		}
 		time.Sleep(time.Second * 5)
@@ -2813,17 +2814,16 @@ func waitForReadiness(t testing.TB) {
 				t.Fatal("event.Object should be an object")
 			}
 			readyPods[pod.Name] = true
-			if len(readyPods) == int(rc.Spec.Replicas) {
+			if len(readyPods) == int(deployment.Spec.Replicas) {
 				break
 			}
 		}
 	}
 }
 
-func pachdRc(t testing.TB) *api.ReplicationController {
+func pachdDeployment(t testing.TB) *extensions.Deployment {
 	k := getKubeClient(t)
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get("pachd")
+	result, err := k.Extensions().Deployments(api.NamespaceDefault).Get("pachd")
 	require.NoError(t, err)
 	return result
 }
@@ -2832,7 +2832,7 @@ func pachdRc(t testing.TB) *api.ReplicationController {
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
 func scalePachdRandom(t testing.TB, up bool) {
-	pachdRc := pachdRc(t)
+	pachdRc := pachdDeployment(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
 		if up {
@@ -2851,11 +2851,10 @@ func scalePachdRandom(t testing.TB, up bool) {
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
-	rc := k.ReplicationControllers(api.NamespaceDefault)
 	fmt.Printf("scaling pachd to %d replicas\n", n)
-	pachdRc := pachdRc(t)
+	pachdRc := pachdDeployment(t)
 	pachdRc.Spec.Replicas = int32(n)
-	_, err := rc.Update(pachdRc)
+	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdRc)
 	require.NoError(t, err)
 	waitForReadiness(t)
 	// Unfortunately, even when all pods are ready, the cluster membership

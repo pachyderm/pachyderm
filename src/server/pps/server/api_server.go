@@ -334,7 +334,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+	return PipelineDeploymentName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -375,12 +375,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return err
 			}
 		} else {
-			rcName = JobRcName(request.Job.ID)
+			rcName = JobDeploymentName(request.Job.ID)
 		}
 	} else {
 		return fmt.Errorf("must specify either pipeline or job")
 	}
-	pods, err := a.rcPods(rcName)
+	pods, err := a.deploymentPods(rcName)
 	if err != nil {
 		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
 	}
@@ -984,7 +984,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err := a.deleteWorkers(rcName); err != nil {
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
@@ -999,7 +999,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		a.workerPool(ctx, PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -1208,7 +1208,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			go func() {
 				// Clean up workers if the job gets cancelled
 				<-ctx.Done()
-				rcName := JobRcName(jobInfo.Job.ID)
+				rcName := JobDeploymentName(jobInfo.Job.ID)
 				if err := a.deleteWorkers(rcName); err != nil {
 					protolion.Errorf("error deleting workers for job: %v", jobID)
 				}
@@ -1233,9 +1233,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Start worker pool
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+			wp = a.workerPool(ctx, PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
 		} else {
-			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+			wp = a.workerPool(ctx, JobDeploymentName(jobInfo.Job.ID))
 		}
 
 		// We have a goroutine that receives the datums that fail to
@@ -1532,7 +1532,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		return err
 	}
 	options := a.getWorkerOptions(
-		JobRcName(jobInfo.Job.ID),
+		JobDeploymentName(jobInfo.Job.ID),
 		int32(parallelism),
 		jobInfo.Transform)
 	// Set the job name env
@@ -1540,7 +1540,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		Name:  client.PPSJobIDEnv,
 		Value: jobInfo.Job.ID,
 	})
-	return a.createWorkerRc(options)
+	return a.createWorkerDeployment(options)
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
@@ -1549,7 +1549,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	options := a.getWorkerOptions(
-		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		pipelineInfo.Transform)
 	// Set the pipeline name env
@@ -1557,7 +1557,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
-	return a.createWorkerRc(options)
+	return a.createWorkerDeployment(options)
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
@@ -1565,8 +1565,8 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
+	rcName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	return a.kubeClient.Extensions().Deployments(a.namespace).Delete(rcName, deleteOptions)
 }
 
 func (a *apiServer) deleteWorkers(rcName string) error {
@@ -1574,7 +1574,7 @@ func (a *apiServer) deleteWorkers(rcName string) error {
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
+	return a.kubeClient.Extensions().Deployments(a.namespace).Delete(rcName, deleteOptions)
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
@@ -1647,13 +1647,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
+func (a *apiServer) deploymentPods(deploymentName string) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
+		LabelSelector: kube_labels.SelectorFromSet(labels(deploymentName)),
 	})
 	if err != nil {
 		return nil, err
