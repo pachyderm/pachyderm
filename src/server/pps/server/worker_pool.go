@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -114,8 +113,6 @@ type workerPool struct {
 	workerDir string
 	// Map of worker address to workers
 	workersMap map[string]*worker
-	// RWMutex to protect workersMap
-	workersMapMu sync.RWMutex
 	// Used to check for workers added/deleted in etcd
 	etcdClient *etcd.Client
 	// The number of times to retry failures
@@ -186,11 +183,9 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 }
 
 func (w *workerPool) addWorker(addr string) error {
-	w.workersMapMu.RLock()
 	if worker, ok := w.workersMap[addr]; ok {
 		worker.cancel()
 	}
-	w.workersMapMu.RUnlock()
 
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
 	if err != nil {
@@ -211,17 +206,13 @@ func (w *workerPool) addWorker(addr string) error {
 		pachClient:   pachClient,
 		retries:      w.retries,
 	}
-	w.workersMapMu.Lock()
 	w.workersMap[addr] = wr
-	w.workersMapMu.Unlock()
 	protolion.Infof("launching new worker at %v", addr)
 	go wr.run(w.dataCh)
 	return nil
 }
 
 func (w *workerPool) delWorker(addr string) error {
-	w.workersMapMu.RLock()
-	defer w.workersMapMu.RUnlock()
 	worker, ok := w.workersMap[addr]
 	if !ok {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
