@@ -530,15 +530,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pipelineInfo := &pps.PipelineInfo{
-		ID:              uuid.NewWithoutDashes(),
-		Pipeline:        request.Pipeline,
-		Version:         1,
-		Transform:       request.Transform,
-		ParallelismSpec: request.ParallelismSpec,
-		Inputs:          request.Inputs,
-		OutputBranch:    request.OutputBranch,
-		Egress:          request.Egress,
-		CreatedAt:       now(),
+		ID:                 uuid.NewWithoutDashes(),
+		Pipeline:           request.Pipeline,
+		Version:            1,
+		Transform:          request.Transform,
+		ParallelismSpec:    request.ParallelismSpec,
+		Inputs:             request.Inputs,
+		OutputBranch:       request.OutputBranch,
+		Egress:             request.Egress,
+		CreatedAt:          now(),
+		ScaleDownThreshold: request.ScaleDownThreshold,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -1123,6 +1124,16 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		for _, job := range runningJobList {
 			go a.signalJobCompletion(ctx, job.Job, jobCompletionCh)
 			runningJobSet[job.Job.ID] = true
+		}
+		// If there's currently no running jobs, we want to trigger
+		// the code that sets the timer for scale-down.
+		if len(runningJobList == 0) {
+			go func() {
+				select {
+				case jobCompletionCh <- &pps.Job{}:
+				case <-ctx.Done():
+				}
+			}()
 		}
 
 		scaleDownCh := make(chan struct{})
