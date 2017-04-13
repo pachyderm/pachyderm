@@ -492,14 +492,17 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 }
 
 // Cancel cancels the currently running datum
-func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*types.Empty, error) {
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
+	if request.JobID != a.jobID {
+		return &CancelResponse{Success: false}, nil
+	}
 	if !MatchDatum(request.DataFilters, a.datum()) {
-		return nil, fmt.Errorf("datum not found")
+		return &CancelResponse{Success: false}, nil
 	}
 	a.cancel()
-	return &types.Empty{}, nil
+	return &CancelResponse{Success: true}, nil
 }
 
 func (a *APIServer) datum() []*pps.Datum {

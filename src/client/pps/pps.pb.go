@@ -456,10 +456,11 @@ func (m *Datum) GetHash() []byte {
 }
 
 type WorkerStatus struct {
-	WorkerID string                      `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	JobID    string                      `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	Data     []*Datum                    `protobuf:"bytes,3,rep,name=data" json:"data,omitempty"`
-	Started  *google_protobuf1.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
+	WorkerID string   `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	JobID    string   `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Data     []*Datum `protobuf:"bytes,3,rep,name=data" json:"data,omitempty"`
+	// Started is the time processing on the current datum began.
+	Started *google_protobuf1.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
 }
 
 func (m *WorkerStatus) Reset()                    { *m = WorkerStatus{} }
