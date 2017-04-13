@@ -239,6 +239,25 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	// First translate Inputs field to Input field.
+	if len(request.Inputs) > 0 {
+		if request.Input != nil {
+			return nil, fmt.Errorf("cannot set both Inputs and Input field")
+		}
+		request.Input = &pps.Input{Cross: &pps.CrossInput{}}
+		for _, input := range request.Inputs {
+			request.Input.Cross.Input = append(request.Input.Cross.Input,
+				&pps.Input{
+					Atom: &pps.AtomInput{
+						Name:   input.Name,
+						Commit: input.Commit,
+						Glob:   input.Glob,
+						Lazy:   input.Lazy,
+					},
+				})
+		}
+	}
+
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	sort.SliceStable(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -550,6 +569,29 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	// First translate Inputs field to Input field.
+	if len(request.Inputs) > 0 {
+		if request.Input != nil {
+			return nil, fmt.Errorf("cannot set both Inputs and Input field")
+		}
+		request.Input = &pps.Input{Cross: &pps.CrossInput{}}
+		for _, input := range request.Inputs {
+			var fromCommitID string
+			if input.From != nil {
+				fromCommitID = input.From.ID
+			}
+			request.Input.Cross.Input = append(request.Input.Cross.Input,
+				&pps.Input{
+					Atom: &pps.AtomInput{
+						Name:         input.Name,
+						Commit:       client.NewCommit(input.Repo.Name, input.Branch),
+						Glob:         input.Glob,
+						Lazy:         input.Lazy,
+						FromCommitID: fromCommitID,
+					},
+				})
+		}
+	}
 
 	pipelineInfo := &pps.PipelineInfo{
 		ID:              uuid.NewWithoutDashes(),
