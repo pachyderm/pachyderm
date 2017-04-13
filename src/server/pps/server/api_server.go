@@ -289,7 +289,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	} else {
 		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
-	workerStatus, err := Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -373,7 +373,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	} else {
 		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
-	if err := Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
+	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

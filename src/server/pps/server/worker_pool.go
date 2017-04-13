@@ -234,7 +234,7 @@ func (w *workerPool) DataCh() chan *datumAndResp {
 	return w.dataCh
 }
 
-func Status(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix string) ([]*pps.WorkerStatus, error) {
+func status(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix string) ([]*pps.WorkerStatus, error) {
 	workerClients, err := workerClients(ctx, id, etcdClient, etcdPrefix)
 	if err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func Status(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix 
 	return result, nil
 }
 
-func Cancel(ctx context.Context, id string, etcdClient *etcd.Client,
+func cancel(ctx context.Context, id string, etcdClient *etcd.Client,
 	etcdPrefix string, jobID string, dataFilter []string) error {
 	workerClients, err := workerClients(ctx, id, etcdClient, etcdPrefix)
 	if err != nil {
