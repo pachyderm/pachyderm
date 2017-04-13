@@ -1032,6 +1032,32 @@ func (a *apiServer) signalJobCompletion(ctx context.Context, job *pps.Job, jobCo
 	})
 }
 
+func (a *apiServer) scaleDownWorkers(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	if err != nil {
+		return err
+	}
+	workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
+	return err
+}
+
+func (a *apiServer) scaleUpWorkers(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	if err != nil {
+		return err
+	}
+	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
+	workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
+	return err
+}
+
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
@@ -1104,11 +1130,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		var job *pps.Job
 	nextInput:
 		for {
-			var branchSet branchSet
+			var branchSet *branchSet
 			select {
 			case branchSet = <-branchSetFactory.Chan():
 			case completedJob := <-jobCompletionCh:
-				delete(runningJobSet, completedJob)
+				delete(runningJobSet, completedJob.ID)
 				if len(runningJobSet) == 0 {
 					scaleDownThreshold, err := types.DurationFromProto(pipelineInfo.ScaleDownThreshold)
 					if err != nil {
@@ -1149,7 +1175,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			// (create JobInput for new processing job)
 			var jobInputs []*pps.JobInput
 			for _, pipelineInput := range pipelineInfo.Inputs {
-				for _, branch := range branchSet {
+				for _, branch := range branchSet.Branches {
 					if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
 						jobInputs = append(jobInputs, &pps.JobInput{
 							Name:   pipelineInput.Name,
@@ -1205,7 +1231,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 			runningJobSet[job.ID] = true
-			go a.signalJobCompletion(ctx, job.ID, jobCompletionCh)
+			go a.signalJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
 		}
 		panic("unreachable")
