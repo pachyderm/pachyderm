@@ -264,6 +264,7 @@ message CreatePipelineRequest {
   Egress egress = 9;
   bool update = 5;
   string outputBranch = 10;
+  google.protobuf.Duration scaleDownThreshold = 11;
 }
 
 message InspectPipelineRequest {
