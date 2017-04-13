@@ -24,11 +24,16 @@ message ProcessResponse {
 }
 
 message CancelRequest {
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
   repeated string data_filters = 1;
+}
+
+message CancelResponse {
+  bool success = 1;
 }
 
 service Worker {
   rpc Process(ProcessRequest) returns (ProcessResponse) {}
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
-  rpc Cancel(CancelRequest) returns (google.protobuf.Empty) {}
+  rpc Cancel(CancelRequest) returns (CancelResponse) {}
 }

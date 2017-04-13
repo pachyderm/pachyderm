@@ -247,17 +247,21 @@ func cancel(ctx context.Context, id string, etcdClient *etcd.Client,
 	if err != nil {
 		return err
 	}
+	success := false
 	for _, workerClient := range workerClients {
-		status, err := workerClient.Status(ctx, &types.Empty{})
+		resp, err := workerClient.Cancel(ctx, &workerpkg.CancelRequest{
+			JobID:       jobID,
+			DataFilters: dataFilter,
+		})
 		if err != nil {
 			return err
 		}
-		if jobID == status.JobID && workerpkg.MatchDatum(dataFilter, status.Data) {
-			_, err := workerClient.Cancel(ctx, &workerpkg.CancelRequest{
-				DataFilters: dataFilter,
-			})
-			return err
+		if resp.Success {
+			success = true
 		}
+	}
+	if !success {
+		return fmt.Errorf("datum matching filter %+v could not be found for jobID %s", dataFilter, jobID)
 	}
 	return nil
 }
