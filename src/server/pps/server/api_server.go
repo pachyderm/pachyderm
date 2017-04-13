@@ -156,30 +156,81 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
-	for _, in := range jobInfo.Inputs {
+func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
+	names := make(map[string]bool)
+	set := false
+	if input.Atom != nil {
+		set = true
 		switch {
-		case len(in.Name) == 0:
-			return fmt.Errorf("every job input must specify a name")
-		case in.Name == "out":
-			return fmt.Errorf("no job input may be named \"out\", as pachyderm " +
+		case len(input.Atom.Name) == 0:
+			return fmt.Errorf("input must specify a name")
+		case input.Atom.Name == "out":
+			return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
 				"already creates /pfs/out to collect job output")
-		case in.Commit == nil:
-			return fmt.Errorf("every job input must specify a commit")
+		case input.Atom.Commit == nil:
+			return fmt.Errorf("input must specify a commit")
+		case len(input.Atom.Commit.ID) == 0:
+			if job {
+				return fmt.Errorf("input must specify a commit ID")
+			} else {
+				return fmt.Errorf("input must specify a branch")
+			}
+		case len(input.Atom.Glob) == 0:
+			return fmt.Errorf("input must specify a glob")
 		}
-		// check that the input commit exists
+		if _, ok := names[input.Atom.Name]; ok {
+			return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
+		}
+		names[input.Atom.Name] = true
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
 		}
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: in.Commit,
-		})
-		if err != nil {
-			return fmt.Errorf("commit %s not found: %s", in.Commit.FullID(), err)
+		if job {
+			// for jobs we check that the input commit exists
+			_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: input.Atom.Commit,
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			// for pipelines we only check that the repo exists
+			_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+				Repo: input.Atom.Commit.Repo,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if input.Cross != nil {
+		if set {
+			return fmt.Errorf("multiple input types set")
+		}
+		set = true
+		for _, input := range input.Cross.Input {
+			if err := a.validateInput(ctx, input, job); err != nil {
+				return err
+			}
+		}
+	}
+	if input.Union != nil {
+		if set {
+			return fmt.Errorf("multiple input types set")
+		}
+		set = true
+		for _, input := range input.Cross.Input {
+			if err := a.validateInput(ctx, input, job); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	return a.validateInput(ctx, jobInfo.Input, true)
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
@@ -487,36 +538,7 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	names := make(map[string]bool)
-	for _, in := range pipelineInfo.Inputs {
-		switch {
-		case len(in.Name) == 0:
-			return fmt.Errorf("every pipeline input must specify a name")
-		case in.Name == "out":
-			return fmt.Errorf("no pipeline input may be named \"out\", as pachyderm " +
-				"already creates /pfs/out to collect pipeline output")
-		case len(in.Branch) == 0:
-			return fmt.Errorf("every pipeline input must specify a branch")
-		case len(in.Glob) == 0:
-			return fmt.Errorf("every pipeline input must specify a glob")
-		}
-		// detect input name conflicts
-		if names[in.Name] {
-			return fmt.Errorf("conflicting input names: %s", in.Name)
-		}
-		names[in.Name] = true
-		// check that the input repo exists
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
-		}
-		_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-			Repo: in.Repo,
-		})
-		if err != nil {
-			return fmt.Errorf("repo %s not found: %s", in.Repo.Name, err)
-		}
-	}
+	return a.validateInput(ctx, pipelineInfo.Input, false)
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}

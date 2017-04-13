@@ -50,18 +50,19 @@ message Service {
 }
 
 message AtomInput {
-  pfs.Commit commit = 1;
-  string glob = 2;
-  bool lazy = 3;
-  string from_commit_id = 4;
+  string name = 1;
+  pfs.Commit commit = 2;
+  string glob = 3;
+  bool lazy = 4;
+  string from_commit_id = 5;
 }
 
 message CrossInput {
- repeated Input inputs = 1;
+ repeated Input input = 1;
 }
 
 message UnionInput {
-  repeated Input inputs = 1;
+  repeated Input input = 1;
 }
 
 message Input {
