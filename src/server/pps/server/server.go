@@ -75,7 +75,6 @@ func NewAPIServer(
 		shardCtxs:             make(map[uint64]*ctxAndCancel),
 		pipelineCancels:       make(map[string]context.CancelFunc),
 		jobCancels:            make(map[string]context.CancelFunc),
-		workerPools:           make(map[string]WorkerPool),
 		namespace:             namespace,
 		workerImage:           workerImage,
 		workerImagePullPolicy: workerImagePullPolicy,
