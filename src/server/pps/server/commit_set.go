@@ -92,7 +92,7 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, inputs [
 				case <-ctx.Done():
 					return
 				case ch <- &branchSet{
-					err: err,
+					Err: err,
 				}:
 				}
 			}
@@ -100,7 +100,7 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, inputs [
 			var found bool
 			for i, branch := range currentBranchSet {
 				if branch.Head.Repo.Name == newBranch.Head.Repo.Name && branch.Name == newBranch.Name {
-					c.branchSet[i] = newBranch
+					currentBranchSet[i] = newBranch
 					found = true
 				}
 			}
@@ -114,7 +114,7 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, inputs [
 				case <-ctx.Done():
 					return
 				case ch <- &branchSet{
-					branches: newBranchSet,
+					Branches: newBranchSet,
 				}:
 				}
 			}
