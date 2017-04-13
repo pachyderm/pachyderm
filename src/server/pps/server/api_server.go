@@ -1006,7 +1006,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		// Start worker pool
-		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		a.workerPool(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -1240,9 +1240,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Start worker pool
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+			wp = a.workerPool(PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
 		} else {
-			wp = a.workerPool(ctx, JobRcName(jobInfo.Job.ID))
+			wp = a.workerPool(JobRcName(jobInfo.Job.ID))
 		}
 
 		// We have a goroutine that receives the datums that fail to

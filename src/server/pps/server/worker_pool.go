@@ -100,9 +100,6 @@ type workerPool struct {
 	// Worker pool recieves work via this channel
 	dataCh chan *datumAndResp
 
-	// Parent of all worker contexts (see workersMap)
-	ctx context.Context
-
 	// The prefix in etcd where new workers can be discovered
 	workerDir string
 
@@ -113,11 +110,11 @@ type workerPool struct {
 	etcdClient *etcd.Client
 }
 
-func (w *workerPool) discoverWorkers(ctx context.Context) {
+func (w *workerPool) discoverWorkers() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		protolion.Infof("watching `%s` for workers", w.workerDir)
-		watcher, err := watch.NewWatcher(ctx, w.etcdClient, w.workerDir)
+		watcher, err := watch.NewWatcher(context.Background(), w.etcdClient, w.workerDir)
 		if err != nil {
 			return err
 		}
@@ -144,12 +141,6 @@ func (w *workerPool) discoverWorkers(ctx context.Context) {
 		}
 		panic("unreachable")
 	}, b, func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
-			// Exit the retry loop if context got cancelled
-			return err
-		default:
-		}
 		protolion.Errorf("error discovering workers for %v: %v; retrying in %v", w.workerDir, err, d)
 		return nil
 	})
@@ -164,7 +155,7 @@ func (w *workerPool) addWorker(addr string) error {
 	if err != nil {
 		return err
 	}
-	childCtx, cancelFn := context.WithCancel(w.ctx)
+	childCtx, cancelFn := context.WithCancel(context.Background())
 	w.workersMap[addr] = cancelFn
 
 	pachClient, err := client.NewInCluster()
@@ -199,12 +190,12 @@ func (w *workerPool) DataCh() chan *datumAndResp {
 
 // workerPool fetches the worker pool associated with 'id', or creates one if
 // none exists.
-func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
+func (a *apiServer) workerPool(id string) WorkerPool {
 	a.workerPoolsLock.Lock()
 	defer a.workerPoolsLock.Unlock()
 	workerPool, ok := a.workerPools[id]
 	if !ok {
-		workerPool = a.newWorkerPool(ctx, id)
+		workerPool = a.newWorkerPool(id)
 		a.workerPools[id] = workerPool
 	}
 	return workerPool
@@ -214,9 +205,8 @@ func (a *apiServer) workerPool(ctx context.Context, id string) WorkerPool {
 // with 'id'.  Each 'id' used to create a new worker pool must correspond to
 // a unique binary (in other words, all workers in the worker pool for 'id'
 // will be running the same user binary)
-func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
+func (a *apiServer) newWorkerPool(id string) WorkerPool {
 	wp := &workerPool{
-		ctx:        ctx,
 		dataCh:     make(chan *datumAndResp),
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
 		workersMap: make(map[string]context.CancelFunc),
@@ -228,7 +218,7 @@ func (a *apiServer) newWorkerPool(ctx context.Context, id string) WorkerPool {
 		wp.workerDir += "/"
 	}
 
-	go wp.discoverWorkers(ctx)
+	go wp.discoverWorkers()
 	return wp
 }
 
