@@ -12,9 +12,9 @@ import "client/pfs/pfs.proto";
 option go_package = "pps";
 
 message Secret {
-    // Name must be the name of the secret in kubernetes.
-    string name = 1;
-    string mount_path = 2;
+  // Name must be the name of the secret in kubernetes.
+  string name = 1;
+  string mount_path = 2;
 }
 
 message Transform {
@@ -47,7 +47,28 @@ enum JobState {
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
-};
+}
+
+message AtomInput {
+  pfs.Commit commit = 1;
+  string glob = 2;
+  bool lazy = 3;
+  string from_commit_id = 4;
+}
+
+message CrossInput {
+ repeated Input inputs = 1;
+}
+
+message UnionInput {
+  repeated Input inputs = 1;
+}
+
+message Input {
+  AtomInput atom = 1;
+  CrossInput cross = 2;
+  UnionInput union = 3;
+}
 
 message JobInput {
   string name = 4;
@@ -116,6 +137,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
+  Input input = 24;
 }
 
 enum WorkerState {
@@ -147,22 +169,22 @@ message PipelineInput {
 }
 
 enum PipelineState {
-    // When the pipeline is not ready to be triggered by commits.
-    // This happens when either 1) a pipeline has been created but not
-    // yet picked up by a PPS server, or 2) the pipeline does not have
-    // any inputs and is meant to be triggered manually
-    PIPELINE_STARTING = 0;
-    // After this pipeline is picked up by a pachd node.  This is the normal
-    // state of a pipeline.
-    PIPELINE_RUNNING = 1;
-    // After some error caused runPipeline to exit, but before the
-    // pipeline is re-run.  This is when the exponential backoff is
-    // in effect.
-    PIPELINE_RESTARTING = 2;
-    // We have retried too many times and we have given up on this pipeline.
-    PIPELINE_FAILURE = 3;
-    // The pipeline has been explicitly stopped by the user.
-    PIPELINE_STOPPED = 4;
+  // When the pipeline is not ready to be triggered by commits.
+  // This happens when either 1) a pipeline has been created but not
+  // yet picked up by a PPS server, or 2) the pipeline does not have
+  // any inputs and is meant to be triggered manually
+  PIPELINE_STARTING = 0;
+  // After this pipeline is picked up by a pachd node.  This is the normal
+  // state of a pipeline.
+  PIPELINE_RUNNING = 1;
+  // After some error caused runPipeline to exit, but before the
+  // pipeline is re-run.  This is when the exponential backoff is
+  // in effect.
+  PIPELINE_RESTARTING = 2;
+  // We have retried too many times and we have given up on this pipeline.
+  PIPELINE_FAILURE = 3;
+  // The pipeline has been explicitly stopped by the user.
+  PIPELINE_STOPPED = 4;
 }
 
 // GCPolicy describes when jobs can be garbage-collected.
@@ -191,6 +213,7 @@ message PipelineInfo {
   GCPolicy gc_policy = 12;
   bool stopped = 13;
   string outputBranch = 16;
+  Input input = 18;
 }
 
 message PipelineInfos {
@@ -212,6 +235,7 @@ message CreateJobRequest {
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
   Job parent_job = 13;
+  Input input = 14;
 }
 
 message InspectJobRequest {
@@ -275,6 +299,7 @@ message CreatePipelineRequest {
   bool update = 5;
   GCPolicy gc_policy = 8;
   string outputBranch = 10;
+  Input input = 11;
 }
 
 message InspectPipelineRequest {
