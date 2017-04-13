@@ -46,6 +46,9 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// MaximumRetriesPerDatum is the maximum number of times each datum
+	// can failed to be processed before we declare that the job has failed.
+	MaximumRetriesPerDatum = 3
 )
 
 var (
@@ -138,11 +141,9 @@ type apiServer struct {
 	pipelineCancels     map[string]context.CancelFunc
 
 	// lock for 'jobCancels'
-	jobCancelsLock  sync.Mutex
-	jobCancels      map[string]context.CancelFunc
-	workerPools     map[string]WorkerPool
-	workerPoolsLock sync.Mutex
-	version         int64
+	jobCancelsLock sync.Mutex
+	jobCancels     map[string]context.CancelFunc
+	version        int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -996,7 +997,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
 		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
-		a.delWorkerPool(rcName)
 	}()
 
 	b := backoff.NewInfiniteBackOff()
@@ -1004,9 +1004,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 			return err
 		}
-
-		// Start worker pool
-		a.workerPool(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
 		for _, input := range pipelineInfo.Inputs {
@@ -1184,6 +1181,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
+		// We use a new context for this particular instance of the retry
+		// loop, to ensure that all resources are released properly when
+		// this job retries.
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1220,7 +1223,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					protolion.Errorf("error deleting workers for job: %v", jobID)
 				}
 				protolion.Infof("deleted workers for job: %v", jobID)
-				a.delWorkerPool(rcName)
 			}()
 		}
 
@@ -1240,36 +1242,50 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Start worker pool
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp = a.workerPool(PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion))
+			wp, err = a.newWorkerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), jobInfo.Job.ID)
+			if err != nil {
+				return err
+			}
 		} else {
-			wp = a.workerPool(JobRcName(jobInfo.Job.ID))
+			wp, err = a.newWorkerPool(ctx, JobRcName(jobInfo.Job.ID), jobInfo.Job.ID)
+			if err != nil {
+				return err
+			}
 		}
 
 		// We have a goroutine that receives the datums that fail to
 		// be processed, and put them back onto the datum queue.
-		retCh := make(chan *datumAndResp)
-		retDone := make(chan struct{})
-		defer close(retDone)
+		jobFailedCh := make(chan struct{})
 		go func() {
-			var drs []*datumAndResp
+			var dts []*datum
 			for {
-				if len(drs) > 0 {
+				if len(dts) > 0 {
 					select {
-					case wp.DataCh() <- drs[0]:
-						protolion.Infof("retrying datum %v", drs[0].datum)
-						drs = drs[1:]
-					case dr := <-retCh:
-						protolion.Infof("datum %v is queued up for retry", dr.datum)
-						drs = append(drs, dr)
-					case <-retDone:
+					case wp.DataCh() <- dts[0]:
+						protolion.Infof("retrying datum %v", dts[0].files)
+						dts = dts[1:]
+					case dt := <-wp.FailCh():
+						dt.retries += 1
+						if dt.retries >= MaximumRetriesPerDatum {
+							close(jobFailedCh)
+							return
+						}
+						protolion.Infof("datum %v is queued up for retry", dt.files)
+						dts = append(dts, dt)
+					case <-ctx.Done():
 						return
 					}
 				} else {
 					select {
-					case dr := <-retCh:
-						protolion.Infof("datum %v is queued up for retry", dr.datum)
-						drs = append(drs, dr)
-					case <-retDone:
+					case dt := <-wp.FailCh():
+						dt.retries += 1
+						if dt.retries >= MaximumRetriesPerDatum {
+							close(jobFailedCh)
+							return
+						}
+						protolion.Infof("datum %v is queued up for retry", dt.files)
+						dts = append(dts, dt)
+					case <-ctx.Done():
 						return
 					}
 				}
@@ -1323,30 +1339,20 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 
 		tree := hashtree.NewHashTree()
 		respCh := make(chan hashtree.HashTree)
-		// This channel is closed when the user program fails to process
-		// any datum.
-		// TODO: we shouldn't give up as soon as the user program fails;
-		// we should retry somehow.
-		errCh := make(chan struct{})
-		datum := df.Next()
+		files := df.Next()
 		for {
 			var resp hashtree.HashTree
 			var failed bool
-			if datum != nil {
+			if files != nil {
 				select {
-				case wp.DataCh() <- &datumAndResp{
-					ctx:    ctx,
-					datum:  datum,
-					respCh: respCh,
-					errCh:  errCh,
-					jobID:  jobID,
-					retCh:  retCh,
+				case wp.DataCh() <- &datum{
+					files: files,
 				}:
-					datum = df.Next()
+					files = df.Next()
 					inflightData++
 				case resp = <-respCh:
 					inflightData--
-				case <-errCh:
+				case <-jobFailedCh:
 					failed = true
 					inflightData--
 				}
@@ -1355,8 +1361,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					break
 				}
 				select {
-				case resp = <-respCh:
-				case <-errCh:
+				case resp = <-wp.SuccessCh():
+				case <-jobFailedCh:
 					failed = true
 				}
 				inflightData--
