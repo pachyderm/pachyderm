@@ -2759,12 +2759,14 @@ func TestSystemResourceRequests(t *testing.T) {
 			if len(podList.Items) < 1 {
 				return fmt.Errorf("could not find pod for %s", app) // retry
 			}
+			c = podList.Items[0].Spec.Containers[0]
 			return nil
 		}, b)
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
 		_, ok := c.Resources.Requests[api.ResourceCPU]
+		fmt.Println("%+v", c)
 		require.True(t, ok, "could not get CPU request for "+app)
 		_, ok = c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
@@ -2916,17 +2918,16 @@ func scalePachd(t testing.TB) {
 	scalePachdN(t, n)
 }
 
-var kubeClient *kube.Client // Cached kubernetes client
-
 func getKubeClient(t testing.TB) *kube.Client {
 	// TODO(msteffen): make this read from kubeconfig or something. Otherwise,
 	// this can't run against remote clusters or minikube.
-	kubeClient, err = kube.New(&kube_client.Config{
+	config := &kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
 		Insecure: false,
-	})
+	}
+	k, err := kube.New(config)
 	require.NoError(t, err)
-	return kubeClient
+	return k
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
