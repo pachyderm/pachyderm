@@ -4,7 +4,7 @@ During development, it's very common to update pipelines, whether it's changing 
 
 ## Updating your pipeline specification
 
-In cases in which you are updating parallelism, adding another input repo, or otherwise modifying your [pipeline specification](../reference/pipeline_spec), you just need to update your JSON file and call `update-pipeline`:
+In cases in which you are updating parallelism, adding another input repo, or otherwise modifying your [pipeline specification](../reference/pipeline_spec.html), you just need to update your JSON file and call `update-pipeline`:
 
 ```sh	
 $ pachctl update-pipeline -f pipeline.json 
@@ -26,7 +26,7 @@ You need to call `update-pipeline` with the `--push-images` flag because, if you
 2. Push that tagged image to your registry (e.g., DockerHub).
 3. Update the pipeline specification that you previously gave to Pachyderm with the new unique tag.
 
-For example, you could update the Python code used in the [OpenCV pipeline](../examples/beginner_tutorial) via:
+For example, you could update the Python code used in the [OpenCV pipeline](../examples/beginner_tutorial.html) via:
 
 ```sh
 pachctl update-pipeline -f edges.json --push-images --password <registry password> -u <registry user>

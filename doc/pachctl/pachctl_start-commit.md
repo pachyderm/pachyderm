@@ -9,7 +9,8 @@ Start a new commit with parent-commit as the parent, or start a commit on the gi
 
 Examples:
 
-```sh# Start a new commit in repo "test" that's not on any branch
+```sh
+# Start a new commit in repo "test" that's not on any branch
 $ pachctl start-commit test
 
 # Start a commit in repo "test" on branch "master"
