@@ -1160,17 +1160,18 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			case completedJob := <-jobCompletionCh:
 				delete(runningJobSet, completedJob.ID)
 				if len(runningJobSet) == 0 {
-					scaleDownThreshold, err := types.DurationFromProto(pipelineInfo.ScaleDownThreshold)
-					if err != nil {
-						return err
-					}
-
-					// If the scaleDownThreshold is 0, we interpret it
+					// If the scaleDownThreshold is nil, we interpret it
 					// as "no scale down".  We then use a threshold of
 					// (practically) infinity.  This practically disables
 					// the feature, without requiring us to write two code
 					// paths.
-					if scaleDownThreshold.Nanoseconds() == 0 {
+					var scaleDownThreshold time.Duration
+					if pipelineInfo.ScaleDownThreshold != nil {
+						scaleDownThreshold, err = types.DurationFromProto(pipelineInfo.ScaleDownThreshold)
+						if err != nil {
+							return err
+						}
+					} else {
 						scaleDownThreshold = time.Duration(math.MaxInt64)
 					}
 					// We want the timer goro's lifetime to be tied to
