@@ -1338,9 +1338,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}()
 
 		tree := hashtree.NewHashTree()
-		respCh := make(chan hashtree.HashTree)
 		files := df.Next()
 		for {
+			fmt.Println("sending datum")
 			var resp hashtree.HashTree
 			var failed bool
 			if files != nil {
@@ -1350,7 +1350,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				}:
 					files = df.Next()
 					inflightData++
-				case resp = <-respCh:
+				case resp = <-wp.SuccessCh():
 					inflightData--
 				case <-jobFailedCh:
 					failed = true
