@@ -2477,6 +2477,74 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStopJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sleep", "10"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Name: dataRepo,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+
+	// Create two input commits to trigger two jobs.
+	// We will stop the first job midway through, and assert that the
+	// second job finishes.
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	// Wait for the first job to start running
+	time.Sleep(5 * time.Second)
+
+	// Check that the first job is running and the second is starting
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[1].State)
+
+	// Now stop the first job
+	err = c.StopJob(jobInfos[0].Job.ID)
+	require.NoError(t, err)
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+
+	// Check that the second job completes
+	jobInfo, err = c.InspectJob(jobInfos[1].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
 func TestGetLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
