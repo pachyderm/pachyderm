@@ -52,11 +52,13 @@ For rolling or moving time windows, there are a couple of recommended patterns:
 
 ### Binning data into rolling/moving time windows
 
-In this method of processing rolling time windows, a two pipeline structuring and analyzing of your data is utilized:
+In this method of processing rolling time windows, we'll use a two-pipeline [DAG](http://docs.pachyderm.io/en/latest/fundamentals/creating_analysis_pipelines.html) to analyze time windows efficiently:
 
 - *Pipeline 1* - Read in data, determine which bins the data corresponds to, and write the data into those bins   
 
 - *Pipeline 2* - Read in and analyze the binned data. 
+
+By splitting this analysis into two pipelines we can benefit from parallelism at the file level.  In other words, *Pipeline 1* can be easily parallelized for each file, and *Pipeline 2* can be parallelized per bin. Now we can scale the pipelines easily as the number of files increases.
 
 Let's take the three day rolling time windows as an example, and let's say that we want to analyze three day rolling windows of sales data.  In a first repo, called `sales`, a first day's worth of sales data is committed:
 
@@ -111,11 +113,15 @@ binned_sales
 └── etc...
 ```
 
+and is maintained over time as new data is committed:
+
+![alt tag](time_windows.png)
+
 Your second pipeline can then process these bins in parallel, via a glob pattern of `/*`, or in any other relevant way as discussed further in the ["Fixed time windows" section](#fixed-time-window-directory-structures).  Both your first and second pipelines can be easily parallelized.
 
 **Note** - When looking at the above directory structure, it may seem like there is an uneccessary duplication of the data.  However, under the hood Pachyderm deduplicates all of these files and maintains a space efficient representation of your data.  The binning of the data is merely a structural re-arrangement to allow you to process these types of rolling time windows.  
 
-**Note** - It might also seem as if there is unecessary data transfers over the network to perform the above binning.  However, the Pachyderm team is currently working on enhancements to ensure that performing these types of "shuffles" doesn't actually require transferring data over the network.
+**Note** - It might also seem as if there is unecessary data transfers over the network to perform the above binning.  However, the Pachyderm team is currently working on enhancements to ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. This work is being tracked [here](https://github.com/pachyderm/pachyderm/issues/1558).
 
 ### Maintaining a single time-windowed data set
 
@@ -168,4 +174,4 @@ last_three_days
 
 Whatever analysis we need to run on the moving windowed data set in `moving_sales_window` can use a glob pattern of `/` or `/*` (depending on whether we need to process all of the time windowed files together or they can be processed in parallel).
 
-**Warning** - When creating this type of moving time-windowed data set, the concept of "now" or "today" is relative.  It is important that you make a sound choice for how to define time based on your use case (e.g., by defaulting to UTC).  If you have further questions about this issue, please do not hesitate to reach out to us via [Slack](http://slack.pachyderm.io/) or at support@pachyderm.io.
+**Warning** - When creating this type of moving time-windowed data set, the concept of "now" or "today" is relative.  It is important that you make a sound choice for how to define time based on your use case (e.g., by defaulting to UTC). You should not use a function such as `time.now()` to figure out a current day. The actual time at which this analysis is runs may vary. If you have further questions about this issue, please do not hesitate to reach out to us via [Slack](http://slack.pachyderm.io/) or at support@pachyderm.io.
