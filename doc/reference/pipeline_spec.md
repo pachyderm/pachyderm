@@ -50,7 +50,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "outputBranch": string,
   "egress": {
     "URL": "s3://bucket/dir"
-  }
+  },
+  "scaleDownThreshold": string
 }
 ```
 
@@ -179,7 +180,7 @@ is not specified, then the entire input branch will be processed.  Otherwise,
 only commits since the `from` commit (not including the `from` commit itself)
  will be processed.
 
-### OutputBranch
+### OutputBranch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
 it's "master".
@@ -190,6 +191,14 @@ it's "master".
 store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
+
+## Scale-down threshold (optional)
+
+`scaleDownThreshold` specifies when the worker pods of a pipeline should be terminated.
+
+By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
+
+`scaleDownThreshold` is a string that needs to be sequence of decimal numbers, each with optional fraction and a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
 
 ## The Input Glob Pattern
 
