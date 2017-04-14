@@ -1151,6 +1151,15 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 					if err != nil {
 						return err
 					}
+
+					// If the scaleDownThreshold is 0, we interpret it
+					// as "no scale down".  We then use a threshold of
+					// (practically) infinity.  This practically disables
+					// the feature, without requiring us to write two code
+					// paths.
+					if scaleDownThreshold.Nanoseconds() == 0 {
+						scaleDownThreshold = time.Duration(math.MaxInt64)
+					}
 					// We want the timer goro's lifetime to be tied to
 					// the lifetime of this particular run of the retry
 					// loop
