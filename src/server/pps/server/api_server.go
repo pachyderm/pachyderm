@@ -1044,9 +1044,9 @@ func (a *apiServer) signalJobCompletion(ctx context.Context, job *pps.Job, jobCo
 	})
 }
 
-func (a *apiServer) scaleDownWorkers(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
@@ -1055,13 +1055,13 @@ func (a *apiServer) scaleDownWorkers(ctx context.Context, pipelineInfo *pps.Pipe
 	return err
 }
 
-func (a *apiServer) scaleUpWorkers(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, parallelismSpec *pps.ParallelismSpec) error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	parallelism, err := GetExpectedNumWorkers(a.kubeClient, parallelismSpec)
 	if err != nil {
 		return err
 	}
@@ -1196,7 +1196,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// because it might happen that the timer expired while
 				// we were creating a job.
 				if len(runningJobSet) == 0 {
-					if err := a.scaleDownWorkers(ctx, pipelineInfo); err != nil {
+					if err := a.scaleDownWorkers(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
 						return err
 					}
 				}
@@ -1246,10 +1246,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				}
 			}
 
-			// We scale up the workers before we create a job, to ensure
-			// that the job will have workers to use.  Note that scaling
-			// a RC is idempotent: nothing happens if the workers have
-			// already been scaled.
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Inputs:   jobInputs,
@@ -1261,9 +1257,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 			scaleDownTimer.Stop()
-			if err := a.scaleUpWorkers(ctx, pipelineInfo); err != nil {
-				return err
-			}
 			runningJobSet[job.ID] = true
 			go a.signalJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
@@ -1412,7 +1405,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		// Start worker pool
 		var wp WorkerPool
 		if jobInfo.Pipeline != nil {
-			wp, err = a.newWorkerPool(ctx, PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion), jobInfo.Job.ID)
+			// We scale up the workers before we run a job, to ensure
+			// that the job will have workers to use.  Note that scaling
+			// a RC is idempotent: nothing happens if the workers have
+			// already been scaled.
+			rcName := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
+				return err
+			}
+			wp, err = a.newWorkerPool(ctx, rcName, jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
