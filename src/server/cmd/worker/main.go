@@ -174,7 +174,11 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	etcdClient.KeepAlive(context.Background(), resp.ID) // keepalive forever
+
+	// keepalive forever
+	if _, err := etcdClient.KeepAlive(context.Background(), resp.ID); err != nil {
+		return err
+	}
 
 	// Actually write "key" into etcd
 	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
