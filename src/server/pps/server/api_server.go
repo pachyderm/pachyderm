@@ -574,20 +574,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Rename the original output branch to `outputBranch-vN`, where N
 		// is the previous version number of the pipeline.
+		// We ignore NotFound errors because this pipeline might not have
+		// even output anything yet, in which case the output branch
+		// may not actually exist.
 		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
 			Commit: &pfs.Commit{
 				Repo: &pfs.Repo{pipelineName},
 				ID:   oldPipelineInfo.OutputBranch,
 			},
 			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
-		}); err != nil {
+		}); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
 
 		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
 			Repo:   &pfs.Repo{pipelineName},
 			Branch: oldPipelineInfo.OutputBranch,
-		}); err != nil {
+		}); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
 
@@ -867,8 +870,12 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 		if err != nil {
 			return err
 		}
+		defer pipelineWatcher.Close()
 		for {
-			event := <-pipelineWatcher.Watch()
+			event, ok := <-pipelineWatcher.Watch()
+			if !ok {
+				return fmt.Errorf("pipelineWatcher closed unexpectedly")
+			}
 			if event.Err != nil {
 				return event.Err
 			}
@@ -922,9 +929,12 @@ func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
 		if err != nil {
 			return err
 		}
-
+		defer jobWatcher.Close()
 		for {
-			event := <-jobWatcher.Watch()
+			event, ok := <-jobWatcher.Watch()
+			if !ok {
+				return fmt.Errorf("jobWatcher closed unexpectedly")
+			}
 			if event.Err != nil {
 				return event.Err
 			}
@@ -1263,7 +1273,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		default:
 		}
-		protolion.Errorf("error running pipelineManager: %v; retrying in %v", err, d)
+		protolion.Errorf("error running pipelineManager for pipeline %s: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
 		if err := a.updatePipelineState(ctx, pipelineName, pps.PipelineState_PIPELINE_RESTARTING); err != nil {
 			protolion.Errorf("error updating pipeline state: %v", err)
 		}
@@ -1646,7 +1656,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		default:
 		}
 
-		protolion.Errorf("error running jobManager: %v; retrying in %v", err, d)
+		protolion.Errorf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
 
 		// Increment the job's restart count
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {

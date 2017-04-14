@@ -152,8 +152,8 @@ create new jobs to process them.
 
 `inputs.name` is the name of the input.  An input with name `XXX` will be
 visible under the path `/pfs/XXX` when a job runs.  Input names must be
-unique.  If an input's name is not specified, it's default to the name of
-the repo.
+unique. If an input's name is not specified, it's default to the name of
+the repo. Therefore, if you have two inputs from the same repo, you'll need to give at least one of them a unique name.
 
 `inputs.repo` is a repo that contains input data for this pipeline.
 
@@ -193,11 +193,11 @@ successful.
 
 ## The Input Glob Pattern
 
-Each input needs to specify a [glob pattern](http://man7.org/linux/man-pages/man7/glob.7.html).
+Each input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
-Pachyderm attemps to process datums in parallel whenever possible.
+Pachyderm attempts to process datums in parallel whenever possible.
 
 Intuitively, you may think of the input repo as a file system, and you are
 applying the glob pattern to the root of the file system.  The files and
@@ -215,17 +215,17 @@ For instance, let's say your input repo has the following structure:
 
 Now let's consider what the following glob patterns would match respectively:
 
-* `/`: this pattern matches `/`, the root directory itself
-* `/*`:  this pattern matches everything under the root directory:
-`/foo-1`, `/foo-2`, and `/bar`
-* `/foo*`:  this pattern matches files under the root directory that start
-with `/foo`: `/foo-1` and `/foo-2`
+* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum. 
+* `/*`:  this pattern matches everything under the root directory given us 3 datums:
+`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
+* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
+* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
 * `/*/*`:  this pattern matches everything that's two levels deep relative
 to the root: `/bar/bar-1` and `/bar/bar-2`
 
-Whatever that matches the glob pattern is a datum.  For instance, if we used
+The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
 `/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`.
+`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker. 
 
 ## Multiple Inputs
 
