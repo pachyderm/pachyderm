@@ -584,26 +584,19 @@ func TestPipelineFailure(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numCommits := 10
-	for i := 0; i < numCommits; i++ {
-		commit, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	}
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipeline := uniqueString("pipeline")
-	errMsg := "error message"
 	// This pipeline fails half the times
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("echo '%s'", errMsg),
-			"exit $(($RANDOM % 2))",
-		},
+		[]string{"exit 1"},
+		nil,
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
@@ -615,27 +608,16 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
-
-	// Wait for the jobs to spawn
 	time.Sleep(20 * time.Second)
-
 	jobInfos, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
-	require.Equal(t, numCommits, len(jobInfos))
-
-	var failed bool
-	for _, jobInfo := range jobInfos {
-		// Wait for the job to finish
-		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
-		require.NoError(t, err)
-
-		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
-		if jobInfo.State == pps.JobState_JOB_FAILURE {
-			failed = true
-		}
-	}
-	// Some of the jobs should've failed
-	require.True(t, failed)
+	require.Equal(t, 1, len(jobInfos))
+	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
