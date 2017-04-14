@@ -502,6 +502,11 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 		return &CancelResponse{Success: false}, nil
 	}
 	a.cancel()
+	// clear the status since we're no longer processing this datum
+	a.jobID = ""
+	a.data = nil
+	a.started = time.Time{}
+	a.cancel = nil
 	return &CancelResponse{Success: true}, nil
 }
 

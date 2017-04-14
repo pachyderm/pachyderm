@@ -2694,9 +2694,10 @@ func TestDatumStatusRestart(t *testing.T) {
 	checkStatus := func() {
 		started := time.Now()
 		for {
+			fmt.Printf("checking status\n")
 			time.Sleep(time.Second)
 			if time.Since(started) > time.Second*30 {
-				t.Errorf("failed to find status in time")
+				t.Fatalf("failed to find status in time")
 			}
 			jobs, err := c.ListJob(pipeline, nil)
 			require.NoError(t, err)
@@ -2706,6 +2707,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			jobID = jobs[0].Job.ID
 			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 			require.NoError(t, err)
+			fmt.Printf("jobInfo %+v\n", jobInfo)
 			if len(jobInfo.WorkerStatus) == 0 {
 				continue
 			}

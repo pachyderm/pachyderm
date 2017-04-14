@@ -313,10 +313,11 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 	if err != nil {
 		return nil, err
 	}
+	protolion.Printf("resp: %+v\n", resp)
 
 	var result []workerpkg.WorkerClient
 	for _, kv := range resp.Kvs {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", string(kv.Key), client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
 		if err != nil {
 			return nil, err
 		}
