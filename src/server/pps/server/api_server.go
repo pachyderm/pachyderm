@@ -276,6 +276,16 @@ func sortInput(input *pps.Input) {
 	})
 }
 
+func inputCommits(input *pps.Input) []*pfs.Commit {
+	var result []*pfs.Commit
+	visit(input, func(input *pps.Input) {
+		if input.Atom != nil {
+			result = append(result, input.Atom.Commit)
+		}
+	})
+	return result
+}
+
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 	return a.validateInput(ctx, jobInfo.Input, true)
 }
@@ -730,8 +740,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// row, some of which depend on the existence of the output repos
 	// of upstream pipelines.
 	var provenance []*pfs.Repo
-	for _, input := range pipelineInfo.Inputs {
-		provenance = append(provenance, input.Repo)
+	for _, commit := range inputCommits(pipelineInfo.Input) {
+		provenance = append(provenance, commit.Repo)
 	}
 
 	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
@@ -746,15 +756,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
-	for _, input := range pipelineInfo.Inputs {
-		// Input branches default to master
-		if input.Branch == "" {
-			input.Branch = "master"
+	visit(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Atom != nil {
+			if input.Atom.Commit.ID == "" {
+				input.Atom.Commit.ID = "master"
+			}
+			if input.Atom.Name == "" {
+				input.Atom.Name = input.Atom.Commit.Repo.Name
+			}
 		}
-		if input.Name == "" {
-			input.Name = input.Repo.Name
-		}
-	}
+	})
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
@@ -1113,8 +1124,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		a.workerPool(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 
 		var provenance []*pfs.Repo
-		for _, input := range pipelineInfo.Inputs {
-			provenance = append(provenance, input.Repo)
+		for _, commit := range inputCommits(pipelineInfo.Input) {
+			provenance = append(provenance, commit.Repo)
 		}
 
 		pfsClient, err := a.getPFSClient()
@@ -1140,7 +1151,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 		branchSetCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Inputs)
+		branchSets, err := newBranchSetFactory(branchSetCtx, pfsClient, pipelineInfo.Input)
 		if err != nil {
 			return err
 		}
