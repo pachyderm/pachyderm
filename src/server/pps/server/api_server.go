@@ -1009,8 +1009,8 @@ func (a *apiServer) getRunningJobsForPipeline(ctx context.Context, pipelineInfo 
 	return jobInfos, nil
 }
 
-// signalJobCompletion waits for a job to complete and then sends the job back on jobCompletionCh.
-func (a *apiServer) signalJobCompletion(ctx context.Context, job *pps.Job, jobCompletionCh chan *pps.Job) {
+// watchJobCompletion waits for a job to complete and then sends the job back on jobCompletionCh.
+func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCompletionCh chan *pps.Job) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
@@ -1135,7 +1135,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		jobCompletionCh := make(chan *pps.Job)
 		runningJobSet := make(map[string]bool)
 		for _, job := range runningJobList {
-			go a.signalJobCompletion(ctx, job.Job, jobCompletionCh)
+			go a.watchJobCompletion(ctx, job.Job, jobCompletionCh)
 			runningJobSet[job.Job.ID] = true
 		}
 		// If there's currently no running jobs, we want to trigger
@@ -1258,7 +1258,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 			scaleDownTimer.Stop()
 			runningJobSet[job.ID] = true
-			go a.signalJobCompletion(ctx, job, jobCompletionCh)
+			go a.watchJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
 		}
 		panic("unreachable")
