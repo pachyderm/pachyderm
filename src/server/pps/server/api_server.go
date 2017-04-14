@@ -1127,7 +1127,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 		// If there's currently no running jobs, we want to trigger
 		// the code that sets the timer for scale-down.
-		if len(runningJobList == 0) {
+		if len(runningJobList) == 0 {
 			go func() {
 				select {
 				case jobCompletionCh <- &pps.Job{}:
