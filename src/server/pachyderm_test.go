@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
@@ -2731,6 +2732,45 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
 }
 
+// TestSystemResourceRequest doesn't create any jobs or pipelines, it
+// just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
+// and etcd default resource requests. This prevents them from overloading
+// nodes and getting evicted, which can slow down or break a cluster.
+func TestSystemResourceRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	kubeClient := getKubeClient(t)
+
+	// Get Pod info for 'app' from k8s
+	var c api.Container
+	for _, app := range []string{"pachd", "etcd"} {
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 10 * time.Second
+		err := backoff.Retry(func() error {
+			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+				LabelSelector: labels.SelectorFromSet(
+					map[string]string{"app": app, "suite": "pachyderm"}),
+			})
+			if err != nil {
+				return err
+			}
+			if len(podList.Items) < 1 {
+				return fmt.Errorf("could not find pod for %s", app) // retry
+			}
+			return nil
+		}, b)
+		require.NoError(t, err)
+
+		// Make sure the pod's container has resource requests
+		_, ok := c.Resources.Requests[api.ResourceCPU]
+		require.True(t, ok, "could not get CPU request for "+app)
+		_, ok = c.Resources.Requests[api.ResourceMemory]
+		require.True(t, ok, "could not get memory request for "+app)
+	}
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
@@ -2876,14 +2916,17 @@ func scalePachd(t testing.TB) {
 	scalePachdN(t, n)
 }
 
+var kubeClient *kube.Client // Cached kubernetes client
+
 func getKubeClient(t testing.TB) *kube.Client {
-	config := &kube_client.Config{
+	// TODO(msteffen): make this read from kubeconfig or something. Otherwise,
+	// this can't run against remote clusters or minikube.
+	kubeClient, err = kube.New(&kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
 		Insecure: false,
-	}
-	k, err := kube.New(config)
+	})
 	require.NoError(t, err)
-	return k
+	return kubeClient
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
