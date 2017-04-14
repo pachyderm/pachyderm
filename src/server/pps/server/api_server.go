@@ -229,6 +229,44 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 	return nil
 }
 
+func name(input *pps.Input) string {
+	switch {
+	case input.Atom != nil:
+		return input.Atom.Name
+	case input.Cross != nil:
+		if len(input.Cross.Input) == 0 {
+			return ""
+		}
+		return name(input.Cross.Input[0])
+	case input.Union != nil:
+		if len(input.Union.Input) == 0 {
+			return ""
+		}
+		return name(input.Union.Input[0])
+	}
+	return ""
+}
+
+func sortInput(input *pps.Input) {
+	sortInputs := func(inputs []*pps.Input) {
+		sort.SliceStable(inputs, func(i, j int) bool { return name(inputs[i]) < name(inputs[j]) })
+	}
+	switch {
+	case input.Atom != nil:
+		return
+	case input.Cross != nil:
+		for _, input := range input.Cross.Input {
+			sortInput(input)
+		}
+		sortInputs(input.Cross.Input)
+	case input.Union != nil:
+		for _, input := range input.Union.Input {
+			sortInput(input)
+		}
+		sortInputs(input.Union.Input)
+	}
+}
+
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 	return a.validateInput(ctx, jobInfo.Input, true)
 }
@@ -259,7 +297,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	sort.SliceStable(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
+	sortInput(request.Input)
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
 			Job:             job,
@@ -599,7 +637,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Version:         1,
 		Transform:       request.Transform,
 		ParallelismSpec: request.ParallelismSpec,
-		Inputs:          request.Inputs,
+		Input:           request.Input,
 		OutputBranch:    request.OutputBranch,
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
@@ -617,7 +655,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
-	sort.SliceStable(pipelineInfo.Inputs, func(i, j int) bool { return pipelineInfo.Inputs[i].Name < pipelineInfo.Inputs[j].Name })
+	sortInput(pipelineInfo.Input)
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
