@@ -2485,10 +2485,10 @@ func TestStopJob(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipeline_data")
+	dataRepo := uniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
-	pipelineName := uniqueString("pipeline")
+	pipelineName := uniqueString("pipeline-stop-job")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2529,18 +2529,18 @@ func TestStopJob(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
-	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[1].State)
+	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[0].State)
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[0].Job.ID)
+	err = c.StopJob(jobInfos[1].Job.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
 
 	// Check that the second job completes
-	jobInfo, err = c.InspectJob(jobInfos[1].Job.ID, true)
+	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
