@@ -95,6 +95,12 @@ func (w *workerPool) discoverWorkers() {
 		}
 		panic("unreachable")
 	}, b, func(err error, d time.Duration) error {
+		select {
+		case <-w.ctx.Done():
+			// Exit the retry loop if context got cancelled
+			return err
+		default:
+		}
 		protolion.Errorf("error discovering workers for %v: %v; retrying in %v", w.workerDir, err, d)
 		return nil
 	})
@@ -138,6 +144,12 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 		workerClient = workerpkg.NewWorkerClient(conn)
 		return nil
 	}, b, func(err error, d time.Duration) error {
+		select {
+		case <-w.ctx.Done():
+			// Exit the retry loop if context got cancelled
+			return err
+		default:
+		}
 		protolion.Infof("error establishing connection with worker %s; retrying in %v", addr, d)
 		return nil
 	})
