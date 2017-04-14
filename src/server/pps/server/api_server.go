@@ -229,6 +229,21 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 	return nil
 }
 
+// visit each input recursively in ascending order (root last)
+func visit(input *pps.Input, f func(*pps.Input)) {
+	switch {
+	case input.Cross != nil:
+		for _, input := range input.Cross.Input {
+			visit(input, f)
+		}
+	case input.Union != nil:
+		for _, input := range input.Cross.Input {
+			visit(input, f)
+		}
+	}
+	f(input)
+}
+
 func name(input *pps.Input) string {
 	switch {
 	case input.Atom != nil:
@@ -248,23 +263,17 @@ func name(input *pps.Input) string {
 }
 
 func sortInput(input *pps.Input) {
-	sortInputs := func(inputs []*pps.Input) {
-		sort.SliceStable(inputs, func(i, j int) bool { return name(inputs[i]) < name(inputs[j]) })
-	}
-	switch {
-	case input.Atom != nil:
-		return
-	case input.Cross != nil:
-		for _, input := range input.Cross.Input {
-			sortInput(input)
+	visit(input, func(input *pps.Input) {
+		sortInputs := func(inputs []*pps.Input) {
+			sort.SliceStable(inputs, func(i, j int) bool { return name(inputs[i]) < name(inputs[j]) })
 		}
-		sortInputs(input.Cross.Input)
-	case input.Union != nil:
-		for _, input := range input.Union.Input {
-			sortInput(input)
+		switch {
+		case input.Cross != nil:
+			sortInputs(input.Cross.Input)
+		case input.Union != nil:
+			sortInputs(input.Union.Input)
 		}
-		sortInputs(input.Union.Input)
-	}
+	})
 }
 
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
@@ -304,7 +313,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
 			ParallelismSpec: request.ParallelismSpec,
-			Inputs:          request.Inputs,
+			Input:           request.Input,
 			OutputRepo:      request.OutputRepo,
 			OutputBranch:    request.OutputBranch,
 			Started:         now(),
