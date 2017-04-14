@@ -198,7 +198,7 @@ successful.
 
 By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
 
-`scaleDownThreshold` is a string that needs to be sequence of decimal numbers, each with optional fraction and a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
+`scaleDownThreshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
 
 ## The Input Glob Pattern
 
