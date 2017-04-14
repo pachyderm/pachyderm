@@ -9,7 +9,8 @@ Set a commit and its ancestors to a branch.
 
 Examples:
 
-```sh# Set commit XXX and its ancestors as branch master in repo foo.
+```sh
+# Set commit XXX and its ancestors as branch master in repo foo.
 $ pachctl set-branch foo XXX master
 
 # Set the head of branch test as branch master in repo foo.

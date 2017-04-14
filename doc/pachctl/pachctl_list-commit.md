@@ -9,7 +9,8 @@ Return all commits on a set of repos.
 
 Examples:
 
-```sh# return commits in repo "foo"
+```sh
+# return commits in repo "foo"
 $ pachctl list-commit foo
 
 # return commits in repo "foo" on branch "master"
