@@ -52,6 +52,13 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/migrations
 
 .. toctree::
+    :maxdepth: 1
+    :caption: Pachyderm Cookbook
+
+    cookbook/ml
+    cookbook/time_windows
+ 
+.. toctree::
     :maxdepth: 2
     :caption: Reference
 
