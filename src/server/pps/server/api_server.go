@@ -1265,7 +1265,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 						protolion.Infof("retrying datum %v", dts[0].files)
 						dts = dts[1:]
 					case dt := <-wp.FailCh():
-						dt.retries += 1
+						dt.retries++
 						if dt.retries >= MaximumRetriesPerDatum {
 							close(jobFailedCh)
 							return
@@ -1278,7 +1278,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				} else {
 					select {
 					case dt := <-wp.FailCh():
-						dt.retries += 1
+						dt.retries++
 						if dt.retries >= MaximumRetriesPerDatum {
 							close(jobFailedCh)
 							return
