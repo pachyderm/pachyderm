@@ -131,7 +131,7 @@ func (w *workerPool) delWorker(addr string) error {
 
 func (w *workerPool) runWorker(ctx context.Context, addr string) {
 	defer func() {
-		protolion.Infof("goro for worker %s is exiting", addr)
+		protolion.Infof("goro for worker %s for job %s is exiting", addr, w.jobID)
 	}()
 
 	var workerClient workerpkg.WorkerClient
@@ -168,7 +168,7 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 		func() (retErr error) {
 			defer func() {
 				if retErr != nil {
-					protolion.Errorf("%v", retErr)
+					protolion.Errorf("datum error in job %s: %v", w.jobID, retErr)
 					select {
 					case w.failCh <- dt:
 					case <-ctx.Done():

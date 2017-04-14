@@ -1340,7 +1340,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		tree := hashtree.NewHashTree()
 		files := df.Next()
 		for {
-			fmt.Println("sending datum")
 			var resp hashtree.HashTree
 			var failed bool
 			if files != nil {
