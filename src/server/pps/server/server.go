@@ -35,7 +35,7 @@ var (
 
 	// Index mapping job inputs (repos + pipeline version) to output commit. This
 	// is how we know if we need to start a job
-	jobsInputsIndex = col.Index{"Inputs", false}
+	jobsInputIndex = col.Index{"Input", false}
 
 	// Index of pipelines and jobs that have been stopped (state is "success" or
 	// "failure" for jobs, or "stopped" or "failure" for pipelines). See
@@ -89,7 +89,7 @@ func NewAPIServer(
 		jobs: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, jobsPrefix),
-			[]col.Index{jobsPipelineIndex, stoppedIndex, jobsInputsIndex},
+			[]col.Index{jobsPipelineIndex, stoppedIndex, jobsInputIndex},
 			&ppsclient.JobInfo{},
 		),
 	}
