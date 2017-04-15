@@ -136,7 +136,7 @@ func do(appEnvObj interface{}) error {
 
 	// Setup the hostPath mount to use a unique directory for this worker
 	workerDir := filepath.Join(client.PPSHostPath, appEnv.PodName)
-	if err := os.Mkdir(workerDir, 0777); err != nil {
+	if err := os.MkdirAll(workerDir, 0777); err != nil {
 		return err
 	}
 	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {

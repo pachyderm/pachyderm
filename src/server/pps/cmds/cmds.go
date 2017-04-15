@@ -272,7 +272,7 @@ Examples:
 			// Display newest jobs first
 			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
@@ -522,6 +522,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var deleteJobs bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -531,12 +532,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			if err := client.DeletePipeline(args[0]); err != nil {
+			if err := client.DeletePipeline(args[0], deleteJobs); err != nil {
 				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
 	}
+	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",

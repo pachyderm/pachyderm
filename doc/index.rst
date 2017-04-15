@@ -28,6 +28,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
     fundamentals/getting_data_into_pachyderm
     fundamentals/creating_analysis_pipelines
+    fundamentals/distributed_computing
     fundamentals/getting_data_out_of_pachyderm
     fundamentals/updating_pipelines
 
@@ -56,6 +57,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
     reference/pipeline_spec
     pachctl/pachctl
+    reference/golang_client
     
 
 

@@ -17,7 +17,9 @@ import (
 
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tSTATE\t\n")
+	// because STATE is a colorful field it has to be at the end of the line,
+	// otherwise the terminal escape characters will trip up the tabwriter
+	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tSTATE\t\n")
 }
 
 // PrintJobInfo pretty-prints job info.
@@ -25,6 +27,8 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	} else if jobInfo.Pipeline != nil {
+		fmt.Fprintf(w, "%s/-\t", jobInfo.Pipeline.Name)
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
@@ -34,11 +38,15 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
+	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
+	fmt.Fprintf(w, "%d / %d\t", jobInfo.DataProcessed, jobInfo.DataTotal)
 	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
 // PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
+	// because STATE is a colorful field it has to be at the end of the line,
+	// otherwise the terminal escape characters will trip up the tabwriter
 	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
 }
 
@@ -103,6 +111,8 @@ Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
+Progress: {{.DataProcessed}} / {{.DataTotal}}
+Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
@@ -112,10 +122,6 @@ Inputs:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
-{{ if .Error }}
-Error:
-{{.Error}}
-{{end}}
 `)
 	if err != nil {
 		return err
@@ -164,6 +170,8 @@ func jobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("failure")
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
+	case ppsclient.JobState_JOB_STOPPED:
+		return color.New(color.FgYellow).SprintFunc()("stopped")
 	}
 	return "-"
 }

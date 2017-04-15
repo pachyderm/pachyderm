@@ -63,6 +63,7 @@ type taggedLogger struct {
 	template  pps.LogMessage
 	stderrLog log.Logger
 	marshaler *jsonpb.Marshaler
+	buffer    bytes.Buffer
 }
 
 func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
@@ -78,9 +79,9 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = make([]*pps.LogMessage_Datum, 0, len(req.Data))
+	result.template.Data = make([]*pps.Datum, 0, len(req.Data))
 	for i, d := range req.Data {
-		result.template.Data = append(result.template.Data, new(pps.LogMessage_Datum))
+		result.template.Data = append(result.template.Data, new(pps.Datum))
 		result.template.Data[i].Path = d.File.Path
 		result.template.Data[i].Hash = d.Hash
 	}
@@ -105,6 +106,25 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		return
 	}
 	fmt.Printf("%s\n", bytes)
+}
+
+func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
+	// never errors
+	logger.buffer.Write(p)
+	r := bufio.NewReader(&logger.buffer)
+	for {
+		message, err := r.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				logger.buffer.Write([]byte(message))
+				return len(p), nil
+			}
+			// this shouldn't technically be possible to hit io.EOF should be
+			// the only error bufio.Reader can return when using a buffer.
+			return 0, err
+		}
+		logger.Logf(message)
+	}
 }
 
 func (logger *taggedLogger) userLogger() *taggedLogger {
@@ -170,39 +190,32 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (string, error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
 	transform := a.transform
 	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
-	var userlog bytes.Buffer
-	cmd.Stdout = &userlog
-	cmd.Stderr = &userlog
+	cmd.Stdout = logger.userLogger()
+	cmd.Stderr = logger.userLogger()
+	cmd.Env = environ
 	err := cmd.Run()
-
 	// Log output from user cmd, line-by-line, whether or not cmd errored
 	logger.Logf("running user code")
-	logscanner := bufio.NewScanner(&userlog)
-	userLogger := logger.userLogger()
-	for logscanner.Scan() {
-		userLogger.Logf(logscanner.Text())
-	}
-
 	// Return result
 	if err == nil {
-		return userlog.String(), nil
+		return nil
 	}
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 			for _, returnCode := range transform.AcceptReturnCode {
 				if int(returnCode) == status.ExitStatus() {
-					return userlog.String(), nil
+					return nil
 				}
 			}
 		}
 	}
-	return userlog.String(), err
+	return err
 
 }
 
@@ -409,16 +422,18 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 	}()
 
+	environ := a.userCodeEnviron(req)
+
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	userlog, err := a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger, environ)
 	logger.Logf("finished processing user input")
 	if err != nil {
 		return &ProcessResponse{
-			Log: userlog,
+			Failed: true,
 		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
@@ -427,4 +442,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
+}
+
+func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
+	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }

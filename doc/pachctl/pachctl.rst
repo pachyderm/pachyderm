@@ -29,6 +29,7 @@ Options
     pachctl_create-pipeline
     pachctl_create-repo
     pachctl_delete-all
+    pachctl_delete-branch
     pachctl_delete-file
     pachctl_delete-job
     pachctl_delete-pipeline
@@ -59,6 +60,7 @@ Options
     pachctl_put-file
     pachctl_repo
     pachctl_run-pipeline
+    pachctl_set-branch
     pachctl_start-commit
     pachctl_start-pipeline
     pachctl_stop-pipeline

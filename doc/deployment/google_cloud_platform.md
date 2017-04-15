@@ -30,8 +30,10 @@ $ gcloud config set compute/zone ${GCP_ZONE}
 
 $ gcloud config set container/cluster ${CLUSTER_NAME}
 
+$ MACHINE_TYPE=[machine for the k8s nodes. We recommend "n1-standard-4" or larger.]
+
 # By default this spins up a 3-node cluster. You can change the default with `--num-nodes VAL`
-$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw
+$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
 ```
 This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances).  Then, after the cluster is up, you can point `kubectl` to this cluster via:
 
@@ -101,7 +103,7 @@ $ gcloud compute disks list
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.1/pachctl_1.4.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.3/pachctl_1.4.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
