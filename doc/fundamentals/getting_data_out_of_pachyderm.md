@@ -1,6 +1,6 @@
 # Getting Data Out of Pachyderm
 
-Once you've got one or more pipelines built and have data flowing through Pachyderm, you need to be able to track that data flowing through your pipeline(s) and get results out of Pachyderm. Let's use the [OpenCV pipeline](../getting_started/beginner_tutorial) as an example. 
+Once you've got one or more pipelines built and have data flowing through Pachyderm, you need to be able to track that data flowing through your pipeline(s) and get results out of Pachyderm. Let's use the [OpenCV pipeline](../getting_started/beginner_tutorial.html) as an example. 
 
 Here's what our pipeline and the corresponding data repositories look like:
 
@@ -10,7 +10,7 @@ Every commit of new images into the "images" data repository results in a corres
 
 ## Getting files with `pachctl`
 
-The `pachctl` CLI tool [command `get-file`](../pachctl/pachctl_get-file) can be used to get versioned data out of any data repository:
+The `pachctl` CLI tool [command `get-file`](../pachctl/pachctl_get-file.html) can be used to get versioned data out of any data repository:
 
 ```sh
 pachctl get-file <repo> <commit-id or branch> path/to/file
@@ -53,7 +53,7 @@ edges               026536b547a44a8daa2db9d25bf88b79   754542b89c1c47a5b657e6038
 
 ## Exporting data via `egress`
 
-In addition to getting data out of Pachyderm with `pachctl get-file`, you can add an optional `egress` field to your [pipeline specification](../reference/pipeline_spec).  `egress` allows you to push the results of a Pipeline to an external data store such as S3, Google Cloud Storage or Azure Blob Storage. Data will be pushed after the user code has finished running but before the job is marked as successful.
+In addition to getting data out of Pachyderm with `pachctl get-file`, you can add an optional `egress` field to your [pipeline specification](../reference/pipeline_spec.html).  `egress` allows you to push the results of a Pipeline to an external data store such as S3, Google Cloud Storage or Azure Blob Storage. Data will be pushed after the user code has finished running but before the job is marked as successful.
 
 ## Other ways to view, interact with, or export data in Pachyderm
 

@@ -59,7 +59,7 @@ After data has been migrated, you can safely shut down the 1.3 cluster.
 
 By far the biggest change to the Pipeline Spec is to the `inputs` field. Inputs
 no longer have a `method` field. Instead, they specify how their inputs can be
-parallelized using a glob pattern. [Read more about glob patterns here](../../doc/fundamentals/distributed_computing.html).
+parallelized using a glob pattern. [Read more about glob patterns here](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html).
 
 The partitions available in 1.3 match to glob patterns like so:
 

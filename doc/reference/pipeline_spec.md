@@ -50,7 +50,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "outputBranch": string,
   "egress": {
     "URL": "s3://bucket/dir"
-  }
+  },
+  "scaleDownThreshold": string
 }
 ```
 
@@ -152,8 +153,8 @@ create new jobs to process them.
 
 `inputs.name` is the name of the input.  An input with name `XXX` will be
 visible under the path `/pfs/XXX` when a job runs.  Input names must be
-unique.  If an input's name is not specified, it's default to the name of
-the repo.
+unique. If an input's name is not specified, it's default to the name of
+the repo. Therefore, if you have two inputs from the same repo, you'll need to give at least one of them a unique name.
 
 `inputs.repo` is a repo that contains input data for this pipeline.
 
@@ -179,7 +180,7 @@ is not specified, then the entire input branch will be processed.  Otherwise,
 only commits since the `from` commit (not including the `from` commit itself)
  will be processed.
 
-### OutputBranch
+### OutputBranch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
 it's "master".
@@ -191,13 +192,21 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
+## Scale-down threshold (optional)
+
+`scaleDownThreshold` specifies when the worker pods of a pipeline should be terminated.
+
+By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
+
+`scaleDownThreshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
+
 ## The Input Glob Pattern
 
-Each input needs to specify a [glob pattern](http://man7.org/linux/man-pages/man7/glob.7.html).
+Each input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
-Pachyderm attemps to process datums in parallel whenever possible.
+Pachyderm attempts to process datums in parallel whenever possible.
 
 Intuitively, you may think of the input repo as a file system, and you are
 applying the glob pattern to the root of the file system.  The files and
@@ -215,17 +224,17 @@ For instance, let's say your input repo has the following structure:
 
 Now let's consider what the following glob patterns would match respectively:
 
-* `/`: this pattern matches `/`, the root directory itself
-* `/*`:  this pattern matches everything under the root directory:
-`/foo-1`, `/foo-2`, and `/bar`
-* `/foo*`:  this pattern matches files under the root directory that start
-with `/foo`: `/foo-1` and `/foo-2`
+* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum. 
+* `/*`:  this pattern matches everything under the root directory given us 3 datums:
+`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
+* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
+* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
 * `/*/*`:  this pattern matches everything that's two levels deep relative
 to the root: `/bar/bar-1` and `/bar/bar-2`
 
-Whatever that matches the glob pattern is a datum.  For instance, if we used
+The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
 `/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`.
+`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker. 
 
 ## Multiple Inputs
 
