@@ -180,7 +180,7 @@ Job Counts:
 func jobState(jobState ppsclient.JobState) string {
 	switch jobState {
 	case ppsclient.JobState_JOB_STARTING:
-		return color.New(color.FgYellow).SprintFunc()("pulling")
+		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
 	case ppsclient.JobState_JOB_FAILURE:

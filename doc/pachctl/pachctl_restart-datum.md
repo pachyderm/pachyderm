@@ -1,14 +1,14 @@
-## ./pachctl list-branch
+## ./pachctl restart-datum
 
-Return all branches on a repo.
+Restart a datum.
 
 ### Synopsis
 
 
-Return all branches on a repo.
+Restart a datum.
 
 ```
-./pachctl list-branch <repo-name>
+./pachctl restart-datum job-id datum-path1,datum-path2
 ```
 
 ### Options inherited from parent commands
