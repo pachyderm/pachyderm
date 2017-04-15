@@ -169,8 +169,8 @@ func do(appEnvObj interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	resp, err := etcdClient.Grant(ctx, 60 /* seconds */)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// Actually write "key" into etcd
-	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second) // new ctx
+	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return err
 	}
