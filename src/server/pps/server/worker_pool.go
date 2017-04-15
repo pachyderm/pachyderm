@@ -10,13 +10,14 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/mirror"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
 )
@@ -25,203 +26,189 @@ const (
 	workerEtcdPrefix = "workers"
 )
 
-// An input/output pair for a single datum. When a worker has finished
-// processing 'data', it writes the resulting hashtree to 'resp' (each job has
-// its own response channel)
-type datumAndResp struct {
-	jobID   string // This is passed to workers, so they can annotate their logs
-	datum   []*pfs.FileInfo
-	respCh  chan hashtree.HashTree
-	errCh   chan struct{}
-	retCh   chan *datumAndResp
+type datum struct {
+	files   []*pfs.FileInfo
 	retries int
 }
 
 // WorkerPool represents a pool of workers that can be used to process datums.
 type WorkerPool interface {
-	DataCh() chan *datumAndResp
-}
-
-type worker struct {
-	ctx          context.Context
-	cancel       func()
-	addr         string
-	workerClient workerpkg.WorkerClient
-	pachClient   *client.APIClient
-	retries      int
-}
-
-func (w *worker) run(dataCh chan *datumAndResp) {
-	defer func() {
-		protolion.Infof("goro for worker %s is exiting", w.addr)
-	}()
-	returnDatum := func(dr *datumAndResp) {
-		dr.retries++
-		select {
-		case dr.retCh <- dr:
-		case <-w.ctx.Done():
-		}
-	}
-	for {
-		var dr *datumAndResp
-		select {
-		case dr = <-dataCh:
-		case <-w.ctx.Done():
-			return
-		}
-		if dr.retries > w.retries {
-			close(dr.errCh)
-			continue
-		}
-		resp, err := w.workerClient.Process(w.ctx, &workerpkg.ProcessRequest{
-			JobID: dr.jobID,
-			Data:  dr.datum,
-		})
-		if err != nil || resp.Failed {
-			protolion.Errorf("worker %s failed to process datum %v with error %s", w.addr, dr.datum, err)
-			returnDatum(dr)
-			continue
-		}
-		if resp.Tag != nil {
-			var buffer bytes.Buffer
-			if err := w.pachClient.GetTag(resp.Tag.Name, &buffer); err != nil {
-				protolion.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", w.addr, dr.datum, err)
-				returnDatum(dr)
-				continue
-			}
-			tree, err := hashtree.Deserialize(buffer.Bytes())
-			if err != nil {
-				protolion.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug: %v", w.addr, dr.datum, err)
-				returnDatum(dr)
-				continue
-			}
-			dr.respCh <- tree
-		} else {
-			protolion.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", w.addr, dr.datum)
-			returnDatum(dr)
-			continue
-		}
-	}
+	// Send datums to this channel to be processed
+	DataCh() chan<- *datum
+	// Receive datums that failed to be processed from this channel
+	FailCh() <-chan *datum
+	// Receive hashtrees of the outputs of successfully processing datums
+	SuccessCh() <-chan hashtree.HashTree
 }
 
 type workerPool struct {
-	// Worker pool recieves work via this channel
-	dataCh chan *datumAndResp
-	// Parent of all worker contexts (see workersMap)
+	// When this context is canceled, the worker pool should clean up all
+	// its resources.
 	ctx context.Context
 	// The prefix in etcd where new workers can be discovered
 	workerDir string
-	// Map of worker address to workers
-	workersMap map[string]*worker
+	// workersMap is a map from a worker's address to the function that
+	// can be used to release its resources.
+	workersMap map[string]context.CancelFunc
+	// objClient is the client for Pachyderm's object store
+	objClient pfs.ObjectAPIClient
 	// Used to check for workers added/deleted in etcd
 	etcdClient *etcd.Client
-	// The number of times to retry failures
-	retries int
+	// The job that spawned the worker pool
+	jobID string
+	// workers get datums from this channel.
+	dataCh chan *datum
+	// workers send datums to this channel when they fail to process
+	// the datums.
+	failCh chan *datum
+	// workers send the hashtrees of the outputs of processing datums to
+	// this channel.
+	successCh chan hashtree.HashTree
 }
 
-func (w *workerPool) discoverWorkers(ctx context.Context) {
+func (w *workerPool) discoverWorkers() {
 	b := backoff.NewInfiniteBackOff()
-	if err := backoff.RetryNotify(func() error {
-		syncer := mirror.NewSyncer(w.etcdClient, w.workerDir, 0)
-		respCh, errCh := syncer.SyncBase(ctx)
-	getBaseWorkers:
-		for {
-			select {
-			case resp, ok := <-respCh:
-				if !ok {
-					if err := <-errCh; err != nil {
-						return err
-					}
-					break getBaseWorkers
-				}
-				for _, kv := range resp.Kvs {
-					addr := path.Base(string(kv.Key))
-					if err := w.addWorker(addr); err != nil {
-						return err
-					}
-				}
-			case err := <-errCh:
-				if err != nil {
-					return err
-				}
-			}
-		}
-		watchCh := syncer.SyncUpdates(ctx)
+	backoff.RetryNotify(func() error {
 		protolion.Infof("watching `%s` for workers", w.workerDir)
+		watcher, err := watch.NewWatcher(w.ctx, w.etcdClient, w.workerDir)
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
 		for {
-			resp, ok := <-watchCh
+			resp, ok := <-watcher.Watch()
 			if !ok {
-				return fmt.Errorf("watcher for prefix %s closed for unknown reasons", w.workerDir)
+				return fmt.Errorf("watcher closed for unknown reasons")
 			}
-			if err := resp.Err(); err != nil {
+			if err := resp.Err; err != nil {
 				return err
 			}
-			for _, event := range resp.Events {
-				addr := path.Base(string(event.Kv.Key))
-				switch event.Type {
-				case etcd.EventTypePut:
-					if err := w.addWorker(addr); err != nil {
-						return err
-					}
-				case etcd.EventTypeDelete:
-					if err := w.delWorker(addr); err != nil {
-						return err
-					}
+			addr := path.Base(string(resp.Key))
+			switch resp.Type {
+			case watch.EventPut:
+				if err := w.addWorker(addr); err != nil {
+					return err
+				}
+			case watch.EventDelete:
+				if err := w.delWorker(addr); err != nil {
+					return err
 				}
 			}
 		}
 		panic("unreachable")
 	}, b, func(err error, d time.Duration) error {
-		if err == context.Canceled {
+		select {
+		case <-w.ctx.Done():
+			// Exit the retry loop if context got cancelled
 			return err
+		default:
 		}
-		protolion.Errorf("error discovering workers: %v; retrying in %v", err, d)
+		protolion.Errorf("error discovering workers for %v: %v; retrying in %v", w.workerDir, err, d)
 		return nil
-	}); err != context.Canceled {
-		panic(fmt.Sprintf("the retry loop should not exit with a non-context-cancelled error: %v", err))
-	}
+	})
 }
 
 func (w *workerPool) addWorker(addr string) error {
-	if worker, ok := w.workersMap[addr]; ok {
-		worker.cancel()
+	if cancel, ok := w.workersMap[addr]; ok {
+		cancel()
 	}
 
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
-	if err != nil {
-		return err
-	}
-	childCtx, cancelFn := context.WithCancel(w.ctx)
+	workerCtx, cancelFn := context.WithCancel(w.ctx)
+	w.workersMap[addr] = cancelFn
 
-	pachClient, err := client.NewInCluster()
-	if err != nil {
-		return err
-	}
-
-	wr := &worker{
-		ctx:          childCtx,
-		cancel:       cancelFn,
-		addr:         addr,
-		workerClient: workerpkg.NewWorkerClient(conn),
-		pachClient:   pachClient,
-		retries:      w.retries,
-	}
-	w.workersMap[addr] = wr
-	protolion.Infof("launching new worker at %v", addr)
-	go wr.run(w.dataCh)
+	protolion.Infof("launching new worker for %s at %v", w.workerDir, addr)
+	go w.runWorker(workerCtx, addr)
 	return nil
 }
 
 func (w *workerPool) delWorker(addr string) error {
-	worker, ok := w.workersMap[addr]
+	cancel, ok := w.workersMap[addr]
 	if !ok {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
-	worker.cancel()
+	cancel()
+	protolion.Infof("deleting worker for %s at %v", w.workerDir, addr)
 	return nil
 }
 
-func (w *workerPool) DataCh() chan *datumAndResp {
+func (w *workerPool) runWorker(ctx context.Context, addr string) {
+	defer func() {
+		protolion.Infof("goro for worker %s for job %s is exiting", addr, w.jobID)
+	}()
+
+	var workerClient workerpkg.WorkerClient
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort), grpc.WithInsecure())
+		if err != nil {
+			return err
+		}
+		workerClient = workerpkg.NewWorkerClient(conn)
+		return nil
+	}, b, func(err error, d time.Duration) error {
+		select {
+		case <-w.ctx.Done():
+			// Exit the retry loop if context got cancelled
+			return err
+		default:
+		}
+		protolion.Infof("error establishing connection with worker %s; retrying in %v", addr, d)
+		return nil
+	})
+
+	for true {
+		var dt *datum
+		var ok bool
+		select {
+		case <-ctx.Done():
+			return
+		case dt, ok = <-w.dataCh:
+			if !ok {
+				return
+			}
+		}
+		func() (retErr error) {
+			defer func() {
+				if retErr != nil {
+					protolion.Errorf("datum error in job %s: %v", w.jobID, retErr)
+					select {
+					case w.failCh <- dt:
+					case <-ctx.Done():
+					}
+				}
+			}()
+			resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+				JobID: w.jobID,
+				Data:  dt.files,
+			})
+			if err != nil {
+				return fmt.Errorf("worker %s failed to process datum %v with error %s", addr, dt.files, err)
+			}
+			if resp.Tag != nil {
+				var buffer bytes.Buffer
+				getTagClient, err := w.objClient.GetTag(ctx, &pfs.Tag{resp.Tag.Name})
+				if err != nil {
+					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.files, err)
+				}
+				if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.files, err)
+				}
+				tree, err := hashtree.Deserialize(buffer.Bytes())
+				if err != nil {
+					return fmt.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug: %v", addr, dt.files, err)
+				}
+				w.successCh <- tree
+			} else if resp.Failed {
+				return fmt.Errorf("user code failed to process datum %v", dt.files)
+			} else {
+				return fmt.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", addr, dt.files)
+			}
+			return nil
+		}()
+	}
+}
+
+func (w *workerPool) DataCh() chan<- *datum {
 	return w.dataCh
 }
 
@@ -266,31 +253,33 @@ func cancel(ctx context.Context, id string, etcdClient *etcd.Client,
 	return nil
 }
 
-// workerPool fetches the worker pool associated with 'id', or creates one if
-// none exists.
-func (a *apiServer) workerPool(ctx context.Context, id string, retries int) WorkerPool {
-	a.workerPoolsLock.Lock()
-	defer a.workerPoolsLock.Unlock()
-	workerPool, ok := a.workerPools[id]
-	if !ok {
-		workerPool = a.newWorkerPool(ctx, id, retries)
-		a.workerPools[id] = workerPool
-	}
-	return workerPool
+func (w *workerPool) FailCh() <-chan *datum {
+	return w.failCh
 }
 
-// newWorkerPool generates a new worker pool for the job or pipeline identified
-// with 'id'.  Each 'id' used to create a new worker pool must correspond to
-// a unique binary (in other words, all workers in the worker pool for 'id'
-// will be running the same user binary)
-func (a *apiServer) newWorkerPool(ctx context.Context, id string, retries int) WorkerPool {
+func (w *workerPool) SuccessCh() <-chan hashtree.HashTree {
+	return w.successCh
+}
+
+// workerPool generates a new worker pool that talks to the replication
+// controller identified by rcName.
+// Each workerPool is supposed to be owned by a single job, identified
+// by jobID.
+func (a *apiServer) newWorkerPool(ctx context.Context, rcName string, jobID string) (WorkerPool, error) {
+	objClient, err := a.getObjectClient()
+	if err != nil {
+		return nil, err
+	}
 	wp := &workerPool{
 		ctx:        ctx,
-		dataCh:     make(chan *datumAndResp),
-		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, id),
-		workersMap: make(map[string]*worker),
+		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, rcName),
+		workersMap: make(map[string]context.CancelFunc),
 		etcdClient: a.etcdClient,
-		retries:    retries,
+		objClient:  objClient,
+		jobID:      jobID,
+		dataCh:     make(chan *datum),
+		failCh:     make(chan *datum),
+		successCh:  make(chan hashtree.HashTree),
 	}
 	// We need to make sure that the prefix ends with the trailing slash,
 	// because
@@ -298,14 +287,8 @@ func (a *apiServer) newWorkerPool(ctx context.Context, id string, retries int) W
 		wp.workerDir += "/"
 	}
 
-	go wp.discoverWorkers(ctx)
-	return wp
-}
-
-func (a *apiServer) delWorkerPool(id string) {
-	a.workerPoolsLock.Lock()
-	defer a.workerPoolsLock.Unlock()
-	delete(a.workerPools, id)
+	go wp.discoverWorkers()
+	return wp, nil
 }
 
 func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcdPrefix string) ([]workerpkg.WorkerClient, error) {
