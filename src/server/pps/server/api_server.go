@@ -329,6 +329,26 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobInfo := new(pps.JobInfo)
+		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
+			return err
+		}
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STOPPED)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
 	var pipelineInfo pps.PipelineInfo
 	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
@@ -1350,6 +1370,18 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
+		if jobInfo.ParentJob != nil {
+			// Wait for the parent job to finish, to ensure that output
+			// commits are ordered correctly, and that this job doesn't
+			// contend for workers with its parent.
+			if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+				Job:        jobInfo.ParentJob,
+				BlockState: true,
+			}); err != nil {
+				return err
+			}
+		}
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1600,21 +1632,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		var provenance []*pfs.Commit
 		for _, input := range jobInfo.Inputs {
 			provenance = append(provenance, input.Commit)
-		}
-
-		if jobInfo.ParentJob != nil {
-			// Wait for the parent job to finish, to ensure that output commits
-			// are ordered correctly.
-			// Right now we don't care if the parent job succeeded or not; we
-			// just output a commit anyways.  But maybe it makes sense to only
-			// output a commit if the parent job succeeded?
-			// TODO
-			if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-				Job:        jobInfo.ParentJob,
-				BlockState: true,
-			}); err != nil {
-				return err
-			}
 		}
 
 		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
