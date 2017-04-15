@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -276,6 +277,30 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
+	// If the job is running we fill in WorkerStatus field, otherwise we just
+	// return the jobInfo.
+	if jobInfo.State != pps.JobState_JOB_RUNNING {
+		return jobInfo, nil
+	}
+	var workerPoolID string
+	if jobInfo.Pipeline != nil {
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	} else {
+		workerPoolID = JobRcName(jobInfo.Job.ID)
+	}
+	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	if err != nil {
+		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+	} else {
+		// It's possible that the workers might be working on datums for other
+		// jobs, we omit those since they're not part of the status for this
+		// job.
+		for _, status := range workerStatus {
+			if status.JobID == jobInfo.Job.ID {
+				jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
+			}
+		}
+	}
 	return jobInfo, nil
 }
 
@@ -332,7 +357,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -344,6 +369,30 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STOPPED)
 	})
 	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RestartDatum")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: request.Job,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var workerPoolID string
+	if jobInfo.Pipeline != nil {
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	} else {
+		workerPoolID = JobRcName(jobInfo.Job.ID)
+	}
+	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -462,20 +511,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					continue
 				}
 
-				// All paths in request.DataFilters must appear somewhere in the log
-				// line's inputs, or it's filtered
-				matchesData := true
-			dataFilters:
-				for _, dataFilter := range request.DataFilters {
-					for _, datum := range msg.Data {
-						if dataFilter == datum.Path || dataFilter == string(datum.Hash) {
-							continue dataFilters // Found, move to next filter
-						}
-					}
-					matchesData = false
-					break
-				}
-				if !matchesData {
+				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 
