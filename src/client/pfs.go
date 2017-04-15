@@ -277,17 +277,17 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
-// FlushCommit blocks until all of the commits which have a set of commits as
-// provenance have finished. For commits to be considered they must have all of
-// the specified commits as provenance. This in effect waits for all of the
+// FlushCommit returns an iterator that returns commits that have the
+// specified `commits` as provenance.  Note that the iterator can block if
+// jobs have not successfully completed. This in effect waits for all of the
 // jobs that are triggered by a set of commits to complete.
-// It returns an error if any of the commits it's waiting on are cancelled due
-// to one of the jobs encountering an error during runtime.
-// If toRepos is not nil then only the commits up to and including those repos
-// will be considered, otherwise all repos are considered.
-// Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommit just allows you to wait for them to complete and
-// see their output once they do.
+//
+// If toRepos is not nil then only the commits up to and including those
+// repos will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll
+// run no matter what, FlushCommit just allows you to wait for them to
+// complete and see their output once they do.
 func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.ctx())
 	stream, err := c.PfsAPIClient.FlushCommit(
