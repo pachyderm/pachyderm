@@ -227,6 +227,10 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
+message StopJobRequest {
+  Job job = 1;
+}
+
 message GetLogsRequest {
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
@@ -312,6 +316,7 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
