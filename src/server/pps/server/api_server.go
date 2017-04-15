@@ -26,6 +26,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
@@ -1165,22 +1166,20 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				return err
 			}
 			// (create JobInput for new processing job)
-			var jobInputs []*pps.JobInput
-			for _, pipelineInput := range pipelineInfo.Inputs {
-				for _, branch := range branchSet {
-					if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
-						jobInputs = append(jobInputs, &pps.JobInput{
-							Name:   pipelineInput.Name,
-							Commit: branch.Head,
-							Glob:   pipelineInput.Glob,
-							Lazy:   pipelineInput.Lazy,
-						})
+			jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+			visit(jobInput, func(input *pps.Input) {
+				if input.Atom != nil {
+					for _, branch := range branchSet {
+						if input.Atom.Commit.Repo.Name == branch.Head.Repo.Name && input.Atom.Commit.ID == branch.Name {
+							input.Atom.Commit.ID = branch.Head.ID
+						}
 					}
+					input.Atom.FromCommitID = ""
 				}
-			}
+			})
 
 			// Check if this input set has already been processed
-			jobIter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsInputsIndex, jobInputs)
+			jobIter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsInputIndex, jobInput)
 			if err != nil {
 				return err
 			}
@@ -1206,7 +1205,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
-				Inputs:   jobInputs,
+				Input:    jobInput,
 				// TODO(derek): Note that once the pipeline restarts, the `job`
 				// variable is lost and we don't know who is our parent job.
 				ParentJob: job,
@@ -1214,7 +1213,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			if err != nil {
 				return err
 			}
-			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
+			protolion.Infof("pipeline %s created job %v with the following input: %v", pipelineName, job.ID, jobInput)
 		}
 		panic("unreachable")
 		return nil
