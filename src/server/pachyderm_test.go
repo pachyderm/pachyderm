@@ -26,6 +26,7 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -2064,6 +2065,72 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestPipelineAutoScaledown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineAutoScaleDown")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline-auto-scaledown")
+	parallelism := 4
+	scaleDownThreshold := time.Duration(10 * time.Second)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"echo success",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: uint64(parallelism),
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/",
+			}},
+			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
+		})
+	require.NoError(t, err)
+
+	// Wait for the pipeline to scale down
+	time.Sleep(scaleDownThreshold + 5*time.Second)
+
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	rc := pipelineRc(t, pipelineInfo)
+	require.Equal(t, 0, int(rc.Spec.Replicas))
+
+	// Trigger a job
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	rc = pipelineRc(t, pipelineInfo)
+	require.Equal(t, parallelism, int(rc.Spec.Replicas))
+
+	// Wait for the pipeline to scale down
+	time.Sleep(scaleDownThreshold + 5*time.Second)
+
+	rc = pipelineRc(t, pipelineInfo)
+	require.Equal(t, 0, int(rc.Spec.Replicas))
+}
+
 func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2879,6 +2946,14 @@ func waitForReadiness(t testing.TB) {
 			}
 		}
 	}
+}
+
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
+	k := getKubeClient(t)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get(pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	require.NoError(t, err)
+	return result
 }
 
 func pachdRc(t testing.TB) *api.ReplicationController {
