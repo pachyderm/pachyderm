@@ -1312,7 +1312,9 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			if err != nil {
 				return err
 			}
-			scaleDownTimer.Stop()
+			if scaleDownTimer != nil {
+				scaleDownTimer.Stop()
+			}
 			runningJobSet[job.ID] = true
 			go a.watchJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
