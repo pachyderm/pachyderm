@@ -1626,7 +1626,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				if len(dts) > 0 {
 					select {
 					case wp.DataCh() <- dts[0]:
-						protolion.Infof("retrying datum %v", dts[0].files)
+						protolion.Infof("retrying datum %v", dts[0].inputs)
 						dts = dts[1:]
 					case dt := <-wp.FailCh():
 						dt.retries++
@@ -1634,7 +1634,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 							close(jobFailedCh)
 							return
 						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
+						protolion.Infof("datum %v is queued up for retry", dt.inputs)
 						dts = append(dts, dt)
 					case <-ctx.Done():
 						return
@@ -1647,7 +1647,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 							close(jobFailedCh)
 							return
 						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
+						protolion.Infof("datum %v is queued up for retry", dt.inputs)
 						dts = append(dts, dt)
 					case <-ctx.Done():
 						return
@@ -1657,7 +1657,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}()
 
 		// process all datums
-		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
+		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -1702,16 +1702,16 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}()
 
 		tree := hashtree.NewHashTree()
-		files := df.Next()
+		input := df.Next()
 		for {
 			var resp hashtree.HashTree
 			var failed bool
-			if files != nil {
+			if input != nil {
 				select {
 				case wp.DataCh() <- &datum{
-					files: files,
+					inputs: input,
 				}:
-					files = df.Next()
+					input = df.Next()
 					inflightData++
 				case resp = <-wp.SuccessCh():
 					inflightData--

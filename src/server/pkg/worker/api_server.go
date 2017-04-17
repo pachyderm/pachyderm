@@ -36,13 +36,6 @@ const (
 	maxLogItems = 10
 )
 
-// Input is a generic input object that can either be a pipeline input or
-// a job input.  It only defines the attributes that the worker cares about.
-type Input struct {
-	Name string
-	Lazy bool
-}
-
 // APIServer implements the worker API
 type APIServer struct {
 	processMu  sync.Mutex
@@ -50,7 +43,6 @@ type APIServer struct {
 
 	// Information needed to process input data and upload output
 	transform *pps.Transform
-	inputs    []*Input
 
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
@@ -59,7 +51,7 @@ type APIServer struct {
 	// The currently running job ID
 	jobID string
 	// The currently running data
-	data []*pfs.FileInfo
+	data []*Input
 	// The time we started the currently running
 	started time.Time
 	// Func to cancel the currently running datum
@@ -90,8 +82,8 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	// Add inputs' details to log metadata, so we can find these logs later
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.Datum{
-			Path: d.File.Path,
-			Hash: d.Hash,
+			Path: d.FileInfo.File.Path,
+			Hash: d.FileInfo.Hash,
 		})
 	}
 	return result
@@ -158,12 +150,6 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 		},
 		workerName: workerName,
 	}
-	for _, input := range pipelineInfo.Inputs {
-		server.inputs = append(server.inputs, &Input{
-			Name: input.Name,
-			Lazy: input.Lazy,
-		})
-	}
 	return server
 }
 
@@ -175,19 +161,13 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
-	for _, input := range jobInfo.Inputs {
-		server.inputs = append(server.inputs, &Input{
-			Name: input.Name,
-			Lazy: input.Lazy,
-		})
-	}
 	return server
 }
 
-func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) error {
-	for i, datum := range data {
-		input := a.inputs[i]
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, datum.File.Path), datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
+func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
+	for _, input := range inputs {
+		file := input.FileInfo.File
+		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, file.Path), file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -367,16 +347,16 @@ func (a *APIServer) cleanUpData() error {
 }
 
 // HashDatum computes and returns the hash of a datum + pipeline.
-func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
+func (a *APIServer) HashDatum(data []*Input) (string, error) {
 	hash := sha256.New()
-	for i, fileInfo := range data {
-		if _, err := hash.Write([]byte(a.inputs[i].Name)); err != nil {
+	for _, datum := range data {
+		if _, err := hash.Write([]byte(datum.Name)); err != nil {
 			return "", err
 		}
-		if _, err := hash.Write([]byte(fileInfo.File.Path)); err != nil {
+		if _, err := hash.Write([]byte(datum.FileInfo.File.Path)); err != nil {
 			return "", err
 		}
-		if _, err := hash.Write(fileInfo.Hash); err != nil {
+		if _, err := hash.Write(datum.FileInfo.Hash); err != nil {
 			return "", err
 		}
 	}
@@ -512,10 +492,10 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 
 func (a *APIServer) datum() []*pps.Datum {
 	var result []*pps.Datum
-	for _, fileInfo := range a.data {
+	for _, datum := range a.data {
 		result = append(result, &pps.Datum{
-			Path: fileInfo.File.Path,
-			Hash: fileInfo.Hash,
+			Path: datum.FileInfo.File.Path,
+			Hash: datum.FileInfo.Hash,
 		})
 	}
 	return result
