@@ -1307,9 +1307,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if jobInfo.Pipeline == nil {
 			// Create output repo for this job
 			var provenance []*pfs.Repo
-			for _, input := range jobInfo.Inputs {
-				provenance = append(provenance, input.Commit.Repo)
-			}
+			visit(jobInfo.Input, func(input *pps.Input) {
+				if input.Atom != nil {
+					provenance = append(provenance, input.Atom.Commit.Repo)
+				}
+			})
 			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 				Repo:       jobInfo.OutputRepo,
 				Provenance: provenance,
