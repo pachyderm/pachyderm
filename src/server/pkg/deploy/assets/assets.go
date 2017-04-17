@@ -64,30 +64,30 @@ type AssetOpts struct {
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
 	BlockCacheSize string
 
-	// PachdCPUFootprint is the amount of CPU we request for each pachd node. If
+	// PachdCPURequest is the amount of CPU we request for each pachd node. If
 	// empty, assets.go will choose a default size.
-	PachdCPUFootprint string
+	PachdCPURequest string
 
-	// PachdNonCacheMemFootprint is the amount of memory we request for each
+	// PachdNonCacheMemRequest is the amount of memory we request for each
 	// pachd node in addition to BlockCacheSize. If empty, assets.go will choose
 	// a default size.
-	PachdNonCacheMemFootprint string
+	PachdNonCacheMemRequest string
 
-	// EtcdCPUFootprint is the amount of CPU (in cores) we request for each etcd
+	// EtcdCPURequest is the amount of CPU (in cores) we request for each etcd
 	// node. If empty, assets.go will choose a default size.
-	EtcdCPUFootprint string
+	EtcdCPURequest string
 
-	// EtcdMemFootprint is the amount of memory we request for each etcd node. If
+	// EtcdMemRequest is the amount of memory we request for each etcd node. If
 	// empty, assets.go will choose a default size.
-	EtcdMemFootprint string
+	EtcdMemRequest string
 }
 
 // fillDefaultResourceRequests sets any of:
 //   opts.BlockCacheSize
-//   opts.PachdNonCacheMemFootprint
-//   opts.PachdCPUFootprint
-//   opts.EtcdCPUFootprint
-//   opts.EtcdMemFootprint
+//   opts.PachdNonCacheMemRequest
+//   opts.PachdCPURequest
+//   opts.EtcdCPURequest
+//   opts.EtcdMemRequest
 // that are unset in 'opts' to the appropriate default ('persistentDiskBackend'
 // just used to determine if this is a local deployment, and if so, make the
 // resource requests smaller)
@@ -95,40 +95,40 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 	if persistentDiskBackend == localBackend {
 		// For local deployments, we set the resource requirements and cache sizes
 		// low so that pachyderm clusters will fit inside e.g. minikube or travis
-		if len(opts.BlockCacheSize) == 0 {
+		if opts.BlockCacheSize == "" {
 			opts.BlockCacheSize = "256M"
 		}
-		if len(opts.PachdNonCacheMemFootprint) == 0 {
-			opts.PachdNonCacheMemFootprint = "256M"
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "256M"
 		}
-		if len(opts.PachdCPUFootprint) == 0 {
-			opts.PachdCPUFootprint = "0.25"
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "0.25"
 		}
 
-		if len(opts.EtcdMemFootprint) == 0 {
-			opts.EtcdMemFootprint = "256M"
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "256M"
 		}
-		if len(opts.EtcdCPUFootprint) == 0 {
-			opts.EtcdCPUFootprint = "0.25"
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "0.25"
 		}
 	} else {
 		// For non-local deployments, we set the resource requirements and cache
 		// sizes higher, so that the cluster is stable and performant
-		if len(opts.BlockCacheSize) == 0 {
+		if opts.BlockCacheSize == "" {
 			opts.BlockCacheSize = "5G"
 		}
-		if len(opts.PachdNonCacheMemFootprint) == 0 {
-			opts.PachdNonCacheMemFootprint = "2G"
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "2G"
 		}
-		if len(opts.PachdCPUFootprint) == 0 {
-			opts.PachdCPUFootprint = "1"
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "1"
 		}
 
-		if len(opts.EtcdMemFootprint) == 0 {
-			opts.EtcdMemFootprint = "2G"
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "2G"
 		}
-		if len(opts.EtcdCPUFootprint) == 0 {
-			opts.EtcdCPUFootprint = "1"
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "1"
 		}
 	}
 }
@@ -150,8 +150,8 @@ func ServiceAccount() *api.ServiceAccount {
 // PachdRc returns a pachd replication controller.
 func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
 	mem := resource.MustParse(opts.BlockCacheSize)
-	mem.Add(resource.MustParse(opts.PachdNonCacheMemFootprint))
-	cpu := resource.MustParse(opts.PachdCPUFootprint)
+	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
+	cpu := resource.MustParse(opts.PachdCPURequest)
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
@@ -376,8 +376,8 @@ func PachdService() *api.Service {
 
 // EtcdRc returns an etcd replication controller.
 func EtcdRc(opts *AssetOpts, hostPath string) *api.ReplicationController {
-	mem := resource.MustParse(opts.EtcdMemFootprint)
-	cpu := resource.MustParse(opts.EtcdCPUFootprint)
+	mem := resource.MustParse(opts.EtcdMemRequest)
+	cpu := resource.MustParse(opts.EtcdCPURequest)
 	var volumes []api.Volume
 	if hostPath == "" {
 		volumes = []api.Volume{
@@ -643,8 +643,8 @@ func EtcdHeadlessService() *api.Service {
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
 func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{} {
-	mem := resource.MustParse(opts.EtcdMemFootprint)
-	cpu := resource.MustParse(opts.EtcdCPUFootprint)
+	mem := resource.MustParse(opts.EtcdMemRequest)
+	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
 		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
