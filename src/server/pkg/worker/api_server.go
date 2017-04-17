@@ -45,7 +45,7 @@ type Input struct {
 
 // APIServer implements the worker API
 type APIServer struct {
-	sync.Mutex
+	processMu  sync.Mutex
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
@@ -55,6 +55,15 @@ type APIServer struct {
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
 
+	statusMu sync.Mutex
+	// The currently running job ID
+	jobID string
+	// The currently running data
+	data []*pfs.FileInfo
+	// The time we started the currently running
+	started time.Time
+	// Func to cancel the currently running datum
+	cancel func()
 	// The k8s pod name of this worker
 	workerName string
 }
@@ -79,11 +88,11 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = make([]*pps.Datum, 0, len(req.Data))
-	for i, d := range req.Data {
-		result.template.Data = append(result.template.Data, new(pps.Datum))
-		result.template.Data[i].Path = d.File.Path
-		result.template.Data[i].Hash = d.Hash
+	for _, d := range req.Data {
+		result.template.Data = append(result.template.Data, &pps.Datum{
+			Path: d.File.Path,
+			Hash: d.Hash,
+		})
 	}
 	return result
 }
@@ -140,10 +149,8 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:      sync.Mutex{},
 		pachClient: pachClient,
 		transform:  pipelineInfo.Transform,
-		inputs:     make([]*Input, 0, len(pipelineInfo.Inputs)),
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
@@ -163,10 +170,8 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 // NewJobAPIServer creates an APIServer for a given pipeline
 func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:          sync.Mutex{},
 		pachClient:     pachClient,
 		transform:      jobInfo.Transform,
-		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
@@ -193,14 +198,19 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
 	transform := a.transform
-	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
+	cmd := exec.CommandContext(ctx, transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
+	logger.Logf("running user code")
 	cmd.Env = environ
 	err := cmd.Run()
-	// Log output from user cmd, line-by-line, whether or not cmd errored
-	logger.Logf("running user code")
+	if err != nil {
+		logger.Logf("user code finished, err: %+v", err)
+	} else {
+		logger.Logf("user code finished", err)
+	}
+
 	// Return result
 	if err == nil {
 		return nil
@@ -385,8 +395,27 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
-	a.Lock()
-	defer a.Unlock()
+	a.processMu.Lock()
+	defer a.processMu.Unlock()
+	// set the status for the datum
+	ctx, cancel := context.WithCancel(ctx)
+	func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = req.JobID
+		a.data = req.Data
+		a.started = time.Now()
+		a.cancel = cancel
+	}()
+	// unset the status when this function exits
+	defer func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = ""
+		a.data = nil
+		a.started = time.Time{}
+		a.cancel = nil
+	}()
 	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
 
@@ -432,6 +461,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	err = a.runUserCode(ctx, logger, environ)
 	logger.Logf("finished processing user input")
 	if err != nil {
+		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
 			Failed: true,
 		}, nil
@@ -442,6 +472,53 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
+}
+
+// Status returns the status of the current worker.
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	started, err := types.TimestampProto(a.started)
+	if err != nil {
+		return nil, err
+	}
+	result := &pps.WorkerStatus{
+		JobID:    a.jobID,
+		WorkerID: a.workerName,
+		Started:  started,
+		Data:     a.datum(),
+	}
+	return result, nil
+}
+
+// Cancel cancels the currently running datum
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	if request.JobID != a.jobID {
+		return &CancelResponse{Success: false}, nil
+	}
+	if !MatchDatum(request.DataFilters, a.datum()) {
+		return &CancelResponse{Success: false}, nil
+	}
+	a.cancel()
+	// clear the status since we're no longer processing this datum
+	a.jobID = ""
+	a.data = nil
+	a.started = time.Time{}
+	a.cancel = nil
+	return &CancelResponse{Success: true}, nil
+}
+
+func (a *APIServer) datum() []*pps.Datum {
+	var result []*pps.Datum
+	for _, fileInfo := range a.data {
+		result = append(result, &pps.Datum{
+			Path: fileInfo.File.Path,
+			Hash: fileInfo.Hash,
+		})
+	}
+	return result
 }
 
 func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
