@@ -93,6 +93,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			manifest := &bytes.Buffer{}
+			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}

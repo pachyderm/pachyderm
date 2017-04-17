@@ -148,10 +148,10 @@ launch-dev-bench: docker-build docker-build-test install
 
 push-bench-images: install
 	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_pachd pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`-`git log | head -n 1 | cut -f 2 -d " "`
-	docker push pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`-`git log | head -n 1 | cut -f 2 -d " "`
-	docker tag pachyderm_worker pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`-`git log | head -n 1 | cut -f 2 -d " "`
-	docker push pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`-`git log | head -n 1 | cut -f 2 -d " "`
+	docker tag pachyderm_pachd pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_worker pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	

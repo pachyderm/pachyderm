@@ -80,6 +80,22 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 	fmt.Fprintf(w, "%t\t\n", jobInput.Lazy)
 }
 
+// PrintWorkerStatusHeader pretty prints a worker status header.
+func PrintWorkerStatusHeader(w io.Writer) {
+	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\t\n")
+}
+
+// PrintWorkerStatus pretty prints a worker status.
+func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus) {
+	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
+	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
+	for _, datum := range workerStatus.Data {
+		fmt.Fprintf(w, datum.Path)
+	}
+	fmt.Fprintf(w, "\t")
+	fmt.Fprintf(w, "%s\t\n", pretty.Ago(workerStatus.Started))
+}
+
 // PrintPipelineInputHeader prints a pipeline input header.
 func PrintPipelineInputHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tREPO\tBRANCH\tGLOB\tLAZY\t\n")
@@ -112,7 +128,8 @@ Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyDuration .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Progress: {{.DataProcessed}} / {{.DataTotal}}
-Restarts: {{.Restart}}
+Worker Status:
+{{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
@@ -163,7 +180,7 @@ Job Counts:
 func jobState(jobState ppsclient.JobState) string {
 	switch jobState {
 	case ppsclient.JobState_JOB_STARTING:
-		return color.New(color.FgYellow).SprintFunc()("pulling")
+		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
 	case ppsclient.JobState_JOB_FAILURE:
@@ -204,6 +221,18 @@ func jobInputs(jobInfo *ppsclient.JobInfo) string {
 	return buffer.String()
 }
 
+func workerStatus(jobInfo *ppsclient.JobInfo) string {
+	var buffer bytes.Buffer
+	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	PrintWorkerStatusHeader(writer)
+	for _, workerStatus := range jobInfo.WorkerStatus {
+		PrintWorkerStatus(writer, workerStatus)
+	}
+	// can't error because buffer can't error on Write
+	writer.Flush()
+	return buffer.String()
+}
+
 func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
 	var buffer bytes.Buffer
 	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
@@ -235,6 +264,7 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 var funcMap = template.FuncMap{
 	"pipelineState":   pipelineState,
 	"jobState":        jobState,
+	"workerStatus":    workerStatus,
 	"pipelineInputs":  pipelineInputs,
 	"jobInputs":       jobInputs,
 	"prettyAgo":       pretty.Ago,
