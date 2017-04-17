@@ -204,6 +204,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			OutputCommit:    nil,
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
+			Resources:       request.Resources,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -217,6 +218,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
+			jobInfo.Resources = pipelineInfo.Resources
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -540,6 +542,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		GcPolicy:        request.GcPolicy,
 		Egress:          request.Egress,
 		CreatedAt:       now(),
+		Resources:       request.Resources,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {

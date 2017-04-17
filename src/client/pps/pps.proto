@@ -116,6 +116,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
+  ResourceSpec resources = 24;
 }
 
 enum WorkerState {
@@ -175,6 +176,18 @@ message GCPolicy {
   google.protobuf.Duration failure = 2;
 }
 
+// ResourceSpec describes the amount of resources that pipeline pods should
+// request from kubernetes, for scheduling.
+message ResourceSpec {
+  // The number of CPUs each worker needs (partial values are allowed, and
+  // encouraged)
+  float cpu = 1;
+
+  // The amount of memory, in bytes, each worker needs (in bytes, with allowed
+	// SI suffixes (M, K, G, Mi, Ki, Gi, etc).
+  string memory = 2;
+}
+
 message PipelineInfo {
   reserved 3;
   string id = 17 [(gogoproto.customname) = "ID"];
@@ -191,6 +204,7 @@ message PipelineInfo {
   GCPolicy gc_policy = 12;
   bool stopped = 13;
   string outputBranch = 16;
+  ResourceSpec resources = 18;
 }
 
 message PipelineInfos {
@@ -198,7 +212,6 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  // next field value: 12
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
@@ -212,6 +225,7 @@ message CreateJobRequest {
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
   Job parent_job = 13;
+  ResourceSpec resources = 14;
 }
 
 message InspectJobRequest {
@@ -275,6 +289,7 @@ message CreatePipelineRequest {
   bool update = 5;
   GCPolicy gc_policy = 8;
   string outputBranch = 10;
+  ResourceSpec resources = 11;
 }
 
 message InspectPipelineRequest {
