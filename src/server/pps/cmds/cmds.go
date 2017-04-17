@@ -301,6 +301,33 @@ Examples:
 		}),
 	}
 
+	restartDatum := &cobra.Command{
+		Use:   "restart-datum job-id datum-path1,datum-path2",
+		Short: "Restart a datum.",
+		Long:  "Restart a datum.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+			}
+			datumFilter := strings.Split(args[1], ",")
+			for i := 0; i < len(datumFilter); {
+				if len(datumFilter[i]) == 0 {
+					if i+1 < len(datumFilter) {
+						copy(datumFilter[i:], datumFilter[i+1:])
+					}
+					datumFilter = datumFilter[:len(datumFilter)-1]
+				} else {
+					i++
+				}
+			}
+			if err := client.RestartDatum(args[0], datumFilter); err != nil {
+				return sanitizeErr(err)
+			}
+			return nil
+		}),
+	}
+
 	var (
 		jobID       string
 		commaInputs string // comma-separated list of input files of interest
@@ -632,6 +659,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, restartDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)

@@ -156,12 +156,37 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 	return jobInfos.JobInfo, nil
 }
 
-// DeleteJob deletes a job along with its output Repo
+// DeleteJob deletes a job.
 func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
 		c.ctx(),
 		&pps.DeleteJobRequest{
 			Job: NewJob(jobID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// StopJob stops a job.
+func (c APIClient) StopJob(jobID string) error {
+	_, err := c.PpsAPIClient.StopJob(
+		c.ctx(),
+		&pps.StopJobRequest{
+			Job: NewJob(jobID),
+		},
+	)
+	return sanitizeErr(err)
+}
+
+// RestartDatum restarts a datum that's being processed as part of a job.
+// datumFilter is a slice of strings which are matched against either the Path
+// or Hash of the datum, the order of the strings in datumFilter is irrelevant.
+func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
+	_, err := c.PpsAPIClient.RestartDatum(
+		c.ctx(),
+		&pps.RestartDatumRequest{
+			Job:         NewJob(jobID),
+			DataFilters: datumFilter,
 		},
 	)
 	return sanitizeErr(err)

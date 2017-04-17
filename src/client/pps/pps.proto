@@ -116,6 +116,14 @@ message Datum {
   bytes hash = 5;
 }
 
+message WorkerStatus {
+  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  repeated pps.Datum data = 3;
+  // Started is the time processing on the current datum began.
+  google.protobuf.Timestamp started = 4;
+}
+
 message JobInfo {
   reserved 4;
   Job job = 1;
@@ -138,7 +146,8 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
-  Input input = 24;
+  repeated WorkerStatus worker_status = 24;
+  Input input = 25;
 }
 
 enum WorkerState {
@@ -188,16 +197,6 @@ enum PipelineState {
   PIPELINE_STOPPED = 4;
 }
 
-// GCPolicy describes when jobs can be garbage-collected.
-message GCPolicy {
-  // The amount of time that needs to pass before a successful job
-  // can be GC-ed.
-  google.protobuf.Duration success = 1;
-  // The amount of time that needs to pass before a failed job
-  // can be GC-ed.
-  google.protobuf.Duration failure = 2;
-}
-
 message PipelineInfo {
   reserved 3;
   string id = 17 [(gogoproto.customname) = "ID"];
@@ -211,10 +210,10 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
-  GCPolicy gc_policy = 12;
   bool stopped = 13;
   string outputBranch = 16;
-  Input input = 18;
+  google.protobuf.Duration scaleDownThreshold = 18;
+  Input input = 19;
 }
 
 message PipelineInfos {
@@ -250,6 +249,10 @@ message ListJobRequest {
 }
 
 message DeleteJobRequest {
+  Job job = 1;
+}
+
+message StopJobRequest {
   Job job = 1;
 }
 
@@ -290,6 +293,11 @@ message LogMessage {
   string message = 6;
 }
 
+message RestartDatumRequest {
+  Job job = 1;
+  repeated string data_filters = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
@@ -298,9 +306,9 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   Egress egress = 9;
   bool update = 5;
-  GCPolicy gc_policy = 8;
   string outputBranch = 10;
-  Input input = 11;
+  google.protobuf.Duration scaleDownThreshold = 11;
+  Input input = 12;
 }
 
 message InspectPipelineRequest {
@@ -334,6 +342,8 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
