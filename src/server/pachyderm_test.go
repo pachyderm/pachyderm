@@ -2773,6 +2773,96 @@ func TestSystemResourceRequests(t *testing.T) {
 	}
 }
 
+// TODO(msteffen) Refactor other tests to use this helper
+func PutFileAndFlush(t *testing.T, repo, branch, filepath, contents string) {
+	// This may be a bit wasteful, since the calling test likely has its own
+	// client, but for a test the overhead seems acceptable (and the code is
+	// shorter)
+	c := getPachClient(t)
+
+	commit, err := c.StartCommit(repo, branch)
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, filepath, strings.NewReader(contents))
+	require.NoError(t, err)
+
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, err)
+}
+
+// TestPipelineResourceRequest creates a pipeline with a resource request, and
+// makes sure that's passed to k8s (by inspecting the pipeline's pods)
+func TestPipelineResourceRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceRequest")
+	pipelineName := uniqueString("TestPipelineResourceRequest_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&ppsclient.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &ppsclient.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &ppsclient.ParallelismSpec{
+				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Resources: &ppsclient.Resources{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Inputs: []*ppsclient.PipelineInput{{
+				Repo:   &pfsclient.Repo{dataRepo},
+				Branch: "master",
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+	PutFileAndFlush(t, dataRepo, "master", "file", "foo\n")
+
+	// Get jobInfos from pachyderm so we can find the job pods with the k8s client
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	// Get info about the job pods from k8s & check for resources
+	kubeClient := getKubeClient(t)
+	retries := 10
+	for i := 0; i < retries; i++ {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": jobInfos[0].Job.ID}),
+		})
+		// TODO(msteffen): Is there a more robust way to do this? We want to query
+		// kubernetes after the job is created and before the job is deleted.
+		if err != nil {
+			time.Sleep(500 * time.Millisecond)
+			continue // retry
+		}
+		for _, p := range podList.Items {
+			for _, container := range p.Spec.Containers {
+				// Make sure a CPU and Memory request are both set
+				cpu, ok := container.Resources.Requests[api.ResourceCPU]
+				require.True(t, ok)
+				require.Equal(t, "500m", cpu.String())
+				mem, ok := container.Resources.Requests[api.ResourceMemory]
+				require.True(t, ok)
+				require.Equal(t, "100M", mem.String())
+			}
+		}
+		break // no more retries needed
+	}
+	require.NoError(t, err)
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
