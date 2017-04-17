@@ -27,7 +27,7 @@ const (
 )
 
 type datum struct {
-	files   []*pfs.FileInfo
+	inputs  []*workerpkg.Input
 	retries int
 }
 
@@ -179,29 +179,29 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 			}()
 			resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 				JobID: w.jobID,
-				Data:  dt.files,
+				Data:  dt.inputs,
 			})
 			if err != nil {
-				return fmt.Errorf("worker %s failed to process datum %v with error %s", addr, dt.files, err)
+				return fmt.Errorf("worker %s failed to process datum %v with error %s", addr, dt.inputs, err)
 			}
 			if resp.Tag != nil {
 				var buffer bytes.Buffer
 				getTagClient, err := w.objClient.GetTag(ctx, &pfs.Tag{resp.Tag.Name})
 				if err != nil {
-					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.files, err)
+					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.inputs, err)
 				}
 				if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
-					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.files, err)
+					return fmt.Errorf("failed to retrieve hashtree after worker %s has ostensibly processed the datum %v: %v", addr, dt.inputs, err)
 				}
 				tree, err := hashtree.Deserialize(buffer.Bytes())
 				if err != nil {
-					return fmt.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug: %v", addr, dt.files, err)
+					return fmt.Errorf("failed to serialize hashtree after worker %s has ostensibly processed the datum %v; this is likely a bug: %v", addr, dt.inputs, err)
 				}
 				w.successCh <- tree
 			} else if resp.Failed {
-				return fmt.Errorf("user code failed to process datum %v", dt.files)
+				return fmt.Errorf("user code failed to process datum %v", dt.inputs)
 			} else {
-				return fmt.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", addr, dt.files)
+				return fmt.Errorf("unrecognized response from worker %s when processing datum %v; this is likely a bug", addr, dt.inputs)
 			}
 			return nil
 		}()
