@@ -2980,8 +2980,8 @@ func PutFileAndFlush(t *testing.T, repo, branch, filepath, contents string) {
 	_, err = c.PutFile(repo, commit.ID, filepath, strings.NewReader(contents))
 	require.NoError(t, err)
 
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	_, err = c.FlushCommit([]*pfsclient.Commit{commit}, nil)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 }
 
@@ -3001,21 +3001,21 @@ func TestPipelineResourceRequest(t *testing.T) {
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
-		&ppsclient.CreatePipelineRequest{
+		&pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{pipelineName},
-			Transform: &ppsclient.Transform{
+			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
-			ParallelismSpec: &ppsclient.ParallelismSpec{
-				Strategy: ppsclient.ParallelismSpec_CONSTANT,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			Resources: &ppsclient.Resources{
+			Resources: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
-			Inputs: []*ppsclient.PipelineInput{{
-				Repo:   &pfsclient.Repo{dataRepo},
+			Inputs: []*pps.PipelineInput{{
+				Repo:   &pfs.Repo{dataRepo},
 				Branch: "master",
 				Glob:   "/*",
 			}},
