@@ -284,9 +284,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
+		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
 	}
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
@@ -388,9 +388,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
+		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
 	}
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
@@ -1113,7 +1113,7 @@ func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
 
 func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, parallelismSpec *pps.ParallelismSpec) error {
 	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(deploaymentName)
+	workerDeployment, err := deployment.Get(deploymentName)
 	if err != nil {
 		return err
 	}
@@ -1122,7 +1122,7 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 		return err
 	}
 	workerDeployment.Spec.Replicas = int32(parallelism)
-	_, err = deployment.Update(workerRc)
+	_, err = deployment.Update(workerDeployment)
 	return err
 }
 
@@ -1252,7 +1252,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// because it might happen that the timer expired while
 				// we were creating a job.
 				if len(runningJobSet) == 0 {
-					if err := a.scaleDownWorkers(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
+					if err := a.scaleDownWorkers(ctx, PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
 						return err
 					}
 				}
@@ -1479,7 +1479,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			// that the job will have workers to use.  Note that scaling
 			// a deployment is idempotent: nothing happens if the workers have
 			// already been scaled.
-			rcName := PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+			deploymentName := PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 			if err := a.scaleUpWorkers(ctx, deploymentName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
