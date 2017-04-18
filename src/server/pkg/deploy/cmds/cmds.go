@@ -43,11 +43,11 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var secure bool
 	var etcdNodes int
 	var etcdVolume string
-	var pachdCPUFootprint string
-	var pachdNonCacheMemFootprint string
+	var pachdCPURequest string
+	var pachdNonCacheMemRequest string
 	var blockCacheSize string
-	var etcdCPUFootprint string
-	var etcdMemFootprint string
+	var etcdCPURequest string
+	var etcdMemRequest string
 	var logLevel string
 	var persistentDiskBackend string
 	var objectStoreBackend string
@@ -93,6 +93,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			manifest := &bytes.Buffer{}
+			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}
@@ -191,17 +192,17 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
-				PachdShards:               uint64(pachdShards),
-				Version:                   version.PrettyPrintVersion(version.Version),
-				LogLevel:                  logLevel,
-				Metrics:                   metrics,
-				PachdCPUFootprint:         pachdCPUFootprint,
-				PachdNonCacheMemFootprint: pachdNonCacheMemFootprint,
-				BlockCacheSize:            blockCacheSize,
-				EtcdCPUFootprint:          etcdCPUFootprint,
-				EtcdMemFootprint:          etcdMemFootprint,
-				EtcdNodes:                 etcdNodes,
-				EtcdVolume:                etcdVolume,
+				PachdShards:             uint64(pachdShards),
+				Version:                 version.PrettyPrintVersion(version.Version),
+				LogLevel:                logLevel,
+				Metrics:                 metrics,
+				PachdCPURequest:         pachdCPURequest,
+				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
+				BlockCacheSize:          blockCacheSize,
+				EtcdCPURequest:          etcdCPURequest,
+				EtcdMemRequest:          etcdMemRequest,
+				EtcdNodes:               etcdNodes,
+				EtcdVolume:              etcdVolume,
 			}
 			return nil
 		}),
@@ -224,22 +225,22 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	// All of these are empty by default, because the actual default values depend
 	// on the backend to which we're. The defaults are set in
 	// s/s/pkg/deploy/assets/assets.go
-	deploy.PersistentFlags().StringVar(&pachdCPUFootprint,
+	deploy.PersistentFlags().StringVar(&pachdCPURequest,
 		"pachd-cpu-footprint", "", "(rarely set) The size of Pachd's CPU "+
 			"footprint, which we give to Kubernetes. Size is in cores (with partial "+
 			"cores allowed and encouraged).")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
 		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
 			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&pachdNonCacheMemFootprint,
+	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
 		"pachd-memory-footprint", "", "(rarely set) The size of PachD's memory "+
 			"footprint in addition to its block cache (set via --block-cache-size). "+
 			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
-	deploy.PersistentFlags().StringVar(&etcdCPUFootprint,
+	deploy.PersistentFlags().StringVar(&etcdCPURequest,
 		"etcd-cpu-footprint", "", "(rarely set) The size of etcd's CPU footprint, "+
 			"which we give to Kubernetes. Size is in cores (with partial cores "+
 			"allowed and encouraged).")
-	deploy.PersistentFlags().StringVar(&etcdMemFootprint,
+	deploy.PersistentFlags().StringVar(&etcdMemRequest,
 		"etcd-memory-footprint", "", "(rarely set) The size of etcd's memory "+
 			"footprint. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 			"etc).")

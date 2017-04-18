@@ -26,6 +26,7 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -2064,6 +2065,72 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestPipelineAutoScaledown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineAutoScaleDown")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline-auto-scaledown")
+	parallelism := 4
+	scaleDownThreshold := time.Duration(10 * time.Second)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"echo success",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: uint64(parallelism),
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/",
+			}},
+			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
+		})
+	require.NoError(t, err)
+
+	// Wait for the pipeline to scale down
+	time.Sleep(scaleDownThreshold + 5*time.Second)
+
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	rc := pipelineRc(t, pipelineInfo)
+	require.Equal(t, 0, int(rc.Spec.Replicas))
+
+	// Trigger a job
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	rc = pipelineRc(t, pipelineInfo)
+	require.Equal(t, parallelism, int(rc.Spec.Replicas))
+
+	// Wait for the pipeline to scale down
+	time.Sleep(scaleDownThreshold + 5*time.Second)
+
+	rc = pipelineRc(t, pipelineInfo)
+	require.Equal(t, 0, int(rc.Spec.Replicas))
+}
+
 func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2476,6 +2543,74 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 	err = c.DeleteJob(jobInfos[0].Job.ID)
 	require.NoError(t, err)
+}
+
+func TestStopJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestStopJob")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline-stop-job")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sleep", "10"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		[]*pps.PipelineInput{{
+			Name: dataRepo,
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/",
+		}},
+		"",
+		false,
+	))
+
+	// Create two input commits to trigger two jobs.
+	// We will stop the first job midway through, and assert that the
+	// second job finishes.
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	// Wait for the first job to start running
+	time.Sleep(5 * time.Second)
+
+	// Check that the first job is running and the second is starting
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[0].State)
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
+
+	// Now stop the first job
+	err = c.StopJob(jobInfos[1].Job.ID)
+	require.NoError(t, err)
+	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+
+	// Check that the second job completes
+	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -3012,6 +3147,14 @@ func waitForReadiness(t testing.TB) {
 	}
 }
 
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
+	k := getKubeClient(t)
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get(pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	require.NoError(t, err)
+	return result
+}
+
 func pachdRc(t testing.TB) *api.ReplicationController {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
@@ -3069,8 +3212,6 @@ func scalePachd(t testing.TB) {
 }
 
 func getKubeClient(t testing.TB) *kube.Client {
-	// TODO(msteffen): make this read from kubeconfig or something. Otherwise,
-	// this can't run against remote clusters or minikube.
 	config := &kube_client.Config{
 		Host:     "http://0.0.0.0:8080",
 		Insecure: false,
