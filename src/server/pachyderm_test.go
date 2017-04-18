@@ -3016,15 +3016,15 @@ func waitForReadiness(t testing.TB) {
 	}
 }
 
-func pipelineDeployment(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
+func pipelineDeployment(t testing.TB, pipelineInfo *pps.PipelineInfo) *extensions.Deployment {
 	k := getKubeClient(t)
 	deployment := k.Extensions().Deployments(api.NamespaceDefault)
-	result, err := deployment.Get(pps_server.pipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	result, err := deployment.Get(pps_server.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 	require.NoError(t, err)
 	return result
 }
 
-func pachdDeployment(t testing.TB) *api.ReplicationController {
+func pachdDeployment(t testing.TB) *extensions.Deployment {
 	k := getKubeClient(t)
 	result, err := k.Extensions().Deployments(api.NamespaceDefault).Get("pachd")
 	require.NoError(t, err)
@@ -3055,9 +3055,9 @@ func scalePachdRandom(t testing.TB, up bool) {
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
 	fmt.Printf("scaling pachd to %d replicas\n", n)
-	pachdRc := pachdDeployment(t)
-	pachdRc.Spec.Replicas = int32(n)
-	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdRc)
+	pachdDeployment := pachdDeployment(t)
+	pachdDeployment.Spec.Replicas = int32(n)
+	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
 	// Unfortunately, even when all pods are ready, the cluster membership
