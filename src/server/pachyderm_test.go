@@ -2544,7 +2544,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestStopJob(t *testing.T) {
+func TestKillJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2552,7 +2552,7 @@ func TestStopJob(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestStopJob")
+	dataRepo := uniqueString("TestKillJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline-stop-job")
@@ -2600,7 +2600,7 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[1].Job.ID)
+	err = c.KillJob(jobInfos[1].Job.ID)
 	require.NoError(t, err)
 	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
 	require.NoError(t, err)
