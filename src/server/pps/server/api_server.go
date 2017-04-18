@@ -1101,13 +1101,13 @@ func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCom
 }
 
 func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
-	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(rcName)
+	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
+	workerDeployment, err := deployment.Get(rcName)
 	if err != nil {
 		return err
 	}
-	workerRc.Spec.Replicas = 0
-	_, err = rc.Update(workerRc)
+	workerDeployment.Spec.Replicas = 0
+	_, err = deployment.Update(workerDeployment)
 	return err
 }
 
