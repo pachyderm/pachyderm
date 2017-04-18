@@ -5,9 +5,12 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -19,6 +22,8 @@ import (
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 )
+
+var defaultDashImage = "pachyderm/dash:0.3.14"
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
@@ -48,6 +53,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -195,6 +201,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				BlockCacheSize: blockCacheSize,
 				EtcdNodes:      etcdNodes,
 				EtcdVolume:     etcdVolume,
+				DashImage:      dashImage,
 			}
 			return nil
 		}),
@@ -206,6 +213,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
 		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", getDefaultDashImage(), "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
@@ -283,4 +291,19 @@ unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
 	return []*cobra.Command{deploy, undeploy}
+}
+
+func getDefaultDashImage() string {
+	// Try to get the latest according to our pachctl version, or fall back to the encoded default
+	url := fmt.Sprintf("https://pachyderm.io/versions/dash/%v.%v/latest", version.MajorVersion, version.MinorVersion)
+	resp, err := http.Get(url)
+	if err != nil {
+		return defaultDashImage
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return defaultDashImage
+	}
+	return fmt.Sprintf("pachyderm/dash:%v", strings.TrimSpace(string(body)))
 }
