@@ -125,42 +125,35 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	var port int
+	var uiPort int
+	var uiWebsocketPort int
 	var kubeCtlFlags string
 	portForward := &cobra.Command{
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			stdin := strings.NewReader(fmt.Sprintf(`
+
+			var eg errgroup.Group
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
-			fmt.Println("Port forwarded, CTRL-C to exit.")
-			return cmdutil.RunIO(cmdutil.IO{
-				Stdin:  stdin,
-				Stderr: os.Stderr,
-			}, "sh")
-		}),
-	}
-	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
-	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
-
-	var uiPort int
-	var uiWebsocketPort int
-	var uiKubeCtlFlags string
-	portForwardUI := &cobra.Command{
-		Use:   "port-forward-ui",
-		Short: "Forward a port on the local machine to pachyderm dash. This command blocks.",
-		Long:  "Forward a port on the local machine to pachyderm dash. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			var eg errgroup.Group
+				fmt.Println("Port forwarded, CTRL-C to exit.")
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
 
 			eg.Go(func() error {
 				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8080
-`, uiKubeCtlFlags, uiKubeCtlFlags, uiPort))
-				fmt.Printf("Dash UI Port forwarded, navigate to localhost:%v, CTRL-C to exit.", uiPort)
+`, kubeCtlFlags, kubeCtlFlags, uiPort))
+				fmt.Printf("Dash UI Port forwarded, navigate to localhost:%v", uiPort)
 				return cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stderr: os.Stderr,
@@ -171,7 +164,7 @@ kubectl %v port-forward "$pod" %d:8080
 				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8081
-`, uiKubeCtlFlags, uiKubeCtlFlags, uiWebsocketPort))
+`, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
 				fmt.Println("Websocket Port forwarded")
 				return cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
@@ -182,14 +175,14 @@ kubectl %v port-forward "$pod" %d:8081
 			return eg.Wait()
 		}),
 	}
-	portForwardUI.Flags().IntVarP(&uiPort, "port", "p", 38080, "The local port to bind to.")
-	portForwardUI.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 32082, "The local port to bind to.")
-	portForwardUI.Flags().StringVarP(&uiKubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
+	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 38080, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 32082, "The local port to bind to.")
+	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
-	rootCmd.AddCommand(portForwardUI)
 	return rootCmd, nil
 }
 
