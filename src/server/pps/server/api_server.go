@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	kube_labels "k8s.io/kubernetes/pkg/labels"
@@ -599,7 +600,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Egress:             request.Egress,
 		CreatedAt:          now(),
 		ScaleDownThreshold: request.ScaleDownThreshold,
-		Resources:       request.Resources,
+		Resources:          request.Resources,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -1768,14 +1769,38 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
+func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
+	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
+	}
+	memQuantity, err := resource.ParseQuantity(resources.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
+	}
+	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
+		api.ResourceCPU:    cpuQuantity,
+		api.ResourceMemory: memQuantity,
+	}
+	return &result, nil
+}
+
 func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 	parallelism, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
+	var resources *api.ResourceList
+	if jobInfo.Resources != nil {
+		resources, err = parseResourceList(jobInfo.Resources)
+		if err != nil {
+			return err
+		}
+	}
 	options := a.getWorkerOptions(
 		JobRcName(jobInfo.Job.ID),
 		int32(parallelism),
+		resources,
 		jobInfo.Transform)
 	// Set the job name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
@@ -1790,9 +1815,17 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	if err != nil {
 		return err
 	}
+	var resources *api.ResourceList
+	if pipelineInfo.Resources != nil {
+		resources, err = parseResourceList(pipelineInfo.Resources)
+		if err != nil {
+			return err
+		}
+	}
 	options := a.getWorkerOptions(
 		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
+		resources,
 		pipelineInfo.Transform)
 	// Set the pipeline name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
