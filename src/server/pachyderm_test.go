@@ -585,26 +585,19 @@ func TestPipelineFailure(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numCommits := 10
-	for i := 0; i < numCommits; i++ {
-		commit, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	}
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipeline := uniqueString("pipeline")
-	errMsg := "error message"
 	// This pipeline fails half the times
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("echo '%s'", errMsg),
-			"exit $(($RANDOM % 2))",
-		},
+		[]string{"exit 1"},
+		nil,
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
@@ -616,27 +609,16 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
-
-	// Wait for the jobs to spawn
 	time.Sleep(20 * time.Second)
-
 	jobInfos, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
-	require.Equal(t, numCommits, len(jobInfos))
-
-	var failed bool
-	for _, jobInfo := range jobInfos {
-		// Wait for the job to finish
-		jobInfo, err := c.InspectJob(jobInfo.Job.ID, true)
-		require.NoError(t, err)
-
-		require.EqualOneOf(t, []interface{}{pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE}, jobInfo.State)
-		if jobInfo.State == pps.JobState_JOB_FAILURE {
-			failed = true
-		}
-	}
-	// Some of the jobs should've failed
-	require.True(t, failed)
+	require.Equal(t, 1, len(jobInfos))
+	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
@@ -2730,6 +2712,84 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	// should be 8 because each file gets copied twice due to cross product
 	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
+}
+
+func TestDatumStatusRestart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestDatumDedup_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	// This pipeline sleeps for 20 secs per datum
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 20",
+		},
+		nil,
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	var jobID string
+	var datumStarted time.Time
+	checkStatus := func() {
+		started := time.Now()
+		for {
+			fmt.Printf("checking status\n")
+			time.Sleep(time.Second)
+			if time.Since(started) > time.Second*30 {
+				t.Fatalf("failed to find status in time")
+			}
+			jobs, err := c.ListJob(pipeline, nil)
+			require.NoError(t, err)
+			if len(jobs) == 0 {
+				continue
+			}
+			jobID = jobs[0].Job.ID
+			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+			require.NoError(t, err)
+			fmt.Printf("jobInfo %+v\n", jobInfo)
+			if len(jobInfo.WorkerStatus) == 0 {
+				continue
+			}
+			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
+				// This method is called before and after the datum is
+				// restarted, this makes sure that the restart actually did
+				// something.
+				// The first time this function is called, datumStarted is zero
+				// so `Before` is true for any non-zero time.
+				_datumStarted, err := types.TimestampFromProto(jobInfo.WorkerStatus[0].Started)
+				require.NoError(t, err)
+				require.True(t, datumStarted.Before(_datumStarted))
+				datumStarted = _datumStarted
+				break
+			}
+		}
+	}
+	checkStatus()
+	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
+	checkStatus()
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
