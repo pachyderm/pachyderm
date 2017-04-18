@@ -5,7 +5,7 @@ and as such, it's not possible to map 1.3 data and pipelines 1-to-1 with
 equivalents in 1.4. The biggest change between 1.3 and 1.4 concerns large
 files. In 1.3, it was possible to store very large files and parallelize
 directly over them. While this was convenient for a number of cases, it
-wound up iteracting in confusing ways with the filesystem layouts we use
+wound up interacting in confusing ways with the filesystem layouts we use
 for data processing and with our incrementality features. It also felt
 a little too magical because it abstracted key details of how computations
 would be parallelized away from the user. In 1.4, files can still be large,
@@ -49,7 +49,7 @@ NOTE: Now is when you need to think about how you want to
 parallelize over your data. If your repo contains large files which were
 processed in 1.3 with `BLOCK` or `MAP` pipelines, then you should use the
 `--split` flag in your `put-file` invocation to split the data up now.
-Refer to the [`put-file` docs](../../doc/pachctl/pachctl_put-file) to learn more about `--split` works.
+Refer to the [`put-file` docs](../../doc/pachctl/pachctl_put-file.html) to learn more about `--split` works.
 
 After data has been migrated, you can safely shut down the 1.3 cluster.
 
@@ -59,7 +59,7 @@ After data has been migrated, you can safely shut down the 1.3 cluster.
 
 By far the biggest change to the Pipeline Spec is to the `inputs` field. Inputs
 no longer have a `method` field. Instead, they specify how their inputs can be
-parallelized using a glob pattern. [Read more about glob patterns here](../../doc/reference/pipeline_spec#the-input-glob-pattern).
+parallelized using a glob pattern. [Read more about glob patterns here](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html).
 
 The partitions available in 1.3 match to glob patterns like so:
 

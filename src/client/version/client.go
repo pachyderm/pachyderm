@@ -12,7 +12,7 @@ const (
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 4
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 1
+	MicroVersion = 4
 )
 
 var (
