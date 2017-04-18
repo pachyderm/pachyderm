@@ -10,9 +10,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	api "k8s.io/kubernetes/pkg/api/v1"
+	// k8s.io/kubernetes/pkg/api/v1 is very similar to
+	// "k8s.io/kubernetes/pkg/api" above, we import both because services need
+	// to use v1 otherwise they get empty fields that make them invalid to
+	// kubectl, we need the api version to interact correctly with deployments
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
@@ -25,6 +31,10 @@ var (
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
+	dashName                = "dash"
+	dashImage               = "pachyderm/dash"
+	grpcProxyName           = "grpc-proxy"
+	grpcProxyImage          = "pachyderm/grpc-proxy"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -62,6 +72,7 @@ type AssetOpts struct {
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks.
 	BlockCacheSize string
+	noDash         bool
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -79,7 +90,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 // PachdRc returns a pachd replication controller.
-func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
+func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
@@ -166,22 +177,21 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": pachdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(pachdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   pachdName,
 					Labels: labels(pachdName),
@@ -265,22 +275,22 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 }
 
 // PachdService returns a pachd service.
-func PachdService() *api.Service {
-	return &api.Service{
+func PachdService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     650,
 					Name:     "api-grpc-port",
@@ -297,7 +307,7 @@ func PachdService() *api.Service {
 }
 
 // EtcdRc returns an etcd replication controller.
-func EtcdRc(hostPath string) *api.ReplicationController {
+func EtcdRc(hostPath string) *extensions.Deployment {
 	var volumes []api.Volume
 	if hostPath == "" {
 		volumes = []api.Volume{
@@ -322,22 +332,21 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			},
 		}
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": etcdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(etcdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   etcdName,
 					Labels: labels(etcdName),
@@ -498,26 +507,26 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
 // pods talk to etcd
-func EtcdNodePortService(local bool) *api.Service {
+func EtcdNodePortService(local bool) *v1.Service {
 	var clientNodePort int32
 	if local {
 		clientNodePort = 32379
 	}
-	return &api.Service{
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     2379,
 					Name:     "client-port",
@@ -530,22 +539,22 @@ func EtcdNodePortService(local bool) *api.Service {
 
 // EtcdHeadlessService returns a headless etcd service, which is only for DNS
 // resolution.
-func EtcdHeadlessService() *api.Service {
-	return &api.Service{
+func EtcdHeadlessService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdHeadlessServiceName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
+		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app": etcdName,
 			},
 			ClusterIP: "None",
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Name: "peer-port",
 					Port: 2380,
@@ -683,6 +692,87 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
+		},
+	}
+}
+
+// DashDeployment creates a Deployment for the pachyderm dashboard.
+func DashDeployment() *extensions.Deployment {
+	return &extensions.Deployment{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: extensions.DeploymentSpec{
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(dashName),
+			},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   dashName,
+					Labels: labels(dashName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  dashName,
+							Image: dashImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8080,
+									Name:          "dash-http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+						{
+							Name:  grpcProxyName,
+							Image: grpcProxyImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8081,
+									Name:          "grpc-proxy-http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// DashService creates a Service for the pachyderm dashboard.
+func DashService() *v1.Service {
+	return &v1.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeNodePort,
+			Selector: labels(dashName),
+			Ports: []v1.ServicePort{
+				{
+					Port:     8080,
+					Name:     "dash-http",
+					NodePort: 30080,
+				},
+				{
+					Port:     8081,
+					Name:     "grpc-proxy-http",
+					NodePort: 30081,
+				},
+			},
 		},
 	}
 }
@@ -843,6 +933,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	fmt.Fprintf(w, "\n")
 	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	if !opts.noDash {
+		DashService().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+		DashDeployment().CodecEncodeSelf(encoder)
+		fmt.Fprintf(w, "\n")
+	}
 	return nil
 }
 
