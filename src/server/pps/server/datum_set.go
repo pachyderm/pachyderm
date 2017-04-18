@@ -10,15 +10,11 @@ import (
 
 type datumFactory interface {
 	Next() []*workerpkg.Input
-	// Resets the internal indexes so we start reading from the first
-	// datum set again.
-	Reset()
-	Indexes() []int
 	Len() int
 }
 
 type atomDatumFactory struct {
-	datumList []*pfs.FileInfo
+	datumList []*workerpkg.Input
 	index     int
 }
 
@@ -31,17 +27,23 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 	if err != nil {
 		return nil, err
 	}
-	result.datumList = fileInfos.FileInfo
+	for _, fileInfo := range fileInfos.FileInfo {
+		result.datumList = append(result.datumList, &workerpkg.Input{
+			FileInfo: fileInfo,
+			Name:     input.Name,
+			Lazy:     input.Lazy,
+		})
+	}
 	return result, nil
 }
 
 func (d *atomDatumFactory) Next() []*workerpkg.Input {
-	return nil
+	if d.index > len(d.datumList) {
+		return nil
+	}
+	defer func() { d.index++ }()
+	return []*workerpkg.Input{d.datumList[d.index]}
 }
-
-func (d *atomDatumFactory) Reset() {}
-
-func (d *atomDatumFactory) Indexes() []int { return nil }
 
 func (d *atomDatumFactory) Len() int {
 	return len(d.datumList)
@@ -77,16 +79,6 @@ func (d *crossDatumFactory) Next() []*workerpkg.Input {
 	// 	datum = append(datum, d.datumLists[i][index])
 	// }
 	// return datum
-}
-
-func (d *crossDatumFactory) Indexes() []int {
-	return d.indexes
-}
-
-func (d *crossDatumFactory) Reset() {
-	for i := range d.indexes {
-		d.indexes[i] = 0
-	}
 }
 
 func (d *crossDatumFactory) Len() int {
