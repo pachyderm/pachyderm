@@ -141,7 +141,6 @@ This resets the cluster to its initial state.`,
 pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
-				fmt.Println("Port forwarded, CTRL-C to exit.")
 				return cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stderr: os.Stderr,
@@ -153,7 +152,6 @@ kubectl %v port-forward "$pod" %d:650
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8080
 `, kubeCtlFlags, kubeCtlFlags, uiPort))
-				fmt.Printf("Dash UI Port forwarded, navigate to localhost:%v", uiPort)
 				return cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stderr: os.Stderr,
@@ -165,13 +163,13 @@ kubectl %v port-forward "$pod" %d:8080
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8081
 `, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
-				fmt.Println("Websocket Port forwarded")
 				return cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stderr: os.Stderr,
 				}, "sh")
 			})
 
+			fmt.Printf("Pachd port forwarded\nDash websocket port forwarded\nDash UI port forwarded, navigate to localhost:%v\nCTRL-C to exit", uiPort)
 			return eg.Wait()
 		}),
 	}
