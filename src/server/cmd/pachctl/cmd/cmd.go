@@ -24,6 +24,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
@@ -143,9 +144,52 @@ kubectl %v port-forward "$pod" %d:650
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
+
+	var uiPort int
+	var uiWebsocketPort int
+	var uiKubeCtlFlags string
+	portForwardUI := &cobra.Command{
+		Use:   "port-forward-ui",
+		Short: "Forward a port on the local machine to pachyderm dash. This command blocks.",
+		Long:  "Forward a port on the local machine to pachyderm dash. This command blocks.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			var eg errgroup.Group
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl %v port-forward "$pod" %d:8080
+`, uiKubeCtlFlags, uiKubeCtlFlags, uiPort))
+				fmt.Printf("Dash UI Port forwarded, navigate to localhost:%v, CTRL-C to exit.", uiPort)
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl %v port-forward "$pod" %d:8081
+`, uiKubeCtlFlags, uiKubeCtlFlags, uiWebsocketPort))
+				fmt.Println("Websocket Port forwarded")
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
+
+			return eg.Wait()
+		}),
+	}
+	portForwardUI.Flags().IntVarP(&uiPort, "port", "p", 38080, "The local port to bind to.")
+	portForwardUI.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 32082, "The local port to bind to.")
+	portForwardUI.Flags().StringVarP(&uiKubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
+
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
+	rootCmd.AddCommand(portForwardUI)
 	return rootCmd, nil
 }
 
