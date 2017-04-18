@@ -41,6 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
+  JOB_STOPPED = 4;
 }
 
 message Service {
@@ -85,6 +86,22 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
+message Datum {
+  // This file's absolute path within its pfs repo.
+  string path = 4;
+
+  // This file's hash
+  bytes hash = 5;
+}
+
+message WorkerStatus {
+  string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  repeated pps.Datum data = 3;
+  // Started is the time processing on the current datum began.
+  google.protobuf.Timestamp started = 4;
+}
+
 message JobInfo {
   reserved 4;
   Job job = 1;
@@ -104,8 +121,10 @@ message JobInfo {
   bool stopped = 16;
   pfs.Repo outputRepo = 18;
   string outputBranch = 17;
-  // The log of stdout+stderr of the most recent datum that failed
-  string error = 20;
+  uint64 restart = 20;
+  int64 data_processed = 22;
+  int64 data_total = 23;
+  repeated WorkerStatus worker_status = 24;
 }
 
 enum WorkerState {
@@ -155,16 +174,6 @@ enum PipelineState {
     PIPELINE_STOPPED = 4;
 }
 
-// GCPolicy describes when jobs can be garbage-collected.
-message GCPolicy {
-  // The amount of time that needs to pass before a successful job
-  // can be GC-ed.
-  google.protobuf.Duration success = 1;
-  // The amount of time that needs to pass before a failed job
-  // can be GC-ed.
-  google.protobuf.Duration failure = 2;
-}
-
 message PipelineInfo {
   reserved 3;
   string id = 17 [(gogoproto.customname) = "ID"];
@@ -178,9 +187,9 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
-  GCPolicy gc_policy = 12;
   bool stopped = 13;
   string outputBranch = 16;
+  google.protobuf.Duration scaleDownThreshold = 18;
 }
 
 message PipelineInfos {
@@ -218,6 +227,10 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
+message StopJobRequest {
+  Job job = 1;
+}
+
 message GetLogsRequest {
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
@@ -245,13 +258,6 @@ message LogMessage {
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
 
   // The PFS files being processed (one per pipeline/job input)
-  message Datum {
-    // This file's absolute path within its pfs repo.
-	  string path = 4;
-
-    // This file's hash
-    bytes hash = 5;
-  }
   repeated Datum data = 4;
 
   // User is true if log message comes from the users code.
@@ -262,6 +268,11 @@ message LogMessage {
   string message = 6;
 }
 
+message RestartDatumRequest {
+  Job job = 1;
+  repeated string data_filters = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
@@ -270,8 +281,8 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   Egress egress = 9;
   bool update = 5;
-  GCPolicy gc_policy = 8;
   string outputBranch = 10;
+  google.protobuf.Duration scaleDownThreshold = 11;
 }
 
 message InspectPipelineRequest {
@@ -283,6 +294,7 @@ message ListPipelineRequest {
 
 message DeletePipelineRequest {
   Pipeline pipeline = 1;
+  bool delete_jobs = 2;
 }
 
 message StartPipelineRequest {
@@ -304,6 +316,8 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
+  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}

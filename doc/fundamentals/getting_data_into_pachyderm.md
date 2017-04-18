@@ -27,7 +27,7 @@ To get data into Pachyderm using `pachctl`, you first need to create one or more
 $ pachctl create-repo <repo name>
 ```
 
-Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
+Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file.html). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
 
 Add a single file to a new branch:
 

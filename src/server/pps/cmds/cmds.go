@@ -272,7 +272,7 @@ Examples:
 			// Display newest jobs first
 			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
@@ -296,6 +296,33 @@ Examples:
 			}
 			if err := client.DeleteJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
+	restartDatum := &cobra.Command{
+		Use:   "restart-datum job-id datum-path1,datum-path2",
+		Short: "Restart a datum.",
+		Long:  "Restart a datum.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+			}
+			datumFilter := strings.Split(args[1], ",")
+			for i := 0; i < len(datumFilter); {
+				if len(datumFilter[i]) == 0 {
+					if i+1 < len(datumFilter) {
+						copy(datumFilter[i:], datumFilter[i+1:])
+					}
+					datumFilter = datumFilter[:len(datumFilter)-1]
+				} else {
+					i++
+				}
+			}
+			if err := client.RestartDatum(args[0], datumFilter); err != nil {
+				return sanitizeErr(err)
 			}
 			return nil
 		}),
@@ -522,6 +549,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var deleteJobs bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -531,12 +559,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			if err := client.DeletePipeline(args[0]); err != nil {
+			if err := client.DeletePipeline(args[0], deleteJobs); err != nil {
 				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
 	}
+	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
@@ -630,6 +659,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, restartDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
