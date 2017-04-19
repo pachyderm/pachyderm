@@ -68,6 +68,9 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
+install-completion:
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-completion
+
 point-release:
 	@make VERSION_ADDITIONAL= release
 
@@ -313,6 +316,12 @@ launch-logging: check-kubectl check-kubectl-connection
 	git submodule update --init
 	cd etc/plugin/logging && ./deploy.sh
 	kubectl --namespace=monitoring port-forward `kubectl --namespace=monitoring get pods -l k8s-app=kibana-logging -o json | jq '.items[0].metadata.name' -r` 35601:5601 &
+
+completion: install-completion
+	# we rename to pachctl because the program name is used in generating docs
+	cp $(GOPATH)/bin/pachctl-completion ./pachctl
+	./pachctl > etc/bash/completion.sh
+	rm ./pachctl
 
 grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt

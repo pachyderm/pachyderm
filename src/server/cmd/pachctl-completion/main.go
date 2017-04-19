@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"os"
 
-	"github.com/spf13/cobra/doc"
+	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
+	"go.pedge.io/env"
 )
 
 type appEnv struct{}
 
 func main() {
-	cmdutil.Main(do, &appEnv{})
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
@@ -20,5 +20,5 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	return doc.GenMarkdownTree(rootCmd, "./doc/pachctl/")
+	return rootCmd.GenBashCompletion(os.Stdout)
 }
