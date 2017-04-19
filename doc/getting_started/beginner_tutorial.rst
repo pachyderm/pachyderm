@@ -104,7 +104,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
       "cmd": [ "python3", "/edges.py" ],
       "image": "pachyderm/opencv"
     },
-  "inputs": [
+    "inputs": [
       {
         "name": "images",
         "repo": {
