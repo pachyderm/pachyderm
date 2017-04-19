@@ -293,6 +293,22 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	return a.validateInput(ctx, jobInfo.Input, true)
 }
 
+func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
+	result := &pps.Input{Cross: &pps.CrossInput{}}
+	for _, input := range inputs {
+		result.Cross.Input = append(result.Cross.Input,
+			&pps.Input{
+				Atom: &pps.AtomInput{
+					Name:   input.Name,
+					Commit: input.Commit,
+					Glob:   input.Glob,
+					Lazy:   input.Lazy,
+				},
+			})
+	}
+	return result
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -304,18 +320,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		if request.Input != nil {
 			return nil, fmt.Errorf("cannot set both Inputs and Input field")
 		}
-		request.Input = &pps.Input{Cross: &pps.CrossInput{}}
-		for _, input := range request.Inputs {
-			request.Input.Cross.Input = append(request.Input.Cross.Input,
-				&pps.Input{
-					Atom: &pps.AtomInput{
-						Name:   input.Name,
-						Commit: input.Commit,
-						Glob:   input.Glob,
-						Lazy:   input.Lazy,
-					},
-				})
-		}
+		request.Input = translateJobInputs(request.Inputs)
 	}
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
@@ -405,6 +410,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
+	if jobInfo.Input == nil {
+		jobInfo.Input = translateJobInputs(jobInfo.Inputs)
+	}
 	// If the job is running we fill in WorkerStatus field, otherwise we just
 	// return the jobInfo.
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
@@ -460,6 +468,9 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 		if !ok {
 			break
+		}
+		if jobInfo.Input == nil {
+			jobInfo.Input = translateJobInputs(jobInfo.Inputs)
 		}
 		jobInfos = append(jobInfos, &jobInfo)
 	}
@@ -679,6 +690,27 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	return nil
 }
 
+func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
+	result := &pps.Input{Cross: &pps.CrossInput{}}
+	for _, input := range inputs {
+		var fromCommitID string
+		if input.From != nil {
+			fromCommitID = input.From.ID
+		}
+		result.Cross.Input = append(result.Cross.Input,
+			&pps.Input{
+				Atom: &pps.AtomInput{
+					Name:         input.Name,
+					Commit:       client.NewCommit(input.Repo.Name, input.Branch),
+					Glob:         input.Glob,
+					Lazy:         input.Lazy,
+					FromCommitID: fromCommitID,
+				},
+			})
+	}
+	return result
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -689,23 +721,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if request.Input != nil {
 			return nil, fmt.Errorf("cannot set both Inputs and Input field")
 		}
-		request.Input = &pps.Input{Cross: &pps.CrossInput{}}
-		for _, input := range request.Inputs {
-			var fromCommitID string
-			if input.From != nil {
-				fromCommitID = input.From.ID
-			}
-			request.Input.Cross.Input = append(request.Input.Cross.Input,
-				&pps.Input{
-					Atom: &pps.AtomInput{
-						Name:         input.Name,
-						Commit:       client.NewCommit(input.Repo.Name, input.Branch),
-						Glob:         input.Glob,
-						Lazy:         input.Lazy,
-						FromCommitID: fromCommitID,
-					},
-				})
-		}
+		request.Input = translatePipelineInputs(request.Inputs)
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
@@ -840,6 +856,9 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
+	if pipelineInfo.Input == nil {
+		pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
+	}
 	return pipelineInfo, nil
 }
 
@@ -864,6 +883,9 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			return nil, err
 		}
 		if ok {
+			if pipelineInfo.Input == nil {
+				pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
+			}
 			pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
 		} else {
 			break
@@ -1069,6 +1091,9 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
+				}
+				if pipelineInfo.Input == nil {
+					pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
 				}
 				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
 					protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
