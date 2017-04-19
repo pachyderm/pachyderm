@@ -1249,6 +1249,8 @@ func TestPipelineJobCounts(t *testing.T) {
 //testJob(t, 4)
 //}
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestDeleteAfterMembershipChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1269,6 +1271,8 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	test(false)
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1504,6 +1508,8 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1557,6 +1563,8 @@ func TestRestartAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestRestartOne(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2462,6 +2470,9 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(7), parellelism)
 
 	// Coefficient == 1 (basic test)
+	// TODO(msteffen): This test can fail when run against cloud providers, if the
+	// remote cluster has more than one node (in which case "Coefficient: 1" will
+	// cause more than 1 worker to start)
 	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
