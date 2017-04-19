@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
@@ -1248,6 +1249,8 @@ func TestPipelineJobCounts(t *testing.T) {
 //testJob(t, 4)
 //}
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestDeleteAfterMembershipChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1268,6 +1271,8 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	test(false)
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1503,6 +1508,8 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1556,6 +1563,8 @@ func TestRestartAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TODO(msteffen): This test breaks the suite when run against cloud providers,
+// because killing the pachd pod breaks the connection with pachctl port-forward
 func TestRestartOne(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2461,6 +2470,9 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(7), parellelism)
 
 	// Coefficient == 1 (basic test)
+	// TODO(msteffen): This test can fail when run against cloud providers, if the
+	// remote cluster has more than one node (in which case "Coefficient: 1" will
+	// cause more than 1 worker to start)
 	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
@@ -2925,6 +2937,46 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
+}
+
+// TestSystemResourceRequest doesn't create any jobs or pipelines, it
+// just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
+// and etcd default resource requests. This prevents them from overloading
+// nodes and getting evicted, which can slow down or break a cluster.
+func TestSystemResourceRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	kubeClient := getKubeClient(t)
+
+	// Get Pod info for 'app' from k8s
+	var c api.Container
+	for _, app := range []string{"pachd", "etcd"} {
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 10 * time.Second
+		err := backoff.Retry(func() error {
+			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+				LabelSelector: labels.SelectorFromSet(
+					map[string]string{"app": app, "suite": "pachyderm"}),
+			})
+			if err != nil {
+				return err
+			}
+			if len(podList.Items) < 1 {
+				return fmt.Errorf("could not find pod for %s", app) // retry
+			}
+			c = podList.Items[0].Spec.Containers[0]
+			return nil
+		}, b)
+		require.NoError(t, err)
+
+		// Make sure the pod's container has resource requests
+		_, ok := c.Resources.Requests[api.ResourceCPU]
+		require.True(t, ok, "could not get CPU request for "+app)
+		_, ok = c.Resources.Requests[api.ResourceMemory]
+		require.True(t, ok, "could not get memory request for "+app)
+	}
 }
 
 func restartAll(t *testing.T) {
