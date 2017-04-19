@@ -54,6 +54,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var enableDash bool
 	var dashImage string
 
 	deployLocal := &cobra.Command{
@@ -206,6 +207,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				EtcdMemRequest:          etcdMemRequest,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
+				EnableDash:              enableDash,
 				DashImage:               dashImage,
 			}
 			return nil
@@ -216,6 +218,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().BoolVar(&enableDash, "dash", false, "If true, deploy the Pachyderm UI along with Pachyderm (experimental)")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)

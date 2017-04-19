@@ -1079,11 +1079,11 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	time.Sleep(5 * time.Second)
 
-	// The job should still be there, and its state should be "STOPPED"
+	// The job should still be there, and its state should be "KILLED"
 	jobs, err = c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
-	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
+	require.Equal(t, pps.JobState_JOB_KILLED, jobs[0].State)
 }
 
 func TestPipelineState(t *testing.T) {
@@ -2546,7 +2546,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestStopJob(t *testing.T) {
+func TestKillJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2554,7 +2554,7 @@ func TestStopJob(t *testing.T) {
 
 	c := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestStopJob")
+	dataRepo := uniqueString("TestKillJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline-stop-job")
@@ -2602,11 +2602,11 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[1].Job.ID)
+	err = c.KillJob(jobInfos[1].Job.ID)
 	require.NoError(t, err)
 	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Check that the second job completes
 	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
