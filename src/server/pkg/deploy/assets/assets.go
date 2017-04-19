@@ -69,8 +69,9 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	EnableDash     bool
-	DashImage      string
+	EnableDash  bool
+	DashOnly    bool
+	DashImage   string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
@@ -967,6 +968,16 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 	}
 }
 
+// WriteDashboardAssets writes the k8s config for deploying the Pachyderm
+// dashboard to 'w'
+func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	DashService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	persistentDiskBackend backend, volumeSize int,
@@ -978,8 +989,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
 			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
+	if opts.DashOnly {
+		WriteDashboardAssets(w, opts)
+		return nil
+	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -1030,10 +1045,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	PachdDeployment(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	if opts.EnableDash {
-		DashService().CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
-		DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
+		WriteDashboardAssets(w, opts)
 	}
 	return nil
 }
