@@ -2950,6 +2950,23 @@ func TestSystemResourceRequests(t *testing.T) {
 	t.Parallel()
 	kubeClient := getKubeClient(t)
 
+	// Expected resource requests for pachyderm system pods:
+	defaultLocalMem := map[string]string{
+		"pachd": "512M",
+		"etcd":  "256M",
+	}
+	defaultLocalCPU := map[string]string{
+		"pachd": "250m",
+		"etcd":  "250m",
+	}
+	defaultCloudMem := map[string]string{
+		"pachd": "7G",
+		"etcd":  "2G",
+	}
+	defaultCloudCPU := map[string]string{
+		"pachd": "1",
+		"etcd":  "1",
+	}
 	// Get Pod info for 'app' from k8s
 	var c api.Container
 	for _, app := range []string{"pachd", "etcd"} {
@@ -2972,10 +2989,14 @@ func TestSystemResourceRequests(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
-		_, ok := c.Resources.Requests[api.ResourceCPU]
+		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
-		_, ok = c.Resources.Requests[api.ResourceMemory]
+		require.True(t, cpu.String() == defaultLocalCPU[app] ||
+			cpu.String() == defaultCloudCPU[app])
+		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
+		require.True(t, mem.String() == defaultLocalMem[app] ||
+			mem.String() == defaultCloudMem[app])
 	}
 }
 
@@ -3022,7 +3043,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			Resources: &pps.ResourceSpec{
+			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3092,7 +3113,7 @@ func TestJobResourceRequest(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			Resources: &pps.ResourceSpec{
+			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
