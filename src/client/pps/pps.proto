@@ -137,7 +137,7 @@ message JobInfo {
   int64 data_processed = 22;
   int64 data_total = 23;
   repeated WorkerStatus worker_status = 24;
-  ResourceSpec resources = 25;
+  ResourceSpec resource_spec = 25;
 }
 
 enum WorkerState {
@@ -203,7 +203,7 @@ message PipelineInfo {
   bool stopped = 13;
   string outputBranch = 16;
   google.protobuf.Duration scaleDownThreshold = 18;
-  ResourceSpec resources = 19;
+  ResourceSpec resource_spec = 19;
 }
 
 message PipelineInfos {
@@ -224,7 +224,7 @@ message CreateJobRequest {
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
   Job parent_job = 13;
-  ResourceSpec resources = 14;
+  ResourceSpec resource_spec = 14;
 }
 
 message InspectJobRequest {
@@ -297,7 +297,7 @@ message CreatePipelineRequest {
   bool update = 5;
   string outputBranch = 10;
   google.protobuf.Duration scaleDownThreshold = 11;
-  ResourceSpec resources = 12;
+  ResourceSpec resource_spec = 12;
 }
 
 message InspectPipelineRequest {

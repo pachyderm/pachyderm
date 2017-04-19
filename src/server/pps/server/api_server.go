@@ -207,7 +207,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			OutputCommit:    nil,
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
-			Resources:       request.Resources,
+			ResourceSpec:    request.ResourceSpec,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -221,7 +221,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
-			jobInfo.Resources = pipelineInfo.Resources
+			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -600,7 +600,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Egress:             request.Egress,
 		CreatedAt:          now(),
 		ScaleDownThreshold: request.ScaleDownThreshold,
-		Resources:          request.Resources,
+		ResourceSpec:       request.ResourceSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -1791,8 +1791,8 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		return err
 	}
 	var resources *api.ResourceList
-	if jobInfo.Resources != nil {
-		resources, err = parseResourceList(jobInfo.Resources)
+	if jobInfo.ResourceSpec != nil {
+		resources, err = parseResourceList(jobInfo.ResourceSpec)
 		if err != nil {
 			return err
 		}
@@ -1816,8 +1816,8 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	var resources *api.ResourceList
-	if pipelineInfo.Resources != nil {
-		resources, err = parseResourceList(pipelineInfo.Resources)
+	if pipelineInfo.ResourceSpec != nil {
+		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
 		if err != nil {
 			return err
 		}
