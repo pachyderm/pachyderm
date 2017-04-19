@@ -69,7 +69,8 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	noDash      bool
+	noDash         bool
+	DashImage      string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
@@ -158,7 +159,7 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-// PachdDeployment returns a pachd k8s Deployment config.
+// PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
@@ -384,7 +385,7 @@ func PachdService() *v1.Service {
 	}
 }
 
-// EtcdDeployment returns an etcd k8s Deployment config.
+// EtcdDeployment returns an etcd k8s Deployment.
 func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 	cpu := resource.MustParse(opts.EtcdCPURequest)
 	mem := resource.MustParse(opts.EtcdMemRequest)
@@ -791,7 +792,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment() *extensions.Deployment {
+func DashDeployment(dashImage string) *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -1031,7 +1032,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	if !opts.noDash {
 		DashService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		DashDeployment().CodecEncodeSelf(encoder)
+		DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
 	return nil

@@ -20,6 +20,8 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+var defaultDashImage = "pachyderm/dash:0.3.14"
+
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
@@ -52,6 +54,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -203,6 +206,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				EtcdMemRequest:          etcdMemRequest,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
+				DashImage:               dashImage,
 			}
 			return nil
 		}),
@@ -212,6 +216,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
@@ -226,23 +231,23 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	// on the backend to which we're. The defaults are set in
 	// s/s/pkg/deploy/assets/assets.go
 	deploy.PersistentFlags().StringVar(&pachdCPURequest,
-		"pachd-cpu-footprint", "", "(rarely set) The size of Pachd's CPU "+
-			"footprint, which we give to Kubernetes. Size is in cores (with partial "+
+		"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
+			"request, which we give to Kubernetes. Size is in cores (with partial "+
 			"cores allowed and encouraged).")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
 		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
 			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
-		"pachd-memory-footprint", "", "(rarely set) The size of PachD's memory "+
-			"footprint in addition to its block cache (set via --block-cache-size). "+
+		"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
+			"request in addition to its block cache (set via --block-cache-size). "+
 			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&etcdCPURequest,
-		"etcd-cpu-footprint", "", "(rarely set) The size of etcd's CPU footprint, "+
+		"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
 			"which we give to Kubernetes. Size is in cores (with partial cores "+
 			"allowed and encouraged).")
 	deploy.PersistentFlags().StringVar(&etcdMemRequest,
-		"etcd-memory-footprint", "", "(rarely set) The size of etcd's memory "+
-			"footprint. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
+			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 			"etc).")
 	return deploy
 }
