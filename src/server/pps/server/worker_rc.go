@@ -20,6 +20,7 @@ type workerOptions struct {
 	userImage    string            // The user's pipeline/job image
 	labels       map[string]string // k8s labels attached to the Deployment and workers
 	parallelism  int32             // Number of replicas the Deployment maintains
+	resources    *api.ResourceList // Resources requested by pipeline/job pods
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
 	volumeMounts []api.VolumeMount // Paths where we mount each volume in 'volumes'
@@ -54,7 +55,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	return api.PodSpec{
+	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
 				Name:            "init",
@@ -82,9 +83,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
 	}
+	if options.resources != nil {
+		podSpec.Containers[0].Resources = api.ResourceRequirements{
+			Requests: *options.resources,
+		}
+	}
+	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(deploymentName string, parallelism int32, transform *pps.Transform) *workerOptions {
+func (a *apiServer) getWorkerOptions(deploymentName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
 	labels := labels(deploymentName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -178,6 +185,7 @@ func (a *apiServer) getWorkerOptions(deploymentName string, parallelism int32, t
 		deploymentName:   deploymentName,
 		labels:           labels,
 		parallelism:      int32(parallelism),
+		resources:        resources,
 		userImage:        userImage,
 		workerEnv:        workerEnv,
 		volumes:          volumes,

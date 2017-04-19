@@ -1627,22 +1627,27 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
-		"",
-		false,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/*",
+			}},
+		})
+	require.NoError(t, err)
 	// Do a commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
@@ -2950,6 +2955,23 @@ func TestSystemResourceRequests(t *testing.T) {
 	t.Parallel()
 	kubeClient := getKubeClient(t)
 
+	// Expected resource requests for pachyderm system pods:
+	defaultLocalMem := map[string]string{
+		"pachd": "512M",
+		"etcd":  "256M",
+	}
+	defaultLocalCPU := map[string]string{
+		"pachd": "250m",
+		"etcd":  "250m",
+	}
+	defaultCloudMem := map[string]string{
+		"pachd": "7G",
+		"etcd":  "2G",
+	}
+	defaultCloudCPU := map[string]string{
+		"pachd": "1",
+		"etcd":  "1",
+	}
 	// Get Pod info for 'app' from k8s
 	var c api.Container
 	for _, app := range []string{"pachd", "etcd"} {
@@ -2972,11 +2994,169 @@ func TestSystemResourceRequests(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
-		_, ok := c.Resources.Requests[api.ResourceCPU]
+		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
-		_, ok = c.Resources.Requests[api.ResourceMemory]
+		require.True(t, cpu.String() == defaultLocalCPU[app] ||
+			cpu.String() == defaultCloudCPU[app])
+		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
+		require.True(t, mem.String() == defaultLocalMem[app] ||
+			mem.String() == defaultCloudMem[app])
 	}
+}
+
+// TODO(msteffen) Refactor other tests to use this helper
+func PutFileAndFlush(t *testing.T, repo, branch, filepath, contents string) *pfs.Commit {
+	// This may be a bit wasteful, since the calling test likely has its own
+	// client, but for a test the overhead seems acceptable (and the code is
+	// shorter)
+	c := getPachClient(t)
+
+	commit, err := c.StartCommit(repo, branch)
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, filepath, strings.NewReader(contents))
+	require.NoError(t, err)
+
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	return commit
+}
+
+// TestPipelineResourceRequest creates a pipeline with a resource request, and
+// makes sure that's passed to k8s (by inspecting the pipeline's pods)
+func TestPipelineResourceRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceRequest")
+	pipelineName := uniqueString("TestPipelineResourceRequest_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo:   &pfs.Repo{dataRepo},
+				Branch: "master",
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+	PutFileAndFlush(t, dataRepo, "master", "file", "foo\n")
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container api.Container
+	rcName := pps_server.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 10 * time.Second
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": rcName}),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) != 1 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.ID)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, b)
+	require.NoError(t, err)
+	// Make sure a CPU and Memory request are both set
+	cpu, ok := container.Resources.Requests[api.ResourceCPU]
+	require.True(t, ok)
+	require.Equal(t, "500m", cpu.String())
+	mem, ok := container.Resources.Requests[api.ResourceMemory]
+	require.True(t, ok)
+	require.Equal(t, "100M", mem.String())
+}
+
+// TestJobResourceRequest creates a stand-alone job with a resource request, and
+// makes sure it's passed to k8s (by inspecting the job's pods)
+func TestJobResourceRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestJobResourceRequest")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit := PutFileAndFlush(t, dataRepo, "master", "file", "foo\n")
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	createJobResp, err := c.PpsAPIClient.CreateJob(
+		context.Background(),
+		&pps.CreateJobRequest{
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Inputs: []*pps.JobInput{{
+				Name:   "foo-input",
+				Commit: commit,
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+
+	// Get info about the job pods from k8s & check for resources
+	var container api.Container
+	rcName := pps_server.JobDeploymentName(createJobResp.ID)
+	kubeClient := getKubeClient(t)
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 10 * time.Second
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": rcName}),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) != 1 {
+			return fmt.Errorf("could not find single container for job %s", createJobResp.ID)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, b)
+	require.NoError(t, err)
+	cpu, ok := container.Resources.Requests[api.ResourceCPU]
+	require.True(t, ok)
+	require.Equal(t, "500m", cpu.String())
+	mem, ok := container.Resources.Requests[api.ResourceMemory]
+	require.True(t, ok)
+	require.Equal(t, "100M", mem.String())
 }
 
 func restartAll(t *testing.T) {
