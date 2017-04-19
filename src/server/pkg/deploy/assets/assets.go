@@ -69,8 +69,8 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	EnableDash     bool
-	DashImage      string
+	EnableDash  bool
+	DashImage   string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.

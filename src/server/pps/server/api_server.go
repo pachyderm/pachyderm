@@ -35,6 +35,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	kube_labels "k8s.io/kubernetes/pkg/labels"
@@ -206,6 +207,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			OutputCommit:    nil,
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
+			ResourceSpec:    request.ResourceSpec,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -219,6 +221,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
+			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -597,6 +600,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Egress:             request.Egress,
 		CreatedAt:          now(),
 		ScaleDownThreshold: request.ScaleDownThreshold,
+		ResourceSpec:       request.ResourceSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -1765,14 +1769,38 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
+func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
+	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
+	}
+	memQuantity, err := resource.ParseQuantity(resources.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
+	}
+	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
+		api.ResourceCPU:    cpuQuantity,
+		api.ResourceMemory: memQuantity,
+	}
+	return &result, nil
+}
+
 func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 	parallelism, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
+	var resources *api.ResourceList
+	if jobInfo.ResourceSpec != nil {
+		resources, err = parseResourceList(jobInfo.ResourceSpec)
+		if err != nil {
+			return err
+		}
+	}
 	options := a.getWorkerOptions(
 		JobDeploymentName(jobInfo.Job.ID),
 		int32(parallelism),
+		resources,
 		jobInfo.Transform)
 	// Set the job name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
@@ -1787,9 +1815,17 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	if err != nil {
 		return err
 	}
+	var resources *api.ResourceList
+	if pipelineInfo.ResourceSpec != nil {
+		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
+		if err != nil {
+			return err
+		}
+	}
 	options := a.getWorkerOptions(
 		PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
+		resources,
 		pipelineInfo.Transform)
 	// Set the pipeline name env
 	options.workerEnv = append(options.workerEnv, api.EnvVar{
