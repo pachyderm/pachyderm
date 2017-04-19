@@ -20,6 +20,8 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+var defaultDashImage = "pachyderm/dash:0.3.14"
+
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
@@ -48,6 +50,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -195,6 +198,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				BlockCacheSize: blockCacheSize,
 				EtcdNodes:      etcdNodes,
 				EtcdVolume:     etcdVolume,
+				DashImage:      dashImage,
 			}
 			return nil
 		}),
@@ -206,6 +210,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
 		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
