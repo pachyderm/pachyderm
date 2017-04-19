@@ -41,7 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  JOB_STOPPED = 4;
+  JOB_KILLED = 4;
 }
 
 message Service {
@@ -227,7 +227,7 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
-message StopJobRequest {
+message KillJobRequest {
   Job job = 1;
 }
 
@@ -316,7 +316,7 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
-  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc KillJob(KillJobRequest) returns (google.protobuf.Empty) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

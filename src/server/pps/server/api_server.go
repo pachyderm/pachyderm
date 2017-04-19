@@ -354,10 +354,10 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) KillJob(ctx context.Context, request *pps.KillJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopJob")
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "KillJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -366,7 +366,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 			return err
 		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STOPPED)
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED)
 	})
 	if err != nil {
 		return nil, err
@@ -785,7 +785,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 					// We need to check again here because the job's state
 					// might've changed since we first retrieved it
 					if !jobStateToStopped(jobInfo.State) {
-						jobInfo.State = pps.JobState_JOB_STOPPED
+						jobInfo.State = pps.JobState_JOB_KILLED
 					}
 					jobs.Put(jobID, &jobInfo)
 					return nil
@@ -1758,7 +1758,7 @@ func jobStateToStopped(state pps.JobState) bool {
 		return true
 	case pps.JobState_JOB_FAILURE:
 		return true
-	case pps.JobState_JOB_STOPPED:
+	case pps.JobState_JOB_KILLED:
 		return true
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
