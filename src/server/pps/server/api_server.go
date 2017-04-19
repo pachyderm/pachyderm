@@ -1174,7 +1174,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 		}
 
-		// Create a k8s replication controller that runs the workers
+		// Create a k8s deployment that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
