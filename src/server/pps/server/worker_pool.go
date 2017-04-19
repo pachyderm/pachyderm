@@ -218,6 +218,7 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 			case w.failCh <- dt:
 			case <-ctx.Done():
 			}
+			protolion.Errorf("deleting worker %s for job %s", addr, w.jobID)
 			// If this worker keeps failing to process the datum (note that
 			// failing to process a datum is different than if the user code
 			// ran and returned a non-zero exit code), we eventually give up
@@ -354,7 +355,6 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 	if err != nil {
 		return nil, err
 	}
-	protolion.Printf("resp: %+v\n", resp)
 
 	var result []workerpkg.WorkerClient
 	for _, kv := range resp.Kvs {
