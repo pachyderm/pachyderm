@@ -69,11 +69,80 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	// BlockCacheSize is the amount of memory each PachD node allocates towards
-	// its cache of PFS blocks.
-	BlockCacheSize string
 	EnableDash     bool
 	DashImage      string
+
+	// BlockCacheSize is the amount of memory each PachD node allocates towards
+	// its cache of PFS blocks. If empty, assets.go will choose a default size.
+	BlockCacheSize string
+
+	// PachdCPURequest is the amount of CPU we request for each pachd node. If
+	// empty, assets.go will choose a default size.
+	PachdCPURequest string
+
+	// PachdNonCacheMemRequest is the amount of memory we request for each
+	// pachd node in addition to BlockCacheSize. If empty, assets.go will choose
+	// a default size.
+	PachdNonCacheMemRequest string
+
+	// EtcdCPURequest is the amount of CPU (in cores) we request for each etcd
+	// node. If empty, assets.go will choose a default size.
+	EtcdCPURequest string
+
+	// EtcdMemRequest is the amount of memory we request for each etcd node. If
+	// empty, assets.go will choose a default size.
+	EtcdMemRequest string
+}
+
+// fillDefaultResourceRequests sets any of:
+//   opts.BlockCacheSize
+//   opts.PachdNonCacheMemRequest
+//   opts.PachdCPURequest
+//   opts.EtcdCPURequest
+//   opts.EtcdMemRequest
+// that are unset in 'opts' to the appropriate default ('persistentDiskBackend'
+// just used to determine if this is a local deployment, and if so, make the
+// resource requests smaller)
+func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend) {
+	if persistentDiskBackend == localBackend {
+		// For local deployments, we set the resource requirements and cache sizes
+		// low so that pachyderm clusters will fit inside e.g. minikube or travis
+		if opts.BlockCacheSize == "" {
+			opts.BlockCacheSize = "256M"
+		}
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "256M"
+		}
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "0.25"
+		}
+
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "256M"
+		}
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "0.25"
+		}
+	} else {
+		// For non-local deployments, we set the resource requirements and cache
+		// sizes higher, so that the cluster is stable and performant
+		if opts.BlockCacheSize == "" {
+			opts.BlockCacheSize = "5G"
+		}
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "2G"
+		}
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "1"
+		}
+
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "2G"
+		}
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "1"
+		}
+	}
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -90,8 +159,11 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-// PachdRc returns a pachd replication controller.
-func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
+// PachdDeployment returns a pachd k8s Deployment.
+func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
+	mem := resource.MustParse(opts.BlockCacheSize)
+	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
+	cpu := resource.MustParse(opts.PachdCPURequest)
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
@@ -265,6 +337,12 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *exte
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					ServiceAccountName: serviceAccountName,
@@ -307,8 +385,10 @@ func PachdService() *v1.Service {
 	}
 }
 
-// EtcdRc returns an etcd replication controller.
-func EtcdRc(hostPath string) *extensions.Deployment {
+// EtcdDeployment returns an etcd k8s Deployment.
+func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
+	cpu := resource.MustParse(opts.EtcdCPURequest)
+	mem := resource.MustParse(opts.EtcdMemRequest)
 	var volumes []api.Volume
 	if hostPath == "" {
 		volumes = []api.Volume{
@@ -381,6 +461,12 @@ func EtcdRc(hostPath string) *extensions.Deployment {
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					Volumes: volumes,
@@ -567,6 +653,8 @@ func EtcdHeadlessService() *v1.Service {
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
 func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{} {
+	mem := resource.MustParse(opts.EtcdMemRequest)
+	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
 		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
@@ -688,6 +776,12 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 								},
 							},
 							"imagePullPolicy": "IfNotPresent",
+							"resources": map[string]interface{}{
+								"requests": map[string]interface{}{
+									string(api.ResourceCPU):    cpu.String(),
+									string(api.ResourceMemory): mem.String(),
+								},
+							},
 						},
 					},
 				},
@@ -885,6 +979,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	fillDefaultResourceRequests(opts, persistentDiskBackend)
 
 	ServiceAccount().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
@@ -898,7 +993,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
 	if objectStoreBackend == localBackend {
-		EtcdRc(hostPath).CodecEncodeSelf(encoder)
+		EtcdDeployment(opts, hostPath).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else if opts.EtcdNodes > 0 {
 		sc, err := EtcdStorageClass(persistentDiskBackend)
@@ -922,7 +1017,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		fmt.Fprintf(w, "\n")
 		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		EtcdRc("").CodecEncodeSelf(encoder)
+		EtcdDeployment(opts, "").CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else {
 		return fmt.Errorf("unless deploying locally, either --etcd-nodes or --etcd-volume needs to be provided")
@@ -932,7 +1027,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
+	PachdDeployment(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	if opts.EnableDash {
 		DashService().CodecEncodeSelf(encoder)
