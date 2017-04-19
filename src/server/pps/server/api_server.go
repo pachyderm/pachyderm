@@ -1728,8 +1728,17 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 
 		tree := hashtree.NewHashTree()
 		i := 0
-		input := df.Datum(i)
-		i++
+		// TODO this is a bit annoying and exists only because the looping
+		// logic below makes it a bit difficult to use a standard for loop like:
+		// for i := 0; i < df.Len(); i++ { ... }
+		nextDatum := func() []*workerpkg.Input {
+			if i >= df.Len() {
+				return nil
+			}
+			i++
+			return df.Datum(i - 1)
+		}
+		input := nextDatum()
 		for {
 			var resp hashtree.HashTree
 			var failed bool
@@ -1738,8 +1747,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				case wp.DataCh() <- &datum{
 					inputs: input,
 				}:
-					input = df.Datum(i)
-					i++
+					input = nextDatum()
 				case resp = <-wp.SuccessCh():
 					inflightData--
 				case <-jobFailedCh:
