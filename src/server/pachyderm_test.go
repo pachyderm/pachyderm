@@ -1083,7 +1083,7 @@ func TestDeletePipeline(t *testing.T) {
 	jobs, err = c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 1)
-	require.Equal(t, pps.JobState_JOB_KILLED, jobs[0].State)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
 }
 
 func TestPipelineState(t *testing.T) {
@@ -2622,7 +2622,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
 
 	// Check that the second job completes
 	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
