@@ -9,16 +9,17 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
 // of a job or pipeline's workers
 type workerOptions struct {
-	rcName string // Name of the replication controller managing workers
+	deploymentName string // Name of the replication controller managing workers
 
 	userImage    string            // The user's pipeline/job image
-	labels       map[string]string // k8s labels attached to the RC and workers
-	parallelism  int32             // Number of replicas the RC maintains
+	labels       map[string]string // k8s labels attached to the Deployment and workers
+	parallelism  int32             // Number of replicas the Deployment maintains
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
 	volumeMounts []api.VolumeMount // Paths where we mount each volume in 'volumes'
@@ -28,20 +29,20 @@ type workerOptions struct {
 	imagePullSecrets []api.LocalObjectReference
 }
 
-// PipelineRcName generates the name of the k8s replication controller that
+// PipelineDeploymentName generates the name of the k8s replication controller that
 // manages a pipeline's workers
-func PipelineRcName(name string, version uint64) string {
-	// k8s won't allow RC names that contain upper-case letters
+func PipelineDeploymentName(name string, version uint64) string {
+	// k8s won't allow Deployment names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
 	name = strings.Replace(name, "_", "-", -1)
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
-// JobRcName generates the name of the k8s replication controller that manages
+// JobDeploymentName generates the name of the k8s replication controller that manages
 // an orphan job's workers
-func JobRcName(id string) string {
-	// k8s won't allow RC names that contain upper-case letters
+func JobDeploymentName(id string) string {
+	// k8s won't allow Deployment names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
 	id = strings.Replace(id, "_", "-", -1)
@@ -83,8 +84,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	}
 }
 
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform *pps.Transform) *workerOptions {
-	labels := labels(rcName)
+func (a *apiServer) getWorkerOptions(deploymentName string, parallelism int32, transform *pps.Transform) *workerOptions {
+	labels := labels(deploymentName)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -174,7 +175,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 	}
 
 	return &workerOptions{
-		rcName:           rcName,
+		deploymentName:   deploymentName,
 		labels:           labels,
 		parallelism:      int32(parallelism),
 		userImage:        userImage,
@@ -185,28 +186,30 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 	}
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
-	rc := &api.ReplicationController{
+func (a *apiServer) createWorkerDeployment(options *workerOptions) error {
+	deployment := &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   options.rcName,
+			Name:   options.deploymentName,
 			Labels: options.labels,
 		},
-		Spec: api.ReplicationControllerSpec{
-			Selector: options.labels,
+		Spec: extensions.DeploymentSpec{
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: options.labels,
+			},
 			Replicas: options.parallelism,
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   options.rcName,
+					Name:   options.deploymentName,
 					Labels: options.labels,
 				},
 				Spec: a.workerPodSpec(options),
 			},
 		},
 	}
-	_, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
+	_, err := a.kubeClient.Deployments(a.namespace).Create(deployment)
 	return err
 }
