@@ -2973,7 +2973,6 @@ func TestSystemResourceRequests(t *testing.T) {
 
 		// Make sure the pod's container has resource requests
 		_, ok := c.Resources.Requests[api.ResourceCPU]
-		fmt.Println("%+v", c)
 		require.True(t, ok, "could not get CPU request for "+app)
 		_, ok = c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
