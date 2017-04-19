@@ -161,75 +161,83 @@ type apiServer struct {
 
 func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
 	names := make(map[string]bool)
-	set := false
-	if input.Atom != nil {
-		set = true
-		switch {
-		case len(input.Atom.Name) == 0:
-			return fmt.Errorf("input must specify a name")
-		case input.Atom.Name == "out":
-			return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
-				"already creates /pfs/out to collect job output")
-		case input.Atom.Commit == nil:
-			return fmt.Errorf("input must specify a commit")
-		case len(input.Atom.Commit.ID) == 0:
+	var result error
+	visit(input, func(input *pps.Input) {
+		set := false
+		if input.Atom != nil {
+			set = true
+			switch {
+			case len(input.Atom.Name) == 0:
+				result = fmt.Errorf("input must specify a name")
+				return
+			case input.Atom.Name == "out":
+				result = fmt.Errorf("input cannot be named \"out\", as pachyderm " +
+					"already creates /pfs/out to collect job output")
+				return
+			case input.Atom.Commit == nil:
+				result = fmt.Errorf("input must specify a commit")
+				return
+			case len(input.Atom.Commit.ID) == 0:
+				if job {
+					result = fmt.Errorf("input must specify a commit ID")
+				} else {
+					result = fmt.Errorf("input must specify a branch")
+				}
+				return
+			case len(input.Atom.Glob) == 0:
+				result = fmt.Errorf("input must specify a glob")
+				return
+			}
+			if _, ok := names[input.Atom.Name]; ok {
+				result = fmt.Errorf("conflicting input names: %s", input.Atom.Name)
+				return
+			}
+			names[input.Atom.Name] = true
+			pfsClient, err := a.getPFSClient()
+			if err != nil {
+				result = err
+				return
+			}
 			if job {
-				return fmt.Errorf("input must specify a commit ID")
+				// for jobs we check that the input commit exists
+				_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+					Commit: input.Atom.Commit,
+				})
+				if err != nil {
+					result = err
+					return
+				}
 			} else {
-				return fmt.Errorf("input must specify a branch")
-			}
-		case len(input.Atom.Glob) == 0:
-			return fmt.Errorf("input must specify a glob")
-		}
-		if _, ok := names[input.Atom.Name]; ok {
-			return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-		}
-		names[input.Atom.Name] = true
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
-		}
-		if job {
-			// for jobs we check that the input commit exists
-			_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-				Commit: input.Atom.Commit,
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			// for pipelines we only check that the repo exists
-			_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-				Repo: input.Atom.Commit.Repo,
-			})
-			if err != nil {
-				return err
+				// for pipelines we only check that the repo exists
+				_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+					Repo: input.Atom.Commit.Repo,
+				})
+				if err != nil {
+					result = err
+					return
+				}
 			}
 		}
-	}
-	if input.Cross != nil {
-		if set {
-			return fmt.Errorf("multiple input types set")
-		}
-		set = true
-		for _, input := range input.Cross.Input {
-			if err := a.validateInput(ctx, input, job); err != nil {
-				return err
+		if input.Cross != nil {
+			if set {
+				result = fmt.Errorf("multiple input types set")
+				return
 			}
+			set = true
 		}
-	}
-	if input.Union != nil {
-		if set {
-			return fmt.Errorf("multiple input types set")
-		}
-		set = true
-		for _, input := range input.Cross.Input {
-			if err := a.validateInput(ctx, input, job); err != nil {
-				return err
+		if input.Union != nil {
+			if set {
+				result = fmt.Errorf("multiple input types set")
+				return
 			}
+			set = true
 		}
-	}
-	return nil
+		if !set {
+			result = fmt.Errorf("no input set")
+			return
+		}
+	})
+	return result
 }
 
 // visit each input recursively in ascending order (root last)
