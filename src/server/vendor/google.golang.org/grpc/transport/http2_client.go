@@ -39,6 +39,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -327,6 +328,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	t.mu.Lock()
 	if t.activeStreams == nil {
 		t.mu.Unlock()
+		debug.PrintStack()
 		return nil, ErrConnClosing
 	}
 	if t.state == draining {
@@ -335,6 +337,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	}
 	if t.state != reachable {
 		t.mu.Unlock()
+		debug.PrintStack()
 		return nil, ErrConnClosing
 	}
 	checkStreamsQuota := t.streamsQuota != nil
@@ -368,6 +371,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	}
 	if t.state != reachable {
 		t.mu.Unlock()
+		debug.PrintStack()
 		return nil, ErrConnClosing
 	}
 	s := t.newStream(ctx, callHdr)
@@ -560,6 +564,7 @@ func (t *http2Client) Close() (err error) {
 			s.headerDone = true
 		}
 		s.mu.Unlock()
+		debug.PrintStack()
 		s.write(recvMsg{err: ErrConnClosing})
 	}
 	if t.statsHandler != nil {

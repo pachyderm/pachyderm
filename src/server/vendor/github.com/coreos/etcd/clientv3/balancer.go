@@ -16,6 +16,7 @@ package clientv3
 
 import (
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -178,6 +179,7 @@ func (b *simpleBalancer) Get(ctx context.Context, opts grpc.BalancerGetOptions) 
 		addr = b.pinAddr
 		b.mu.RUnlock()
 		if closed {
+			debug.PrintStack()
 			return grpc.Address{Addr: ""}, nil, grpc.ErrClientConnClosing
 		}
 		if addr == "" {
@@ -201,6 +203,7 @@ func (b *simpleBalancer) Get(ctx context.Context, opts grpc.BalancerGetOptions) 
 		b.mu.RUnlock()
 		// Close() which sets b.closed = true can be called before Get(), Get() must exit if balancer is closed.
 		if closed {
+			debug.PrintStack()
 			return grpc.Address{Addr: ""}, nil, grpc.ErrClientConnClosing
 		}
 		if addr != "" {

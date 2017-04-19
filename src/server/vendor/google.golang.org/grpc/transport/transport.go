@@ -42,6 +42,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime/debug"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -601,6 +602,7 @@ func wait(ctx context.Context, done, goAway, closing <-chan struct{}, proceed <-
 	case <-goAway:
 		return 0, ErrStreamDrain
 	case <-closing:
+		debug.PrintStack()
 		return 0, ErrConnClosing
 	case i := <-proceed:
 		return i, nil
