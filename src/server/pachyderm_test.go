@@ -1627,22 +1627,27 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
-		"",
-		false,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/*",
+			}},
+		})
+	require.NoError(t, err)
 	// Do a commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)

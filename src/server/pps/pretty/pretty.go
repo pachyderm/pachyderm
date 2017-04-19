@@ -131,9 +131,9 @@ Progress: {{.DataProcessed}} / {{.DataTotal}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
-{{ if .Resources }}Resources:
-	CPU: {{ .Resources.Cpu }}
-	Memory: {{ .Resources.Memory }} {{end}}
+{{ if .ResourceSpec }}ResourceSpec:
+	CPU: {{ .ResourceSpec.Cpu }}
+	Memory: {{ .ResourceSpec.Memory }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
@@ -160,9 +160,9 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Parallelism Spec: {{.ParallelismSpec}}
-{{ if .Resources }}Resources:
-	CPU: {{ .Resources.Cpu }}
-	Memory: {{ .Resources.Memory }} {{end}}
+{{ if .ResourceSpec }}ResourceSpec:
+	CPU: {{ .ResourceSpec.Cpu }}
+	Memory: {{ .ResourceSpec.Memory }} {{end}}
 Inputs:
 {{pipelineInputs .}}
 Output Branch: {{.OutputBranch}}
