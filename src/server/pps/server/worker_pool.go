@@ -21,6 +21,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
+	"k8s.io/kubernetes/pkg/api"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -125,8 +126,8 @@ func (w *workerPool) addWorker(addr string, podName string) error {
 	w.workersMapLock.Lock()
 	defer w.workersMapLock.Unlock()
 
-	if cancel, ok := w.workersMap[addr]; ok {
-		cancel()
+	if worker, ok := w.workersMap[addr]; ok {
+		worker.cancel()
 	}
 
 	workerCtx, cancelFn := context.WithCancel(w.ctx)
@@ -150,7 +151,10 @@ func (w *workerPool) delWorker(addr string) error {
 	}
 
 	worker.cancel()
-	if err := w.kubeClient.Pods(w.namespace).Delete(worker.podName); err != nil {
+	zeroVal := int64(0)
+	if err := w.kubeClient.Pods(w.namespace).Delete(worker.podName, &api.DeleteOptions{
+		GracePeriodSeconds: &zeroVal,
+	}); err != nil {
 		return err
 	}
 	protolion.Infof("deleting worker for %s at %v", w.workerDir, addr)
@@ -186,34 +190,38 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 	for true {
 		var dt *datum
 		var ok bool
+		select {
+		case <-ctx.Done():
+			return
+		case dt, ok = <-w.dataCh:
+			if !ok {
+				return
+			}
+		}
+		var resp *workerpkg.ProcessResponse
+		var err error
 		b := backoff.NewExponentialBackOff()
 		if err := backoff.RetryNotify(func() error {
-			select {
-			case <-ctx.Done():
-				return
-			case dt, ok = <-w.dataCh:
-				if !ok {
-					return
-				}
-			}
-			resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+			resp, err = workerClient.Process(ctx, &workerpkg.ProcessRequest{
 				JobID: w.jobID,
 				Data:  dt.files,
 			})
-		}, b, func(err error, d time.Duration) {
+			return err
+		}, b, func(err error, d time.Duration) error {
 			if d > maxBackoff {
 				return err
 			}
 			protolion.Errorf("worker %s for job %s failed to process datum %v with error %s; retrying in %s", addr, w.jobID, dt.files, err, d)
+			return nil
 		}); err != nil {
-			// If this worker keeps failing to process the datum (note that
-			// failing to process a datum is different than if the user code
-			// ran and returned a non-zero exit code), we eventually give up
-			// and delete the worker pod.
 			select {
 			case w.failCh <- dt:
 			case <-ctx.Done():
 			}
+			// If this worker keeps failing to process the datum (note that
+			// failing to process a datum is different than if the user code
+			// ran and returned a non-zero exit code), we eventually give up
+			// and delete the worker pod.
 			if err := w.delWorker(addr); err != nil {
 				// If we can't delete the worker for some reason, we will
 				// just have to carry on.
@@ -321,7 +329,7 @@ func (a *apiServer) newWorkerPool(ctx context.Context, rcName string, jobID stri
 	wp := &workerPool{
 		ctx:        ctx,
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, rcName),
-		workersMap: make(map[string]context.CancelFunc),
+		workersMap: make(map[string]worker),
 		objClient:  objClient,
 		etcdClient: a.etcdClient,
 		kubeClient: a.kubeClient,
