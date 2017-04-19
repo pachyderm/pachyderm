@@ -231,23 +231,23 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	// on the backend to which we're. The defaults are set in
 	// s/s/pkg/deploy/assets/assets.go
 	deploy.PersistentFlags().StringVar(&pachdCPURequest,
-		"pachd-cpu-footprint", "", "(rarely set) The size of Pachd's CPU "+
-			"footprint, which we give to Kubernetes. Size is in cores (with partial "+
+		"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
+			"request, which we give to Kubernetes. Size is in cores (with partial "+
 			"cores allowed and encouraged).")
 	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
 		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
 			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
-		"pachd-memory-footprint", "", "(rarely set) The size of PachD's memory "+
-			"footprint in addition to its block cache (set via --block-cache-size). "+
+		"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
+			"request in addition to its block cache (set via --block-cache-size). "+
 			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
 	deploy.PersistentFlags().StringVar(&etcdCPURequest,
-		"etcd-cpu-footprint", "", "(rarely set) The size of etcd's CPU footprint, "+
+		"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
 			"which we give to Kubernetes. Size is in cores (with partial cores "+
 			"allowed and encouraged).")
 	deploy.PersistentFlags().StringVar(&etcdMemRequest,
-		"etcd-memory-footprint", "", "(rarely set) The size of etcd's memory "+
-			"footprint. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
+			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 			"etc).")
 	return deploy
 }
