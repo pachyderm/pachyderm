@@ -301,22 +301,6 @@ Examples:
 		}),
 	}
 
-	killJob := &cobra.Command{
-		Use:   "kill-job kill-id",
-		Short: "Kill a job.",
-		Long:  "Kill a job.  The job will be stopped immediately.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-			if err := client.KillJob(args[0]); err != nil {
-				cmdutil.ErrorAndExit("error from KillJob: %s", err.Error())
-			}
-			return nil
-		}),
-	}
-
 	restartDatum := &cobra.Command{
 		Use:   "restart-datum job-id datum-path1,datum-path2",
 		Short: "Restart a datum.",
@@ -674,7 +658,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, createJob)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
-	result = append(result, killJob)
 	result = append(result, deleteJob)
 	result = append(result, restartDatum)
 	result = append(result, getLogs)
