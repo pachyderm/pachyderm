@@ -1702,7 +1702,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}()
 
 		tree := hashtree.NewHashTree()
-		input := df.Next()
+		i := 0
+		input := df.Datum(i)
+		i++
 		for {
 			var resp hashtree.HashTree
 			var failed bool
@@ -1711,8 +1713,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				case wp.DataCh() <- &datum{
 					inputs: input,
 				}:
-					input = df.Next()
-					inflightData++
+					input = df.Datum(i)
+					i++
 				case resp = <-wp.SuccessCh():
 					inflightData--
 				case <-jobFailedCh:

@@ -11,7 +11,6 @@ import (
 )
 
 type datumFactory interface {
-	Next() []*workerpkg.Input
 	Len() int
 	Datum(i int) []*workerpkg.Input
 }
@@ -40,14 +39,6 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 	return result, nil
 }
 
-func (d *atomDatumFactory) Next() []*workerpkg.Input {
-	if d.index > len(d.inputs) {
-		return nil
-	}
-	defer func() { d.index++ }()
-	return []*workerpkg.Input{d.inputs[d.index]}
-}
-
 func (d *atomDatumFactory) Len() int {
 	return len(d.inputs)
 }
@@ -72,10 +63,6 @@ func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, unionInp
 	return result, nil
 }
 
-func (d *unionDatumFactory) Next() []*workerpkg.Input {
-	return nil
-}
-
 func (d *unionDatumFactory) Len() int {
 	result := 0
 	for _, datumFactory := range d.inputs {
@@ -96,10 +83,6 @@ func (d *unionDatumFactory) Datum(i int) []*workerpkg.Input {
 
 type crossDatumFactory struct {
 	inputs []datumFactory
-}
-
-func (d *crossDatumFactory) Next() []*workerpkg.Input {
-	return nil
 }
 
 func (d *crossDatumFactory) Len() int {
