@@ -182,7 +182,7 @@ func do(appEnvObj interface{}) error {
 
 	// Actually write "key" into etcd
 	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
-	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
+	if _, err := etcdClient.Put(ctx, key, appEnv.PodName, etcd.WithLease(resp.ID)); err != nil {
 		return err
 	}
 
