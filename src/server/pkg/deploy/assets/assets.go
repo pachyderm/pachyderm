@@ -69,7 +69,8 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	noDash      bool
+	noDash         bool
+	DashImage      string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
@@ -791,7 +792,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment() *extensions.Deployment {
+func DashDeployment(dashImage string) *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -1031,7 +1032,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	if !opts.noDash {
 		DashService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		DashDeployment().CodecEncodeSelf(encoder)
+		DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	}
 	return nil

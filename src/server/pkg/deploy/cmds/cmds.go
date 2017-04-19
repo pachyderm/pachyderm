@@ -20,6 +20,8 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+var defaultDashImage = "pachyderm/dash:0.3.14"
+
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
@@ -52,6 +54,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -203,6 +206,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				EtcdMemRequest:          etcdMemRequest,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
+				DashImage:               dashImage,
 			}
 			return nil
 		}),
@@ -212,6 +216,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
