@@ -69,7 +69,7 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	noDash         bool
+	EnableDash     bool
 	DashImage      string
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
@@ -1029,7 +1029,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	fmt.Fprintf(w, "\n")
 	PachdDeployment(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	if !opts.noDash {
+	if opts.EnableDash {
 		DashService().CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 		DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
