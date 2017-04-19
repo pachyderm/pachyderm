@@ -1799,12 +1799,11 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return a.createWorkerDeployment(options)
 }
 
-func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) deleteWorkers(deploymentName string) error {
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	deploymentName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.Extensions().Deployments(a.namespace).Delete(deploymentName, deleteOptions); err != nil {
 		return err
 	}
@@ -1823,19 +1822,11 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	for _, rs := range rsList.Items {
-		if err := rsInterface.Delete(rs.Name, nil); err != nil {
+		if err := rsInterface.Delete(rs.Name, deleteOptions); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (a *apiServer) deleteWorkers(rcName string) error {
-	falseVal := false
-	deleteOptions := &api.DeleteOptions{
-		OrphanDependents: &falseVal,
-	}
-	return a.kubeClient.Extensions().Deployments(a.namespace).Delete(rcName, deleteOptions)
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
