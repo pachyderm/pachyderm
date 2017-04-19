@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
@@ -11,11 +13,12 @@ import (
 type datumFactory interface {
 	Next() []*workerpkg.Input
 	Len() int
+	Datum(i int) []*workerpkg.Input
 }
 
 type atomDatumFactory struct {
-	datumList []*workerpkg.Input
-	index     int
+	inputs []*workerpkg.Input
+	index  int
 }
 
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (datumFactory, error) {
@@ -28,7 +31,7 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 		return nil, err
 	}
 	for _, fileInfo := range fileInfos.FileInfo {
-		result.datumList = append(result.datumList, &workerpkg.Input{
+		result.inputs = append(result.inputs, &workerpkg.Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Lazy:     input.Lazy,
@@ -38,86 +41,110 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 }
 
 func (d *atomDatumFactory) Next() []*workerpkg.Input {
-	if d.index > len(d.datumList) {
+	if d.index > len(d.inputs) {
 		return nil
 	}
 	defer func() { d.index++ }()
-	return []*workerpkg.Input{d.datumList[d.index]}
+	return []*workerpkg.Input{d.inputs[d.index]}
 }
 
 func (d *atomDatumFactory) Len() int {
-	return len(d.datumList)
+	return len(d.inputs)
+}
+
+func (d *atomDatumFactory) Datum(i int) []*workerpkg.Input {
+	return []*workerpkg.Input{d.inputs[i]}
+}
+
+type unionDatumFactory struct {
+	inputs []datumFactory
+}
+
+func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, unionInput *pps.UnionInput) (datumFactory, error) {
+	result := &unionDatumFactory{}
+	for _, input := range unionInput.Input {
+		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
+		if err != nil {
+			return nil, err
+		}
+		result.inputs = append(result.inputs, datumFactory)
+	}
+	return result, nil
+}
+
+func (d *unionDatumFactory) Next() []*workerpkg.Input {
+	return nil
+}
+
+func (d *unionDatumFactory) Len() int {
+	result := 0
+	for _, datumFactory := range d.inputs {
+		result += datumFactory.Len()
+	}
+	return result
+}
+
+func (d *unionDatumFactory) Datum(i int) []*workerpkg.Input {
+	for _, datumFactory := range d.inputs {
+		if i < datumFactory.Len() {
+			return datumFactory.Datum(i)
+		}
+		i -= datumFactory.Len()
+	}
+	panic("index out of bounds")
 }
 
 type crossDatumFactory struct {
-	indexes    []int
-	datumLists [][]*pfs.FileInfo
-	done       bool
+	inputs []datumFactory
 }
 
 func (d *crossDatumFactory) Next() []*workerpkg.Input {
 	return nil
-	// if d.done {
-	// 	return nil
-	// }
-
-	// defer func() {
-	// 	// Increment the indexes
-	// 	for i := 0; i < len(d.datumLists); i++ {
-	// 		if d.indexes[i] == len(d.datumLists[i])-1 {
-	// 			d.indexes[i] = 0
-	// 			continue
-	// 		}
-	// 		d.indexes[i]++
-	// 		return
-	// 	}
-	// 	d.done = true
-	// }()
-
-	// var datum []*pfs.FileInfo
-	// for i, index := range d.indexes {
-	// 	datum = append(datum, d.datumLists[i][index])
-	// }
-	// return datum
 }
 
 func (d *crossDatumFactory) Len() int {
-	if len(d.datumLists) == 0 {
+	if len(d.inputs) == 0 {
 		return 0
 	}
-	result := len(d.datumLists[0])
-	for i := 1; i < len(d.datumLists); i++ {
-		result *= len(d.datumLists[i])
+	result := d.inputs[0].Len()
+	for i := 1; i < len(d.inputs); i++ {
+		result *= d.inputs[i].Len()
 	}
 	return result
 }
 
 func (d *crossDatumFactory) Datum(i int) []*workerpkg.Input {
-	return nil
+	if i >= d.Len() {
+		panic("index out of bounds")
+	}
+	var result []*workerpkg.Input
+	for _, datumFactory := range d.inputs {
+		result = append(result, datumFactory.Datum(i%datumFactory.Len())...)
+		i /= datumFactory.Len()
+	}
+	return result
 }
 
-func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.CrossInput) (datumFactory, error) {
-	df := &crossDatumFactory{}
-	// for _, input := range inputs {
-	// 	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
-	// 		Commit:  input.Commit,
-	// 		Pattern: input.Glob,
-	// 	})
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if len(fileInfos.FileInfo) > 0 {
-	// 		df.datumLists = append(df.datumLists, fileInfos.FileInfo)
-	// 		df.indexes = append(df.indexes, 0)
-	// 	} else {
-	// 		// If any input is empty, we don't return any datums
-	// 		df.done = true
-	// 		break
-	// 	}
-	// }
-	return df, nil
+func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, crossInput *pps.CrossInput) (datumFactory, error) {
+	result := &crossDatumFactory{}
+	for _, input := range crossInput.Input {
+		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
+		if err != nil {
+			return nil, err
+		}
+		result.inputs = append(result.inputs, datumFactory)
+	}
+	return result, nil
 }
 
 func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (datumFactory, error) {
-	return nil, nil
+	switch {
+	case input.Atom != nil:
+		return newAtomDatumFactory(ctx, pfsClient, input.Atom)
+	case input.Union != nil:
+		return newUnionDatumFactory(ctx, pfsClient, input.Union)
+	case input.Cross != nil:
+		return newCrossDatumFactory(ctx, pfsClient, input.Cross)
+	}
+	return nil, fmt.Errorf("unrecognized input type")
 }
