@@ -72,7 +72,7 @@ type AssetOpts struct {
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks.
 	BlockCacheSize string
-	EnableDash  bool
+	EnableDash     bool
 	DashImage      string
 }
 
