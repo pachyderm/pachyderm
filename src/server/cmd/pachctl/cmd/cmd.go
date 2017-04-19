@@ -24,6 +24,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
@@ -124,25 +125,59 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	var port int
+	var uiPort int
+	var uiWebsocketPort int
 	var kubeCtlFlags string
 	portForward := &cobra.Command{
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			stdin := strings.NewReader(fmt.Sprintf(`
+
+			var eg errgroup.Group
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
-			fmt.Println("Port forwarded, CTRL-C to exit.")
-			return cmdutil.RunIO(cmdutil.IO{
-				Stdin:  stdin,
-				Stderr: os.Stderr,
-			}, "sh")
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl %v port-forward "$pod" %d:8080
+`, kubeCtlFlags, kubeCtlFlags, uiPort))
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
+
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
+kubectl %v port-forward "$pod" %d:8081
+`, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
+				return cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh")
+			})
+
+			fmt.Printf("Pachd port forwarded\nDash websocket port forwarded\nDash UI port forwarded, navigate to localhost:%v\nCTRL-C to exit", uiPort)
+			return eg.Wait()
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 38080, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 32082, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
+
 	rootCmd.AddCommand(version)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
