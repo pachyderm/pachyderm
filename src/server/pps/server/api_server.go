@@ -1804,8 +1804,30 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	rcName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	return a.kubeClient.Extensions().Deployments(a.namespace).Delete(rcName, deleteOptions)
+	deploymentName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	if err := a.kubeClient.Extensions().Deployments(a.namespace).Delete(deploymentName, deleteOptions); err != nil {
+		return err
+	}
+	// In k8s 1.6+, a replica set can be automatically removed when the
+	// deployment that created it is removed.  However, for lower versions
+	// of k8s, you have to do the following manually.
+	rsInterface := a.kubeClient.ReplicaSets(a.namespace)
+	label, err := kube_labels.Parse(fmt.Sprintf("app=%s", deploymentName))
+	if err != nil {
+		return err
+	}
+	rsList, err := rsInterface.List(api.ListOptions{
+		LabelSelector: label,
+	})
+	if err != nil {
+		return err
+	}
+	for _, rs := range rsList.Items {
+		if err := rsInterface.Delete(rs.Name, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) deleteWorkers(rcName string) error {
