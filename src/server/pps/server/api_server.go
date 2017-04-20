@@ -1105,19 +1105,19 @@ func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCom
 }
 
 func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(rcName)
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = 0
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
 	return err
 }
 
-func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, parallelismSpec *pps.ParallelismSpec) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(deploymentName)
+func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, parallelismSpec *pps.ParallelismSpec) error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
@@ -1125,8 +1125,8 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = int32(parallelism)
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
 	return err
 }
 
@@ -1174,7 +1174,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 		}
 
-		// Create a k8s deployment that runs the workers
+		// Create a k8s rc that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
