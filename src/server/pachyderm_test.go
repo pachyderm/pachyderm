@@ -3065,7 +3065,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container api.Container
-	rcName := pps_server.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
@@ -3131,7 +3131,7 @@ func TestJobResourceRequest(t *testing.T) {
 
 	// Get info about the job pods from k8s & check for resources
 	var container api.Container
-	rcName := pps_server.JobDeploymentName(createJobResp.ID)
+	rcName := pps_server.JobRcName(createJobResp.ID)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second

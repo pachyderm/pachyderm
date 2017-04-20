@@ -287,9 +287,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
@@ -391,9 +391,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
@@ -1256,7 +1256,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// because it might happen that the timer expired while
 				// we were creating a job.
 				if len(runningJobSet) == 0 {
-					if err := a.scaleDownWorkers(ctx, PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
+					if err := a.scaleDownWorkers(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
 						return err
 					}
 				}

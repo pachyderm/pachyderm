@@ -17,14 +17,9 @@ type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
 	userImage    string            // The user's pipeline/job image
-<<<<<<< HEAD
 	labels       map[string]string // k8s labels attached to the Deployment and workers
-	parallelism  int32             // Number of replicas the Deployment maintains
-	resources    *api.ResourceList // Resources requested by pipeline/job pods
-=======
-	labels       map[string]string // k8s labels attached to the RC and workers
 	parallelism  int32             // Number of replicas the RC maintains
->>>>>>> parent of 7747987... Convert workers to deployments.
+	resources    *api.ResourceList // Resources requested by pipeline/job pods
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
 	volumeMounts []api.VolumeMount // Paths where we mount each volume in 'volumes'
@@ -95,13 +90,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	return podSpec
 }
 
-<<<<<<< HEAD
-func (a *apiServer) getWorkerOptions(deploymentName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
-	labels := labels(deploymentName)
-=======
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform *pps.Transform) *workerOptions {
+func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
 	labels := labels(rcName)
->>>>>>> parent of 7747987... Convert workers to deployments.
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
