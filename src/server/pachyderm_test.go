@@ -594,7 +594,6 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipeline := uniqueString("pipeline")
-	// This pipeline fails half the times
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
