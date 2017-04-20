@@ -41,7 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  JOB_STOPPED = 4;
+  JOB_KILLED = 4;
 }
 
 message Service {
@@ -124,6 +124,18 @@ message WorkerStatus {
   google.protobuf.Timestamp started = 4;
 }
 
+// ResourceSpec describes the amount of resources that pipeline pods should
+// request from kubernetes, for scheduling.
+message ResourceSpec {
+  // The number of CPUs each worker needs (partial values are allowed, and
+  // encouraged)
+  float cpu = 1;
+
+  // The amount of memory, in bytes, each worker needs (in bytes, with allowed
+  // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
+  string memory = 2;
+}
+
 message JobInfo {
   reserved 4;
   Job job = 1;
@@ -147,7 +159,8 @@ message JobInfo {
   int64 data_processed = 22;
   int64 data_total = 23;
   repeated WorkerStatus worker_status = 24;
-  Input input = 25;
+  ResourceSpec resource_spec = 25;
+  Input input = 26;
 }
 
 enum WorkerState {
@@ -213,7 +226,8 @@ message PipelineInfo {
   bool stopped = 13;
   string outputBranch = 16;
   google.protobuf.Duration scaleDownThreshold = 18;
-  Input input = 19;
+  ResourceSpec resource_spec = 19;
+  Input input = 20;
 }
 
 message PipelineInfos {
@@ -221,7 +235,6 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  // next field value: 12
   reserved 3;
   Transform transform = 1;
   Pipeline pipeline = 2;
@@ -235,7 +248,8 @@ message CreateJobRequest {
   pfs.Repo outputRepo = 12;
   string outputBranch = 11;
   Job parent_job = 13;
-  Input input = 14;
+  ResourceSpec resource_spec = 14;
+  Input input = 15;
 }
 
 message InspectJobRequest {
@@ -252,7 +266,7 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
-message StopJobRequest {
+message KillJobRequest {
   Job job = 1;
 }
 
@@ -308,7 +322,8 @@ message CreatePipelineRequest {
   bool update = 5;
   string outputBranch = 10;
   google.protobuf.Duration scaleDownThreshold = 11;
-  Input input = 12;
+  ResourceSpec resource_spec = 12;
+  Input input = 13;
 }
 
 message InspectPipelineRequest {
@@ -342,7 +357,7 @@ service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
-  rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc KillJob(KillJobRequest) returns (google.protobuf.Empty) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
