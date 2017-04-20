@@ -1174,7 +1174,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 		}
 
-		// Create a k8s deployment that runs the workers
+		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
@@ -1510,7 +1510,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 						protolion.Infof("retrying datum %v", dts[0].files)
 						dts = dts[1:]
 					case dt := <-wp.FailCh():
-						dt.retries++
 						if dt.retries >= MaximumRetriesPerDatum {
 							close(jobFailedCh)
 							return
@@ -1523,7 +1522,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				} else {
 					select {
 					case dt := <-wp.FailCh():
-						dt.retries++
 						if dt.retries >= MaximumRetriesPerDatum {
 							close(jobFailedCh)
 							return
