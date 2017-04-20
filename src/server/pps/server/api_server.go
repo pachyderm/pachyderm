@@ -13,6 +13,7 @@ import (
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -1130,7 +1131,7 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	return err
 }
 
-func (a *apiServer) ipForWorkerService(ctx context.Context, deploymentName string) (string, error) {
+func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) (string, error) {
 	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
 	if err != nil {
 		return "", err
@@ -1439,6 +1440,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		objectClient, err := a.getObjectClient()
+		if err != nil {
+			return err
+		}
 
 		// Create workers and output repo if 'jobInfo' belongs to an orphan job
 		if jobInfo.Pipeline == nil {
@@ -1489,12 +1494,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 
 		// Start worker pool
 		var wp WorkerPool
+		var deploymentName string
 		if jobInfo.Pipeline != nil {
 			// We scale up the workers before we run a job, to ensure
 			// that the job will have workers to use.  Note that scaling
 			// a deployment is idempotent: nothing happens if the workers have
 			// already been scaled.
-			deploymentName := PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+			deploymentName = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 			if err := a.scaleUpWorkers(ctx, deploymentName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
@@ -1503,7 +1509,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				return err
 			}
 		} else {
-			wp, err = a.newWorkerPool(ctx, JobDeploymentName(jobInfo.Job.ID), jobInfo.Job.ID)
+			deploymentName = JobDeploymentName(jobInfo.Job.ID)
+			wp, err = a.newWorkerPool(ctx, deploymentName, jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
@@ -1651,6 +1658,41 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				})
 				return err
 			}
+		}
+
+		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
+		for files := df.Next(); files != nil; files = df.Next() {
+			b := backoff.NewInfiniteBackOff()
+			backoff.RetryNotify(func() error {
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
+				if err != nil {
+					return err
+				}
+				workerClient := workerpkg.NewWorkerClient(conn)
+				resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+					JobID: jobInfo.Job.ID,
+					Data:  files,
+				})
+				if err != nil {
+					return err
+				}
+				getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+				}
+				var buffer bytes.Buffer
+				if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+				}
+				subTree, err := hashtree.Deserialize(buffer.Bytes())
+				if err != nil {
+					return fmt.Errorf("failed deserialice hashtree after processing for datum %v: %v", files, err)
+				}
+				return tree.Merge(subTree)
+			}, b, func(err error, d time.Duration) error {
+				protolion.Infof("failed to process datum with: %+v", err)
+				return nil
+			})
 		}
 
 		finishedTree, err := tree.Finish()
