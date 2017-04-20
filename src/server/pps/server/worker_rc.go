@@ -218,6 +218,33 @@ func (a *apiServer) createWorkerDeployment(options *workerOptions) error {
 			},
 		},
 	}
-	_, err := a.kubeClient.Deployments(a.namespace).Create(deployment)
-	return err
+	if _, err := a.kubeClient.Deployments(a.namespace).Create(deployment); err != nil {
+		return err
+	}
+
+	service := &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   options.deploymentName,
+			Labels: options.labels,
+		},
+		Spec: api.ServiceSpec{
+			Selector: options.labels,
+			Ports: []api.ServicePort{
+				{
+					Port: client.PPSWorkerPort,
+					Name: "grpc-port",
+				},
+			},
+		},
+	}
+
+	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
+		return err
+	}
+
+	return nil
 }
