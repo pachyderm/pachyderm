@@ -167,11 +167,11 @@ func (c APIClient) DeleteJob(jobID string) error {
 	return sanitizeErr(err)
 }
 
-// KillJob stops a job.
-func (c APIClient) KillJob(jobID string) error {
-	_, err := c.PpsAPIClient.KillJob(
+// StopJob stops a job.
+func (c APIClient) StopJob(jobID string) error {
+	_, err := c.PpsAPIClient.StopJob(
 		c.ctx(),
-		&pps.KillJobRequest{
+		&pps.StopJobRequest{
 			Job: NewJob(jobID),
 		},
 	)
