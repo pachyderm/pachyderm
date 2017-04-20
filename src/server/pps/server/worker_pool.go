@@ -156,7 +156,7 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 		return nil
 	})
 
-	for true {
+	for {
 		var dt *datum
 		var ok bool
 		select {
@@ -166,6 +166,19 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 			if !ok {
 				return
 			}
+		}
+		resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+			JobID: w.jobID,
+			Data:  dt.files,
+		})
+		if err != nil {
+			protolion.Errorf("worker %s failed to process datum %v with error %s", addr, dt.files, err)
+			select {
+			case w.failCh <- dt:
+			case <-ctx.Done():
+				return
+			}
+			continue
 		}
 		func() (retErr error) {
 			defer func() {
@@ -177,13 +190,6 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 					}
 				}
 			}()
-			resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
-				JobID: w.jobID,
-				Data:  dt.files,
-			})
-			if err != nil {
-				return fmt.Errorf("worker %s failed to process datum %v with error %s", addr, dt.files, err)
-			}
 			if resp.Tag != nil {
 				var buffer bytes.Buffer
 				getTagClient, err := w.objClient.GetTag(ctx, &pfs.Tag{resp.Tag.Name})
