@@ -1195,7 +1195,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 		}
 
-		// Create a k8s deployment that runs the workers
+		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
@@ -1575,7 +1575,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			limiter.Acquire()
 			files := files
 			go func() {
-				retries := 0
+				userCodeFailures := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				backoff.RetryNotify(func() error {
@@ -1595,6 +1595,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					if err != nil {
 						return err
 					}
+					if resp.Failed {
+						userCodeFailures++
+						return fmt.Errorf("user code failed for datum %v", files)
+					}
 					getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
 					if err != nil {
 						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
@@ -1612,9 +1616,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
 					protolion.Errorf("job %s failed to process datum %+v with: %+v", jobID, files, err)
-					retries++
-					if retries > MaximumRetriesPerDatum {
-						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, retries)
+					if userCodeFailures > MaximumRetriesPerDatum {
+						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
 						return fmt.Errorf("") // needed to escape the retry
 					}
