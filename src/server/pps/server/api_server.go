@@ -1562,6 +1562,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		updateProgress(0)
 
 		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
+		clientPool := sync.Pool{
+			New: func() interface{} {
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
+				if err != nil {
+					return err
+				}
+				return workerpkg.NewWorkerClient(conn)
+			},
+		}
 		for files := df.Next(); files != nil; files = df.Next() {
 			limiter.Acquire()
 			files := files
@@ -1570,11 +1579,15 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				backoff.RetryNotify(func() error {
-					conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
-					if err != nil {
-						return err
+					clientOrErr := clientPool.Get()
+					var workerClient workerpkg.WorkerClient
+					switch clientOrErr := clientOrErr.(type) {
+					case workerpkg.WorkerClient:
+						workerClient = clientOrErr
+						defer clientPool.Put(clientOrErr)
+					case error:
+						return clientOrErr
 					}
-					workerClient := workerpkg.NewWorkerClient(conn)
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
@@ -1815,6 +1828,9 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 }
 
 func (a *apiServer) deleteWorkers(deploymentName string) error {
+	if err := a.kubeClient.Services(a.namespace).Delete(deploymentName); err != nil {
+		return err
+	}
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
