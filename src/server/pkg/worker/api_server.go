@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -42,7 +43,8 @@ type APIServer struct {
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
-	transform *pps.Transform
+	pipelineInfo *pps.PipelineInfo
+	jobInfo      *pps.JobInfo
 
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
@@ -141,8 +143,8 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
-		pachClient: pachClient,
-		transform:  pipelineInfo.Transform,
+		pachClient:   pachClient,
+		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
@@ -157,7 +159,7 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerName string) *APIServer {
 	server := &APIServer{
 		pachClient:     pachClient,
-		transform:      jobInfo.Transform,
+		jobInfo:        jobInfo,
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
@@ -177,7 +179,14 @@ func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
-	transform := a.transform
+	var transform *pps.Transform
+	if a.pipelineInfo != nil {
+		transform = a.pipelineInfo.Transform
+	} else if a.jobInfo != nil {
+		transform = a.jobInfo.Transform
+	} else {
+		return fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
+	}
 	cmd := exec.CommandContext(ctx, transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
@@ -350,22 +359,28 @@ func (a *APIServer) cleanUpData() error {
 func (a *APIServer) HashDatum(data []*Input) (string, error) {
 	hash := sha256.New()
 	for _, datum := range data {
-		if _, err := hash.Write([]byte(datum.Name)); err != nil {
-			return "", err
-		}
-		if _, err := hash.Write([]byte(datum.FileInfo.File.Path)); err != nil {
-			return "", err
-		}
-		if _, err := hash.Write(datum.FileInfo.Hash); err != nil {
-			return "", err
-		}
+		hash.Write([]byte(datum.Name))
+		hash.Write([]byte(datum.FileInfo.File.Path))
+		hash.Write(datum.FileInfo.Hash)
 	}
-	bytes, err := proto.Marshal(a.transform)
-	if err != nil {
-		return "", err
-	}
-	if _, err := hash.Write(bytes); err != nil {
-		return "", err
+	if a.pipelineInfo != nil {
+		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
+		if err != nil {
+			return "", err
+		}
+		hash.Write(bytes)
+		hash.Write([]byte(a.pipelineInfo.Pipeline.Name))
+		hash.Write([]byte(a.pipelineInfo.ID))
+		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
+	} else if a.jobInfo != nil {
+		bytes, err := proto.Marshal(a.jobInfo.Transform)
+		if err != nil {
+			return "", err
+		}
+		hash.Write(bytes)
+		hash.Write([]byte(a.jobInfo.Job.ID))
+	} else {
+		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

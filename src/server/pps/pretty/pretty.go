@@ -131,6 +131,9 @@ Progress: {{.DataProcessed}} / {{.DataTotal}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
+{{ if .ResourceSpec }}ResourceSpec:
+	CPU: {{ .ResourceSpec.Cpu }}
+	Memory: {{ .ResourceSpec.Memory }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
@@ -157,6 +160,9 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Parallelism Spec: {{.ParallelismSpec}}
+{{ if .ResourceSpec }}ResourceSpec:
+	CPU: {{ .ResourceSpec.Cpu }}
+	Memory: {{ .ResourceSpec.Memory }} {{end}}
 Inputs:
 {{pipelineInputs .}}
 Output Branch: {{.OutputBranch}}
@@ -187,8 +193,8 @@ func jobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgRed).SprintFunc()("failure")
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
-	case ppsclient.JobState_JOB_STOPPED:
-		return color.New(color.FgYellow).SprintFunc()("stopped")
+	case ppsclient.JobState_JOB_KILLED:
+		return color.New(color.FgRed).SprintFunc()("killed")
 	}
 	return "-"
 }
