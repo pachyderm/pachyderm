@@ -184,6 +184,7 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 			defer func() {
 				if retErr != nil {
 					protolion.Errorf("datum error in job %s: %v", w.jobID, retErr)
+					dt.retries++
 					select {
 					case w.failCh <- dt:
 					case <-ctx.Done():
