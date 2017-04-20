@@ -20,6 +20,8 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+var defaultDashImage = "pachyderm/dash:0.3.14"
+
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
@@ -43,11 +45,18 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var secure bool
 	var etcdNodes int
 	var etcdVolume string
+	var pachdCPURequest string
+	var pachdNonCacheMemRequest string
 	var blockCacheSize string
+	var etcdCPURequest string
+	var etcdMemRequest string
 	var logLevel string
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var enableDash bool
+	var dashOnly bool
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -188,13 +197,20 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
-				PachdShards:    uint64(pachdShards),
-				Version:        version.PrettyPrintVersion(version.Version),
-				LogLevel:       logLevel,
-				Metrics:        metrics,
-				BlockCacheSize: blockCacheSize,
-				EtcdNodes:      etcdNodes,
-				EtcdVolume:     etcdVolume,
+				PachdShards:             uint64(pachdShards),
+				Version:                 version.PrettyPrintVersion(version.Version),
+				LogLevel:                logLevel,
+				Metrics:                 metrics,
+				PachdCPURequest:         pachdCPURequest,
+				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
+				BlockCacheSize:          blockCacheSize,
+				EtcdCPURequest:          etcdCPURequest,
+				EtcdMemRequest:          etcdMemRequest,
+				EtcdNodes:               etcdNodes,
+				EtcdVolume:              etcdVolume,
+				EnableDash:              enableDash,
+				DashOnly:                dashOnly,
+				DashImage:               dashImage,
 			}
 			return nil
 		}),
@@ -204,13 +220,41 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
-		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental)")
+	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
 	deploy.AddCommand(deployCustom)
+
+	// Flags for setting pachd and rethink resource requests. These should rarely
+	// be set -- only if we get the defaults wrong, or users have an unusual
+	// access pattern.
+	//
+	// All of these are empty by default, because the actual default values depend
+	// on the backend to which we're. The defaults are set in
+	// s/s/pkg/deploy/assets/assets.go
+	deploy.PersistentFlags().StringVar(&pachdCPURequest,
+		"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
+			"request, which we give to Kubernetes. Size is in cores (with partial "+
+			"cores allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
+		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
+			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
+		"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
+			"request in addition to its block cache (set via --block-cache-size). "+
+			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&etcdCPURequest,
+		"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
+			"which we give to Kubernetes. Size is in cores (with partial cores "+
+			"allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&etcdMemRequest,
+		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
+			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+			"etc).")
 	return deploy
 }
 

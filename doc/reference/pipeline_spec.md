@@ -30,6 +30,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "constant": int        // if strategy == CONSTANT
     "coefficient": double  // if strategy == COEFFICIENT
   },
+  "resource_spec": {
+    "memory": string
+    "cpu": double
+  },
   "inputs": [
     {
       "name": string,
@@ -145,6 +149,43 @@ Kubernetes node).
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.
 
+### Resource Spec (optional)
+
+`resource_spec` describes the amount of resources you expect the
+workers for a given pipeline to consume. Knowing this in advance
+lets us schedule big jobs on separate machines, so that they don't
+conflict and either slow down or die.
+
+The `memory` field is a string that describes the amount of memory, in bytes,
+each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). For
+example, a worker that needs to read a 1GB file into memory might set
+`"memory": "1.2GB"` (with a little extra for the code to use in addition to the
+file. Workers for this pipeline will only be placed on machines with at least
+1.2GB of free memory, and other large workers will be prevented from using it
+(if they also set their `resource_spec`).
+
+The `cpu` field is a double that describes the amount of CPU time (in (cpu
+seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
+the worker should get 500ms of CPU time per second. Setting `"cpu": 2`
+indicates that the worker should get 2000ms of CPU time per second (i.e. it's
+using 2 CPUs, essentially, though worker threads might spend e.g. 500ms on four
+physical CPUs instead of one second on two physical CPUs).
+
+In both cases, the resource requests are not upper bounds. If the worker uses
+more memory than it's requested, it will not (necessarily) be killed.  However,
+if the whole node runs out of memory, Kubernetes will start killing pods that
+have been placed on it and exceeded their memory request, to reclaim memory.
+To prevent your worker getting killed, you must set your `memory` request to
+a sufficiently large value. However, if the total memory requested by all
+workers in the system is too large, Kubernetes will be unable to schedule new
+workers (because no machine will have enough unclaimed memory). `cpu` works
+similarly, but for CPU time.
+
+By default, workers are scheduled with an effective resource request of 0 (to
+avoid scheduling problems that prevent users from being unable to run
+pipelines).  This means that if a node runs out of memory, any such worker
+might be killed.
+
 #### Inputs (optional)
 
 `inputs` specifies a set of Repos that will be visible to the jobs during
@@ -172,7 +213,7 @@ be downloaded until the job opens the pipe and reads it, if the pipe is
 never opened then no will be downloaded. Some applications won't work with
 pipes, for example if they make syscalls such as `Seek` which pipes don't
 support. Applications that can work with pipes should use them since they're
-more performant, the difference will be especially notable if the job only 
+more performant, the difference will be especially notable if the job only
 reads a subset of the files that are available to it.
 
 `inputs.from` specifies the starting point of the input branch.  If `from`
@@ -224,7 +265,7 @@ For instance, let's say your input repo has the following structure:
 
 Now let's consider what the following glob patterns would match respectively:
 
-* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum. 
+* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum.
 * `/*`:  this pattern matches everything under the root directory given us 3 datums:
 `/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
 * `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
@@ -234,7 +275,7 @@ to the root: `/bar/bar-1` and `/bar/bar-2`
 
 The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
 `/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker. 
+`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
 
 ## Multiple Inputs
 

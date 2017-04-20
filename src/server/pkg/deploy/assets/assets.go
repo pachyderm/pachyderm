@@ -10,9 +10,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	api "k8s.io/kubernetes/pkg/api/v1"
+	// k8s.io/kubernetes/pkg/api/v1 is very similar to
+	// "k8s.io/kubernetes/pkg/api" above, we import both because services need
+	// to use v1 otherwise they get empty fields that make them invalid to
+	// kubectl, we need the api version to interact correctly with deployments
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
@@ -25,6 +31,10 @@ var (
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
+	dashName                = "dash"
+	dashImage               = "pachyderm/dash"
+	grpcProxyName           = "grpc-proxy"
+	grpcProxyImage          = "pachyderm/grpc-proxy"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -59,9 +69,81 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
+	EnableDash  bool
+	DashOnly    bool
+	DashImage   string
+
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
-	// its cache of PFS blocks.
+	// its cache of PFS blocks. If empty, assets.go will choose a default size.
 	BlockCacheSize string
+
+	// PachdCPURequest is the amount of CPU we request for each pachd node. If
+	// empty, assets.go will choose a default size.
+	PachdCPURequest string
+
+	// PachdNonCacheMemRequest is the amount of memory we request for each
+	// pachd node in addition to BlockCacheSize. If empty, assets.go will choose
+	// a default size.
+	PachdNonCacheMemRequest string
+
+	// EtcdCPURequest is the amount of CPU (in cores) we request for each etcd
+	// node. If empty, assets.go will choose a default size.
+	EtcdCPURequest string
+
+	// EtcdMemRequest is the amount of memory we request for each etcd node. If
+	// empty, assets.go will choose a default size.
+	EtcdMemRequest string
+}
+
+// fillDefaultResourceRequests sets any of:
+//   opts.BlockCacheSize
+//   opts.PachdNonCacheMemRequest
+//   opts.PachdCPURequest
+//   opts.EtcdCPURequest
+//   opts.EtcdMemRequest
+// that are unset in 'opts' to the appropriate default ('persistentDiskBackend'
+// just used to determine if this is a local deployment, and if so, make the
+// resource requests smaller)
+func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend) {
+	if persistentDiskBackend == localBackend {
+		// For local deployments, we set the resource requirements and cache sizes
+		// low so that pachyderm clusters will fit inside e.g. minikube or travis
+		if opts.BlockCacheSize == "" {
+			opts.BlockCacheSize = "256M"
+		}
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "256M"
+		}
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "0.25"
+		}
+
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "256M"
+		}
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "0.25"
+		}
+	} else {
+		// For non-local deployments, we set the resource requirements and cache
+		// sizes higher, so that the cluster is stable and performant
+		if opts.BlockCacheSize == "" {
+			opts.BlockCacheSize = "5G"
+		}
+		if opts.PachdNonCacheMemRequest == "" {
+			opts.PachdNonCacheMemRequest = "2G"
+		}
+		if opts.PachdCPURequest == "" {
+			opts.PachdCPURequest = "1"
+		}
+
+		if opts.EtcdMemRequest == "" {
+			opts.EtcdMemRequest = "2G"
+		}
+		if opts.EtcdCPURequest == "" {
+			opts.EtcdCPURequest = "1"
+		}
+	}
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
@@ -78,8 +160,11 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-// PachdRc returns a pachd replication controller.
-func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.ReplicationController {
+// PachdDeployment returns a pachd k8s Deployment.
+func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
+	mem := resource.MustParse(opts.BlockCacheSize)
+	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
+	cpu := resource.MustParse(opts.PachdCPURequest)
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
@@ -166,22 +251,21 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 			MountPath: "/" + microsoftSecretName,
 		})
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": pachdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(pachdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   pachdName,
 					Labels: labels(pachdName),
@@ -254,6 +338,12 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					ServiceAccountName: serviceAccountName,
@@ -265,22 +355,22 @@ func PachdRc(opts *AssetOpts, objectStoreBackend backend, hostPath string) *api.
 }
 
 // PachdService returns a pachd service.
-func PachdService() *api.Service {
-	return &api.Service{
+func PachdService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     650,
 					Name:     "api-grpc-port",
@@ -296,8 +386,10 @@ func PachdService() *api.Service {
 	}
 }
 
-// EtcdRc returns an etcd replication controller.
-func EtcdRc(hostPath string) *api.ReplicationController {
+// EtcdDeployment returns an etcd k8s Deployment.
+func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
+	cpu := resource.MustParse(opts.EtcdCPURequest)
+	mem := resource.MustParse(opts.EtcdMemRequest)
 	var volumes []api.Volume
 	if hostPath == "" {
 		volumes = []api.Volume{
@@ -322,22 +414,21 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 			},
 		}
 	}
-	replicas := int32(1)
-	return &api.ReplicationController{
+	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: &replicas,
-			Selector: map[string]string{
-				"app": etcdName,
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(etcdName),
 			},
-			Template: &api.PodTemplateSpec{
+			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   etcdName,
 					Labels: labels(etcdName),
@@ -371,6 +462,12 @@ func EtcdRc(hostPath string) *api.ReplicationController {
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
+							Resources: api.ResourceRequirements{
+								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+							},
 						},
 					},
 					Volumes: volumes,
@@ -498,26 +595,26 @@ func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
 
 // EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
 // pods talk to etcd
-func EtcdNodePortService(local bool) *api.Service {
+func EtcdNodePortService(local bool) *v1.Service {
 	var clientNodePort int32
 	if local {
 		clientNodePort = 32379
 	}
-	return &api.Service{
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": etcdName,
 			},
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Port:     2379,
 					Name:     "client-port",
@@ -530,22 +627,22 @@ func EtcdNodePortService(local bool) *api.Service {
 
 // EtcdHeadlessService returns a headless etcd service, which is only for DNS
 // resolution.
-func EtcdHeadlessService() *api.Service {
-	return &api.Service{
+func EtcdHeadlessService() *v1.Service {
+	return &v1.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:   etcdHeadlessServiceName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.ServiceSpec{
+		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app": etcdName,
 			},
 			ClusterIP: "None",
-			Ports: []api.ServicePort{
+			Ports: []v1.ServicePort{
 				{
 					Name: "peer-port",
 					Port: 2380,
@@ -557,6 +654,8 @@ func EtcdHeadlessService() *api.Service {
 
 // EtcdStatefulSet returns a stateful set that manages an etcd cluster
 func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{} {
+	mem := resource.MustParse(opts.EtcdMemRequest)
+	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
 		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
@@ -678,11 +777,98 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 								},
 							},
 							"imagePullPolicy": "IfNotPresent",
+							"resources": map[string]interface{}{
+								"requests": map[string]interface{}{
+									string(api.ResourceCPU):    cpu.String(),
+									string(api.ResourceMemory): mem.String(),
+								},
+							},
 						},
 					},
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
+		},
+	}
+}
+
+// DashDeployment creates a Deployment for the pachyderm dashboard.
+func DashDeployment(dashImage string) *extensions.Deployment {
+	return &extensions.Deployment{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "extensions/v1beta1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: extensions.DeploymentSpec{
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(dashName),
+			},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   dashName,
+					Labels: labels(dashName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  dashName,
+							Image: dashImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8080,
+									Name:          "dash-http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+						{
+							Name:  grpcProxyName,
+							Image: grpcProxyImage,
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8081,
+									Name:          "grpc-proxy-http",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// DashService creates a Service for the pachyderm dashboard.
+func DashService() *v1.Service {
+	return &v1.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   dashName,
+			Labels: labels(dashName),
+		},
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeNodePort,
+			Selector: labels(dashName),
+			Ports: []v1.ServicePort{
+				{
+					Port:     8080,
+					Name:     "dash-http",
+					NodePort: 30080,
+				},
+				{
+					Port:     8081,
+					Name:     "grpc-proxy-http",
+					NodePort: 30081,
+				},
+			},
 		},
 	}
 }
@@ -782,6 +968,16 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 	}
 }
 
+// WriteDashboardAssets writes the k8s config for deploying the Pachyderm
+// dashboard to 'w'
+func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	DashService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
 // WriteAssets writes the assets to w.
 func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	persistentDiskBackend backend, volumeSize int,
@@ -792,6 +988,11 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		return fmt.Errorf("if either persistentDiskBackend or objectStoreBackend "+
 			"is \"local\", both must be \"local\", but persistentDiskBackend==%d, \n"+
 			"and objectStoreBackend==%d", persistentDiskBackend, objectStoreBackend)
+	}
+	fillDefaultResourceRequests(opts, persistentDiskBackend)
+	if opts.DashOnly {
+		WriteDashboardAssets(w, opts)
+		return nil
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 
@@ -807,7 +1008,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
 	if objectStoreBackend == localBackend {
-		EtcdRc(hostPath).CodecEncodeSelf(encoder)
+		EtcdDeployment(opts, hostPath).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else if opts.EtcdNodes > 0 {
 		sc, err := EtcdStorageClass(persistentDiskBackend)
@@ -831,7 +1032,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		fmt.Fprintf(w, "\n")
 		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
-		EtcdRc("").CodecEncodeSelf(encoder)
+		EtcdDeployment(opts, "").CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else {
 		return fmt.Errorf("unless deploying locally, either --etcd-nodes or --etcd-volume needs to be provided")
@@ -841,8 +1042,11 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
+	PachdDeployment(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
+	if opts.EnableDash {
+		WriteDashboardAssets(w, opts)
+	}
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -20,10 +21,13 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
+	"k8s.io/kubernetes/pkg/api"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 const (
 	workerEtcdPrefix = "workers"
+	maxBackoff       = 5 * time.Second
 )
 
 type datum struct {
@@ -49,11 +53,15 @@ type workerPool struct {
 	workerDir string
 	// workersMap is a map from a worker's address to the function that
 	// can be used to release its resources.
-	workersMap map[string]context.CancelFunc
+	workersMap     map[string]worker
+	workersMapLock sync.Mutex
 	// objClient is the client for Pachyderm's object store
 	objClient pfs.ObjectAPIClient
 	// Used to check for workers added/deleted in etcd
 	etcdClient *etcd.Client
+	// Used to delete worker pods
+	kubeClient *kube.Client
+	namespace  string
 	// The job that spawned the worker pool
 	jobID string
 	// workers get datums from this channel.
@@ -84,9 +92,10 @@ func (w *workerPool) discoverWorkers() {
 				return err
 			}
 			addr := path.Base(string(resp.Key))
+			podName := string(resp.Value)
 			switch resp.Type {
 			case watch.EventPut:
-				if err := w.addWorker(addr); err != nil {
+				if err := w.addWorker(addr, podName); err != nil {
 					return err
 				}
 			case watch.EventDelete:
@@ -108,13 +117,24 @@ func (w *workerPool) discoverWorkers() {
 	})
 }
 
-func (w *workerPool) addWorker(addr string) error {
-	if cancel, ok := w.workersMap[addr]; ok {
-		cancel()
+type worker struct {
+	cancel  context.CancelFunc
+	podName string
+}
+
+func (w *workerPool) addWorker(addr string, podName string) error {
+	w.workersMapLock.Lock()
+	defer w.workersMapLock.Unlock()
+
+	if worker, ok := w.workersMap[addr]; ok {
+		worker.cancel()
 	}
 
 	workerCtx, cancelFn := context.WithCancel(w.ctx)
-	w.workersMap[addr] = cancelFn
+	w.workersMap[addr] = worker{
+		cancel:  cancelFn,
+		podName: podName,
+	}
 
 	protolion.Infof("launching new worker for %s at %v", w.workerDir, addr)
 	go w.runWorker(workerCtx, addr)
@@ -122,12 +142,23 @@ func (w *workerPool) addWorker(addr string) error {
 }
 
 func (w *workerPool) delWorker(addr string) error {
-	cancel, ok := w.workersMap[addr]
+	w.workersMapLock.Lock()
+	defer w.workersMapLock.Unlock()
+
+	worker, ok := w.workersMap[addr]
 	if !ok {
 		return fmt.Errorf("deleting worker %s which is not in worker pool", addr)
 	}
-	cancel()
+
+	worker.cancel()
+	zeroVal := int64(0)
+	if err := w.kubeClient.Pods(w.namespace).Delete(worker.podName, &api.DeleteOptions{
+		GracePeriodSeconds: &zeroVal,
+	}); err != nil {
+		return err
+	}
 	protolion.Infof("deleting worker for %s at %v", w.workerDir, addr)
+
 	return nil
 }
 
@@ -280,9 +311,11 @@ func (a *apiServer) newWorkerPool(ctx context.Context, rcName string, jobID stri
 	wp := &workerPool{
 		ctx:        ctx,
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, rcName),
-		workersMap: make(map[string]context.CancelFunc),
-		etcdClient: a.etcdClient,
+		workersMap: make(map[string]worker),
 		objClient:  objClient,
+		etcdClient: a.etcdClient,
+		kubeClient: a.kubeClient,
+		namespace:  a.namespace,
 		jobID:      jobID,
 		dataCh:     make(chan *datum),
 		failCh:     make(chan *datum),
@@ -303,7 +336,6 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 	if err != nil {
 		return nil, err
 	}
-	protolion.Printf("resp: %+v\n", resp)
 
 	var result []workerpkg.WorkerClient
 	for _, kv := range resp.Kvs {

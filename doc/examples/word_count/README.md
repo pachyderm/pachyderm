@@ -93,7 +93,3 @@ To get a complete list of the words counted:
 $ pachctl list-file reduce [commit ID]
 ```
 
-
-## Preliminary Benchmarks
-
-We ran this pipeline on 7.5GB of data in July 2016, on a 3-node GCE cluster with 4 CPUs and 15GB of memory each.  The job completed in 9 hours.
