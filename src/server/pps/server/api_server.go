@@ -1560,106 +1560,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		var inflightData int64
-		var processedData int64
-		var etcdProcessedData int64 // the value of processedData we've sent to etcd
-		totalData := int64(df.Len())
-		// This goro is responsible for updating job progress
-		// The values sent on this channel will be the number of datums
-		// processed so far.
-		progressCh := make(chan int64)
-		go func() {
-			var processed int64
-			for {
-				// We do the first update before receiving a progress,
-				// because we want to update the total number of datums.
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := new(pps.JobInfo)
-					if err := jobs.Get(jobID, jobInfo); err != nil {
-						return err
-					}
-					// In case this goro races with the goro that sets
-					// this job as success, we don't want to overwrite
-					// the completed progress bar.
-					if jobInfo.DataProcessed != totalData {
-						jobInfo.DataProcessed = processed
-					}
-					jobInfo.DataTotal = int64(totalData)
-					jobs.Put(jobInfo.Job.ID, jobInfo)
-					return nil
-				}); err != nil {
-					protolion.Errorf("error updating job progress: %+v", err)
-				}
-				select {
-				case processed = <-progressCh:
-				case <-ctx.Done():
-					// exit when the jobManager exits
-					return
-				}
-			}
-		}()
-
 		tree := hashtree.NewHashTree()
-		files := df.Next()
-		for {
-			var resp hashtree.HashTree
-			var failed bool
-			if files != nil {
-				select {
-				case wp.DataCh() <- &datum{
-					files: files,
-				}:
-					files = df.Next()
-					inflightData++
-				case resp = <-wp.SuccessCh():
-					inflightData--
-				case <-jobFailedCh:
-					failed = true
-					inflightData--
-				}
-			} else {
-				if inflightData == 0 {
-					break
-				}
-				select {
-				case resp = <-wp.SuccessCh():
-				case <-jobFailedCh:
-					failed = true
-				}
-				inflightData--
-			}
-			if resp != nil {
-				if err := tree.Merge(resp); err != nil {
-					return err
-				}
-				processedData++
-				// so as not to overwhelm etcd we update at most 100 times per job
-				if (float64(processedData-etcdProcessedData) / float64(totalData)) > .01 {
-					etcdProcessedData = processedData
-					// If we fail to send the progress, so be it.
-					// We don't want to slow down the distribution of datums
-					// in order to update progress.
-					select {
-					case progressCh <- processedData:
-					default:
-					}
-				}
-			}
-			if failed {
-				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := new(pps.JobInfo)
-					if err := jobs.Get(jobID, jobInfo); err != nil {
-						return err
-					}
-					jobInfo.Finished = now()
-					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
-				})
-				return err
-			}
-		}
-
+		totalData := int64(df.Len())
 		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
 		for files := df.Next(); files != nil; files = df.Next() {
 			b := backoff.NewInfiniteBackOff()
@@ -1705,12 +1607,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		objClient, err := a.getObjectClient()
-		if err != nil {
-			return err
-		}
-
-		putObjClient, err := objClient.PutObject(ctx)
+		putObjClient, err := objectClient.PutObject(ctx)
 		if err != nil {
 			return err
 		}
