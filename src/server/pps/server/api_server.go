@@ -1516,6 +1516,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			deploymentName = JobDeploymentName(jobInfo.Job.ID)
 		}
 
+		failed := false
 		numWorkers, err := a.numWorkers(ctx, deploymentName)
 		if err != nil {
 			return err
@@ -1534,6 +1535,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			limiter.Acquire()
 			files := files
 			go func() {
+				retries := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				backoff.RetryNotify(func() error {
@@ -1559,19 +1561,38 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					subTree, err := hashtree.Deserialize(buffer.Bytes())
 					if err != nil {
-						return fmt.Errorf("failed deserialice hashtree after processing for datum %v: %v", files, err)
+						return fmt.Errorf("failed deserialize hashtree after processing for datum %v: %v", files, err)
 					}
 					treeMu.Lock()
 					defer treeMu.Unlock()
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
-					protolion.Infof("failed to process datum with: %+v", err)
+					protolion.Errorf("job %s failed to process datum %+v with: %+v", jobID, files, err)
+					retries++
+					if retries > MaximumRetriesPerDatum {
+						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, retries)
+						failed = true
+						return fmt.Errorf("") // needed to escape the retry
+					}
 					return nil
 				})
 			}()
 		}
-
 		limiter.Wait()
+
+		// check if the job failed
+		if failed {
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Finished = now()
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+			})
+			return err
+		}
 
 		finishedTree, err := tree.Finish()
 		if err != nil {
