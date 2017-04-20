@@ -1493,7 +1493,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 
 		// Start worker pool
-		var wp WorkerPool
 		var deploymentName string
 		if jobInfo.Pipeline != nil {
 			// We scale up the workers before we run a job, to ensure
@@ -1504,56 +1503,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			if err := a.scaleUpWorkers(ctx, deploymentName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
-			wp, err = a.newWorkerPool(ctx, deploymentName, jobInfo.Job.ID)
-			if err != nil {
-				return err
-			}
 		} else {
 			deploymentName = JobDeploymentName(jobInfo.Job.ID)
-			wp, err = a.newWorkerPool(ctx, deploymentName, jobInfo.Job.ID)
-			if err != nil {
-				return err
-			}
 		}
-
-		// We have a goroutine that receives the datums that fail to
-		// be processed, and put them back onto the datum queue.
-		jobFailedCh := make(chan struct{})
-		go func() {
-			var dts []*datum
-			for {
-				if len(dts) > 0 {
-					select {
-					case wp.DataCh() <- dts[0]:
-						protolion.Infof("retrying datum %v", dts[0].files)
-						dts = dts[1:]
-					case dt := <-wp.FailCh():
-						dt.retries++
-						if dt.retries >= MaximumRetriesPerDatum {
-							close(jobFailedCh)
-							return
-						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
-						dts = append(dts, dt)
-					case <-ctx.Done():
-						return
-					}
-				} else {
-					select {
-					case dt := <-wp.FailCh():
-						dt.retries++
-						if dt.retries >= MaximumRetriesPerDatum {
-							close(jobFailedCh)
-							return
-						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
-						dts = append(dts, dt)
-					case <-ctx.Done():
-						return
-					}
-				}
-			}
-		}()
 
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
