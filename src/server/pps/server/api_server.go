@@ -1130,6 +1130,17 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	return err
 }
 
+func (a *apiServer) ipForWorkerService(ctx context.Context, deploymentName string) (string, error) {
+	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
+	if err != nil {
+		return "", err
+	}
+	if service.Spec.ClusterIP == "" {
+		return "", fmt.Errorf("IP not assigned")
+	}
+	return service.Spec.ClusterIP, nil
+}
+
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
