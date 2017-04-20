@@ -1838,8 +1838,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 
 		var provenance []*pfs.Commit
-		for _, input := range jobInfo.Inputs {
-			provenance = append(provenance, input.Commit)
+		for _, commit := range inputCommits(jobInfo.Input) {
+			provenance = append(provenance, commit)
 		}
 
 		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
