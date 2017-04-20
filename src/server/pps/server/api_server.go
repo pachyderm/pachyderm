@@ -1529,7 +1529,38 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 		tree := hashtree.NewHashTree()
 		var treeMu sync.Mutex
+
+		processedData := int64(0)
+		setProcessedData := int64(0)
 		totalData := int64(df.Len())
+		var progressMu sync.Mutex
+		updateProgress := func(processed int64) {
+			progressMu.Lock()
+			defer progressMu.Unlock()
+			processedData += processed
+			// so as not to overwhelm etcd we update at most 100 times per job
+			if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
+				processedData == 0 || processedData == totalData {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobInfo := new(pps.JobInfo)
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.DataProcessed = processedData
+					jobInfo.DataTotal = totalData
+					jobs.Put(jobInfo.Job.ID, jobInfo)
+					return nil
+				}); err != nil {
+					protolion.Errorf("error updating job progress: %+v", err)
+				} else {
+					setProcessedData = processedData
+				}
+			}
+		}
+		// set the initial values
+		updateProgress(0)
+
 		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
 		for files := df.Next(); files != nil; files = df.Next() {
 			limiter.Acquire()
@@ -1576,6 +1607,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					return nil
 				})
+				go updateProgress(1)
 			}()
 		}
 		limiter.Wait()
