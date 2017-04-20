@@ -21,7 +21,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/lion/proto"
 	"google.golang.org/grpc"
-	"k8s.io/kubernetes/pkg/api"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -126,8 +125,8 @@ func (w *workerPool) addWorker(addr string, podName string) error {
 	w.workersMapLock.Lock()
 	defer w.workersMapLock.Unlock()
 
-	if worker, ok := w.workersMap[addr]; ok {
-		worker.cancel()
+	if cancel, ok := w.workersMap[addr]; ok {
+		cancel()
 	}
 
 	workerCtx, cancelFn := context.WithCancel(w.ctx)
@@ -151,10 +150,7 @@ func (w *workerPool) delWorker(addr string) error {
 	}
 
 	worker.cancel()
-	zeroVal := int64(0)
-	if err := w.kubeClient.Pods(w.namespace).Delete(worker.podName, &api.DeleteOptions{
-		GracePeriodSeconds: &zeroVal,
-	}); err != nil {
+	if err := w.kubeClient.Pods(w.namespace).Delete(worker.podName); err != nil {
 		return err
 	}
 	protolion.Infof("deleting worker for %s at %v", w.workerDir, addr)
@@ -311,7 +307,7 @@ func (a *apiServer) newWorkerPool(ctx context.Context, rcName string, jobID stri
 	wp := &workerPool{
 		ctx:        ctx,
 		workerDir:  path.Join(a.etcdPrefix, workerEtcdPrefix, rcName),
-		workersMap: make(map[string]worker),
+		workersMap: make(map[string]context.CancelFunc),
 		objClient:  objClient,
 		etcdClient: a.etcdClient,
 		kubeClient: a.kubeClient,
