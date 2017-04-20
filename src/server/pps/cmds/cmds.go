@@ -310,7 +310,7 @@ Examples:
 			if err != nil {
 				return err
 			}
-			if err := client.KillJob(args[0]); err != nil {
+			if err := client.StopJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
 			}
 			return nil
