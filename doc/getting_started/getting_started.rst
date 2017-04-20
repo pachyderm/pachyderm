@@ -29,4 +29,4 @@ If you've already got a Kubernetes cluster running or would rather use AWS, GCE 
 Looking for in-depth development docs?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Learn how to :doc:`../fundamentals/creating_analysis_pipelines` check out more advanced Pachyderm examples such as `word count <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/wordcount>`_ or `machine learning with TensorFlow <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow>`_.
+Learn how to :doc:`../fundamentals/creating_analysis_pipelines` check out more advanced Pachyderm examples such as `word count <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/word_count>`_ or `machine learning with TensorFlow <https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow>`_.
