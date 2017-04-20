@@ -12,6 +12,7 @@ import (
 	"time"
 
 	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -1105,6 +1106,14 @@ func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCom
 	})
 }
 
+func (a *apiServer) numWorkers(ctx context.Context, deploymentName string) (int, error) {
+	workerDeployment, err := a.kubeClient.Extensions().Deployments(a.namespace).Get(deploymentName)
+	if err != nil {
+		return 0, err
+	}
+	return int(workerDeployment.Spec.Replicas), nil
+}
+
 func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
 	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
 	workerDeployment, err := deployment.Get(rcName)
@@ -1507,47 +1516,62 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			deploymentName = JobDeploymentName(jobInfo.Job.ID)
 		}
 
+		numWorkers, err := a.numWorkers(ctx, deploymentName)
+		if err != nil {
+			return err
+		}
+		limiter := limit.New(numWorkers)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
 		if err != nil {
 			return err
 		}
 		tree := hashtree.NewHashTree()
+		var treeMu sync.Mutex
 		totalData := int64(df.Len())
 		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
 		for files := df.Next(); files != nil; files = df.Next() {
-			b := backoff.NewInfiniteBackOff()
-			backoff.RetryNotify(func() error {
-				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
-				if err != nil {
-					return err
-				}
-				workerClient := workerpkg.NewWorkerClient(conn)
-				resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
-					JobID: jobInfo.Job.ID,
-					Data:  files,
+			limiter.Acquire()
+			files := files
+			go func() {
+				defer limiter.Release()
+				b := backoff.NewInfiniteBackOff()
+				backoff.RetryNotify(func() error {
+					conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
+					if err != nil {
+						return err
+					}
+					workerClient := workerpkg.NewWorkerClient(conn)
+					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+						JobID: jobInfo.Job.ID,
+						Data:  files,
+					})
+					if err != nil {
+						return err
+					}
+					getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
+					if err != nil {
+						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+					}
+					var buffer bytes.Buffer
+					if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+					}
+					subTree, err := hashtree.Deserialize(buffer.Bytes())
+					if err != nil {
+						return fmt.Errorf("failed deserialice hashtree after processing for datum %v: %v", files, err)
+					}
+					treeMu.Lock()
+					defer treeMu.Unlock()
+					return tree.Merge(subTree)
+				}, b, func(err error, d time.Duration) error {
+					protolion.Infof("failed to process datum with: %+v", err)
+					return nil
 				})
-				if err != nil {
-					return err
-				}
-				getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
-				if err != nil {
-					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-				}
-				var buffer bytes.Buffer
-				if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
-					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-				}
-				subTree, err := hashtree.Deserialize(buffer.Bytes())
-				if err != nil {
-					return fmt.Errorf("failed deserialice hashtree after processing for datum %v: %v", files, err)
-				}
-				return tree.Merge(subTree)
-			}, b, func(err error, d time.Duration) error {
-				protolion.Infof("failed to process datum with: %+v", err)
-				return nil
-			})
+			}()
 		}
+
+		limiter.Wait()
 
 		finishedTree, err := tree.Finish()
 		if err != nil {
