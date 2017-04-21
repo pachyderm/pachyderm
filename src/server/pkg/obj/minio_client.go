@@ -12,6 +12,7 @@ type minioClient struct {
 	bucket string
 }
 
+// Creates a new minioClient structure and returns
 func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioClient, error) {
 	mclient, err := minio.New(endpoint, id, secret, secure)
 	if err != nil {
@@ -23,10 +24,25 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	}, nil
 }
 
+// Represents minio writer structure with pipe and the error channel
+type minioWriter struct {
+	errChan chan error
+	pipe    *io.PipeWriter
+}
+
+// Creates a new minio writer and a go routine to upload objects to minio server
+func newMinioWriter(client *minioClient, name string) *minioWriter {
 	reader, writer := io.Pipe()
+	w := &minioWriter{
+		errChan: make(chan error),
+		pipe:    writer,
+	}
+	go func() {
+		_, err := client.PutObject(client.bucket, name, reader, "application/octet-stream")
 		if err != nil {
 			reader.CloseWithError(err)
 		}
+		w.errChan <- err
 	}()
 	return w
 }
@@ -35,6 +51,16 @@ func (w *minioWriter) Write(p []byte) (int, error) {
 	return w.pipe.Write(p)
 }
 
+// This will block till upload is done
+func (w *minioWriter) Close() error {
+	if err := w.pipe.Close(); err != nil {
+		return err
+	}
+	return <-w.errChan
+}
+
+func (c *minioClient) Writer(name string) (io.WriteCloser, error) {
+	return newMinioWriter(c, name), nil
 }
 
 func (c *minioClient) Walk(name string, fn func(name string) error) error {
