@@ -34,15 +34,11 @@ before_script:
 - pip --version
 - pip install awscli --upgrade --user
 - aws --version
-- which aws
-- which go
 # because we need to run the bench as sudo, we need to make sure a few binaries are in
 # the secure path
 - sudo bash -Ec 'echo $PATH'
 - sudo ln -s `which aws` /usr/local/bin/aws
-- sudo -E which aws
 - sudo ln -s `which go` /usr/local/bin/go
-- sudo -E which go
 - sudo apt-get install uuid
 script:
 - make lint
