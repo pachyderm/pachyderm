@@ -3169,7 +3169,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 1000
+	numFiles := 100
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
