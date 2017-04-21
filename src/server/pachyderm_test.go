@@ -28,6 +28,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
@@ -3263,11 +3264,18 @@ func pachdRc(t testing.TB) *api.ReplicationController {
 	return result
 }
 
+func pachdDeployment(t testing.TB) *extensions.Deployment {
+	k := getKubeClient(t)
+	result, err := k.Extensions().Deployments(api.NamespaceDefault).Get("pachd")
+	require.NoError(t, err)
+	return result
+}
+
 // scalePachd scales the number of pachd nodes up or down.
 // If up is true, then the number of nodes will be within (n, 2n]
 // If up is false, then the number of nodes will be within [1, n)
 func scalePachdRandom(t testing.TB, up bool) {
-	pachdRc := pachdRc(t)
+	pachdRc := pachdDeployment(t)
 	originalReplicas := pachdRc.Spec.Replicas
 	for {
 		if up {
@@ -3286,11 +3294,10 @@ func scalePachdRandom(t testing.TB, up bool) {
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
-	rc := k.ReplicationControllers(api.NamespaceDefault)
 	fmt.Printf("scaling pachd to %d replicas\n", n)
-	pachdRc := pachdRc(t)
-	pachdRc.Spec.Replicas = int32(n)
-	_, err := rc.Update(pachdRc)
+	pachdDeployment := pachdDeployment(t)
+	pachdDeployment.Spec.Replicas = int32(n)
+	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
 	// Unfortunately, even when all pods are ready, the cluster membership
