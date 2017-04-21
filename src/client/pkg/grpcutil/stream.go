@@ -12,6 +12,19 @@ var (
 	MaxMsgSize = 20 * 1024 * 1024
 )
 
+// Chunk
+func Chunk(data []byte, chunkSize int) [][]byte {
+	var result [][]byte
+	for i := 0; i < len(data); i += chunkSize {
+		end := i + chunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+		result = append(result, data[i:end])
+	}
+	return result
+}
+
 // StreamingBytesServer represents a server for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {
