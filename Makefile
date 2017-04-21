@@ -151,6 +151,8 @@ push-bench-images: install
 	pachctl version
 	pachctl version 2>/dev/null
 	pachctl version 2>/dev/null | head -n 2 | tail -n 1
+	docker images
+	docker images | grep pachd
 	docker tag pachyderm_pachd pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker push pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
