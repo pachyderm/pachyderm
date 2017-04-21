@@ -146,7 +146,7 @@ launch-dev-bench: docker-build docker-build-test install
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-push-bench-images: install
+push-bench-images: install docker-build docker-build-test
 	# We need the pachyderm_compile image to be up to date
 	docker images
 	docker images | grep pachd
@@ -157,7 +157,7 @@ push-bench-images: install
 	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	
-launch-bench: docker-build docker-build-test
+launch-bench: 
 	etc/deploy/aws.sh
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	cat ~/.kube/config
