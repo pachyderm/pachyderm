@@ -160,6 +160,7 @@ launch-bench: docker-build docker-build-test
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	cat ~/.kube/config
 
 run-bench:
 	kubectl scale --replicas=4 rc/pachd
