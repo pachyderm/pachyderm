@@ -36,13 +36,14 @@ package grpc
 import (
 	"bytes"
 	"io"
-	"math"
 	"time"
 
 	"golang.org/x/net/context"
 	"golang.org/x/net/trace"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/transport"
 )
 
@@ -72,19 +73,22 @@ func recvResponse(ctx context.Context, dopts dialOptions, t transport.ClientTran
 		}
 	}
 	for {
-		if err = recv(p, dopts.codec, stream, dopts.dc, reply, math.MaxInt32, inPayload); err != nil {
+		if err = recv(p, dopts.codec, stream, dopts.dc, reply, dopts.maxMsgSize, inPayload); err != nil {
 			if err == io.EOF {
 				break
 			}
 			return
 		}
 	}
-	if inPayload != nil && err == io.EOF && stream.StatusCode() == codes.OK {
+	if inPayload != nil && err == io.EOF && stream.Status().Code() == codes.OK {
 		// TODO in the current implementation, inTrailer may be handled before inPayload in some cases.
 		// Fix the order if necessary.
 		dopts.copts.StatsHandler.HandleRPC(ctx, inPayload)
 	}
 	c.trailerMD = stream.Trailer()
+	if peer, ok := peer.FromContext(stream.Context()); ok {
+		c.peer = peer
+	}
 	return nil
 }
 
@@ -227,7 +231,7 @@ func invoke(ctx context.Context, method string, args, reply interface{}, cc *Cli
 		t, put, err = cc.getTransport(ctx, gopts)
 		if err != nil {
 			// TODO(zhaoq): Probably revisit the error handling.
-			if _, ok := err.(*rpcError); ok {
+			if _, ok := status.FromError(err); ok {
 				return err
 			}
 			if err == errConnClosing || err == errConnUnavailable {
@@ -281,6 +285,6 @@ func invoke(ctx context.Context, method string, args, reply interface{}, cc *Cli
 			put()
 			put = nil
 		}
-		return Errorf(stream.StatusCode(), "%s", stream.StatusDesc())
+		return stream.Status().Err()
 	}
 }
