@@ -594,7 +594,6 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	pipeline := uniqueString("pipeline")
-	// This pipeline fails half the times
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -2879,6 +2878,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	pipeline := uniqueString("pipeline")
@@ -2903,7 +2903,6 @@ func TestDatumStatusRestart(t *testing.T) {
 	checkStatus := func() {
 		started := time.Now()
 		for {
-			fmt.Printf("checking status\n")
 			time.Sleep(time.Second)
 			if time.Since(started) > time.Second*30 {
 				t.Fatalf("failed to find status in time")
@@ -2916,7 +2915,6 @@ func TestDatumStatusRestart(t *testing.T) {
 			jobID = jobs[0].Job.ID
 			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 			require.NoError(t, err)
-			fmt.Printf("jobInfo %+v\n", jobInfo)
 			if len(jobInfo.WorkerStatus) == 0 {
 				continue
 			}
@@ -2942,6 +2940,63 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
+}
+
+func TestUseMultipleWorkers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestUseMultipleWorkers_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < 6; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	// This pipeline sleeps for 20 secs per datum
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 20",
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 2,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+	started := time.Now()
+	for {
+		time.Sleep(time.Second)
+		if time.Since(started) > time.Second*30 {
+			t.Fatalf("failed to find status in time")
+		}
+		jobs, err := c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobs) == 0 {
+			continue
+		}
+		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+		require.NoError(t, err)
+		if len(jobInfo.WorkerStatus) == 2 {
+			break
+		}
+	}
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
@@ -3286,7 +3341,6 @@ func scalePachdRandom(t testing.TB, up bool) {
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
-	fmt.Printf("scaling pachd to %d replicas\n", n)
 	pachdDeployment := pachdDeployment(t)
 	pachdDeployment.Spec.Replicas = int32(n)
 	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdDeployment)
