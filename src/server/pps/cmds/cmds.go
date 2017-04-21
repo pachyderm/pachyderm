@@ -17,7 +17,6 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm"
 	pach "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -27,6 +26,11 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+)
+
+const (
+	codestart = "```sh"
+	codeend   = "```"
 )
 
 // ByCreationTime is an implementation of sort.Interface which
@@ -133,7 +137,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	pipelineSpec := string(pachyderm.MustAsset("doc/reference/pipeline_spec.md"))
+	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
 	var jobPath string
 	var pushImages bool
@@ -236,7 +240,7 @@ The increase the throughput of a job increase the Shard paremeter.
 
 Examples:
 
-	# return all jobs
+	` + codestart + `# return all jobs
 	$ pachctl list-job
 
 	# return all jobs in pipeline foo
@@ -247,8 +251,7 @@ Examples:
 
 	# return all jobs in pipeline foo and whose input commits include bar/YYY
 	$ pachctl list-job -p foo bar/YYY
-
-`,
+` + codeend,
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -269,7 +272,7 @@ Examples:
 			// Display newest jobs first
 			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
@@ -298,9 +301,53 @@ Examples:
 		}),
 	}
 
+	stopJob := &cobra.Command{
+		Use:   "stop-job job-id",
+		Short: "Stop a job.",
+		Long:  "Stop a job.  The job will be stopped immediately.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			if err := client.StopJob(args[0]); err != nil {
+				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
+	restartDatum := &cobra.Command{
+		Use:   "restart-datum job-id datum-path1,datum-path2",
+		Short: "Restart a datum.",
+		Long:  "Restart a datum.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+			}
+			datumFilter := strings.Split(args[1], ",")
+			for i := 0; i < len(datumFilter); {
+				if len(datumFilter[i]) == 0 {
+					if i+1 < len(datumFilter) {
+						copy(datumFilter[i:], datumFilter[i+1:])
+					}
+					datumFilter = datumFilter[:len(datumFilter)-1]
+				} else {
+					i++
+				}
+			}
+			if err := client.RestartDatum(args[0], datumFilter); err != nil {
+				return sanitizeErr(err)
+			}
+			return nil
+		}),
+	}
+
 	var (
 		jobID       string
 		commaInputs string // comma-separated list of input files of interest
+		raw         bool
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
@@ -309,7 +356,7 @@ Examples:
 
 Examples:
 
-	# return logs emitted by recent jobs in the "filter" pipeline
+	` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
 	$ pachctl get-logs --pipeline=filter
 
 	# return logs emitted by the job aedfa12aedf
@@ -317,7 +364,7 @@ Examples:
 
 	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
-`,
+` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -345,11 +392,21 @@ Examples:
 			marshaler := &jsonpb.Marshaler{}
 			iter := client.GetLogs(pipelineName, jobID, data)
 			for iter.Next() {
-				messageStr, err := marshaler.MarshalToString(iter.Message())
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "error unmarshalling \"%v\": %s\n", iter.Message(), err)
+				var messageStr string
+				if raw {
+					var err error
+					messageStr, err = marshaler.MarshalToString(iter.Message())
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
+					}
+				} else {
+					if iter.Message().User {
+						messageStr = iter.Message().Message
+					}
 				}
-				fmt.Println(messageStr)
+				if messageStr != "" {
+					fmt.Println(messageStr)
+				}
 			}
 			return iter.Err()
 		}),
@@ -360,6 +417,7 @@ Examples:
 		"this job (accepts job ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
+	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
@@ -381,7 +439,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  fmt.Sprintf("Create a new pipeline from a spec\n\n%s", pipelineSpec),
+		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
@@ -424,7 +482,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new spec\n\n%s", pipelineSpec),
+		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			cfgReader, err := newPipelineManifestReader(pipelinePath)
 			if err != nil {
@@ -507,6 +565,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var deleteJobs bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -516,12 +575,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			if err := client.DeletePipeline(args[0]); err != nil {
+			if err := client.DeletePipeline(args[0], deleteJobs); err != nil {
 				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
 			}
 			return nil
 		}),
 	}
+	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
@@ -615,6 +675,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
+	result = append(result, stopJob)
+	result = append(result, restartDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)

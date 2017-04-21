@@ -10,6 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"golang.org/x/net/context"
 )
 
@@ -313,4 +314,14 @@ func byteRange(offset uint64, size uint64) string {
 func isNetRetryable(err error) bool {
 	netErr, ok := err.(net.Error)
 	return ok && netErr.Temporary()
+}
+
+// TestIsNotExist is a defensive method for checking to make sure IsNotExist is
+// satisfying its semantics.
+func TestIsNotExist(c Client) error {
+	_, err := c.Reader(uuid.NewWithoutDashes(), 0, 0)
+	if !c.IsNotExist(err) {
+		return fmt.Errorf("storage is unable to discern NotExist errors, \"%s\" should count as NotExist", err.Error())
+	}
+	return nil
 }

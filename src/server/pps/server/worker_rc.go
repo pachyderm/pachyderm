@@ -17,8 +17,9 @@ type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
 	userImage    string            // The user's pipeline/job image
-	labels       map[string]string // k8s labels attached to the RC and workers
+	labels       map[string]string // k8s labels attached to the Deployment and workers
 	parallelism  int32             // Number of replicas the RC maintains
+	resources    *api.ResourceList // Resources requested by pipeline/job pods
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
 	volumeMounts []api.VolumeMount // Paths where we mount each volume in 'volumes'
@@ -32,7 +33,9 @@ type workerOptions struct {
 // manages a pipeline's workers
 func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
+	// or underscores
 	// TODO: deal with name collision
+	name = strings.Replace(name, "_", "-", -1)
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
@@ -40,7 +43,9 @@ func PipelineRcName(name string, version uint64) string {
 // an orphan job's workers
 func JobRcName(id string) string {
 	// k8s won't allow RC names that contain upper-case letters
+	// or underscores
 	// TODO: deal with name collision
+	id = strings.Replace(id, "_", "-", -1)
 	return fmt.Sprintf("job-%s", strings.ToLower(id))
 }
 
@@ -49,7 +54,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	return api.PodSpec{
+	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
 				Name:            "init",
@@ -77,9 +82,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
 	}
+	if options.resources != nil {
+		podSpec.Containers[0].Resources = api.ResourceRequirements{
+			Requests: *options.resources,
+		}
+	}
+	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform *pps.Transform) *workerOptions {
+func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -173,6 +184,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, transform
 		rcName:           rcName,
 		labels:           labels,
 		parallelism:      int32(parallelism),
+		resources:        resources,
 		userImage:        userImage,
 		workerEnv:        workerEnv,
 		volumes:          volumes,

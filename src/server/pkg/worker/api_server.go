@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -46,16 +46,26 @@ type Input struct {
 
 // APIServer implements the worker API
 type APIServer struct {
-	sync.Mutex
+	processMu  sync.Mutex
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
-	transform *pps.Transform
-	inputs    []*Input
+	pipelineInfo *pps.PipelineInfo
+	jobInfo      *pps.JobInfo
+	inputs       []*Input
 
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
 
+	statusMu sync.Mutex
+	// The currently running job ID
+	jobID string
+	// The currently running data
+	data []*pfs.FileInfo
+	// The time we started the currently running
+	started time.Time
+	// Func to cancel the currently running datum
+	cancel func()
 	// The k8s pod name of this worker
 	workerName string
 }
@@ -64,6 +74,7 @@ type taggedLogger struct {
 	template  pps.LogMessage
 	stderrLog log.Logger
 	marshaler *jsonpb.Marshaler
+	buffer    bytes.Buffer
 }
 
 func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
@@ -79,11 +90,11 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = make([]*pps.LogMessage_Datum, 0, len(req.Data))
-	for i, d := range req.Data {
-		result.template.Data = append(result.template.Data, new(pps.LogMessage_Datum))
-		result.template.Data[i].Path = d.File.Path
-		result.template.Data[i].Hash = d.Hash
+	for _, d := range req.Data {
+		result.template.Data = append(result.template.Data, &pps.Datum{
+			Path: d.File.Path,
+			Hash: d.Hash,
+		})
 	}
 	return result
 }
@@ -108,16 +119,44 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	fmt.Printf("%s\n", bytes)
 }
 
+func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
+	// never errors
+	logger.buffer.Write(p)
+	r := bufio.NewReader(&logger.buffer)
+	for {
+		message, err := r.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				logger.buffer.Write([]byte(message))
+				return len(p), nil
+			}
+			// this shouldn't technically be possible to hit io.EOF should be
+			// the only error bufio.Reader can return when using a buffer.
+			return 0, err
+		}
+		logger.Logf(message)
+	}
+}
+
+func (logger *taggedLogger) userLogger() *taggedLogger {
+	result := &taggedLogger{
+		template:  logger.template, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.template.User = true
+	return result
+}
+
 // NewPipelineAPIServer creates an APIServer for a given pipeline
 func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:      sync.Mutex{},
-		pachClient: pachClient,
-		transform:  pipelineInfo.Transform,
-		inputs:     make([]*Input, 0, len(pipelineInfo.Inputs)),
+		pachClient:   pachClient,
+		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,
+			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
 	}
@@ -133,10 +172,8 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 // NewJobAPIServer creates an APIServer for a given pipeline
 func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerName string) *APIServer {
 	server := &APIServer{
-		Mutex:          sync.Mutex{},
 		pachClient:     pachClient,
-		transform:      jobInfo.Transform,
-		inputs:         make([]*Input, 0, len(jobInfo.Inputs)),
+		jobInfo:        jobInfo,
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
@@ -152,8 +189,7 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) error {
 	for i, datum := range data {
 		input := a.inputs[i]
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name),
-			datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
+		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, datum.File.Path), datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -161,38 +197,44 @@ func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) 
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger) (string, error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	// Run user code
-	transform := a.transform
-	cmd := exec.Command(transform.Cmd[0], transform.Cmd[1:]...)
+	var transform *pps.Transform
+	if a.pipelineInfo != nil {
+		transform = a.pipelineInfo.Transform
+	} else if a.jobInfo != nil {
+		transform = a.jobInfo.Transform
+	} else {
+		return fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
+	}
+	cmd := exec.CommandContext(ctx, transform.Cmd[0], transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(transform.Stdin, "\n") + "\n")
-	var userlog bytes.Buffer
-	cmd.Stdout = &userlog
-	cmd.Stderr = &userlog
-	err := cmd.Run()
-
-	// Log output from user cmd, line-by-line, whether or not cmd errored
+	cmd.Stdout = logger.userLogger()
+	cmd.Stderr = logger.userLogger()
 	logger.Logf("running user code")
-	logscanner := bufio.NewScanner(&userlog)
-	for logscanner.Scan() {
-		logger.Logf(logscanner.Text())
+	cmd.Env = environ
+	err := cmd.Run()
+	if err != nil {
+		logger.Logf("user code finished, err: %+v", err)
+	} else {
+		logger.Logf("user code finished", err)
 	}
 
 	// Return result
 	if err == nil {
-		return userlog.String(), nil
+		return nil
 	}
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 			for _, returnCode := range transform.AcceptReturnCode {
 				if int(returnCode) == status.ExitStatus() {
-					return userlog.String(), nil
+					return nil
 				}
 			}
 		}
 	}
-	return userlog.String(), err
+	return err
 
 }
 
@@ -336,26 +378,29 @@ func (a *APIServer) cleanUpData() error {
 // HashDatum computes and returns the hash of a datum + pipeline.
 func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
 	hash := sha256.New()
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].File.Path < data[j].File.Path
-	})
 	for i, fileInfo := range data {
-		if _, err := hash.Write([]byte(a.inputs[i].Name)); err != nil {
-			return "", err
-		}
-		if _, err := hash.Write([]byte(fileInfo.File.Path)); err != nil {
-			return "", err
-		}
-		if _, err := hash.Write(fileInfo.Hash); err != nil {
-			return "", err
-		}
+		hash.Write([]byte(a.inputs[i].Name))
+		hash.Write([]byte(fileInfo.File.Path))
+		hash.Write(fileInfo.Hash)
 	}
-	bytes, err := proto.Marshal(a.transform)
-	if err != nil {
-		return "", err
-	}
-	if _, err := hash.Write(bytes); err != nil {
-		return "", err
+	if a.pipelineInfo != nil {
+		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
+		if err != nil {
+			return "", err
+		}
+		hash.Write(bytes)
+		hash.Write([]byte(a.pipelineInfo.Pipeline.Name))
+		hash.Write([]byte(a.pipelineInfo.ID))
+		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
+	} else if a.jobInfo != nil {
+		bytes, err := proto.Marshal(a.jobInfo.Transform)
+		if err != nil {
+			return "", err
+		}
+		hash.Write(bytes)
+		hash.Write([]byte(a.jobInfo.Job.ID))
+	} else {
+		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
@@ -365,8 +410,27 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
-	a.Lock()
-	defer a.Unlock()
+	a.processMu.Lock()
+	defer a.processMu.Unlock()
+	// set the status for the datum
+	ctx, cancel := context.WithCancel(ctx)
+	func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = req.JobID
+		a.data = req.Data
+		a.started = time.Now()
+		a.cancel = cancel
+	}()
+	// unset the status when this function exits
+	defer func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = ""
+		a.data = nil
+		a.started = time.Time{}
+		a.cancel = nil
+	}()
 	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
 
@@ -402,16 +466,19 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 	}()
 
+	environ := a.userCodeEnviron(req)
+
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
 	logger.Logf("beginning to process user input")
-	userlog, err := a.runUserCode(ctx, logger)
+	err = a.runUserCode(ctx, logger, environ)
 	logger.Logf("finished processing user input")
 	if err != nil {
+		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
-			Log: userlog,
+			Failed: true,
 		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag); err != nil {
@@ -420,4 +487,55 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
+}
+
+// Status returns the status of the current worker.
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	started, err := types.TimestampProto(a.started)
+	if err != nil {
+		return nil, err
+	}
+	result := &pps.WorkerStatus{
+		JobID:    a.jobID,
+		WorkerID: a.workerName,
+		Started:  started,
+		Data:     a.datum(),
+	}
+	return result, nil
+}
+
+// Cancel cancels the currently running datum
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	if request.JobID != a.jobID {
+		return &CancelResponse{Success: false}, nil
+	}
+	if !MatchDatum(request.DataFilters, a.datum()) {
+		return &CancelResponse{Success: false}, nil
+	}
+	a.cancel()
+	// clear the status since we're no longer processing this datum
+	a.jobID = ""
+	a.data = nil
+	a.started = time.Time{}
+	a.cancel = nil
+	return &CancelResponse{Success: true}, nil
+}
+
+func (a *APIServer) datum() []*pps.Datum {
+	var result []*pps.Datum
+	for _, fileInfo := range a.data {
+		result = append(result, &pps.Datum{
+			Path: fileInfo.File.Path,
+			Hash: fileInfo.Hash,
+		})
+	}
+	return result
+}
+
+func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
+	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }

@@ -27,7 +27,7 @@ To get data into Pachyderm using `pachctl`, you first need to create one or more
 $ pachctl create-repo <repo name>
 ```
 
-Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
+Then to put data into the created repo, you use the `put-file` command. Below are a few example uses of `put-file`, but you can see the complete documentation [here](../pachctl/pachctl_put-file.html). Note again, commits in Pachyderm must be explicitly started and finished so `put-file` can only be called on an open commit (started, but not finished). The `-c` option allows you to start and finish a commit in addition to putting data as a one-line command. 
 
 Add a single file to a new branch:
 
@@ -60,13 +60,13 @@ Put data directly from an object store:
 ```sh
 # here you can use s3://, gcs://, or as://
 $ pachctl put-file <repo> <branch> </path/to/file> -c -f s3://object_store_url
-``
+```
 
 Put data directly from another location within Pachyderm:
 
 ```sh
 $ pachctl put-file <repo> <branch> </path/to/file> -c -f pfs://pachyderm_location
-``
+```
 
 Add multiple files at once by using the `-i` option or multiple `-f` flags. In the case of `-i`, the target file should be a list of files, paths, or URLs that you want to input all at once:
 

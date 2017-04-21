@@ -82,12 +82,8 @@ func (c *googleClient) isRetryable(err error) (ret bool) {
 	return googleErr.Code >= 500 || strings.Contains(err.Error(), "Parse Error")
 }
 
-func (c *googleClient) IsNotExist(err error) bool {
-	googleErr, ok := err.(*googleapi.Error)
-	if !ok {
-		return false
-	}
-	return googleErr.Code == 404
+func (c *googleClient) IsNotExist(err error) (result bool) {
+	return err == storage.ErrObjectNotExist
 }
 
 func (c *googleClient) IsIgnorable(err error) bool {

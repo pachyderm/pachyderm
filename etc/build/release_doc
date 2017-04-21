@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+if [ -z $VERSION ]
+then
+        echo "No version found! Aborting..."
+        exit 1
+fi
+
+echo "--- Updating docs for version: $VERSION"
+
+MAJOR_MINOR=`echo $VERSION | cut -f -2 -d "."`
+
+# Update deb URL
+NEW_DEB_URL="pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.deb"
+
+find doc -type f -exec sed -i'' 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_amd64.deb@'"$NEW_DEB_URL"'@g' {} \;
+
+# Update brew formula (only needed when MAJOR_MINOR changes)
+find doc -type f -exec sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$MAJOR_MINOR"'#g' {} \;
+
+echo "--- Successfully updated docs"

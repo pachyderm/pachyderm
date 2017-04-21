@@ -82,6 +82,7 @@ type OpenNode struct {
 // updated (until then, the hashes and sizes stored in an OpenHashTree will be
 // stale).
 type OpenHashTree interface {
+	HashTree
 	// GetOpen retrieves a file.
 	GetOpen(path string) (*OpenNode, error)
 

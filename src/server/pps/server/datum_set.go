@@ -13,6 +13,7 @@ type datumFactory interface {
 	// datum set again.
 	Reset()
 	Indexes() []int
+	Len() int
 }
 
 type datumFactoryImpl struct {
@@ -30,6 +31,7 @@ func (d *datumFactoryImpl) Next() []*pfs.FileInfo {
 		// Increment the indexes
 		for i := 0; i < len(d.datumLists); i++ {
 			if d.indexes[i] == len(d.datumLists[i])-1 {
+				d.indexes[i] = 0
 				continue
 			}
 			d.indexes[i]++
@@ -55,6 +57,17 @@ func (d *datumFactoryImpl) Reset() {
 	}
 }
 
+func (d *datumFactoryImpl) Len() int {
+	if len(d.datumLists) == 0 {
+		return 0
+	}
+	result := len(d.datumLists[0])
+	for i := 1; i < len(d.datumLists); i++ {
+		result *= len(d.datumLists[i])
+	}
+	return result
+}
+
 func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.JobInput, indexes []int) (datumFactory, error) {
 	df := &datumFactoryImpl{}
 	for _, input := range inputs {
@@ -68,6 +81,10 @@ func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps
 		if len(fileInfos.FileInfo) > 0 {
 			df.datumLists = append(df.datumLists, fileInfos.FileInfo)
 			df.indexes = append(df.indexes, 0)
+		} else {
+			// If any input is empty, we don't return any datums
+			df.done = true
+			break
 		}
 	}
 	if indexes != nil {

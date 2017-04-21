@@ -19,7 +19,6 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/health"
-	pfs_driver "github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
@@ -142,10 +141,6 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	driver, err := pfs_driver.NewDriver(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
-	if err != nil {
-		return err
-	}
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -154,7 +149,10 @@ func do(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer := pfs_server.NewAPIServer(driver, reporter)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes, reporter)
+	if err != nil {
+		return err
+	}
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,

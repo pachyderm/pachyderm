@@ -4,7 +4,7 @@ During development, it's very common to update pipelines, whether it's changing 
 
 ## Updating your pipeline specification
 
-In cases in which you are updating parallelism, adding another input repo, or otherwise modifying your [pipeline specification](../reference/pipeline_spec), you just need to update your JSON file and call `update-pipeline`:
+In cases in which you are updating parallelism, adding another input repo, or otherwise modifying your [pipeline specification](../reference/pipeline_spec.html), you just need to update your JSON file and call `update-pipeline`:
 
 ```sh	
 $ pachctl update-pipeline -f pipeline.json 
@@ -17,7 +17,7 @@ Similar to `create-pipeline`, `update-pipeline` with the `-f` flag can also take
 You can also use `update-pipeline` to update the code you are using in one or more of your piplines.  To update the code in your pipeline:
 
 1. Make the code changes.
-2. Re-build you Docker image.
+2. Re-build your Docker image.
 3. Call `update-pipeline` with the `--push-images` flag.
 
 You need to call `update-pipeline` with the `--push-images` flag because, if you have already run your pipeline, Pachyderm has already pulled the specified images.  It won't re-pull new versions of the images, unless we tell it to (which ensures that we don't waste time pulling images when we don't need to).  When `--push-images` is specified, Pachyderm will do the following:
@@ -26,7 +26,7 @@ You need to call `update-pipeline` with the `--push-images` flag because, if you
 2. Push that tagged image to your registry (e.g., DockerHub).
 3. Update the pipeline specification that you previously gave to Pachyderm with the new unique tag.
 
-For example, you could update the Python code used in the [OpenCV pipeline](../examples/beginner_tutorial) via:
+For example, you could update the Python code used in the [OpenCV pipeline](../examples/beginner_tutorial.html) via:
 
 ```sh
 pachctl update-pipeline -f edges.json --push-images --password <registry password> -u <registry user>

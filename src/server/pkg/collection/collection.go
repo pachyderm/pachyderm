@@ -384,15 +384,14 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 	}
 	go func() (retErr error) {
 		defer func() {
-			close(eventCh)
 			if retErr != nil {
 				eventCh <- &watch.Event{
 					Type: watch.EventError,
 					Err:  retErr,
 				}
-				close(eventCh)
 				watcher.Close()
 			}
+			close(eventCh)
 		}()
 		for {
 			var ev *watch.Event

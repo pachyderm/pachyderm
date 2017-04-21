@@ -20,6 +20,9 @@ func UnescapeHTML(s string) string {
 // since timestamp as a human-readable string.
 func Ago(timestamp *types.Timestamp) string {
 	t, _ := types.TimestampFromProto(timestamp)
+	if t.Equal(time.Time{}) {
+		return ""
+	}
 	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(t)))
 }
 
