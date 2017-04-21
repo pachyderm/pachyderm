@@ -148,6 +148,9 @@ launch-dev-bench: docker-build docker-build-test install
 
 push-bench-images: install
 	# We need the pachyderm_compile image to be up to date
+	pachctl version
+	pachctl version 2>/dev/null
+	pachctl version 2>/dev/null | head -n 2 | tail -n 1
 	docker tag pachyderm_pachd pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker push pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
