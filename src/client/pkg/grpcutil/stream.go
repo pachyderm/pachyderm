@@ -12,7 +12,8 @@ var (
 	MaxMsgSize = 20 * 1024 * 1024
 )
 
-// Chunk
+// Chunk splits a piece of data up, this is useful for splitting up data that's
+// bigger than MaxMsgSize
 func Chunk(data []byte, chunkSize int) [][]byte {
 	var result [][]byte
 	for i := 0; i < len(data); i += chunkSize {
