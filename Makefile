@@ -156,11 +156,15 @@ push-bench-images: install
 	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
 	
 launch-bench: docker-build docker-build-test
-	rm /usr/local/bin/pachctl || true
-	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	etc/deploy/aws.sh
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	cat ~/.kube/config
+
+install-bench: install
+	@# Since bench is run as sudo, pachctl needs to be under
+	@# the secure path
+	rm /usr/local/bin/pachctl || true
+	sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 run-bench:
 	kubectl scale --replicas=4 rc/pachd
