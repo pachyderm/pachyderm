@@ -1541,6 +1541,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			// so as not to overwhelm etcd we update at most 100 times per job
 			if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
 				processedData == 0 || processedData == totalData {
+				// we setProcessedData even though the update below may fail,
+				// if we didn't we'd retry updating the progress on the next
+				// datum, this would lead to more accurate progress but
+				// progress isn't that important and we don't want to overwelm
+				// etcd.
+				setProcessedData = processedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
@@ -1553,8 +1559,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					return nil
 				}); err != nil {
 					protolion.Errorf("error updating job progress: %+v", err)
-				} else {
-					setProcessedData = processedData
 				}
 			}
 		}
@@ -1564,7 +1568,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		serviceAddr, err := a.workerServiceIP(ctx, deploymentName)
 		clientPool := sync.Pool{
 			New: func() interface{} {
-				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure())
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock())
 				if err != nil {
 					return err
 				}
@@ -1713,6 +1717,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			jobInfo.Finished = now()
 			// By definition, we will have processed all datums at this point
 			jobInfo.DataProcessed = totalData
+			// likely already set but just in case it failed
+			jobInfo.DataTotal = totalData
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
 		return err
