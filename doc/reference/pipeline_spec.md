@@ -214,7 +214,8 @@ never opened then no will be downloaded. Some applications won't work with
 pipes, for example if they make syscalls such as `Seek` which pipes don't
 support. Applications that can work with pipes should use them since they're
 more performant, the difference will be especially notable if the job only
-reads a subset of the files that are available to it.
+reads a subset of the files that are available to it.  Note that `lazy`
+currently doesn't support datums that contain more than 10000 files.
 
 `inputs.from` specifies the starting point of the input branch.  If `from`
 is not specified, then the entire input branch will be processed.  Otherwise,
