@@ -146,7 +146,9 @@ launch-dev-bench: docker-build docker-build-test install
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-push-bench-images: install docker-build docker-build-test
+build-bench-images: docker-build docker-build-test
+
+push-bench-images: install
 	# We need the pachyderm_compile image to be up to date
 	docker images
 	docker images | grep pachd
@@ -178,7 +180,7 @@ clean-launch-bench:
 	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
 	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
 
-bench: clean-launch-bench push-bench-images launch-bench run-bench
+bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
