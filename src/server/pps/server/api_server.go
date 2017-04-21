@@ -1897,7 +1897,8 @@ func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure(),
+				client.InsecureSyncDurableDialOptions()...)
 			if err != nil {
 				onceErr = err
 			}
@@ -1914,7 +1915,8 @@ func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure(),
+				grpc.InsecureSyncDurableDialOptions()...)
 			if err != nil {
 				onceErr = err
 			}

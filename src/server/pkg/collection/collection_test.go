@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -292,7 +293,7 @@ func TestMultiIndex(t *testing.T) {
 func getEtcdClient() (*etcd.Client, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{"localhost:2379"},
-		DialTimeout: 5 * time.Second,
+		DialOptions: client.InsecureSyncDialOptions(),
 	})
 	if err != nil {
 		return nil, err

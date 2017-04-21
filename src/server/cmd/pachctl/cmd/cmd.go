@@ -185,7 +185,7 @@ kubectl %v port-forward "$pod" %d:8081
 }
 
 func getVersionAPIClient(address string) (versionpb.APIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(address, client.InsecureSyncDialOptions()...)
 	if err != nil {
 		return nil, err
 	}

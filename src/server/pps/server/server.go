@@ -57,7 +57,7 @@ func NewAPIServer(
 ) (APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialTimeout: 5 * time.Second,
+		DialOptions: InsecureSyncDurableDialOptions(),
 	})
 	if err != nil {
 		return nil, err
