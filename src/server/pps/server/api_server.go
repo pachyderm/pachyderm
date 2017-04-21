@@ -1140,6 +1140,23 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	return err
 }
 
+func (a *apiServer) waitWorkers(ctx context.Context, deploymentName string) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = time.Second * 30
+	return backoff.RetryNotify(func() error {
+		newDeployment, err := a.kubeClient.Extensions().Deployments(api.NamespaceDefault).Get(deploymentName)
+		if err != nil {
+			return err
+		}
+		if newDeployment.Status.Replicas == newDeployment.Spec.Replicas {
+			return nil
+		}
+		return fmt.Errorf("deployment not ready")
+	}, b, func(err error, d time.Duration) error {
+		return nil
+	})
+}
+
 func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) (string, error) {
 	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
 	if err != nil {
@@ -1516,6 +1533,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			deploymentName = JobDeploymentName(jobInfo.Job.ID)
 		}
 
+		if err := a.waitWorkers(ctx, deploymentName); err != nil {
+			fmt.Errorf("deployment isn't the correct size, proceeding anyways")
+		}
+
 		failed := false
 		numWorkers, err := a.numWorkers(ctx, deploymentName)
 		if err != nil {
@@ -1588,7 +1609,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					switch clientOrErr := clientOrErr.(type) {
 					case workerpkg.WorkerClient:
 						workerClient = clientOrErr
-						defer clientPool.Put(clientOrErr)
 					case error:
 						return clientOrErr
 					}
@@ -1599,6 +1619,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					if err != nil {
 						return err
 					}
+					// We only return workerClient if we made a successful call
+					// to Process
+					defer clientPool.Put(workerClient)
 					if resp.Failed {
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
@@ -1619,12 +1642,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					defer treeMu.Unlock()
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
-					protolion.Errorf("job %s failed to process datum %+v with: %+v", jobID, files, err)
 					if userCodeFailures > MaximumRetriesPerDatum {
 						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
 						return err
 					}
+					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
 				})
 				go updateProgress(1)
