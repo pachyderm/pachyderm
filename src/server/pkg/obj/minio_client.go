@@ -23,16 +23,18 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	}, nil
 }
 
-func (c *minioClient) Writer(name string) (io.WriteCloser, error) {
 	reader, writer := io.Pipe()
-	go func(reader *io.PipeReader) {
-		_, err := c.PutObject(c.bucket, name, reader, "application/octet-stream")
 		if err != nil {
 			reader.CloseWithError(err)
-			return
 		}
-	}(reader)
-	return writer, nil
+	}()
+	return w
+}
+
+func (w *minioWriter) Write(p []byte) (int, error) {
+	return w.pipe.Write(p)
+}
+
 }
 
 func (c *minioClient) Walk(name string, fn func(name string) error) error {
@@ -63,19 +65,14 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if _, err := c.StatObject(c.bucket, name); err != nil {
-		return nil, err
-	}
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
 		return nil, err
 	}
-	if offset > 0 {
-		// Seek to an offset to fetch the new reader.
-		_, err = obj.Seek(int64(offset), 0)
-		if err != nil {
-			return nil, err
-		}
+	// Seek to an offset to fetch the new reader.
+	_, err = obj.Seek(int64(offset), 0)
+	if err != nil {
+		return nil, err
 	}
 	if size > 0 {
 		return &limitReadCloser{io.LimitReader(obj, int64(size)), obj}, nil
