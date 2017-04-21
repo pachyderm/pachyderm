@@ -2121,7 +2121,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 
-	rc := pipelineDeployment(t, pipelineInfo)
+	rc := pipelineRc(t, pipelineInfo)
 	require.Equal(t, 0, int(rc.Spec.Replicas))
 
 	// Trigger a job
@@ -2135,13 +2135,13 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	rc = pipelineDeployment(t, pipelineInfo)
+	rc = pipelineRc(t, pipelineInfo)
 	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
 	// Wait for the pipeline to scale down
 	time.Sleep(scaleDownThreshold + 5*time.Second)
 
-	rc = pipelineDeployment(t, pipelineInfo)
+	rc = pipelineRc(t, pipelineInfo)
 	require.Equal(t, 0, int(rc.Spec.Replicas))
 }
 
@@ -3066,7 +3066,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container api.Container
-	rcName := pps_server.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
@@ -3132,7 +3132,7 @@ func TestJobResourceRequest(t *testing.T) {
 
 	// Get info about the job pods from k8s & check for resources
 	var container api.Container
-	rcName := pps_server.JobDeploymentName(createJobResp.ID)
+	rcName := pps_server.JobRcName(createJobResp.ID)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
@@ -3248,10 +3248,10 @@ func waitForReadiness(t testing.TB) {
 	}
 }
 
-func pipelineDeployment(t testing.TB, pipelineInfo *pps.PipelineInfo) *extensions.Deployment {
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
 	k := getKubeClient(t)
-	deployment := k.Extensions().Deployments(api.NamespaceDefault)
-	result, err := deployment.Get(pps_server.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	rc := k.ReplicationControllers(api.NamespaceDefault)
+	result, err := rc.Get(pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 	require.NoError(t, err)
 	return result
 }

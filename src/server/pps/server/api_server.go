@@ -287,9 +287,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
@@ -391,9 +391,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
@@ -407,7 +407,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return PipelineDeploymentName(pipeline.Name, pipelineInfo.Version), nil
+	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -448,12 +448,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return err
 			}
 		} else {
-			rcName = JobDeploymentName(request.Job.ID)
+			rcName = JobRcName(request.Job.ID)
 		}
 	} else {
 		return fmt.Errorf("must specify either pipeline or job")
 	}
-	pods, err := a.deploymentPods(rcName)
+	pods, err := a.rcPods(rcName)
 	if err != nil {
 		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
 	}
@@ -1105,19 +1105,19 @@ func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCom
 }
 
 func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(rcName)
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = 0
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
 	return err
 }
 
-func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, parallelismSpec *pps.ParallelismSpec) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(deploymentName)
+func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, parallelismSpec *pps.ParallelismSpec) error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
@@ -1125,8 +1125,8 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = int32(parallelism)
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
 	return err
 }
 
@@ -1136,7 +1136,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		rcName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err := a.deleteWorkers(rcName); err != nil {
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
@@ -1256,7 +1256,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// because it might happen that the timer expired while
 				// we were creating a job.
 				if len(runningJobSet) == 0 {
-					if err := a.scaleDownWorkers(ctx, PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
+					if err := a.scaleDownWorkers(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
 						return err
 					}
 				}
@@ -1455,7 +1455,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			go func() {
 				// Clean up workers if the job gets cancelled
 				<-ctx.Done()
-				rcName := JobDeploymentName(jobInfo.Job.ID)
+				rcName := JobRcName(jobInfo.Job.ID)
 				if err := a.deleteWorkers(rcName); err != nil {
 					protolion.Errorf("error deleting workers for job: %v", jobID)
 				}
@@ -1481,18 +1481,18 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if jobInfo.Pipeline != nil {
 			// We scale up the workers before we run a job, to ensure
 			// that the job will have workers to use.  Note that scaling
-			// a deployment is idempotent: nothing happens if the workers have
+			// a RC is idempotent: nothing happens if the workers have
 			// already been scaled.
-			deploymentName := PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-			if err := a.scaleUpWorkers(ctx, deploymentName, jobInfo.ParallelismSpec); err != nil {
+			rcName := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
-			wp, err = a.newWorkerPool(ctx, deploymentName, jobInfo.Job.ID)
+			wp, err = a.newWorkerPool(ctx, rcName, jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
 		} else {
-			wp, err = a.newWorkerPool(ctx, JobDeploymentName(jobInfo.Job.ID), jobInfo.Job.ID)
+			wp, err = a.newWorkerPool(ctx, JobRcName(jobInfo.Job.ID), jobInfo.Job.ID)
 			if err != nil {
 				return err
 			}
@@ -1796,7 +1796,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		}
 	}
 	options := a.getWorkerOptions(
-		JobDeploymentName(jobInfo.Job.ID),
+		JobRcName(jobInfo.Job.ID),
 		int32(parallelism),
 		resources,
 		jobInfo.Transform)
@@ -1805,7 +1805,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		Name:  client.PPSJobIDEnv,
 		Value: jobInfo.Job.ID,
 	})
-	return a.createWorkerDeployment(options)
+	return a.createWorkerRc(options)
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
@@ -1821,7 +1821,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 	}
 	options := a.getWorkerOptions(
-		PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		resources,
 		pipelineInfo.Transform)
@@ -1830,37 +1830,15 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
-	return a.createWorkerDeployment(options)
+	return a.createWorkerRc(options)
 }
 
-func (a *apiServer) deleteWorkers(deploymentName string) error {
+func (a *apiServer) deleteWorkers(rcName string) error {
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	if err := a.kubeClient.Extensions().Deployments(a.namespace).Delete(deploymentName, deleteOptions); err != nil {
-		return err
-	}
-	// In k8s 1.6+, a replica set can be automatically removed when the
-	// deployment that created it is removed.  However, for lower versions
-	// of k8s, you have to do the following manually.
-	rsInterface := a.kubeClient.ReplicaSets(a.namespace)
-	label, err := kube_labels.Parse(fmt.Sprintf("app=%s", deploymentName))
-	if err != nil {
-		return err
-	}
-	rsList, err := rsInterface.List(api.ListOptions{
-		LabelSelector: label,
-	})
-	if err != nil {
-		return err
-	}
-	for _, rs := range rsList.Items {
-		if err := rsInterface.Delete(rs.Name, deleteOptions); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
@@ -1933,13 +1911,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) deploymentPods(deploymentName string) ([]api.Pod, error) {
+func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(deploymentName)),
+		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
 	})
 	if err != nil {
 		return nil, err
