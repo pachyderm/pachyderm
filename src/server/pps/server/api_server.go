@@ -1619,7 +1619,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					if userCodeFailures > MaximumRetriesPerDatum {
 						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
-						return fmt.Errorf("") // needed to escape the retry
+						return err
 					}
 					return nil
 				})
