@@ -116,21 +116,21 @@ func do(appEnvObj interface{}) error {
 
 	// Construct worker API server. Get relevant pipeline or job info, and then
 	// use that to create a worker.APIServer.
-	var workerDeploymentName string
+	var workerRcName string
 	var apiServer *worker.APIServer
 	if appEnv.PPSPipelineName != "" {
 		pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
-		workerDeploymentName = ppsserver.PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
 			return err
 		}
-		workerDeploymentName = ppsserver.JobDeploymentName(jobInfo.Job.ID)
+		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
 		apiServer = worker.NewJobAPIServer(pachClient, jobInfo, appEnv.PodName)
 	}
 
@@ -165,7 +165,7 @@ func do(appEnvObj interface{}) error {
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
 	<-ready
-	key := path.Join(appEnv.PPSPrefix, "workers", workerDeploymentName, appEnv.PPSWorkerIP)
+	key := path.Join(appEnv.PPSPrefix, "workers", workerRcName, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
