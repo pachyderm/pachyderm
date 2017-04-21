@@ -3211,7 +3211,7 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 
 func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
-	rc := pachdRc(t)
+	deployment := pachdDeployment(t)
 	for {
 		// This code is taken from
 		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
@@ -3219,9 +3219,9 @@ func waitForReadiness(t testing.TB) {
 		// broke it due to a type error.  We should see if we can go back to
 		// using that code but I(jdoliner) couldn't figure out how to fanagle
 		// the types into compiling.
-		newRc, err := k.ReplicationControllers(api.NamespaceDefault).Get(rc.Name)
+		newDeployment, err := k.Extensions().Deployments(api.NamespaceDefault).Get(deployment.Name)
 		require.NoError(t, err)
-		if newRc.Status.ObservedGeneration >= rc.Generation && newRc.Status.Replicas == newRc.Spec.Replicas {
+		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == newDeployment.Spec.Replicas {
 			break
 		}
 		time.Sleep(time.Second * 5)
@@ -3241,7 +3241,7 @@ func waitForReadiness(t testing.TB) {
 				t.Fatal("event.Object should be an object")
 			}
 			readyPods[pod.Name] = true
-			if len(readyPods) == int(rc.Spec.Replicas) {
+			if len(readyPods) == int(deployment.Spec.Replicas) {
 				break
 			}
 		}
@@ -3252,14 +3252,6 @@ func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationCo
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
 	result, err := rc.Get(pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
-	require.NoError(t, err)
-	return result
-}
-
-func pachdRc(t testing.TB) *api.ReplicationController {
-	k := getKubeClient(t)
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get("pachd")
 	require.NoError(t, err)
 	return result
 }
