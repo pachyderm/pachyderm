@@ -35,6 +35,7 @@ package grpc
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -209,6 +210,7 @@ func (rr *roundRobin) watchAddrUpdates() error {
 		open[i] = v.addr
 	}
 	if rr.done {
+		debug.PrintStack()
 		return ErrClientConnClosing
 	}
 	rr.addrCh <- open
@@ -219,6 +221,7 @@ func (rr *roundRobin) Start(target string, config BalancerConfig) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.done {
+		debug.PrintStack()
 		return ErrClientConnClosing
 	}
 	if rr.r == nil {
@@ -289,6 +292,7 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 	rr.mu.Lock()
 	if rr.done {
 		rr.mu.Unlock()
+		debug.PrintStack()
 		err = ErrClientConnClosing
 		return
 	}
@@ -342,6 +346,7 @@ func (rr *roundRobin) Get(ctx context.Context, opts BalancerGetOptions) (addr Ad
 			rr.mu.Lock()
 			if rr.done {
 				rr.mu.Unlock()
+				debug.PrintStack()
 				err = ErrClientConnClosing
 				return
 			}

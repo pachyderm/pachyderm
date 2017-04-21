@@ -37,6 +37,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"runtime/debug"
 	"time"
 
 	"golang.org/x/net/context"
@@ -231,6 +232,7 @@ func invoke(ctx context.Context, method string, args, reply interface{}, cc *Cli
 				return err
 			}
 			if err == errConnClosing || err == errConnUnavailable {
+				debug.PrintStack()
 				if c.failFast {
 					return Errorf(codes.Unavailable, "%v", err)
 				}

@@ -37,6 +37,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -523,6 +524,7 @@ func (cc *ClientConn) resetAddrConn(addr Address, skipWait bool, tearDownErr err
 	cc.mu.Lock()
 	if cc.conns == nil {
 		cc.mu.Unlock()
+		debug.PrintStack()
 		return ErrClientConnClosing
 	}
 	stale := cc.conns[ac.addr]
@@ -547,6 +549,7 @@ func (cc *ClientConn) resetAddrConn(addr Address, skipWait bool, tearDownErr err
 	// skipWait may overwrite the decision in ac.dopts.block.
 	if ac.dopts.block && !skipWait {
 		if err := ac.resetTransport(false); err != nil {
+			debug.PrintStack()
 			if err != errConnClosing {
 				// Tear down ac and delete it from cc.conns.
 				cc.mu.Lock()
@@ -566,6 +569,7 @@ func (cc *ClientConn) resetAddrConn(addr Address, skipWait bool, tearDownErr err
 		go func() {
 			if err := ac.resetTransport(false); err != nil {
 				grpclog.Printf("Failed to dial %s: %v; please retry.", ac.addr.Addr, err)
+				debug.PrintStack()
 				if err != errConnClosing {
 					// Keep this ac in cc.conns, to get the reason it's torn down.
 					ac.tearDown(err)
@@ -597,6 +601,7 @@ func (cc *ClientConn) getTransport(ctx context.Context, opts BalancerGetOptions)
 		cc.mu.RLock()
 		if cc.conns == nil {
 			cc.mu.RUnlock()
+			debug.PrintStack()
 			return nil, nil, toRPCErr(ErrClientConnClosing)
 		}
 		for _, ac = range cc.conns {
@@ -617,6 +622,7 @@ func (cc *ClientConn) getTransport(ctx context.Context, opts BalancerGetOptions)
 		cc.mu.RLock()
 		if cc.conns == nil {
 			cc.mu.RUnlock()
+			debug.PrintStack()
 			return nil, nil, toRPCErr(ErrClientConnClosing)
 		}
 		ac, ok = cc.conns[addr]
@@ -626,6 +632,7 @@ func (cc *ClientConn) getTransport(ctx context.Context, opts BalancerGetOptions)
 		if put != nil {
 			put()
 		}
+		debug.PrintStack()
 		return nil, nil, errConnClosing
 	}
 	t, err := ac.wait(ctx, cc.dopts.balancer != nil, !opts.BlockingWait)
@@ -645,6 +652,7 @@ func (cc *ClientConn) Close() error {
 	cc.mu.Lock()
 	if cc.conns == nil {
 		cc.mu.Unlock()
+		debug.PrintStack()
 		return ErrClientConnClosing
 	}
 	conns := cc.conns
@@ -654,6 +662,7 @@ func (cc *ClientConn) Close() error {
 		cc.dopts.balancer.Close()
 	}
 	for _, ac := range conns {
+		debug.PrintStack()
 		ac.tearDown(ErrClientConnClosing)
 	}
 	return nil
@@ -741,6 +750,7 @@ func (ac *addrConn) resetTransport(closeTransport bool) error {
 		if ac.state == Shutdown {
 			// ac.tearDown(...) has been invoked.
 			ac.mu.Unlock()
+			debug.PrintStack()
 			return errConnClosing
 		}
 		if ac.down != nil {
@@ -777,6 +787,7 @@ func (ac *addrConn) resetTransport(closeTransport bool) error {
 			if ac.state == Shutdown {
 				// ac.tearDown(...) has been invoked.
 				ac.mu.Unlock()
+				debug.PrintStack()
 				return errConnClosing
 			}
 			ac.errorf("transient failure: %v", err)
@@ -801,6 +812,7 @@ func (ac *addrConn) resetTransport(closeTransport bool) error {
 			// ac.tearDown(...) has been invoked.
 			ac.mu.Unlock()
 			newTransport.Close()
+			debug.PrintStack()
 			return errConnClosing
 		}
 		ac.state = Ready
@@ -897,6 +909,7 @@ func (ac *addrConn) wait(ctx context.Context, hasBalancer, failfast bool) (trans
 				return nil, err
 			}
 			ac.mu.Unlock()
+			debug.PrintStack()
 			return nil, errConnClosing
 		case ac.state == Ready:
 			ct := ac.transport
@@ -905,6 +918,7 @@ func (ac *addrConn) wait(ctx context.Context, hasBalancer, failfast bool) (trans
 		case ac.state == TransientFailure:
 			if failfast || hasBalancer {
 				ac.mu.Unlock()
+				debug.PrintStack()
 				return nil, errConnUnavailable
 			}
 		}

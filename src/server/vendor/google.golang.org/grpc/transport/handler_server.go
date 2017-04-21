@@ -43,6 +43,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -178,6 +179,7 @@ func (ht *serverHandlerTransport) do(fn func()) error {
 	case ht.writes <- fn:
 		return nil
 	case <-ht.closedCh:
+		debug.PrintStack()
 		return ErrConnClosing
 	}
 }

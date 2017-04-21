@@ -38,6 +38,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -182,6 +183,7 @@ func newClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 				return nil, err
 			}
 			if err == errConnClosing || err == errConnUnavailable {
+				debug.PrintStack()
 				if c.failFast {
 					return nil, Errorf(codes.Unavailable, "%v", err)
 				}

@@ -42,6 +42,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -434,6 +435,7 @@ func toRPCErr(err error) error {
 				desc: err.Error(),
 			}
 		case ErrClientConnClosing:
+			debug.PrintStack()
 			return &rpcError{
 				code: codes.FailedPrecondition,
 				desc: err.Error(),

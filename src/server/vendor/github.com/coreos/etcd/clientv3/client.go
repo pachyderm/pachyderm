@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -398,6 +399,7 @@ func toErr(ctx context.Context, err error) error {
 	case codes.Unavailable:
 		err = ErrNoAvailableEndpoints
 	case codes.FailedPrecondition:
+		debug.PrintStack()
 		err = grpc.ErrClientConnClosing
 	}
 	return err
