@@ -2,6 +2,7 @@
 package sync
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,12 +18,16 @@ import (
 
 // Puller as a struct for managing a Pull operation.
 type Puller struct {
+	sync.Mutex
 	// errCh contains an error from the pipe goros
 	errCh chan error
 	// pipes is a set containing all pipes that are currently blocking
 	pipes map[string]bool
-	// pipesMu is a mutex to synchronize access to pipes
-	pipesMu sync.Mutex
+	// cleaned signals if the cleanup goroutine has been started
+	cleaned bool
+	// wg is used to wait for all goroutines associated with this Puller
+	// to complete.
+	wg sync.WaitGroup
 }
 
 // NewPuller creates a new Puller struct.
@@ -57,23 +62,22 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			if err := syscall.Mkfifo(path, 0666); err != nil {
 				return err
 			}
-			p.pipesMu.Lock()
-			p.pipes[path] = true
-			p.pipesMu.Unlock()
+			func() {
+				p.Lock()
+				defer p.Unlock()
+				p.pipes[path] = true
+			}()
 			// This goro will block until the user's code opens the
 			// fifo.  That means we need to "abandon" this goro so that
 			// the function can return and the caller can execute the
 			// user's code. Waiting for this goro to return would
 			// produce a deadlock. This goro will exit (if it hasn't already)
 			// when CleanUp is called.
+			p.wg.Add(1)
 			go func() {
+				defer p.wg.Done()
 				if err := func() (retErr error) {
-					limiter.Acquire()
-					defer limiter.Release()
 					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-					p.pipesMu.Lock()
-					delete(p.pipes, path)
-					p.pipesMu.Unlock()
 					if err != nil {
 						return err
 					}
@@ -82,11 +86,19 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 							retErr = err
 						}
 					}()
-					err = client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
-					if err != nil {
-						return err
+					// If the CleanUp routine has already run, then there's
+					// no point in downloading and sending the file, so we
+					// exit early.
+					if func() bool {
+						p.Lock()
+						defer p.Unlock()
+						delete(p.pipes, path)
+						return p.cleaned
+					}() {
+						return nil
 					}
-					return nil
+
+					return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
 				}(); err != nil {
 					select {
 					case p.errCh <- err:
@@ -127,18 +139,32 @@ func (p *Puller) CleanUp() error {
 	case result = <-p.errCh:
 	default:
 	}
-	p.pipesMu.Lock()
-	defer p.pipesMu.Unlock()
-	for path := range p.pipes {
-		f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
-		if err != nil {
-			return err
+
+	// Open all the pipes to unblock the goros
+	var pipes []io.Closer
+	func() {
+		p.Lock()
+		defer p.Unlock()
+		p.cleaned = true
+		for path := range p.pipes {
+			f, err := os.OpenFile(path, syscall.O_NONBLOCK+os.O_RDONLY, os.ModeNamedPipe)
+			if err != nil && result == nil {
+				result = err
+			}
+			pipes = append(pipes, f)
 		}
-		if err := f.Close(); err != nil {
-			return err
+		p.pipes = make(map[string]bool)
+	}()
+
+	// Wait for all goros to exit
+	p.wg.Wait()
+
+	// Close the pipes
+	for _, pipe := range pipes {
+		if err := pipe.Close(); err != nil && result == nil {
+			result = err
 		}
 	}
-	p.pipes = make(map[string]bool)
 	return result
 }
 
