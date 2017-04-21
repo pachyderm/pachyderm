@@ -3,7 +3,6 @@ package obj
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 
@@ -106,15 +105,6 @@ type microsoftWriter struct {
 func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
 	// create container
 	_, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate)
-	if err != nil {
-		return nil, err
-	}
-
-	// check blob existence
-	exists, err := client.blobClient.BlobExists(client.container, name)
-	if exists {
-		err = errors.New(name + " blob already exists")
-	}
 	if err != nil {
 		return nil, err
 	}

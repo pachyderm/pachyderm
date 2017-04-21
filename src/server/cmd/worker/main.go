@@ -136,7 +136,7 @@ func do(appEnvObj interface{}) error {
 
 	// Setup the hostPath mount to use a unique directory for this worker
 	workerDir := filepath.Join(client.PPSHostPath, appEnv.PodName)
-	if err := os.Mkdir(workerDir, 0777); err != nil {
+	if err := os.MkdirAll(workerDir, 0777); err != nil {
 		return err
 	}
 	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
@@ -169,15 +169,19 @@ func do(appEnvObj interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	resp, err := etcdClient.Grant(ctx, 60 /* seconds */)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
 	if err != nil {
 		return err
 	}
-	etcdClient.KeepAlive(context.Background(), resp.ID) // keepalive forever
+
+	// keepalive forever
+	if _, err := etcdClient.KeepAlive(context.Background(), resp.ID); err != nil {
+		return err
+	}
 
 	// Actually write "key" into etcd
-	ctx, _ = context.WithTimeout(context.Background(), 30*time.Second) // new ctx
+	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return err
 	}

@@ -596,3 +596,13 @@ func TestSerializeError(t *testing.T) {
 	require.YesError(t, err)
 	require.Equal(t, Unsupported, Code(err))
 }
+
+func TestListEmpty(t *testing.T) {
+	tree := NewHashTree()
+	_, err := tree.List("/")
+	require.NoError(t, err)
+	_, err = tree.Glob("*")
+	require.NoError(t, err)
+	_, err = tree.Glob("/*")
+	require.NoError(t, err)
+}

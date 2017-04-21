@@ -30,6 +30,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "constant": int        // if strategy == CONSTANT
     "coefficient": double  // if strategy == COEFFICIENT
   },
+  "resource_spec": {
+    "memory": string
+    "cpu": double
+  },
   "inputs": [
     {
       "name": string,
@@ -50,7 +54,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "outputBranch": string,
   "egress": {
     "URL": "s3://bucket/dir"
-  }
+  },
+  "scaleDownThreshold": string
 }
 ```
 
@@ -103,13 +108,20 @@ injected into the container
 secrets by name and specify a path that the secrets should be mounted to.
 Secrets are useful for embedding sensitive data such as credentials. Read more
 about secrets in Kubernetes
-[here](http://kubernetes.io/docs/user-guide/secrets/).
+[here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.imagePullSecrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they're mounted before the
 containers are created so they can be used to provide credentials for image
-pulling. Read more about image pull secrets
-[here](http://kubernetes.io/docs/user-guide/images/#specifying-imagepullsecrets-on-a-pod).
+pulling. For example, if you are using a private Docker registry for your
+images, you can specify it via:
+
+```sh
+$ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
+```
+
+And then tell your pipeline about it via `"imagePullSecrets": [ "myregistrykey" ]`. Read more about image pull secrets
+[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
 
 `transform.acceptReturnCode` is an array of return codes (i.e. exit codes)
 from your docker command that are considered acceptable, which means that
@@ -137,7 +149,44 @@ Kubernetes node).
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.
 
-### Inputs (optional)
+### Resource Spec (optional)
+
+`resource_spec` describes the amount of resources you expect the
+workers for a given pipeline to consume. Knowing this in advance
+lets us schedule big jobs on separate machines, so that they don't
+conflict and either slow down or die.
+
+The `memory` field is a string that describes the amount of memory, in bytes,
+each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). For
+example, a worker that needs to read a 1GB file into memory might set
+`"memory": "1.2GB"` (with a little extra for the code to use in addition to the
+file. Workers for this pipeline will only be placed on machines with at least
+1.2GB of free memory, and other large workers will be prevented from using it
+(if they also set their `resource_spec`).
+
+The `cpu` field is a double that describes the amount of CPU time (in (cpu
+seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
+the worker should get 500ms of CPU time per second. Setting `"cpu": 2`
+indicates that the worker should get 2000ms of CPU time per second (i.e. it's
+using 2 CPUs, essentially, though worker threads might spend e.g. 500ms on four
+physical CPUs instead of one second on two physical CPUs).
+
+In both cases, the resource requests are not upper bounds. If the worker uses
+more memory than it's requested, it will not (necessarily) be killed.  However,
+if the whole node runs out of memory, Kubernetes will start killing pods that
+have been placed on it and exceeded their memory request, to reclaim memory.
+To prevent your worker getting killed, you must set your `memory` request to
+a sufficiently large value. However, if the total memory requested by all
+workers in the system is too large, Kubernetes will be unable to schedule new
+workers (because no machine will have enough unclaimed memory). `cpu` works
+similarly, but for CPU time.
+
+By default, workers are scheduled with an effective resource request of 0 (to
+avoid scheduling problems that prevent users from being unable to run
+pipelines).  This means that if a node runs out of memory, any such worker
+might be killed.
+
+#### Inputs (optional)
 
 `inputs` specifies a set of Repos that will be visible to the jobs during
 runtime. Commits to these repos will automatically trigger the pipeline to
@@ -145,8 +194,8 @@ create new jobs to process them.
 
 `inputs.name` is the name of the input.  An input with name `XXX` will be
 visible under the path `/pfs/XXX` when a job runs.  Input names must be
-unique.  If an input's name is not specified, it's default to the name of
-the repo.
+unique. If an input's name is not specified, it's default to the name of
+the repo. Therefore, if you have two inputs from the same repo, you'll need to give at least one of them a unique name.
 
 `inputs.repo` is a repo that contains input data for this pipeline.
 
@@ -164,7 +213,7 @@ be downloaded until the job opens the pipe and reads it, if the pipe is
 never opened then no will be downloaded. Some applications won't work with
 pipes, for example if they make syscalls such as `Seek` which pipes don't
 support. Applications that can work with pipes should use them since they're
-more performant, the difference will be especially notable if the job only 
+more performant, the difference will be especially notable if the job only
 reads a subset of the files that are available to it.
 
 `inputs.from` specifies the starting point of the input branch.  If `from`
@@ -172,7 +221,7 @@ is not specified, then the entire input branch will be processed.  Otherwise,
 only commits since the `from` commit (not including the `from` commit itself)
  will be processed.
 
-### OutputBranch
+### OutputBranch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
 it's "master".
@@ -184,13 +233,21 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
+## Scale-down threshold (optional)
+
+`scaleDownThreshold` specifies when the worker pods of a pipeline should be terminated.
+
+By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
+
+`scaleDownThreshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
+
 ## The Input Glob Pattern
 
-Each input needs to specify a [glob pattern](http://man7.org/linux/man-pages/man7/glob.7.html).
+Each input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
-Pachyderm attemps to process datums in parallel whenever possible.
+Pachyderm attempts to process datums in parallel whenever possible.
 
 Intuitively, you may think of the input repo as a file system, and you are
 applying the glob pattern to the root of the file system.  The files and
@@ -208,17 +265,17 @@ For instance, let's say your input repo has the following structure:
 
 Now let's consider what the following glob patterns would match respectively:
 
-* `/`: this pattern matches `/`, the root directory itself
-* `/*`:  this pattern matches everything under the root directory:
-`/foo-1`, `/foo-2`, and `/bar`
-* `/foo*`:  this pattern matches files under the root directory that start
-with `/foo`: `/foo-1` and `/foo-2`
+* `/`: this pattern matches `/`, the root directory itself, meaning all the data would be a single large datum.
+* `/*`:  this pattern matches everything under the root directory given us 3 datums:
+`/foo-1.`, `/foo-2.`, and everything under the directory `/bar`.
+* `/bar/*`: this pattern matches files only under the `/bar` directory: `/bar-1` and `/bar-2`
+* `/foo*`:  this pattern matches files under the root directory that start with the characters `foo`
 * `/*/*`:  this pattern matches everything that's two levels deep relative
 to the root: `/bar/bar-1` and `/bar/bar-2`
 
-Whatever that matches the glob pattern is a datum.  For instance, if we used
+The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
 `/*`, then the job will process three datums (potentially in parallel):
-`/foo-1`, `/foo-2`, and `/bar`.
+`/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
 
 ## Multiple Inputs
 
@@ -294,6 +351,4 @@ The root mount point is at `/pfs`, which contains:
 
 ### Output Formats
 
-PFS supports data to be delimited by line, JSON, or binary blobs. [Refer here
-for more information on
-delimiters](../pachyderm_file_system.html#block-delimiters)
+PFS supports data to be delimited by line, JSON, or binary blobs.

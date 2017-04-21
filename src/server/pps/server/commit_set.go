@@ -7,53 +7,31 @@ import (
 	"golang.org/x/net/context"
 )
 
+type branchSet struct {
+	Branches []*pfs.Branch
+	Err      error
+}
+
 type branchSetFactory interface {
-	Next() ([]*pfs.Branch, error)
+	Chan() chan *branchSet
+	Close()
 }
 
 type branchSetFactoryImpl struct {
-	branchCh    chan *pfs.Branch
-	errCh       chan error
-	branchSet   []*pfs.Branch
-	numBranches int // number of unique branches
+	ch     chan *branchSet
+	cancel context.CancelFunc
 }
 
-func (c *branchSetFactoryImpl) Next() ([]*pfs.Branch, error) {
-	for {
-		var newBranch *pfs.Branch
-		select {
-		case newBranch = <-c.branchCh:
-		case err := <-c.errCh:
-			return nil, err
-		}
-
-		var found bool
-		for i, branch := range c.branchSet {
-			if branch.Head.Repo.Name == newBranch.Head.Repo.Name && branch.Name == newBranch.Name {
-				c.branchSet[i] = newBranch
-				found = true
-			}
-		}
-		if !found {
-			c.branchSet = append(c.branchSet, newBranch)
-		}
-		if len(c.branchSet) == c.numBranches {
-			newBranchSet := make([]*pfs.Branch, len(c.branchSet))
-			copy(newBranchSet, c.branchSet)
-			return newBranchSet, nil
-		}
-	}
-	panic("unreachable")
+func (f *branchSetFactoryImpl) Close() {
+	f.cancel()
 }
 
-func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.PipelineInput) (branchSetFactory, error) {
-	branchCh := make(chan *pfs.Branch)
-	errCh := make(chan error)
+func (f *branchSetFactoryImpl) Chan() chan *branchSet {
+	return f.ch
+}
 
-	f := &branchSetFactoryImpl{
-		branchCh: branchCh,
-		errCh:    errCh,
-	}
+func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.PipelineInput) (branchSetFactory, error) {
+	ctx, cancel := context.WithCancel(_ctx)
 
 	uniqueBranches := make(map[string]map[string]*pfs.Commit)
 	for _, input := range inputs {
@@ -63,9 +41,12 @@ func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []
 		uniqueBranches[input.Repo.Name][input.Branch] = input.From
 	}
 
+	var numBranches int
+	branchCh := make(chan *pfs.Branch)
+	errCh := make(chan error)
 	for repoName, branches := range uniqueBranches {
 		for branchName, fromCommit := range branches {
-			f.numBranches++
+			numBranches++
 			stream, err := pfsClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{
 				Repo:   &pfs.Repo{repoName},
 				Branch: branchName,
@@ -79,18 +60,71 @@ func newBranchSetFactory(ctx context.Context, pfsClient pfs.APIClient, inputs []
 					commitInfo, err := stream.Recv()
 					if err != nil {
 						select {
+						case <-ctx.Done():
 						case errCh <- err:
-						default:
 						}
 						return
 					}
-					branchCh <- &pfs.Branch{
+					select {
+					case <-ctx.Done():
+						return
+					case branchCh <- &pfs.Branch{
 						Name: branchName,
 						Head: commitInfo.Commit,
+					}:
 					}
 				}
 			}(branchName)
 		}
+	}
+
+	ch := make(chan *branchSet)
+	go func() {
+		var currentBranchSet []*pfs.Branch
+		for {
+			var newBranch *pfs.Branch
+			select {
+			case <-ctx.Done():
+				return
+			case newBranch = <-branchCh:
+			case err := <-errCh:
+				select {
+				case <-ctx.Done():
+					return
+				case ch <- &branchSet{
+					Err: err,
+				}:
+				}
+			}
+
+			var found bool
+			for i, branch := range currentBranchSet {
+				if branch.Head.Repo.Name == newBranch.Head.Repo.Name && branch.Name == newBranch.Name {
+					currentBranchSet[i] = newBranch
+					found = true
+				}
+			}
+			if !found {
+				currentBranchSet = append(currentBranchSet, newBranch)
+			}
+			if len(currentBranchSet) == numBranches {
+				newBranchSet := make([]*pfs.Branch, numBranches)
+				copy(newBranchSet, currentBranchSet)
+				select {
+				case <-ctx.Done():
+					return
+				case ch <- &branchSet{
+					Branches: newBranchSet,
+				}:
+				}
+			}
+		}
+		panic("unreachable")
+	}()
+
+	f := &branchSetFactoryImpl{
+		cancel: cancel,
+		ch:     ch,
 	}
 
 	return f, nil

@@ -20,6 +20,8 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
+var defaultDashImage = "pachyderm/dash:0.3.14"
+
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
@@ -43,17 +45,24 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var secure bool
 	var etcdNodes int
 	var etcdVolume string
+	var pachdCPURequest string
+	var pachdNonCacheMemRequest string
 	var blockCacheSize string
+	var etcdCPURequest string
+	var etcdMemRequest string
 	var logLevel string
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
+	var enableDash bool
+	var dashOnly bool
+	var dashImage string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -79,7 +88,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -89,6 +98,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
 			manifest := &bytes.Buffer{}
+			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}
@@ -131,7 +141,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(6, 6, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -149,12 +159,12 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	}
 
 	deployMicrosoft := &cobra.Command{
-		Use:   "microsoft <container> <storage account name> <storage account key> <volume URIs> <size of volumes (in GB)>",
+		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
 		Long: "Deploy a Pachyderm cluster running on Microsoft Azure. Arguments are:\n" +
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunBoundedArgs(4, 4, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
@@ -162,11 +172,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
 			}
-			tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
-			if err != nil {
-				return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+			if opts.EtcdVolume != "" {
+				tempURI, err := url.ParseRequestURI(opts.EtcdVolume)
+				if err != nil {
+					return fmt.Errorf("Volume URI needs to be a well-formed URI; instead got '%v'", opts.EtcdVolume)
+				}
+				opts.EtcdVolume = tempURI.String()
 			}
-			opts.EtcdVolume = tempURI.String()
 			volumeSize, err := strconv.Atoi(args[3])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
@@ -185,13 +197,20 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
-				PachdShards:    uint64(pachdShards),
-				Version:        version.PrettyPrintVersion(version.Version),
-				LogLevel:       logLevel,
-				Metrics:        metrics,
-				BlockCacheSize: blockCacheSize,
-				EtcdNodes:      etcdNodes,
-				EtcdVolume:     etcdVolume,
+				PachdShards:             uint64(pachdShards),
+				Version:                 version.PrettyPrintVersion(version.Version),
+				LogLevel:                logLevel,
+				Metrics:                 metrics,
+				PachdCPURequest:         pachdCPURequest,
+				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
+				BlockCacheSize:          blockCacheSize,
+				EtcdCPURequest:          etcdCPURequest,
+				EtcdMemRequest:          etcdMemRequest,
+				EtcdNodes:               etcdNodes,
+				EtcdVolume:              etcdVolume,
+				EnableDash:              enableDash,
+				DashOnly:                dashOnly,
+				DashImage:               dashImage,
 			}
 			return nil
 		}),
@@ -201,13 +220,41 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "5G", "Size of in-memory cache to use for blocks. "+
-		"Size is specified in bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental)")
+	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
 	deploy.AddCommand(deployCustom)
+
+	// Flags for setting pachd and rethink resource requests. These should rarely
+	// be set -- only if we get the defaults wrong, or users have an unusual
+	// access pattern.
+	//
+	// All of these are empty by default, because the actual default values depend
+	// on the backend to which we're. The defaults are set in
+	// s/s/pkg/deploy/assets/assets.go
+	deploy.PersistentFlags().StringVar(&pachdCPURequest,
+		"pachd-cpu-request", "", "(rarely set) The size of Pachd's CPU "+
+			"request, which we give to Kubernetes. Size is in cores (with partial "+
+			"cores allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&blockCacheSize, "block-cache-size", "",
+		"Size of pachd's in-memory cache for PFS files. Size is specified in "+
+			"bytes, with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&pachdNonCacheMemRequest,
+		"pachd-memory-request", "", "(rarely set) The size of PachD's memory "+
+			"request in addition to its block cache (set via --block-cache-size). "+
+			"Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, etc).")
+	deploy.PersistentFlags().StringVar(&etcdCPURequest,
+		"etcd-cpu-request", "", "(rarely set) The size of etcd's CPU request, "+
+			"which we give to Kubernetes. Size is in cores (with partial cores "+
+			"allowed and encouraged).")
+	deploy.PersistentFlags().StringVar(&etcdMemRequest,
+		"etcd-memory-request", "", "(rarely set) The size of etcd's memory "+
+			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
+			"etc).")
 	return deploy
 }
 
@@ -219,7 +266,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all {
 				fmt.Printf(`
 By using the --all flag, you are going to delete everything, including the

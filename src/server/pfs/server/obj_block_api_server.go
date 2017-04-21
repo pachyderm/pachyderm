@@ -51,6 +51,10 @@ type objBlockAPIServer struct {
 }
 
 func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
+	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
+	if err := obj.TestIsNotExist(objClient); err != nil {
+		return nil, err
+	}
 	localServer, err := newLocalBlockAPIServer(dir)
 	if err != nil {
 		return nil, err
@@ -217,7 +221,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
-		if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+		if s.objectCacheBytes == 0 || (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 			// The object is a substantial portion of the available cache space so
 			// we bypass the cache and stream it directly out of the underlying store.
 			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
