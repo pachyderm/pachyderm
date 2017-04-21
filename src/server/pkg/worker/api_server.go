@@ -46,7 +46,6 @@ type Input struct {
 
 // APIServer implements the worker API
 type APIServer struct {
-	processMu  sync.Mutex
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
@@ -410,18 +409,24 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
-	a.processMu.Lock()
-	defer a.processMu.Unlock()
 	// set the status for the datum
 	ctx, cancel := context.WithCancel(ctx)
-	func() {
+	if err := func() error {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
+		if a.jobID != "" {
+			// we error in this case so that callers have a chance to find a
+			// non-busy worker
+			return fmt.Errorf("worker busy")
+		}
 		a.jobID = req.JobID
 		a.data = req.Data
 		a.started = time.Now()
 		a.cancel = cancel
-	}()
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
 	// unset the status when this function exits
 	defer func() {
 		a.statusMu.Lock()

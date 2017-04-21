@@ -215,6 +215,33 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	_, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc)
-	return err
+	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
+		return err
+	}
+
+	service := &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   options.rcName,
+			Labels: options.labels,
+		},
+		Spec: api.ServiceSpec{
+			Selector: options.labels,
+			Ports: []api.ServicePort{
+				{
+					Port: client.PPSWorkerPort,
+					Name: "grpc-port",
+				},
+			},
+		},
+	}
+
+	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
+		return err
+	}
+
+	return nil
 }
