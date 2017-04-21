@@ -1140,23 +1140,6 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, paralleli
 	return err
 }
 
-func (a *apiServer) waitWorkers(ctx context.Context, rcName string) error {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = time.Second * 30
-	return backoff.RetryNotify(func() error {
-		rc, err := a.kubeClient.ReplicationControllers(api.NamespaceDefault).Get(rcName)
-		if err != nil {
-			return err
-		}
-		if rc.Status.Replicas == rc.Spec.Replicas {
-			return nil
-		}
-		return fmt.Errorf("rc not ready")
-	}, b, func(err error, d time.Duration) error {
-		return nil
-	})
-}
-
 func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) (string, error) {
 	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
 	if err != nil {
@@ -1531,10 +1514,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		} else {
 			rcName = JobRcName(jobInfo.Job.ID)
-		}
-
-		if err := a.waitWorkers(ctx, rcName); err != nil {
-			fmt.Errorf("deployment isn't the correct size, proceeding anyways")
 		}
 
 		failed := false
