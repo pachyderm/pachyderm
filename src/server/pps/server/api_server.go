@@ -12,7 +12,9 @@ import (
 	"time"
 
 	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -287,9 +289,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
@@ -391,9 +393,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobDeploymentName(jobInfo.Job.ID)
+		workerPoolID = JobRcName(jobInfo.Job.ID)
 	}
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
@@ -407,7 +409,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return PipelineDeploymentName(pipeline.Name, pipelineInfo.Version), nil
+	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -448,12 +450,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return err
 			}
 		} else {
-			rcName = JobDeploymentName(request.Job.ID)
+			rcName = JobRcName(request.Job.ID)
 		}
 	} else {
 		return fmt.Errorf("must specify either pipeline or job")
 	}
-	pods, err := a.deploymentPods(rcName)
+	pods, err := a.rcPods(rcName)
 	if err != nil {
 		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
 	}
@@ -1104,20 +1106,28 @@ func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCom
 	})
 }
 
+func (a *apiServer) numWorkers(ctx context.Context, rcName string) (int, error) {
+	workerRC, err := a.kubeClient.ReplicationControllers(a.namespace).Get(rcName)
+	if err != nil {
+		return 0, err
+	}
+	return int(workerRC.Spec.Replicas), nil
+}
+
 func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(rcName)
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = 0
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
 	return err
 }
 
-func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, parallelismSpec *pps.ParallelismSpec) error {
-	deployment := a.kubeClient.Extensions().Deployments(a.namespace)
-	workerDeployment, err := deployment.Get(deploymentName)
+func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, parallelismSpec *pps.ParallelismSpec) error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(rcName)
 	if err != nil {
 		return err
 	}
@@ -1125,9 +1135,20 @@ func (a *apiServer) scaleUpWorkers(ctx context.Context, deploymentName string, p
 	if err != nil {
 		return err
 	}
-	workerDeployment.Spec.Replicas = int32(parallelism)
-	_, err = deployment.Update(workerDeployment)
+	workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
 	return err
+}
+
+func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) (string, error) {
+	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
+	if err != nil {
+		return "", err
+	}
+	if service.Spec.ClusterIP == "" {
+		return "", fmt.Errorf("IP not assigned")
+	}
+	return service.Spec.ClusterIP, nil
 }
 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
@@ -1136,7 +1157,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 	go func() {
 		// Clean up workers if the pipeline gets cancelled
 		<-ctx.Done()
-		rcName := PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err := a.deleteWorkers(rcName); err != nil {
 			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
 		}
@@ -1256,7 +1277,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// because it might happen that the timer expired while
 				// we were creating a job.
 				if len(runningJobSet) == 0 {
-					if err := a.scaleDownWorkers(ctx, PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
+					if err := a.scaleDownWorkers(ctx, PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)); err != nil {
 						return err
 					}
 				}
@@ -1428,6 +1449,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		objectClient, err := a.getObjectClient()
+		if err != nil {
+			return err
+		}
 
 		// Create workers and output repo if 'jobInfo' belongs to an orphan job
 		if jobInfo.Pipeline == nil {
@@ -1455,7 +1480,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			go func() {
 				// Clean up workers if the job gets cancelled
 				<-ctx.Done()
-				rcName := JobDeploymentName(jobInfo.Job.ID)
+				rcName := JobRcName(jobInfo.Job.ID)
 				if err := a.deleteWorkers(rcName); err != nil {
 					protolion.Errorf("error deleting workers for job: %v", jobID)
 				}
@@ -1477,167 +1502,150 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 
 		// Start worker pool
-		var wp WorkerPool
+		var rcName string
 		if jobInfo.Pipeline != nil {
 			// We scale up the workers before we run a job, to ensure
 			// that the job will have workers to use.  Note that scaling
-			// a deployment is idempotent: nothing happens if the workers have
+			// a RC is idempotent: nothing happens if the workers have
 			// already been scaled.
-			deploymentName := PipelineDeploymentName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-			if err := a.scaleUpWorkers(ctx, deploymentName, jobInfo.ParallelismSpec); err != nil {
-				return err
-			}
-			wp, err = a.newWorkerPool(ctx, deploymentName, jobInfo.Job.ID)
-			if err != nil {
+			rcName = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
 		} else {
-			wp, err = a.newWorkerPool(ctx, JobDeploymentName(jobInfo.Job.ID), jobInfo.Job.ID)
-			if err != nil {
-				return err
-			}
+			rcName = JobRcName(jobInfo.Job.ID)
 		}
 
-		// We have a goroutine that receives the datums that fail to
-		// be processed, and put them back onto the datum queue.
-		jobFailedCh := make(chan struct{})
-		go func() {
-			var dts []*datum
-			for {
-				if len(dts) > 0 {
-					select {
-					case wp.DataCh() <- dts[0]:
-						protolion.Infof("retrying datum %v", dts[0].files)
-						dts = dts[1:]
-					case dt := <-wp.FailCh():
-						if dt.retries >= MaximumRetriesPerDatum {
-							close(jobFailedCh)
-							return
-						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
-						dts = append(dts, dt)
-					case <-ctx.Done():
-						return
-					}
-				} else {
-					select {
-					case dt := <-wp.FailCh():
-						if dt.retries >= MaximumRetriesPerDatum {
-							close(jobFailedCh)
-							return
-						}
-						protolion.Infof("datum %v is queued up for retry", dt.files)
-						dts = append(dts, dt)
-					case <-ctx.Done():
-						return
-					}
-				}
-			}
-		}()
-
+		failed := false
+		numWorkers, err := a.numWorkers(ctx, rcName)
+		if err != nil {
+			return err
+		}
+		limiter := limit.New(numWorkers)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
 		if err != nil {
 			return err
 		}
-		var inflightData int64
-		var processedData int64
-		var etcdProcessedData int64 // the value of processedData we've sent to etcd
+		tree := hashtree.NewHashTree()
+		var treeMu sync.Mutex
+
+		processedData := int64(0)
+		setProcessedData := int64(0)
 		totalData := int64(df.Len())
-		// This goro is responsible for updating job progress
-		// The values sent on this channel will be the number of datums
-		// processed so far.
-		progressCh := make(chan int64)
-		go func() {
-			var processed int64
-			for {
-				// We do the first update before receiving a progress,
-				// because we want to update the total number of datums.
+		var progressMu sync.Mutex
+		updateProgress := func(processed int64) {
+			progressMu.Lock()
+			defer progressMu.Unlock()
+			processedData += processed
+			// so as not to overwhelm etcd we update at most 100 times per job
+			if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
+				processedData == 0 || processedData == totalData {
+				// we setProcessedData even though the update below may fail,
+				// if we didn't we'd retry updating the progress on the next
+				// datum, this would lead to more accurate progress but
+				// progress isn't that important and we don't want to overwelm
+				// etcd.
+				setProcessedData = processedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
 					}
-					// In case this goro races with the goro that sets
-					// this job as success, we don't want to overwrite
-					// the completed progress bar.
-					if jobInfo.DataProcessed != totalData {
-						jobInfo.DataProcessed = processed
-					}
-					jobInfo.DataTotal = int64(totalData)
+					jobInfo.DataProcessed = processedData
+					jobInfo.DataTotal = totalData
 					jobs.Put(jobInfo.Job.ID, jobInfo)
 					return nil
 				}); err != nil {
 					protolion.Errorf("error updating job progress: %+v", err)
 				}
-				select {
-				case processed = <-progressCh:
-				case <-ctx.Done():
-					// exit when the jobManager exits
-					return
-				}
 			}
-		}()
+		}
+		// set the initial values
+		updateProgress(0)
 
-		tree := hashtree.NewHashTree()
-		files := df.Next()
-		for {
-			var resp hashtree.HashTree
-			var failed bool
-			if files != nil {
-				select {
-				case wp.DataCh() <- &datum{
-					files: files,
-				}:
-					files = df.Next()
-					inflightData++
-				case resp = <-wp.SuccessCh():
-					inflightData--
-				case <-jobFailedCh:
-					failed = true
-					inflightData--
-				}
-			} else {
-				if inflightData == 0 {
-					break
-				}
-				select {
-				case resp = <-wp.SuccessCh():
-				case <-jobFailedCh:
-					failed = true
-				}
-				inflightData--
-			}
-			if resp != nil {
-				if err := tree.Merge(resp); err != nil {
+		serviceAddr, err := a.workerServiceIP(ctx, rcName)
+		clientPool := sync.Pool{
+			New: func() interface{} {
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock())
+				if err != nil {
 					return err
 				}
-				processedData++
-				// so as not to overwhelm etcd we update at most 100 times per job
-				if (float64(processedData-etcdProcessedData) / float64(totalData)) > .01 {
-					etcdProcessedData = processedData
-					// If we fail to send the progress, so be it.
-					// We don't want to slow down the distribution of datums
-					// in order to update progress.
-					select {
-					case progressCh <- processedData:
-					default:
+				return workerpkg.NewWorkerClient(conn)
+			},
+		}
+		for files := df.Next(); files != nil; files = df.Next() {
+			limiter.Acquire()
+			files := files
+			go func() {
+				userCodeFailures := 0
+				defer limiter.Release()
+				b := backoff.NewInfiniteBackOff()
+				backoff.RetryNotify(func() error {
+					clientOrErr := clientPool.Get()
+					var workerClient workerpkg.WorkerClient
+					switch clientOrErr := clientOrErr.(type) {
+					case workerpkg.WorkerClient:
+						workerClient = clientOrErr
+					case error:
+						return clientOrErr
 					}
-				}
-			}
-			if failed {
-				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := new(pps.JobInfo)
-					if err := jobs.Get(jobID, jobInfo); err != nil {
+					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
+						JobID: jobInfo.Job.ID,
+						Data:  files,
+					})
+					if err != nil {
 						return err
 					}
-					jobInfo.Finished = now()
-					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+					// We only return workerClient if we made a successful call
+					// to Process
+					defer clientPool.Put(workerClient)
+					if resp.Failed {
+						userCodeFailures++
+						return fmt.Errorf("user code failed for datum %v", files)
+					}
+					getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
+					if err != nil {
+						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+					}
+					var buffer bytes.Buffer
+					if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+					}
+					subTree, err := hashtree.Deserialize(buffer.Bytes())
+					if err != nil {
+						return fmt.Errorf("failed deserialize hashtree after processing for datum %v: %v", files, err)
+					}
+					treeMu.Lock()
+					defer treeMu.Unlock()
+					return tree.Merge(subTree)
+				}, b, func(err error, d time.Duration) error {
+					if userCodeFailures > MaximumRetriesPerDatum {
+						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
+						failed = true
+						return err
+					}
+					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
+					return nil
 				})
-				return err
-			}
+				go updateProgress(1)
+			}()
+		}
+		limiter.Wait()
+
+		// check if the job failed
+		if failed {
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Finished = now()
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+			})
+			return err
 		}
 
 		finishedTree, err := tree.Finish()
@@ -1650,12 +1658,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		objClient, err := a.getObjectClient()
-		if err != nil {
-			return err
-		}
-
-		putObjClient, err := objClient.PutObject(ctx)
+		putObjClient, err := objectClient.PutObject(ctx)
 		if err != nil {
 			return err
 		}
@@ -1716,6 +1719,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			jobInfo.Finished = now()
 			// By definition, we will have processed all datums at this point
 			jobInfo.DataProcessed = totalData
+			// likely already set but just in case it failed
+			jobInfo.DataTotal = totalData
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
 		return err
@@ -1796,7 +1801,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		}
 	}
 	options := a.getWorkerOptions(
-		JobDeploymentName(jobInfo.Job.ID),
+		JobRcName(jobInfo.Job.ID),
 		int32(parallelism),
 		resources,
 		jobInfo.Transform)
@@ -1805,7 +1810,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		Name:  client.PPSJobIDEnv,
 		Value: jobInfo.Job.ID,
 	})
-	return a.createWorkerDeployment(options)
+	return a.createWorkerRc(options)
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
@@ -1821,7 +1826,7 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 	}
 	options := a.getWorkerOptions(
-		PipelineDeploymentName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		resources,
 		pipelineInfo.Transform)
@@ -1830,37 +1835,18 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
 	})
-	return a.createWorkerDeployment(options)
+	return a.createWorkerRc(options)
 }
 
-func (a *apiServer) deleteWorkers(deploymentName string) error {
+func (a *apiServer) deleteWorkers(rcName string) error {
+	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
+		return err
+	}
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	if err := a.kubeClient.Extensions().Deployments(a.namespace).Delete(deploymentName, deleteOptions); err != nil {
-		return err
-	}
-	// In k8s 1.6+, a replica set can be automatically removed when the
-	// deployment that created it is removed.  However, for lower versions
-	// of k8s, you have to do the following manually.
-	rsInterface := a.kubeClient.ReplicaSets(a.namespace)
-	label, err := kube_labels.Parse(fmt.Sprintf("app=%s", deploymentName))
-	if err != nil {
-		return err
-	}
-	rsList, err := rsInterface.List(api.ListOptions{
-		LabelSelector: label,
-	})
-	if err != nil {
-		return err
-	}
-	for _, rs := range rsList.Items {
-		if err := rsInterface.Delete(rs.Name, deleteOptions); err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
@@ -1933,13 +1919,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) deploymentPods(deploymentName string) ([]api.Pod, error) {
+func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(deploymentName)),
+		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
 	})
 	if err != nil {
 		return nil, err

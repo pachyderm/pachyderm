@@ -46,7 +46,6 @@ type Input struct {
 
 // APIServer implements the worker API
 type APIServer struct {
-	processMu  sync.Mutex
 	pachClient *client.APIClient
 
 	// Information needed to process input data and upload output
@@ -410,18 +409,24 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
-	a.processMu.Lock()
-	defer a.processMu.Unlock()
 	// set the status for the datum
 	ctx, cancel := context.WithCancel(ctx)
-	func() {
+	if err := func() error {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
+		if a.jobID != "" {
+			// we error in this case so that callers have a chance to find a
+			// non-busy worker
+			return fmt.Errorf("worker busy")
+		}
 		a.jobID = req.JobID
 		a.data = req.Data
 		a.started = time.Now()
 		a.cancel = cancel
-	}()
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
 	// unset the status when this function exits
 	defer func() {
 		a.statusMu.Lock()
@@ -452,19 +457,25 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
-	if err := a.downloadData(req.Data, puller); err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := puller.CleanUp(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+	err = a.downloadData(req.Data, puller)
+	// We run these cleanup functions no matter what, so that if
+	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
 		if err := a.cleanUpData(); retErr == nil && err != nil {
 			retErr = err
 		}
 	}()
+	// It's important that we run puller.CleanUp before a.cleanUpData,
+	// because otherwise puller.Cleanup might try tp open pipes that have
+	// been deleted.
+	defer func() {
+		if err := puller.CleanUp(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
 
 	environ := a.userCodeEnviron(req)
 
