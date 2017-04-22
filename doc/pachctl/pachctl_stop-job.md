@@ -1,14 +1,14 @@
-## ./pachctl get-object
+## ./pachctl stop-job
 
-Return the contents of an object
+Stop a job.
 
 ### Synopsis
 
 
-Return the contents of an object
+Stop a job.  The job will be stopped immediately.
 
 ```
-./pachctl get-object hash
+./pachctl stop-job job-id
 ```
 
 ### Options inherited from parent commands
