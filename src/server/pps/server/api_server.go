@@ -1567,6 +1567,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
 		conns := make(map[*grpc.ClientConn]bool)
+		var connsMu sync.Mutex
 		defer func() {
 			for conn := range conns {
 				if err := conn.Close(); err != nil {
@@ -1582,6 +1583,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				if err != nil {
 					return err
 				}
+				connsMu.Lock()
+				defer connsMu.Unlock()
 				conns[conn] = true
 				return workerpkg.NewWorkerClient(conn)
 			},
