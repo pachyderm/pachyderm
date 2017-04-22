@@ -1874,7 +1874,6 @@ func TestSyncPullPush(t *testing.T) {
 
 	puller = pfssync.NewPuller()
 	require.NoError(t, puller.Pull(&client, tmpDir2, repo1, "master", "", true, 2))
-	require.NoError(t, puller.CleanUp())
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
