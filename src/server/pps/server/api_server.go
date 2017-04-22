@@ -1566,12 +1566,23 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		updateProgress(0)
 
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
+		conns := make(map[*grpc.ClientConn]bool)
+		defer func() {
+			for conn := range conns {
+				if err := conn.Close(); err != nil {
+					// We don't want to fail the job just because we failed to
+					// close a connection.
+					protolion.Errorf("failed to close connection with %+v", err)
+				}
+			}
+		}()
 		clientPool := sync.Pool{
 			New: func() interface{} {
 				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock())
 				if err != nil {
 					return err
 				}
+				conns[conn] = true
 				return workerpkg.NewWorkerClient(conn)
 			},
 		}
