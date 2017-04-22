@@ -1568,7 +1568,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
 		clientPool := sync.Pool{
 			New: func() interface{} {
-				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock())
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
+					client.PachDialOptions()...)
 				if err != nil {
 					return err
 				}
@@ -1885,7 +1886,7 @@ func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
 			if err != nil {
 				onceErr = err
 			}
@@ -1902,7 +1903,7 @@ func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
 			if err != nil {
 				onceErr = err
 			}

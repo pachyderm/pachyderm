@@ -134,7 +134,7 @@ var (
 func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
-		DialTimeout: 5 * time.Second,
+		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (d *driver) getObjectClient() (*client.APIClient, error) {
 	if d.pachConn == nil {
 		var onceErr error
 		d.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(d.address, grpc.WithInsecure())
+			pachConn, err := grpc.Dial(d.address, client.PachDialOptions()...)
 			if err != nil {
 				onceErr = err
 			}
