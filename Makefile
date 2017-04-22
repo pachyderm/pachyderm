@@ -153,6 +153,7 @@ push-bench-images: install
 	docker images
 	docker images | grep pachd
 	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
+	docker images | grep pachd
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
