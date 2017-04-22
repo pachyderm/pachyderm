@@ -293,7 +293,7 @@ func TestMultiIndex(t *testing.T) {
 func getEtcdClient() (*etcd.Client, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{"localhost:2379"},
-		DialOptions: client.InsecureSyncDialOptions(),
+		DialOptions: client.EtcdTransientDialOptions(),
 	})
 	if err != nil {
 		return nil, err

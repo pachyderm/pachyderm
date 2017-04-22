@@ -1568,7 +1568,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
 		clientPool := sync.Pool{
 			New: func() interface{} {
-				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock())
+				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
+					client.PachDurableDialOptions()...)
 				if err != nil {
 					return err
 				}
