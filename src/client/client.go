@@ -181,7 +181,7 @@ func PachTransientDialOptions() []grpc.DialOption {
 // - The connection is durable: the connection is maintained even when no RPCs
 //                              are sent. This may avoid timeout where the
 //                              client has to re-connect after a period of
-// 															idleness.
+//                              idleness.
 //
 // This is primarily useful for Pachd and Worker clients
 func PachDurableDialOptions() []grpc.DialOption {
