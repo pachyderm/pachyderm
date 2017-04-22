@@ -1662,10 +1662,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		if err := putObjClient.Send(&pfs.PutObjectRequest{
-			Value: data,
-		}); err != nil {
-			return err
+		for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
+			if err := putObjClient.Send(&pfs.PutObjectRequest{
+				Value: chunk,
+			}); err != nil {
+				return err
+			}
 		}
 		object, err := putObjClient.CloseAndRecv()
 		if err != nil {

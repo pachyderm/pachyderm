@@ -3214,6 +3214,50 @@ func TestJobResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 }
 
+func TestPipelineLargeOutput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 100
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(""))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"for i in `seq 1 100`; do touch /pfs/out/$RANDOM; done",
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 4,
+		},
+		[]*pps.PipelineInput{{
+			Repo: &pfs.Repo{Name: dataRepo},
+			Glob: "/*",
+		}},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
