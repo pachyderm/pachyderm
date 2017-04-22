@@ -142,7 +142,7 @@ func (w *workerPool) runWorker(ctx context.Context, addr string) {
 	backoff.RetryNotify(func() error {
 		conn, err := grpc.DialContext(ctx,
 			fmt.Sprintf("%s:%d", addr, client.PPSWorkerPort),
-			client.InsecureSyncDialOptions()...)
+			client.PachTransientDialOptions()...)
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 	for _, kv := range resp.Kvs {
 		conn, err := grpc.Dial(
 			fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort),
-			client.InsecureSyncDialOptions()...)
+			client.PachTransientDialOptions()...)
 		if err != nil {
 			return nil, err
 		}

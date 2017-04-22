@@ -154,12 +154,14 @@ func (c APIClient) SetMaxConcurrentStreams(n int) {
 	c.streamSemaphore = make(chan struct{}, n)
 }
 
-// InsecureSyncDialOptions is a helper returning a slice of grpc.Dial options
+// PachTransientDialOptions is a helper returning a slice of grpc.Dial options
 // such that
 // - TLS is disabled
 // - Dial is synchronous: the call doesn't return until the connection has been
 //                        established and it's safe to send RPCs
-func InsecureSyncDialOptions() []grpc.DialOption {
+//
+// This is primarily useful for Pachd and Worker clients
+func PachTransientDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		grpc.WithInsecure(),
 
@@ -171,7 +173,44 @@ func InsecureSyncDialOptions() []grpc.DialOption {
 	}
 }
 
-// InsecureSyncDurableDialOptions is a helper returning a slice of grpc.Dial
+// PachDurableDialOptions is a helper returning a slice of grpc.Dial
+// options such that
+// - TLS is disabled
+// - Dial is synchronous: the call doesn't return until the connection has been
+//                        established and it's safe to send RPCs
+// - The connection is durable: the connection is maintained even when no RPCs
+//                              are sent. This may avoid timeout where the
+//                              client has to re-connect after a period of
+// 															idleness.
+//
+// This is primarily useful for Pachd and Worker clients
+func PachDurableDialOptions() []grpc.DialOption {
+	return append(PachTransientDialOptions(),
+		// Send keepalives to the server, even if no RPCs are pending
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			// If no activity is seen in 10s, ping server
+			Time: 10 * time.Second,
+
+			// send keepalives even if no RPCs are pending
+			PermitWithoutStream: true,
+		}))
+}
+
+// EtcdTransientDialOptions is a helper returning a slice of grpc.Dial options
+// such that
+// - Dial is synchronous: the call doesn't return until the connection has been
+//                        established and it's safe to send RPCs
+func EtcdTransientDialOptions() []grpc.DialOption {
+	return []grpc.DialOption{
+		// Don't return from Dial() until the connection has been established
+		grpc.WithBlock(),
+
+		// If no connection is established in 10s, fail the call
+		grpc.WithTimeout(10 * time.Second),
+	}
+}
+
+// EtcdDurableDialOptions is a helper returning a slice of grpc.Dial
 // options such that
 // - Dial is synchronous: the call doesn't return until the connection has been
 //                        established and it's safe to send RPCs
@@ -179,8 +218,8 @@ func InsecureSyncDialOptions() []grpc.DialOption {
 //                              are sent. This may avoid timeout where the
 //                              client has to re-connect after a period of
 // 															idleness.
-func InsecureSyncDurableDialOptions() []grpc.DialOption {
-	return append(InsecureSyncDialOptions(),
+func EtcdDurableDialOptions() []grpc.DialOption {
+	return append(EtcdTransientDialOptions(),
 		// Send keepalives to the server, even if no RPCs are pending
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			// If no activity is seen in 10s, ping server
@@ -192,7 +231,7 @@ func InsecureSyncDurableDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect() error {
-	clientConn, err := grpc.Dial(c.addr, InsecureSyncDurableDialOptions()...)
+	clientConn, err := grpc.Dial(c.addr, PachDurableDialOptions()...)
 	if err != nil {
 		return err
 	}

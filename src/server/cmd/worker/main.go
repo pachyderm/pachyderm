@@ -108,7 +108,7 @@ func do(appEnvObj interface{}) error {
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
-		DialOptions: client.InsecureSyncDurableDialOptions(),
+		DialOptions: client.EtcdDurableDialOptions(),
 	})
 	if err != nil {
 		return err
