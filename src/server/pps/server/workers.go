@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
