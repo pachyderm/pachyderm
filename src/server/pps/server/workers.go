@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -68,7 +67,8 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 
 	var result []workerpkg.WorkerClient
 	for _, kv := range resp.Kvs {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort), grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort),
+			client.PachTransientDialOptions()...)
 		if err != nil {
 			return nil, err
 		}

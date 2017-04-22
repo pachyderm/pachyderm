@@ -3,8 +3,8 @@ package server
 import (
 	"path"
 	"sync"
-	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -57,7 +57,7 @@ func NewAPIServer(
 ) (APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialTimeout: 5 * time.Second,
+		DialOptions: client.EtcdDurableDialOptions(),
 	})
 	if err != nil {
 		return nil, err
