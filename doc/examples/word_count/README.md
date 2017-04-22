@@ -16,7 +16,7 @@ Let's create the first pipeline:
 
 ```
 # We assume you're running this from the root of this repo:
-$ pachctl create-pipeline -f input_pipeline.json
+$ pachctl create-pipeline -f inputPipeline.json
 ```
 
 This first pipeline, `input`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline.  We set `parallelism` to 1 because `wget` can't be parallelized.
