@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -410,6 +411,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
 	// set the status for the datum
+	fmt.Printf("in worker Process() w jobID %v\n", req.JobID)
 	ctx, cancel := context.WithCancel(ctx)
 	if err := func() error {
 		a.statusMu.Lock()
@@ -488,6 +490,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	logger.Logf("finished processing user input")
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
+		debug.PrintStack()
 		return &ProcessResponse{
 			Failed: true,
 		}, nil
@@ -519,6 +522,8 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+	fmt.Printf("worker server Cancel()ing request %v\n", request)
+	debug.PrintStack()
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
