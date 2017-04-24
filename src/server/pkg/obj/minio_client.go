@@ -12,6 +12,7 @@ type minioClient struct {
 	bucket string
 }
 
+// Creates a new minioClient structure and returns
 func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioClient, error) {
 	mclient, err := minio.New(endpoint, id, secret, secure)
 	if err != nil {
@@ -23,16 +24,43 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	}, nil
 }
 
-func (c *minioClient) Writer(name string) (io.WriteCloser, error) {
+// Represents minio writer structure with pipe and the error channel
+type minioWriter struct {
+	errChan chan error
+	pipe    *io.PipeWriter
+}
+
+// Creates a new minio writer and a go routine to upload objects to minio server
+func newMinioWriter(client *minioClient, name string) *minioWriter {
 	reader, writer := io.Pipe()
-	go func(reader *io.PipeReader) {
-		_, err := c.PutObject(c.bucket, name, reader, "application/octet-stream")
+	w := &minioWriter{
+		errChan: make(chan error),
+		pipe:    writer,
+	}
+	go func() {
+		_, err := client.PutObject(client.bucket, name, reader, "application/octet-stream")
 		if err != nil {
 			reader.CloseWithError(err)
-			return
 		}
-	}(reader)
-	return writer, nil
+		w.errChan <- err
+	}()
+	return w
+}
+
+func (w *minioWriter) Write(p []byte) (int, error) {
+	return w.pipe.Write(p)
+}
+
+// This will block till upload is done
+func (w *minioWriter) Close() error {
+	if err := w.pipe.Close(); err != nil {
+		return err
+	}
+	return <-w.errChan
+}
+
+func (c *minioClient) Writer(name string) (io.WriteCloser, error) {
+	return newMinioWriter(c, name), nil
 }
 
 func (c *minioClient) Walk(name string, fn func(name string) error) error {
@@ -63,19 +91,14 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	if _, err := c.StatObject(c.bucket, name); err != nil {
-		return nil, err
-	}
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
 		return nil, err
 	}
-	if offset > 0 {
-		// Seek to an offset to fetch the new reader.
-		_, err = obj.Seek(int64(offset), 0)
-		if err != nil {
-			return nil, err
-		}
+	// Seek to an offset to fetch the new reader.
+	_, err = obj.Seek(int64(offset), 0)
+	if err != nil {
+		return nil, err
 	}
 	if size > 0 {
 		return &limitReadCloser{io.LimitReader(obj, int64(size)), obj}, nil
