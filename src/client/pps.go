@@ -39,7 +39,7 @@ const (
 	// expected to write its output to.
 	PPSOutputPath = "/pfs/out"
 	// PPSWorkerPort is the port that workers use for their gRPC server
-	PPSWorkerPort = 30652
+	PPSWorkerPort = 80
 	// PPSHostPath is the hostpath that a PPS worker uses to store
 	// input/output data.
 	PPSHostPath = "/var/pachyderm_worker"
@@ -167,11 +167,11 @@ func (c APIClient) DeleteJob(jobID string) error {
 	return sanitizeErr(err)
 }
 
-// KillJob stops a job.
-func (c APIClient) KillJob(jobID string) error {
-	_, err := c.PpsAPIClient.KillJob(
+// StopJob stops a job.
+func (c APIClient) StopJob(jobID string) error {
+	_, err := c.PpsAPIClient.StopJob(
 		c.ctx(),
-		&pps.KillJobRequest{
+		&pps.StopJobRequest{
 			Job: NewJob(jobID),
 		},
 	)
