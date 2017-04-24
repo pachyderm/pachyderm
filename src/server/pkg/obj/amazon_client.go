@@ -3,6 +3,9 @@ package obj
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -63,15 +66,26 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
-	getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(c.bucket),
-		Key:    aws.String(name),
-		Range:  aws.String(byteRange),
-	})
+	// being a little fast and loose here ... not putting the GET within a retry loop ... but will be an interesting test for now
+	url := fmt.Sprintf("http://d2z5sy3mh7px6z.cloudfront.net/%v", name)
+	resp, err := http.Get(url)
+	//	defer resp.Body.Close()
+	fmt.Printf("got resp, err: %v,\n\n%v\n", resp, err)
+	if err != nil {
+		fmt.Printf("Got http error: %v\n", err)
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		fmt.Printf("HTTP error code %v", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP error code %v", resp.StatusCode)
+	}
+	n, err := io.CopyN(ioutil.Discard, resp.Body, int64(offset))
+	fmt.Printf("slurped n bytes: %v off of get file %v to accomodate offset\n", n, url)
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffReadCloser(c, getObjectOutput.Body), nil
+	//return newBackoffReadCloser(c, getObjectOutput.Body), nil
+	return resp.Body, nil
 }
 
 func (c *amazonClient) Delete(name string) error {
@@ -112,6 +126,16 @@ func (c *amazonClient) IsIgnorable(err error) bool {
 }
 
 func (c *amazonClient) IsNotExist(err error) bool {
+	fmt.Printf("IsNotExist? error: %v\n", err)
+	// cloudfront returns forbidden error for nonexisting data
+	if strings.Contains(err.Error(), "error code 403") {
+		fmt.Printf("its a 403, dne")
+		return true
+	}
+	if strings.Contains(err.Error(), "error code 404") {
+		fmt.Printf("its a 404, dne")
+		return true
+	}
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false
