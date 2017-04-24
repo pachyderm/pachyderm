@@ -12,6 +12,12 @@
             "wget -e robots=off --recursive --level 1 --adjust-extension --no-check-certificate --no-directories --directory-prefix /pfs/out/$(basename $f) $(cat $f)",
         "done"
     ],
+    "inputs": [{
+        "repo": {
+            "name": "urls"
+        },
+        "glob": "*"
+    }],
     "acceptReturnCode": [4,5,6,7,8]
   }
 }
