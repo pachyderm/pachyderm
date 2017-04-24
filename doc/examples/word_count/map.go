@@ -66,22 +66,16 @@ func main() {
 	inputDir = args[0]
 	outputDir = args[1]
 
-	files, err := ioutil.ReadDir(inputDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// we want to process files in a random order in order to
-	// avoid flash-crowd behavior
-	shuffle(files)
-
 	wordMap := make(map[string]int)
+	if err := filepath.Walk(inputDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
 
-	for _, file := range files {
-		log.Printf("scanning file %v", file.Name())
-		f, err := os.Open(filepath.Join(inputDir, file.Name()))
+		log.Printf("scanning %v", path)
+		f, err := os.Open(path)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		scanner := bufio.NewScanner(f)
@@ -97,14 +91,17 @@ func main() {
 		}
 
 		if err := scanner.Err(); err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		log.Printf("found %d words in %s", count, file.Name())
+		log.Printf("found %d words in %s", count, path)
 
 		if err := f.Close(); err != nil {
-			log.Fatal(err)
+			return err
 		}
+		return nil
+	}); err != nil {
+		log.Fatal(err)
 	}
 
 	var wg sync.WaitGroup
