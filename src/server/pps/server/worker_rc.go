@@ -54,6 +54,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
+	// Disable caching for sidecar
+	sidecarEnv := []api.EnvVar{{
+		Name:  "BLOCK_CACHE_BYTES",
+		Value: "0M",
+	}, {
+		Name:  "PFS_CACHE_BYTES",
+		Value: "0M",
+	}}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -67,7 +75,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		},
 		Containers: []api.Container{
 			{
-				Name:    "user",
+				Name:    client.PPSWorkerUserContainerName,
 				Image:   options.userImage,
 				Command: []string{"/pach-bin/guest.sh"},
 				SecurityContext: &api.SecurityContext{
@@ -76,6 +84,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
+			},
+			{
+				Name:            client.PPSWorkerSidecarContainerName,
+				Image:           a.workerSidecarImage,
+				Command:         []string{"/pachd", "--mode", "pfs"},
+				ImagePullPolicy: api.PullPolicy(pullPolicy),
+				Env:             sidecarEnv,
 			},
 		},
 		RestartPolicy:    "Always",
