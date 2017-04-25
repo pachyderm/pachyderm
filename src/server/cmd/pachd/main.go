@@ -262,6 +262,7 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.WorkerSidecarImage,
 		appEnv.WorkerImagePullPolicy,
 		appEnv.StorageRoot,
+		appEnv.StorageBackend,
 		appEnv.StorageHostPath,
 		reporter,
 	)

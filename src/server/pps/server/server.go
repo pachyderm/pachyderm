@@ -55,6 +55,7 @@ func NewAPIServer(
 	workerSidecarImage string,
 	workerImagePullPolicy string,
 	storageRoot string,
+	storageBackend string,
 	storageHostPath string,
 	reporter *metrics.Reporter,
 ) (APIServer, error) {
@@ -83,6 +84,7 @@ func NewAPIServer(
 		workerSidecarImage:    workerSidecarImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		storageRoot:           storageRoot,
+		storageBackend:        storageBackend,
 		storageHostPath:       storageHostPath,
 		reporter:              reporter,
 		pipelines: col.NewCollection(
