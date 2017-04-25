@@ -485,7 +485,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
+				pod.ObjectMeta.Name, &api.PodLogOptions{
+					Container: client.PPSWorkerUserContainerName,
+				}).Do()
 			fullLogs, err := result.Raw()
 			if err != nil {
 				if apiStatus, ok := err.(errors.APIStatus); ok &&
