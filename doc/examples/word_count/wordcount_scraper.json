@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "input"
+    "name": "scraper"
   },
   "transform": {
     "cmd": [ "bash" ],
@@ -16,9 +16,8 @@
         "repo": {
             "name": "urls"
         },
-        "glob": "*"
+        "glob": "/*"
     }],
     "acceptReturnCode": [4,5,6,7,8]
   }
 }
-
