@@ -186,16 +186,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		},
 	}
 	var backendEnvVar string
+	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
+		storageHostPath = filepath.Join(hostPath, "pachd")
 		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: filepath.Join(hostPath, "pachd"),
+			Path: storageHostPath,
 		}
 	case minioBackend:
 		backendEnvVar = server.MinioBackendEnvVar
-		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: filepath.Join(hostPath, "pachd"),
-		}
 		volumes = append(volumes, api.Volume{
 			Name: minioSecretName,
 			VolumeSource: api.VolumeSource{
@@ -287,6 +286,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								{
 									Name:  "STORAGE_BACKEND",
 									Value: backendEnvVar,
+								},
+								{
+									Name:  "STORAGE_HOST_PATH",
+									Value: storageHostPath,
 								},
 								{
 									Name: "PACHD_POD_NAMESPACE",

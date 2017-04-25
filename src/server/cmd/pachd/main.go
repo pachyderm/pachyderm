@@ -53,6 +53,7 @@ type appEnv struct {
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
+	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
@@ -260,6 +261,8 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.WorkerImage,
 		appEnv.WorkerSidecarImage,
 		appEnv.WorkerImagePullPolicy,
+		appEnv.StorageRoot,
+		appEnv.StorageHostPath,
 		reporter,
 	)
 	if err != nil {

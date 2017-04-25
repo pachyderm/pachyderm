@@ -156,6 +156,8 @@ type apiServer struct {
 	workerImage           string
 	workerSidecarImage    string
 	workerImagePullPolicy string
+	storageRoot           string
+	storageHostPath       string
 	reporter              *metrics.Reporter
 	// collections
 	pipelines col.Collection
