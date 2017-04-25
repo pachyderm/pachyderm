@@ -219,9 +219,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	dataRepo := uniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dirA := "dirA"
-	dirB := "dirB"
-
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
@@ -236,13 +233,13 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirA, dirA),
-			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirB, dirB),
+			fmt.Sprintf("cat /pfs/dirA/dirA/file >> /pfs/out/file"),
+			fmt.Sprintf("cat /pfs/dirB/dirB/file >> /pfs/out/file"),
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput("", dataRepo, "", "/dirA/*", false, ""),
-			client.NewAtomInput("", dataRepo, "", "/dirB/*", false, ""),
+			client.NewAtomInput("dirA", dataRepo, "", "/dirA/*", false, ""),
+			client.NewAtomInput("dirB", dataRepo, "", "/dirB/*", false, ""),
 		),
 		"",
 		false,
