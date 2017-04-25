@@ -5,13 +5,11 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 var (
@@ -23,31 +21,6 @@ var (
 func sanitize(word string) []string {
 	sanitized := reg.ReplaceAllString(word, " ")
 	return strings.Split(strings.ToLower(sanitized), " ")
-}
-
-func shuffle(slice []os.FileInfo) {
-	for i := range slice {
-		j := rand.Intn(i + 1)
-		slice[i], slice[j] = slice[j], slice[i]
-	}
-}
-
-type Pair struct {
-	word  string
-	count int
-}
-
-func worker(jobs <-chan Pair, wg *sync.WaitGroup) {
-	for {
-		pair, ok := <-jobs
-		if !ok {
-			wg.Done()
-			return
-		}
-		if err := ioutil.WriteFile(filepath.Join(outputDir, pair.word), []byte(strconv.Itoa(pair.count)+"\n"), 0644); err != nil {
-			log.Fatal(err)
-		}
-	}
 }
 
 func main() {
@@ -104,22 +77,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var wg sync.WaitGroup
-	jobs := make(chan Pair)
-
-	// spawn 100 workers
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go worker(jobs, &wg)
-	}
-
 	for word, count := range wordMap {
-		jobs <- Pair{
-			word:  word,
-			count: count,
+		if err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644); err != nil {
+			log.Fatal(err)
 		}
 	}
-	close(jobs)
-
-	wg.Wait()
 }
