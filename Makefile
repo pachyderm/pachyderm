@@ -154,8 +154,6 @@ push-bench-images: install
 	docker images | grep pachd
 	echo 'version string:'
 	$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'
-	echo 'version:'
-	$(GOPATH)/bin/pachctl version
 	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker images | grep pachd
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
