@@ -160,6 +160,60 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
+func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
+	switch backend {
+	case server.MinioBackendEnvVar:
+		return api.Volume{
+				Name: minioSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: minioSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      minioSecretName,
+				MountPath: "/" + minioSecretName,
+			}, nil
+	case server.AmazonBackendEnvVar:
+		return api.Volume{
+				Name: amazonSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: amazonSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      amazonSecretName,
+				MountPath: "/" + amazonSecretName,
+			}, nil
+	case server.GoogleBackendEnvVar:
+		return api.Volume{
+				Name: googleSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: googleSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      googleSecretName,
+				MountPath: "/" + googleSecretName,
+			}, nil
+	case server.MicrosoftBackendEnvVar:
+		return api.Volume{
+				Name: microsoftSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: microsoftSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      microsoftSecretName,
+				MountPath: "/" + microsoftSecretName,
+			}, nil
+	}
+	return api.Volume{}, api.VolumeMount{}, fmt.Errorf("not found")
+}
+
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
@@ -195,60 +249,17 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		}
 	case minioBackend:
 		backendEnvVar = server.MinioBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: minioSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: minioSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      minioSecretName,
-			MountPath: "/" + minioSecretName,
-		})
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: amazonSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: amazonSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      amazonSecretName,
-			MountPath: "/" + amazonSecretName,
-		})
 	case googleBackend:
 		backendEnvVar = server.GoogleBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: googleSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: googleSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      googleSecretName,
-			MountPath: "/" + googleSecretName,
-		})
 	case microsoftBackend:
 		backendEnvVar = server.MicrosoftBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: microsoftSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: microsoftSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      microsoftSecretName,
-			MountPath: "/" + microsoftSecretName,
-		})
+	}
+	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
+	if err == nil {
+		volumes = append(volumes, volume)
+		volumeMounts = append(volumeMounts, mount)
 	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{

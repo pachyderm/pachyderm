@@ -6,6 +6,7 @@ import (
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -91,6 +92,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				MountPath: a.storageRoot,
 			},
 		}
+	}
+	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
+	if err == nil {
+		options.volumes = append(options.volumes, secretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
