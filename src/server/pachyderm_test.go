@@ -3109,6 +3109,155 @@ func TestPipelineLargeOutput(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
+func TestUnionInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	var repos []string
+	for i := 0; i < 4; i++ {
+		repos = append(repos, uniqueString("TestUnionInput"))
+		require.NoError(t, c.CreateRepo(repos[i]))
+	}
+
+	numFiles := 2
+	var commits []*pfs.Commit
+	for _, repo := range repos {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		commits = append(commits, commit)
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+		}
+		require.NoError(t, c.FinishCommit(repo, "master"))
+	}
+
+	t.Run("union all", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp /pfs/*/* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewAtomInput("", repos[0], "", "/*", false, ""),
+				client.NewAtomInput("", repos[1], "", "/*", false, ""),
+				client.NewAtomInput("", repos[2], "", "/*", false, ""),
+				client.NewAtomInput("", repos[3], "", "/*", false, ""),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		for _, fi := range fileInfos {
+			// 1 byte per repo
+			require.Equal(t, fi.SizeBytes, uint64(len(repos)))
+		}
+	})
+
+	t.Run("union crosses", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp -r /pfs/TestUnionInput* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewCrossInput(
+					client.NewAtomInput("", repos[0], "", "/*", false, ""),
+					client.NewAtomInput("", repos[1], "", "/*", false, ""),
+				),
+				client.NewCrossInput(
+					client.NewAtomInput("", repos[2], "", "/*", false, ""),
+					client.NewAtomInput("", repos[3], "", "/*", false, ""),
+				),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		for _, repo := range repos {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			for _, fi := range fileInfos {
+				// each file should be seen twice
+				require.Equal(t, fi.SizeBytes, uint64(2))
+			}
+		}
+	})
+
+	t.Run("cross unions", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp -r /pfs/TestUnionInput* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewCrossInput(
+				client.NewUnionInput(
+					client.NewAtomInput("", repos[0], "", "/*", false, ""),
+					client.NewAtomInput("", repos[1], "", "/*", false, ""),
+				),
+				client.NewUnionInput(
+					client.NewAtomInput("", repos[2], "", "/*", false, ""),
+					client.NewAtomInput("", repos[3], "", "/*", false, ""),
+				),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		for _, repo := range repos {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			for _, fi := range fileInfos {
+				// each file should be seen twice
+				require.Equal(t, fi.SizeBytes, uint64(4))
+			}
+		}
+	})
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)

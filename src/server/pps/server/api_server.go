@@ -251,7 +251,7 @@ func visit(input *pps.Input, f func(*pps.Input)) {
 			visit(input, f)
 		}
 	case input.Union != nil:
-		for _, input := range input.Cross.Input {
+		for _, input := range input.Union.Input {
 			visit(input, f)
 		}
 	}
