@@ -320,11 +320,11 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var err error
 	if request.Pipeline != nil {
 		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		iter, err = jobs.List()
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var jobInfos []*pps.JobInfo
