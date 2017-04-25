@@ -46,6 +46,12 @@ const (
 	// PPSHostPathVolume is the name of the volume that uses the
 	// aforementioned hostpath.
 	PPSHostPathVolume = "pachyderm-worker"
+	// PPSWorkerUserContainerName is the name of the container that runs
+	// the user code to process data.
+	PPSWorkerUserContainerName = "user"
+	// PPSWorkerSidecarContainerName is the name of the sidecar container
+	// that runs alongside of each worker container.
+	PPSWorkerSidecarContainerName = "sidecar"
 )
 
 // NewJobInput creates a pps.JobInput.

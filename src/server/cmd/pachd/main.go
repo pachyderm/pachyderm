@@ -63,6 +63,7 @@ type appEnv struct {
 	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=5G"`
 	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=1G"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
+	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 }
@@ -257,6 +258,7 @@ func doFullMode(appEnvObj interface{}) error {
 		kubeClient,
 		getNamespace(),
 		appEnv.WorkerImage,
+		appEnv.WorkerSidecarImage,
 		appEnv.WorkerImagePullPolicy,
 		reporter,
 	)

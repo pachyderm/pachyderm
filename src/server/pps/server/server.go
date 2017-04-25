@@ -52,6 +52,7 @@ func NewAPIServer(
 	kubeClient *kube.Client,
 	namespace string,
 	workerImage string,
+	workerSidecarImage string,
 	workerImagePullPolicy string,
 	reporter *metrics.Reporter,
 ) (APIServer, error) {
@@ -77,6 +78,7 @@ func NewAPIServer(
 		jobCancels:            make(map[string]context.CancelFunc),
 		namespace:             namespace,
 		workerImage:           workerImage,
+		workerSidecarImage:    workerSidecarImage,
 		workerImagePullPolicy: workerImagePullPolicy,
 		reporter:              reporter,
 		pipelines: col.NewCollection(
