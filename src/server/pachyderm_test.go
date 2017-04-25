@@ -64,7 +64,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -106,7 +106,7 @@ func TestDatumDedup(t *testing.T) {
 			"sleep 10",
 		},
 		nil,
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -157,7 +157,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -238,8 +238,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput("dirA", dataRepo, "", "/dirA/*", false, ""),
-			client.NewAtomInput("dirB", dataRepo, "", "/dirB/*", false, ""),
+			client.NewAtomInputOpts("dirA", dataRepo, "", "/dirA/*", false, ""),
+			client.NewAtomInputOpts("dirB", dataRepo, "", "/dirB/*", false, ""),
 		),
 		"",
 		false,
@@ -327,8 +327,8 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput("", dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInput("", dataRepo, branchB, "/*", false, ""),
+			client.NewAtomInputOpts("", dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts("", dataRepo, branchB, "/*", false, ""),
 		),
 		"",
 		false,
@@ -344,8 +344,8 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput(branchA, dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInput(branchB, dataRepo, branchB, "/*", false, ""),
+			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
 		),
 		"",
 		false,
@@ -424,8 +424,8 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput(branchA, dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInput(branchB, dataRepo, branchB, "/*", false, ""),
+			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
 		),
 		"",
 		false,
@@ -567,7 +567,7 @@ func TestPipelineFailure(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -601,7 +601,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", true, ""),
+		client.NewAtomInputOpts("", dataRepo, "", "/*", true, ""),
 		"",
 		false,
 	))
@@ -615,7 +615,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", pipelineA, "", "/*", true, ""),
+		client.NewAtomInputOpts("", pipelineA, "", "/*", true, ""),
 		"",
 		false,
 	))
@@ -719,7 +719,7 @@ func TestProvenance(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", aRepo, "", "/*", false, ""),
+		client.NewAtomInput(aRepo, "/*"),
 		"",
 		false,
 	))
@@ -735,8 +735,8 @@ func TestProvenance(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewAtomInput("", aRepo, "", "/*", false, ""),
-			client.NewAtomInput("", bPipeline, "", "/*", false, ""),
+			client.NewAtomInput(aRepo, "/*"),
+			client.NewAtomInput(bPipeline, "/*"),
 		),
 		"",
 		false,
@@ -862,7 +862,7 @@ func TestFlushCommit(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			client.NewAtomInput("", repo, "", "/*", false, ""),
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -912,7 +912,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", repo, "", "/*", false, ""),
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -947,7 +947,7 @@ func TestRecreatePipeline(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			client.NewAtomInput("", repo, "", "/*", false, ""),
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -990,7 +990,7 @@ func TestDeletePipeline(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			client.NewAtomInput("", repo, "", "/*", false, ""),
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -1041,7 +1041,7 @@ func TestPipelineState(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", repo, "", "/*", false, ""),
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -1086,7 +1086,7 @@ func TestPipelineJobCounts(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", repo, "", "/*", false, ""),
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -1225,7 +1225,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1358,7 +1358,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1379,7 +1379,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		true,
 	))
@@ -1451,7 +1451,7 @@ func TestRestartAll(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1503,7 +1503,7 @@ func TestRestartOne(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1611,7 +1611,7 @@ func TestDeleteAll(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1660,7 +1660,7 @@ func TestRecursiveCp(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1701,7 +1701,7 @@ func TestPipelineUniqueness(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", repo, "", "/", false, ""),
+		client.NewAtomInput(repo, "/"),
 		"",
 		false,
 	))
@@ -1714,7 +1714,7 @@ func TestPipelineUniqueness(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", repo, "", "/", false, ""),
+		client.NewAtomInput(repo, "/"),
 		"",
 		false,
 	)
@@ -1949,7 +1949,7 @@ func TestStopPipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2134,7 +2134,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2201,7 +2201,7 @@ func TestChainedPipelines(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", aRepo, "", "/", false, ""),
+		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
 	))
@@ -2218,8 +2218,8 @@ func TestChainedPipelines(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewAtomInput("", bPipeline, "", "/", false, ""),
-			client.NewAtomInput("", dRepo, "", "/", false, ""),
+			client.NewAtomInput(bPipeline, "/"),
+			client.NewAtomInput(dRepo, "/"),
 		),
 		"",
 		false,
@@ -2264,7 +2264,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", aRepo, "", "/", false, ""),
+		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
 	))
@@ -2281,8 +2281,8 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewCrossInput(
-			client.NewAtomInput("", bPipeline, "", "/", false, ""),
-			client.NewAtomInput("", eRepo, "", "/", false, ""),
+			client.NewAtomInput(bPipeline, "/"),
+			client.NewAtomInput(eRepo, "/"),
 		),
 		"",
 		false,
@@ -2299,7 +2299,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", cPipeline, "", "/", false, ""),
+		client.NewAtomInput(cPipeline, "/"),
 		"",
 		false,
 	))
@@ -2409,7 +2409,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2455,7 +2455,7 @@ func TestStopJob(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/", false, ""),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2523,7 +2523,7 @@ func TestGetLogs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2707,8 +2707,8 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInput("", dataRepo1, "", "/*", false, ""),
-			client.NewAtomInput("", dataRepo2, "", "/*", false, ""),
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
 		),
 		"",
 		false,
@@ -2751,7 +2751,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			"sleep 20",
 		},
 		nil,
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2830,7 +2830,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 2,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3098,7 +3098,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3148,10 +3148,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewAtomInput("", repos[0], "", "/*", false, ""),
-				client.NewAtomInput("", repos[1], "", "/*", false, ""),
-				client.NewAtomInput("", repos[2], "", "/*", false, ""),
-				client.NewAtomInput("", repos[3], "", "/*", false, ""),
+				client.NewAtomInput(repos[0], "/*"),
+				client.NewAtomInput(repos[1], "/*"),
+				client.NewAtomInput(repos[2], "/*"),
+				client.NewAtomInput(repos[3], "/*"),
 			),
 			"",
 			false,
@@ -3186,12 +3186,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewAtomInput("", repos[0], "", "/*", false, ""),
-					client.NewAtomInput("", repos[1], "", "/*", false, ""),
+					client.NewAtomInput(repos[0], "/*"),
+					client.NewAtomInput(repos[1], "/*"),
 				),
 				client.NewCrossInput(
-					client.NewAtomInput("", repos[2], "", "/*", false, ""),
-					client.NewAtomInput("", repos[3], "", "/*", false, ""),
+					client.NewAtomInput(repos[2], "/*"),
+					client.NewAtomInput(repos[3], "/*"),
 				),
 			),
 			"",
@@ -3229,12 +3229,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewAtomInput("", repos[0], "", "/*", false, ""),
-					client.NewAtomInput("", repos[1], "", "/*", false, ""),
+					client.NewAtomInput(repos[0], "/*"),
+					client.NewAtomInput(repos[1], "/*"),
 				),
 				client.NewUnionInput(
-					client.NewAtomInput("", repos[2], "", "/*", false, ""),
-					client.NewAtomInput("", repos[3], "", "/*", false, ""),
+					client.NewAtomInput(repos[2], "/*"),
+					client.NewAtomInput(repos[3], "/*"),
 				),
 			),
 			"",

@@ -36,7 +36,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("out", dataRepo, "", "/*", false, ""),
+		client.NewAtomInputOpts("out", dataRepo, "", "/*", false, ""),
 		"master",
 		false,
 	)
@@ -53,7 +53,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("input", dataRepo, "", "", false, ""),
+		client.NewAtomInputOpts("input", dataRepo, "", "", false, ""),
 		"master",
 		false,
 	)
@@ -78,7 +78,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("whatever", "nonexistent", "", "/*", false, ""),
+		client.NewAtomInputOpts("whatever", "nonexistent", "", "/*", false, ""),
 		"master",
 		false,
 	))
@@ -104,7 +104,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -118,7 +118,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		client.NewAtomInput("", dataRepo, "", "/*", false, ""),
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))

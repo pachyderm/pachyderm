@@ -48,8 +48,18 @@ const (
 	PPSHostPathVolume = "pachyderm-worker"
 )
 
-// NewAtomInput returns a new input for a branch on a repo
-func NewAtomInput(name string, repo string, commit string, glob string, lazy bool, fromCommit string) *pps.Input {
+// NewAtomInput returns a new atom input. It only includes required options.
+func NewAtomInput(repo string, glob string) *pps.Input {
+	return &pps.Input{
+		Atom: &pps.AtomInput{
+			Commit: NewCommit(repo, ""),
+			Glob:   glob,
+		},
+	}
+}
+
+// NewAtomInputOpts returns a new atom input. It includes all options.
+func NewAtomInputOpts(name string, repo string, commit string, glob string, lazy bool, fromCommit string) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
 			Name:         name,
