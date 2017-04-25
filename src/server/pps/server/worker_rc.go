@@ -65,6 +65,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
 	}}
+	// This only happens in local deployment.  We want the workers to be
+	// able to read from/write to the hostpath volume as well.
+	storageVolumeName := "pach-disk"
+	if a.storageHostPath != "" {
+		options.volumes = append(options.volumes, api.Volume{
+			Name: storageVolumeName,
+			VolumeSource: api.VolumeSource{
+				HostPath: &api.HostPathVolumeSource{
+					Path: a.storageHostPath,
+				},
+			},
+		})
+	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -94,6 +107,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				Command:         []string{"/pachd", "--mode", "pfs"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
+				VolumeMounts: []api.VolumeMount{
+					{
+						Name:      storageVolumeName,
+						MountPath: a.storageRoot,
+					},
+				},
 			},
 		},
 		RestartPolicy:    "Always",

@@ -54,6 +54,8 @@ func NewAPIServer(
 	workerImage string,
 	workerSidecarImage string,
 	workerImagePullPolicy string,
+	storageRoot string,
+	storageHostPath string,
 	reporter *metrics.Reporter,
 ) (APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -80,6 +82,8 @@ func NewAPIServer(
 		workerImage:           workerImage,
 		workerSidecarImage:    workerSidecarImage,
 		workerImagePullPolicy: workerImagePullPolicy,
+		storageRoot:           storageRoot,
+		storageHostPath:       storageHostPath,
 		reporter:              reporter,
 		pipelines: col.NewCollection(
 			etcdClient,
