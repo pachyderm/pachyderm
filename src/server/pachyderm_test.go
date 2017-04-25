@@ -636,11 +636,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineA, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	require.NotNil(t, jobInfos[0].Input.Atom)
+	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 	jobInfos, err = c.ListJob(pipelineB, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	require.NotNil(t, jobInfos[0].Input.Atom)
+	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
