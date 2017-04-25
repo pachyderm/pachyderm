@@ -68,6 +68,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
+	var sidecarVolumeMounts []api.VolumeMount
 	if a.storageHostPath != "" {
 		options.volumes = append(options.volumes, api.Volume{
 			Name: storageVolumeName,
@@ -77,6 +78,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				},
 			},
 		})
+
+		sidecarVolumeMounts = []api.VolumeMount{
+			{
+				Name:      storageVolumeName,
+				MountPath: a.storageRoot,
+			},
+		}
 	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
@@ -107,12 +115,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				Command:         []string{"/pachd", "--mode", "pfs"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
-				VolumeMounts: []api.VolumeMount{
-					{
-						Name:      storageVolumeName,
-						MountPath: a.storageRoot,
-					},
-				},
+				VolumeMounts:    sidecarVolumeMounts,
 			},
 		},
 		RestartPolicy:    "Always",
